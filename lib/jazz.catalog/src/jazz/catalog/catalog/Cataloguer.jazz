@@ -53,38 +53,38 @@
   ;;;
 
 
-  (method public virtual (for-each-active-catalog context proc)
+  (method public virtual (for-each-active-catalog self context proc)
     (for-each (lambda (catalog)
-                (when (get-active?~ catalog)
+                (when (get-active? catalog)
                   (proc catalog)))
               catalogs))
 
 
-  (method public virtual (add-catalog catalog)
+  (method public virtual (add-catalog self catalog)
     (unless (memq? catalog catalogs)
       (set! catalogs (append! catalogs (list catalog)))))
 
 
-  (method public virtual (remove-catalog catalog)
+  (method public virtual (remove-catalog self catalog)
     (when (memq? catalog catalogs)
       (set! catalogs (remove! catalog catalogs))))
 
 
-  (method public (get-catalog name (error?: error? #t))
-    (or (find-active-catalog name)
+  (method public (get-catalog self name (error?: error? #t))
+    (or (find-active-catalog self name)
         (and error? (error "Unknown catalog: {t}" name))))
   
   
-  (method public virtual (find-catalogs name)
-    (collect-if (lambda (catalog) (eq? (get-name~ catalog) name)) catalogs))
+  (method public virtual (find-catalogs self name)
+    (collect-if (lambda (catalog) (eq? (get-name catalog) name)) catalogs))
   
   
-  (method public (find-active-catalog name)
+  (method public (find-active-catalog self name)
     (continuation-capture
       (lambda (return)
-        (for-each-active-catalog (get-context)
+        (for-each-active-catalog self (get-context)
           (lambda (catalog)
-            (when (eq? (get-name~ catalog) name)
+            (when (eq? (get-name catalog) name)
               (continuation-return return catalog))))
         #f)))
 
@@ -94,16 +94,16 @@
   ;;;
   
   
-  (method public (save-catalogs)
+  (method public (save-catalogs self)
     (let ((names (make-table test: equal?)))
-      (for-each-active-catalog (get-context)
+      (for-each-active-catalog self (get-context)
         (lambda (catalog)
-          (when (save?~ catalog)
-            (let ((name (get-name~ (get-file~ catalog))))
+          (when (save? catalog)
+            (let ((name (get-name (get-file catalog))))
               (if (table-ref names name #f)
                   (modal-feedback (format "Conflict detected. Two or more catalogs are saving to the same file: {a}" name))
                 (table-set! names name #t)
-                (save~ catalog))))))))
+                (save catalog))))))))
 
 
   ;;;
@@ -120,34 +120,34 @@
   ;;;
 
   
-  (method public (get-definitions name (context: context (get-context)))
+  (method public (get-definitions self name (context: context (get-context)))
     (let ((fact (new List-Factory)))
-      (for-each-active-catalog context
+      (for-each-active-catalog self context
         (lambda (catalog)
-          (put-sequence~ fact (get-definitions~ catalog name))))
-      (get-output~ fact)))
+          (put-sequence fact (get-definitions catalog name))))
+      (get-output fact)))
 
 
-  (method public (get-definition name)
-    (let ((definitions (get-definitions name)))
+  (method public (get-definition self name)
+    (let ((definitions (get-definitions self name)))
       (and (not-null? definitions)
            ;; a big simplification for now...
            (car definitions))))
 
 
-  (method public (get-toplevel-definition name)
+  (method public (get-toplevel-definition self name)
     (define (toplevel? definition)
-      (is? (get-parent~ definition) File-Entry))
+      (is? (get-parent definition) File-Entry))
     
-    (let ((definitions (get-definitions name)))
+    (let ((definitions (get-definitions self name)))
       (let ((toplevels (collect-if toplevel? definitions)))
         (and (not-null? toplevels)
              ;; this should always be unique
              (car toplevels)))))
 
   
-  (method public (get-coalesced-definitions name (context: context (get-context)))
-    (let* ((definitions (get-definitions name context: context))
+  (method public (get-coalesced-definitions self name (context: context (get-context)))
+    (let* ((definitions (get-definitions self name context: context))
            (coalesced (collect-if (lambda (entry)
                                     (is-not? entry Constructor-Entry))
                                   definitions)))
@@ -157,50 +157,50 @@
         definitions)))
   
   
-  (method public (search-definitions search-set (context: context (get-context)))
+  (method public (search-definitions self search-set (context: context (get-context)))
     (let ((fact (new List-Factory)))
-      (for-each-active-catalog context
+      (for-each-active-catalog self context
         (lambda (catalog)
-          (put-sequence~ fact (search-definitions~ catalog search-set))))
-      (get-output~ fact)))
+          (put-sequence fact (search-definitions catalog search-set))))
+      (get-output fact)))
   
   
-  (method public (search-references search-set (context: context (get-context)))
+  (method public (search-references self search-set (context: context (get-context)))
     (let ((fact (new List-Factory)))
-      (for-each-active-catalog context
+      (for-each-active-catalog self context
         (lambda (catalog)
-          (put-sequence~ fact (search-references~ catalog search-set))))
-      (get-output~ fact)))
+          (put-sequence fact (search-references catalog search-set))))
+      (get-output fact)))
   
   
-  (method public (get-references name (context: context (get-context)))
+  (method public (get-references self name (context: context (get-context)))
     (let ((fact (new List-Factory)))
-      (for-each-active-catalog context
+      (for-each-active-catalog self context
         (lambda (catalog)
-          (put-sequence~ fact (get-references~ catalog name))))
-      (get-output~ fact)))
+          (put-sequence fact (get-references catalog name))))
+      (get-output fact)))
   
   
-  (method public (get-filename-entries name (context: context (get-context)))
+  (method public (get-filename-entries self name (context: context (get-context)))
     (let ((fact (new List-Factory)))
-      (for-each-active-catalog context
+      (for-each-active-catalog self context
         (lambda (catalog)
-          (put-sequence~ fact (get-file-definitions~ catalog name))))
-      (get-output~ fact)))
+          (put-sequence fact (get-file-definitions catalog name))))
+      (get-output fact)))
   
   
-  (method public (get-file-entries file (context: context (get-context)))
+  (method public (get-file-entries self file (context: context (get-context)))
     (let ((fact (new List-Factory)))
-      (for-each-active-catalog context
+      (for-each-active-catalog self context
         (lambda (catalog)
-          (let ((entry (get-file-entry~ catalog file)))
+          (let ((entry (get-file-entry catalog file)))
             (when entry
-              (put~ fact entry)))))
-      (get-output~ fact)))
+              (put fact entry)))))
+      (get-output fact)))
   
   
-  (method public (get-file-entry file (context: context (get-context)))
-    (let ((entries (get-file-entries file context: context)))
+  (method public (get-file-entry self file (context: context (get-context)))
+    (let ((entries (get-file-entries self file context: context)))
       ;; the workbench should check for catalogs overlap
       (and (not-null? entries)
            (car entries))))
@@ -211,13 +211,13 @@
   ;;;
 
 
-  (method public (get-completions name (context: context (get-context)))
+  (method public (get-completions self name (context: context (get-context)))
     (let ((table (make-table test: equal?)))
-      (add-completions table name context: context)
+      (add-completions self table name context: context)
       (table-keys table)))
   
   
-  (method public (add-completions table name (context: context (get-context)))
-    (for-each-active-catalog context
+  (method public (add-completions self table name (context: context (get-context)))
+    (for-each-active-catalog self context
       (lambda (catalog)
-        (add-completions~ catalog table name))))))
+        (add-completions catalog table name))))))

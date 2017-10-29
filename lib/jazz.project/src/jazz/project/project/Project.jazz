@@ -40,6 +40,7 @@
 
 (import (jazz.catalog)
         (jazz.component)
+        (jazz.designer)
         (jazz.git)
         (jazz.io)
         (jazz.jml)
@@ -81,15 +82,15 @@
     (<install> build?: #f))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
-        (format output "{a}" (project-title)))))
+        (format output "{a}" (project-title self)))))
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (update-dynamic-projects))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (update-dynamic-projects self))
   
   
   ;;;
@@ -97,22 +98,22 @@
   ;;;
   
   
-  (method (update-dynamic-projects)
+  (method (update-dynamic-projects self)
     (define (get-dynamic-file)
-      (let ((project-file (get-origin~ (get-form))))
-        (new-brother~ project-file ".dependencies")))
+      (let ((project-file (get-origin (get-form self))))
+        (new-brother project-file ".dependencies")))
     
     (define (make-dynamic-project-file data)
       (bind (name branch) data
-        (new-file~ {Directory Home "dep" "src"} (list (->string name) (->string branch) ".project"))))
+        (new-file {Directory Home "dep" "src"} (list (->string name) (->string branch) ".project"))))
     
     (define (make-dynamic-project-name data)
       (bind (name branch) data
         (string->symbol (string-append (->string name) "-" (->string branch)))))
     
     (define (make-root-name dynamic-file)
-      (let ((name (get-name~ (get-parent~ (get-parent~ dynamic-file))))
-            (branch (get-name~ (get-parent~ dynamic-file))))
+      (let ((name (get-name (get-parent (get-parent dynamic-file))))
+            (branch (get-name (get-parent dynamic-file))))
         (string->symbol (string-append name "-" branch))))
     
     (define (no-dependencies name)
@@ -120,7 +121,7 @@
               (<form>
                 (<Project-Not-Found>))))
         (let ((title (format "No dependencies for {a}" name)))
-          (set-property~ form 'title title)
+          (set-property form 'title title)
           form)))
     
     (define (not-found-handler ref name)
@@ -129,76 +130,76 @@
                 (<Project-Not-Found>))))
         (let ((title
                 (catch (Unknown-Alias-Exception exc
-                         (get-message~ exc))
-                  (format "{a} not found" (parse~ ref)))))
-          (set-property~ form 'title title)
-          (set-name~ form name)
+                         (get-message exc))
+                  (format "{a} not found" (parse ref)))))
+          (set-property form 'title title)
+          (set-name form name)
           form)))
     
     (when dynamic?
-      (assert (not (and (is? parent Project) (get-dynamic?~ parent))))
+      (assert (not (and (is? parent Project) (get-dynamic? parent))))
       (let ((dynamic-file (get-dynamic-file)))
         (let ((root-name (make-root-name dynamic-file)))
-          (set-name root-name)
-          (let ((added-projects (if (exists?~ dynamic-file)
+          (set-name self root-name)
+          (let ((added-projects (if (exists? dynamic-file)
                                     (map (lambda (data)
                                            (with-exception-catcher
                                              (lambda (exc)
-                                               (instantiate~ (not-found-handler dynamic-file #f) parent: self))
+                                               (instantiate (not-found-handler dynamic-file #f) parent: self))
                                              (lambda ()
                                                (let ((file (make-dynamic-project-file data))
                                                      (name (make-dynamic-project-name data)))
                                                  (cond ((eq? root-name name)
                                                         )
-                                                       ((exists?~ file)
+                                                       ((exists? file)
                                                         (instantiate-file file parent: self name: name))
                                                        (else
-                                                        (instantiate~ (not-found-handler file name) parent: self)))))))
-                                         (call-with-input-file (parse~ dynamic-file) read))
-                                  (list (instantiate~ (no-dependencies root-name) parent: self)))))
+                                                        (instantiate (not-found-handler file name) parent: self)))))))
+                                         (call-with-input-file (parse dynamic-file) read))
+                                  (list (instantiate (no-dependencies root-name) parent: self)))))
             (set! dynamic-projects added-projects))))))
   
   
-  (method public (dynamic-project?)
-    (and parent (is? parent Project) (get-dynamic?~ parent) (memq? self (get-dynamic-projects~ parent))))
+  (method public (dynamic-project? self)
+    (and parent (is? parent Project) (get-dynamic? parent) (memq? self (get-dynamic-projects parent))))
   
   
-  (method public (get-effective-dynamic-projects)
+  (method public (get-effective-dynamic-projects self)
     (or dynamic-projects
-        (let ((parent (get-parent)))
+        (let ((parent (get-parent self)))
           (if (is? parent Project)
-              (get-effective-dynamic-projects~ parent)
+              (get-effective-dynamic-projects parent)
             '()))))
   
   
-  (method public (get-effective-dependencies-file)
+  (method public (get-effective-dependencies-file self)
     ;; direct dependencies are in the description file
     ;; flattened .dependencies is created in the same directory
     (if dynamic-projects
-        (new-brother~ description-file ".dependencies")
+        (new-brother description-file ".dependencies")
       (and (is? parent Project)
-           (get-effective-dependencies-file~ parent))))
+           (get-effective-dependencies-file parent))))
   
   
-  (method public (update-dynamic-dependencies)
+  (method public (update-dynamic-dependencies self)
     (define (get-static-data project-path project-name)
-      (let ((repository (load-repository (parse~ project-path))))
+      (let ((repository (load-repository (parse project-path))))
         (map (lambda (dependencies)
                (cons project-name dependencies))
              (or (repository-dependencies repository)
                  '()))))
     
     (let ((processed-dependencies (make-table))
-          (root-path (get-parent~ description-file)))
+          (root-path (get-parent description-file)))
       ;; kernel needs root repository
-      (let ((lst (get-list~ root-path)))
+      (let ((lst (get-list root-path)))
         (let ((len (length lst)))
           (assert (> len 2))
           (let ((name (string->symbol (element lst (- len 2))))
                 (branch (string->symbol (element lst (- len 1)))))
             (table-set! processed-dependencies name branch))))
       ;; flatten repository dependencies
-      (let (iter (static-data (get-static-data root-path (project-title))))
+      (let (iter (static-data (get-static-data root-path (project-title self))))
         (let ((added-data '()))
           (for-each (lambda (data)
                       (bind (source name branch) data
@@ -207,7 +208,7 @@
                               (when (not (equal? found branch))
                                 (error "Branch mismatch for {a}: using {a} but {a} requires {a}" name found source branch))
                             (table-set! processed-dependencies name branch)
-                            (let ((repository-dir (new-directory~ {Directory Home "dep" "src"} (list (->string name) (->string branch)))))
+                            (let ((repository-dir (new-directory {Directory Home "dep" "src"} (list (->string name) (->string branch)))))
                               (set! added-data (append added-data (get-static-data repository-dir name))))))))
                     static-data)
           (when (not-null? added-data)
@@ -216,7 +217,7 @@
       (let ((sorted (map (lambda (name)
                            (list name (table-ref processed-dependencies name #f)))
                          (sort nu<? (table-keys processed-dependencies))))
-            (dependencies-file (get-effective-dependencies-file)))
+            (dependencies-file (get-effective-dependencies-file self)))
         (call-with-output-file (path-settings dependencies-file char-encoding: 'UTF-8)
           (lambda (output)
             (cond ((or (null? sorted) (null? (cdr sorted)))
@@ -235,25 +236,25 @@
   ;;;
   
   
-  (method public virtual (project-title)
+  (method public virtual (project-title self)
     (or title (if name
                   (symbol->string name)
                 "<project>")))
   
   
-  (method public (get-parent-project)
-    (find-ascendant Project))
+  (method public (get-parent-project self)
+    (find-ascendant self Project))
   
   
-  (method public (get-sort?)
+  (method public (get-sort? self)
     sort?)
 
 
-  (method public (set-sort? value)
+  (method public (set-sort? self value)
     (when (neq? value sort?)
       (set! sort? value)
       (for-each (lambda (designer)
-                  (process-refresh~ designer self 'descendants))
+                  (process-refresh designer self 'descendants))
                 designers)))
   
   
@@ -262,7 +263,7 @@
   ;;;
   
   
-  (method public virtual (concrete?)
+  (method public virtual (concrete? self)
     #f)
   
   
@@ -271,19 +272,19 @@
   ;;;
   
   
-  (method public (project-context)
-    (get-context~ (get-data~ (get-file-form))))
+  (method public (project-context self)
+    (get-context (get-data (get-file-form self))))
   
   
-  (method public (contextualize-pathname pathname)
-    (let ((context (project-context)))
+  (method public (contextualize-pathname self pathname)
+    (let ((context (project-context self)))
       (if (not context)
           pathname
-        (let ((subpath (subpath~ (new File (get-path~ context)) pathname)))
+        (let ((subpath (subpath (new File (get-path context)) pathname)))
           (if (not subpath)
               pathname
             (let ((context-pathname (new (class-of pathname) (cons :context subpath))))
-              (set-context~ context-pathname context)
+              (set-context context-pathname context)
               context-pathname))))))
   
   
@@ -292,7 +293,7 @@
   ;;;
   
   
-  (method override (catalog-name)
+  (method override (catalog-name self)
     (if title
         (string->symbol title)
       name))
@@ -303,66 +304,66 @@
   ;;;
   
   
-  (method public (save-catalogs)
-    (for-each-active-catalog save~))
+  (method public (save-catalogs self)
+    (for-each-active-catalog self save))
   
   
-  (method public (load-catalogs (include-inactives?: include-inactives? #f))
-    (for-each-project load-catalog~))
+  (method public (load-catalogs self (include-inactives?: include-inactives? #f))
+    (for-each-project self load-catalog))
   
   
-  (method public (load-catalog)
-    (require-catalog))
+  (method public (load-catalog self)
+    (require-catalog self))
   
   
-  (method public (require-catalog (report?: report? #f))
+  (method public (require-catalog self (report?: report? #f))
     (define (create/register-catalog)
       (let ((cataloguer (get-cataloguer))
-            (catalog-file (catalog-output))
-            (name (catalog-name)))
-        (or (find-if (lambda (catalog) (compare-pathname~ catalog-file (get-file~ catalog)))
-                     (find-catalogs~ cataloguer name))
-            (let ((catalog (create-catalog)))
-              (add-catalog~ cataloguer catalog)
+            (catalog-file (catalog-output self))
+            (name (catalog-name self)))
+        (or (find-if (lambda (catalog) (compare-pathname catalog-file (get-file catalog)))
+                     (find-catalogs cataloguer name))
+            (let ((catalog (create-catalog self)))
+              (add-catalog cataloguer catalog)
               catalog))))
     
     (unless catalog
       (set! catalog (create/register-catalog)))
-    (load-content~ catalog report?: report?)
+    (load-content catalog report?: report?)
     catalog)
   
   
-  (method (create-catalog)
-    (new Project-Catalog self (catalog-name) (catalog-output) #f #f #f #f #t))
+  (method (create-catalog self)
+    (new Project-Catalog self (catalog-name self) (catalog-output self) #f #f #f #f #t))
   
   
-  (method protected virtual (catalog-output-base)
+  (method protected virtual (catalog-output-base self)
     (let (iterate (project self)
-                  (name (catalog-name)))
-      (let ((parent (get-parent~ project)))
+                  (name (catalog-name self)))
+      (let ((parent (get-parent project)))
         (if (or (not parent)
                 (is? parent Workbench)
-                (dynamic-project?~ project))
+                (dynamic-project? project))
             name
-          (iterate parent (format "{a}${a}" (catalog-name~ parent) name))))))
+          (iterate parent (format "{a}${a}" (catalog-name parent) name))))))
   
   
-  (method protected virtual (catalog-output)
-    (new File (list 'Profile "catalogs" (format "{a}.jcat" (catalog-output-base)))))
+  (method protected virtual (catalog-output self)
+    (new File (list 'Profile "catalogs" (format "{a}.jcat" (catalog-output-base self)))))
   
   
-  (method package (has-content?)
+  (method package (has-content? self)
     (not-null? children))
   
   
-  (method public (for-each-active-catalog proc)
+  (method public (for-each-active-catalog self proc)
     (let ((processed-catalogs (make-table))
           (processed? #f))
-      (for-each-project
+      (for-each-project self
         (lambda (project)
           (set! processed? #t)
-          (let ((catalog (require-catalog~ project report?: #t)))
-            (let ((key (parse~ (get-file~ catalog))))
+          (let ((catalog (require-catalog project report?: #t)))
+            (let ((key (parse (get-file catalog))))
               (when (not (table-ref processed-catalogs key #f))
                 (table-set! processed-catalogs key #t)
                 (set! processed? #f)
@@ -376,9 +377,9 @@
   ;;;
   
   
-  (method public virtual (get-effective-editable?)
+  (method public virtual (get-effective-editable? self)
     (if (unspecified? editable?)
-        (get-effective-editable?~ (get-parent-project))
+        (get-effective-editable? (get-parent-project self))
       editable?))
 
 
@@ -387,14 +388,14 @@
   ;;;
   
   
-  (method public (for-each-project proc (include-self?: include-self? #t) (include-inactives?: include-inactives? #f) (include-groups?: include-groups? #f) (stop-test: stop-test #f))
+  (method public (for-each-project self proc (include-self?: include-self? #t) (include-inactives?: include-inactives? #f) (include-groups?: include-groups? #f) (stop-test: stop-test #f))
     (define (inactive? project)
       (and (not include-inactives?)
            (neq? project self)
            (is? project Project)
-           (not (get-active?~ project))))
+           (not (get-active? project))))
     
-    (for-each-descendant
+    (for-each-descendant self
       (lambda (descendant level)
         (when (or (and (is? descendant Project)
                        (not (inactive? descendant)))
@@ -408,11 +409,11 @@
                             (stop-test descendant))))))
   
   
-  (method public (fold-projects proc seed (include-inactives?: include-inactives? #f) (include-groups?: include-groups? #f))
+  (method public (fold-projects self proc seed (include-inactives?: include-inactives? #f) (include-groups?: include-groups? #f))
     (define (fold x f s)
       (let ((ps (if (or (and (is? x Project)
                              (or include-inactives?
-                                 (get-active?~ x)))
+                                 (get-active? x)))
                         (and include-groups?
                              (is? x Project-Group)))
                     (f x s)
@@ -421,7 +422,7 @@
             #f
           (for-each (lambda (c)
                       (fold c f ps))
-                    (get-children~ x))
+                    (get-children x))
           ps)))
     
     (fold self proc seed))
@@ -432,17 +433,17 @@
   ;;;
   
   
-  (method public (project-path)
+  (method public (project-path self)
     (let (iterate (project self)
-                  (path (->string (catalog-name))))
-      (let ((parent (get-parent~ project)))
+                  (path (->string (catalog-name self))))
+      (let ((parent (get-parent project)))
         (if (or (not parent)
                 (is? parent Workbench))
             (string->symbol path)
-          (iterate parent (format "{a}:{a}" (catalog-name~ parent) path))))))
+          (iterate parent (format "{a}:{a}" (catalog-name parent) path))))))
   
   
-  (method public (find-project name (use-name?: use-name? #t) (include-inactives?: include-inactives? #f) (error?: error? #t))
+  (method public (find-project self name (use-name?: use-name? #t) (include-inactives?: include-inactives? #f) (error?: error? #t))
     (define (find project path)
       (cond ((not project)
              (and error? (error "Unable to find project: {s}" name)))
@@ -450,12 +451,12 @@
              project)
             ((symbol? path)
              (find-if (lambda (child)
-                        (and (or (eq? (catalog-name~ child) path)
-                                 (and use-name? (eq? (get-name~ child) path)))
+                        (and (or (eq? (catalog-name child) path)
+                                 (and use-name? (eq? (get-name child) path)))
                              (or (is-not? child Project)
                                  include-inactives?
-                                 (get-active?~ child))))
-                      (get-children~ project)))
+                                 (get-active? child))))
+                      (get-children project)))
             ((pair? path)
              (find (find project (car path)) (cdr path)))
             (else
@@ -464,8 +465,8 @@
     (find self (split-symbol name #\:)))
   
   
-  (method public (require-project name)
-    (or (find-project name)
+  (method public (require-project self name)
+    (or (find-project self name)
         (error "Unable to find project: {a}" name)))
 
 
@@ -474,23 +475,23 @@
   ;;;
   
   
-  (method public (for-each-file proc (type Project-File))
-    (for-each-descendant
+  (method public (for-each-file self proc (type Project-File))
+    (for-each-descendant self
       (lambda (descendant level)
         (when (is? descendant type)
           (proc descendant)))))
 
 
-  (method public (collect-files (type Project-File))
+  (method public (collect-files self (type Project-File))
     (let ((fact (new List-Factory)))
-      (for-each-file
+      (for-each-file self
         (lambda (file)
           (when (is? file type)
-            (put~ fact file))))
-      (get-output~ fact)))
+            (put fact file))))
+      (get-output fact)))
   
   
-  (method public (fold-files proc seed (type Project-File))
+  (method public (fold-files self proc seed (type Project-File))
     (define (fold x f s)
       (let ((ps (if (is? x type)
                     (f x s)
@@ -499,27 +500,27 @@
             #f
           (for-each (lambda (c)
                       (fold c f ps))
-                    (get-children~ x))
+                    (get-children x))
           ps)))
     
     (fold self proc seed))
   
   
-  (method public (iterate-files proc (extensions: extensions #f))
-    (fold-files
+  (method public (iterate-files self proc (extensions: extensions #f))
+    (fold-files self
       (lambda (project-file seed)
         (if (and (neq? project-file self) (is? project-file Project))
             :skip
-          (let ((file (get-source~ project-file)))
+          (let ((file (get-source project-file)))
             (and file
-                 (let ((ext (get-extension~ file)))
+                 (let ((ext (get-extension file)))
                    (and (or (not extensions) (member? ext extensions test: extension=?))
                         (proc file)))))))
       #f))
   
   
-  (method public (iterate-catalog-files proc)
-    (iterate-files proc extensions: (effective-catalog-extensions catalog-extensions)))
+  (method public (iterate-catalog-files self proc)
+    (iterate-files self proc extensions: (effective-catalog-extensions catalog-extensions)))
 
 
   ;;;
@@ -527,7 +528,7 @@
   ;;;
   
   
-  (method public virtual (project-name)
+  (method public virtual (project-name self)
     )
 
 
@@ -536,7 +537,7 @@
   ;;;
   
   
-  (method public virtual (project-action . rest)
+  (method public virtual (project-action self . rest)
     (message-box "This project doesn't define a project-action method"))
 
 
@@ -545,11 +546,11 @@
   ;;;
   
   
-  (method public virtual (project-run . rest)
+  (method public virtual (project-run self . rest)
     (message-box "This project doesn't define a project-run method"))
   
   
-  (method public virtual (run-arguments)
+  (method public virtual (run-arguments self)
     #f)
 
 
@@ -558,11 +559,11 @@
   ;;;
   
   
-  (method public virtual (project-debug . rest)
+  (method public virtual (project-debug self . rest)
     (message-box "This project doesn't define a project-debug method"))
   
   
-  (method public virtual (debug-arguments)
+  (method public virtual (debug-arguments self)
     #f)
 
 
@@ -571,7 +572,7 @@
   ;;;
 
 
-  (method public virtual (project-test . rest)
+  (method public virtual (project-test self . rest)
     (message-box "This project doesn't define a project-test method"))
 
 
@@ -580,7 +581,7 @@
   ;;;
   
   
-  (method public virtual (project-validate . rest)
+  (method public virtual (project-validate self . rest)
     (message-box "This project doesn't define a project-validate method"))
 
 
@@ -589,7 +590,7 @@
   ;;;
 
 
-  (method public virtual (project-build)
+  (method public virtual (project-build self)
     (message-box "This project doesn't define a project-build method"))
 
 
@@ -598,7 +599,7 @@
   ;;;
 
 
-  (method public virtual (project-clean)
+  (method public virtual (project-clean self)
     (message-box "This project doesn't define a project-clean method"))
   
   
@@ -607,7 +608,7 @@
   ;;;
   
   
-  (method public (project-depot)
+  (method public (project-depot self)
     (or depot (and depot-directory (begin
                                      (set! depot (new Git-Depot depot-directory))
                                      depot))))
@@ -618,5 +619,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.project.descriptors:Project-Descriptor))))

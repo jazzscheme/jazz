@@ -43,6 +43,7 @@
         (jazz.jml)
         (jazz.platform (cond windows))
         (jazz.print)
+        (jazz.text)
         (jazz.ui))
 
 
@@ -79,7 +80,7 @@
         (<Page-Footer>  name: footer    size: {Dimension 100 19} location: south))))
   
   
-  (method override (default-size)
+  (method override (default-size self)
     (new Dimension (* 17/2 default-resolution) (* 11 default-resolution)))
 
 
@@ -88,8 +89,8 @@
   ;;;
   
   
-  (method public (get-document)
-    (locate 'document))
+  (method public (get-document self)
+    (locate self 'document))
 
 
   ;;;
@@ -97,8 +98,8 @@
   ;;;
   
   
-  (method public (get-header)
-    (locate 'header))
+  (method public (get-header self)
+    (locate self 'header))
 
 
   ;;;
@@ -106,22 +107,22 @@
   ;;;
   
   
-  (method public (get-content)
-    (locate 'content))
+  (method public (get-content self)
+    (locate self 'content))
   
   
-  (method public (get-content-rect)
-    (let ((content (get-content)))
-      (acquire content (get-bounds~ content))))
+  (method public (get-content-rect self)
+    (let ((content (get-content self)))
+      (acquire self content (get-bounds content))))
   
   
-  (method public (scale-content client dest-resolution)
+  (method public (scale-content self client dest-resolution)
     (if (eq? fit 'none)
         1.
-      (let ((area (get-print-area~ client #f))
+      (let ((area (get-print-area client #f))
             (content-rect (case orientation
-                            ((portrait reverse-portrait) (get-content-rect))
-                            ((landscape reverse-landscape) (transpose-rect (get-content-rect))))))
+                            ((portrait reverse-portrait) (get-content-rect self))
+                            ((landscape reverse-landscape) (transpose-rect (get-content-rect self))))))
         (fit-rects area content-rect fit))))
 
 
@@ -130,8 +131,8 @@
   ;;;
   
   
-  (method public (get-footer)
-    (locate 'footer))
+  (method public (get-footer self)
+    (locate self 'footer))
 
 
   ;;;
@@ -139,9 +140,9 @@
   ;;;
   
   
-  (method public (wrap-header/footer context)
-    (wrap-content~ (get-model~ (get-header)) context)
-    (wrap-content~ (get-model~ (get-footer)) context))
+  (method public (wrap-header/footer self context)
+    (wrap-content (get-model (get-header self)) context)
+    (wrap-content (get-model (get-footer self)) context))
 
 
   ;;;
@@ -149,16 +150,16 @@
   ;;;
   
   
-  (method override (get-drawing-background context)
+  (method override (get-drawing-background self context)
     (if (getf context printing?:)
-        (nextmethod context)
+        (nextmethod self context)
       {Color red: 193 green: 193 blue: 255}))
   
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (unless (getf context printing?:)
-      (let ((bounds (get-bounds)))
-        (fill-rect~ surface (inset-rect bounds min-margins) {Color Light-Purple}))))
+      (let ((bounds (get-bounds self)))
+        (fill-rect surface (inset-rect bounds min-margins) {Color Light-Purple}))))
   
   
   ;;;
@@ -166,5 +167,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Page-Setup-Descriptor))))

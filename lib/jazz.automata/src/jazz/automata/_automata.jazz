@@ -56,6 +56,29 @@
 (module jazz.automata jazz
 
 
+(hub action)
+(hub add-found)
+(hub add-start)
+(hub add-transition)
+(hub follow)
+(hub get-col)
+(hub get-end)
+(hub get-found)
+(hub get-index)
+(hub get-line)
+(hub get-name)
+(hub get-nb-vectored)
+(hub get-next)
+(hub get-paragraphs)
+(hub get-start)
+(hub get-string)
+(hub get-vector)
+(hub run)
+(hub save-start)
+(hub set-nb-vectored)
+(hub transition)
+
+
 ;;;
 ;;;; Automata
 ;;;
@@ -70,18 +93,18 @@
   (slot start       getter generate)
   
   
-  (method override (initialize s)
-    (set! nb-vectored~self 0)
-    (set! nb-listed~self 0)
-    (set! nb-lettered~self 0)
-    (set! start~self s))
+  (method override (initialize self s)
+    (set! self.nb-vectored 0)
+    (set! self.nb-listed 0)
+    (set! self.nb-lettered 0)
+    (set! self.start s))
   
   
-  (method public (run tape)
+  (method public (run self tape)
     (declare (proper-tail-calls))
     (let (iter (state start))
       (when state
-        (iter (transition~ state tape))))))
+        (iter (transition state tape))))))
 
 
 ;;;
@@ -95,27 +118,27 @@
   (slot found)
   
   
-  (method override (initialize)
-    (set! found~self (new-queue)))
+  (method override (initialize self)
+    (set! self.found (new-queue)))
   
   
-  (method virtual (get-next) <fx+>
+  (method package virtual (get-next self) <fx+>
     )
   
   
-  (method virtual (save-start)
+  (method package virtual (save-start self)
     )
   
   
-  (method virtual (add-start found)
+  (method package virtual (add-start self found)
     )
   
   
-  (method (add-found info)
+  (method package (add-found self info)
     (enqueue found info))
   
   
-  (method (get-found)
+  (method package (get-found self)
     (queue-list found)))
 
 
@@ -133,26 +156,26 @@
   (slot end          <fx> getter generate)
   
   
-  (method override (initialize s)
-    (nextmethod)
-    (set! string~self s)
-    (set! index~self 0)
-    (set! start-index~self 0)
-    (set! end~self (string-length s)))
+  (method override (initialize self s)
+    (nextmethod self)
+    (set! self.string s)
+    (set! self.index 0)
+    (set! self.start-index 0)
+    (set! self.end (string-length s)))
   
   
-  (method override (get-next) <fx+>
+  (method override (get-next self) <fx+>
     (if (< index end)
         (prog1 (char->integer (element string index))
           (set! index (+ index 1)))
       #f))
   
   
-  (method override (save-start)
+  (method override (save-start self)
     (set! start-index index))
   
   
-  (method override (add-start found)
+  (method override (add-start self found)
     (list found start-index)))
 
 
@@ -174,19 +197,19 @@
   (slot end-col    <fx>     getter generate)
   
   
-  (method override (initialize p s e)
-    (nextmethod)
-    (set! paragraphs~self p)
-    (set! line~self (get-line~ s))
-    (set! col~self (get-col~ s))
-    (set! scan~self (get-string~ (element paragraphs line)))
-    (set! start-line~self 0)
-    (set! start-col~self 0)
-    (set! end-line~self (get-line~ e))
-    (set! end-col~self (get-col~ e)))
+  (method override (initialize self p s e)
+    (nextmethod self)
+    (set! self.paragraphs p)
+    (set! self.line (get-line s))
+    (set! self.col (get-col s))
+    (set! self.scan (get-string (element paragraphs line)))
+    (set! self.start-line 0)
+    (set! self.start-col 0)
+    (set! self.end-line (get-line e))
+    (set! self.end-col (get-col e)))
   
   
-  (method override (get-next) <fx+>
+  (method override (get-next self) <fx+>
     (cond ((or (> line end-line)
                (and (= line end-line)
                     (>= col end-col)))
@@ -194,19 +217,19 @@
           ((= col (cardinality scan))
            (set! line (+ line 1))
            (set! col 0)
-           (set! scan (get-string~ (element paragraphs line)))
+           (set! scan (get-string (element paragraphs line)))
            (char->integer #\newline))
           (else
            (prog1 (char->integer (element scan col))
              (set! col (+ col 1))))))
   
   
-  (method override (save-start)
+  (method override (save-start self)
     (set! start-line line)
     (set! start-col col))
   
   
-  (method override (add-start found)
+  (method override (add-start self found)
     (list found start-line start-col)))
 
 
@@ -218,8 +241,8 @@
 (class Transitions extends Object
   
   
-  (method public virtual (add-transition i state))
-  (method public virtual (follow i)))
+  (method public virtual (add-transition self i state))
+  (method public virtual (follow self i)))
 
 
 ;;;
@@ -239,15 +262,15 @@
   (slot vector getter generate)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (set! vector (make-vector NbTransitions #f)))
   
   
-  (method override (add-transition i <fx> state)
+  (method override (add-transition self i <fx> state)
     (set-element! vector (if (> i NbAscii) NotAsciiTransition i) state))
   
   
-  (method override (follow i <fx>)
+  (method override (follow self i <fx>)
     (element vector (if (> i NbAscii) NotAsciiTransition i))))
 
 
@@ -263,34 +286,34 @@
   (slot transitions getter generate)
   
   
-  (method override (initialize n t)
+  (method override (initialize self n t)
     (set! name n)
     (set! transitions t))
 
 
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{a}" name))))
   
   
-  (method public (add-transition i <fx> state)
-    (add-transition~ transitions i state))
+  (method public (add-transition self i <fx> state)
+    (add-transition transitions i state))
   
   
-  (method public virtual (transition tape)
-    (let ((i (get-next~ tape)))
+  (method public virtual (transition self tape)
+    (let ((i (get-next tape)))
       (if i
-          (follow i)
-        (action~ (follow EOFTransition) tape)
+          (follow self i)
+        (action (follow self EOFTransition) tape)
         #f)))
   
   
-  (method public (follow i <fx>)
-    (follow~ transitions i))
+  (method public (follow self i <fx>)
+    (follow transitions i))
   
   
-  (method public virtual (action tape)))
+  (method public virtual (action self tape)))
 
 
 ;;;
@@ -301,19 +324,19 @@
 (class StartState extends State
   
   
-  (method override (initialize t)
-    (nextmethod "start" t))
+  (method override (initialize self t)
+    (nextmethod self "start" t))
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (print-unreadable self output
       (lambda (output)
         )))
   
   
-  (method override (transition tape)
-    (save-start~ tape)
-    (nextmethod tape)))
+  (method override (transition self tape)
+    (save-start tape)
+    (nextmethod self tape)))
 
 
 ;;;
@@ -328,25 +351,25 @@
   (slot next-state getter generate)
   
   
-  (method override (initialize f ns)
+  (method override (initialize self f ns)
     (set! found f)
     (set! next-state ns)
-    (nextmethod "found" #f))
+    (nextmethod self "found" #f))
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (print-unreadable self output
       (lambda (output)
         )))
   
   
-  (method override (transition tape)
-    (action tape)
+  (method override (transition self tape)
+    (action self tape)
     next-state)
   
   
-  (method override (action tape)
-    (add-found~ tape (add-start~ tape found))))
+  (method override (action self tape)
+    (add-found tape (add-start tape found))))
 
 
 ;;;
@@ -358,7 +381,7 @@
   (let* ((start (new StartState (new VectoredTransitions)))
          (skip (new State "skip" (new VectoredTransitions)))
          (automata (new Automata start)))
-    (set-nb-vectored~ automata (+ (get-nb-vectored~ automata) 2))
+    (set-nb-vectored automata (+ (get-nb-vectored automata) 2))
     (add-constituency-transitions start skip start start constituent-test)
     (add-constituency-transitions skip skip start start constituent-test)
     (for-each (lambda (target)
@@ -369,10 +392,10 @@
 
 (definition (add-constituency-transitions state c not-c eof constituent-test)
   (loop (for i from 0 below NbAscii)
-        (add-transition~ state i (if (is-constituent constituent-test i)
+        (add-transition state i (if (is-constituent constituent-test i)
                                      c
                                    not-c)))
-  (add-transition~ state EOFTransition eof))
+  (add-transition state EOFTransition eof))
 
 
 (definition (process-target target automata start skip whole-words ignore-case constituent-test)
@@ -382,30 +405,30 @@
       (lambda (c)
         (let ((i (char->integer c))
               (iinv (char->integer (if (lower-case? c) (upcase c) (downcase c)))))
-          (let ((new-state (follow~ state i)))
+          (let ((new-state (follow state i)))
             (cond ((and new-state (neq? new-state start) (neq? new-state skip))
                    (set! state new-state)
                    (when (and ignore-case (is-constituent constituent-test i))
-                     (set! new-state (follow~ state iinv))
+                     (set! new-state (follow state iinv))
                      (when (not new-state)
                        (set! new-state (new State string (new VectoredTransitions)))
-                       (set-nb-vectored~ automata (+ (get-nb-vectored~ automata) 1))
+                       (set-nb-vectored automata (+ (get-nb-vectored automata) 1))
                        (add-constituency-transitions new-state skip start start constituent-test)
-                       (add-transition~ state iinv new-state))))
+                       (add-transition state iinv new-state))))
                   (else
                    (set! new-state (new State string (new VectoredTransitions)))
-                   (set-nb-vectored~ automata (+ (get-nb-vectored~ automata) 1))
+                   (set-nb-vectored automata (+ (get-nb-vectored automata) 1))
                    (add-constituency-transitions new-state skip start start constituent-test)
-                   (add-transition~ state i new-state)
+                   (add-transition state i new-state)
                    (when (and ignore-case (is-constituent constituent-test i))
-                     (add-transition~ state iinv new-state))
+                     (add-transition state iinv new-state))
                    (set! state new-state)))))))
     (let ((new-state (new FoundState target start)))
-      (set-nb-vectored~ automata (+ (get-nb-vectored~ automata) 1))
+      (set-nb-vectored automata (+ (get-nb-vectored automata) 1))
       (loop (for i from 0 below NbAscii)
             (when (not (is-constituent constituent-test i))
-              (add-transition~ state i new-state)))
-      (add-transition~ state EOFTransition new-state))))
+              (add-transition state i new-state)))
+      (add-transition state EOFTransition new-state))))
 
 
 (definition (is-constituent constituent-test <procedure> i <fx>) <bool>
@@ -418,5 +441,5 @@
 
 
 (definition public (automata-search automata <Automata> tape <Tape>)
-  (run~ automata tape)
-  (get-found~ tape)))
+  (run automata tape)
+  (get-found tape)))

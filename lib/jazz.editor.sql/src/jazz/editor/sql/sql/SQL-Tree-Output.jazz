@@ -40,13 +40,16 @@
 
 (import (jazz.editor.sql)
         (jazz.editor.sql.view)
+        (jazz.event)
         (jazz.graphic)
         (jazz.handler)
         (jazz.history)
         (jazz.ide.history)
         (jazz.jml)
         (jazz.layout)
+        (jazz.outline)
         (jazz.resource)
+        (jazz.schema)
         (jazz.tree)
         (jazz.ui))
 
@@ -87,7 +90,7 @@
               (<SQL-Output-Tree> name: tree      background: {Color Dark} filled-column: #f selection-mode: cell multiple-selection?: #t row-spacing: 1 column-spacing: 1)))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'SQL-Tree-Output)
 
   
@@ -96,11 +99,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Info"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Tree Output")
 
   
@@ -109,13 +112,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (get-tree)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (get-tree self)))
+      (acquire-focus tree)))
   
   
   ;;;
@@ -123,8 +126,8 @@
   ;;;
 
   
-  (method public (get-tree)
-    (locate 'tree))
+  (method public (get-tree self)
+    (locate self 'tree))
   
   
   ;;;
@@ -132,9 +135,9 @@
   ;;;
 
 
-  (method override (delete-selection)
-    (let ((tree (get-tree)))
-      (remove-every-row~ tree)))
+  (method override (delete-selection self)
+    (let ((tree (get-tree self)))
+      (remove-every-row tree)))
   
   
   ;;;
@@ -142,26 +145,26 @@
   ;;;
   
   
-  (method (on-previous-recordset evt)
+  (method (on-previous-recordset self evt)
     (let ((console (get-sql-console-text)))
-      (previous-table~ console)))
+      (previous-table console)))
   
   
-  (method (on-next-recordset evt)
+  (method (on-next-recordset self evt)
     (let ((console (get-sql-console-text)))
-      (next-table~ console)))
+      (next-table console)))
   
   
-  (method public (recordsets-update current tables not-displayed)
+  (method public (recordsets-update self current tables not-displayed)
     (let* ((card (length tables))
            (table (and (not-null? tables) (element tables current)))
-           (name (and table (get-name~ table)))
-           (count (and table (get-count~ table)))
-           (missing? (and table (get-missing?~ table))))
-      (set-title~ (locate 'current) (if (= card 0) "" (format "{?{a} ~}{a} of {a}" name (+ current 1) card)))
-      (set-enabled?~ (locate 'previous) (> current 0))
-      (set-enabled?~ (locate 'next) (< current (- card 1)))
-      (let ((displayed-view (locate 'displayed))
+           (name (and table (get-name table)))
+           (count (and table (get-count table)))
+           (missing? (and table (get-missing? table))))
+      (set-title (locate self 'current) (if (= card 0) "" (format "{?{a} ~}{a} of {a}" name (+ current 1) card)))
+      (set-enabled? (locate self 'previous) (> current 0))
+      (set-enabled? (locate self 'next) (< current (- card 1)))
+      (let ((displayed-view (locate self 'displayed))
             (resource (cond ((not not-displayed) {Image-Resource "Gray"})
                             ((and (not missing?) (= not-displayed 0)) {Image-Resource "Green"})
                             (else {Image-Resource "Red"})))
@@ -171,16 +174,16 @@
                                               (if missing? "Some rows not retrieved" "")
                                               (if (and missing? (/= not-displayed 0)) ", " "")
                                               (if (/= not-displayed 0) (format "{a}{a} not displayed" not-displayed (if missing? "" " rows")) ""))))))
-        (set-resource~ displayed-view resource)
-        (set-tooltip-text~ displayed-view tooltip-text))))
+        (set-resource displayed-view resource)
+        (set-tooltip-text displayed-view tooltip-text))))
   
   
-  (method (on-clear evt)
+  (method package (on-clear self evt)
     (let ((console (get-sql-console-text)))
-      (clear-table~ console)))
+      (clear-table console)))
   
   
-  (method (on-settings evt)
+  (method (on-settings self evt)
     @convert
     (new-frame Preferences-Manager host-workspace: 'sql))
   
@@ -190,40 +193,40 @@
   ;;;
   
   
-  (method package (on-add-history evt)
-    (add-current~ history-manager))
+  (method package (on-add-history self evt)
+    (add-current history-manager))
   
   
-  (method package (on-backward-history evt)
-    (go-backward-history~ history-manager))
+  (method package (on-backward-history self evt)
+    (go-backward-history history-manager))
   
   
-  (method package (on-forward-history evt)
-    (go-forward-history~ history-manager))
+  (method package (on-forward-history self evt)
+    (go-forward-history history-manager))
 
   
-  (method (on-backward-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (initiator (get-combo~ sender)))
+  (method (on-backward-menu self evt)
+    (let* ((sender (get-sender evt))
+           (initiator (get-combo sender)))
       (track-history sender initiator history-manager 'backward)))
   
   
-  (method (on-forward-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (initiator (get-combo~ sender)))
+  (method (on-forward-menu self evt)
+    (let* ((sender (get-sender evt))
+           (initiator (get-combo sender)))
       (track-history sender initiator history-manager 'forward)))
   
   
-  (method public (add-history item)
-    (add-history~ history-manager item))
+  (method public (add-history self item)
+    (add-history history-manager item))
   
   
-  (method override (current-history-item)
+  (method override (current-history-item self)
     (let* ((console (get-sql-console-text))
-           (request (get-current-request~ console)))
+           (request (get-current-request console)))
       (when request
         (new History-Request-Item request))))
   
   
-  (method override (update-history-actions)
+  (method override (update-history-actions self)
     )))

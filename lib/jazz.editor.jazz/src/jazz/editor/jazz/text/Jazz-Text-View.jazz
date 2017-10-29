@@ -47,6 +47,7 @@
         (jazz.editor.lisp)
         (jazz.feedback)
         (jazz.graphic)
+        (jazz.ide)
         (jazz.jml)
         (jazz.locale)
         (jazz.menu)
@@ -64,23 +65,23 @@
     (<install> tooltip?: #t))
 
   
-  (method override (install rest)
-    (nextmethod rest)
-    (let ((pref (preferences)))
-      (add-style 'Documented-Declaration   (get-documented-declaration-style~ pref))
-      (add-style 'Undocumented-Declaration (get-undocumented-declaration-style~ pref))
-      (add-style 'Literal                  (get-literal-style~ pref))))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (let ((pref (preferences self)))
+      (add-style self 'Documented-Declaration   (get-documented-declaration-style pref))
+      (add-style self 'Undocumented-Declaration (get-undocumented-declaration-style pref))
+      (add-style self 'Literal                  (get-literal-style pref))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'jazz-text)
 
   
-  (method override (preferences)
-    (get-preferences '(documents jazz-text)))
+  (method override (preferences self)
+    (current-preferences '(documents jazz-text)))
     
   
-  (method override (new-syntax)
+  (method override (new-syntax self)
     (new Jazz-Syntax model))
 
 
@@ -89,9 +90,9 @@
   ;;;
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'jazz-text)
-          (nextmethod)))
+          (nextmethod self)))
   
   
   ;;;
@@ -99,14 +100,14 @@
   ;;;
   
   
-  (method override (get-context-menu)
+  (method override (get-context-menu self)
     (let* ((menu (new Jazz-Text-Menu))
-           (controller (get-document-controller))
-           (moniker (get-moniker~ controller)))
+           (controller (get-document-controller self))
+           (moniker (get-moniker controller)))
       @waiting
       (when (or (not moniker) (read/write?~ moniker))
-        (set-visible?~ (locate~ menu 'set-read/write) #f))
-      (layout-menu~ menu)
+        (set-visible?~ (locate menu 'set-read/write) #f))
+      (layout-menu menu)
       menu))
     
   
@@ -115,16 +116,16 @@
   ;;;
 
   
-  (method (on-design-form evt)
+  (method (on-design-form self evt)
     (define (find-editor form)
       (continuation-capture
         (lambda (return)
           (for-each (lambda (frame)
                       (when (is? frame Host-View)
-                        (let ((guest (get-guest~ frame)))
+                        (let ((guest (get-guest frame)))
                           (when (is? guest jazz.designer:Component-Editor)
-                            (let ((designer (get-designer~ guest)))
-                              (when (and designer (eq? form (get-form~ designer)))
+                            (let ((designer (get-designer guest)))
+                              (when (and designer (eq? form (get-form designer)))
                                 (continuation-return return frame)))))))
                     (all-frames include-invisibles?: #t))
           #f)))
@@ -135,19 +136,19 @@
            (class (autoload name)))
       (if (not (subtype? class Component))
           (error "Only Component classes can be designed")
-        (let* ((form (get-class-form~ class))
+        (let* ((form (get-class-form class))
                (frame (and form (find-editor form))))
             (if frame
-                (focus-host~ frame)
+                (focus-host frame)
               (let* ((component (new class))
                      (editor-class (if (is? component View) jazz.designer:View-Editor jazz.designer:Manager-View)))
                 (new-frame editor-class client: component)))))))
   
   
-  (method (on-copy-list evt)
+  (method (on-copy-list self evt)
     (let ((appl (get-application))
-          (list (map (lambda (object) (new Clipboard (->string object :reader) 'unicode-text)) (read-string-content (get-selected-string)))))
-      (push-clipboard-list~ appl list)
+          (list (map (lambda (object) (new Clipboard (->string object :reader) 'unicode-text)) (read-string-content (get-selected-string self)))))
+      (push-clipboard-list appl list)
       (user-message "Pushed {a} elements onto the clipboard stack" (length list))))
 
   
@@ -156,20 +157,20 @@
   ;;;
   
 
-  (method override (get-tooltip-context view)
+  (method override (get-tooltip-context self view)
     #f
     @convert
     (let* ((pos (view->text view))
            (expl (new Jazz-Explorer model start: pos end: pos)))
       (catch (Explore-Error err #f)
-        (and (outer-expr~ expl atomic?: #t explore-whitespace?: #f)
-             (let ((kind (get-kind~ expl)))
+        (and (outer-expr expl atomic?: #t explore-whitespace?: #f)
+             (let ((kind (get-kind expl)))
                (and (eq? kind 'symbol)
-                    (let* ((range (get-range~ expl))
+                    (let* ((range (get-range expl))
                            (location (range-location range))
                            (text (and location (present-location location))))
                       (and text
-                           (let ((bounds (line-range-rect (get-line~ (get-start~ range)) (get-col~ (get-start~ range)) (get-col~ (get-end~ range)))))
+                           (let ((bounds (line-range-rect (get-line (get-start range)) (get-col (get-start range)) (get-col (get-end range)))))
                              (and (in-rect? view bounds)
                                   (new Tooltip-Context
                                     view: self
@@ -184,26 +185,26 @@
   ;;;
   
   
-  (method override (prepare-expressions range)
+  (method override (prepare-expressions self range)
     (define (collect-namespaces)
       (let ((namespaces '())
             (expl (new Jazz-Explorer model range: range)))
-        (while (outer-expr~ expl)
-          (when (namespace-expr?~ expl)
-            (let ((namespace (namespace-declaration-range~ expl include-invoices?: #t)))
+        (while (outer-expr expl)
+          (when (namespace-expr? expl)
+            (let ((namespace (namespace-declaration-range expl include-invoices?: #t)))
               (set! namespaces (cons namespace namespaces)))))
         namespaces))
     
     (define (package-expressions namespaces expressions)
       (let ((first (if (not-null? namespaces) (car namespaces) range)))
-        (let ((first-line (get-line~ (get-start~ first)))
-              (first-col (get-col~ (get-start~ first))))
+        (let ((first-line (get-line (get-start first)))
+              (first-col (get-col (get-start first))))
           (let ((line first-line)
                 (col first-col)
                 (output (open-output-string)))
             (define (fill rng)
-              (let ((l (get-line~ (get-start~ rng)))
-                    (c (get-col~ (get-start~ rng))))
+              (let ((l (get-line (get-start rng)))
+                    (c (get-col (get-start rng))))
                 (when (>= l line)
                   (let (iterate)
                     (if (= l line)
@@ -216,7 +217,7 @@
                       (iterate))))))
             
             (for-each (lambda (range)
-                        (let ((namespace (get-string range)))
+                        (let ((namespace (get-string self range)))
                           (fill range)
                           (for-each-pair (lambda (pair)
                                            (let ((str (car pair))
@@ -235,9 +236,9 @@
             (display (make-string (length namespaces) #\)) output)
             (values (get-output-string output) first-line first-col)))))
     
-    (let ((container (get-locat-container))
+    (let ((container (get-locat-container self))
           (namespaces (collect-namespaces))
-          (string (get-string range)))
+          (string (get-string self range)))
       (receive (str line col) (package-expressions namespaces string)
         (list 'jazz str container line col))))
 
@@ -247,29 +248,29 @@
   ;;;
   
   
-  (method package (on-add-break evt)
+  (method package (on-add-break self evt)
     @convert
     (let* ((range (current-expr-range))
            (loc (range-location range)))
-      (receive (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter loc)
+      (receive (resolved? in-context? toplevel-closure object) (resolve-location Interpreter loc)
         (if (not resolved?)
             (error "Unable to resolve location: {t}" loc)
-          (add-break~ Interpreter object)
-          (apply-style 'Break (get-start~ range) (+ (get-start~ range) 1))))))
+          (add-break Interpreter object)
+          (apply-style 'Break (get-start range) (+ (get-start range) 1))))))
   
   
-  (method package (on-remove-break evt)
+  (method package (on-remove-break self evt)
     @convert
     (let* ((range (current-expr-range))
            (loc (range-location range)))
-      (receive (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter loc)
+      (receive (resolved? in-context? toplevel-closure object) (resolve-location Interpreter loc)
         (if (not resolved?)
             (bell)
-          (remove-break~ Interpreter object)
-          (let ((run (get-run-at (+ (get-start~ range) 1))))
+          (remove-break Interpreter object)
+          (let ((run (get-run-at (+ (get-start range) 1))))
             (when run
-              (set-style~ run default-style)
-              (invalidate-paragraph (get-paragraph (get-line~ (get-start~ range))))))))))
+              (set-style run default-style)
+              (invalidate-paragraph (get-paragraph (get-line (get-start range))))))))))
 
   
   ;;;
@@ -295,15 +296,15 @@
   @unused
   (method (position->location pos)
     (let ((expl (new Jazz-Explorer model start: pos end: pos)))
-      (and (outer-expr~ expl outer-composite?: #f)
-           (let ((range (get-range~ expl)))
+      (and (outer-expr expl outer-composite?: #f)
+           (let ((range (get-range expl)))
              (range-location range)))))
   
   
-  (method (location-class loc (load?: load? #f))
+  (method (location-class self loc (load?: load? #f))
     @convert
     (let* ((class-name (car loc))
-           (class (global-ref~ class-name load?)))
+           (class (global-ref class-name load?)))
       (if (not class)
           (error "Unable to find class: {t}" class-name)
         (let ((meta? #f))
@@ -316,7 +317,7 @@
         class)))
   
   
-  (method (declaration-name-info object)
+  (method (declaration-name-info self object)
     (unimplemented 'declaration-name-info)
     @convert
     (cond ((category? object)
@@ -332,26 +333,26 @@
            #f)))
   
   
-  (method (declaration-name-location? object internal-location)
-    (let ((info (declaration-name-info object)))
+  (method (declaration-name-location? self object internal-location)
+    (let ((info (declaration-name-info self object)))
       (and info
            (receive (skip inside-allowed?) info
              (or (= internal-location (list skip))
                  (and inside-allowed? (= internal-location (list skip 0))))))))
 
 
-  (method (range-location range)
-    (let ((expl (new Jazz-Explorer model start: (get-start~ range) end: (get-end~ range)))
+  (method (range-location self range)
+    (let ((expl (new Jazz-Explorer model start: (get-start range) end: (get-end range)))
           (location #f)
           (previous-def? #f)
           (done? #f))
       (while (not done?)
-        (let ((rank (outer-expr~ expl)))
+        (let ((rank (outer-expr expl)))
           (if (not rank)
               (set! done? #t)
-            (let ((def? (declaration-expr?~ expl)))
+            (let ((def? (declaration-expr? expl)))
               (if def?
-                  (receive (modifiers name) (declaration-modifiers/name~ expl)
+                  (receive (modifiers name) (declaration-modifiers/name expl)
                     (let ((loc (if previous-def? location (cons rank location))))
                       (if (memq? 'meta modifiers)
                           (set! location (cons 'meta (cons name loc)))
@@ -361,10 +362,10 @@
       location))
 
 
-  (method public (location-range location (toplevel-location: toplevel-location #f))
-    (let ((expl (new Jazz-Explorer model end: (text-beginning))))
-      (forward-location~ expl location toplevel-location: toplevel-location)
-      (get-range~ expl)))
+  (method public (location-range self location (toplevel-location: toplevel-location #f))
+    (let ((expl (new Jazz-Explorer model end: (text-beginning self))))
+      (forward-location expl location toplevel-location: toplevel-location)
+      (get-range expl)))
 
 
   ;;;
@@ -372,39 +373,39 @@
   ;;;
   
   
-  (method (on-edit-documentation evt)
-    (let ((symbol (current-symbol)))
+  (method (on-edit-documentation self evt)
+    (let ((symbol (current-symbol self)))
       (if (not symbol)
           (bell)
         (let ((appl (get-application)))
-          (edit-documentation~ appl symbol)))))
+          (edit-documentation appl symbol)))))
   
   
-  (method (on-present-documentation evt)
-    (present-documentation (current-symbol)))
+  (method (on-present-documentation self evt)
+    (present-documentation self (current-symbol self)))
 
   
-  (method (present-documentation symbol)
+  (method (present-documentation self symbol)
     (bell))
   @doc-dependency
   (method (present-documentation symbol)
     (define (doc-jml)
       (and symbol
-           (let ((doc (get-documentation~ (get-application) symbol)))
+           (let ((doc (get-documentation (get-application) symbol)))
              (and doc
-                  (present-text~ doc)))))
+                  (present-text doc)))))
     
     (let ((jml (doc-jml)))
       (if (not jml)
           (bell)
         (let* ((view (new Documentation-View size: {Dimension 600 300}))
-               (text (locate~ view 'text))
+               (text (locate view 'text))
                (pos {Point 100 100})
                (alternate {Point 100 100})
                (border (new Border-View border-type: 'solid))
                (display (get-display)))
-          (set-text~ (get-model~ text) (transform-jml (parse-jml jml) (new DocToText-Transformation)))
-          (popup~ display view pos alternate-position: alternate border: border)))))
+          (set-text (get-model text) (transform-jml (parse-jml jml) (new DocToText-Transformation)))
+          (popup display view pos alternate-position: alternate border: border)))))
   
   
   ;;;
@@ -417,10 +418,10 @@
   ;;   support for { [ ...
 
   
-  (method override (show-arguments)
+  (method override (show-arguments self)
     (define (show-declaration-arguments expl)
       @convert
-      (let ((name (get-marked~ expl))
+      (let ((name (get-marked expl))
             (info (current-toplevel-info)))
         (when info
           (receive (in category-info) info
@@ -443,19 +444,19 @@
               ((%function)
                (show-function-arguments symbol value))
               ((Closure)
-               (show-function-arguments symbol (closure-function~ Interpreter value))))))))
+               (show-function-arguments symbol (closure-function Interpreter value))))))))
     
     (define (show-external-arguments symbol external)
       @convert
       (user-message "({s} {l}{a}) {s}"
                     symbol
-                    (map category-identifier (accumulate (proxy-parameters~ Interpreter external) get-type~ List))
+                    (map category-identifier (accumulate (proxy-parameters Interpreter external) get-type~ List))
                     (if (proxy-rest?~ Interpreter external) " . rest" "")
-                    (category-identifier (get-type~ (proxy-result~ Interpreter external)))))
+                    (category-identifier (get-type (proxy-result Interpreter external)))))
     
     (define (show-function-arguments symbol function)
       @convert
-      (let* ((parameters (function-parameters~ Interpreter function))
+      (let* ((parameters (function-parameters Interpreter function))
              (output (open-output-string))
              ;; convert
              (rest 'rest))
@@ -466,7 +467,7 @@
       (define (present-parameter parameter output)
         @convert
         (typecase parameter
-          ((Variable) (format output "{s}" (variable-symbol~ Interpreter parameter)))
+          ((Variable) (format output "{s}" (variable-symbol Interpreter parameter)))
           (else (format output "{s}" parameter))))
       
       (when parameters
@@ -479,11 +480,11 @@
               (else
                (format output ". {a}" parameters)))))
     
-    (when (empty-selection?)
-      (let ((expl (new Jazz-Explorer model start: (get-start) end: (get-end))))
-        (when (and (backward-expr~ expl)
-                   (= (get-kind~ expl) 'symbol))
-          (case (char-backward~ expl 0)
+    (when (empty-selection? self)
+      (let ((expl (new Jazz-Explorer model start: (get-start self) end: (get-end self))))
+        (when (and (backward-expr expl)
+                   (= (get-kind expl) 'symbol))
+          (case (char-backward expl 0)
             ((#\open-parenthesis) (show-declaration-arguments expl)))))))
 
   
@@ -492,18 +493,18 @@
   ;;;
   
   
-  (method (current-category-name)
+  (method (current-category-name self)
     @convert
     (receive (in category-info) (current-toplevel-info)
       (bind (category kind meta? name keywords) category-info
         name)))
   
   
-  (method (toplevel-expr pos)
+  (method package (toplevel-expr self pos)
     (let ((expl (new Jazz-Explorer model start: pos end: pos))
           (range #f))
-      (while (outer-expr~ expl)
-        (set! range (get-range~ expl)))
+      (while (outer-expr expl)
+        (set! range (get-range expl)))
       range))
   
   
@@ -512,10 +513,10 @@
   ;;;
     
   
-  (method override (edit-symbol-class symbol)
+  (method override (edit-symbol-class self symbol)
     @convert
     (when (in-manifest? symbol)
-      (edit-class~ (get-application) symbol)
+      (edit-class (get-application) symbol)
       #t))
   
   
@@ -524,14 +525,14 @@
   ;;;
   
   
-  (method public (on-reprint-current-form evt)
-    (reprint-current-form))
+  (method public (on-reprint-current-form self evt)
+    (reprint-current-form self))
   
   
-  (method public (reprint-current-form (space-tag?: space-tag? #t) (space-name?: space-name? #t))
-    (let ((range (declaration-range (get-end))))
+  (method public (reprint-current-form self (space-tag?: space-tag? #t) (space-name?: space-name? #t))
+    (let ((range (declaration-range self (get-end self))))
       (if range
-          (let ((str (get-string range)))
+          (let ((str (get-string self range)))
             (let ((expr (parameterize ((walk-for #f))
                           (with-jazz-readtable
                             (lambda ()
@@ -544,13 +545,13 @@
                   (let ((form (jml->form (cadr expr))))
                     (if (is? form Form)
                         (let* ((designer (new Former form: form))
-                               (output (saved-form~ designer 2 space-tag?: space-tag? space-name?: space-name?)))
+                               (output (saved-form designer 2 space-tag?: space-tag? space-name?: space-name?)))
                           (if (string=? str output)
                               (user-message "No changes to current form")
-                            (with-update-locked
+                            (with-update-locked self
                               (lambda ()
-                                (set-selection range)
-                                (insert-string output)
+                                (set-selection self range)
+                                (insert-string self output)
                                 (user-message "Current form reprinted")))))
                       (bell)))
                 (bell))))

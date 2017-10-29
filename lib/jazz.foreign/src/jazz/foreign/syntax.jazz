@@ -43,6 +43,26 @@
 
 
 ;;;
+;;;; Hubs
+;;;
+
+
+(hub get-arguments)
+(hub get-body)
+(hub get-c-type)
+(hub get-expansion)
+(hub get-form)
+(hub get-inclusions)
+(hub get-kind)
+(hub get-name)
+(hub get-pointer-types)
+(hub get-signature)
+(hub set-body)
+(hub set-pointer-types)
+(hub set-signature)
+
+
+;;;
 ;;;; C-Include
 ;;;
 
@@ -53,12 +73,12 @@
   (slot name getter generate)
   
   
-  (method override (initialize name . rest)
-    (apply nextmethod rest)
-    (set! name~self name))
+  (method override (initialize self name . rest)
+    (apply nextmethod self rest)
+    (set! self.name name))
   
   
-  (method override (emit-expression declaration environment backend)
+  (method override (emit-expression self declaration environment backend)
     (new-code
       `(c-include ,name)
       Any
@@ -83,13 +103,13 @@
   (slot code getter generate)
   
   
-  (method override (initialize name code . rest)
-    (apply nextmethod rest)
-    (set! name~self name)
-    (set! code~self code))
+  (method override (initialize self name code . rest)
+    (apply nextmethod self rest)
+    (set! self.name name)
+    (set! self.code code))
   
   
-  (method override (emit-expression declaration environment backend)
+  (method override (emit-expression self declaration environment backend)
     (new-code
       `(c-initialization ,name ,code)
       Any
@@ -114,13 +134,13 @@
   (slot code getter generate)
   
   
-  (method override (initialize name code . rest)
-    (apply nextmethod rest)
-    (set! name~self name)
-    (set! code~self code))
+  (method override (initialize self name code . rest)
+    (apply nextmethod self rest)
+    (set! self.name name)
+    (set! self.code code))
   
   
-  (method override (emit-expression declaration environment backend)
+  (method override (emit-expression self declaration environment backend)
     (new-code
       `(c-declaration ,name ,code)
       Any
@@ -146,21 +166,21 @@
   (slot code getter generate)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((code #f) . others) rest
-      (apply nextmethod others)
-      (set! code~self code)))
+      (apply nextmethod self others)
+      (set! self.code code)))
   
   
-  (method override (emit-declaration environment backend)
+  (method override (emit-declaration self environment backend)
     `(begin))
   
   
-  (method override (expand-referenced-declaration)
+  (method override (expand-referenced-declaration self)
     `(c-declaration ,code))
   
   
-  (method override (outline-extract meta)
+  (method override (outline-extract self meta)
     `(c-named-declare ,name ,code)))
 
 
@@ -180,7 +200,7 @@
   (let ((c-named-declare-declaration (lookup-reference walker resume declaration environment symbol)))
     (if (is? c-named-declare-declaration C-Named-Declare-Declaration)
         c-named-declare-declaration
-      (walk-error walker resume declaration #f "{s} did not resolve to a c-named-declare: {s}" symbol (get-locator~ c-named-declare-declaration)))))
+      (walk-error walker resume declaration #f "{s} did not resolve to a c-named-declare: {s}" symbol (get-locator c-named-declare-declaration)))))
 
 
 (define (walk-c-named-declare-declaration walker resume declaration environment form-src)
@@ -222,37 +242,37 @@
   (slot declare-name  getter generate)
 
   
-  (method override (initialize form . rest)
+  (method override (initialize self form . rest)
     (bind-keywords ((kind #f) (c-type #f) (expansion #f) (base-type #f) (inclusions #f) (c-to-scheme #f) (scheme-to-c #f) (cleanup #t) (declare-name #f) . others) rest
-      (apply nextmethod others)
-      (set! form~self form)
-      (set! kind~self kind)
-      (set! c-type~self c-type)
-      (set! expansion~self expansion)
-      (set! base-type~self base-type)
-      (set! pointer-types~self '())
-      (set! inclusions~self inclusions)
-      (set! c-to-scheme~self c-to-scheme)
-      (set! scheme-to-c~self scheme-to-c)
-      (set! cleanup~self cleanup)
-      (set! declare-name~self declare-name)))
+      (apply nextmethod self others)
+      (set! self.form form)
+      (set! self.kind kind)
+      (set! self.c-type c-type)
+      (set! self.expansion expansion)
+      (set! self.base-type base-type)
+      (set! self.pointer-types '())
+      (set! self.inclusions inclusions)
+      (set! self.c-to-scheme c-to-scheme)
+      (set! self.scheme-to-c scheme-to-c)
+      (set! self.cleanup cleanup)
+      (set! self.declare-name declare-name)))
   
   
-  (method override (get-declaration-inclusions)
+  (method override (get-declaration-inclusions self)
     inclusions)
   
   
-  (method override (emit-declaration environment backend)
+  (method override (emit-declaration self environment backend)
     `(begin))
   
   
-  (method override (expand-referenced-declaration)
+  (method override (expand-referenced-declaration self)
     `(c-define-type ,locator ,expansion ,@(if (and c-to-scheme scheme-to-c)
                                               (list c-to-scheme scheme-to-c cleanup)
                                             '())))
   
   
-  (method override (outline-extract meta)
+  (method override (outline-extract self meta)
     form))
 
 
@@ -284,7 +304,7 @@
             (let ((new-declaration (or (find-declaration-child declaration name)
                                        (new C-Type-Declaration (desourcify-all form-src) name: name type: type access: access compatibility: compatibility attributes: '() parent: declaration kind: kind c-type: c-type expansion: expansion base-type: base-type-declaration inclusions: inclusions c-to-scheme: c-to-scheme scheme-to-c: scheme-to-c cleanup: cleanup declare-name: declare-name))))
               (when base-type-declaration
-                (set-pointer-types~ base-type-declaration (cons new-declaration (get-pointer-types~ base-type-declaration))))
+                (set-pointer-types base-type-declaration (cons new-declaration (get-pointer-types base-type-declaration))))
               (let ((effective-declaration (add-declaration-child walker resume declaration new-declaration)))
                 effective-declaration))))
       (walk-error walker resume declaration form-src "C types can only be defined at the module level: {s}" name))))
@@ -304,7 +324,7 @@
                  (values 'native 'int #f)
                (let ((c-type-declaration (resolve-c-type-reference walker resume declaration environment type)))
                  (enqueue queue c-type-declaration)
-                 (values 'alias (get-locator~ c-type-declaration) #f))))
+                 (values 'alias (get-locator c-type-declaration) #f))))
             ((string? type)
              (values 'type type #f))
             ((pair? type)
@@ -347,13 +367,13 @@
   (let ((c-type-declaration (lookup-reference walker resume declaration environment symbol)))
     (if (is? c-type-declaration C-Type-Declaration)
         c-type-declaration
-      (walk-error walker resume declaration #f "{s} did not resolve to a c-type: {s}" symbol (get-locator~ c-type-declaration)))))
+      (walk-error walker resume declaration #f "{s} did not resolve to a c-type: {s}" symbol (get-locator c-type-declaration)))))
 
 
 (define (expand-c-type-reference walker resume declaration environment type)
   (receive (kind expansion base-type-declaration inclusions) (resolve-c-type walker resume declaration environment type)
-    (let ((module-declaration (get-toplevel~ declaration)))
-      (set-inclusions~ module-declaration (append (get-inclusions~ module-declaration) inclusions))
+    (let ((module-declaration (get-toplevel declaration)))
+      (set-inclusions module-declaration (append (get-inclusions module-declaration) inclusions))
       expansion)))
 
 
@@ -377,9 +397,9 @@
 (define (expand-accessor walker resume declaration environment clause struct)
   (define (kind+type type)
     (let loop ((declaration (resolve-c-type-reference walker resume declaration environment type)))
-         (let ((kind (get-kind~ declaration))
-               (expansion (get-expansion~ declaration))
-               (inclusions (get-inclusions~ declaration)))
+         (let ((kind (get-kind declaration))
+               (expansion (get-expansion declaration))
+               (inclusions (get-inclusions declaration)))
            (if (eq? kind 'alias)
                (loop (car inclusions))
              (values kind expansion)))))
@@ -535,16 +555,16 @@
   (slot arguments getter generate)
   
   
-  (method override (initialize code arguments . rest)
-    (apply nextmethod rest)
-    (set! code~self code)
-    (set! arguments~self arguments))
+  (method override (initialize self code arguments . rest)
+    (apply nextmethod self rest)
+    (set! self.code code)
+    (set! self.arguments arguments))
   
   
-  (method override (emit-expression declaration environment backend)
+  (method override (emit-expression self declaration environment backend)
     (new-code
       `(##c-code ,code ,@(map (lambda (argument)
-                                (sourcified-form (emit-expression~ argument declaration environment backend)))
+                                (sourcified-form (emit-expression argument declaration environment backend)))
                               arguments))
       Any
       #f)))
@@ -568,12 +588,12 @@
   (slot expansion getter generate)
   
   
-  (method override (initialize expansion . rest)
-    (apply nextmethod rest)
-    (set! expansion~self expansion))
+  (method override (initialize self expansion . rest)
+    (apply nextmethod self rest)
+    (set! self.expansion expansion))
   
   
-  (method override (emit-expression declaration environment backend)
+  (method override (emit-expression self declaration environment backend)
     (new-code
       expansion
       Any
@@ -615,7 +635,7 @@
         
         (define (enum-type? resolved-type)
           (and (is? resolved-type C-Type-Declaration)
-               (eq? (get-c-type~ resolved-type) 'enum)))
+               (eq? (get-c-type resolved-type) 'enum)))
         
         (define (literal-type? type)
           (memq? type literal-types))
@@ -655,7 +675,7 @@
         (define (convert-code special-types? types resolved-types c-name-or-code)
           (define (convert-type type resolved-type arg)
             (cond ((enum-type? resolved-type)
-                   (let ((name (get-name~ resolved-type)))
+                   (let ((name (get-name resolved-type)))
                      (string-append "(" (symbol->string name) ")" arg)))
                   ((literal-type? type)
                    type)
@@ -738,23 +758,23 @@
   (slot body            accessors generate)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((signature #f) (parameter-types #f) (result-type #f) (c-name #f) (scope #f) . others) rest
-      (apply nextmethod others)
-      (set! signature~self signature)
-      (set! parameter-types~self parameter-types)
-      (set! result-type~self result-type)
-      (set! c-name~self c-name)
-      (set! scope~self scope)
-      (set! body~self #f)))
+      (apply nextmethod self others)
+      (set! self.signature signature)
+      (set! self.parameter-types parameter-types)
+      (set! self.result-type result-type)
+      (set! self.c-name c-name)
+      (set! self.scope scope)
+      (set! self.body #f)))
   
   
-  (method override (walk-binding-validate-call walker resume source-declaration operator arguments form-src)
+  (method override (walk-binding-validate-call self walker resume source-declaration operator arguments form-src)
     (if signature
         (validate-arguments walker resume source-declaration self signature arguments form-src)))
   
   
-  (method override (emit-declaration environment backend)
+  (method override (emit-declaration self environment backend)
     (with-annotated-frame (annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
@@ -764,19 +784,20 @@
             source)))))
   
   
-  (method override (emit-binding-reference source-declaration environment backend)
+  (method override (emit-binding-reference self source-declaration environment backend)
     (new-code
       (emit backend 'c-definition-reference self)
       Any
       #f))
   
   
-  (method override (outline-extract meta)
+  (method override (outline-extract self meta)
     #f)
   
   
-  (method override (tree-fold down up here seed environment)
-    (tree-fold~ body down up here seed environment)))
+  (method override (tree-fold self down up here seed environment)
+    (here self seed environment)
+    (tree-fold body down up here seed environment)))
 
 
 (define c-definition-modifiers
@@ -806,7 +827,7 @@
     (let ((signature (walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (or (find-declaration-child declaration name)
                                  (new C-Definition-Declaration name: name type: type access: access compatibility: compatibility attributes: '() parent: declaration signature: signature parameter-types: (map resolve-access parameter-types) result-type: (resolve-access result-type) c-name: c-name scope: scope))))
-        (set-source~ new-declaration form-src)
+        (set-source new-declaration form-src)
         (let ((effective-declaration (add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 
@@ -815,9 +836,9 @@
   (receive (name type access compatibility parameters parameter-types result-type c-name scope body) (parse-c-definition walker resume declaration (cdr (source-code form-src)))
     (let ((new-declaration (require-declaration declaration name)))
       (receive (signature augmented-environment) (walk-parameters walker resume declaration environment parameters #f #t)
-        (set-signature~ new-declaration signature)
-        (set-body~ new-declaration (walk-body walker resume new-declaration augmented-environment body))
-        (set-source~ new-declaration form-src)
+        (set-signature new-declaration signature)
+        (set-body new-declaration (walk-body walker resume new-declaration augmented-environment body))
+        (set-source new-declaration form-src)
         new-declaration))))
 
 
@@ -874,25 +895,30 @@
 ;;;
 
 
-(macro public (c-external signature result-type . rest)
-  (define (parse-specifier proc)
-    (if (and (not-null? rest)
-             (specifier? (car rest)))
-        (proc (car rest) (cdr rest))
-      (proc #f rest)))
-  
-  (parse-specifier
-    (lambda (specifier rest)
-      (let ((name (car signature))
-            (types (cdr signature)))
-        (define (specifier->function-type)
-          (let ((str (symbol->string specifier)))
-            (let ((len (string-length str)))
-              (string->symbol (string-append "<:" (substring str 1 (- len 1)) ">")))))
-        
-        (let ((c-name-or-code (if (null? rest) (symbol->string name) (car rest))))
-          `(definition public ,name ,@(if specifier (list (specifier->function-type)) '())
-             (c-function ,name ,types ,result-type ,c-name-or-code)))))))
+(syntax public c-external
+  (lambda (form-src usage-environment macro-environment)
+    (bind (signature result-type . rest) (cdr (source-code form-src))
+      (define (parse-specifier proc)
+        (if (and (not-null? rest)
+                 (specifier? (source-code (car rest))))
+            (proc (source-code (car rest)) (cdr rest))
+          (proc #f rest)))
+      
+      (parse-specifier
+        (lambda (specifier rest)
+          (let ((signature (source-code signature)))
+            (let ((name (car signature))
+                  (types (cdr signature)))
+              (define (specifier->function-type)
+                (let ((str (symbol->string specifier)))
+                  (let ((len (string-length str)))
+                    (string->symbol (string-append "<:" (substring str 1 (- len 1)) ">")))))
+              
+              (let ((c-name-or-code (if (null? rest) (symbol->string (source-code name)) (car rest))))
+                (sourcify-deep-if
+                  `(definition public ,name ,@(if specifier (list (specifier->function-type)) '())
+                     (c-function ,name ,types ,result-type ,c-name-or-code))
+                  form-src)))))))))
 
 
 ;;;
@@ -900,13 +926,19 @@
 ;;;
 
 
-(macro public (c-callable signature result-type (c-name-or-code #f))
-  (let ((name (car signature))
-        (parameters (cdr signature)))
-    (let ((c-name (string->symbol (string-append (symbol->string name) "$c"))))
-      `(begin
-         (c-external ,(cons c-name parameters) ,result-type ,(or c-name-or-code (symbol->string name)))
-         (definition public (,name . rest)
-           (with-callable ',name
-             (lambda ()
-               (apply ,c-name rest)))))))))
+(syntax public c-callable
+  (lambda (form-src usage-environment macro-environment)
+    (bind (signature result-type . rest) (cdr (source-code form-src))
+      (bind-optionals ((c-name-or-code #f)) rest
+        (let ((signature (source-code signature)))
+          (let ((name (car signature))
+                (parameters (cdr signature)))
+            (let ((c-name (string->symbol (string-append (symbol->string (source-code name)) "$c"))))
+              (sourcify-deep-if
+                `(begin
+                   (c-external ,(cons c-name parameters) ,result-type ,(or c-name-or-code (symbol->string (source-code name))))
+                   (definition public (,name . rest)
+                     (with-callable ',name
+                       (lambda ()
+                         (apply ,c-name rest)))))
+                form-src)))))))))

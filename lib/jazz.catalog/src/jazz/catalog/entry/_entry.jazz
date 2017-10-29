@@ -50,23 +50,23 @@
   (get-cataloguer))
 
 
-(definition public (find-entries name (kind #f))
-  (let ((definitions (get-definitions~ (entry-cataloguer) name)))
+(definition public (find-cataloguer-entries name (kind #f))
+  (let ((definitions (get-definitions (entry-cataloguer) name)))
     (if (not kind)
         definitions
       (collect-if (lambda (definition)
-                    (eq? (get-kind~ definition) kind))
+                    (eq? (get-kind definition) kind))
                   definitions))))
 
 
-(definition public (find-entry name (kind #f))
-  (let ((entries (find-entries name kind)))
+(definition public (find-cataloguer-entry name (kind #f))
+  (let ((entries (find-cataloguer-entries name kind)))
     (and (not-null? entries)
          (car entries))))
 
 
-(definition public (require-entry name)
-  (or (find-entry name)
+(definition public (require-cataloguer-entry name)
+  (or (find-cataloguer-entry name)
       (error "Unable to find entry: {s}" name)))
 
 
@@ -74,7 +74,7 @@
   (bind (file line) location
     (let ((file-entry (cache-file-entry file)))
       (and file-entry
-           (line->entry~ file-entry line)))))
+           (line->entry file-entry line)))))
 
 
 ;;;
@@ -83,7 +83,7 @@
 
 
 (definition public (entry-parameter entry name)
-  (let ((pair (assv name (get-parameters~ entry))))
+  (let ((pair (assv name (get-parameters entry))))
     (if pair
         (cdr pair)
       #f)))
@@ -106,11 +106,11 @@
 
 
 (definition public (entry-module entry)
-  (let ((file-entry (get-file-definition~ entry)))
-    (let ((file-definitions (get-definitions~ file-entry)))
+  (let ((file-entry (get-file-definition entry)))
+    (let ((file-definitions (get-definitions file-entry)))
       (assert (not-null? file-definitions)
         (let ((module-entry (car file-definitions)))
-          (assert (eq? (get-kind~ module-entry) 'module)
+          (assert (eq? (get-kind module-entry) 'module)
             module-entry))))))
 
 
@@ -120,11 +120,11 @@
 
 
 (definition public (class-entry? obj)
-  (eq? (get-kind~ obj) 'class))
+  (eq? (get-kind obj) 'class))
 
 
 (definition public (class-entry name)
-  (find-entry name 'class))
+  (find-cataloguer-entry name 'class))
 
 
 (definition public (class-entry-ascendant entry)
@@ -153,7 +153,7 @@
   (collect-if (lambda (reference)
                 (and (class-entry? reference)
                      (eq? (class-entry-ascendant reference) entry)))
-              (get-references~ (entry-cataloguer) (get-name~ entry))))
+              (get-references (entry-cataloguer) (get-name entry))))
 
 
 (definition public (class-entry-descendants-recursive entry)
@@ -170,7 +170,7 @@
 
 
 (definition public (interface-entry name)
-  (find-entry name 'interface))
+  (find-cataloguer-entry name 'interface))
 
 
 ;;;
@@ -179,19 +179,19 @@
 
 
 (definition public (method-entries name)
-  (find-entries name 'method))
+  (find-cataloguer-entries name 'method))
 
 
 (definition public (method-entry-class entry)
-  (get-parent~ entry))
+  (get-parent entry))
 
 
 (definition public (method-entry-descendants entry)
-  (let ((name (->string (get-name~ entry)))
-        (class (get-parent~ entry))
+  (let ((name (->string (get-name entry)))
+        (class (get-parent entry))
         (queue (new-queue)))
     (let (iter (class class))
-      (let ((method (find-definition~ class name)))
+      (let ((method (find-definition class name)))
         (when method
           (enqueue queue method)))
       (for-each iter (class-entry-descendants class)))

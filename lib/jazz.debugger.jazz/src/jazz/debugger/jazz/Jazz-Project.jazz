@@ -42,7 +42,9 @@
         (jazz.debugger)
         (jazz.debugger.gambit)
         (jazz.descriptor)
+        (jazz.designer)
         (jazz.feedback)
+        (jazz.ide)
         (jazz.io)
         (jazz.jrm)
         (jazz.network)
@@ -75,12 +77,12 @@
   ;;;
   
   
-  (method override (project-action launch-action . rest)
+  (method override (project-action self launch-action . rest)
     (case launch-action
-      ((run) (apply project-run rest))
-      ((debug) (apply project-debug rest))
-      ((test) (apply project-test rest))
-      ((validate) (apply project-validate rest))
+      ((run) (apply (~ project-run self) rest))
+      ((debug) (apply (~ project-debug self) rest))
+      ((test) (apply (~ project-test self) rest))
+      ((validate) (apply (~ project-validate self) rest))
       (else (error "Unknown launch action: {s}" launch-action))))
 
 
@@ -89,13 +91,13 @@
   ;;;
   
   
-  (method override (project-run (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method override (project-run self (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
     (if debug-script
         (parameterize ((current-script-arguments `(run ,self ,@(or script-arguments '()))))
-          (load-script (parse~ debug-script)))
+          (load-script (parse debug-script)))
       (if product
-          (launch
-            executable: (project-executable)
+          (launch self
+            executable: (project-executable self)
             debugger?: #f
             profile: profile
             command-action: command-action
@@ -111,12 +113,12 @@
   ;;;
   
   
-  (method override (project-debug (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (debugger-cookie: debugger-cookie #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method override (project-debug self (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (debugger-cookie: debugger-cookie #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
     (if debug-script
         (parameterize ((current-script-arguments `(debug ,self ,@(or script-arguments '()) command-arguments: ,command-arguments)))
-          (load-script (parse~ debug-script)))
+          (load-script (parse debug-script)))
       (if product
-          (launch
+          (launch self
             executable: executable
             debugger?: #t
             debugger-interactive?: debugger-interactive?
@@ -134,12 +136,12 @@
   ;;;
   
   
-  (method override (project-test (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method override (project-test self (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
     (cond (test-unit
            (load-unit test-unit))
           (product
-           (launch
-             executable: (project-executable)
+           (launch self
+             executable: (project-executable self)
              action: "-test"
              debugger?: #t
              profile: profile
@@ -157,12 +159,12 @@
   ;;;
   
   
-  (method override (project-validate (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (debugger-cookie: debugger-cookie #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method override (project-validate self (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (debugger-cookie: debugger-cookie #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
     (if validate-script
         (parameterize ((current-script-arguments `(validate ,self ,@(or script-arguments '()))))
-          (load-script (parse~ validate-script)))
+          (load-script (parse validate-script)))
       (if product
-          (launch
+          (launch self
             executable: executable
             debugger?: #t
             debugger-interactive?: debugger-interactive?
@@ -182,18 +184,18 @@
   ;;;
   
   
-  (method override (launch (executable: executable #f) (directory: directory #f) (kernel-arguments: kernel-arguments #f) (action: action #f) (debugger?: debugger? #f) (debugger-cookie: debugger-cookie #f) (debugger-interactive?: debugger-interactive? #f) (validate?: validate? #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f) (invite: invite #f))
+  (method override (launch self (executable: executable #f) (directory: directory #f) (kernel-arguments: kernel-arguments #f) (action: action #f) (debugger?: debugger? #f) (debugger-cookie: debugger-cookie #f) (debugger-interactive?: debugger-interactive? #f) (validate?: validate? #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f) (invite: invite #f))
     (define (determine-kernel)
-      (let ((kernel (or executable (project-executable))))
-        (if (and kernel (exists?~ kernel))
+      (let ((kernel (or executable (project-executable self))))
+        (if (and kernel (exists? kernel))
             kernel
           (choose&save-kernel))))
     
     (define (choose&save-kernel)
       (let ((file (choose-kernel)))
-        (let ((manager (get-workbench-manager~ (get-application))))
-          (let ((designer (get-designer~ manager)))
-            (set-property~ designer self 'executable file)))
+        (let ((manager (get-workbench-manager (get-application))))
+          (let ((designer (get-designer manager)))
+            (set-property designer self 'executable file)))
         file))
     
     (define (filter-application-trait traits)
@@ -202,11 +204,11 @@
                          (not (starts-with? (symbol->string trait) "Application.")))
                        traits)))
     
-    (let ((ide (get-process))
+    (let ((ide (current-process))
           (cookie (or debugger-cookie (register-debugger-cookie))))
       (when debugger?
-        (start-remote-server~ ide)
-        (start-debuggers~ ide))
+        (start-remote-server ide)
+        (start-debuggers ide))
       (register-debugger-cookie-procedure cookie
         (lambda (process cookie)
           (clear-user-message)))
@@ -214,84 +216,84 @@
              (runtime-arg              (list @wait "-:m250000,h1000000"))
              (product-arg              (list (or action "-run") (->string product)))
              (kernel-arguments-arg     (if kernel-arguments kernel-arguments '()))
-             (repositories-arg         (project-repositories-arg))
-             (home-arg                 (if home (list "-home" (parse~ home)) '()))
-             (debugger-arg             (if debugger? (list "-debugger" (encode-host/port (or (listening-host~ (get-remote-listener)) "localhost") (listening-port~ (get-remote-listener)))) '()))
+             (repositories-arg         (project-repositories-arg self))
+             (home-arg                 (if home (list "-home" (parse home)) '()))
+             (debugger-arg             (if debugger? (list "-debugger" (encode-host/port (or (listening-host (get-remote-listener)) "localhost") (listening-port (get-remote-listener)))) '()))
              (debugger-cookie-arg      (if debugger? (list "-debugger-cookie" (->string cookie)) '()))
              (debugger-interactive-arg (if (and debugger? debugger-interactive?) (list "-debugger-interactive" "true") '()))
-             (process-title-arg        (list "-process-title" (->string (project-title))))
-             (process-traits-arg       (let ((traits (filter-application-trait (get-default-traits)))) (if traits (list "-process-traits" (present-process-traits traits)) '())))
+             (process-title-arg        (list "-process-title" (->string (project-title self))))
+             (process-traits-arg       (let ((traits (filter-application-trait (get-default-traits self)))) (if traits (list "-process-traits" (present-process-traits traits)) '())))
              (validate-arg             (if validate? (list "-validate" (->string name)) '()))
-             (profile                  (or profile (project-profile)))
+             (profile                  (or profile (project-profile self)))
              (profile-arg              (if profile (list "-profile" (->string profile)) '()))
              (action-arg               (if command-action (list command-action) '()))
              (arguments-arg            (if command-arguments command-arguments '()))
              (project-arg              (if arguments arguments '()))
-             (toplevel-arg             (let ((pref (get-preferences 'debug)))
-                                         (let ((toplevel-state (get-toplevel-state~ pref))
-                                               (toplevel-monitor (get-toplevel-monitor~ pref))
-                                               (toplevel-position (get-toplevel-position~ pref))
-                                               (toplevel-size (get-toplevel-size~ pref)))
+             (toplevel-arg             (let ((pref (current-preferences 'debug)))
+                                         (let ((toplevel-state (get-toplevel-state pref))
+                                               (toplevel-monitor (get-toplevel-monitor pref))
+                                               (toplevel-position (get-toplevel-position pref))
+                                               (toplevel-size (get-toplevel-size pref)))
                                            (append (if toplevel-state (list "-toplevel-state" (->string toplevel-state)) '())
                                                    (if toplevel-monitor (list "-toplevel-monitor" (->string toplevel-monitor)) '())
                                                    (if toplevel-position (list "-toplevel-position" (point->argument toplevel-position)) '())
                                                    (if toplevel-size (list "-toplevel-size" (dimension->argument toplevel-size)) '())))))
              (arguments                (append runtime-arg action-arg product-arg kernel-arguments-arg repositories-arg arguments-arg home-arg debugger-arg debugger-cookie-arg debugger-interactive-arg process-title-arg process-traits-arg validate-arg profile-arg project-arg toplevel-arg)))
-        (save-all~ ide)
+        (save-all ide)
         (when debugger?
           (user-message "{a} {a}..." (or invite "Debugging") (get-presentation-property self)))
         @debug
-        (debug (path-normalize (parse~ executable)) directory: (or directory working) arguments: arguments)
+        (debug (path-normalize (parse executable)) directory: (or directory working) arguments: arguments)
         (launch-executable executable
           directory: (or directory working)
           arguments: arguments
           show-console?: show-console?))))
   
   
-  (method protected virtual (project-profile)
+  (method protected virtual (project-profile self)
     profile)
   
   
-  (method (projects-project?)
+  (method (projects-project? self)
     (and directory
          (is-alias? 'Projects)
-         (equal? (get-list~ directory) '(Projects))))
+         (equal? (get-list directory) '(Projects))))
   
   
-  (method (project-repositories-arg)
-    (if (projects-project?)
-        (list "-repositories" (parse~ {Directory Projects}))
+  (method (project-repositories-arg self)
+    (if (projects-project? self)
+        (list "-repositories" (parse {Directory Projects}))
       '()))
   
   
-  (method public (project-kernel (executable-name: executable-name #f))
+  (method public (project-kernel self (executable-name: executable-name #f))
     ;; another quick hack until major cleanup of this mess
     (if (file? executable-name)
         executable-name
-    (if (projects-project?)
+    (if (projects-project? self)
         (find-actual-kernel)
       (let ((executable (if directory
                             (let ((kernel-name (add-extension (or executable-name "jazz") (executable-extension kernel-platform))))
                               (cond ((directory? configuration)
-                                     (new-file~ configuration kernel-name))
+                                     (new-file configuration kernel-name))
                                     ((string? configuration)
-                                     (new-file~ (new-directory~ directory configuration) kernel-name))
+                                     (new-file (new-directory directory configuration) kernel-name))
                                     ((not configuration)
-                                     (new-file~ directory kernel-name))
+                                     (new-file directory kernel-name))
                                     (else
                                      (error "Ill-formed configuration: {s}" configuration))))
                           (find-actual-kernel))))
-        (if (and executable (exists?~ executable))
+        (if (and executable (exists? executable))
             executable
           (let ((actual (find-actual-kernel)))
-            (let ((answer (message-box (format "Unable to find configuration kernel{?~: {a}~}{%}{%}Use Jedi's kernel as fallback?" (parse~ executable)) type: 'question)))
+            (let ((answer (message-box (format "Unable to find configuration kernel{?~: {a}~}{%}{%}Use Jedi's kernel as fallback?" (parse executable)) type: 'question)))
               (if (eq? answer 'no)
                   (signal-cancel)
                 actual))))))))
   
   
-  (method (project-executable)
-    (project-kernel executable-name: executable))
+  (method (project-executable self)
+    (project-kernel self executable-name: executable))
 
 
   ;;;
@@ -299,13 +301,13 @@
   ;;;
 
 
-  (method override (project-build)
+  (method override (project-build self)
     (if product
         (begin
           ;; should be only the project's files...
-          (save-all~ (get-application))
-          (let* ((kernel           (project-kernel))
-                 (repositories-arg (project-repositories-arg))
+          (save-all (get-application))
+          (let* ((kernel           (project-kernel self))
+                 (repositories-arg (project-repositories-arg self))
                  (make-arg         (list "-make" (->string product)))
                  ;; until truncation bug fixed in parallel build
                  (debug-arg        (list "-debug"))
@@ -319,5 +321,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.debugger.jazz.descriptors:Jazz-Project-Descriptor))))

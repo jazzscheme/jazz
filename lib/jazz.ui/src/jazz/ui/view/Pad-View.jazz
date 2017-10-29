@@ -55,24 +55,24 @@
   ;;;
 
 
-  (method override (size-change size)
-    (nextmethod size)
-    (layout-view))
+  (method override (size-change self size)
+    (nextmethod self size)
+    (layout-view self))
   
   
-  (method override (layout)
-    (let* ((size (get-size))
+  (method override (layout self)
+    (let* ((size (get-size self))
            (proc
             (lambda (child visible?)
-              (set-visible?~ child visible?)
-              (set-position~ child {Point 0 0})
-              (set-size~ child size))))
+              (set-visible? child visible?)
+              (set-position child {Point 0 0})
+              (set-size child size))))
       (for-each (lambda (child)
-                  (when (eq? (get-location~ child) 'selection)
+                  (when (eq? (get-location child) 'selection)
                     (proc child #t)))
                 children)
       (for-each (lambda (child)
-                  (when (neq? (get-location~ child) 'selection)
+                  (when (neq? (get-location child) 'selection)
                     (proc child #f)))
                 children)))
   
@@ -82,20 +82,20 @@
   ;;;
   
   
-  (method public (add-view view)
-    (set-parent~ view self))
+  (method public (add-view self view)
+    (set-parent view self))
   
   
-  (method public (remove-view view)
-    (set-parent~ view #f))
+  (method public (remove-view self view)
+    (set-parent view #f))
     
   
-  (method public (remove-children)
+  (method public (remove-children self)
     (for-each (lambda (child)
-                (set-visible?~ child #f)
-                (set-parent~ child #f)
+                (set-visible? child #f)
+                (set-parent child #f)
                 (when (is? child Host-View)
-                  (host-uninstall~ (get-guest~ child))))
+                  (host-uninstall (get-guest child))))
               children))
 
   
@@ -104,36 +104,36 @@
   ;;;
   
   
-  (method public (get-selection)
+  (method public (get-selection self)
     (find-if (lambda (child)
-               (eq? (get-location~ child) 'selection))
+               (eq? (get-location child) 'selection))
              children))
   
   
-  (method public (set-selection target)
+  (method public (set-selection self target)
     (define (save-preferences)
       (when (is? target Docked-Host)
-        (let ((target-pref (get-preferences~ target))
-              (designer (get-workspaces-designer~ (get-application))))
+        (let ((target-pref (get-preferences target))
+              (designer (get-workspaces-designer (get-application))))
           (when (and preferences target-pref designer)
-            (let ((children (get-children~ preferences)))
+            (let ((children (get-children preferences)))
               (when #t @wait (every? (lambda (child)
                               (descendant-owned-by-reference?~ designer child))
                             children)
                 (for-each (lambda (child)
                             (when (is? child Docked-Preferences)
-                              (set-property~ designer child 'location (if (eq? child target-pref) 'selection #f))))
+                              (set-property designer child 'location (if (eq? child target-pref) 'selection #f))))
                           children)))))))
     
     (for-each (lambda (child)
-                (set-location~ child (if (eq? child target) 'selection #f)))
+                (set-location child (if (eq? child target) 'selection #f)))
               children)
-    (layout-view)
+    (layout-view self)
     (save-preferences))
   
   
-  (method public (select-next)
-    (let ((next (next-child (get-selection))))
-      (set-selection next)
-      (focus-host~ (get-host~ next))
+  (method public (select-next self)
+    (let ((next (next-child self (get-selection self))))
+      (set-selection self next)
+      (focus-host (get-host next))
       next))))

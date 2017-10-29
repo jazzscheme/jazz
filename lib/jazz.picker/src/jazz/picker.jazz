@@ -38,8 +38,21 @@
 (module jazz.picker jazz
 
 
+(hub change-highlight-rect)
+(hub default-highlight)
+(hub get-click)
+(hub get-highlight)
+(hub get-highlighted-position)
+(hub get-highlighted-rect)
+(hub get-highlighted-view)
+(hub get-last-cell-rect)
+(hub get-last-view-rect)
+(hub update-highlight)
+
+
 (import (jazz.action)
         (jazz.application)
+        (jazz.component)
         (jazz.event)
         (jazz.feedback)
         (jazz.geometry)
@@ -85,22 +98,22 @@
                         (when (and (or (not include) (memq? overlapped include))
                                    (or (not exclude) (not (memq? overlapped exclude))))
                           (let ((overlay (install-overlay overlapped click menu highlight highlight-root-only? report-figure? obscure-unhighlighted? tooltips?)))
-                            (invalidate-view~ overlay)
+                            (invalidate-view overlay)
                             (set! All-Overlays (cons overlay All-Overlays)))))
                       windows)
-            (simulate-mouse-move~ (get-toplevel))
+            (simulate-mouse-move (current-toplevel))
             (set! In-Pick? #t)))))))
 
 
 (definition (install-overlay overlapped click menu highlight highlight-root-only? report-figure? obscure-unhighlighted? tooltips?)
-  (let ((old-root (get-root~ overlapped))
+  (let ((old-root (get-root overlapped))
         (new-root (new Picker-Root)))
-    (set-parent~ old-root new-root)
-    (set-root~ overlapped new-root detach?: #f)
+    (set-parent old-root new-root)
+    (set-root overlapped new-root detach?: #f)
     (new Picker-Overlay
       parent: new-root
       position: {Point 0 0}
-      size: (get-size~ new-root)
+      size: (get-size new-root)
       click: click
       menu: menu
       highlight: highlight
@@ -111,17 +124,17 @@
 
 
 (definition (remove-overlay overlay)
-  (let ((overlapped (get-overlapped~ overlay))
-        (new-root (get-root~ overlay)))
+  (let ((overlapped (get-overlapped overlay))
+        (new-root (get-root overlay)))
     (when new-root
-      (let ((old-root (first-child~ new-root)))
-        (set-parent~ old-root #f)
-        (set-root~ overlapped old-root)))
-    (close~ overlay)))
+      (let ((old-root (first-child new-root)))
+        (set-parent old-root #f)
+        (set-root overlapped old-root)))
+    (close overlay)))
 
 
 (definition (root-overlay root)
-  (second (get-children~ root)))
+  (second (get-children root)))
 
 
 (definition (shortcut-hook shortcut)
@@ -134,50 +147,50 @@
         ((not *highlighted-overlay*)
          #f)
         (else
-         (let ((highlighted-view (get-highlighted-view~ *highlighted-overlay*))
-               (highlighted-position (get-highlighted-position~ *highlighted-overlay*)))
+         (let ((highlighted-view (get-highlighted-view *highlighted-overlay*))
+               (highlighted-position (get-highlighted-position *highlighted-overlay*)))
            (define (setup-view view)
-             (let ((pos (acquire~ view highlighted-view highlighted-position)))
-               (default-highlight~ *highlighted-overlay* view pos)
-               (update-tooltip~ view (display-description (view-describe view pos)))
+             (let ((pos (acquire view highlighted-view highlighted-position)))
+               (default-highlight *highlighted-overlay* view pos)
+               (update-tooltip view (display-description (view-describe view pos)))
                (user-message "{a}" view)))
            
            (cond ((shortcut=? shortcut {Shortcut Up})
-                  (if (eq? (get-highlighted-rect~ *highlighted-overlay*)
-                           (get-last-cell-rect~ *highlighted-overlay*))
-                      (change-highlight-rect~ *highlighted-overlay* (get-last-view-rect~ *highlighted-overlay*))
-                    (let ((parent (find-ascendant~ highlighted-view View)))
+                  (if (eq? (get-highlighted-rect *highlighted-overlay*)
+                           (get-last-cell-rect *highlighted-overlay*))
+                      (change-highlight-rect *highlighted-overlay* (get-last-view-rect *highlighted-overlay*))
+                    (let ((parent (find-ascendant highlighted-view View)))
                       (if (or (not parent) (is? parent Picker-Root))
                           (bell)
                         (setup-view parent))))
                   #t)
                  ((shortcut=? shortcut {Shortcut Down})
-                  (let ((first (first-view~ highlighted-view)))
+                  (let ((first (first-view highlighted-view)))
                     (if (not first)
                         (bell)
                       (setup-view first)))
                   #t)
                  ((shortcut=? shortcut {Shortcut Right})
-                  (let ((brother (next-brother~ highlighted-view type: View)))
+                  (let ((brother (next-brother highlighted-view type: View)))
                     (if (eq? brother highlighted-view)
                         (bell)
                       (setup-view brother)))
                   #t)
                  ((shortcut=? shortcut {Shortcut Left})
-                  (let ((brother (previous-brother~ highlighted-view type: View)))
+                  (let ((brother (previous-brother highlighted-view type: View)))
                     (if (eq? brother highlighted-view)
                         (bell)
                       (setup-view brother)))
                   #t)
                  ((shortcut=? shortcut {Shortcut Return})
                   (end-pick)
-                  (let ((click (get-click~ *highlighted-overlay*)))
+                  (let ((click (get-click *highlighted-overlay*)))
                     (click highlighted-view highlighted-position))
                   #f)
                  ((shortcut=? shortcut {Shortcut F8})
                   (end-pick)
                   ;; quick solution
-                  (simulate-mouse-move~ (get-toplevel))
+                  (simulate-mouse-move (current-toplevel))
                   #t)
                  (else
                   #f))))))
@@ -193,7 +206,7 @@
 
 
 (definition (setup-pick)
-  (set-shortcut-hook~ (get-application) shortcut-hook))
+  (set-shortcut-hook (get-application) shortcut-hook))
 
 
 (definition (end-pick)
@@ -202,9 +215,9 @@
     (set! All-Overlays '()))
   
   (set! In-Pick? #f)
-  (set-shortcut-hook~ (get-application) #f)
+  (set-shortcut-hook (get-application) #f)
   (close-overlays)
-  (simulate-mouse-move~ (get-toplevel)))
+  (simulate-mouse-move (current-toplevel)))
 
 
 ;;;
@@ -245,7 +258,7 @@
   ;;;
   
   
-  (method override (cursor-update evt)
+  (method override (cursor-update self evt)
     (set-cursor :spy))
   
   
@@ -254,35 +267,35 @@
   ;;;
   
   
-  (method override (close-self-tooltip)
+  (method override (close-self-tooltip self)
     (when *current-tooltip-context*
-      (close-tooltip)))
+      (close-tooltip self)))
   
   
-  (method override (get-tooltip?)
+  (method override (get-tooltip? self)
     tooltips?)
   
   
-  (method override (get-formatted-tooltip?)
+  (method override (get-formatted-tooltip? self)
     #t)
   
   
   (definition (calculate-tooltip-bounds view pos)
     (if view
-        (values (get-tooltip-bounds~ view pos)
-                (let ((display (get-display~ view)))
-                  (acquire~ view display (get-bounds~ display))))
+        (values (get-tooltip-bounds view pos)
+                (let ((display (get-display view)))
+                  (acquire view display (get-bounds display))))
       (values #f #f)))
   
   
-  (method override (get-tooltip-bounds pos)
-    (receive (view pos) (find-view-info pos)
+  (method override (get-tooltip-bounds self pos)
+    (receive (view pos) (find-view-info self pos)
       (receive (cell-rect view-rect) (calculate-tooltip-bounds view pos)
         (or cell-rect view-rect))))
   
   
-  (method override (get-tooltip-context pos)
-    (receive (view pos) (find-view-info pos)
+  (method override (get-tooltip-context self pos)
+    (receive (view pos) (find-view-info self pos)
       (and view
            (receive (cell-rect view-rect) (calculate-tooltip-bounds view pos)
              (new Tooltip-Context
@@ -297,15 +310,15 @@
   ;;;
   
   
-  (method override (mouse-move evt)
-    (nextmethod evt)
-    (let ((pos (get-position~ evt)))
+  (method override (mouse-move self evt)
+    (nextmethod self evt)
+    (let ((pos (get-position evt)))
       (unless (and last-mouse-position (nu=? last-mouse-position pos))
         (set! last-mouse-position pos)
-        (receive (view pos) (find-view-info pos)
+        (receive (view pos) (find-view-info self pos)
           (case highlight
             ((#f))
-            ((#t) (default-highlight view pos))
+            ((#t) (default-highlight self view pos))
             (else (highlight view pos)))
           (when report-figure?
             (if (not view)
@@ -313,20 +326,20 @@
               (user-message "{a}" view)))))))
   
   
-  (method override (mouse-up evt)
-    (nextmethod evt)
-    (receive (view pos) (find-view-info (get-position~ evt))
+  (method override (mouse-up self evt)
+    (nextmethod self evt)
+    (receive (view pos) (find-view-info self (get-position evt))
       (with-locked-update
         (lambda ()
           (end-pick)
           (click view pos)))))
   
   
-  (method (find-view-info pos)
-    (let* ((root (get-root))
-           (root-pos (acquire~ root self pos))
-           (view (find-drawing~ root root-pos ignore: (list self)))
-           (view-pos (and view (acquire~ view root root-pos))))
+  (method (find-view-info self pos)
+    (let* ((root (get-root self))
+           (root-pos (acquire root self pos))
+           (view (find-drawing root root-pos ignore: (list self)))
+           (view-pos (and view (acquire view root root-pos))))
       (values view view-pos)))
   
   
@@ -335,31 +348,31 @@
   ;;;
   
   
-  (method (default-highlight view pos)
-    (let ((root (get-root~ (get-player~ view))))
+  (method package (default-highlight self view pos)
+    (let ((root (get-root (get-player view))))
       (let ((overlay (root-overlay root)))
         (if highlight-root-only?
-            (update-highlight overlay view pos cell-rect: #f view-rect: (get-bounds~ root))
+            (update-highlight self overlay view pos cell-rect: #f view-rect: (get-bounds root))
           (receive (cell-rect view-rect) (calculate-tooltip-bounds view pos)
-            (update-highlight overlay view pos
-              cell-rect: (and cell-rect (acquire~ root view cell-rect))
-              view-rect: (and view-rect (acquire~ root view view-rect))))))))
+            (update-highlight self overlay view pos
+              cell-rect: (and cell-rect (acquire root view cell-rect))
+              view-rect: (and view-rect (acquire root view view-rect))))))))
   
   
-  (method (change-highlight-rect override-rect)
-    (update-highlight self highlighted-view highlighted-position override-rect: override-rect))
+  (method package (change-highlight-rect self override-rect)
+    (update-highlight self self highlighted-view highlighted-position override-rect: override-rect))
   
   
-  (method (update-highlight overlay view pos (cell-rect: cell-rect last-cell-rect) (view-rect: view-rect last-view-rect) (override-rect: override-rect #f))
+  (method package (update-highlight self overlay view pos (cell-rect: cell-rect last-cell-rect) (view-rect: view-rect last-view-rect) (override-rect: override-rect #f))
     (define (redraw same-overlay? overlay view)
       (if same-overlay?
           (when (and view
-                     (get-root~ view))
-            (let ((player (get-player~ view))
-                  (rect (acquire~ (get-root~ view) view (inflate-rect (get-bounds~ view) 1 1))))
-              (redraw-window~ player rect: rect)))
+                     (get-root view))
+            (let ((player (get-player view))
+                  (rect (acquire (get-root view) view (inflate-rect (get-bounds view) 1 1))))
+              (redraw-window player rect: rect)))
         (when overlay
-          (redraw-view~ overlay))))
+          (redraw-view overlay))))
     
     (unless (and (eq? *highlighted-overlay* overlay)
                  (eq? highlighted-view view)
@@ -384,28 +397,28 @@
   ;;;
   
   
-  (method override (context-menu evt)
+  (method override (context-menu self evt)
     (define (setup-actions menu view pos)
       (for-each (lambda (item)
-                  (let* ((action-handler (get-action-handler~ item))
+                  (let* ((action-handler (get-action-handler item))
                          (execute (lambda (event)
                                     (end-pick)
                                     (when action-handler
-                                      (let* ((properties (augment view: view pos: pos (get-properties~ action-handler)))
+                                      (let* ((properties (augment view: view pos: pos (get-properties action-handler)))
                                              (event (apply make-event Action-Event :action self properties)))
-                                        (invoke~ action-handler self event))))))
-                    (set-action-handler~ item (new Event-Handler execute: execute))))
-                (get-children~ menu)))
+                                        (invoke action-handler self event))))))
+                    (set-action-handler item (new Event-Handler execute: execute))))
+                (get-children menu)))
     
     (if (not menu)
-        (nextmethod evt)
-      (let ((pos (get-position~ evt)))
-        (close-popups)
-        (receive (view pos) (find-view-info pos)
-          (let ((root (get-root))
+        (nextmethod self evt)
+      (let ((pos (get-position evt)))
+        (close-popups self)
+        (receive (view pos) (find-view-info self pos)
+          (let ((root (get-root self))
                 (menu (menu view pos)))
             (setup-actions menu view pos)
-            (track-popup-menu~ root menu (acquire~ root view pos))
+            (track-popup-menu root menu (acquire root view pos))
             processed)))))
   
   
@@ -421,14 +434,14 @@
     {Color red: 109 green: 109 blue: 177})
   
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (define (highlighter surface)
-      (set-style~ surface 'solid)
-      (set-line-width~ surface 2)
-      (set-color~ surface Highlight-Color))
+      (set-style surface 'solid)
+      (set-line-width surface 2)
+      (set-color surface Highlight-Color))
     
-    (cond ((or (not *highlighted-overlay*) (neq? (get-root) (get-root~ *highlighted-overlay*)))
+    (cond ((or (not *highlighted-overlay*) (neq? (get-root self) (get-root *highlighted-overlay*)))
            (when obscure-unhighlighted?
-             (fill-rect~ surface (get-bounds) Overlay-Color)))
+             (fill-rect surface (get-bounds self) Overlay-Color)))
           (highlighted-rect
-           (rectangle~ surface highlighted-rect highlighter #f))))))
+           (rectangle surface highlighted-rect highlighter #f))))))

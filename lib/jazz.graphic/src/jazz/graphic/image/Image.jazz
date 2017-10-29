@@ -40,6 +40,7 @@
 
 (import (jazz.cairo)
         (jazz.geometry)
+        (jazz.graphic)
         (jazz.graphic.image))
 
 
@@ -56,7 +57,7 @@
   (slot handle     initialize #f accessors generate)
   
   
-  (method override (initialize
+  (method override (initialize self
                      (position: position {Point 0 0})
                      (size: size #f)
                      (fill-mode: fill-mode 'position)
@@ -65,22 +66,22 @@
                      (resource: resource #f)
                      (moniker: moniker #f)
                      (handle: handle #f))
-    (nextmethod)
-    (set! position~self position)
-    (set! size~self size)
-    (set! fill-mode~self fill-mode)
-    (set! background~self background)
-    (set! portfolio~self portfolio)
-    (set! resource~self resource)
-    (cond (moniker (set-moniker moniker))
-          (handle (set-handle handle))))
+    (nextmethod self)
+    (set! self.position position)
+    (set! self.size size)
+    (set! self.fill-mode fill-mode)
+    (set! self.background background)
+    (set! self.portfolio portfolio)
+    (set! self.resource resource)
+    (cond (moniker (set-moniker self moniker))
+          (handle (set-handle self handle))))
   
   
-  (method override (destroy)
+  (method override (destroy self)
     (when handle
       (cairo_surface_destroy handle)
       (set! handle #f))
-    (nextmethod))
+    (nextmethod self))
 
 
   ;;;
@@ -88,25 +89,25 @@
   ;;;
 
 
-  (method public (draw-at surface context h v)
-    (define (draw-image h v)
+  (method public (draw-at self surface context h v)
+    (define (portfolio-draw h v)
       (when resource
         (if background
-            (draw-opaque-image~ portfolio surface context resource background h v)
-          (draw-image~ portfolio surface context resource h v))))
+            (draw-opaque-image portfolio surface context resource background h v)
+          (draw-image portfolio surface context resource h v))))
     
-    (define (draw-handle h v)
-      (draw-surface~ surface handle h v))
+    (define (surface-draw h v)
+      (draw-surface surface handle h v))
     
-    (let ((h (+ (get-h~ position) h))
-          (v (+ (get-v~ position) v)))
-      (cond (portfolio (draw-image h v))
-            (handle (draw-handle h v)))))
+    (let ((h (+ (get-h position) h))
+          (v (+ (get-v position) v)))
+      (cond (portfolio (portfolio-draw h v))
+            (handle (surface-draw h v)))))
 
 
-  (method public (fill-at surface context h v rect)
-    (cond (portfolio (draw-at surface context h v))
-          (handle (fill-image~ surface rect self mode: fill-mode position: position size: size))))
+  (method public (fill-at self surface context h v rect)
+    (cond (portfolio (draw-at self surface context h v))
+          (handle (fill-image surface rect self mode: fill-mode position: position size: size))))
   
   
   ;;;
@@ -114,11 +115,11 @@
   ;;;
   
   
-  (method public (get-moniker)
+  (method public (get-moniker self)
     moniker)
   
   
-  (method public (set-moniker mnk)
+  (method public (set-moniker self mnk)
     (set! moniker mnk)
     (when moniker
       (set! handle (load-image mnk 'image))))
@@ -129,7 +130,7 @@
   ;;;
   
   
-  (method public (image-size) <Dimension>
+  (method public (image-size self) <Dimension>
     (assert handle)
     (get-cairo-image-surface-size handle))
   
@@ -139,7 +140,7 @@
   ;;;
 
 
-  (method public (fit-to size mode)
-    (let ((image-size (image-size)))
+  (method public (fit-to self size mode)
+    (let ((image-size (image-size self)))
       (let ((ratio (fit-dimensions image-size size mode)))
-        (new Image handle: (resize-image handle (fxround (* (cast <fl> (get-width~ image-size)) ratio)) (fxround (* (cast <fl> (get-height~ image-size)) ratio)))))))))
+        (new Image handle: (resize-image handle (fxround (* (cast <fl> (get-width image-size)) ratio)) (fxround (* (cast <fl> (get-height image-size)) ratio)))))))))

@@ -48,14 +48,14 @@
   (slot handle getter generate)
   
   
-  (method override (initialize (rect: rect #f))
+  (method override (initialize self (rect: rect #f))
     (set! handle (if rect
                      (begin
                        @pixman-will-output-an-error-message-if-passed-a-bad-rectangle
-                       (let ((l (get-left~ rect))
-                             (t (get-top~ rect))
-                             (r (get-right~ rect))
-                             (b (get-bottom~ rect)))
+                       (let ((l (get-left rect))
+                             (t (get-top rect))
+                             (r (get-right rect))
+                             (b (get-bottom rect)))
                          (assert (and (>= r l) (>= b t))))
                        (with-cairo-rectangle rect
                          (lambda (rectangle)
@@ -63,26 +63,26 @@
                    (cairo_region_create)))
     ;; not sure if this is necessary
     (cairo_region_reference handle)
-    (destroy-mandatory))
+    (destroy-mandatory self))
 
   
-  (method override (destroy)
+  (method override (destroy self)
     (cairo_region_destroy handle)
-    (nextmethod))
+    (nextmethod self))
   
   
-  (method public (->platform-region)
-    (new Region rect: (get-box)))
+  (method public (->platform-region self)
+    (new Region rect: (get-box self)))
 
 
-  (method override (get-box) <Rect>
+  (method override (get-box self) <Rect>
     (with-cairo-rectangle #f
       (lambda (rectangle)
         (cairo_region_get_extents handle rectangle)
         (cairo-rectangle->rect rectangle))))
   
   
-  (method override (iterate-rectangles proc)
+  (method override (iterate-rectangles self proc)
     (with-cairo-rectangle #f
       (lambda (rectangle)
         (loop (for n from 0 below (cairo_region_num_rectangles handle))
@@ -90,33 +90,33 @@
               (proc (cairo-rectangle->rect rectangle))))))
   
   
-  (method override (offset! h v)
+  (method override (offset! self h v)
     (cairo_region_translate handle h v))
   
   
-  (method override (combine-and! region)
-    (cairo_region_intersect handle (get-handle~ region)))
+  (method override (combine-and! self region)
+    (cairo_region_intersect handle (get-handle region)))
 
 
-  (method override (combine-or! region)
-    (cairo_region_union handle (get-handle~ region)))
+  (method override (combine-or! self region)
+    (cairo_region_union handle (get-handle region)))
   
   
-  (method override (combine-xor! region)
-    (cairo_region_xor handle (get-handle~ region)))
+  (method override (combine-xor! self region)
+    (cairo_region_xor handle (get-handle region)))
   
   
-  (method override (combine-diff! region)
-    (cairo_region_subtract handle (get-handle~ region)))
+  (method override (combine-diff! self region)
+    (cairo_region_subtract handle (get-handle region)))
   
   
-  (method override (empty!)
+  (method override (empty! self)
     (cairo_region_subtract handle handle))
   
   
-  (method override (empty?) <bool>
+  (method override (empty? self) <bool>
     (/= (cairo_region_is_empty handle) 0))
   
   
-  (method override (intersects-rect? rect) <bool>
+  (method override (intersects-rect? self rect) <bool>
     (/= (cairo_region_contains_rectangle handle rect) CAIRO_REGION_OVERLAP_OUT))))

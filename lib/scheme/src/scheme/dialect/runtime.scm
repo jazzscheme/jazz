@@ -101,7 +101,7 @@
 
 
 (define (jazz:new-define-declaration name type parent signature)
-  (let ((new-declaration (jazz:allocate-define-declaration name type #f 'private 'uptodate '() #f parent #f #f signature #f)))
+  (let ((new-declaration (jazz:allocate-define-declaration name type #f 'private 'uptodate '() #f parent #f #f #f signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -144,12 +144,13 @@
       #f)))
 
 
-(jazz:define-method (jazz:tree-fold (jazz:Define-Declaration expression) down up here seed environment)
-  (jazz:tree-fold (jazz:get-define-declaration-value expression) down up here seed environment))
+(jazz:define-method (jazz:tree-fold (jazz:Define-Declaration declaration) down up here seed environment)
+  (here declaration seed environment)
+  (jazz:tree-fold (jazz:get-define-declaration-value declaration) down up here seed environment))
 
 
 (define (jazz:walk-define-declaration walker resume declaration environment form-src)
-  (receive (name specifier value parameters) (jazz:parse-define walker resume declaration #f form-src)
+  (receive (name name-src specifier value parameters) (jazz:parse-define walker resume declaration #f form-src)
     (if (%%not (%%class-is? declaration jazz:Namespace-Declaration))
         (jazz:walk-error walker resume declaration form-src "Ill-placed define")
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
@@ -158,18 +159,20 @@
           (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                      (jazz:new-define-declaration name effective-type declaration signature))))
             (jazz:set-declaration-source new-declaration form-src)
+            (jazz:set-declaration-name-source new-declaration name-src)
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
               effective-declaration)))))))
 
 
 (define (jazz:walk-define walker resume declaration environment form-src)
-  (receive (name specifier value parameters) (jazz:parse-define walker resume declaration #t form-src)
+  (receive (name name-src specifier value parameters) (jazz:parse-define walker resume declaration #t form-src)
     (if (%%not (%%class-is? declaration jazz:Namespace-Declaration))
         (jazz:walk-error walker resume declaration form-src "Ill-placed define")
       (let* ((new-declaration (jazz:require-declaration declaration name))
              (new-environment (%%cons new-declaration environment)))
         (jazz:set-define-declaration-value new-declaration (jazz:walk walker resume new-declaration new-environment value))
         (jazz:set-declaration-source new-declaration form-src)
+        (jazz:set-declaration-name-source new-declaration name-src)
         new-declaration))))
 
 
@@ -188,7 +191,7 @@
 
 
 (define (jazz:new-define-special-form-declaration name type parent signature)
-  (let ((new-declaration (jazz:allocate-define-special-form-declaration name type #f 'public 'uptodate '() #f parent #f #f signature #f)))
+  (let ((new-declaration (jazz:allocate-define-special-form-declaration name type #f 'public 'uptodate '() #f parent #f #f #f signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -208,6 +211,8 @@
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Define-Special-Form-Declaration declaration) down up here seed environment)
+  (here declaration seed environment)
+  (jazz:tree-fold-list (jazz:get-signature-expressions (jazz:get-define-special-form-declaration-signature declaration)) down up here seed environment)
   (jazz:tree-fold (jazz:get-define-special-form-declaration-body declaration) down up here seed environment))
 
 
@@ -296,7 +301,7 @@
 
 
 (define (jazz:new-define-macro-declaration name type parent signature)
-  (let ((new-declaration (jazz:allocate-define-macro-declaration name type #f 'public 'uptodate '() #f parent #f #f signature #f)))
+  (let ((new-declaration (jazz:allocate-define-macro-declaration name type #f 'public 'uptodate '() #f parent #f #f #f signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -363,6 +368,8 @@
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Define-Macro-Declaration declaration) down up here seed environment)
+  (here declaration seed environment)
+  (jazz:tree-fold-list (jazz:get-signature-expressions (jazz:get-define-macro-declaration-signature declaration)) down up here seed environment)
   (jazz:tree-fold (jazz:get-define-macro-declaration-body declaration) down up here seed environment))
 
 
@@ -441,13 +448,15 @@
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Lambda expression) down up here seed environment)
-  (jazz:with-annotated-frame (jazz:annotate-signature (jazz:get-lambda-signature expression))
-    (lambda (frame)
-      (let ((aug-env (cons frame environment)))
-        (up expression
-            seed
-            (jazz:tree-fold (jazz:get-lambda-body expression) down up here (down expression seed environment) aug-env)
-            environment)))))
+  (let ((signature (jazz:get-lambda-signature expression)))
+    (jazz:tree-fold-list (jazz:get-signature-expressions signature) down up here seed environment)
+    (jazz:with-annotated-frame (jazz:annotate-signature signature)
+      (lambda (frame)
+        (let ((aug-env (cons frame environment)))
+          (up expression
+              seed
+              (jazz:tree-fold (jazz:get-lambda-body expression) down up here (down expression seed environment) aug-env)
+              environment))))))
 
 
 (define (jazz:walk-lambda walker resume declaration environment form-src)
@@ -1190,7 +1199,7 @@
             #f))))))
 
 
-(define (jazz:walk-reference walker resume declaration environment form-src)
+(define (jazz:walk-reify-reference walker resume declaration environment form-src)
   (let ((reference-src (%%cadr (jazz:source-code form-src))))
     (let ((resolver `(lambda () ,reference-src)))
       (jazz:new-reference-reification form-src (jazz:source-code reference-src) (jazz:walk walker resume declaration environment resolver)))))
@@ -1230,4 +1239,4 @@
 (jazz:define-walker-special     delay               scheme jazz:walk-delay)
 (jazz:define-walker-special     quasiquote          scheme jazz:walk-quasiquote)
 (jazz:define-walker-special     unspecific          scheme jazz:walk-unspecific)
-(jazz:define-walker-special     reference           scheme jazz:walk-reference))
+(jazz:define-walker-special     reify-reference     scheme jazz:walk-reify-reference))

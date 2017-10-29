@@ -45,22 +45,22 @@
 (class Directory-Group-Class extends (:class Directory)
   
   
-  (method override (get-protocol)
+  (method override (get-protocol self)
     'group))
 
 
 (class Directory-Group metaclass Directory-Group-Class extends Directory
   
   
-  (method override (validate-components lst)
+  (method override (validate-components self lst)
     (for-each (lambda (dir)
                 (when (is-not? dir Directory)
                   (error "{s} is not of the expected Directory type" dir)))
               lst))
   
   
-  (method override (print output readably)
-    (let ((lst (get-list)))
+  (method override (print self output readably)
+    (let ((lst (get-list self)))
       (format output "~{Directory-Group{?: {l detail: :v}~}}"
               (not-null? lst) lst
               readably)))
@@ -71,8 +71,8 @@
   ;;;
   
   
-  (method override (present)
-    (join (map present~ (get-list)) ", "))
+  (method override (present self)
+    (join (map present (get-list self)) ", "))
   
   
   ;;;
@@ -80,41 +80,41 @@
   ;;;
   
   
-  (method override (get-name)
+  (method override (get-name self)
     "Directory-Group")
   
   
-  (method override (get-directory)
+  (method override (get-directory self)
     self)
   
   
-  (method override (get-content . rest)
-    (let* ((content (apply nextmethod rest))
-           (key get-name~)
+  (method override (get-content self . rest)
+    (let* ((content (apply nextmethod self rest))
+           (key get-name)
            (some-symbol? (some? symbol? key: key content))
            (some-string? (some? string? key: key content)))
       (if (and some-string? some-symbol?)
           (map (lambda (moniker)
                  (if (string? (key moniker))
                      moniker
-                   (new (class-of moniker) (expand~ moniker))))
+                   (new (class-of moniker) (expand moniker))))
                content)
         content)))
 
 
-  (method override (get-modification-time)
+  (method override (get-modification-time self)
     #f)
 
 
-  (method override (create)
+  (method override (create self)
     ;; Do nothing
     )
   
   
-  (method override (delete-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
+  (method override (delete-directory self (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
     (when feedback
       (feedback self))
-    (empty-directory overwrite-read-only?: overwrite-read-only? feedback: feedback))
+    (empty-directory self overwrite-read-only?: overwrite-read-only? feedback: feedback))
      
    
   ;;;
@@ -122,23 +122,24 @@
   ;;;
   
   
-  (method override (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (recursive?: recursive? #t) (ignored-toplevel-dirnames: ignored-toplevel-dirnames #f) (ignored-dirnames: ignored-dirnames #f))
+  (method override (iterate-directory self proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (recursive?: recursive? #t) (ignored-toplevel-dirnames: ignored-toplevel-dirnames #f) (ignored-dirnames: ignored-dirnames #f))
     ;; this function might not give the expected result
     ;; if full? is #f and the content elements are not all brothers
     ;; ignored-dirnames is not used to filter the first level, only subsequent ones
-    (let ((items (get-list)))
+    (let ((items (get-list self)))
       (for-each (lambda (element)
                   (typecase element
                     ((File)
                      (when files?
-                       (if full? (proc element) (proc (list (get-name~ element)) 'file))))
+                       (if full? (proc element) (proc (list (get-name element)) 'file))))
                     ((Directory)
                      (when directories?
-                       (let ((name (get-name~ element)))
+                       (let ((name (get-name element)))
                          (when (and directories? (not (and ignored-dirnames (member? name ignored-dirnames))))
                            (if full?
                                (proc element)
                              (proc (list name) 'directory)))
                          (when recursive?
-                           (iterate-directory-content~ element files? directories? recursive? ignored-dirnames (list name) (parse~ element) proc)))))))
+                           @cant-find
+                           (iterate-directory-content element files? directories? recursive? ignored-dirnames (list name) (parse element) proc)))))))
                 items)))))

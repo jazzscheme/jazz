@@ -61,12 +61,12 @@
 
   (method (initialize (library: library #f) (name: name (default-name library)))
     (nextmethod)
-    (set! library~self library)
-    (set! name~self name))
+    (set! self.library library)
+    (set! self.name name))
   
   
   (method (default-name lib)
-    (get-name~ lib))
+    (get-name lib))
 
 
   (method public (extract file (activity: activity #f))
@@ -104,12 +104,12 @@
 
 
   (method (emit-library-types output activity)
-    (let ((types (get-types~ library)))
+    (let ((types (get-types library)))
       (set! to-emit (map info-name types))
       (set! emited #f)
       (set! waiting #f)
       (when activity
-        (set-range~ activity (new Range 0 (length types))))
+        (set-range activity (new Range 0 (length types))))
       (for-each (lambda (info)
                   (emit-type-information info output activity))
                 types)
@@ -120,9 +120,9 @@
   (method (emit-type-information info output activity)
     (if (and activity (cancel-requested?~ activity))
         (signal-cancel)
-      (let ((name (get-name~ info)))
+      (let ((name (get-name info)))
         (when activity
-          (user-message~ activity name))
+          (report-message activity name))
         (let ((waiting-upon (waiting-implemented info)))
           (if waiting-upon
               (set! waiting (cons (cons info waiting-upon) waiting))
@@ -130,7 +130,7 @@
             (set! emited (cons name emited))
             (emit-waiting name output activity)
             (when activity
-              (delta-pos~ activity 1)))))))
+              (delta-pos activity 1)))))))
   
   
   (method (emit-waiting name output activity)
@@ -151,15 +151,15 @@
   
   (method (waiting-implemented info)
     (collect (lambda (info)
-               (let ((name (get-name~ info)))
+               (let ((name (get-name info)))
                  (when (and (member? name to-emit)
                             (not (member? name emited)))
                    name)))
-             (get-implemented-types~ info)))
+             (get-implemented-types info)))
   
   
   (method (emit-type-info info output)
-    (let ((kind (get-kind~ info)))
+    (let ((kind (get-kind info)))
       (ecase kind
         ((TKIND_ENUM)      (emit-enum      info output))
         ((TKIND_RECORD)    (emit-record    info output))
@@ -174,8 +174,8 @@
 
 
   (method (emit-enum info output)
-    (let ((name (get-name~ info))
-          (variables (get-variables~ info)))
+    (let ((name (get-name info))
+          (variables (get-variables info)))
       (emit-section-header name output)
       (format output "(c-enumeration public {a}" name)
       (if (null? variables)
@@ -185,8 +185,8 @@
 
 
   (method (emit-record info output)
-    (let ((name (get-name~ info))
-          (variables (get-variables~ info)))
+    (let ((name (get-name info))
+          (variables (get-variables info)))
       (emit-section-header name output)
       (format output "(structure public {a}" name)
       (if (null? variables)
@@ -196,17 +196,17 @@
 
 
   (method (emit-package info output)
-    (let ((name (get-name~ info)))
+    (let ((name (get-name info)))
       (emit-section-header name output)
       (format output "  ;; unimplemented kind: package")))
 
 
   (method (emit-interface info output)
-    (let* ((interface-name (get-name~ info))
-           (guid (get-guid~ info))
-           (variables (get-variables~ info))
-           (functions (get-functions~ info))
-           (interfaces (get-implemented-types~ info))
+    (let* ((interface-name (get-name info))
+           (guid (get-guid info))
+           (variables (get-variables info))
+           (functions (get-functions info))
+           (interfaces (get-implemented-types info))
            (ascendant (car interfaces)))
       ;; hack import collision
       (when (member? interface-name '("Field" "Error" "Property"))
@@ -217,7 +217,7 @@
       (when (or variables functions)
         (format output "{%}{%}"))
       (for-each (lambda (desc)
-                  (let* ((name (get-member-name~ info desc))
+                  (let* ((name (get-member-name info desc))
                          (typedesc (get desc '(elemdescVar tdesc)))
                          (type (get typedesc 'vt))
                          (pointer? (= type VT_PTR))
@@ -235,9 +235,9 @@
 
 
   (method (emit-com-class info output)
-    (let* ((name (get-name~ info))
-           (guid (get-guid~ info))
-           (interfaces (get-implemented-types~ info))
+    (let* ((name (get-name info))
+           (guid (get-guid info))
+           (interfaces (get-implemented-types info))
            (interface-names (map info-name interfaces)))
       (emit-section-header name output)
       (format output "(definition public {a}-class{%}" name)
@@ -245,8 +245,8 @@
 
 
   (method (emit-alias info output)
-    (let ((name (get-name~ info))
-          (aliased (get-name~ (get-referenced-type~ info (get (get-attr~ info) '(tdescAlias desc))))))
+    (let ((name (get-name info))
+          (aliased (get-name (get-referenced-type info (get (get-attr info) '(tdescAlias desc))))))
       (if (member? aliased emited)
           (emit-alias-code name aliased output)
         (set! waiting (cons (cons info (list aliased)) waiting)))))
@@ -260,7 +260,7 @@
   ;; This is a temporary kludge that will only work
   ;; with unions that have a sizeof equal to sizeof(int)...
   (method (emit-union info output)
-    (let ((name (get-name~ info)))
+    (let ((name (get-name info)))
       (emit-section-header name output)
       (format output ";; warning: this will only work if sizeof({a}) equals sizeof(long){%}" name)
       (format output "(structure public {a}{%}" name)
@@ -268,7 +268,7 @@
 
 
   (method (emit-max info output)
-    (let ((name (get-name~ info)))
+    (let ((name (get-name info)))
       (emit-section-header name output)
       (format output ";; unimplemented kind: max")))
 
@@ -279,7 +279,7 @@
           (format output "{a}" trailer))
       (for-each-pair (lambda (pair)
                        (bind (desc . tail) pair
-                         (let* ((name (get-member-name~ info desc))
+                         (let* ((name (get-member-name info desc))
                                 (effective (effective-name (get desc 'invkind) name)))
                            (when (not (memq? effective names))
                              (emit-function info effective desc header modifiers namespace output (essay (nil? tail) trailer))
@@ -308,7 +308,7 @@
               effective)
       (when (eq? return-type-name 'unpl)
         (set! unimplemented (cons return-type unimplemented)))
-      (let ((params (get-function-parameters~ info desc)))
+      (let ((params (get-function-parameters info desc)))
         (for-each (lambda (n)
                     (let* ((param (array-ref params n))
                            (typedesc (get param 'tdesc))
@@ -321,7 +321,7 @@
                            (ptr-ptr-type (and ptr-pointer? (get ptr-ptr-typedesc 'vt)))
                            (param-type (or ptr-ptr-type ptr-type type))
                            (param-typedesc (or ptr-ptr-typedesc ptr-typedesc typedesc))
-                           (param-referenced (and (= param-type VT_USERDEFINED) (get-referenced-type~ info (get param-typedesc 'desc))))
+                           (param-referenced (and (= param-type VT_USERDEFINED) (get-referenced-type info (get param-typedesc 'desc))))
                            (param-pointer? (if (interface-kind? param-referenced) ptr-pointer? pointer?))
                            (param-type-name (intern-type info param-typedesc param-pointer?))
                            (param-direction (parameter-direction param)))
@@ -345,7 +345,7 @@
   
   (method (interface-kind? info)
     (when info
-      (let ((kind (get-kind~ info)))
+      (let ((kind (get-kind info)))
         (or (= kind TKIND_INTERFACE)
             (= kind TKIND_DISPATCH)
             (= kind TKIND_COCLASS)))))
@@ -393,8 +393,8 @@
 
 
   (method (emit-variable info desc output trailer)
-    (let* ((kind (get-kind~ info))
-           (name (get-member-name~ info desc))
+    (let* ((kind (get-kind info))
+           (name (get-member-name info desc))
            (typedesc (get desc '(elemdescVar tdesc)))
            (basetype (get typedesc 'vt))
            (value (get desc 'lpvarValue))
@@ -410,7 +410,7 @@
   
   
   (method (info-name info)
-    (get-name~ info))
+    (get-name info))
 
 
   ;;;
@@ -421,16 +421,16 @@
   (method (intern-type info desc pointer?)
     (let ((type (get desc 'vt)))
       (if (= type VT_USERDEFINED)
-          (let ((referenced (get-referenced-type~ info (get desc 'desc))))
-            (ecase (get-kind~ referenced)
+          (let ((referenced (get-referenced-type info (get desc 'desc))))
+            (ecase (get-kind referenced)
               ((TKIND_ENUM)
-               (format :string "{a} @user enum {a}" (add-modifier "int" pointer?) (get-name~ referenced)))
+               (format :string "{a} @user enum {a}" (add-modifier "int" pointer?) (get-name referenced)))
               ((TKIND_DISPATCH)
-               (format :string "{a} {a}" (add-modifier "IUnknown*" pointer?) (get-name~ referenced)))
+               (format :string "{a} {a}" (add-modifier "IUnknown*" pointer?) (get-name referenced)))
               ((TKIND_ALIAS)
-               (format :string "{a} @user alias {a}" (add-modifier "int" pointer?) (get-name~ referenced)))
+               (format :string "{a} @user alias {a}" (add-modifier "int" pointer?) (get-name referenced)))
               (else
-               (format :string "void* @user{a} {a}" (get-kind~ referenced) (get-name~ referenced)))))
+               (format :string "void* @user{a} {a}" (get-kind referenced) (get-name referenced)))))
         (let* ((info (idl-type-info type))
                (name (if (pair? info) (car info) info))
                (type (add-modifier name pointer?)))

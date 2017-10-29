@@ -38,11 +38,59 @@
 (module jazz.jml jazz
 
 
+(hub ->jml)
+(hub add-child)
+(hub add-properties)
+(hub append-child)
+(hub append-parent)
+(hub children->jml)
+(hub composite?)
+(hub find-by)
+(hub find-name)
+(hub find-node)
+(hub first-child)
+(hub for-each-ancestor)
+(hub for-each-parent)
+(hub get-alias)
+(hub get-child-location)
+(hub get-child-text)
+(hub get-children)
+(hub get-location)
+(hub get-parent)
+(hub get-preferences)
+(hub get-properties)
+(hub get-property)
+(hub get-tab-size)
+(hub get-tag)
+(hub get-target)
+(hub get-text)
+(hub get-toplevel)
+(hub has-property?)
+(hub parse)
+(hub print-node)
+(hub properties->jml)
+(hub remove-child)
+(hub remove-property)
+(hub render)
+(hub set-children)
+(hub set-parent)
+(hub set-parent-value)
+(hub set-properties)
+(hub set-property)
+(hub set-target)
+(hub set-text)
+(hub simple?)
+(hub single-line?)
+(hub tag->jml)
+(hub transform)
+
+
 (export (jazz.jml.syntax (phase syntax))
         (jazz.jml.autoload)
         (jazz.jml.parse))
 (import (jazz.jml.autoload)
         (jazz.component.autoload)
+        (jazz.component.hubs)
         (jazz.io))
 
 
@@ -60,8 +108,8 @@
            (class-locator (apply compose-reference class-path)))
       (global-ref class-locator)))
   
-  (unless (get-origin~ form)
-    (set-origin~ form (determine-origin)))
+  (unless (get-origin form)
+    (set-origin form (determine-origin)))
   form)
 
 
@@ -73,7 +121,7 @@
 (definition public (parse-jml jml (preferences-class: preferences-class #f) (parser-class: parser-class #f))
   (let* ((pref (new (or preferences-class JML-Preferences)))
          (parser (new (or parser-class JML-Parser) preferences: pref)))
-    (parse~ parser jml)))
+    (parse parser jml)))
 
 
 ;;;
@@ -82,7 +130,7 @@
 
 
 (definition public (transform-jml node transformation)
-  (transform~ transformation node))
+  (transform transformation node))
 
 
 ;;;
@@ -93,7 +141,7 @@
 (definition public (render-jml node output (preferences-class: preferences-class #f) (renderer-class: renderer-class #f))
   (let* ((pref (new (or preferences-class JML-Preferences)))
          (renderer (new (or renderer-class JML-Renderer) pref)))
-    (render~ renderer node output)))
+    (render renderer node output)))
 
 
 ;;;
@@ -105,7 +153,7 @@
   (proc node)
   (for-each (lambda (child)
               (iterate-nodes child proc))
-            (get-children~ node)))
+            (get-children node)))
 
 
 ;;;
@@ -119,9 +167,9 @@
 
 (definition public (jml->form expr (locator #f))
   (let* ((parser (new JML-Parser))
-         (node (parse~ parser expr))
+         (node (parse parser expr))
          (form (node->form node)))
-    (set-locator~ form locator)
+    (set-locator form locator)
     form))
 
 
@@ -130,15 +178,15 @@
     (let ((fact (new List-Factory)))
       (for-each-property (lambda (property value)
                            (when (not (memq? property '(name tag-symbolic? tag-reference)))
-                             (put~ fact property)
-                             (put~ fact value)))
-                         (get-properties~ node))
-      (get-output~ fact)))
+                             (put fact property)
+                             (put fact value)))
+                         (get-properties node))
+      (get-output fact)))
   
   (define (node->form node parent)
     (if (is? node JML-Text)
         node
-      (let* ((tag (get-tag~ node))
+      (let* ((tag (get-tag node))
              (tag-name (symbol->string tag))
              (tag-modify? (and (neq? tag '!) (ends-with? tag-name "!")))
              (tag-locate? (and (neq? tag '~) (ends-with? tag-name "~")))
@@ -149,24 +197,24 @@
                            ((eq? tag 'install) 'install)
                            (else 'new)))
              (model (if (or (memq? tag '(* ! ~ install)) tag-symbolic?) #f tag))
-             (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property~ node 'name)))
-             (form (new Form textual?: #f action: action model: model name: name tag-symbolic?: tag-symbolic? tag-reference: (get-property~ node 'tag-reference #f) properties: (extract-node-properties node)))
+             (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property node 'name)))
+             (form (new Form textual?: #f action: action model: model name: name tag-symbolic?: tag-symbolic? tag-reference: (get-property node 'tag-reference #f) properties: (extract-node-properties node)))
              (children (map (lambda (node)
                               (node->form node form))
-                            (get-children~ node))))
-        (set-parent-value~ form parent)
+                            (get-children node))))
+        (set-parent-value form parent)
         (if (trait-tag? tag)
             ;; not 100% sure about this way of testing for a trait form with no install
             (if (null? children)
                 (begin
-                  (set-property~ form 'client-form (new Form action: 'new model: 'install))
-                  (set-children~ form '()))
+                  (set-property form 'client-form (new Form action: 'new model: 'install))
+                  (set-children form '()))
               (let ((client-form (car children))
                     (children (cdr children)))
-                (assert (and (is? client-form Form) (eq? (get-action~ client-form) 'install))
-                  (set-property~ form 'client-form client-form)
-                  (set-children~ form children))))
-          (set-children~ form children))
+                (assert (and (is? client-form Form) (eq? (get-action client-form) 'install))
+                  (set-property form 'client-form client-form)
+                  (set-children form children))))
+          (set-children form children))
         form)))
   
     (node->form node #f))
@@ -174,46 +222,46 @@
 
 (definition package (form->node form)
   (define (add-client-form form children)
-    (let ((client-form (get-property~ form 'client-form)))
+    (let ((client-form (get-property form 'client-form)))
       (if (not client-form)
           children
         (cons (form->node client-form) children))))
   
   (define (extract-form-properties form symbolic?)
     (let ((fact (new List-Factory))
-          (name (get-name~ form))
-          (tag-reference (get-tag-reference~ form)))
+          (name (get-name form))
+          (tag-reference (get-tag-reference form)))
       (when (and name (not symbolic?))
-        (put~ fact 'name)
-        (put~ fact name))
+        (put fact 'name)
+        (put fact name))
       (when tag-reference
-        (put~ fact 'tag-reference)
-        (put~ fact tag-reference))
+        (put fact 'tag-reference)
+        (put fact tag-reference))
       (for-each-property (lambda (property value)
                            (let ((name (if (property? property) (field-name property) property)))
                              (when (neq? name 'client-form)
-                               (put~ fact name)
-                               (put~ fact value))))
-                         (get-properties~ form))
-      (get-output~ fact)))
+                               (put fact name)
+                               (put fact value))))
+                         (get-properties form))
+      (get-output fact)))
   
   (define (form/parent->node form parent)
     (if (is? form JML-Text)
         form
-      (let* ((action (get-action~ form))
-             (model (get-model~ form))
-             (name (get-name~ form))
-             (symbolic? (get-tag-symbolic?~ form))
+      (let* ((action (get-action form))
+             (model (get-model form))
+             (name (get-name form))
+             (symbolic? (get-tag-symbolic? form))
              (tag (if symbolic?
                       (string->symbol (string-append (symbol->string name) (case action ((modify) "!") ((locate) "~"))))
                     (case action ((install) 'install) ((new) model) ((instantiate) '*) ((modify) '!) ((locate) '~))))
-             (element (let ((element (new JML-Element #f tag))) (set-parent-value~ element parent) element))
+             (element (let ((element (new JML-Element #f tag))) (set-parent-value element parent) element))
              (properties (extract-form-properties form symbolic?))
              (children (map (lambda (form)
                               (form/parent->node form element))
-                            (get-children~ form))))
-        (set-properties~ element properties)
-        (set-children~ element (if (trait-tag? model) (add-client-form form children) children))
+                            (get-children form))))
+        (set-properties element properties)
+        (set-children element (if (trait-tag? model) (add-client-form form children) children))
         element)))
   
     (form/parent->node form #f))
@@ -221,8 +269,8 @@
 
 (definition public (construct-form expr locator (data #f))
   (let ((form (jml->form expr locator)))
-    (set-data~ form data)
-    (setup-context~ form form)
+    (set-data form data)
+    (setup-context form form)
     form))
 
 
@@ -268,14 +316,14 @@
   (let ((node (form->node form))
         (base level))
     (if (pretty-print-forms?)
-        (pretty-print~ node output base: base space-tag?: space-tag? space-name?: space-name? indent-first?: indent-first?)
-      (pretty-print~ node output base: base space-tag?: #f space-name?: #f indent-first?: indent-first?)))
+        (print-node node output base: base space-tag?: space-tag? space-name?: space-name? indent-first?: indent-first?)
+      (print-node node output base: base space-tag?: #f space-name?: #f indent-first?: indent-first?)))
   (when include-form?
     (format output ")")))
 
 
 (definition public (print-form form level output)
-  (pretty-print~ (form->node form) output base: level))
+  (print-node (form->node form) output base: level))
 
 
 ;;;
@@ -286,7 +334,7 @@
 (definition public (save-jml jml file . rest)
   (call-with-output-file (path-settings file)
     (lambda (port)
-      (apply pretty-print~ jml port rest)
+      (apply print-node jml port rest)
       (newline port))))
 
 
@@ -303,4 +351,4 @@
 
 (definition public (load-jml file)
   (let ((parser (new JML-Parser preferences: (new JML-Preferences))))
-    (parse~ parser (read-jml file)))))
+    (parse parser (read-jml file)))))

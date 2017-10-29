@@ -67,10 +67,10 @@
       (<Color-View>      name: color      position: {Point 430  13} size: {Dimension  85  85})))
   
   
-  (method override (finish initargs)
-    (nextmethod initargs)
-    (when (not (get-value~ (locate 'hue)))
-      (set-color (hsv->color 0. 1. 1.))))
+  (method override (finish self initargs)
+    (nextmethod self initargs)
+    (when (not (get-value (locate self 'hue)))
+      (set-color self (hsv->color 0. 1. 1.))))
   
   
   ;;;
@@ -79,10 +79,10 @@
   
   
   ;; quicky
-  (method override (on-escape-press evt)
+  (method override (on-escape-press self evt)
     (if escape-press-handler
-        (call-escape-press evt)
-      (close-popups~ (get-toplevel))))
+        (call-escape-press self evt)
+      (close-popups (current-toplevel))))
   
   
   ;;;
@@ -90,39 +90,39 @@
   ;;;
   
   
-  (method public (get-color)
-    (hsv->color (get-hue)
-                (get-saturation)
-                (get-value)))
+  (method public (get-color self)
+    (hsv->color (get-hue self)
+                (get-saturation self)
+                (get-value self)))
   
   
-  (method public (set-color value)
+  (method public (set-color self value)
     (when value
       (receive (h s v) (color->hsv value)
-        (set-value~ (locate 'hue) h)
-        (set-value~ (locate 'saturation) s)
-        (set-value~ (locate 'value) v))
-      (update)))
+        (set-value (locate self 'hue) h)
+        (set-value (locate self 'saturation) s)
+        (set-value (locate self 'value) v))
+      (update self)))
   
   
-  (method protected (get-hue)
-    (get-value~ (locate 'hue)))
+  (method package (get-hue self)
+    (get-value (locate self 'hue)))
   
-  (method protected (get-saturation)
-    (get-value~ (locate 'saturation)))
+  (method package (get-saturation self)
+    (get-value (locate self 'saturation)))
   
-  (method protected (get-value)
-    (get-value~ (locate 'value)))
+  (method package (get-value self)
+    (get-value (locate self 'value)))
   
   
-  (method protected (update)
-    (invalidate-view~ (locate 'hue))
-    (invalidate-view~ (locate 'saturation))
-    (invalidate-view~ (locate 'value))
-    (let ((color (get-color)))
-      (set-background~ (locate 'color) color)
+  (method package (update self)
+    (invalidate-view (locate self 'hue))
+    (invalidate-view (locate self 'saturation))
+    (invalidate-view (locate self 'value))
+    (let ((color (get-color self)))
+      (set-background (locate self 'color) color)
       (when feedback
-        (update-view)
+        (update-view self)
         (feedback color)))))
 
 
@@ -143,40 +143,40 @@
   ;;;
   
   
-  (method public (get-reticule)
+  (method public (get-reticule self)
     reticule)
   
   
-  (method public (set-reticule r <fl>)
-    (set! reticule (cast <fl> (between 0 r (reticule-max))))
-    (set! value (cast <fl> (reticule->value reticule))))
+  (method public (set-reticule self r <fl>)
+    (set! reticule (cast <fl> (between 0 r (reticule-max self))))
+    (set! value (cast <fl> (reticule->value self reticule))))
   
   
-  (method public (get-value)
+  (method public (get-value self)
     value)
   
   
-  (method public (set-value v <fl>)
-    (set-reticule (value->reticule v)))
+  (method public (set-value self v <fl>)
+    (set-reticule self (value->reticule self v)))
   
   
-  (method protected (value->reticule value)
-    (/ (* value (reticule-span)) (value-max)))
+  (method protected (value->reticule self value)
+    (/ (* value (reticule-span self)) (value-max self)))
   
   
-  (method protected (reticule->value reticule)
-    (/ (* reticule (value-max)) (reticule-span)))
+  (method protected (reticule->value self reticule)
+    (/ (* reticule (value-max self)) (reticule-span self)))
   
   
-  (method protected (reticule-span)
-    (- (cast <fl> (get-width)) 6.))
+  (method protected (reticule-span self)
+    (- (cast <fl> (get-width self)) 6.))
   
   
-  (method protected (reticule-max)
-    (- (reticule-span) 1.))
+  (method protected (reticule-max self)
+    (- (reticule-span self) 1.))
   
   
-  (method protected virtual (value-max)
+  (method protected virtual (value-max self)
     )
   
   
@@ -185,23 +185,23 @@
   ;;;
   
   
-  (method override (mouse-down evt)
-    (acquire-capture)
-    (set-reticule (pos->reticule (get-position~ evt)))
-    (update~ parent))
+  (method override (mouse-down self evt)
+    (acquire-capture self)
+    (set-reticule self (pos->reticule (get-position evt)))
+    (update parent))
   
   
-  (method override (drag-move evt)
-    (set-reticule (pos->reticule (get-position~ evt)))
-    (update~ parent))
+  (method override (drag-move self evt)
+    (set-reticule self (pos->reticule (get-position evt)))
+    (update parent))
   
   
-  (method override (drag-up evt . rest)
-    (release-capture))
+  (method override (drag-up self evt . rest)
+    (release-capture self))
   
   
   (definition (pos->reticule pos)
-    (- (cast <fl> (get-h~ pos)) 3.))
+    (- (cast <fl> (get-h pos)) 3.))
   
   
   ;;;
@@ -209,14 +209,14 @@
   ;;;
   
   
-  (method (draw-reticule surface)
+  (method (draw-reticule self surface)
     (when reticule
-      (let ((height (get-height)))
-        (set-color~ surface {Color Black})
-        (set-line-width~ surface 1)
-        (line~ surface (+ reticule 3) 3 (+ reticule 3) (- height 3))
-        (draw-arrow-tip~ surface (+ reticule 1) 0 3 'down)
-        (draw-arrow-tip~ surface (+ reticule 1) (- height 3) 3 'up)))))
+      (let ((height (get-height self)))
+        (set-color surface {Color Black})
+        (set-line-width surface 1)
+        (line surface (+ reticule 3) 3 (+ reticule 3) (- height 3))
+        (draw-arrow-tip surface (+ reticule 1) 0 3 'down)
+        (draw-arrow-tip surface (+ reticule 1) (- height 3) 3 'up)))))
 
 
 ;;;
@@ -232,7 +232,7 @@
   ;;;
   
   
-  (method override (value-max)
+  (method override (value-max self)
     360)
   
   
@@ -241,16 +241,16 @@
   ;;;
   
   
-  (method override (draw surface context)
-    (let ((height (get-height))
-          (s (get-saturation~ parent))
-          (v (get-value~ parent)))
-      (loop (for r <fl> from 0. to (reticule-max))
-            (do (let ((h (reticule->value r)))
+  (method override (draw self surface context)
+    (let ((height (get-height self))
+          (s (get-saturation parent))
+          (v (get-value parent)))
+      (loop (for r <fl> from 0. to (reticule-max self))
+            (do (let ((h (reticule->value self r)))
                   (let ((color (hsv->color h s v))
                         (r (fxround r)))
-                    (fill-rect~ surface (new Rect (+ r 3) 3 (+ r 4) (- height 3)) color))))))
-    (draw-reticule surface)))
+                    (fill-rect surface (new Rect (+ r 3) 3 (+ r 4) (- height 3)) color))))))
+    (draw-reticule self surface)))
 
 
 ;;;
@@ -266,7 +266,7 @@
   ;;;
   
   
-  (method override (value-max)
+  (method override (value-max self)
     1)
   
   
@@ -275,16 +275,16 @@
   ;;;
   
   
-  (method override (draw surface context)
-    (let ((height (get-height))
-          (h (get-hue~ parent))
-          (v (get-value~ parent)))
-      (loop (for r <fl> from 0. to (reticule-max))
-            (do (let ((s (reticule->value r)))
+  (method override (draw self surface context)
+    (let ((height (get-height self))
+          (h (get-hue parent))
+          (v (get-value parent)))
+      (loop (for r <fl> from 0. to (reticule-max self))
+            (do (let ((s (reticule->value self r)))
                   (let ((color (hsv->color h s v))
                         (r (fxround r)))
-                    (fill-rect~ surface (new Rect (+ r 3) 3 (+ r 4) (- height 3)) color))))))
-    (draw-reticule surface)))
+                    (fill-rect surface (new Rect (+ r 3) 3 (+ r 4) (- height 3)) color))))))
+    (draw-reticule self surface)))
 
 
 ;;;
@@ -300,7 +300,7 @@
   ;;;
   
   
-  (method override (value-max)
+  (method override (value-max self)
     1)
   
   
@@ -309,16 +309,16 @@
   ;;;
   
   
-  (method override (draw surface context)
-    (let ((height (get-height))
-          (h (get-hue~ parent))
-          (s (get-saturation~ parent)))
-      (loop (for r <fl> from 0. to (reticule-max))
-            (do (let ((v (reticule->value r)))
+  (method override (draw self surface context)
+    (let ((height (get-height self))
+          (h (get-hue parent))
+          (s (get-saturation parent)))
+      (loop (for r <fl> from 0. to (reticule-max self))
+            (do (let ((v (reticule->value self r)))
                   (let ((color (hsv->color h s v))
                         (r (fxround r)))
-                    (fill-rect~ surface (new Rect (+ r 3) 3 (+ r 4) (- height 3)) color))))))
-    (draw-reticule surface)))
+                    (fill-rect surface (new Rect (+ r 3) 3 (+ r 4) (- height 3)) color))))))
+    (draw-reticule self surface)))
 
 
 ;;;

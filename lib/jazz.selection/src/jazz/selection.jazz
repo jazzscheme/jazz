@@ -38,6 +38,27 @@
 (module jazz.selection jazz
 
 
+(hub allow-start-drag?)
+(hub change-selection?)
+(hub delay-selection)
+(hub double-click)
+(hub end-delayed?)
+(hub get-alt?)
+(hub get-control?)
+(hub get-modifiers)
+(hub get-mouse-view)
+(hub get-shift?)
+(hub locked?)
+(hub mouse-down)
+(hub mouse-part-control?)
+(hub mouse-down?)
+(hub mouse-up)
+(hub mouse-up?)
+(hub reset)
+(hub set-modifiers)
+(hub with-locked-operation)
+
+
 ;;;
 ;;;; Selection-Provider
 ;;;
@@ -59,8 +80,8 @@
   (property control?            initialize #f getter generate)
   (property alt?                initialize #f getter generate)
   (property multiple-selection? initialize #f getter generate)
-  (property mouse-down-part     initialize #f getter generate)
-  (property mouse-down-view     initialize #f getter generate)
+  (property mouse-part          initialize #f getter generate)
+  (property mouse-view          initialize #f getter generate)
   
   
   (slot provider          initialize #f)
@@ -68,8 +89,8 @@
   (slot delay-selection?  initialize #f)
   
   
-  (method override (initialize p)
-    (nextmethod)
+  (method override (initialize self p)
+    (nextmethod self)
     (set! provider p))
   
   
@@ -78,35 +99,35 @@
   ;;;
   
   
-  (method public (debug-current-operation)
+  (method public (debug-current-operation self)
     current-operation)
   
   
-  (method public (mouse-down?)
+  (method public (mouse-down? self)
     (eq? current-operation 'mouse-down))
   
   
-  (method public (mouse-up?)
+  (method public (mouse-up? self)
     (eq? current-operation 'mouse-up))
   
   
-  (method public (mouse-double-down?)
+  (method public (mouse-double-down? self)
     (eq? current-operation 'mouse-double-down))
   
   
-  (method public (mouse-double-up?)
+  (method public (mouse-double-up? self)
     (eq? current-operation 'mouse-double-up))
   
   
-  (method public (keyboard?)
+  (method public (keyboard? self)
     (eq? current-operation 'keyboard))
   
   
-  (method public (locked?)
+  (method public (locked? self)
     (eq? current-operation 'locked))
   
   
-  (method (set-modifiers s? c? a?)
+  (method package (set-modifiers self s? c? a?)
     (set! shift? s?)
     (set! control? c?)
     (set! alt? a?))
@@ -117,7 +138,7 @@
   ;;;
   
   
-  (method public (with-locked-operation proc)
+  (method public (with-locked-operation self proc)
     (let ((old-operation current-operation))
       (unwind-protect
           (begin
@@ -126,27 +147,27 @@
         (set! current-operation old-operation))))
   
   
-  (method public (collapse? row)
+  (method public (collapse? self row)
     )
   
   
-  (method public (expand? row)
+  (method public (expand? self row)
     )
   
   
-  (method public (end-delayed?)
-    (if (and multiple-selection? (not shift?) (not control?) (eq? mouse-down-part 'content))
-        (mouse-up?)
-      (not (mouse-up?))))
+  (method public (end-delayed? self)
+    (if (and multiple-selection? (not shift?) (not control?) (eq? mouse-part 'content))
+        (mouse-up? self)
+      (not (mouse-up? self))))
   
   
-  (method public (allow-start-drag?)
-    (and (eq? mouse-down-part 'content)
-         (mouse-down?)))
+  (method public (allow-start-drag? self)
+    (and (eq? mouse-part 'content)
+         (mouse-down? self)))
   
   
-  (method public (mouse-down-part-control?)
-    (eq? mouse-down-part 'control))
+  (method public (mouse-part-control? self)
+    (eq? mouse-part 'control))
   
   
   ;;;
@@ -154,45 +175,45 @@
   ;;;
   
   
-  (method public (delay-selection)
+  (method public (delay-selection self)
     (set! delay-selection? #t))
   
   
-  (method public (change-selection?)
+  (method public (change-selection? self)
     (case current-operation
       ((mouse-down) (not delay-selection?))
       ((mouse-up) delay-selection?)
       (else #t)))
   
   
-  (method public (mouse-down view part shift? control? alt? ms?)
+  (method public (mouse-down self view part shift? control? alt? ms?)
     (set! current-operation 'mouse-down)
-    (set! mouse-down-view view)
-    (set! mouse-down-part part)
-    (set-modifiers shift? control? alt?)
+    (set! mouse-view view)
+    (set! mouse-part part)
+    (set-modifiers self shift? control? alt?)
     (set! multiple-selection? ms?))
   
   
-  (method public (mouse-up shift? control? alt?)
-    (if (mouse-double-down?)
+  (method public (mouse-up self shift? control? alt?)
+    (if (mouse-double-down? self)
         (set! current-operation 'mouse-double-up)
       (set! current-operation 'mouse-up))
-    (set-modifiers shift? control? alt?))
+    (set-modifiers self shift? control? alt?))
   
   
-  (method public (double-click shift? control? alt?)
+  (method public (double-click self shift? control? alt?)
     (set! current-operation 'mouse-double-down)
-    (set-modifiers shift? control? alt?))
+    (set-modifiers self shift? control? alt?))
   
   
-  (method public (keyboard shift? control? alt?)
+  (method public (keyboard self shift? control? alt?)
     (set! current-operation 'keyboard)
-    (set-modifiers shift? control? alt?))
+    (set-modifiers self shift? control? alt?))
   
   
-  (method public (reset)
+  (method public (reset self)
     (set! current-operation #f)
-    (set! mouse-down-part #f)
-    (set-modifiers #f #f #f)
+    (set! mouse-part #f)
+    (set-modifiers self #f #f #f)
     (set! multiple-selection? #f)
     (set! delay-selection? #f))))

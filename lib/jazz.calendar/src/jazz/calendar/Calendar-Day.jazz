@@ -38,7 +38,8 @@
 (module protected jazz.calendar.Calendar-Day jazz
 
 
-(import (jazz.graphic)
+(import (jazz.calendar)
+        (jazz.graphic)
         (jazz.view)
         (time))
 
@@ -54,7 +55,7 @@
   (slot selected? initialize #f)
 
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{a}" date))))
@@ -65,8 +66,8 @@
   ;;;
   
   
-  (method (get-manager)
-    (get-manager~ (get-calendar)))
+  (method package (get-manager self)
+    (get-manager (get-calendar self)))
   
   
   ;;;
@@ -74,16 +75,16 @@
   ;;;
   
   
-  (method public (get-calendar)
+  (method public (get-calendar self)
     parent)
   
   
-  (method (same-day?)
-    (= (date-day date) (date-day (get-date~ (get-calendar)))))
+  (method (same-day? self)
+    (= (date-day date) (date-day (get-date (get-calendar self)))))
   
   
-  (method (same-month?)
-    (= (date-month date) (date-month (get-date~ (get-calendar)))))
+  (method (same-month? self)
+    (= (date-month date) (date-month (get-date (get-calendar self)))))
   
   
   ;;;
@@ -91,13 +92,13 @@
   ;;;
 
 
-  (method public (get-selected?)
+  (method public (get-selected? self)
     selected?)
 
 
-  (method public (set-selected? flag)
+  (method public (set-selected? self flag)
     (set! selected? flag)
-    (invalidate-view))
+    (invalidate-view self))
 
 
   ;;;
@@ -105,10 +106,10 @@
   ;;;
   
   
-  (method override (mouse-down evt)
-    (let ((calendar (get-calendar)))
-      (acquire-focus~ calendar)
-      (set-selection~ calendar self)))
+  (method override (mouse-down self evt)
+    (let ((calendar (get-calendar self)))
+      (acquire-focus calendar)
+      (set-selection calendar self)))
 
 
   ;;;
@@ -116,8 +117,8 @@
   ;;;
   
   
-  (method override (double-click evt)
-    (double-click-day~ (get-manager) self))
+  (method override (double-click self evt)
+    (double-click-day (get-manager self) self))
 
 
   ;;;
@@ -129,43 +130,43 @@
     {Font Label-Bold})
 
   
-  (method override (draw surface context)
-    (let ((bounds (get-bounds))
-          (calendar (get-calendar)))
-      (fill-rect~ surface bounds (or (day-color~ calendar self) (day-color))))
-    (draw-day surface)
-    (draw-header surface context))
+  (method override (draw self surface context)
+    (let ((bounds (get-bounds self))
+          (calendar (get-calendar self)))
+      (fill-rect surface bounds (or (day-color calendar self) (day-color self))))
+    (draw-day self surface)
+    (draw-header self surface context))
   
   
-  (method protected virtual (draw-day surface)
+  (method protected virtual (draw-day self surface)
     )
   
   
-  (method protected virtual (draw-header surface context)
+  (method package virtual (draw-header self surface context)
     (when selected?
-      (fill-rect~ surface (new Rect 0 0 (get-right~ (get-bounds)) (get-bottom~ (get-bounds))) (selection-color)))
-    (set-font~ surface (if (current-day?) Current-Day-Font {Font Label}))
-    (draw-text~ surface 0 0 (->string (date-day date)) (cond (selected? {Color Red})
-                                                             ((not (same-month?)) {Color Medium-Gray})
+      (fill-rect surface (new Rect 0 0 (get-right (get-bounds self)) (get-bottom (get-bounds self))) (selection-color self)))
+    (set-font surface (if (current-day? self) Current-Day-Font {Font Label}))
+    (draw-text surface 0 0 (->string (date-day date)) (cond (selected? {Color Red})
+                                                             ((not (same-month? self)) {Color Medium-Gray})
                                                              (else {Color Black})))
-    (draw-text~ surface 0 12 (date->string date "~a") (cond (selected? {Color Red})
-                                                            ((not (same-month?)) {Color Medium-Gray})
+    (draw-text surface 0 12 (date->string date "~a") (cond (selected? {Color Red})
+                                                            ((not (same-month? self)) {Color Medium-Gray})
                                                             (else {Color Black}))))
 
   
-  (method (selection-color)
-    (if (focused?)
+  (method package (selection-color self)
+    (if (focused? self)
         {Color Focused-Selection}
       {Color Light-Yellow}))
   
   
-  (method (day-color)
-    (if (same-month?)
+  (method package (day-color self)
+    (if (same-month? self)
         {Color White}
       {Color Light-Purple}))
   
   
-  (method (current-day?)
+  (method (current-day? self)
     (let ((today (current-date)))
       (and (= (date-day date) (date-day today))
            (= (date-month date) (date-month today))
@@ -176,7 +177,7 @@
   (method (draw-day surface)
     (nextmethod surface)
     (let* ((calendar (get-calendar))
-           (editor (get-editor~ calendar))
+           (editor (get-editor calendar))
            (recurring (collect-recurring editor))
            (holidays (collect-holidays editor))
            (events (collect-events editor))
@@ -187,10 +188,10 @@
            (col 0))
       (when holidays
         (let ((bounds (get-bounds)))
-          (fill-rect~ surface bounds (get-holiday-color~ (get-client~ editor)))))
+          (fill-rect surface bounds (get-holiday-color (get-client editor)))))
       (for-each (lambda (event)
-                  (let ((color (get-color~ event)))
-                    (fill-rect~ surface (new Rect h v (+ h 10) (+ v 10)) color)
+                  (let ((color (get-color event)))
+                    (fill-rect surface (new Rect h v (+ h 10) (+ v 10)) color)
                     (increase! col)
                     (if (<= col 3)
                         (increase! h 11)
@@ -206,5 +207,5 @@
   ;;;
   
   
-  (method protected virtual (focused?)
-    (eq? (get-focus) parent))))
+  (method package virtual (focused? self)
+    (eq? (active-focus) parent))))

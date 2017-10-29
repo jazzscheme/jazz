@@ -42,7 +42,8 @@
         (jazz.opengl.window.windows (cond windows))
         (jazz.opengl.window.x11     (cond x11)))
 
-(import (jazz.opengl.glew)
+(import (jazz.component)
+        (jazz.opengl.glew)
         (jazz.opengl.window.cocoa   (cond cocoa))
         (jazz.opengl.window.windows (cond windows))
         (jazz.opengl.window.x11     (cond x11))
@@ -61,8 +62,8 @@
 
 (definition public (new-opengl-window (class: class #f) (position: position #f) (size: size #f) (need-version: need-version #f) (fullscreen?: fullscreen? #f) (render?: render? #t) (visible?: visible? #t))
   (let ((needed-version (or need-version minimum-needed-version)))
-    (let ((needed-major (get-major~ needed-version))
-          (needed-minor (get-minor~ needed-version)))
+    (let ((needed-major (get-major needed-version))
+          (needed-minor (get-minor needed-version)))
       (define (validate-version)
         (let ((major (glGetInteger GL_MAJOR_VERSION))
               (minor (glGetInteger GL_MINOR_VERSION)))
@@ -89,10 +90,10 @@
         ;; at the moment vsync is a really bad thing as it blocks
         ;; the thread scheduler by having control remain in C...
         (disable-vsync window)
-        (setup-opengl~ window)
+        (setup-opengl window)
         (when visible?
-          (set-visible?~ window #t)
-          (select-foreground~ window))
+          (set-visible? window #t)
+          (select-foreground window))
         window))))
 
 
@@ -128,30 +129,30 @@
   (slot window-mode        initialize #f getter generate)
 
 
-  (method override (opengl?)
+  (method override (opengl? self)
     #t)
 
 
-  (method override (prepare rest)
-    (nextmethod rest)
+  (method override (prepare self rest)
+    (nextmethod self rest)
     (set! window-mode (if (request-fullscreen?) 'fullscreen 'windowed)))
 
 
-  (method override (size-change state size)
-    (nextmethod state size)
-    (when (opened?)
-      (let ((width (get-width~ size))
-            (height (get-height~ size)))
-        (resize-scene (cast <fl> width) (cast <fl> height)))
+  (method override (size-change self state size)
+    (nextmethod self state size)
+    (when (opened? self)
+      (let ((width (get-width size))
+            (height (get-height size)))
+        (resize-scene self (cast <fl> width) (cast <fl> height)))
       @interesting-but-can-get-called-too-early
       (render-scene)))
 
 
-  (method protected virtual (resize-scene width <fl> height <fl>)
+  (method package virtual (resize-scene self width <fl> height <fl>)
     (glViewport 0 0 (fxround width) (fxround height)))
 
 
-  (method protected virtual (setup-opengl)
+  (method package virtual (setup-opengl self)
     (glClearColor 0.0 0.0 0.0 1.0)
     (glClearDepth 1.0)
     (glEnable GL_LINE_SMOOTH)
@@ -177,7 +178,7 @@
   ;; quicky
   (cond-expand
     (cocoa
-     (method public (toggle-windowed-mode)
+     (method public (toggle-windowed-mode self)
        (platform-set-fullscreen-windowed-mode handle)))
     (else
      (method public (toggle-windowed-mode)
@@ -190,25 +191,25 @@
           (restore-windowed-mode))))))
 
 
-  (method public (set-fullscreen-windowed-mode)
-    (set! previous-placement (get-placement))
+  (method public (set-fullscreen-windowed-mode self)
+    (set! previous-placement (get-placement self))
     (platform-set-fullscreen-windowed-mode handle)
     (set! window-mode 'fullscreen-windowed))
 
 
-  (method public (restore-from-fullscreen)
+  (method public (restore-from-fullscreen self)
     (platform-restore-from-fullscreen handle)
     (set! window-mode 'windowed))
 
 
-  (method public (restore-windowed-mode)
+  (method public (restore-windowed-mode self)
     (when previous-placement
       (set-window-placement handle previous-placement))
     (platform-restore-windowed-mode handle)
     (set! window-mode 'windowed))
 
 
-  (method public (set-fullscreen-mode)
+  (method public (set-fullscreen-mode self)
     (platform-set-fullscreen-mode handle))
 
 
@@ -217,34 +218,34 @@
   ;;;
 
 
-  (method override (paint update-region . platform-data)
+  (method override (paint self update-region . platform-data)
     (with-platform-painting self platform-data
       (lambda (surface)
-        (render-scene))))
+        (render-scene self))))
 
 
-  (method protected virtual (render-ready?)
+  (method protected virtual (render-ready? self)
     #t)
 
 
-  (method protected virtual (render-scene)
-    (when (render-ready?)
-      (draw-scene)
-      (render-sync)))
+  (method package virtual (render-scene self)
+    (when (render-ready? self)
+      (draw-scene self)
+      (render-sync self)))
 
 
-  (method protected virtual (draw-scene)
+  (method protected virtual (draw-scene self)
     )
 
 
-  (method public (render-sync)
+  (method public (render-sync self)
     (swap-buffers handle device))
 
 
-  (method override (scroll-window delta rect clip-rect)
+  (method override (scroll-window self delta rect clip-rect)
     (assert handle)
-    (invalidate-rect clip-rect))
+    (invalidate-rect self clip-rect))
 
 
-  (method override (close-window)
+  (method override (close-window self)
     (close-requested))))

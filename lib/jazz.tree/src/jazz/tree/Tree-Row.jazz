@@ -56,7 +56,7 @@
   (slot protected down? initialize #f)
   
   
-  (method override (default-size)
+  (method override (default-size self)
     {Dimension 100 17})
 
 
@@ -65,21 +65,21 @@
   ;;;
 
 
-  (method override (initialize (parent: parent #f) (father: father #f) (level: level #f) (state: state 'collapsed) (row-height: row-height #f) (background: background #f) (children: children #f) (visible?: visible? #t) (user-data: user-data #f))
-    (nextmethod)
-    (set! parent~self parent)
-    (set! father~self father)
-    (set! level~self level)
-    (set! state~self state)
-    (set! row-height~self row-height)
-    (set! background~self background)
+  (method override (initialize self (parent: parent #f) (father: father #f) (level: level #f) (state: state 'collapsed) (row-height: row-height #f) (background: background #f) (children: children #f) (visible?: visible? #t) (user-data: user-data #f))
+    (nextmethod self)
+    (set! self.parent parent)
+    (set! self.father father)
+    (set! self.level level)
+    (set! self.state state)
+    (set! self.row-height row-height)
+    (set! self.background background)
     (if children
-        (set-children children)
-      (set! children~self '()))
-    (set! user-data~self user-data)
-    (set-installed? #t)
-    (set-finished? #t)
-    (set-visible-flag visible?))
+        (set-children self children)
+      (set! self.children '()))
+    (set! self.user-data user-data)
+    (set-installed? self #t)
+    (set-finished? self #t)
+    (set-visible-flag self visible?))
 
 
   ;;;
@@ -87,7 +87,7 @@
   ;;;
 
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{s}" user-data))))
@@ -98,17 +98,17 @@
   ;;;
   
   
-  (method public (get-tree)
+  (method public (get-tree self)
     parent)
   
   
-  (method public (get-background)
+  (method public (get-background self)
     background)
   
   
-  (method public (set-background value)
+  (method public (set-background self value)
     (set! background value)
-    (invalidate-view~ parent))
+    (invalidate-view parent))
   
   
   ;;;
@@ -116,55 +116,55 @@
   ;;;
   
   
-  (method override (set-children lst)
-    (let ((tree (get-tree)))
+  (method override (set-children self lst)
+    (let ((tree (get-tree self)))
       (when tree
-        (assert (= (length (get-columns~ tree)) (length lst)))))
+        (assert (= (length (get-columns tree)) (length lst)))))
     (set! children '())
     (for-each (lambda (child)
                 (if (is? child View)
-                    (set-parent~ child self)
-                  (add-child child)))
+                    (set-parent child self)
+                  (add-child self child)))
               lst))
   
   
-  (method protected (set-data-children lst)
+  (method protected (set-data-children self lst)
     (set! children lst))
     
   
-  (method override (replace-child rank child)
+  (method override (replace-child self rank child)
     (let ((current (element children rank)))
       (when (neq? current child)
         (if (is? child View)
             (begin
-              (set-parent~ child self)
+              (set-parent child self)
               (set! children (insert! (remove! child children) rank child)))
           (set! children (insert! children rank child)))
         (if (is? current View)
-            (set-parent~ current #f)
+            (set-parent current #f)
           (set! children (remove! current children)))
-        (layout-scrollee~ parent))))
+        (layout-scrollee parent))))
   
   
-  (method public (get-child rank)
+  (method public (get-child self rank)
     (element children rank))
   
   
-  (method public (get-node-child)
+  (method public (get-node-child self)
     (find-if (lambda (child)
                (is? child Tree-Node))
              children))
   
   
-  (method public (get-path-child)
+  (method public (get-path-child self)
     (find-if (lambda (child)
                (is? child Tree-Path))
              children))
   
   
-  (method package (calculate-node-width)
+  (method package (calculate-node-width self)
     (let ((node (car children)))
-      (text-width~ (effective-font~ parent) (get-title~ node))))
+      (text-width (effective-font parent) (get-title node))))
 
   
   ;;;
@@ -172,38 +172,38 @@
   ;;;
   
   
-  (method public (flatten root-row)
-    (let ((tree (get-tree)))
+  (method public (flatten self root-row)
+    (let ((tree (get-tree self)))
       (for-each (lambda (son)
-                  (if (flatten-row?~ tree son)
-                      (disconnect~ son)
-                    (flatten~ son root-row)))
+                  (if (flatten-row? tree son)
+                      (disconnect son)
+                    (flatten son root-row)))
                 sons)))
   
   
-  (method public (disconnect)
-    (let* ((path (get-path-child))
-           (father-row (and path (get-father-row~ path)))
-           (root-row (get-root-row~ (get-tree)))
-           (position (son-rank~ root-row (first (get-spine)))))
-      (change-father root-row position: position)
-      (set-descendants-level 0)))
+  (method public (disconnect self)
+    (let* ((path (get-path-child self))
+           (father-row (and path (get-father-row path)))
+           (root-row (get-root-row (get-tree self)))
+           (position (son-rank root-row (first (get-spine self)))))
+      (change-father self root-row position: position)
+      (set-descendants-level self 0)))
   
   
-  (method public (reconnect)
-    (let ((father-row (get-father-row)))
-      (set-descendants-level (+ 1 (get-level~ father-row)))
-      (change-father father-row)))
+  (method public (reconnect self)
+    (let ((father-row (get-father-row self)))
+      (set-descendants-level self (+ 1 (get-level father-row)))
+      (change-father self father-row)))
   
   
-  (method public virtual (disconnected?)
-    (let ((father-row (get-father-row)))
+  (method public virtual (disconnected? self)
+    (let ((father-row (get-father-row self)))
       (and father-row (/= father-row father))))
   
   
-  (method public virtual (get-father-row)
-    (let ((path (get-path-child)))
-      (and path (get-father-row~ path))))
+  (method public virtual (get-father-row self)
+    (let ((path (get-path-child self)))
+      (and path (get-father-row path))))
 
   
   ;;;
@@ -211,8 +211,8 @@
   ;;;
   
   
-  (method public virtual (auto-collapsable?)
-    (collapsable?))
+  (method public virtual (auto-collapsable? self)
+    (collapsable? self))
   
   
   ;;;
@@ -220,19 +220,19 @@
   ;;;
   
   
-  (method override (layout)
-    (let ((tree (get-tree)))
+  (method override (layout self)
+    (let ((tree (get-tree self)))
       (when (and tree children)
         (let ((h 0)
-              (cs (get-column-spacing~ tree))
-              (height (get-effective-height))
+              (cs (get-column-spacing tree))
+              (height (get-effective-height self))
               (rank 0))
           (for-each (lambda (column data)
-                      (let ((width (get-width~ column)))
-                        (layout-cell~ column self data h 0 width height)
-                        (increase! h (+ width (if (space-column?~ tree column rank) cs 0)))
+                      (let ((width (get-width column)))
+                        (layout-cell column self data h 0 width height)
+                        (increase! h (+ width (if (space-column? tree column rank) cs 0)))
                         (increase! rank)))
-                    (get-columns~ tree)
+                    (get-columns tree)
                     children)))))
   
   
@@ -241,30 +241,30 @@
   ;;;
   
   
-  (method public virtual (context-menu pos)
+  (method public virtual (context-menu self pos)
     )
   
   
-  (method public virtual (double-click pos)
+  (method public virtual (double-click self pos)
     )
   
   
-  (method public virtual (selector-down)
+  (method public virtual (selector-down self)
     (set! down? #t)
-    (acquire-capture~ (get-header~ parent))
-    (invalidate-row-selector~ (get-header~ parent) self)
-    (selector-click~ parent self))
+    (acquire-capture (get-header parent))
+    (invalidate-row-selector (get-header parent) self)
+    (selector-click parent self))
 
 
-  (method public virtual (selector-up)
+  (method public virtual (selector-up self)
     (set! down? #f)
-    (release-capture~ (get-header~ parent))
-    (invalidate-row-selector~ (get-header~ parent) self))
+    (release-capture (get-header parent))
+    (invalidate-row-selector (get-header parent) self))
 
   
-  (method public virtual (selector-move initial-line)
-    (invalidate-row-selector~ (get-header~ parent) self)
-    (selector-multi-select~ parent self initial-line))
+  (method public virtual (selector-move self initial-line)
+    (invalidate-row-selector (get-header parent) self)
+    (selector-multi-select parent self initial-line))
 
   
   ;;;
@@ -272,40 +272,40 @@
   ;;;
   
   
-  (method override (draw-children surface nodes context)
-    (let ((tree (get-tree))
-          (clipper (get-clipper~ surface)))
-      (let ((height (get-height))
-            (cs (get-column-spacing~ tree))
-            (left-clip (get-left~ clipper))
-            (right-clip (get-right~ clipper))
+  (method override (draw-children self surface nodes context)
+    (let ((tree (get-tree self))
+          (clipper (get-clipper surface)))
+      (let ((height (get-height self))
+            (cs (get-column-spacing tree))
+            (left-clip (get-left clipper))
+            (right-clip (get-right clipper))
             (redrawn (redrawn-merge-cells)))
-        (let (iter (columns (get-columns~ tree))
+        (let (iter (columns (get-columns tree))
                    (children children)
                    (h 0)
                    (rank 0))
           (when (not-null? children)
             (let ((column (car columns))
                   (data (car children)))
-              (if (get-visible?~ column)
+              (if (get-visible? column)
                   (let ((node? (is? column Tree-Node-Column))
-                        (width (get-width~ column))
-                        (merge-cell (get-merge-cell~ tree (row/column->site~ tree self column))))
-                    (let ((right (+ h width (if (space-column?~ tree column rank) cs 0))))
+                        (width (get-width column))
+                        (merge-cell (get-merge-cell tree (row/column->site tree self column))))
+                    (let ((right (+ h width (if (space-column? tree column rank) cs 0))))
                       (when (< h right-clip)
                         (when (> right left-clip)
                           (if merge-cell
                               (table-set! redrawn merge-cell #t)
                             (if (is-not? data View)
-                                (with-clipping-transformation~ surface h 0 width height #f
+                                (with-clipping-transformation surface h 0 width height #f
                                   (lambda ()
-                                    (draw-data~ column surface context self data width height)))
+                                    (draw-data column surface context self data width height)))
                               (when node?
-                                (draw-level~ column surface self data width height)
-                                (draw-control~ column surface self data width height))
-                              (with-clipping-self-transformation~ data surface
+                                (draw-level column surface self data width height)
+                                (draw-control column surface self data width height))
+                              (with-clipping-self-transformation data surface
                                 (lambda ()
-                                  (render-drawing~ data surface context))))))
+                                  (render-drawing data surface context))))))
                         (iter (cdr columns)
                               (cdr children)
                               right
@@ -316,34 +316,34 @@
                       rank))))))))
   
   
-  (method override (draw-selection surface)
+  (method override (draw-selection self surface)
     )
   
   
-  (method public virtual (draw-selector surface context h v width height flat?)
+  (method public virtual (draw-selector self surface context h v width height flat?)
     (if down?
-        (draw-sunken-button surface h v width height flat?)
-      (draw-raised-button surface h v width height flat?)))
+        (draw-sunken-button self surface h v width height flat?)
+      (draw-raised-button self surface h v width height flat?)))
 
   
-  (method (draw-sunken-button surface h v width height flat?)
+  (method (draw-sunken-button self surface h v width height flat?)
     (let* ((outer (new Rect h v (+ h width) (+ v height)))
            (inner (inflate-rect outer -1 -1)))
-      (set-color~ surface {Color Dark})
-      (frame-rect~ surface outer {Color Dark})
-      (fill-rect~ surface inner (or background (header-color~ parent)))
-      (set-text-color~ surface {Color Black})))
+      (set-color surface {Color Dark})
+      (frame-rect surface outer {Color Dark})
+      (fill-rect surface inner (or background (header-color parent)))
+      (set-text-color surface {Color Black})))
   
   
-  (method (draw-raised-button surface h v width height flat?)
+  (method (draw-raised-button self surface h v width height flat?)
     (let ((thick (if flat? -1 -2)))
       ;; when spaced, it's the background that draws the right side shadow
       (let* ((outer (new Rect h v (+ h width) (+ v height)))
              (inner (expand-rect outer 1 1 thick thick)))
         (let ((smaller (expand-rect outer 0 0 0 -1)))
-             (draw-edge~ surface smaller inner: 'raised edges: '(top left)))
-        (fill-rect~ surface inner (or background (header-color~ parent)))
-        (set-text-color~ surface {Color Black}))))
+             (draw-edge surface smaller inner: 'raised edges: '(top left)))
+        (fill-rect surface inner (or background (header-color parent)))
+        (set-text-color surface {Color Black}))))
 
   
   ;;;
@@ -351,8 +351,8 @@
   ;;;
   
   
-  (method override (with-clipping-self-transformation surface thunk)
-    (with-transformation~ surface (get-h~ position) (get-v~ position) (get-transformation)
+  (method override (with-clipping-self-transformation self surface thunk)
+    (with-transformation surface (get-h position) (get-v position) (get-transformation self)
       thunk))
   
   
@@ -361,7 +361,7 @@
   ;;;
   
   
-  (method public (find-by-title title)
+  (method public (find-by-title self title)
     (find-if (lambda (row)
-               (string=? (get-title~ (first-child~ row)) title))
+               (string=? (get-title (first-child row)) title))
              sons))))

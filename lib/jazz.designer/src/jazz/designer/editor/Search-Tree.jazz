@@ -38,7 +38,9 @@
 (module protected jazz.designer.editor.Search-Tree jazz
 
 
-(import (jazz.descriptor)
+(import (jazz.component)
+        (jazz.component.descriptors)
+        (jazz.descriptor)
         (jazz.designer)
         (jazz.handler)
         (jazz.jml)
@@ -64,16 +66,16 @@
   ;;;
 
 
-  (method public (get-target)
+  (method public (get-target self)
     target)
 
 
-  (method public (set-target value)
+  (method public (set-target self value)
     (set! target value)
-    (update)
+    (update self)
     (when (> visible-count 0)
-      (set-single-selection 0)
-      (acquire-focus)))
+      (set-single-selection self 0)
+      (acquire-focus self)))
 
 
   ;;;
@@ -81,7 +83,7 @@
   ;;;
   
   
-  (method override (selection-changed component old origin force-parent? focus?)
+  (method override (selection-changed self component old origin force-parent? focus?)
     )
 
 
@@ -90,9 +92,9 @@
   ;;;
     
   
-  (method override (on-designer evt)
+  (method override (on-designer self evt)
     @comment-gives-empty-case
-    (case (get-kind~ evt)
+    (case (get-kind evt)
       @this-is-too-much
       ((:child-add :child-remove :property-change) (update))))
   
@@ -102,27 +104,27 @@
   ;;;
 
 
-  (method override (update . rest)
+  (method override (update self . rest)
     (define (search-components target)
       (let ((list '()))
-        (for-each-descendant~ client
+        (for-each-descendant client
           (lambda (component level)
-            (when (and (indexable? component) (search-component~ component target))
+            (when (and (indexable? component) (search-component component target))
               (set! list (cons component list)))))
         list))
     
-    (remove-every-row)
-    (with-update-locked
+    (remove-every-row self)
+    (with-update-locked self
       (lambda ()
         (when (and client target)
           (for-each (lambda (component)
-                      (insert-component component #f #f))
+                      (insert-component self component #f #f))
                     (sort < (search-components target) key: (lambda (component) (localize (get-presentation-property component)))))))))
   
   
-  (method override (insert-component component father recursive?)
+  (method override (insert-component self component father recursive?)
     (let ((title (get-presentation-property component))
           (image (get-component-image component))
-          (location (present-location component))
+          (location (present-location self component))
           (kind (get-class-presentation (class-of component))))
-      (add-row father: father children: (list (new Tree-Node title: title image: image) (new Tree-Label title: location) (new Tree-Label title: kind)) user-data: component)))))
+      (add-row self father: father children: (list (new Tree-Node title: title image: image) (new Tree-Label title: location) (new Tree-Label title: kind)) user-data: component)))))

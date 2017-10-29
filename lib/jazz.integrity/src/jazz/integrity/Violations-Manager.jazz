@@ -38,8 +38,12 @@
 (module protected jazz.integrity.Violations-Manager jazz
 
 
-(import (jazz.feedback)
+(import (jazz.designer)
+        (jazz.feedback)
+        (jazz.integrity)
+        (jazz.io)
         (jazz.jml)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -63,7 +67,7 @@
                 (<Tree-Label-Column> name: location  title: "Location" width: 337))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Violations)
 
 
@@ -72,21 +76,21 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "IntegrityViolations"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Violations")
   
   
-  (method override (client-activate)
+  (method override (client-activate self)
     (let ((guest (current-document)))
-      (set-editor (and guest (get-component-editor~ guest)))))
+      (set-editor self (and guest (get-component-editor guest)))))
   
   
-  (method override (client-deactivate)
-    (set-editor #f))
+  (method override (client-deactivate self)
+    (set-editor self #f))
   
   
   ;;;
@@ -94,27 +98,27 @@
   ;;;
   
   
-  (method public virtual (get-editor)
+  (method public virtual (get-editor self)
     editor)
   
   
-  (method public virtual (set-editor value)
+  (method public virtual (set-editor self value)
     ;; Removing this test is the simple way for now of solving a tough bug that if I open a design
     ;; with violations and clear them and switch workspace then: if I switch back to the modeling
     ;; workspace every is fine but if I do so by reopening the same file, then the violations list
     ;; remains empty because the test below fails...
     (when #t @w (neq? value editor)
       (set! editor value)
-      (update)))
+      (update self)))
   
   
-  (method public (update)
-    (let ((tree (get-tree)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+  (method public (update self)
+    (let ((tree (get-tree self)))
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (when editor
-            (for-each add-violation (get-violations~ editor)))))))
+            (for-each (~ add-violation self) (get-violations editor)))))))
   
   
   ;;;
@@ -122,12 +126,12 @@
   ;;;
 
   
-  (method (add-violation violation)
-    (let ((tree (get-tree))
-          (title (present-message~ violation))
-          (location (present-location~ violation))
-          (image (get-image~ violation)))
-      (add-row~ tree children: (list (new Tree-Node title: title image: image) (new Tree-Label title: location)) user-data: violation)))
+  (method package (add-violation self violation)
+    (let ((tree (get-tree self))
+          (title (present-message violation))
+          (location (present-location violation))
+          (image (get-image violation)))
+      (add-row tree children: (list (new Tree-Node title: title image: image) (new Tree-Label title: location)) user-data: violation)))
 
   
   ;;;
@@ -135,32 +139,32 @@
   ;;;
   
 
-  (method override (edit-selection forward?)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree)))
+  (method override (edit-selection self forward?)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree)))
       (when selection
-        (let* ((violation (get-user-data~ (get-row~ tree selection)))
-               (trait-name (get-trait~ violation))
-               (trait-presentation (get-trait-presentation~ violation))
-               (property (get-property~ violation))
-               (editor (get-editor))
-               (client (get-client~ editor))
-               (active (get-active-trait-name~ client)))
+        (let* ((violation (get-user-data (get-row tree selection)))
+               (trait-name (get-trait violation))
+               (trait-presentation (get-trait-presentation violation))
+               (property (get-property violation))
+               (editor (get-editor self))
+               (client (get-client editor))
+               (active (get-active-trait-name client)))
           (if (not trait-name)
               ;; maybe some violations want to switch to the root
               ;; but others just want the current trait to stay the same
               #f
               @w
               (when active
-                (set-active-trait~ client #f)
-                (process-branch-changed~ editor client))
+                (set-active-trait client #f)
+                (process-branch-changed editor client))
             (when (or (not active) (/= trait-name active))
-              (let ((effective (find-component~ client trait-name)))
+              (let ((effective (find-component client trait-name)))
                 (if (not effective)
                     (error "Unable to find component {a}" trait-presentation)
-                  (set-active-trait~ client effective)
-                  (process-branch-changed~ editor effective)))))
-          (let ((component (follow-component~ (get-path~ violation) client)))
-            (user-message "{a}" (get-message~ violation))
-            (set-selection~ editor (list component) origin: self)
-            (select-property~ editor property))))))))
+                  (set-active-trait client effective)
+                  (process-branch-changed editor effective)))))
+          (let ((component (follow-component (get-path violation) client)))
+            (user-message "{a}" (get-message violation))
+            (set-selection editor (list component) origin: self)
+            (select-property editor property))))))))

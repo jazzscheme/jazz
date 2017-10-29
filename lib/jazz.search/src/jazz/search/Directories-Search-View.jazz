@@ -44,7 +44,9 @@
         (jazz.graphic)
         (jazz.io)
         (jazz.jml)
+        (jazz.reporter)
         (jazz.search)
+        (jazz.text)
         (jazz.ui))
 
 
@@ -72,34 +74,34 @@
   ;;;
 
   
-  (method override (search-targets find replace)
+  (method override (search-targets self find replace)
     (thread-start!
       (new-thread
         (lambda ()
           (let ((search (new Directories-Search find replace)))
-            (search-threaded search)))
+            (search-threaded self search)))
         'search)))
 
   
-  (method synchronized (search-threaded search)
+  (method synchronized (search-threaded self search)
     (let* ((reporter (new User-Reporter) @convert (get-search-reporter #f))
            (directories (map (lambda (list)
                                (new Directory list))
-                             (read-delimited-string (get-string-content~ (locate 'directories)) #\comma)))
-           (extensions (map (lambda (obj) (if (enumerator? obj) obj (->string obj))) (apply append! (read-delimited-string (get-string-content~ (locate 'extensions)) #\comma))))
+                             (read-delimited-string (get-string-content (locate self 'directories)) #\comma)))
+           (extensions (map (lambda (obj) (if (enumerator? obj) obj (->string obj))) (apply append! (read-delimited-string (get-string-content (locate self 'extensions)) #\comma))))
            (effective-extensions (effective-extensions (if (not-null? extensions) extensions (default-search-extensions))))
            (resultset (new Search-Resultset search)))
-      (search-in-directories search directories effective-extensions resultset reporter)
+      (search-in-directories self search directories effective-extensions resultset reporter)
       (post-event
         (lambda ()
-          (let ((results (get-results)))
-            (select-results~ results resultset))))
-      (user-feedback~ reporter "Done")
+          (let ((results (get-results self)))
+            (select-results results resultset))))
+      (report-feedback reporter "Done")
       @activity-manager
       (when reporter
         (let ((manager (get-activity-manager)))
-          (unregister-activity~ manager reporter)
-          (close-manager~ manager)))))
+          (unregister-activity manager reporter)
+          (close-manager manager)))))
 
 
   ;;;
@@ -107,15 +109,15 @@
   ;;;
   
   
-  (method (on-action evt)
-    (on-search evt))
+  (method package (on-action self evt)
+    (on-search self evt))
   
   
-  (method override (get-tab-stops)
+  (method override (get-tab-stops self)
     (list
-      (locate 'directories)
-      (locate 'extensions)
-      (locate 'targets)))
+      (locate self 'directories)
+      (locate self 'extensions)
+      (locate self 'targets)))
 
 
   ;;;
@@ -123,11 +125,11 @@
   ;;;
   
   
-  (method override (setup-search-reporter reporter count)
-    (set-infinite?~ reporter #t)
-    (set-range~ reporter {Range 0 500})
-    (set-pos~ reporter 1)
-    (set-step~ reporter 1)))
+  (method override (setup-search-reporter self reporter count)
+    (set-infinite? reporter #t)
+    (set-range reporter {Range 0 500})
+    (set-pos reporter 1)
+    (set-step reporter 1)))
 
 
 ;;;
@@ -142,8 +144,8 @@
     (<install> receive-files-handler: {Event-Handler :form on-receive-files}))
   
   
-  (method (on-receive-files evt)
-    (let ((files (get-property~ evt files:)))
+  (method (on-receive-files self evt)
+    (let ((files (get-property evt files:)))
       (if (and (= (length files) 1) (directory? (car files)))
-          (set-string-content (format :string "{s}" (parse~ (car files))))
+          (set-string-content self (format :string "{s}" (parse (car files))))
         (bell))))))

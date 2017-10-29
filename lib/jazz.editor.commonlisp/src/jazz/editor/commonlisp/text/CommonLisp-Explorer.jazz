@@ -51,65 +51,65 @@
   ;;;
   
   
-  (method override (find-named-walker name)
+  (method override (find-named-walker self name)
     (case name
-      ((:define)          walk-define)
-      ((:define-macro)    walk-define-macro)
-      ((:define-variable) walk-define-variable)
-      ((:eval-when)       walk-eval-when)
-      (else               (nextmethod name))))
+      ((:define)          (~ walk-define self))
+      ((:define-macro)    (~ walk-define-macro self))
+      ((:define-variable) (~ walk-define-variable self))
+      ((:eval-when)       (~ walk-eval-when self))
+      (else               (nextmethod self name))))
 
   
-  (method (walk-define context symbol form declaration keyword expression doc)
+  (method (walk-define self context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (forward-whites)
-      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+      (forward-whites self)
+      (let ((list? (eqv? (char-forward self 0) #\open-parenthesis)))
         (when list?
-          (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol))
-          (set! entry (declaration context 'define '() symbol '() #f start end (get-marked) #f)))
+          (enter-list self))
+        (when (and (forward-expr self) (eq? kind 'symbol))
+          (set! entry (declaration context 'define '() symbol '() #f start end (get-marked self) #f)))
         (when list?
-          (walk-parameters entry declaration keyword expression doc))
+          (walk-parameters self entry declaration keyword expression doc))
         (when list?
-          (exit-list)))
-      (walk-expressions entry expression 'code #f)
+          (exit-list self)))
+      (walk-expressions self entry expression 'code #f)
       entry))
   
   
-  (method (walk-define-macro context symbol form declaration keyword expression doc)
+  (method (walk-define-macro self context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (forward-whites)
-      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+      (forward-whites self)
+      (let ((list? (eqv? (char-forward self 0) #\open-parenthesis)))
         (when list?
-          (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol))
-          (set! entry (declaration context 'define-macro '() symbol '() #f start end (get-marked) #f)))
+          (enter-list self))
+        (when (and (forward-expr self) (eq? kind 'symbol))
+          (set! entry (declaration context 'define-macro '() symbol '() #f start end (get-marked self) #f)))
         (when list?
-          (walk-expressions entry expression 'code #f))
+          (walk-expressions self entry expression 'code #f))
         (when list?
-          (exit-list)))
-      (walk-expressions entry expression 'code #f)
-      entry))
-    
-  
-  (method (walk-define-variable context symbol form declaration keyword expression doc)
-    (let ((entry context))
-      (keyword context start end)
-      (forward-whites)
-      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
-        (when list?
-          (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol))
-          (set! entry (declaration context 'define-variable '() symbol '() #f start end (get-marked) #f)))
-        (when list?
-          (walk-parameters entry declaration keyword expression doc))
-        (when list?
-          (exit-list)))
-      (walk-expressions entry expression 'code #f)
+          (exit-list self)))
+      (walk-expressions self entry expression 'code #f)
       entry))
     
   
-  (method (walk-eval-when context symbol form declaration keyword expression doc)
-    (walk-declarations context declaration keyword expression doc))))
+  (method (walk-define-variable self context symbol form declaration keyword expression doc)
+    (let ((entry context))
+      (keyword context start end)
+      (forward-whites self)
+      (let ((list? (eqv? (char-forward self 0) #\open-parenthesis)))
+        (when list?
+          (enter-list self))
+        (when (and (forward-expr self) (eq? kind 'symbol))
+          (set! entry (declaration context 'define-variable '() symbol '() #f start end (get-marked self) #f)))
+        (when list?
+          (walk-parameters self entry declaration keyword expression doc))
+        (when list?
+          (exit-list self)))
+      (walk-expressions self entry expression 'code #f)
+      entry))
+    
+  
+  (method (walk-eval-when self context symbol form declaration keyword expression doc)
+    (walk-declarations self context declaration keyword expression doc))))

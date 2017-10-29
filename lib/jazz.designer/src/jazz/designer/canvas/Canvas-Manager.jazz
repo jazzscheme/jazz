@@ -40,9 +40,11 @@
 
 (import (jazz.descriptor)
         (jazz.designer)
+        (jazz.event)
         (jazz.handler)
         (jazz.jml)
         (jazz.locale)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui))
@@ -84,19 +86,19 @@
   ;;;
     
 
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Doc"})
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     #f)
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     #f)
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(home))
   
   
@@ -108,15 +110,15 @@
   @convert-guest
   (method meta override (new-event . rest)
     (let* ((frame (apply new-frame host-visible?: #f rest))
-           (manager (get-guest~ frame))
+           (manager (get-guest frame))
            (newbase (localize "New"))
            (newname (unique-domain-name newbase (collect-names manager)))
-           (controller (get-document-controller~ manager)))
-      (set-newname~ controller newname)
-      (update-status~ controller)
-      (let ((client (instantiate~ (<form> (<Canvas-Base> name: newname)))))
-        (set-client~ manager client))
-      (bring-to-front~ frame)
+           (controller (get-document-controller manager)))
+      (set-newname controller newname)
+      (update-status controller)
+      (let ((client (instantiate (<form> (<Canvas-Base> name: newname)))))
+        (set-client manager client))
+      (bring-to-front frame)
       (set-visible?~ frame #t)
       frame))
   
@@ -126,9 +128,9 @@
     (let ((model (class-of base)))
       (collect (lambda (frame)
                  (when (is? frame Internal-Frame-Host)
-                   (let ((guest (get-guest~ frame)))
+                   (let ((guest (get-guest frame)))
                      (when (and guest (neq? guest base) (is? guest model))
-                       (get-name~ (get-client~ guest))))))
+                       (get-name (get-client guest))))))
                (all-frames))))
   
   
@@ -137,7 +139,7 @@
   ;;;
 
 
-  (method override (new-document-controller)
+  (method override (new-document-controller self)
     (new Canvas-Manager-Controller self))
 
   
@@ -146,21 +148,21 @@
   ;;;
 
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set-editor~ (locate 'descendants) self)
-    (set-editor~ (locate 'details) self))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (set-editor (locate self 'descendants) self)
+    (set-editor (locate self 'details) self))
 
   
-  (method override (install-in-host host)
-    (nextmethod host)
-    (let ((pref (tool-preferences)))
+  (method override (install-in-host self host)
+    (nextmethod self host)
+    (let ((pref (tool-preferences self)))
       (when pref
-        (set-size~ host (get-size~ pref)))))
+        (set-size host (get-size pref)))))
 
   
-  (method override (focus-document)
-    (acquire-focus~ (locate '(descendants tree))))
+  (method override (focus-document self)
+    (acquire-focus (locate self '(descendants tree))))
 
 
   ;;;
@@ -168,24 +170,24 @@
   ;;;
     
   
-  (method override (selection-changed old-selection new-selection origin force-parent? focus?)
+  (method override (selection-changed self old-selection new-selection origin force-parent? focus?)
     (define (update-new)
-      (let* ((tool (locate 'new))
-             (tree (locate 'details))
-             (client (get-client~ tree))
+      (let* ((tool (locate self 'new))
+             (tree (locate self 'details))
+             (client (get-client tree))
              (refs (and client (get-addable-classes client))))
         (if (or (not refs) (/= (length refs) 1))
             (begin
-              (set-enabled?~ tool #f)
-              (set-tooltip-text~ tool "New"))
-          (set-enabled?~ tool #t)
+              (set-enabled? tool #f)
+              (set-tooltip-text tool "New"))
+          (set-enabled? tool #t)
           (let* ((class (resolve-runtime-reference (car refs)))
                  (pres (get-class-presentation class)))
-            (set-tooltip-text~ tool (new Locales
-                                      english: (format "New {a}" (if (is? pres Locales) (localize~ pres :english) pres))
-                                      french: (format "Nouveau {a}" (if (is? pres Locales) (localize~ pres :french) pres))))))))
+            (set-tooltip-text tool (new Locales
+                                      english: (format "New {a}" (if (is? pres Locales) (localize-object pres :english) pres))
+                                      french: (format "Nouveau {a}" (if (is? pres Locales) (localize-object pres :french) pres))))))))
     
-    (nextmethod old-selection new-selection origin force-parent? focus?)
+    (nextmethod self old-selection new-selection origin force-parent? focus?)
     (update-new))
 
 
@@ -194,19 +196,19 @@
   ;;;
   
   
-  (method override (on-editor evt)
-    (unless (destroying?)
-      (nextmethod evt)
-      (case (get-kind~ evt)
+  (method override (on-editor self evt)
+    (unless (destroying? self)
+      (nextmethod self evt)
+      (case (get-kind evt)
         ((:selection-changing)
-         (let ((selection (get-selection~ evt)))
+         (let ((selection (get-selection evt)))
            (let ((component (if (null? selection) #f (car selection))))
-             (setup-details component)
-             (setup-card component))))
+             (setup-details self component)
+             (setup-card self component))))
         ((:saving)
-         (let ((current (get-card)))
+         (let ((current (get-card self)))
            (when (is? current Custom-Card)
-             (save-client~ current)))))))
+             (save-client current)))))))
   
 
   ;;;
@@ -214,30 +216,30 @@
   ;;;
   
   
-  (method (setup-details component)
+  (method (setup-details self component)
     @w
     (let ((current (get-details)))
       (if (not component)
           (when current
-            (close~ current))
+            (close current))
         (let ((details-class (or (get-custom-details component) Details-Card)))
           (when (or (null? current) (neq? details-class (class-of current)))
             (when current
-              (close~ current))
+              (close current))
             (let ((card (new details-class name: 'details parent: (locate 'details-border))))
               @w
-              (set-editor~ card (locate 'details) self)
+              (set-editor card (locate 'details) self)
               @w
               (begin
-              (set-editor~ card self)
-              (set-designer~ card designer)
+              (set-editor card self)
+              (set-designer card designer)
               (when (is? card Details-Card)
-                (set-filter~ (get-tree~ card) 'standard))
+                (set-filter (get-tree card) 'standard))
               (card-update card))))))))
   
   
-  (method (get-details)
-    (find-component~ (locate 'details-border) 'details))
+  (method (get-details self)
+    (find-component (locate self 'details-border) 'details))
   
 
   ;;;
@@ -245,30 +247,30 @@
   ;;;
   
   
-  (method (get-card)
-    (find-component~ (locate 'card-border) 'properties))
+  (method package (get-card self)
+    (find-component (locate self 'card-border) 'properties))
   
   
-  (method (setup-card component)
-    (let ((current (get-card)))
+  (method (setup-card self component)
+    (let ((current (get-card self)))
       (when (is? current Custom-Card)
-        (save-client~ current))
+        (save-client current))
       (if (not component)
           (when current
-            (close~ current))
+            (close current))
         (let ((card-class (or (get-custom-card component) Properties-Card)))
           (when (or (null? current) (neq? card-class (class-of current)))
             (when current
-              (close~ current))
-            (let ((card (new card-class name: 'properties parent: (locate 'card-border))))
-              (set-editor~ card self)
-              (set-designer~ card designer)
+              (close current))
+            (let ((card (new card-class name: 'properties parent: (locate self 'card-border))))
+              (set-editor card self)
+              (set-designer card designer)
               (when (is? card Properties-Card)
-                (set-filter~ (get-tree~ card) 'standard))
-              (card-update card)))))))
+                (set-filter (get-tree card) 'standard))
+              (card-update self card)))))))
   
   
-  (method public virtual (card-update card)
+  (method public virtual (card-update self card)
     )
 
   
@@ -277,37 +279,37 @@
   ;;;
   
   
-  (method (on-selection-change evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method package (on-selection-change self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((log)
-         (let ((selection (get-single-selection~ sender)))
+         (let ((selection (get-single-selection sender)))
            (when selection
-             (let* ((row (get-row~ sender selection))
-                    (component (get-user-data~ row)))
+             (let* ((row (get-row sender selection))
+                    (component (get-user-data row)))
                (when component
-                 (set-selection (list component) origin: sender force-parent?: #t focus?: #f)))))))))
+                 (set-selection self (list component) origin: sender force-parent?: #t focus?: #f)))))))))
   
   
-  (method package (on-new evt)
-    (let* ((details (locate 'details))
-           (client (get-client~ details))
+  (method package (on-new self evt)
+    (let* ((details (locate self 'details))
+           (client (get-client details))
            (ref (car (get-addable-classes client)))
-           (component (add-component-class~ (locate '(descendants tree)) ref select?: #f)))
-      (set-selection (list component) origin: details)
-      (let* ((row (component-row~ details component))
-             (line (row->line~ details row)))
-        (case (get-selection-mode~ details)
+           (component (add-component-class (locate self '(descendants tree)) ref select?: #f)))
+      (set-selection self (list component) origin: details)
+      (let* ((row (component-row details component))
+             (line (row->line details row)))
+        (case (get-selection-mode details)
           ((cell)
-           (set-single-selection~ details (new Cell line 0) generate-event?: #f))
+           (set-single-selection details (new Cell line 0) generate-event?: #f))
           (else
-           (set-single-selection~ details line generate-event?: #f)))
-        (acquire-focus~ details))))
+           (set-single-selection details line generate-event?: #f)))
+        (acquire-focus details))))
   
   
-  (method override (on-tab-press evt)
-    (let ((tree (get-tree~ (locate 'card))))
-      (acquire-focus~ tree)))
+  (method override (on-tab-press self evt)
+    (let ((tree (get-tree (locate self 'card))))
+      (acquire-focus tree)))
   
   
   ;;;
@@ -334,9 +336,9 @@
           (designer (get-designer)))
       (with-progress
         (lambda (reporter)
-          (validate-integrity~ client reporter: reporter)
-          (user-message~ reporter "Done")
-          (set-done~ reporter))
+          (validate-integrity client reporter: reporter)
+          (report-message reporter "Done")
+          (set-done reporter))
         threaded?: #t
         name: "Validate Integrity"
         context: self
@@ -352,7 +354,7 @@
 (class Canvas-Manager-Controller extends Component-Editor-Controller
   
   
-  (method override (document-status)
+  (method override (document-status self)
     (format "{a}{a}"
-            (name-status)
-            (modified-status)))))
+            (name-status self)
+            (modified-status self)))))

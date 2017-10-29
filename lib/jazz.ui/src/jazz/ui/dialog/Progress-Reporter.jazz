@@ -62,11 +62,11 @@
       (<Push-Button>  name: action   title: "Cancel" position: {Point 319 87} size: {Dimension 90 22} action-handler: {Event-Handler :form on-action} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press})))
 
   
-  (method override (install-in-host host)
-    (nextmethod host)
-    (let ((progress (locate 'progress)))
-      (set-pos~ progress 0))
-    (acquire-focus~ (locate 'action)))
+  (method override (install-in-host self host)
+    (nextmethod self host)
+    (let ((progress (locate self 'progress)))
+      (set-pos progress 0))
+    (acquire-focus (locate self 'action)))
     
   
   ;;;
@@ -74,7 +74,7 @@
   ;;;
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Progress")
   
   
@@ -89,7 +89,7 @@
 
     (method (close-window)
       (when closable?
-        (request-cancel~ guest))
+        (request-cancel guest))
       processed))
 
   
@@ -98,20 +98,20 @@
   ;;;
   
   
-  (method override (disable-cancel)
-    (set-enabled?~ (locate 'action) #f))
+  (method override (disable-cancel self)
+    (set-enabled? (locate self 'action) #f))
   
   
-  (method (cancel-enabled?)
-    (get-enabled?~ (locate 'action)))
+  (method (cancel-enabled? self)
+    (get-enabled? (locate self 'action)))
   
   
-  (method override (cancel-requested?)
+  (method override (cancel-requested? self)
     cancelled?)
   
   
-  (method override (test-cancelled)
-    (when (cancel-requested?)
+  (method override (test-cancelled self)
+    (when (cancel-requested? self)
       (signal-cancel)))
 
 
@@ -120,19 +120,19 @@
   ;;;
   
   
-  (method (on-action evt)
-    (current-action))
+  (method package (on-action self evt)
+    (current-action self))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (current-action))
+  (method override (on-return-press self evt)
+    (current-action self))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (escape-press evt)
-    (when (cancel-enabled?)
-      (request-cancel)))
+  (method override (escape-press self evt)
+    (when (cancel-enabled? self)
+      (request-cancel self)))
   
   
   ;;;
@@ -140,47 +140,47 @@
   ;;;
   
   
-  (method override (section-title title)
-    (set-message title))
+  (method override (section-title self title)
+    (set-message self title))
   
   
-  (method override (set-message msg)
-    (set-title~ (locate 'message) msg))
+  (method override (set-message self msg)
+    (set-title (locate self 'message) msg))
 
 
-  (method override (user-message fmt . rest)
-    (set-message (apply format fmt rest)))
+  (method override (report-message self fmt . rest)
+    (set-message self (apply format fmt rest)))
 
 
-  (method override (user-feedback fmt . rest)
-    (set-message (apply format fmt rest)))
+  (method override (report-feedback self fmt . rest)
+    (set-message self (apply format fmt rest)))
   
   
-  (method override (set-range range)
-    (set-range~ (locate 'progress) range))
+  (method override (set-range self range)
+    (set-range (locate self 'progress) range))
   
   
-  (method override (set-pos pos)
-    (set-pos~ (locate 'progress) pos))
+  (method override (set-pos self pos)
+    (set-pos (locate self 'progress) pos))
   
   
-  (method override (delta-pos increment)
-    (delta-pos~ (locate 'progress) increment))
+  (method override (delta-pos self increment)
+    (delta-pos (locate self 'progress) increment))
   
   
-  (method override (set-step increment)
-    (set-step~ (locate 'progress) increment))
+  (method override (set-step self increment)
+    (set-step (locate self 'progress) increment))
   
   
-  (method override (step-it)
-    (step-it~ (locate 'progress)))
+  (method override (step-it self)
+    (step-it (locate self 'progress)))
   
   
-  (method override (set-done)
+  (method override (set-done self)
     (set! done? #t)
-    (set-done~ (locate 'progress))
-    (set-title~ (locate 'action) (done-title))
-    (set-default?~ (locate 'action) #t))
+    (set-done (locate self 'progress))
+    (set-title (locate self 'action) (done-title self))
+    (set-default? (locate self 'action) #t))
 
 
   ;;;
@@ -188,23 +188,23 @@
   ;;;
   
   
-  (method (current-action)
+  (method (current-action self)
     (if done?
-        (done-action)
-      (request-cancel)))
+        (done-action self)
+      (request-cancel self)))
   
   
   ;; temp patch because protected visibility is not seen by the dialog class
-  (method public virtual (request-cancel)
+  (method public virtual (request-cancel self)
     (set! cancelled? #t)
-    (set-message "Cancel Requested"))
+    (set-message self "Cancel Requested"))
   
   
-  (method protected virtual (done-title)
+  (method protected virtual (done-title self)
     "Close")
   
   
-  (method protected virtual (done-action)
-    (let* ((dialog (get-host))
-           (guest (get-guest~ dialog)))
-      (end-modal~ dialog (get-modal-result~ guest))))))
+  (method protected virtual (done-action self)
+    (let* ((dialog (get-host self))
+           (guest (get-guest dialog)))
+      (end-modal dialog (get-modal-result guest))))))

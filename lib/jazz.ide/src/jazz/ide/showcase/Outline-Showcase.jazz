@@ -129,7 +129,7 @@
   
   
   (method (add-row outline father)
-    (add-row~ outline context: self class: Color-Row father: father row-height: (random-height) background: (random-color)))
+    (add-row outline context: self class: Color-Row father: father row-height: (random-height) background: (random-color)))
   
   
   (method (random-height)
@@ -152,30 +152,30 @@
 
   (method (resize dh dv)
     (nextmethod dh dv)
-    (size-figure~ (locate 'outline-border) 0 dv)
-    (size-figure~ (locate 'info-border) dh dv))
+    (size-figure (locate 'outline-border) 0 dv)
+    (size-figure (locate 'info-border) dh dv))
   
   
   (method (on-setting evt)
-    (let ((sender (get-sender~ evt))
+    (let ((sender (get-sender evt))
           (outline (locate 'outline)))
-      (case (get-name~ sender)
-        ((row-spacing) (set-row-spacing~ outline (if (get-checked?~ sender) 1 0))))))
+      (case (get-name sender)
+        ((row-spacing) (set-row-spacing outline (if (get-checked?~ sender) 1 0))))))
   
   
   (method (on-expand-row evt)
     (let* ((outline (locate 'outline))
-           (row (get-selection~ outline)))
+           (row (get-selection outline)))
       (when row
-        (expand~ outline (get-row~ outline row))))
+        (expand outline (get-row outline row))))
     (update-information))
   
   
   (method (on-collapse-row evt)
     (let* ((outline (locate 'outline))
-           (row (get-selection~ outline)))
+           (row (get-selection outline)))
       (when row
-        (collapse~ outline (get-row~ outline row))))
+        (collapse outline (get-row outline row))))
     (update-information))
   
   
@@ -185,19 +185,19 @@
   
   (method (on-add-row evt)
     (let* ((outline (locate 'outline))
-           (sel (get-selection~ outline))
+           (sel (get-selection outline))
            (use-mark? (get-shift?~ evt))
-           (row (if use-mark? Mark (and sel (get-row~ outline sel)))))
-      (add-row~ outline father: row state: 'collapsed row-height: (random-height) background: (random-color)))
+           (row (if use-mark? Mark (and sel (get-row outline sel)))))
+      (add-row outline father: row state: 'collapsed row-height: (random-height) background: (random-color)))
     (update-information))
   
   
   (method (on-remove-row evt)
     (let* ((outline (locate 'outline))
-           (sel (get-selection~ outline))
+           (sel (get-selection outline))
            (use-mark? (get-shift?~ evt))
-           (row (if use-mark? Mark (and sel (get-row~ outline sel)))))
-      (remove-row~ outline row))
+           (row (if use-mark? Mark (and sel (get-row outline sel)))))
+      (remove-row outline row))
     (update-information))
     
   
@@ -218,39 +218,39 @@
   (method (update-fields)
     @wait-this-creates-problems-because-we-are-not-in-the-same-package-as-outline-view-anymore
     (let ((outline (locate 'outline)))
-      (set-title~ (locate 'visible-count) (format "Visible Count: {a}" (get-visible-count~ outline)))
-      (set-title~ (locate 'visible-height) (format "Visible Height: {a}" (get-visible-height~ outline)))
-      (set-title~ (locate 'selection) (format "Selection: {a}" (get-selection~ outline)))))
+      (set-title (locate 'visible-count) (format "Visible Count: {a}" (get-visible-count outline)))
+      (set-title (locate 'visible-height) (format "Visible Height: {a}" (get-visible-height outline)))
+      (set-title (locate 'selection) (format "Selection: {a}" (get-selection outline)))))
   
   
   (method (display-outline)
     (let ((outline (locate 'outline))
           (info (locate 'info)))
       (define (iter row dest)
-        (let ((subdest (add-row~ info father: dest state: 'expanded children: (display-row outline row))))
-          (iterate (get-sons~ row)
+        (let ((subdest (add-row info father: dest state: 'expanded children: (display-row outline row))))
+          (iterate (get-sons row)
                    (lambda (subrow)
                      (iter subrow subdest)))))
       
-      (remove-every-row~ info)
-      (with-update-locked~ info
+      (remove-every-row info)
+      (with-update-locked info
         (lambda ()
-          (iterate (get-sons~ (get-root-row~ outline))
+          (iterate (get-sons (get-root-row outline))
                    (lambda (row)
                      (iter row #f)))))))
   
   
   (method (display-row outline row)
-    (let* ((node (car (get-children~ row)))
+    (let* ((node (car (get-children row)))
            (line (lambda (row) (and row (row->line outline row))))
            (visible? (get-visible?~ row))
            (color (if visible? {Color Dark-Red} {Color Dark-Blue}))
-           (c0 (new Tree-Node color: (get-background~ row) title: (and node (get-title~ node)) image: (and node (get-image~ node))))
-           (c1 (new Tree-Label title: (get-level~ row)))
-           (c2 (new Tree-Label title: (get-state~ row)))
+           (c0 (new Tree-Node color: (get-background row) title: (and node (get-title node)) image: (and node (get-image node))))
+           (c1 (new Tree-Label title: (get-level row)))
+           (c2 (new Tree-Label title: (get-state row)))
            (c3 (new Tree-Label title: (line row) color: color))
-           (c4 (new Tree-Label title: (line (get-previous~ row)) color: color))
-           (c5 (new Tree-Label title: (line (get-next~ row)) color: color)))
+           (c4 (new Tree-Label title: (line (get-previous row)) color: color))
+           (c5 (new Tree-Label title: (line (get-next row)) color: color)))
       (list c0 c1 c2 c3 c4 c5)))
   
   
@@ -262,9 +262,9 @@
             (if (eq? subrow row)
                 (continuation-return return line)
               (increase! line)
-              (iterate (get-sons~ subrow) iter)))
+              (iterate (get-sons subrow) iter)))
           
-          (iter (get-root-row~ outline))
+          (iter (get-root-row outline))
           (error "Unable to locate row: {t}" row)))))
 
   
@@ -282,4 +282,4 @@
     (method (draw-background surface context)
       (when background
         (let ((bounds (get-bounds)))
-          (fill-rect~ surface bounds background)))))))
+          (fill-rect surface bounds background)))))))

@@ -69,10 +69,10 @@
     (lambda ()
       (let ((file Favorites-File))
         (and (is-alias? 'Profile)
-             (exists?~ file)
-             (let ((process (get-process))
-                   (favorites (instantiate~ (read-form file))))
-               (install-context~ process favorites)
+             (exists? file)
+             (let ((process (current-process))
+                   (favorites (instantiate (read-form file))))
+               (install-context process favorites)
                favorites))))
     continue-handler:
     (lambda (err)
@@ -92,7 +92,7 @@
           (<!>            name: descendant  title: "Favorite" width: 291)))))
       
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Favorites)
 
   
@@ -101,11 +101,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Favorites"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Favorites")
   
   
@@ -114,13 +114,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (get-tree)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (get-tree self)))
+      (acquire-focus tree)))
 
   
   ;;;
@@ -128,8 +128,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate '(descendants tree)))
+  (method package (get-tree self)
+    (locate self '(descendants tree)))
   
   
   ;;;
@@ -137,7 +137,7 @@
   ;;;
 
 
-  (method override (new-document-controller)
+  (method override (new-document-controller self)
     (new Favorites-Manager-Controller self))
 
   
@@ -146,12 +146,12 @@
   ;;;
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set-shown?~ (locate-component '(descendants header)) #f)
-    (set-editor~ (locate 'descendants) self)
-    (add-quit-listener~ (get-application) self)
-    (set-client (read-favorites)))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (set-shown? (locate-component self '(descendants header)) #f)
+    (set-editor (locate self 'descendants) self)
+    (add-quit-listener (get-application) self)
+    (set-client self (read-favorites)))
 
   
   ;;;
@@ -159,21 +159,21 @@
   ;;;
   
   
-  (method (resize-center dh dv)
-    (size-figure~ (locate 'descendants) dh dv))
+  (method package (resize-center self dh dv)
+    (size-figure (locate self 'descendants) dh dv))
   
   
-  (method public (on-reload-favorites evt)
-    (set-client (read-favorites)))
+  (method public (on-reload-favorites self evt)
+    (set-client self (read-favorites)))
 
   
-  (method public (on-launch evt)
-    (launch-selection))
+  (method public (on-launch self evt)
+    (launch-selection self))
   
   
-  (method override (prepare-quit)
-    (when (and (get-modified?) (file? (get-origin~ (get-form~ designer))))
-      (save)))
+  (method override (prepare-quit self)
+    (when (and (get-modified? self) (file? (get-origin (get-form designer))))
+      (save self)))
   
   
   ;;;
@@ -181,12 +181,12 @@
   ;;;
   
   
-  (method public (launch-selection)
-    (let* ((tree (get-tree))
-           (favorite (selected-component~ tree)))
+  (method public (launch-selection self)
+    (let* ((tree (get-tree self))
+           (favorite (selected-component tree)))
       (if (null? favorite)
           (bell)
-        (launch~ favorite))))
+        (launch favorite))))
   
   
   ;;;
@@ -194,14 +194,14 @@
   ;;;
   
   
-  (method public (add-to-favorites class title initargs)
+  (method public (add-to-favorites self class title initargs)
     (receive (title parent) (get-modal Favorites-Adder default-title: title default-root: client)
       (when parent
         (let ((favorite (apply new class title: title initargs)))
-          (add-child~ designer favorite parent)
-          (set-property~ designer favorite title: title)
+          (add-child designer favorite parent)
+          (set-property designer favorite title: title)
           (for-each-property (lambda (property value)
-                               (set-property~ designer favorite property value))
+                               (set-property designer favorite property value))
                              initargs)))))
   
   
@@ -210,33 +210,33 @@
   ;;;
   
   
-  (method (import-favorites)
-    (let* ((tree (get-tree))
-           (component (selected-component~ tree))
+  (method (import-favorites self)
+    (let* ((tree (get-tree self))
+           (component (selected-component tree))
            (directory (choose-directory title: "Choose favorites folder"))
            (bad '()))
       (define (iter component directory)
-        (iterate-directory~ directory
+        (iterate-directory directory
           (lambda (pathname)
-            (user-message "Importing {a}..." (get-base~ pathname))
-            (let ((title (get-base~ pathname)))
+            (user-message "Importing {a}..." (get-base pathname))
+            (let ((title (get-base pathname)))
               (if (directory? pathname)
                   (let ((set (new Group title: title visible?: #f)))
-                    (add-child~ designer set component)
-                    (set-property~ designer set title: title)
+                    (add-child designer set component)
+                    (set-property designer set title: title)
                     (iter set pathname))
                 (bell))))
           directories?: #t
           recursive?: #f))
       
-      (with-update-locked~ tree
+      (with-update-locked tree
         (lambda ()
           (iter component directory)))
       (user-message "Done")))
   
   
-  (method (extract-url file)
-    (let ((lines (load-lines~ file))
+  (method (extract-url self file)
+    (let ((lines (load-lines file))
           (found {}))
       (while (and (not-null? lines) (not found))
         (let ((line (car lines)))
@@ -251,19 +251,19 @@
   ;;;
   
   
-  (method public (new-favorites-menu)
+  (method public (new-favorites-menu self)
     (let* ((menu (new Favorites-Menu client: self))
-           (tree (get-tree~ (locate 'descendants)))
-           (components (selected-components~ tree)))
+           (tree (get-tree (locate self 'descendants)))
+           (components (selected-components tree)))
       (update-component-menu menu components '() #f '() #f)
       (when (or (/= (length components) 1) (is-not? (car components) Favorite))
-        (set-visible?~ (locate~ menu 'open) #f)
-        (set-visible?~ (locate~ menu 'end-open-group) #f))
+        (set-visible? (locate menu 'open) #f)
+        (set-visible? (locate menu 'end-open-group) #f))
       @convert
       (when (not (in-manifest? 'Browser-View))
-        (set-visible?~ (locate~ menu 'import-separator) #f)
-        (set-visible?~ (locate~ menu 'import-favorites) #f))
-      (layout-menu~ menu)
+        (set-visible?~ (locate menu 'import-separator) #f)
+        (set-visible?~ (locate menu 'import-favorites) #f))
+      (layout-menu menu)
       menu)))
 
 
@@ -275,7 +275,7 @@
 (class Favorites-Manager-Controller extends Component-Editor-Controller
   
   
-  (method override (document-status)
+  (method override (document-status self)
     "Favorites"))
 
 
@@ -293,15 +293,15 @@
       (<Separator-Item> name: end-launch-group before: add-item)))
   
   
-  (method (on-launch evt)
-    (launch-selection~ client))
+  (method (on-launch self evt)
+    (launch-selection client))
   
   
-  (method (on-import-favorites evt)
+  (method (on-import-favorites self evt)
     @convert
     (import-favorites))
   
   
-  (method (on-properties evt)
+  (method (on-properties self evt)
     @convert
     (show-properties))))

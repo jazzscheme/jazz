@@ -57,20 +57,20 @@
   (slot hscroll initialize #f getter generate)
   
   
-  (method override (default-name)
+  (method override (default-name self)
     'scroller)
   
   
-  (method override (finish rest)
-    (nextmethod rest)
+  (method override (finish self rest)
+    (nextmethod self rest)
     (unless client
-      (set-client (get-scroll-client~ (get-content)))))
+      (set-client self (get-scroll-client (get-content self)))))
   
   
-  (method override (form-model form)
-    (case (get-name~ form)
+  (method override (form-model self form)
+    (case (get-name form)
       ((content) Scrollee-View)
-      (else (nextmethod form))))
+      (else (nextmethod self form))))
 
   
   ;;;
@@ -78,17 +78,17 @@
   ;;;
   
   
-  (method public (get-client)
+  (method public (get-client self)
     client)
   
   
-  (method public (set-client clt)
+  (method public (set-client self clt)
     (when (neq? clt client)
       (set! client clt)
       (when client
-        (invalidate-layout)
-        (set-scroller~ client self)
-        (layout-scrollee~ client))))
+        (invalidate-layout self)
+        (set-scroller client self)
+        (layout-scrollee client))))
   
   
   ;;;
@@ -96,13 +96,13 @@
   ;;;
   
   
-  (method override (inner? view)
-    (or (nextmethod view)
+  (method override (inner? self view)
+    (or (nextmethod self view)
         (eq? view vscroll)
         (eq? view hscroll)))
   
   
-  (method override (content-inner? view)
+  (method override (content-inner? self view)
     #t)
 
   
@@ -111,13 +111,13 @@
   ;;;
   
   
-  (method override (size-change size)
-    (nextmethod size)
+  (method override (size-change self size)
+    (nextmethod self size)
     ;; If the client is not the content as for tree headers, then let the
     ;; client container's own size-change take care of laying out the scrolle...
-    (when (and client (eq? client (get-client~ (get-content))))
-      (layout-scrollee~ client)
-      (layout-scrollee-patch~ client)))
+    (when (and client (eq? client (get-client (get-content self))))
+      (layout-scrollee client)
+      (layout-scrollee-patch client)))
   
   
   ;;;
@@ -125,42 +125,42 @@
   ;;;
   
   
-  (method override (layout)
-    (let ((v? (vscroll-active?))
-          (h? (hscroll-active?)))
+  (method override (layout self)
+    (let ((v? (vscroll-active? self))
+          (h? (hscroll-active? self)))
       (define (content-position size)
         {Point 0 0})
       
       (define (content-size size)
         (new Dimension
-          (- (get-width~ size) (if v? scrollbar-size 0))
-          (- (get-height~ size) (if h? scrollbar-size 0))))
+          (- (get-width size) (if v? scrollbar-size 0))
+          (- (get-height size) (if h? scrollbar-size 0))))
       
       (define (vscroll-position size)
-        (new Point (- (get-width~ size) scrollbar-size) 0))
+        (new Point (- (get-width size) scrollbar-size) 0))
       
       (define (vscroll-size size)
-        (new Dimension scrollbar-size (- (get-height~ size) (if h? scrollbar-size 0))))
+        (new Dimension scrollbar-size (- (get-height size) (if h? scrollbar-size 0))))
       
       (define (hscroll-position size)
-        (new Point 0 (- (get-height~ size) scrollbar-size)))
+        (new Point 0 (- (get-height size) scrollbar-size)))
       
       (define (hscroll-size size)
-        (new Dimension (- (get-width~ size) (if v? scrollbar-size 0)) scrollbar-size))
+        (new Dimension (- (get-width size) (if v? scrollbar-size 0)) scrollbar-size))
       
-      (let ((size (get-size)))
-        (let ((content (find-child 'content)))
+      (let ((size (get-size self)))
+        (let ((content (find-child self 'content)))
           (when content
-            (set-position~ content (content-position size))
-            (set-size~ content (content-size size))
+            (set-position content (content-position size))
+            (set-size content (content-size size))
             (when client
-              (layout-scrollee~ client))))
+              (layout-scrollee client))))
         (when (and v? vscroll)
-          (set-position~ vscroll (vscroll-position size))
-          (set-size~ vscroll (vscroll-size size)))
+          (set-position vscroll (vscroll-position size))
+          (set-size vscroll (vscroll-size size)))
         (when (and h? hscroll)
-          (set-position~ hscroll (hscroll-position size))
-          (set-size~ hscroll (hscroll-size size))))))
+          (set-position hscroll (hscroll-position size))
+          (set-size hscroll (hscroll-size size))))))
   
 
   ;;;
@@ -168,15 +168,15 @@
   ;;;
 
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (when (and vscroll? hscroll?)
       (let ((skin (find-skin 'ui:scrollbar)))
-        (unless (eq? (get-background~ skin) 'none)
-          (let ((bounds (get-bounds)))
-            (let ((r (get-right~ bounds))
-                  (b (get-bottom~ bounds)))
+        (unless (eq? (get-background skin) 'none)
+          (let ((bounds (get-bounds self)))
+            (let ((r (get-right bounds))
+                  (b (get-bottom bounds)))
               (let ((rect (new Rect (- r scrollbar-size) (- b scrollbar-size) r b)))
-                (fill-rect~ surface rect {Color Medium}))))))))
+                (fill-rect surface rect {Color Medium}))))))))
 
   
   ;;;
@@ -184,34 +184,34 @@
   ;;;
   
   
-  (method override (set-scroll-pos pos (redraw?: redraw? #f))
-    (when vscroll (set-pos~ vscroll (get-v~ pos) redraw?: redraw?))
-    (when hscroll (set-pos~ hscroll (get-h~ pos) redraw?: redraw?)))
+  (method override (set-scroll-pos self pos (redraw?: redraw? #f))
+    (when vscroll (set-pos vscroll (get-v pos) redraw?: redraw?))
+    (when hscroll (set-pos hscroll (get-h pos) redraw?: redraw?)))
     
   
-  (method override (set-scroll-info part min max line page)
+  (method override (set-scroll-info self part min max line page)
     (case part
-      ((vert) (when vscroll (set-info~ vscroll min max line page)))
-      ((horz) (when hscroll (set-info~ hscroll min max line page)))))
+      ((vert) (when vscroll (set-info vscroll min max line page)))
+      ((horz) (when hscroll (set-info hscroll min max line page)))))
 
 
-  (method override (scroll-action action line page thumb-pos orientation)
-    (define (scroll amount)
-      (scroll~ client (case orientation
+  (method override (scroll-action self action line page thumb-pos orientation)
+    (define (scroll-by amount)
+      (scroll client (case orientation
                         ((vert) (new Point 0 amount))
                         ((horz) (new Point amount 0)))
         redraw?: #t))
     
     (when client
       (case action
-        ((line-up)     (scroll    line))
-        ((line-down)   (scroll (- line)))
-        ((page-up)     (scroll    page))
-        ((page-down)   (scroll (- page)))
-        ((thumb-track) (scroll (- (case orientation
-                                    ((vert) (get-scrolled-distance-v~ client))
-                                    ((horz) (get-scrolled-distance-h~ client)))
-                                  thumb-pos))))))
+        ((line-up)     (scroll-by    line))
+        ((line-down)   (scroll-by (- line)))
+        ((page-up)     (scroll-by    page))
+        ((page-down)   (scroll-by (- page)))
+        ((thumb-track) (scroll-by (- (case orientation
+                                       ((vert) (get-scrolled-distance-v client))
+                                       ((horz) (get-scrolled-distance-h client)))
+                                     thumb-pos))))))
 
 
   ;;;
@@ -219,32 +219,32 @@
   ;;;
   
   
-  (method (vscroll-active?)
-    (and vscroll (get-visible?~ vscroll)))
+  (method (vscroll-active? self)
+    (and vscroll (get-visible? vscroll)))
   
   
-  (method public (set-vscroll-needed? flag)
-    (when (and vscroll? (neq? (boolean flag) (boolean (vscroll-active?))))
+  (method public (set-vscroll-needed? self flag)
+    (when (and vscroll? (neq? (boolean flag) (boolean (vscroll-active? self))))
       (if flag
           (if vscroll
-              (show~ vscroll)
+              (show vscroll)
             (set! vscroll (new Scrollbar parent: self orientation: 'vert flat?: flat? style: style)))
         (when vscroll
-          (hide~ vscroll)))
-      (layout-view)))
+          (hide vscroll)))
+      (layout-view self)))
   
   
-  (method (hscroll-active?)
-    (and hscroll (get-visible?~ hscroll)))
+  (method (hscroll-active? self)
+    (and hscroll (get-visible? hscroll)))
   
   
-  (method public (set-hscroll-needed? flag)
+  (method public (set-hscroll-needed? self flag)
     (when (and hscroll? (neq? flag (boolean hscroll)))
       (if (not hscroll)
           (set! hscroll (new Scrollbar parent: self orientation: 'horz flat?: flat? style: style))
-        (close~ hscroll)
+        (close hscroll)
         (set! hscroll #f))
-      (layout-view)))
+      (layout-view self)))
   
   
   ;;;
@@ -252,5 +252,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Scroller-View-Descriptor))))

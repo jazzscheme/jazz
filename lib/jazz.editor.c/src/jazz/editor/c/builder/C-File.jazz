@@ -60,24 +60,24 @@
   
   
   (method (preprocess project reporter log output (force?: force? #f))
-    (let ((catalog (project-c-catalog~ project))
-          (object (get-object-file~ project (get-base~ source) #f)))
+    (let ((catalog (project-c-catalog project))
+          (object (get-object-file project (get-base source) #f)))
       (when (or force?
                 (not (exists?~ object))
                 (dependency-modified? object source catalog))
         (let ((compiler (new VC-Compiler project: project file: source warnings-as-errors?: warnings-as-errors?)))
-          (compile~ compiler reporter: reporter log: log output: output preprocess?: #t)))))
+          (compile compiler reporter: reporter log: log output: output preprocess?: #t)))))
   
   
   (method (build project reporter log output (force?: force? #f))
-    (let ((catalog (project-c-catalog~ project))
-          (object (get-object-file~ project (get-base~ source) #f)))
+    (let ((catalog (project-c-catalog project))
+          (object (get-object-file project (get-base source) #f)))
       (when (or force?
                 (not (exists?~ object))
                 (dependency-modified? object source catalog))
         (let* ((compiler (get-compiler-class))
                (vc (new compiler project: project file: source precompiled-headers: precompiled-headers warnings-as-errors?: warnings-as-errors?)))
-          (compile~ vc reporter: reporter log: log output: output)))))
+          (compile vc reporter: reporter log: log output: output)))))
   
 
   ;;;
@@ -88,22 +88,22 @@
   (method (dependency-modified? object file catalog)
     (continuation-capture
       (lambda (return)
-        (let ((object-time (get-modification-time~ object))
+        (let ((object-time (get-modification-time object))
               (verified '()))
           (define (iter def)
             (unless (memq? def verified)
-              (if (> (get-time~ def) object-time)
+              (if (> (get-time def) object-time)
                   (continuation-return return #t)
                 (set! verified (cons def verified))
                 (for-each (lambda (def)
-                            (let ((include (get-include-file~ def)))
+                            (let ((include (get-include-file def)))
                               (when include
                                 (iter include))))
-                          (get-includes~ def)))))
+                          (get-includes def)))))
           
-          (let ((file-def (and catalog (get-file-entry~ catalog file))))
+          (let ((file-def (and catalog (get-file-entry catalog file))))
             (if (null? file-def)
-                (> (get-modification-time~ file) object-time)
+                (> (get-modification-time file) object-time)
               (iter file-def)
               #f))))))
   

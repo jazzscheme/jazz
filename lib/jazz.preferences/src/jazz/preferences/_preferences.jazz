@@ -38,53 +38,39 @@
 (module jazz.preferences jazz
 
 
+(hub apply-preferences)
+(hub get-icon)
+(hub get-title)
+(hub save-preferences)
+(hub set-icon)
+(hub set-property)
+(hub set-title)
+
+
 (import (jazz.component)
         (jazz.process))
 
 
-(definition public (get-preferences name (error?: error? #t))
-  (let ((root (get-preferences-root)))
+(definition public (current-preferences name (error?: error? #t))
+  (let ((root (current-preferences-root)))
     (cond ((not root)
            (and error? (error "Could not find preferences")))
           ((not name)
            root)
           (else
-           (or (find-component~ root name)
+           (or (find-component root name)
                (and error? (error "Could not find preferences: {t}" name)))))))
 
 
-(definition public (get-preferences-root)
-  (let ((designer (get-preferences-designer~ (get-process))))
+(definition public (current-preferences-root)
+  (let ((designer (get-preferences-designer (current-process))))
     (and designer
-         (get-reference~ designer))))
+         (get-reference designer))))
 
 
 (definition public (set-preference preferences property value)
-  (let ((designer (get-preferences-designer~ (get-process))))
-    (set-property~ designer preferences property value)))
-
-
-(definition public (sort-case-sensitive?)
-  (let ((pref (get-preferences '(interface tree) error?: #f)))
-    (and pref (get-sort-case-sensitive?~ pref))))
-
-
-(definition public (sort-predicates)
-  (if (sort-case-sensitive?)
-      (values nu=? nu<? nu>?)
-    (values di=? di<? di>?)))
-
-
-(definition public (sort-predicate name)
-  (let ((case-sensitive? (sort-case-sensitive?)))
-    (case name
-      ((equal)         (if case-sensitive? nu=?  ci=?))
-      ((smaller)       (if case-sensitive? nu<?  ci<?))
-      ((smaller/equal) (if case-sensitive? nu<=? ci<=?))
-      ((greater)       (if case-sensitive? nu>?  ci>?))
-      ((greater/equal) (if case-sensitive? nu>=? ci>=?))
-      ((compare)       (if case-sensitive? compare ci-compare))
-      (else (error "Unknown sort predicate: {t}" name)))))
+  (let ((designer (get-preferences-designer (current-process))))
+    (set-property designer preferences property value)))
 
 
 ;;;
@@ -104,9 +90,9 @@
   ;;;
   
   
-  (method public virtual (apply-preferences (client #f))
+  (method public virtual (apply-preferences self (client #f))
     (for-each (lambda (child)
-                (apply-preferences~ child client))
+                (apply-preferences child client))
               children))
   
   
@@ -115,14 +101,14 @@
   ;;;
   
   
-  (method public virtual (save-preferences designer (client #f))
+  (method public virtual (save-preferences self designer (client #f))
     (for-each (lambda (child)
-                (save-preferences~ child client))
+                (save-preferences child client))
               children))
   
   
-  (method public (set-property designer property value)
-    (set-property~ designer self property value))
+  (method public (set-property self designer property value)
+    (set-property designer self property value))
   
   
   ;;;
@@ -130,5 +116,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.preferences.descriptors:Preferences-Descriptor))))

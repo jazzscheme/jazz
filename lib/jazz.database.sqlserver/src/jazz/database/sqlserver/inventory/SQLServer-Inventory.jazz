@@ -61,10 +61,10 @@
     (set! server (com-create SQLDMO.SQLServer error?: #f))
     (when (null? server)
       (error "Unable to locate SQLServer"))
-    (Connect~ server servername username password)
+    (Connect server servername username password)
     (when databasename
-      (with ((databases (get-Databases~ server)))
-        (set! database (Item~ databases databasename #f))))
+      (with ((databases (get-Databases server)))
+        (set! database (Item databases databasename #f))))
     (destroy-mandatory))
   
   
@@ -83,7 +83,7 @@
       (com-release database)
       (set! database #f))
     (when server
-      (DisConnect~ server)
+      (DisConnect server)
       @debug-memory-leaks
       (debug '*** (com-interface-refcount server))
       (com-release server)
@@ -96,8 +96,8 @@
   
   
   (method (get-version)
-    (let ((major (get-VersionMajor~ server))
-          (minor (get-VersionMinor~ server))
+    (let ((major (get-VersionMajor server))
+          (minor (get-VersionMinor server))
           (revision 0))
       (new Version major minor revision)))
           
@@ -109,7 +109,7 @@
   
   (method public (get-system-types)
     (define (load-system-types)
-      (get-SystemDatatypes~ database))
+      (get-SystemDatatypes database))
     
     (unless system-types
       (set! system-types (load-system-types)))
@@ -117,7 +117,7 @@
   
   
   (method public (get-system-type name)
-    (Item~ (get-system-types) name))
+    (Item (get-system-types) name))
   
   
   
@@ -136,35 +136,35 @@
   
   
   (method (get-tables)
-    (with ((tables (get-Tables~ database)))
+    (with ((tables (get-Tables database)))
       (let ((fact (new List-Factory)))
-        (loop (for n from 1 to (get-Count~ tables))
-              (let ((table (Item~ tables n #f)))
-                (if (get-SystemObject~ table)
+        (loop (for n from 1 to (get-Count tables))
+              (let ((table (Item tables n #f)))
+                (if (get-SystemObject table)
                     (com-release table)
-                  (put~ fact (new SQLServer-Inventory-Table self self table)))))
-        (get-output~ fact))))
+                  (put fact (new SQLServer-Inventory-Table self self table)))))
+        (get-output fact))))
   
   
   (method (get-table name)
-    (with ((tables (get-Tables~ database)))
-      (new SQLServer-Inventory-Table self self (Item~ tables name #f))))
+    (with ((tables (get-Tables database)))
+      (new SQLServer-Inventory-Table self self (Item tables name #f))))
   
   
   (method (create-table name)
     (let ((new-table (com-create SQLDMO.Table)))
-      (put-Name~ new-table name)
+      (put-Name new-table name)
       (new SQLServer-Inventory-Table self self new-table)))
   
   
   (method (append-table table)
-    (with ((tables (get-Tables~ database)))
-      (Add~ tables (get-handle~ table))))
+    (with ((tables (get-Tables database)))
+      (Add tables (get-handle table))))
 
   
   (method (remove-table name)
-    (with ((tables (get-Tables~ database)))
-      (Remove~ tables name #f)))
+    (with ((tables (get-Tables database)))
+      (Remove tables name #f)))
   
   
   (method (columns-ordinal-position-consecutive?)
@@ -177,21 +177,21 @@
   
   
   (method (get-views)
-    (with ((views (get-Views~ database)))
+    (with ((views (get-Views database)))
       (let ((fact (new List-Factory)))
-        (loop (for n from 1 to (get-Count~ views))
-              (let ((view (Item~ views n #f)))
-                (if (not (get-SystemObject~ view))
-                    (put~ fact (new SQLServer-Inventory-View self self view))
+        (loop (for n from 1 to (get-Count views))
+              (let ((view (Item views n #f)))
+                (if (not (get-SystemObject view))
+                    (put fact (new SQLServer-Inventory-View self self view))
                   (com-release view))))
-        (get-output~ fact))))
+        (get-output fact))))
   
   
   (method (get-view name (error?: error? #t))
-    (with ((views (get-Views~ database)))
+    (with ((views (get-Views database)))
       (let* ((action
                (lambda ()
-                 (Item~ views name #f)))
+                 (Item views name #f)))
              (view
                (if error?
                    (action)
@@ -202,18 +202,18 @@
   
   (method (create-view name)
     (let ((new-view (com-create SQLDMO.View)))
-      (put-Name~ new-view name)
+      (put-Name new-view name)
       (new SQLServer-Inventory-View self self new-view)))
   
   
   (method (append-view view)
-    (with ((views (get-Views~ database)))
-      (Add~ views (get-handle~ view))))
+    (with ((views (get-Views database)))
+      (Add views (get-handle view))))
   
   
   (method (remove-view name)
-    (with ((views (get-Views~ database)))
-      (Remove~ views name #f)))
+    (with ((views (get-Views database)))
+      (Remove views name #f)))
   
   
   ;;;
@@ -225,39 +225,39 @@
     (let ((fact (new List-Factory))
           (tables (get-tables)))
       (for-each (lambda (table)
-                  (let ((relations (get-table-relations~ table)))
+                  (let ((relations (get-table-relations table)))
                     (if relations
-                        (put-sequence~ fact relations)
-                      (close~ table))))
+                        (put-sequence fact relations)
+                      (close table))))
                 tables)
-      (get-output~ fact)))
+      (get-output fact)))
   
   
   (method (create-relation-complete relation-name primary-table primary-fields foreign-table foreign-fields)
     (let ((new-key (com-create SQLDMO.Key)))
-      (put-Name~ new-key relation-name)
-      (put-Type~ new-key SQLDMO.SQLDMOKey_Foreign)
-      (with ((columns (get-KeyColumns~ new-key)))
+      (put-Name new-key relation-name)
+      (put-Type new-key SQLDMO.SQLDMOKey_Foreign)
+      (with ((columns (get-KeyColumns new-key)))
         (for-each (lambda (field)
-                    (Add~ columns field))
+                    (Add columns field))
                   foreign-fields))
-      (put-ReferencedTable~ new-key primary-table)
-      (with ((columns (get-ReferencedColumns~ new-key)))
+      (put-ReferencedTable new-key primary-table)
+      (with ((columns (get-ReferencedColumns new-key)))
         (for-each (lambda (field)
-                    (Add~ columns field))
+                    (Add columns field))
                   primary-fields))
-      (with ((tables (get-Tables~ database))
-             (foreign-table (Item~ tables foreign-table #f))
-             (foreign-keys (get-Keys~ foreign-table)))
-        (Add~ foreign-keys new-key))
+      (with ((tables (get-Tables database))
+             (foreign-table (Item tables foreign-table #f))
+             (foreign-keys (get-Keys foreign-table)))
+        (Add foreign-keys new-key))
       (new SQLServer-Inventory-Relation self self new-key)))
   
   
   (method (remove-relation relation-name table-name)
-    (with ((tables (get-Tables~ database))
-           (table (Item~ tables table-name #f))
-           (keys (get-Keys~ table)))
-      (Remove~ keys relation-name)))
+    (with ((tables (get-Tables database))
+           (table (Item tables table-name #f))
+           (keys (get-Keys table)))
+      (Remove keys relation-name)))
   
   
   ;;;
@@ -270,18 +270,18 @@
       (when (ends-with? script-create-procedure marker)
         (set! script-create-procedure (subseq script-create-procedure 0
                                                 (- (length script-create-procedure) (length marker))))))
-    (execute~ connection script-create-procedure))
+    (execute connection script-create-procedure))
   
 
   (method (get-procedures)
-    (with ((procedures (get-StoredProcedures~ database)))
+    (with ((procedures (get-StoredProcedures database)))
       (let ((fact (new List-Factory)))
-        (loop (for n from 1 to (get-Count~ procedures))
-              (let ((procedure (Item~ procedures n #f)))
-                (if (not (get-SystemObject~ procedure))
-                    (put~ fact (new SQLServer-Inventory-Procedure self self procedure))
+        (loop (for n from 1 to (get-Count procedures))
+              (let ((procedure (Item procedures n #f)))
+                (if (not (get-SystemObject procedure))
+                    (put fact (new SQLServer-Inventory-Procedure self self procedure))
                   (com-release procedure))))
-        (get-output~ fact))))
+        (get-output fact))))
   
   
   (constant Object-Not-Existant
@@ -289,10 +289,10 @@
   
   
   (method (get-procedure name (error?: error? #t))
-    (with ((procedures (get-StoredProcedures~ database)))
+    (with ((procedures (get-StoredProcedures database)))
       (let* ((action
                (lambda ()
-                 (Item~ procedures name #f)))
+                 (Item procedures name #f)))
              (procedure
                (if error?
                    (action)
@@ -303,18 +303,18 @@
 
   (method (create-procedure name)
     (let ((new-procedure (com-create SQLDMO.StoredProcedure)))
-      (put-Name~ new-procedure name)
+      (put-Name new-procedure name)
       (new SQLServer-Inventory-Procedure self self new-procedure)))
   
   
   (method (append-procedure procedure)
-    (with ((procedures (get-StoredProcedures~ database)))
-      (Add~ procedures (get-handle~ procedure))))
+    (with ((procedures (get-StoredProcedures database)))
+      (Add procedures (get-handle procedure))))
   
   
   (method (remove-procedure name)
-    (with ((procedures (get-StoredProcedures~ database)))
-      (Remove~ procedures name #f)))
+    (with ((procedures (get-StoredProcedures database)))
+      (Remove procedures name #f)))
   
   
   ;;;
@@ -324,6 +324,6 @@
   
   (method public (restore-database database backup)
     (with ((restore (com-create SQLDMO.Restore)))
-      (put-Database~ restore database)
-      (put-Files~ restore (parse~ backup))
-      (SQLRestore~ restore server)))))
+      (put-Database restore database)
+      (put-Files restore (parse backup))
+      (SQLRestore restore server)))))

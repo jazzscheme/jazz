@@ -43,7 +43,9 @@
         (jazz.debugger.jazz)
         (jazz.event)
         (jazz.inspector)
-        (jazz.resource))
+        (jazz.resource)
+        (jazz.text)
+        (jazz.view))
 
 
 (class Swank-Debugger extends Debugger
@@ -58,27 +60,27 @@
   ;;;
   
   
-  (method override (start-debugger)
+  (method override (start-debugger self)
     )
   
   
-  (method override (stop-debugger)
+  (method override (stop-debugger self)
     )
   
   
-  (method override (get-processes (validate-liveness?: validate-liveness? #f))
+  (method override (get-processes self (validate-liveness?: validate-liveness? #f))
     processes)
   
   
-  (method override (validate-processes)
+  (method override (validate-processes self)
     )
   
   
-  (method override (detach-processes)
+  (method override (detach-processes self)
     )
   
   
-  (method override (standard-process-image)
+  (method override (standard-process-image self)
     {Image-Resource "Interface"})
   
   
@@ -87,65 +89,65 @@
   ;;;
   
   
-  (method override (process=? x y)
+  (method override (process=? self x y)
     (eq? x y))
   
   
-  (method override (process-live? process)
+  (method override (process-live? self process)
     #t)
   
   
-  (method override (process-title process)
-    (get-title~ process))
+  (method override (process-title self process)
+    (get-title process))
   
   
-  (method override (process-icon process)
+  (method override (process-icon self process)
     "Grab")
   
   
-  (method override (process-threads process)
+  (method override (process-threads self process)
     (collect (lambda (stop)
-               (let ((thread (get-thread~ stop)))
-                 (when (process=? (get-process~ thread) process)
+               (let ((thread (get-thread stop)))
+                 (when (process=? self (get-process thread) process)
                    thread)))
              stops))
   
   
-  (method override (present-process process)
-    (process-title process))
+  (method override (present-process self process)
+    (process-title self process))
   
   
-  (method override (reload-process process)
+  (method override (reload-process self process)
     )
   
   
-  (method override (process-focusable? process)
+  (method override (process-focusable? self process)
     #t)
   
   
-  (method override (evaluate-expressions process forms syntax str container line col evaluation-mode walk-debugger walk-cookie)
+  (method override (evaluate-expressions self process forms syntax str container line col evaluation-mode walk-debugger walk-cookie)
     )
   
   
-  (method override (inspect-serial process serial max-content)
+  (method override (inspect-serial self process serial max-content)
     '())
   
   
-  (method override (present-serial process serial)
+  (method override (present-serial self process serial)
     (unimplemented))
   
   
-  (method override (try-out process class)
+  (method override (try-out self process class)
     (unimplemented))
   
   
-  (method override (process-detach process)
+  (method override (process-detach self process)
     )
   
   
-  (method override (process-quit process)
-    (swank-disconnect process)
-    (detach-process process))
+  (method override (process-quit self process)
+    (swank-disconnect self process)
+    (detach-process self process))
   
   
   ;;;
@@ -153,49 +155,49 @@
   ;;;
   
   
-  (method override (thread=? x y)
-    (and (process=? (get-process~ x) (get-process~ y))
-         (= (get-id~ x) (get-id~ y))))
+  (method override (thread=? self x y)
+    (and (process=? self (get-process x) (get-process y))
+         (= (get-id x) (get-id y))))
   
   
-  (method override (thread-name process thread)
+  (method override (get-thread-name self process thread)
     "Thread")
   
   
-  (method override (thread-state process thread)
+  (method override (get-thread-state self process thread)
     #f)
   
   
-  (method override (thread-id process thread)
+  (method override (get-thread-id self process thread)
     #f)
   
   
-  (method override (thread-stops process thread)
+  (method override (get-thread-stops self process thread)
     (collect-if (lambda (stop)
-                  (thread=? (get-thread~ stop) thread))
+                  (thread=? self (get-thread stop) thread))
                 stops))
   
   
-  (method override (thread-active-stop process thread)
-    (let ((stops (thread-stops process thread)))
+  (method override (get-thread-active-stop self process thread)
+    (let ((stops (get-thread-stops self process thread)))
       (if (null? stops)
           #f
         (last stops))))
   
   
-  (method override (break-thread process thread)
+  (method override (break-thread self process thread)
     )
   
   
-  (method override (terminate-thread process thread preserve-console?)
+  (method override (terminate-thread self process thread preserve-console?)
     )
   
   
-  (method override (set-repl-frame process thread frame)
+  (method override (set-repl-frame self process thread frame)
     )
   
   
-  (method override (thread-debugged-continuation? thread)
+  (method override (thread-debugged-continuation? self thread)
     #f)
   
   
@@ -204,20 +206,20 @@
   ;;;
   
   
-  (method override (restart=? x y)
+  (method override (restart=? self x y)
     (eq? x y))
   
   
-  (method override (restart-name process restart)
-    (get-title~ restart))
+  (method override (restart-name self process restart)
+    (get-title restart))
   
   
-  (method override (restart-message process restart)
-    (format "[{a}] {a}" (get-title~ restart) (get-message~ restart)))
+  (method override (restart-message self process restart)
+    (format "[{a}] {a}" (get-title restart) (get-message restart)))
   
   
-  (method override (restart-stop process restart)
-    (swank-restart process (get-rank~ restart)))
+  (method override (restart-stop self process restart)
+    (swank-restart self process (get-rank restart)))
   
   
   ;;;
@@ -225,40 +227,40 @@
   ;;;
   
   
-  (method override (stop=? x y)
-    (and (thread=? (get-thread~ x) (get-thread~ y))
-         (= (get-id~ x) (get-id~ y))))
+  (method override (stop=? self x y)
+    (and (thread=? self (get-thread x) (get-thread y))
+         (= (get-id x) (get-id y))))
   
   
-  (method override (stop-kind process stop)
+  (method override (stop-kind self process stop)
     'exception)
   
   
-  (method override (stop-reason process stop)
-    (car (get-condition~ stop)))
+  (method override (stop-reason self process stop)
+    (car (get-condition stop)))
   
   
-  (method override (stop-detail process stop)
+  (method override (stop-detail self process stop)
     #f)
   
   
-  (method override (stop-location process stop)
+  (method override (stop-location self process stop)
     #f)
   
   
-  (method override (stop-restarts process stop)
-    (get-restarts~ stop))
+  (method override (stop-restarts self process stop)
+    (get-restarts stop))
   
   
-  (method override (stop-frames process stop)
-    (get-frames~ stop))
+  (method override (stop-frames self process stop)
+    (get-frames stop))
   
   
-  (method override (continue-stop process stop)
+  (method override (continue-stop self process stop)
     )
   
   
-  (method override (step-stop process stop command)
+  (method override (step-stop self process stop command)
     )
   
   
@@ -267,33 +269,33 @@
   ;;;
   
   
-  (method override (frame=? x y)
+  (method override (frame=? self x y)
     (eq? x y))
   
   
-  (method override (frame-name process frame)
+  (method override (frame-name self process frame)
     (cadr frame))
   
   
-  (method override (frame-interpreted? process frame)
+  (method override (frame-interpreted? self process frame)
     #t)
   
   
-  (method override (frame-hidden? process frame)
+  (method override (frame-hidden? self process frame)
     #f)
   
   
-  (method override (frame-location process frame)
+  (method override (frame-location self process frame)
     #f)
   
   
-  (method override (frame-variables process frame kind)
+  (method override (frame-variables self process frame kind)
     (map (lambda (variable)
            (let ((name (getf variable :name))
                  (value (getf variable :value))
                  (mutable? #f))
              (cons name (package-info value kind: :raw mutable?: mutable?))))
-         (swank-frame-variables process (car frame) kind)))
+         (swank-frame-variables self process (car frame) kind)))
   
   
   ;;;
@@ -301,22 +303,22 @@
   ;;;
   
   
-  (method (attach-process process focus?)
-    (unless (member? process processes test: process=?)
+  (method package (attach-process self process focus?)
+    (unless (member? process processes test: (~ process=? self))
       (call-event
         (lambda ()
           (set! processes (append! processes (list process)))
           (let ((debugged-process (new Debugged-Process self process process)))
-            (attach-process~ (get-debugger-manager) debugged-process focus?)
+            (attach-process (get-debugger-manager) debugged-process focus?)
             debugged-process)))))
   
   
-  (method (detach-process process)
-    (when (member? process processes test: process=?)
+  (method package (detach-process self process)
+    (when (member? process processes test: (~ process=? self))
       (execute-event
         (lambda ()
-          (set! processes (remove! process processes test: process=?))
-          (detach-process~ (get-debugger-manager) (new Debugged-Process self process process))))))
+          (set! processes (remove! process processes test: (~ process=? self)))
+          (detach-process (get-debugger-manager) (new Debugged-Process self process process))))))
   
   
   ;;;
@@ -328,78 +330,78 @@
     4005)
   
   
-  (method (swank-connect)
+  (method (swank-connect self)
     (let ((port (open-tcp-client (list port-number: swank-port-number))))
       (let ((process (new Swank-Process port)))
-        (let ((info (swank-connection-info process)))
+        (let ((info (swank-connection-info self process)))
           (let ((implementation (getf info :lisp-implementation))
                 (package (getf info :package)))
             (let ((type (getf implementation :type))
                   (version (getf implementation :version)))
-              (set-title~ process type)
-              (set-process-id~ process (getf info :pid))
-              (set-package-name~ process (and package (getf package :name)))
-              (swank-create-repl process)
-              (attach-process process #f)
-              (let ((text (register-console process type #t)))
-                (set-console~ process text)
+              (set-title process type)
+              (set-process-id process (getf info :pid))
+              (set-package-name process (and package (getf package :name)))
+              (swank-create-repl self process)
+              (attach-process self process #f)
+              (let ((text (register-console self process type #t)))
+                (set-console process text)
                 (when (and type version)
-                  (console-write process (format "{a} {a}{%}{%}" type version))))))))))
+                  (console-write self process (format "{a} {a}{%}{%}" type version))))))))))
   
   
-  (method (swank-disconnect process)
-    (let ((console (get-console~ process)))
-      (close-port (get-port~ process))
-      (unregister-console console)))
+  (method (swank-disconnect self process)
+    (let ((console (get-console process)))
+      (close-port (get-port process))
+      (unregister-console self console)))
   
   
-  (method (register-console process title select?)
+  (method package (register-console self process title select?)
     (define (setup-debugger-console-ports text)
       (receive (head tail) (open-string-pipe (list permanent-close: #f))
-        (set-console-port~ text head)
+        (set-console-port text head)
         tail))
     
-    (let ((manager (get-console-manager)))
-      (let ((text (register-console~ manager title select?)))
+    (let ((manager (get-console-manager-guest)))
+      (let ((text (register-console manager title select?)))
         (let ((port (setup-debugger-console-ports text))
               (resource (new Debugger-Resource
                              process
                              #f
                              text
                              (lambda ()
-                               (unregister-console text)))))
+                               (unregister-console self text)))))
           (register-debugger-resource process resource)
-          (start-swank-repl process port)
-          (set-console~ process text)
-          (set-console-resource~ process resource)
+          (start-swank-repl self process port)
+          (set-console process text)
+          (set-console-resource process resource)
           (when select?
-            (acquire-focus~ text))
+            (acquire-focus text))
           text))))
   
   
-  (method (unregister-console text)
-    (unregister-console~ (get-console-text-manager text) text))
+  (method package (unregister-console self text)
+    (unregister-console (get-console-text-manager text) text))
   
   
-  (method (console-write process str)
-    (let ((text (get-console~ process)))
+  (method (console-write self process str)
+    (let ((text (get-console process)))
       (execute-event
         (lambda ()
-          (set-caret~ text (text-ending~ text))
-          (insert-formatted-line~ text str)))))
+          (set-caret text (text-ending text))
+          (insert-formatted-line text str)))))
   
   
-  (method (start-swank-repl process port)
+  (method (start-swank-repl self process port)
     (define (swank-repl)
       (declare (proper-tail-calls))
       (let (loop)
-        (console-write process (prompt 0))
+        (console-write self process (prompt 0))
         (let ((expr (read port)))
           (if (eof-object? expr)
               (begin
-                (swank-disconnect process)
-                (console-write process "disconnected"))
-            (swank-eval process expr)
+                (swank-disconnect self process)
+                (console-write self process "disconnected"))
+            (swank-eval self process expr)
             (loop)))))
     
     (define (prompt level)
@@ -414,89 +416,89 @@
         'swank-repl)))
   
   
-  (method (register-stop process thread stop)
+  (method package (register-stop self process thread stop)
     (let ((debugged-process (new Debugged-Process self process process))
           (debugged-thread (new Debugged-Thread self process thread))
           (debugged-stop (new Debugged-Stop self process stop)))
       (execute-event
         (lambda ()
           (set! stops (cons stop stops))
-          (register-stop~ (get-debugger-manager) debugged-process debugged-thread debugged-stop)))))
+          (register-stop (get-debugger-manager) debugged-process debugged-thread debugged-stop)))))
   
   
-  (method (unregister-stop process thread stop)
+  (method package (unregister-stop self process thread stop)
     (let ((debugged-process (new Debugged-Process self process process))
           (debugged-thread (new Debugged-Thread self process thread))
           (debugged-stop (new Debugged-Stop self process stop)))
       (execute-event
         (lambda ()
-          (set! stops (remove! stop stops test: stop=?))
-          (unregister-stop~ (get-debugger-manager) debugged-process debugged-thread debugged-stop)))))
+          (set! stops (remove! stop stops test: (~ stop=? self)))
+          (unregister-stop (get-debugger-manager) debugged-process debugged-thread debugged-stop)))))
   
   
-  (method (swank-connection-info process)
-    (let ((id (swank-unique-id process)))
-      (send-swank-message process `(:emacs-rex (swank:connection-info) "COMMON-LISP-USER" t ,id))
-      (wait-swank-response process id)))
+  (method (swank-connection-info self process)
+    (let ((id (swank-unique-id self process)))
+      (send-swank-message self process `(:emacs-rex (swank:connection-info) "COMMON-LISP-USER" t ,id))
+      (wait-swank-response self process id)))
   
   
-  (method (swank-create-repl process)
-    (let ((package (get-package-name~ process))
-          (id (swank-unique-id process)))
-      (send-swank-message process `(:emacs-rex (swank:create-repl nil) ,package t ,id))
-      (wait-swank-response process id)))
+  (method (swank-create-repl self process)
+    (let ((package (get-package-name process))
+          (id (swank-unique-id self process)))
+      (send-swank-message self process `(:emacs-rex (swank:create-repl nil) ,package t ,id))
+      (wait-swank-response self process id)))
   
   
-  (method (swank-eval process expr)
-    (let ((package (get-package-name~ process))
-          (id (swank-unique-id process))
+  (method (swank-eval self process expr)
+    (let ((package (get-package-name process))
+          (id (swank-unique-id self process))
           (str (format "{s}" expr)))
-      (send-swank-message process `(:emacs-rex (swank:listener-eval ,str) ,package :repl-thread ,id))
-      (wait-swank-response process id)))
+      (send-swank-message self process `(:emacs-rex (swank:listener-eval ,str) ,package :repl-thread ,id))
+      (wait-swank-response self process id)))
   
 
-  (method (swank-frame-variables process frame kind)
-    (let ((package (get-package-name~ process))
-          (id (swank-unique-id process)))
-      (send-swank-message process `(:emacs-rex (swank:frame-locals-and-catch-tags ,frame) ,package :repl-thread ,id))
-      (bind (locals catch-tags) (wait-swank-response process id)
-        (append (swank-decode locals)
+  (method (swank-frame-variables self process frame kind)
+    (let ((package (get-package-name process))
+          (id (swank-unique-id self process)))
+      (send-swank-message self process `(:emacs-rex (swank:frame-locals-and-catch-tags ,frame) ,package :repl-thread ,id))
+      (bind (locals catch-tags) (wait-swank-response self process id)
+        (append (swank-decode self locals)
                 ;; need to understand the format of catch-tags
                 '()))))
   
   
-  (method (swank-decode expr)
+  (method (swank-decode self expr)
     (if (eq? expr 'nil)
         '()
       expr))
   
   
-  (method (swank-restart process n)
-    (let ((package (get-package-name~ process))
-          (id (swank-unique-id process)))
-      (send-swank-message process `(:emacs-rex (swank:invoke-nth-restart-for-emacs 1 ,n) ,package 0 ,id))
-      (wait-swank-response process id)))
+  (method (swank-restart self process n)
+    (let ((package (get-package-name process))
+          (id (swank-unique-id self process)))
+      (send-swank-message self process `(:emacs-rex (swank:invoke-nth-restart-for-emacs 1 ,n) ,package 0 ,id))
+      (wait-swank-response self process id)))
   
   
-  (method (swank-debug-return process thread level)
+  (method (swank-debug-return self process thread level)
     (let ((thread (new Swank-Thread process thread)))
       (let ((stop (find-if (lambda (stop)
-                             (and (thread=? (get-thread~ stop) thread)
-                                  (= (get-level~ stop) level)))
+                             (and (thread=? self (get-thread stop) thread)
+                                  (= (get-level stop) level)))
                            stops)))
         (when stop
-          (unregister-stop process thread stop)))))
+          (unregister-stop self process thread stop)))))
   
   
-  (method (swank-unique-id process)
-    (generate-unique-id~ process))
+  (method (swank-unique-id self process)
+    (generate-unique-id process))
   
   
-  (method (send-swank-message process expr)
+  (method (send-swank-message self process expr)
     (define (encode-length message)
       (format "{x width: 6 justify: :right padding: :v}" (cardinality message) #\0))
     
-    (let ((port (get-port~ process))
+    (let ((port (get-port process))
           (message (->string expr :reader)))
       (let ((message-length (encode-length message)))
         (display message-length port)
@@ -504,8 +506,8 @@
         (force-output port))))
   
   
-  (method (receive-swank-response process)
-    (let ((port (get-port~ process))
+  (method (receive-swank-response self process)
+    (let ((port (get-port process))
           (header (make-string 6)))
       (when (= (read-substring header 0 6 port) 6)
         (let ((count (string->number header 16)))
@@ -514,8 +516,8 @@
               (read-string-element response)))))))
   
   
-  (method (receive-swank-response-non-blocking process)
-    (let ((port (get-port~ process))
+  (method (receive-swank-response-non-blocking self process)
+    (let ((port (get-port process))
           (header (make-string 6)))
       (input-port-timeout-set! port 0.1)
       (when (= (read-substring header 0 6 port) 6)
@@ -526,7 +528,7 @@
               (read-string-element response)))))))
   
 
-  (method (wait-swank-response process target-id)
+  (method (wait-swank-response self process target-id)
     (define (create-restarts restarts)
       (map (lambda (restart rank)
              (let ((title (car restart))
@@ -539,14 +541,14 @@
     (define (process-events)
       (declare (proper-tail-calls))
       (let (loop)
-        (let ((response (receive-swank-response-non-blocking process)))
+        (let ((response (receive-swank-response-non-blocking self process)))
           (when response
-            (process-swank-event process response)
+            (process-swank-event self process response)
             (loop)))))
     
     (declare (proper-tail-calls))
     (let (loop)
-      (let ((response (receive-swank-response process)))
+      (let ((response (receive-swank-response self process)))
         (if (not response)
             #f
           (let ((kind (car response)))
@@ -560,46 +562,46 @@
                         (cadr (cadr response)))
                        ((:abort)
                         ;(process-events)
-                        (process-swank-abort process response)))
-                   (process-swank-problem process response)
+                        (process-swank-abort self process response)))
+                   (process-swank-problem self process response)
                    (loop))))
               ((:debug)
                (bind (kind thread level condition restarts frames ids) response
                  (if (memv target-id ids)
                      (let ((thread (new Swank-Thread process thread)))
                        (let ((stop (new Swank-Stop thread target-id level condition (create-restarts restarts) frames)))
-                         (register-stop process thread stop)
+                         (register-stop self process thread stop)
                          ;(process-events)
                          response))
-                   (process-swank-problem process response)
+                   (process-swank-problem self process response)
                    (loop))))
               (else
-               (process-swank-event process response)
+               (process-swank-event self process response)
                (loop))))))))
   
   
-  (method (process-swank-abort process abort)
+  (method (process-swank-abort self process abort)
     @debug
     (debug 'swank 'abort abort)
     #f)
   
   
-  (method (process-swank-problem process problem)
+  (method (process-swank-problem self process problem)
     @debug
     (debug 'swank 'problem problem))
   
   
-  (method (process-swank-event process event)
+  (method (process-swank-event self process event)
     (let ((kind (car event)))
       (case kind
         ((:write-string)
-         (console-write process (cadr event)))
+         (console-write self process (cadr event)))
         ((:new-features)
          )
         ((:indentation-update)
          )
         ((:debug-return)
-         (swank-debug-return process (cadr event) (caddr event)))
+         (swank-debug-return self process (cadr event) (caddr event)))
         (else
          @debug
          (debug 'swank 'event process event)))))
@@ -610,11 +612,11 @@
   ;;;
   
   
-  (method override (determine-process-processes process)
+  (method override (determine-process-processes self process)
     '())
   
   
-  (method override (determine-process-child? process child)
+  (method override (determine-process-child? self process child)
     #f)
   
   
@@ -623,11 +625,11 @@
   ;;;
   
   
-  (method override (determine-process-properties process)
+  (method override (determine-process-properties self process)
     '())
   
   
-  (method override (determine-process-property process property default)
+  (method override (determine-process-property self process property default)
     default)
       
   
@@ -636,5 +638,5 @@
   ;;;
   
   
-  (method override (determine-process-information? process)
+  (method override (determine-process-information? self process)
     #f)))

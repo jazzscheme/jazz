@@ -38,7 +38,8 @@
 (module protected jazz.database.designer.Datatype-Row jazz
 
 
-(import (jazz.designer))
+(import (jazz.designer)
+        (jazz.text))
 
 
 (class undocumented Datatype-Row extends Combo-Row)
@@ -63,9 +64,9 @@
   (method override (initialize . rest)
     (bind-keywords ((datatype-class #f) (unavailable-systypes-message #f) (allow-partial-datatype? #f) . others) rest
       (apply nextmethod others)
-      (set! datatype-class~self datatype-class)
-      (set! allow-partial-datatype?~self allow-partial-datatype?)
-      (set! systypes~self (and datatype-class (get-systypes~ datatype-class)))
+      (set! self.datatype-class datatype-class)
+      (set! self.allow-partial-datatype? allow-partial-datatype?)
+      (set! self.systypes (and datatype-class (get-systypes datatype-class)))
       (setup systypes unavailable-systypes-message)))
   
   
@@ -76,7 +77,7 @@
             (message-box unavailable-systypes-message)
             (set-choices '())
             #t))
-      (set-choices (map (lambda (systype) (list systype (present-format systype (get-name~ systype)))) systypes))))
+      (set-choices (map (lambda (systype) (list systype (present-format systype (get-name systype)))) systypes))))
 
   
   ;;;
@@ -87,7 +88,7 @@
   (method override (present type)
     (if (null? type)
         "{}"
-      (present~ type)))
+      (present type)))
   
   
   ;;;
@@ -100,7 +101,7 @@
   
   
   (method override (get-edited-value)
-    (let* ((string (get-content~ editor))
+    (let* ((string (get-content editor))
            (parsed (parse-content string)))
       (when parsed
         (receive (name size precision scale) parsed
@@ -108,7 +109,7 @@
   
   
   (method override (set-edited-value value)
-    (set-content~ editor (present value)))
+    (set-content editor (present value)))
   
   
   (definition (read-content content)
@@ -144,7 +145,7 @@
     
     (define (parse-systype name)
       (when datatype-class
-        (or (find-systype~ datatype-class name)
+        (or (find-systype datatype-class name)
             (parse-error (format "Invalid value: {a}" name)))))
     
     (define (parse-error message)
@@ -182,22 +183,22 @@
 (class Datatype-Row-Editor extends Combo-Row-Editor
   
   
-  (method override (content-change origin)
+  (method override (content-change self origin)
     (unless (eq? origin 'popup)
-      (nextmethod origin)))
+      (nextmethod self origin)))
   
   
-  (method override (combo-choice)
+  (method override (combo-choice self)
     )
   
   
-  (method override (get-entry)
-    (let ((content (read-content~ value-row (get-content))))
+  (method override (get-entry self)
+    (let ((content (read-content value-row (get-content self))))
       (when content
         (car content))))
   
   
-  (method override (set-entry entry)
-    (let ((actual (read-content~ value-row (get-content)))
+  (method override (set-entry self entry)
+    (let ((actual (read-content value-row (get-content self)))
           (entry (car (parse-strings entry separator: " "))))
-      (set-content (join (cons entry (cdr actual)) " "))))))
+      (set-content self (join (cons entry (cdr actual)) " "))))))

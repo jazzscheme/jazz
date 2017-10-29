@@ -40,7 +40,9 @@
 
 (import (jazz.document)
         (jazz.geometry)
-        (jazz.graphic))
+        (jazz.graphic)
+        (jazz.print)
+        (jazz.view))
 
 
 (class undocumented Print-Job extends Object
@@ -59,25 +61,25 @@
   (slot pages      getter generate)
   
   
-  (method override (initialize surface client page-setup resolution
+  (method override (initialize self surface client page-setup resolution
                      (scaling: scaling #f)
                      (zoom: zoom #f)
                      (selection?: selection? #f)
                      (from: from #f)
                      (to: to #f)
                      (nb-copies: nb-copies 1))
-    (nextmethod)
-    (set! surface~self surface)
-    (set! selection?~self selection?)
-    (set! from~self from)
-    (set! to~self to)
-    (set! nb-copies~self nb-copies)
-    (set! client~self client)
-    (set! page-setup~self page-setup)
-    (set! resolution~self resolution)
-    (set! scaling~self (or scaling (scale-content~ page-setup client resolution)))
-    (set! zoom~self zoom)
-    (set! pages (paginate)))
+    (nextmethod self)
+    (set! self.surface surface)
+    (set! self.selection? selection?)
+    (set! self.from from)
+    (set! self.to to)
+    (set! self.nb-copies nb-copies)
+    (set! self.client client)
+    (set! self.page-setup page-setup)
+    (set! self.resolution resolution)
+    (set! self.scaling (or scaling (scale-content page-setup client resolution)))
+    (set! self.zoom zoom)
+    (set! pages (paginate self)))
   
   
   ;;;
@@ -85,11 +87,11 @@
   ;;;
   
   
-  (method public (get-dc)
+  (method public (get-dc self)
     surface)
   
   
-  (method public (get-page n)
+  (method public (get-page self n)
     (element pages n))
   
   
@@ -98,24 +100,24 @@
   ;;;
   
   
-  (method public (print-job)
-    (with-document
+  (method public (print-job self)
+    (with-document self
       (lambda ()
         (loop (repeat nb-copies)
-              (print-document)))))
+              (print-document self)))))
   
   
-  (method (print-document)
+  (method package (print-document self)
     (for-each (lambda (page no)
-                (with-page no
+                (with-page self no
                   (lambda ()
-                    (print-page surface page no))))
+                    (print-page self surface page no))))
               pages
               (naturals (if from (- from 1) 0)
                         (if to to (length pages)))))
   
   
-  (method public (print-page surface page no)
+  (method public (print-page self surface page no)
     (define (print-context no)
       (list
         printing?: #t
@@ -130,53 +132,53 @@
                       print-time: (present-date-hour (local-date)))))
     
     (define (client-filename)
-      (let ((guest (get-guest~ client)))
+      (let ((guest (get-guest client)))
         (when (is? guest Document)
-          (let ((moniker (get-moniker~ (get-document-controller~ guest))))
+          (let ((moniker (get-moniker (get-document-controller guest))))
             (when moniker
-              (get-name~ moniker))))))
+              (get-name moniker))))))
     
     (let ((context (print-context no)))
-      (wrap-header/footer~ page-setup context)
-      (with-paper-setup surface page-setup
+      (wrap-header/footer page-setup context)
+      (with-paper-setup self surface page-setup
         (lambda ()
           (when zoom
-            (scale~ surface zoom zoom))
-          (let ((printed (printed-page)))
-            (paint-drawing~ printed surface context))))
-      (with-page-setup surface page-setup
+            (scale surface zoom zoom))
+          (let ((printed (printed-page self)))
+            (paint-drawing printed surface context))))
+      (with-page-setup self surface page-setup
         (lambda ()
-          (let ((page-left (- (get-left~ page)))
-                (page-top (- (get-top~ page))))
-            (scale~ surface scaling scaling)
-            (translate~ surface page-left page-top)
-            (with-clip~ surface page
+          (let ((page-left (- (get-left page)))
+                (page-top (- (get-top page))))
+            (scale surface scaling scaling)
+            (translate surface page-left page-top)
+            (with-clip surface page
               (lambda ()
-                (paint-drawing~ client surface context))))))
+                (paint-drawing client surface context))))))
       @w
       (with-paper-setup surface page-setup
         (lambda ()
           (when zoom
-            (scale~ surface zoom zoom))
+            (scale surface zoom zoom))
           (debug-print surface)))))
   
   
-  (method (debug-print surface)
+  (method (debug-print self surface)
     (define (cornerize x y xoffset yoffset)
-      (move-to~ surface (+ x xoffset) (+ y (* yoffset 2)))
-      (line-to~ surface x y)
-      (stroke~ surface)
-      (move-to~ surface (+ x (* xoffset 2)) (+ y yoffset))
-      (line-to~ surface x y)
-      (stroke~ surface))
+      (move-to surface (+ x xoffset) (+ y (* yoffset 2)))
+      (line-to surface x y)
+      (stroke surface)
+      (move-to surface (+ x (* xoffset 2)) (+ y yoffset))
+      (line-to surface x y)
+      (stroke surface))
     
-    (set-color~ surface {Color Dark})
-    (set-line-width~ surface 1)
-    (let ((rect (get-bounds~ page-setup)))
-      (let ((ymin (get-top~ rect))
-            (xmin (get-left~ rect))
-            (xmax (get-right~ rect))
-            (ymax (get-bottom~ rect)))
+    (set-color surface {Color Dark})
+    (set-line-width surface 1)
+    (let ((rect (get-bounds page-setup)))
+      (let ((ymin (get-top rect))
+            (xmin (get-left rect))
+            (xmax (get-right rect))
+            (ymax (get-bottom rect)))
         (let ((offset (cast <fl> (/ (min (- xmax xmin) (- ymax ymin)) 4.))))
           (cornerize xmin ymin offset offset)
           (cornerize xmin ymax offset (- offset))
@@ -184,53 +186,53 @@
           (cornerize xmax ymax (- offset) (- offset))))))
   
   
-  (method (with-page-setup surface page-setup proc)
-    (with-paper-setup surface page-setup
+  (method (with-page-setup self surface page-setup proc)
+    (with-paper-setup self surface page-setup
       (lambda ()
         (when zoom
-          (scale~ surface zoom zoom))
-        (let ((content-rect (get-content-rect~ page-setup)))
-          (translate~ surface (get-left~ content-rect) (get-top~ content-rect)))
+          (scale surface zoom zoom))
+        (let ((content-rect (get-content-rect page-setup)))
+          (translate surface (get-left content-rect) (get-top content-rect)))
         (proc))))
   
   
-  (method (with-paper-setup surface page-setup proc)
-    (with-preserved-matrix~ surface
+  (method (with-paper-setup self surface page-setup proc)
+    (with-preserved-matrix surface
       (lambda ()
-        (let ((orientation (print-orientation))
-              (size (get-size~ page-setup)))
+        (let ((orientation (print-orientation self))
+              (size (get-size page-setup)))
           (case orientation
             ((landscape)
-             (let ((height (get-height~ size)))
-               (translate~ surface 0 height)
-               (rotate~ surface (- PI/2))))
+             (let ((height (get-height size)))
+               (translate surface 0 height)
+               (rotate surface (- PI/2))))
             ((reverse-landscape)
-             (let ((width (get-width~ size)))
-               (translate~ surface width 0)
-               (rotate~ surface PI/2)))
+             (let ((width (get-width size)))
+               (translate surface width 0)
+               (rotate surface PI/2)))
             ((reverse-portrait)
-             (let ((width (get-width~ size))
-                   (height (get-height~ size)))
-               (translate~ surface width height)
-               (rotate~ surface PI)))))
+             (let ((width (get-width size))
+                   (height (get-height size)))
+               (translate surface width height)
+               (rotate surface PI)))))
         (let ((ratio (/ (cast <fl> resolution) default-resolution)))
-          (scale~ surface ratio ratio)
-          (offset-page surface))
+          (scale surface ratio ratio)
+          (offset-page self surface))
         (proc))))
   
   
-  (method protected virtual (printed-page)
+  (method protected virtual (printed-page self)
     page-setup)
   
   
-  (method protected virtual (print-orientation)
-    (get-orientation~ page-setup))
+  (method protected virtual (print-orientation self)
+    (get-orientation page-setup))
   
   
   @w (
   (import jazz.cairo)
   (method (debug-matrix)
-    (let ((matrix (cairo_get_matrix_raw (get-context~ surface))))
+    (let ((matrix (cairo_get_matrix_raw (get-context surface))))
       (debug (cairo_matrix_t-xx-ref matrix) (cairo_matrix_t-xy-ref matrix))
       (debug (cairo_matrix_t-yx-ref matrix) (cairo_matrix_t-yy-ref matrix))
       (debug (cairo_matrix_t-x0-ref matrix) (cairo_matrix_t-y0-ref matrix))
@@ -243,21 +245,21 @@
   ;;;
   
   
-  (method (paginate)
+  (method package (paginate self)
     (define (default-paginate)
-      (let ((content (get-content~ page-setup)))
-        (let ((width (get-width~ content))
-              (height (get-height~ content)))
+      (let ((content (get-content page-setup)))
+        (let ((width (get-width content))
+              (height (get-height content)))
           (let ((page-width (fxceiling (/ (/ (cast <fl> (* width resolution)) default-resolution) scaling)))
                 (page-height (fxceiling (/ (/ (cast <fl> (* height resolution)) default-resolution) scaling))))
-            (paginate~ client page-width page-height)))))
+            (paginate client page-width page-height)))))
     
-    (let ((page-area (get-page-area~ client '())))
+    (let ((page-area (get-page-area client '())))
       (if (not page-area)
           (default-paginate)
         (let ((page-width (rect-width page-area))
               (page-height (rect-height page-area)))
-          (paginate~ client page-width page-height)))))
+          (paginate client page-width page-height)))))
   
   
   ;;;
@@ -265,7 +267,7 @@
   ;;;
   
   
-  (method protected virtual (offset-page surface)
+  (method protected virtual (offset-page self surface)
     #f)
   
   
@@ -274,17 +276,17 @@
   ;;;
   
   
-  (method public (with-document proc)
-    (start-document)
+  (method public (with-document self proc)
+    (start-document self)
     (proc)
-    (end-document))
+    (end-document self))
   
   
-  (method protected virtual (start-document)
+  (method protected virtual (start-document self)
     )
   
   
-  (method protected virtual (end-document)
+  (method protected virtual (end-document self)
     )
   
   
@@ -293,16 +295,16 @@
   ;;;
   
   
-  (method public (with-page no proc)
-    (start-page no)
+  (method public (with-page self no proc)
+    (start-page self no)
     (proc)
-    (end-page no))
+    (end-page self no))
   
   
-  (method protected virtual (start-page no)
+  (method protected virtual (start-page self no)
     )
   
   
-  (method protected virtual (end-page no)
-    (show-page~ surface)
+  (method protected virtual (end-page self no)
+    (show-page surface)
     )))

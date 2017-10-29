@@ -39,6 +39,7 @@
 
 
 (import (jazz.component)
+        (jazz.designer)
         (jazz.designer.view)
         (jazz.jml)
         (jazz.locale))
@@ -55,20 +56,20 @@
   (property title initialize #f accessors generate)
     
   
-  (method public (get-locale)
+  (method public (get-locale self)
     (and name
          (symbol->keyword name)))
   
   
-  (method protected (register-node-locale locale-state)
-    (register-locale~ locale-state (new Locale name (and parent (get-name~ parent)) title))
+  (method package (register-node-locale self locale-state)
+    (register-locale locale-state (new Locale name (and parent (get-name parent)) title))
     (for-each (lambda (child)
                 (when (is? child Locale-Node)
-                  (register-node-locale~ child locale-state)))
+                  (register-node-locale child locale-state)))
               children))
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.locale.descriptors:Locale-Node-Descriptor)))
 
 
@@ -84,38 +85,38 @@
     (<install> name: all title: ""))
   
   
-  (method override (default-name)
+  (method override (default-name self)
     'all)
   
   
-  (method public (collect-missing-localizations object)
+  (method public (collect-missing-localizations self object)
     (if (is-not? object Locales-Provider)
-        (collect-if (lambda (locale) (neq? all: locale)) (provide-locales))
-      (let ((object-locales (provide-locales~ object))
+        (collect-if (lambda (locale) (neq? all: locale)) (provide-locales self))
+      (let ((object-locales (provide-locales object))
             (result '()))
         (unless (memq? all: object-locales)
-          (for-each-descendant
+          (for-each-descendant self
             do-nothing
             stop-test: (lambda (locale-node)
-                         (cond ((memq? (get-locale~ locale-node) object-locales) #t)
+                         (cond ((memq? (get-locale locale-node) object-locales) #t)
                                ((every? (lambda (remaining)
-                                          (not (memq? (get-locale~ remaining) object-locales)))
-                                        (collect-descendants~ locale-node))
-                                (set! result (cons (get-locale~ locale-node) result))
+                                          (not (memq? (get-locale remaining) object-locales)))
+                                        (collect-descendants locale-node))
+                                (set! result (cons (get-locale locale-node) result))
                                 #t)))))
         result)))
   
 
-  (method public (register-locales locale-state)
-    (for-each-descendant
+  (method public (register-locales self locale-state)
+    (for-each-descendant self
       (lambda (component level)
         (when (is? component Locale-Node)
-          (register-locale~ locale-state (new Locale (get-name~ component) (get-name~ (get-parent~ component)) (get-title~ component)))))
+          (register-locale locale-state (new Locale (get-name component) (get-name (get-parent component)) (get-title component)))))
       include-self?: #f))
   
   
-  (method override (provide-locales)
-    (map (compose symbol->keyword get-name~) (collect-descendants Locale-Node))))
+  (method override (provide-locales self)
+    (map (compose symbol->keyword get-name) (collect-descendants self Locale-Node))))
 
 
 ;;;
@@ -125,7 +126,7 @@
 
 (definition public (validate-locales value locale-tree violation-adder)
   (if locale-tree
-      (let ((missing-locales (collect-missing-localizations~ locale-tree value)))
+      (let ((missing-locales (collect-missing-localizations locale-tree value)))
         (if (null? missing-locales)
             #f
           (violation-adder "must be localized in: {a}" (join (map keyword->string missing-locales) ", "))
@@ -136,7 +137,7 @@
       #t)))
 
 
-(definition public (get-locale-tree client)
+(definition public (component-locale-tree client)
   (let* ((unit (category-unit (class-of (root-creator client))))
-         (toolbox-module (find (get-toolbox-modules) unit key: get-module-name~ test: eq? return: 'item)))
-    (and toolbox-module (get-locale-tree~ toolbox-module)))))
+         (toolbox-module (find (find-toolbox-modules) unit key: get-module-name test: eq? return: 'item)))
+    (and toolbox-module (get-locale-tree toolbox-module)))))

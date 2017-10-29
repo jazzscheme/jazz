@@ -60,7 +60,7 @@
     (<install> background: {Color Medium}))
   
   
-  (method override (mouse-activate?)
+  (method override (mouse-activate? self)
     #f)
   
   
@@ -69,13 +69,13 @@
   ;;;
   
   
-  (method public (get-default?)
+  (method public (get-default? self)
     default?)
   
   
-  (method public (set-default? flag)
+  (method public (set-default? self flag)
     (set! default? flag)
-    (invalidate-view))
+    (invalidate-view self))
 
 
   ;;;
@@ -83,13 +83,13 @@
   ;;;
   
   
-  (method public (get-state)
+  (method public (get-state self)
     state)
   
   
-  (method public (set-state value)
+  (method public (set-state self value)
     (set! state value)
-    (invalidate-view))
+    (invalidate-view self))
   
   
   ;;;
@@ -97,15 +97,15 @@
   ;;;
   
   
-  (method override (default-size)
+  (method override (default-size self)
     {Dimension 100 22})
   
   
-  (method override (preferred-size)
+  (method override (preferred-size self)
     (let ((title (localize title)))
       (if (not title)
-          (default-size)
-        (new Dimension (+ (get-width~ (text-extent~ (effective-font) title)) 50) 22))))
+          (default-size self)
+        (new Dimension (+ (get-width (text-extent (effective-font self) title)) 50) 22))))
   
   
   ;;;
@@ -113,37 +113,37 @@
   ;;;
 
 
-  (method override (mouse-enter)
-    (when (and (view-enabled?) (or (not mouse-down?) (eq? mouse-down-view self)))
-      (case (get-state)
-        ((inactive) (set-state 'highlighted))
-        ((out-pushed) (set-state 'pushed)))))
+  (method override (mouse-enter self)
+    (when (and (view-enabled? self) (or (not (get-mouse-down?)) (eq? (get-mouse-down-view) self)))
+      (case (get-state self)
+        ((inactive) (set-state self 'highlighted))
+        ((out-pushed) (set-state self 'pushed)))))
 
 
-  (method override (mouse-leave)
-    (when (and (view-enabled?) (or (not mouse-down?) (eq? mouse-down-view self)))
-      (case (get-state)
-        ((highlighted) (set-state 'inactive))
-        ((pushed) (set-state 'out-pushed)))))
+  (method override (mouse-leave self)
+    (when (and (view-enabled? self) (or (not (get-mouse-down?)) (eq? (get-mouse-down-view) self)))
+      (case (get-state self)
+        ((highlighted) (set-state self 'inactive))
+        ((pushed) (set-state self 'out-pushed)))))
   
   
-  (method override (mouse-down evt)
-    (when (view-enabled?)
-      (set-state 'pushed)))
+  (method override (mouse-down self evt)
+    (when (view-enabled? self)
+      (set-state self 'pushed)))
   
   
-  (method override (drag-up evt . rest)
-    (when (view-enabled?)
+  (method override (drag-up self evt . rest)
+    (when (view-enabled? self)
       (unwind-protect
-          (up)
-        (case (get-state)
-          ((pushed) (set-state 'highlighted))
-          ((out-pushed) (set-state 'inactive))))))
+          (up self)
+        (case (get-state self)
+          ((pushed) (set-state self 'highlighted))
+          ((out-pushed) (set-state self 'inactive))))))
 
 
-  (method (up)
-    (when (eq? (get-state) 'pushed)
-      (process-action self)))
+  (method package (up self)
+    (when (eq? (get-state self) 'pushed)
+      (process-action self self)))
   
   
   ;;;
@@ -151,44 +151,44 @@
   ;;;
   
   
-  (method override (draw-background surface context)
-    (let ((skin (get-skin)))
-      (when (neq? (get-background~ skin) 'none)
-        (nextmethod surface context))))
+  (method override (draw-background self surface context)
+    (let ((skin (get-skin self)))
+      (when (neq? (get-background skin) 'none)
+        (nextmethod self surface context))))
   
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (let ((title (or (localize title) ""))
           (offset (case state ((pushed) 1) (else 0)))
-          (rect (get-bounds))
-          (skin (get-skin))
-          (enabled? (view-enabled?)))
-      (let ((background? (neq? (get-background~ skin) 'none)))
+          (rect (get-bounds self))
+          (skin (get-skin self))
+          (enabled? (view-enabled? self)))
+      (let ((background? (neq? (get-background skin) 'none)))
         (when default?
           (when background?
-            (frame-rect~ surface rect (if enabled? {Color Black} {Color Dark}))
+            (frame-rect surface rect (if enabled? {Color Black} {Color Dark}))
             (set! rect (inflate-rect rect -1 -1))))
         (if (not background?)
             (unless (eq? style 'text)
-              (frame-rect~ surface rect {Color red: 100 green: 100 blue: 100})
+              (frame-rect surface rect {Color red: 100 green: 100 blue: 100})
               (let ((from (if enabled? {Color Dark-Red alpha: .5} {Color Dark alpha: .5}))
                     (to {Color red: 0 green: 0 blue: 0 alpha: .5}))
-                (gradient-fill-rect~ surface (inflate-rect rect -1 -1) (list (list 0 from) (list 1 to)) direction: 'vertical)))
+                (gradient-fill-rect surface (inflate-rect rect -1 -1) (list (list 0 from) (list 1 to)) direction: 'vertical)))
           (if flat?
-              (draw-edge~ surface rect outer: 'raised edges: 'rectangle)
-            (draw-push-button~ surface rect (if (eq? state 'pushed) #t #f))))
-        (let* ((size (get-size))
-               (width (get-width~ size))
-               (height (get-height~ size))
-               (extent (get-text-extent~ surface title))
-               (h (quotient (- width (get-width~ extent)) 2))
-               (v (- (quotient (- height (get-height~ extent)) 2) (if (eq? style 'text) 1 0)))
+              (draw-edge surface rect outer: 'raised edges: 'rectangle)
+            (draw-push-button surface rect (if (eq? state 'pushed) #t #f))))
+        (let* ((size (get-size self))
+               (width (get-width size))
+               (height (get-height size))
+               (extent (get-text-extent surface title))
+               (h (quotient (- width (get-width extent)) 2))
+               (v (- (quotient (- height (get-height extent)) 2) (if (eq? style 'text) 1 0)))
                (color (if background?
                           (if enabled? {Color Black} {Color Dark})
                         (if enabled? {Color red: .809 green: .701 blue: .263} {Color red: 130 green: 130 blue: 130}))))
           (when (not background?)
-            (set-font~ surface {Font Label-User}))
-          (draw-text~ surface (+ h offset) (+ v offset) title color enabled?: enabled?)))))
+            (set-font surface {Font Label-User}))
+          (draw-text surface (+ h offset) (+ v offset) title color enabled?: enabled?)))))
   
   
   ;;;
@@ -196,7 +196,7 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:button))
   
   
@@ -205,5 +205,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Push-Button-Descriptor))))

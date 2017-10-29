@@ -38,9 +38,25 @@
 (module jazz.recorder jazz
 
 
+(hub end-playing)
+(hub get-playing?)
+(hub get-recording?)
+(hub on-play-recording)
+(hub on-start-recording)
+(hub on-stop-recording)
+(hub play-current-recording)
+(hub play-recording)
+(hub play-recording-feedback)
+(hub play-remote-recording)
+(hub playee-feedback)
+(hub start-recording)
+(hub stop-recording)
+
+
 (export (jazz.recorder.autoload))
 (import (jazz.action)
         (jazz.application)
+        (jazz.component)
         (jazz.event)
         (jazz.handler)
         (jazz.platform)
@@ -125,38 +141,38 @@
             (bind (kind . rest) action
               (let ((host (and (pair? rest) (car rest))))
                 (unless (eq? host :unidentifiable)
-                  (update-window~
+                  (update-window
                     (case host
-                      ((:modal) (get-player~ (current-modal)))
-                      ((:popup) (get-player~ (current-popup)))
-                      (else (get-toplevel))))
+                      ((:modal) (get-player (current-modal)))
+                      ((:popup) (get-player (current-popup)))
+                      (else (current-toplevel))))
                   (when slowdown
                     (sleep slowdown))))))))
 
       (define (simulate-mouse view pos)
         (when feedback?
-          (let ((root (get-root~ view))
-                (player (get-player~ view)))
-            (let ((start (mouse-position~ player))
-                  (end (acquire~ root view pos))
+          (let ((root (get-root view))
+                (player (get-player view)))
+            (let ((start (mouse-position player))
+                  (end (acquire root view pos))
                   (duration .5))
-              (let ((start-h (get-h~ start))
-                    (start-v (get-v~ start))
-                    (end-h (get-h~ end))
-                    (end-v (get-v~ end))
+              (let ((start-h (get-h start))
+                    (start-v (get-v start))
+                    (end-h (get-h end))
+                    (end-v (get-v end))
                     (step-num (max 1 (fxfloor/ (distance start end) 2))))
                 (let ((delta-h (exact->inexact (/ (- end-h start-h) step-num)))
                       (delta-v (exact->inexact (/ (- end-v start-v) step-num))))
                   (let (loop (step 0))
                     (if (>= step step-num)
                         (begin
-                          (set-mouse-position~ player end)
+                          (set-mouse-position player end)
                           (sleep .05))
                       (sleep (/ duration step-num))
                       (let ((step-pos (new Point
                                         (+ start-h (fxround (* step delta-h)))
                                         (+ start-v (fxround (* step delta-v))))))
-                        (set-mouse-position~ player step-pos))
+                        (set-mouse-position player step-pos))
                       (loop (+ step 1))))))))))
 
       (unless error-occurred?
@@ -181,7 +197,7 @@
                     (when debug?
                       (debug action))
                     (feedback action)
-                    (play-event action feedback simulate-mouse)))))))))
+                    (play-script-event action feedback simulate-mouse)))))))))
     
     (if (primordial-thread?)
         (thread-start!
@@ -192,26 +208,26 @@
       (proc play))))
 
 
-(definition public (play-events actions . rest)
+(definition package (play-script-events actions . rest)
   (apply play-script
          (lambda (play)
            (for-each play actions))
          rest))
 
 
-(definition (play-event action feedback simulate-mouse)
+(definition package (play-script-event action feedback simulate-mouse)
   (define (play-action action)
     (let ((kind (car action)))
       (case kind
         ((:action)       (play-action-event action))
         ((:char)         (play-char action))
         ((:string)       (play-string action))
-        ((:down)         (play-mouse action :mouse-down   (lambda (root view event) (dispatch-mouse-down~ root view event))))
-        ((:up)           (play-mouse action :mouse-up     (lambda (root view event) (dispatch-mouse-up~ root view event))))
+        ((:down)         (play-mouse action :mouse-down   (lambda (root view event) (dispatch-mouse-down root view event))))
+        ((:up)           (play-mouse action :mouse-up     (lambda (root view event) (dispatch-mouse-up root view event))))
         ((:click)        (play-mouse action :mouse-click  (lambda (root view event) (dispatch-click root view event))))
         ((:double)       (play-mouse action :mouse-double (lambda (root view event) (dispatch-double root view event))))
-        ((:double-click) (play-mouse action :double-click (lambda (root view event) (dispatch-double-click~ root view event))))
-        ((:context-menu) (play-mouse action :context-menu (lambda (root view event) (dispatch-context-menu~ root view event))))
+        ((:double-click) (play-mouse action :double-click (lambda (root view event) (dispatch-double-click root view event))))
+        ((:context-menu) (play-mouse action :context-menu (lambda (root view event) (dispatch-context-menu root view event))))
         ((:menubar)      (play-menubar action))
         (else            (error "Unknown event kind: {s}" kind)))))
   
@@ -226,7 +242,7 @@
   (define (play-char action)
     (bind (kind content . modifiers) action
       (let ((shortcut (new Shortcut modifiers content)))
-        (or (dispatch-shortcut~ (get-application) shortcut)
+        (or (dispatch-shortcut (get-application) shortcut)
             (assert (char? content)
               (dispatch-key content))))))
   
@@ -235,7 +251,7 @@
       (iterate content dispatch-key)))
   
   (define (dispatch-key key)
-    (dispatch-key-press~ (get-focus) key))
+    (dispatch-key-press (active-focus) key))
   
   (define (play-mouse action event-kind proc)
     (playing-mouse action event-kind
@@ -244,8 +260,8 @@
           (if (eq? mouse-in view)
               (proc root view event)
             (when mouse-in
-              (dispatch-mouse-leave~ mouse-in))
-            (dispatch-mouse-enter~ view)
+              (dispatch-mouse-leave mouse-in))
+            (dispatch-mouse-enter view)
             (set-mouse-in view)
             (feedback action)
             (set-mouse-in view)
@@ -269,9 +285,9 @@
           (case host-locator
             ((:modal) (current-modal))
             ((:popup) (current-popup))
-            ((:menubar) (find-menubar))
-            ((:toolbar) (find-toolbar~ (get-application)))
-            ((:statusbar) (find-status-bar~ (get-application)))
+            ((:menubar) (find-menubar (get-application)))
+            ((:toolbar) (find-toolbar (get-application)))
+            ((:statusbar) (find-status-bar (get-application)))
             ((:frame) (current-frame))
             (else #f))))
       
@@ -279,7 +295,7 @@
         (assert host)
         (if (and (pair? path) (eq? (car path) :host))
             (play-in host (cdr path))
-          (let ((guest (get-guest~ host)))
+          (let ((guest (get-guest host)))
             (assert guest)
             (play-in guest path))))
       
@@ -289,10 +305,10 @@
       (define (play-root view)
         (define (effective-position)
           (or position
-              (let ((size (get-size~ view)))
-                (new Point (fxround/ (get-width~ size) 2) (fxround/ (get-height~ size) 2)))))
+              (let ((size (get-size view)))
+                (new Point (fxround/ (get-width size) 2) (fxround/ (get-height size) 2)))))
         
-        (let ((root (get-root~ view)))
+        (let ((root (get-root view)))
           (assert root)
           (let ((position (effective-position)))
             (simulate-mouse view position)
@@ -305,14 +321,14 @@
             (error "Unknown host: {s}" host-locator))))))
   
   (define (dispatch-click root view event)
-    (dispatch-mouse-down~ root view event)
-    (dispatch-mouse-up~ root view event))
+    (dispatch-mouse-down root view event)
+    (dispatch-mouse-up root view event))
   
   (define (dispatch-double root view event)
-    (dispatch-mouse-down~ root view event)
-    (dispatch-mouse-up~ root view event)
-    (dispatch-double-click~ root view event)
-    (dispatch-mouse-up~ root view event))
+    (dispatch-mouse-down root view event)
+    (dispatch-mouse-up root view event)
+    (dispatch-double-click root view event)
+    (dispatch-mouse-up root view event))
   
   (define (play-menubar action)
     (bind (kind path . modifiers) action
@@ -326,30 +342,12 @@
     (feedback action)
     (play-action action))
   
-  (define (find-menubar)
-    (find-menubar~ (get-application)))
-  
   (define (locate-in in path)
     (assert in)
     (let ((view (if (null? path)
                     in
-                  (locate-descendant~ in path))))
+                  (locate-descendant in path))))
       (or view
           (error "Unable to find '{s} in: {s}" path in))))
   
-  (play-action action))
-
-
-;;;
-;;;; Action
-;;;
-
-
-(definition public (play-action action)
-  (bind (action/handler . event) action
-    (typecase action/handler
-      ((Action)
-       (call-action action/handler #f '() event: event))
-      (else
-       (let ((target (get-focus)))
-         (invoke~ action/handler target event)))))))
+  (play-action action)))

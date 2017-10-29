@@ -44,6 +44,7 @@
         (jazz.designer)
         (jazz.designer.view)
         (jazz.domain)
+        (jazz.editor)
         (jazz.editor.jazz)
         (jazz.jml)
         (jazz.locale.components)
@@ -68,20 +69,20 @@
   ;;;
   
   
-  (method public (set-locale-tree-class locale-tree-class)
-    (set! locale-tree-class~self locale-tree-class)
+  (method public (set-locale-tree-class self locale-tree-class)
+    (set! self.locale-tree-class locale-tree-class)
     (let ((tree-class (and (is? locale-tree-class Class-Reference)
-                           (resolve-reference~ locale-tree-class))))
+                           (reference-resolve locale-tree-class))))
       (when (and tree-class (subtype? tree-class Locale-Tree))
         (set! locale-tree (new tree-class)))))
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (set-locale-tree-class locale-tree-class))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (set-locale-tree-class self locale-tree-class))
   
   
-  (method override (copy-object deep?)
+  (method override (copy-object self deep?)
     (new Toolbox-Module name: name title: title module-name: module-name addable-references: addable-references locale-tree-class: locale-tree-class))
   
   
@@ -90,7 +91,7 @@
   ;;;
   
   
-  (method virtual (collect-valid-names names)
+  (method virtual (collect-valid-names self names)
     (collect-if (lambda (name)
                   (let ((object (module-ref module-name name)))
                     (and (class? object)
@@ -98,47 +99,47 @@
                 names))
   
   
-  (method virtual (collect-valid-elements-properties names)
-    (let ((valid-names (collect-valid-names names)))
+  (method virtual (collect-valid-elements-properties self names)
+    (let ((valid-names (collect-valid-names self names)))
       (map (lambda (name)
              (list unit: module-name model: name title: (symbol->string name)))
            valid-names)))
   
   
-  (method virtual (get-element-class plist)
+  (method virtual (get-element-class self plist)
     Toolbox-Model)
   
   
-  (method virtual (sort-elements plists)
+  (method virtual (sort-elements self plists)
     (sort string<? plists key: (lambda (plist)
                                  (getf plist title:))))
   
   
-  (method (require-toolbox-module)
+  (method (require-toolbox-module self)
     (with-exception-filter
       (lambda (exception)
         (is? exception Error))
       (lambda (error)
-        (designer-error (get-message~ error)))
+        (designer-error (get-message error)))
       (lambda ()
         (require-module module-name))))
   
   
-  (method public (collect-module-elements)
+  (method public (collect-module-elements self)
     (map (lambda (name)
            (module-ref module-name name))
-         (table-keys (get-exports~ (require-toolbox-module)))))
+         (table-keys (get-exports (require-toolbox-module self)))))
   
   
-  (method public (add-module-elements add)
+  (method public (add-module-elements self add)
     (when module-name
-      (let* ((module (require-toolbox-module))
-             (valid-names (collect-valid-names (table-keys (get-exports~ module))))
-             (plists (sort-elements (collect-valid-elements-properties valid-names))))
-        (for-each add (map get-element-class plists) plists))))
+      (let* ((module (require-toolbox-module self))
+             (valid-names (collect-valid-names self (table-keys (get-exports module))))
+             (plists (sort-elements self (collect-valid-elements-properties self valid-names))))
+        (for-each add (map (~ get-element-class self) plists) plists))))
   
   
-  (method public (add-element runtime-reference class-name)
+  (method public (add-element self runtime-reference class-name)
     (bind (unit model) (parse-runtime-reference runtime-reference)
       (call-with-saved-text (find-unit-source module-name)
         (lambda (text)
@@ -146,7 +147,7 @@
             (insert-imports text imports)
             (insert-class text class-name model)
             (insert-new-form text class-name)
-            (evaluate-range~ text (location-range~ text (list class-name))))))))
+            (evaluate-range text (location-range text (list class-name))))))))
   
   
   ;;;
@@ -154,31 +155,31 @@
   ;;;
   
   
-  (method public (remove-text-location symbol)
+  (method public (remove-text-location self symbol)
     (call-with-saved-text (find-unit-source module-name)
       (lambda (text)
-        (let* ((range (location-range~ text (list symbol) toplevel-location: (list module-name)))
-               (explorer (new Jazz-Explorer (get-model~ text) range: range)))
-          (backward-expr~ explorer)
-          (set-selection~ text (new Range$Cell$ (get-end~ explorer) (get-end~ range)))
-          (delete-selection~ text)))))
+        (let* ((range (location-range text (list symbol) toplevel-location: (list module-name)))
+               (explorer (new Jazz-Explorer (get-model text) range: range)))
+          (backward-expr explorer)
+          (set-selection text (new Range$Cell$ (get-end explorer) (get-end range)))
+          (delete-selection text)))))
   
   
-  (method public (remove-from-runtime symbol)
+  (method public (remove-from-runtime self symbol)
     (let* ((run-module 'jazz.runtime)
            (str (object->string
                   `(module ,run-module jazz
                    (let ((module (require-module ',module-name)))
-                     (table-set! (get-exports~ module) ',symbol)
-                     (table-set! (get-entries~ module) ',symbol)
+                     (table-set! (get-exports module) ',symbol)
+                     (table-set! (get-entries module) ',symbol)
                      (module-undefine ',module-name ',symbol)
                      #!void)))))
-      (evaluate-filename-expressions~ (get-debugger-manager) (parse~ (find-unit-source run-module)) 'jazz str #f #f #f)))
+      (evaluate-filename-expressions (get-debugger-manager) (parse (find-unit-source run-module)) 'jazz str #f #f #f)))
   
   
-  (method public (remove-element symbol)
-    (remove-text-location symbol)
-    (remove-from-runtime symbol))
+  (method public (remove-element self symbol)
+    (remove-text-location self symbol)
+    (remove-from-runtime self symbol))
   
   
   ;;;
@@ -186,7 +187,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new Toolbox-Module-Descriptor)))
 
 
@@ -216,17 +217,17 @@
           (<Literal-Domain>    name: domain             nullable?: #t is: {Class-Reference Class-Reference})))))
   
   
-  (method override (component-determine-paster component (try-parent? #t))
+  (method override (component-determine-paster self component (try-parent? #t))
     (and (can-paste-component? component)
          (clipboard-format-available? 'jazz-tool)
          component))
   
   
-  (method override (component-get-categorized-addable-classes component)
-    (let ((references (get-addable-references~ component)))
+  (method override (component-get-categorized-addable-classes self component)
+    (let ((references (get-addable-references component)))
       (cond ((or (not references) (null? references))
              '())
             ((symbol? references)
              (list (require-symbolic-addable-references references)))
             (else
-             (list (map get-runtime-reference~ references)))))))))
+             (list (map get-runtime-reference references)))))))))

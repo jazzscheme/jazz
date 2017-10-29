@@ -47,14 +47,17 @@
   `(jazz:register-backend (jazz:new-backend ',name)))
 
 
-(jazz:define-macro (jazz:define-emit signature . body)
-  (let ((emit (car signature))
-        (backend (cadr signature))
-        (parameters (cddr signature)))
-    (let ((backend-name (car backend))
-          (backend-parameter (cadr backend)))
-      (let ((emitter (%%string->symbol (jazz:format "jazz:{a}-emit-{a}" backend-name emit))))
-        `(begin
-           (define (,emitter ,backend-parameter ,@parameters)
-             ,@body)
-           (jazz:register-emit ',backend-name ',emit ,emitter)))))))
+(jazz:define-syntax jazz:define-emit
+  (lambda (src)
+    (jazz:bind (signature . body) (cdr (jazz:source-code src))
+      (let ((signature (jazz:source-code signature)))
+        (let ((emit (jazz:desourcify (car signature)))
+              (backend (jazz:desourcify (cadr signature)))
+              (parameters (cddr signature)))
+          (let ((backend-name (car backend))
+                (backend-parameter (cadr backend)))
+            (let ((emitter (%%string->symbol (jazz:format "jazz:{a}-emit-{a}" backend-name emit))))
+              `(begin
+                 (define (,emitter ,backend-parameter ,@parameters)
+                   ,@body)
+                 (jazz:register-emit ',backend-name ',emit ,emitter))))))))))

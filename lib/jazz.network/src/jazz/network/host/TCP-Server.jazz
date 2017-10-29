@@ -61,26 +61,26 @@
   (slot connection-handler initialize #f)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((name #f) (host #f) (service #f) (alternate-service #f) (debug? #f) (reuse-address? #t) (connection-handler #f)) rest
-      (nextmethod)
-      (set! name~self name)
-      (set! host~self host)
-      (set! service~self service)
-      (set! alternate-service~self alternate-service)
-      (set! socket-info~self #f)
-      (set! server-thread~self #f)
-      (set! started-mutex~self (make-mutex 'started))
-      (set! stopped-mutex~self (make-mutex 'stopped))
-      (set! debug?~self debug?)
-      (set! reuse-address?~self reuse-address?)
-      (set! connection-handler~self connection-handler)))
+      (nextmethod self)
+      (set! self.name name)
+      (set! self.host host)
+      (set! self.service service)
+      (set! self.alternate-service alternate-service)
+      (set! self.socket-info #f)
+      (set! self.server-thread #f)
+      (set! self.started-mutex (make-mutex 'started))
+      (set! self.stopped-mutex (make-mutex 'stopped))
+      (set! self.debug? debug?)
+      (set! self.reuse-address? reuse-address?)
+      (set! self.connection-handler connection-handler)))
   
   
-  (method override (destroy)
+  (method override (destroy self)
     (when server-port
       (close-port server-port))
-    (nextmethod))
+    (nextmethod self))
 
   
   ;;;
@@ -88,11 +88,11 @@
   ;;;
   
   
-  (method override (get-state)
+  (method override (get-state self)
     state)
   
   
-  (method (set-state value)
+  (method package (set-state self value)
     (set! state value))
   
   
@@ -101,7 +101,7 @@
   ;;;
   
   
-  (method protected virtual (create-thread . rest)
+  (method protected virtual (create-thread self . rest)
     (apply new-thread rest))
   
   
@@ -110,31 +110,31 @@
   ;;;
     
   
-  (method override (start)
-    (set-state 'starting)
-    (start-listener)
-    (wait-started))
+  (method override (start self)
+    (set-state self 'starting)
+    (start-listener self)
+    (wait-started self))
   
   
-  (method override (stop)
-    (set-state 'stopping)
+  (method override (stop self)
+    (set-state self 'stopping)
     (when server-thread
       (exit-thread server-thread)
-      (wait-stopped)
+      (wait-stopped self)
       (set! server-thread #f)))
   
   
-  (method override (restart)
-    (stop)
-    (start))
+  (method override (restart self)
+    (stop self)
+    (start self))
   
   
-  (method override (wait-started)
+  (method override (wait-started self)
     (mutex-lock! started-mutex)
     (mutex-unlock! started-mutex))
   
   
-  (method override (wait-stopped)
+  (method override (wait-stopped self)
     (mutex-lock! stopped-mutex)
     (mutex-unlock! stopped-mutex))
   
@@ -144,55 +144,55 @@
   ;;;
   
   
-  (method override (server-name)
-    (or (get-name)
+  (method override (server-name self)
+    (or (get-name self)
         'tcp-server))
   
   
-  (method override (server-title)
-    (->string (server-name)))
+  (method override (server-title self)
+    (->string (server-name self)))
   
   
-  (method override (server-version)
+  (method override (server-version self)
     {Version 1 0 0})
   
   
-  (method override (server-host)
-    (get-host))
+  (method override (server-host self)
+    (get-host self))
   
   
-  (method override (server-service)
-    (get-service))
+  (method override (server-service self)
+    (get-service self))
   
   
-  (method override (server-alternate-service)
-    (get-alternate-service))
+  (method override (server-alternate-service self)
+    (get-alternate-service self))
   
   
-  (method override (server-hits)
+  (method override (server-hits self)
     hits)
   
   
-  (method override (server-debug?)
+  (method override (server-debug? self)
     debug?)
   
   
-  (method protected virtual (server-hit)
+  (method protected virtual (server-hit self)
     (increase! hits))
   
   
-  (method protected virtual (connection-name)
+  (method protected virtual (connection-name self)
     'tcp-connection)
   
   
-  (method protected virtual (connection-readtable)
+  (method protected virtual (connection-readtable self)
     scheme-readtable)
   
   
-  (method (start-listener)
-    (let ((address (resolve-host (server-host)))
-          (service (server-service))
-          (alternate-service (server-alternate-service)))
+  (method (start-listener self)
+    (let ((address (resolve-host (server-host self)))
+          (service (server-service self))
+          (alternate-service (server-alternate-service self)))
       (define (open-server)
         (with-exception-filter
           (lambda (exc)
@@ -207,26 +207,26 @@
                   (lambda (exc)
                     (values #f exc))
                   (lambda ()
-                    (values (open-tcp-server (list server-address: address port-number: (resolve-service alternate-service) eol-encoding: 'cr-lf reuse-address: reuse-address? readtable: (connection-readtable))) #f)))
+                    (values (open-tcp-server (list server-address: address port-number: (resolve-service alternate-service) eol-encoding: 'cr-lf reuse-address: reuse-address? readtable: (connection-readtable self))) #f)))
               (values #f exc)))
           (lambda ()
-            (values (open-tcp-server (list server-address: address port-number: (resolve-service service) eol-encoding: 'cr-lf reuse-address: reuse-address? readtable: (connection-readtable))) #f))))
+            (values (open-tcp-server (list server-address: address port-number: (resolve-service service) eol-encoding: 'cr-lf reuse-address: reuse-address? readtable: (connection-readtable self))) #f))))
       
       (receive (port exception) (open-server)
         (if exception
             (begin
               (when server-port
                 (close-port server-port))
-              (set-state 'stopped)
+              (set-state self 'stopped)
               (set! socket-info #f)
               (throw exception))
           (set! server-port port)
           (set! socket-info (tcp-server-socket-info server-port))
-          (set-state 'started)
+          (set-state self 'started)
           (mutex-lock! started-mutex)
           (set! server-thread
                 (thread-start!
-                  (create-thread
+                  (create-thread self
                     (lambda ()
                       (declare (proper-tail-calls))
                       (mutex-unlock! started-mutex)
@@ -234,24 +234,24 @@
                       (unwind-protect
                           (let (loop)
                             (let ((port (read server-port)))
-                              (server-hit)
+                              (server-hit self)
                               (thread-start!
-                                (create-thread
+                                (create-thread self
                                   (lambda ()
                                     (unwind-protect
-                                        (accept-connection port)
-                                      (close-connection port)))
-                                  (connection-name)))
+                                        (accept-connection self port)
+                                      (close-connection self port)))
+                                  (connection-name self)))
                               (loop)))
                         (mutex-unlock! stopped-mutex)))
-                    (server-name))))))))
+                    (server-name self))))))))
   
   
-  (method (listening-host)
+  (method package (listening-host self)
     (assert socket-info (socket-info-address socket-info)))
   
   
-  (method (listening-port)
+  (method package (listening-port self)
     (assert socket-info (socket-info-port-number socket-info)))
   
   
@@ -260,14 +260,14 @@
   ;;;
   
   
-  (method protected virtual (accept-connection port)
-    (process-connection port))
+  (method protected virtual (accept-connection self port)
+    (process-connection self port))
   
   
-  (method protected virtual (close-connection port)
+  (method protected virtual (close-connection self port)
     (close-port port))
   
   
-  (method protected virtual (process-connection port)
+  (method protected virtual (process-connection self port)
     (when connection-handler
       (connection-handler port)))))

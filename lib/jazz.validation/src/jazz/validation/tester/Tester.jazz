@@ -40,7 +40,9 @@
 
 (import (jazz.component)
         (jazz.debuggee.view)
-        (jazz.snapshot))
+        (jazz.io)
+        (jazz.snapshot)
+        (jazz.validation))
 
 
 (class Tester extends Component
@@ -60,21 +62,21 @@
     (make-parameter #f))
 
   
-  (method public virtual (test)
+  (method public virtual (test self)
     )
   
   
-  (method protected (invoke section proc)
+  (method package (invoke self section proc)
     (parameterize ((*section* section))
       (proc)))
   
   
-  (method (validation-failed-with-snapshot exception (message #f))
-    (let ((file (get-file~ (get-log~ manager))))
-      (let ((directory (and file (get-directory~ file))))
+  (method (validation-failed-with-snapshot self exception (message #f))
+    (let ((file (get-file (get-log manager))))
+      (let ((directory (and file (get-directory file))))
         (let ((snapshot (and directory (snapshot-process exception: exception directory: directory))))
-          (validation-failed (format "{?{a} : ~}{a}" message (if (is? exception Exception)
-                                                                 (get-message~ exception)
+          (validation-failed self (format "{?{a} : ~}{a}" message (if (is? exception Exception)
+                                                                 (get-message exception)
                                                                (let ((port (open-output-string)))
                                                                  (with-output-to-port port
                                                                    (lambda ()
@@ -82,12 +84,12 @@
                                                                      (force-output port)))
                                                                  (get-output-string port))))
                              class: (serialize-class Exception-Log-Node)
-                             properties: (list 'snapshot (and snapshot (get-name~ snapshot))))))))
+                             properties: (list 'snapshot (and snapshot (get-name snapshot))))))))
   
   
-  (method (validate-failed message location)
-    (log-failure~ manager suite title (*section*) message #f location #f))
+  (method (validate-failed self message location)
+    (log-failure manager suite title (*section*) message #f location #f))
   
   
-  (method (validation-failed message (class: class #f) (location: location #f) (properties: properties #f))
-    (log-failure~ manager suite title (*section*) message class location properties))))
+  (method (validation-failed self message (class: class #f) (location: location #f) (properties: properties #f))
+    (log-failure manager suite title (*section*) message class location properties))))

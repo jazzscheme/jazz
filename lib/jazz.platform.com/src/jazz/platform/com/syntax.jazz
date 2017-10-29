@@ -55,9 +55,9 @@
         (resolve-declaration (lambda (type) (if (symbol? type)
                                                 (resolve-c-type-reference walker resume declaration environment type)
                                               (walk-error walker resume declaration #f "Illegal parameter type in com-external {s}: {s}" (car signature) type))))
-        (fix-locator (lambda (declaration) (if (eq? (get-kind~ declaration) 'type)
-                                               (string->symbol (string-append (symbol->string (get-locator~ declaration)) "*"))
-                                             (get-locator~ declaration)))))
+        (fix-locator (lambda (declaration) (if (eq? (get-kind declaration) 'type)
+                                               (string->symbol (string-append (symbol->string (get-locator declaration)) "*"))
+                                             (get-locator declaration)))))
     ;; we assume coparam-types are symbols that exactly match the c type
     (let ((resolved-result (resolve-declaration result-type))
           (resolved-params (map resolve-declaration (map cadr (cdr signature))))
@@ -68,14 +68,14 @@
           `(definition ,lowlevel-name
              (c-function anonymous
                          ,(cons 'IUnknown* (map fix-locator resolved-params))
-                         ,(get-locator~ resolved-result)
+                         ,(get-locator resolved-result)
                          ,(string-append
                             "{typedef "
-                            (->string (get-name~ resolved-result))
+                            (->string (get-name resolved-result))
                             " (*ProcType)(IUnknown*"
                             (apply string-append (let iter-arg ((resolved-params resolved-params))
                                                       (if (pair? resolved-params)
-                                                          (cons ", " (cons (->string (get-name~ (car resolved-params)))
+                                                          (cons ", " (cons (->string (get-name (car resolved-params)))
                                                                            (iter-arg (cdr resolved-params))))
                                                         '())))
                             "); ProcType fn = (*(ProcType**)___arg1)["
@@ -84,7 +84,7 @@
                             (apply string-append (let iter-arg ((resolved-params resolved-params)
                                                                 (order 2))
                                                       (if (pair? resolved-params)
-                                                          (cons (if (eq? (get-kind~ (car resolved-params)) 'type) ", *___arg" ", ___arg")
+                                                          (cons (if (eq? (get-kind (car resolved-params)) 'type) ", *___arg" ", ___arg")
                                                                 (cons (number->string order)
                                                                       (iter-arg (cdr resolved-params) (+ order 1))))
                                                         '())))
@@ -102,7 +102,7 @@
           (resolved-params (map resolve-declaration param-types))
           (resolved-directions (map car (cdr signature)))
           (lowlevel-name (string->symbol (string-append (symbol->string name) "$"))))
-      (let ((hresult? (eq? (get-locator~ resolved-result) 'jazz.platform.com:HRESULT)))
+      (let ((hresult? (eq? (get-locator resolved-result) 'jazz.platform.com:HRESULT)))
         (if (every? (lambda (resolved) (is? resolved C-Type-Declaration)) (cons resolved-result resolved-params))
             `(begin
                (definition ,lowlevel-name ,(emit-com-function offset result-type resolved-result param-types resolved-params))
@@ -112,7 +112,7 @@
 
 (define (emit-com-function offset result-type resolved-result param-types resolved-params)
   (define (fix-locator type declaration)
-    (if (eq? (get-kind~ declaration) 'type)
+    (if (eq? (get-kind declaration) 'type)
         (string->symbol (string-append (symbol->string type) "*"))
       type))
   
@@ -122,11 +122,11 @@
                ,result-type
                ,(string-append
                   "{typedef "
-                  (->string (get-name~ resolved-result))
+                  (->string (get-name resolved-result))
                   " (*ProcType)(IUnknown*"
                   (apply string-append (let iter ((resolved-params resolved-params))
                                             (if (pair? resolved-params)
-                                                (cons ", " (cons (->string (get-name~ (car resolved-params)))
+                                                (cons ", " (cons (->string (get-name (car resolved-params)))
                                                                  (iter (cdr resolved-params))))
                                               '())))
                   "); ProcType fn = (*(ProcType**)___arg1)["
@@ -135,7 +135,7 @@
                   (apply string-append (let iter ((resolved-params resolved-params)
                                                   (order 2))
                                             (if (pair? resolved-params)
-                                                (cons (if (eq? (get-kind~ (car resolved-params)) 'type) ", *___arg" ", ___arg")
+                                                (cons (if (eq? (get-kind (car resolved-params)) 'type) ", *___arg" ", ___arg")
                                                       (cons (number->string order)
                                                             (iter (cdr resolved-params) (+ order 1))))
                                               '())))
@@ -220,7 +220,7 @@
 
 
 (define (get-cotype-default-value cotype)
-  (case (get-locator~ cotype)
+  (case (get-locator cotype)
     ((jazz.platform.com:BSTR) (error "cotype BSTR has no default value"))
     ((jazz.platform.com:BSTR*) #f)
     ((jazz.platform.com:GUID) (error "cotype GUID has no default value"))
@@ -237,7 +237,7 @@
 
 
 (define (get-cotype-encode/enref cotype)
-  (case (get-locator~ cotype)
+  (case (get-locator cotype)
     ((jazz.platform.com:BSTR) 'BSTR-encode)
     ((jazz.platform.com:BSTR*) 'BSTR*-enref)
     ((jazz.platform.com:GUID) 'GUID-encode)
@@ -254,7 +254,7 @@
 
 
 (define (get-cotype-ref cotype)
-  (case (get-locator~ cotype)
+  (case (get-locator cotype)
     ((jazz.platform.com:BSTR) 'BSTR-ref)
     ((jazz.platform.com:BSTR*) 'BSTR*-ref)
     ((jazz.platform.com:GUID) 'GUID-ref)
@@ -271,7 +271,7 @@
 
 
 (define (get-cotype-free cotype)
-  (case (get-locator~ cotype)
+  (case (get-locator cotype)
     ((jazz.platform.com:BSTR) 'BSTR-free)
     ((jazz.platform.com:BSTR*) 'BSTR*-free)
     ((jazz.platform.com:GUID) 'GUID-free)

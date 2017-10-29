@@ -40,13 +40,16 @@
 
 (import (jazz.action)
         (jazz.application)
+        (jazz.component)
         (jazz.event)
         (jazz.feedback)
+        (jazz.handler)
         (jazz.menu)
         (jazz.platform)
         (jazz.recorder)
         (jazz.text)
         (jazz.ui.dialog)
+        (jazz.undoer)
         (jazz.view)
         (jazz.window)
         (jazz.workspace))
@@ -122,11 +125,11 @@
   ;; - nightly test
   
   
-  (method (event-hook event)
-    (event-hook-impl event))
+  (method (event-hook self event)
+    (event-hook-impl self event))
   
   
-  (method (event-hook-impl event)
+  (method (event-hook-impl self event)
     (define (identify object)
       (cond ((enumerator? object)
              (list object))
@@ -136,9 +139,9 @@
              (unidentifiable "object"))))
     
     (define (identify-view view)
-      (let ((host (get-host~ view)))
+      (let ((host (get-host view)))
         (if host
-            (let ((guest (get-guest~ host)))
+            (let ((guest (get-guest host)))
               (if guest
                   (let ((host-identifier (identify-host host guest)))
                     (if host-identifier
@@ -160,9 +163,9 @@
       (let ((appl (get-application)))
         (cond ((eq? host (current-modal)) :modal)
               ((eq? host (current-popup)) :popup)
-              ((eq? guest (find-menubar~ appl)) :menubar)
-              ((eq? guest (find-toolbar~ appl)) :toolbar)
-              ((eq? guest (find-status-bar~ appl)) :statusbar)
+              ((eq? guest (find-menubar appl)) :menubar)
+              ((eq? guest (find-toolbar appl)) :toolbar)
+              ((eq? guest (find-status-bar appl)) :statusbar)
               ((eq? host (current-frame)) :frame)
               ((singleton-palette-name host) => (lambda (name) (list :palette name)))
               ((singleton-docked-name host) => (lambda (name) (list :docked name)))
@@ -171,7 +174,7 @@
     (define (identify-in in view)
       (if (eq? view in)
           (list)
-        (identify-descendant~ in view)))
+        (identify-descendant in view)))
     
     (define (unidentifiable msg)
       @debug
@@ -179,37 +182,37 @@
       (list :unidentifiable msg))
     
     (when (and recording? (eq? (effective-recording-level) 'event))
-      (let ((kind (get-kind~ event))
-            (sender (get-sender~ event)))
+      (let ((kind (get-kind event))
+            (sender (get-sender event)))
         (let ((locator (if (or (not sender) (eq? kind :char))
                            #f
                          (identify sender))))
           (let ((action (cons locator event)))
-            (put~ Recording-Factory action))))))
+            (put Recording-Factory action))))))
   
   
-  (method (event-access-hook event)
-    (event-access-hook-impl event))
+  (method (event-access-hook self event)
+    (event-access-hook-impl self event))
   
   
-  (method (event-access-hook-impl event)
+  (method (event-access-hook-impl self event)
     (when (and recording?
                (eq? (effective-recording-level) 'event)
-               (memq? (get-kind~ event) '(:mouse-down :mouse-up)))
+               (memq? (get-kind event) '(:mouse-down :mouse-up)))
       (access-event event)))
   
   
-  (method (action-hook action/handler event)
-    (action-hook-impl action/handler event))
+  (method (action-hook self action/handler event)
+    (action-hook-impl self action/handler event))
   
   
-  (method (action-hook-impl action/handler event)
+  (method (action-hook-impl self action/handler event)
     (when (and recording?
                (eq? (effective-recording-level) 'action)
-               (let ((sender (get-sender~ event)))
+               (let ((sender (get-sender event)))
                  (or (is-not? sender View)
-                     (record-actions?~ sender))))
-      (record action/handler event)))
+                     (record-actions? sender))))
+      (record self action/handler event)))
     
   
   ;;;
@@ -217,23 +220,23 @@
   ;;;
 
   
-  (method (on-start-recording evt)
+  (method package (on-start-recording self evt)
     (when (not recording?)
       (user-message "Recording...")
       (set! recording? #t)
       (set! Recording-Factory (new List-Factory))
       (when (not hooked?)
-        (register-event-hook event-hook)
-        (register-event-access-hook event-access-hook)
-        (register-action-hook action-hook)
+        (register-event-hook (~ event-hook self))
+        (register-event-access-hook (~ event-access-hook self))
+        (register-action-hook (~ action-hook self))
         (set! hooked? #t))))
   
   
-  (method (on-stop-recording evt)
+  (method package (on-stop-recording self evt)
     (when recording?
       (user-message "Stopped")
       (set! recording? #f)
-      (set! Recording-Factory (coalesce-recording Recording-Factory))
+      (set! Recording-Factory (coalesce-recording self Recording-Factory))
       (set! Active-Recording #f)
       ;; this doesn't work yet because getting method value twice doesn't return eq? objects
       @wait (
@@ -242,54 +245,54 @@
       (unregister-action-hook action-hook))))
 
   
-  (method (on-resume-recording evt)
+  (method (on-resume-recording self evt)
     (when (not recording?)
       (user-message "Recording...")
       (set! recording? #t)))
   
   
-  (method (on-play-recording evt)
+  (method package (on-play-recording self evt)
     (if (not recording?)
         (begin
           (user-message "Playing...")
-          (let ((no (get-property~ evt no:)))
+          (let ((no (get-property evt no:)))
             (if (not no)
-                (play-current-recording)
-              (play-recording (get-recording no))))
+                (play-current-recording self)
+              (play-recording self (get-recording self no))))
           (user-message "Done"))
       (error "You cannot play while a recording is in progress")))
   
   
-  (method (on-output-recording evt)
-    (let ((actions (get-output~ Recording-Factory)))
+  (method (on-output-recording self evt)
+    (let ((actions (get-output Recording-Factory)))
       (if (null? actions)
           (bell)
-        (output-recording actions))))
+        (output-recording self actions))))
   
   
-  (method (on-present-recording evt)
-    (let ((actions (get-output~ Recording-Factory)))
+  (method (on-present-recording self evt)
+    (let ((actions (get-output Recording-Factory)))
       (if (null? actions)
           (bell)
-        (present-recording actions))))
+        (present-recording self actions))))
   
   
-  (method (on-register-recording evt)
+  (method (on-register-recording self evt)
     (let ((no (parse-integer (request-string title: "Register Recording (1 to 5)" prefix: "No:" initial-value: "1"))))
       (assert (between? no 1 5))
-      (let ((recording (get-output~ Recording-Factory)))
-        (register-recording no recording)
+      (let ((recording (get-output Recording-Factory)))
+        (register-recording self no recording)
         (user-message "Recording {a} registered" no))))
   
   
-  (method (on-set-active-recording evt)
+  (method (on-set-active-recording self evt)
     (let ((name (request-string title: "Enter Recording Name" prefix: "Name:")))
       (if (not name)
           (begin
             (set! Active-Recording #f)
             (user-message "Active recording reset to default"))
         (let ((no (read-string-element name)))
-          (get-recording no)
+          (get-recording self no)
           (set! Active-Recording no)
           (user-message "Active recording set to {a}" no)))))
   
@@ -299,34 +302,34 @@
   ;;;
   
   
-  (method (coalesce-recording recording)
+  (method (coalesce-recording self recording)
     (case (effective-recording-level)
       ((event)
        (let ((debug? #f))
          (define (pretty what recording)
            (when debug?
              (debug what)
-             (for-each debug (get-output~ recording))))
+             (for-each debug (get-output recording))))
          
          (pretty recording: recording)
-         (let ((coalesced0 (coalesce-events recording 0)))
+         (let ((coalesced0 (coalesce-events self recording 0)))
            (pretty coalesced0: coalesced0)
-           (let ((coalesced1 (coalesce-events coalesced0 1)))
+           (let ((coalesced1 (coalesce-events self coalesced0 1)))
              (pretty coalesced1: coalesced1)
-             (let ((condensed (condense-events coalesced1)))
+             (let ((condensed (condense-events self coalesced1)))
                (pretty condensed: condensed)
                condensed)))))
       (else
-       (coalesce-actions recording))))
+       (coalesce-actions self recording))))
   
   
-  (method (coalesce-events recording pass)
+  (method (coalesce-events self recording pass)
     (define (normalize-action action)
       (bind (where . event) action
-        (if (eq? (get-kind~ event) :char)
-            (let ((key (get-key~ event)))
+        (if (eq? (get-kind event) :char)
+            (let ((key (get-key event)))
               (if (and (char? key)
-                       (let ((modifiers (get-modifiers~ event)))
+                       (let ((modifiers (get-modifiers event)))
                          (or (= modifiers NoModifiers)
                              (= modifiers Shift-Bit))))
                   (make-string-action (format "{c}" key))
@@ -336,25 +339,25 @@
     (define (coalesce-action current held)
       (bind (previous-where . previous-event) (car held)
         (bind (where . event) current
-          (let ((previous-kind (get-kind~ previous-event))
-                (previous-sender (get-sender~ previous-event))
-                (previous-modifiers (get-modifiers~ previous-event))
-                (kind (get-kind~ event))
-                (sender (get-sender~ event))
-                (modifiers (get-modifiers~ event)))
+          (let ((previous-kind (get-kind previous-event))
+                (previous-sender (get-sender previous-event))
+                (previous-modifiers (get-modifiers previous-event))
+                (kind (get-kind event))
+                (sender (get-sender event))
+                (modifiers (get-modifiers event)))
             (cond ;; :char ... -> :string
                   ((and (eq? previous-kind :string)
                         (eq? kind :string))
-                   (let ((previous-content (get-property~ previous-event content:))
-                         (content (get-property~ event content:)))
+                   (let ((previous-content (get-property previous-event content:))
+                         (content (get-property event content:)))
                      (cons (make-string-action (concatenate previous-content content)) (cdr held))))
                   ;; :mouse-down :mouse-up -> :click
                   ((and (eq? previous-kind :mouse-down)
                         (eq? kind :mouse-up)
                         (eq? previous-sender sender)
                         (= previous-modifiers modifiers)
-                        (near? (get-position-value~ previous-event) (get-position-value~ event) 5))
-                   (let ((click-event (new Mouse-Event :click previous-sender previous-modifiers position: (get-position-value~ previous-event))))
+                        (near? (get-position-value previous-event) (get-position-value event) 5))
+                   (let ((click-event (new Mouse-Event :click previous-sender previous-modifiers position: (get-position-value previous-event))))
                      (when (or (accessed-event? previous-event)
                                (accessed-event? event))
                        (access-event click-event))
@@ -363,19 +366,19 @@
                   ;; :click :double-click :up -> :double
                   ((and (pair? (cdr held))
                         (bind (before-where . before-event) (cadr held)
-                          (let ((before-kind (get-kind~ before-event))
-                                (before-sender (get-sender~ before-event))
-                                (before-modifiers (get-modifiers~ before-event)))
+                          (let ((before-kind (get-kind before-event))
+                                (before-sender (get-sender before-event))
+                                (before-modifiers (get-modifiers before-event)))
                             (and (eq? before-kind :click)
                                  (eq? previous-kind :double-click)
                                  (eq? kind :mouse-up)
                                  (eq? before-sender previous-sender)
                                  (eq? previous-sender sender)
                                  (= before-modifiers previous-modifiers modifiers)
-                                 (near? (get-position-value~ before-event) (get-position-value~ previous-event) 5)
-                                 (near? (get-position-value~ previous-event) (get-position-value~ event) 5)
-                                 (near? (get-position-value~ before-event) (get-position-value~ event) 5)
-                                 (let ((double-event (new Mouse-Event :double before-sender before-modifiers position: (get-position-value~ before-event))))
+                                 (near? (get-position-value before-event) (get-position-value previous-event) 5)
+                                 (near? (get-position-value previous-event) (get-position-value event) 5)
+                                 (near? (get-position-value before-event) (get-position-value event) 5)
+                                 (let ((double-event (new Mouse-Event :double before-sender before-modifiers position: (get-position-value before-event))))
                                    (when (or (accessed-event? before-event)
                                              (accessed-event? previous-event)
                                              (accessed-event? event))
@@ -400,7 +403,7 @@
                         (eq? previous-kind :menubar)
                         (eq? kind :click)
                         (is? sender Item))
-                   (let ((menu-event (new Event :menubar previous-sender previous-modifiers path: (append (get-property~ previous-event path:) (cdr where)))))
+                   (let ((menu-event (new Event :menubar previous-sender previous-modifiers path: (append (get-property previous-event path:) (cdr where)))))
                      (let ((action (cons (list :menubar) menu-event)))
                        (cons action (cdr held)))))
                   (else
@@ -409,11 +412,11 @@
     (define (make-string-action content)
       (cons #f (new Event :string #f NoModifiers content: content)))
     
-    (let (iter (scan (get-output~ recording))
+    (let (iter (scan (get-output recording))
                (held '()))
       (if (null? scan)
           (let ((fact (new List-Factory)))
-            (put-sequence~ fact (reverse held))
+            (put-sequence fact (reverse held))
             fact)
         (let ((current (normalize-action (car scan))))
           (if (null? held)
@@ -422,7 +425,7 @@
                                  (cons current held))))))))
   
   
-  (method (coalesce-actions recording)
+  (method (coalesce-actions self recording)
     recording
     @buggy-with-translate-key
     (let* ((fact (new List-Factory))
@@ -432,19 +435,19 @@
               (when result
                 (let ((handler {Event-Handler :focus on-insert})
                       (event (make-event Event :string self content: result)))
-                  (put~ fact (cons handler event))
+                  (put fact (cons handler event))
                   (set! result #f))))))
       (for-each (lambda (action)
                   (bind (action/handler . event) action
                     (if (and (eq? (get-target-name action/handler) :focus)
                              (eq? (get-action/method-name action/handler) 'on-insert))
-                        (let ((added (string (get-property~ event content:))))
+                        (let ((added (string (get-property event content:))))
                           (if (not result)
                               (set! result added)
                             (set! result (string-append result added))))
                       (coalesce)
-                      (put~ fact action))))
-                (get-output~ recording))
+                      (put fact action))))
+                (get-output recording))
       (coalesce)
       fact))
   
@@ -454,7 +457,7 @@
   ;;;
   
   
-  (method (condense-events recording)
+  (method (condense-events self recording)
     (define (condense-kind kind)
       (case kind
         ((:mouse-down) :down)
@@ -462,30 +465,30 @@
         (else kind)))
     
     (define (condense-position event)
-      (if (and (memq? (get-kind~ event) '(:mouse-down :down :mouse-up :up :click :double-click :double))
+      (if (and (memq? (get-kind event) '(:mouse-down :down :mouse-up :up :click :double-click :double))
                (unaccessed-event? event))
           #f
-        (get-position-value~ event)))
+        (get-position-value event)))
     
     (let ((fact (new List-Factory)))
       (for-each (lambda (action)
                   (bind (where . event) action
-                    (let ((kind (condense-kind (get-kind~ event)))
-                          (modifiers (modifiers->keys (get-modifiers~ event))))
-                      (put~ fact
+                    (let ((kind (condense-kind (get-kind event)))
+                          (modifiers (modifiers->keys (get-modifiers event))))
+                      (put fact
                         (case kind
                           ((:char)
-                           `(,kind ,(get-key~ event) ,@modifiers))
+                           `(,kind ,(get-key event) ,@modifiers))
                           ((:string)
-                           `(,kind ,(get-property~ event content:) ,@modifiers))
+                           `(,kind ,(get-property event content:) ,@modifiers))
                           ((:menubar)
-                           `(,kind ,(get-property~ event path:) ,@modifiers))
+                           `(,kind ,(get-property event path:) ,@modifiers))
                           (else
                            (let ((host (car where))
                                  (view (cadr where))
                                  (position (condense-position event)))
                              `(,kind ,host ,view ,@(if position (list position) '()) ,@modifiers))))))))
-                (get-output~ recording))
+                (get-output recording))
       fact))
   
   
@@ -494,8 +497,8 @@
   ;;;
   
   
-  (method (present-recording actions)
-    (let* ((focus (get-focus))
+  (method (present-recording self actions)
+    (let* ((focus (active-focus))
            (output (open-output-string)))
       (loop (for action in actions)
             (for first? first #t then #f)
@@ -514,20 +517,20 @@
         title: "Recording")))
   
   
-  (method (output-recording actions)
-    (let ((text (get-focus)))
+  (method (output-recording self actions)
+    (let ((text (active-focus)))
       (if (is-not? text Text-View)
           (bell)
-        (let ((model (get-model~ text)))
-          (with-atomic-undo~ (get-undoer~ model)
+        (let ((model (get-model text)))
+          (with-atomic-undo (get-undoer model)
             (lambda ()
               (loop (for first? first #t then #f)
                     (for action in actions)
                     (do (unless first?
-                          (insert-newline~ text))
-                        (insert-string~ text (->string action :reader))
+                          (insert-newline text))
+                        (insert-string text (->string action :reader))
                       (unless first?
-                        (tabulate~ text))))))))))
+                        (tabulate text))))))))))
   
   
   ;;;
@@ -541,14 +544,14 @@
   
   (definition (get-target-name action/handler)
     (typecase action/handler
-      ((Action) (get-target-name~ action/handler))
-      (else (get-target-name~ action/handler))))
+      ((Action) (get-target-name action/handler))
+      (else (get-target-name action/handler))))
   
   
   (definition (get-action/method-name action/handler)
     (typecase action/handler
-      ((Action) (get-action-name~ action/handler))
-      (else (get-method-name~ action/handler))))
+      ((Action) (get-action-name action/handler))
+      (else (get-method-name action/handler))))
   
   
   ;;;
@@ -560,18 +563,18 @@
   ;; a big cleanup between event handlers and actions...
 
   
-  (method public (record action/handler event)
+  (method public (record self action/handler event)
     (unless (or (eq? (get-target-name action/handler) :recorder)
                 ;; quick fix that needs to be thought out as it will make any extended command non-recordable amongst other things
                 (memq? (get-action/method-name action/handler) '(on-start-recording on-command-extended)))
-      (put~ Recording-Factory (cons action/handler event))))
+      (put Recording-Factory (cons action/handler event))))
   
   
-  (method public (register-recording name recording)
+  (method public (register-recording self name recording)
     (table-set! Registered-Recordings name recording))
   
   
-  (method public (get-recording name)
+  (method public (get-recording self name)
     (or (table-ref Registered-Recordings name #f)
         (begin
           (message-box (format "No recording {a} registered" name))
@@ -583,59 +586,59 @@
   ;;;
   
   
-  (method public (get-current-recording)
-    (get-output~ Recording-Factory))
+  (method public (get-current-recording self)
+    (get-output Recording-Factory))
   
   
-  (method public (play-current-recording)
+  (method public (play-current-recording self)
     (if (not Active-Recording)
-        (let ((profile (get-profile~ (get-application))))
-          (unless (play-recording~ profile)
-            (play-recording (get-output~ Recording-Factory))))
-      (play-recording (get-recording Active-Recording))))
+        (let ((profile (get-profile (get-application))))
+          (unless (play-recording profile)
+            (play-recording self (get-output Recording-Factory))))
+      (play-recording self (get-recording self Active-Recording))))
 
 
-  (method public (play-recording recording)
+  (method public (play-recording self recording)
     (if (not recording?)
         (case (effective-recording-level)
           ((event)
            (thread-start!
              (new-thread
                (lambda ()
-                 (play-events recording))
+                 (play-script-events recording))
                'recording)))
           (else
            (let ((old playing?))
              (unwind-protect
                  (begin
                    (set! playing? #t)
-                   (let ((focus (get-focus)))
+                   (let ((focus (active-focus)))
                      (if (is? focus Text-View)
-                         (let ((model (get-model~ focus)))
-                           (with-atomic-undo~ (get-undoer~ model)
+                         (let ((model (get-model focus)))
+                           (with-atomic-undo (get-undoer model)
                              (lambda ()
                                (for-each play-action recording)
-                               (end-completion~ focus))))
+                               (end-completion focus))))
                        (for-each play-action recording))
                      ))
                (set! playing? old)))))
       (error "You cannot play a recording while another is being recorded")))
   
   
-  (method public (play-remote-recording)
+  (method public (play-remote-recording self)
     (if (not recording?)
         (if (not Active-Recording)
-            (let ((recording (get-output~ Recording-Factory)))
+            (let ((recording (get-output Recording-Factory)))
               (thread-start!
                 (new-thread
                   (lambda ()
                     (user-message "Playing...")
-                    (set-focused-window (get-toplevel))
-                    (play-events recording)
+                    (set-focused-window (current-toplevel))
+                    (play-script-events recording)
                     (user-message "Done"))
                   'recording))))
       (error "You cannot play while a recording is in progress")))
 
 
-  (method public (find-target target)
+  (method public (find-target self target)
     (resolve-nickname target))))

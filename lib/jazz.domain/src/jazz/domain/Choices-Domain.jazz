@@ -38,7 +38,9 @@
 (module protected jazz.domain.Choices-Domain jazz
 
 
-(import (jazz.domain)
+(import (jazz.designer)
+        (jazz.domain)
+        (jazz.integrity)
         (jazz.locale.components))
 
 
@@ -50,20 +52,20 @@
   ;;;
 
   
-  (method override (validate-value value (validation-context #f))
+  (method override (validate-value self value (validation-context #f))
     (define (validate-presentation pair)
       (let* ((presentation (cadr pair))
-             (module-metadata (and validation-context (get-module-metadata~ validation-context)))
-             (locale-tree (and (typed? module-metadata 'jazz.designer.toolbox.Toolbox-Module:Toolbox-Module) (get-locale-tree~ module-metadata))))
+             (module-metadata (and validation-context (get-module-metadata validation-context)))
+             (locale-tree (and (typed? module-metadata 'jazz.designer.toolbox.Toolbox-Module:Toolbox-Module) (get-locale-tree module-metadata))))
         (validate-locales presentation locale-tree (lambda (format-string . rest)
-                                                     (add-violation "Presentation {t}: {a}" presentation (apply format format-string rest))))))
+                                                     (add-violation self "Presentation {t}: {a}" presentation (apply format format-string rest))))))
     
-    (or (nextmethod value validation-context)
+    (or (nextmethod self value validation-context)
         (if (not (every? (lambda (elt)
                            (and (list? elt)
                                 (= 2 (length elt))))
                          value))
-            (add-violation "must be an association list")
+            (add-violation self "must be an association list")
           (for-each validate-presentation value)
           (not-null? data-violations))))))
 

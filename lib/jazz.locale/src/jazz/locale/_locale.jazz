@@ -38,6 +38,27 @@
 (module jazz.locale jazz
 
 
+(hub collect-missing-localizations)
+(hub get-changes)
+(hub get-context)
+(hub get-current-locale)
+(hub get-locale)
+(hub get-locales)
+(hub get-name)
+(hub get-parent-name)
+(hub get-title)
+(hub localize-object)
+(hub on-action)
+(hub present)
+(hub present-locale)
+(hub provide-locales)
+(hub register-locale)
+(hub register-locale-change)
+(hub register-node-locale)
+(hub set-current-locale)
+(hub set-title)
+
+
 (definition package (construct-locales . rest)
   (apply new Locales rest))
 
@@ -49,7 +70,7 @@
 
 (interface Locales-Provider
   
-  (method public virtual abstract (provide-locales)))
+  (method public virtual abstract (provide-locales self)))
 
 
 ;;;
@@ -63,7 +84,7 @@
   (slot locales accessors generate)
     
     
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (define (uniquify-locales remaining uniquified)
       (if (null? remaining)
           (reverse uniquified)
@@ -74,11 +95,11 @@
                                               uniquified
                                             (cons string (cons locale uniquified)))))))
     
-    (nextmethod)
+    (nextmethod self)
     (set! locales (uniquify-locales rest '())))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{{a}{a}{l}}"
             (category-name (class-of self))
             (if locales " " "")
@@ -90,7 +111,7 @@
   ;;;
   
   
-  (method override (provide-locales)
+  (method override (provide-locales self)
     (map-property (lambda (locale value) locale) locales))
   
   
@@ -99,7 +120,7 @@
   ;;;
   
   
-  (method public virtual (localize locale)
+  (method public virtual (localize-object self locale)
     (getf locales (standardize-locale locale))))
 
 
@@ -114,12 +135,12 @@
   (slot context getter generate)
     
     
-  (method override (initialize locales context)
-    (set! locales~self locales)
-    (set! context~self context))
+  (method override (initialize self locales context)
+    (set! self.locales locales)
+    (set! self.context context))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         )))
@@ -130,8 +151,8 @@
   ;;;
   
   
-  (method override (localize locale)
-    (format "{^:~}" (localize~ locales locale) context)))
+  (method override (localize-object self locale)
+    (format "{^:~}" (localize-object locales locale) context)))
 
 
 (definition public (contextual-locales locales context)
@@ -151,24 +172,24 @@
   (slot titles      getter generate)
   
   
-  (method override (initialize name <Symbol> parent-name titles <Locales>)
-    (nextmethod)
-    (set! name~self (standardize-locale name))
-    (set! parent-name~self (and parent-name (standardize-locale parent-name)))
-    (set! titles~self titles))
+  (method override (initialize self name <Symbol> parent-name titles <Locales>)
+    (nextmethod self)
+    (set! self.name (standardize-locale name))
+    (set! self.parent-name (and parent-name (standardize-locale parent-name)))
+    (set! self.titles titles))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{a}" name))))
   
   
-  (method override (provide-locales)
+  (method override (provide-locales self)
     (list (symbol->keyword name)))
   
   
-  (method public (present)
+  (method public (present self)
     (localize titles)))
 
 
@@ -185,54 +206,54 @@
   (slot current-locale getter generate setter explicit)
   
   
-  (method override (initialize)
-    (nextmethod)
-    (set! current-locale~self all:)
-    (set! table~self (make-table))
-    (table-set! table~self all: (new Locale 'all #f (new Locales all: ""))))
+  (method override (initialize self)
+    (nextmethod self)
+    (set! self.current-locale all:)
+    (set! self.table (make-table))
+    (table-set! self.table all: (new Locale 'all #f (new Locales all: ""))))
   
 
-  (method public (localize object (name current-locale))
+  (method public (localize-object self object (name current-locale))
     (and name
          (if (is? object Locales)
-             (let ((locale (registered-locale (standardize-locale name)) current-locale))
-               (or (localize~ object (get-name~ locale))
-                   (localize~ self object (get-parent-name~ locale))))
+             (let ((locale (registered-locale self (standardize-locale name)) current-locale))
+               (or (localize-object object (get-name locale))
+                   (localize-object self object (get-parent-name locale))))
            object)))
   
   
-  (method override (provide-locales)
+  (method override (provide-locales self)
     (sort string<? (table-keys table) key: keyword->string))
   
   
-  (method public (register-locale locale)
-    (let ((name (get-name~ locale)))
-      (cond ((not (table-ref table (get-parent-name~ locale) #f))
-             (signal (new Locale-Registration-Error message: (format "Locale parent name has not been registered: {s}" (get-parent-name~ locale)))))
+  (method public (register-locale self locale)
+    (let ((name (get-name locale)))
+      (cond ((not (table-ref table (get-parent-name locale) #f))
+             (signal (new Locale-Registration-Error message: (format "Locale parent name has not been registered: {s}" (get-parent-name locale)))))
             ((table-ref table name #f)
              (signal (new Locale-Registration-Error message: (format "A locale has already been registered under this name: {s}" name))))
             (else
              (table-set! table name locale)))))
   
   
-  (method public (unregister-locale name)
+  (method public (unregister-locale self name)
     (table-clear table (standardize-locale name)))
   
   
-  (method public (registered-locale name)
+  (method public (registered-locale self name)
     (let ((locale-name (standardize-locale name)))
       (or (table-ref table locale-name #f)
           (signal (new Locale-Registration-Error message: (format "Unregistered locale: {s}" locale-name))))))
   
   
-  (method public (present-locale name)
-    (present~ (registered-locale (standardize-locale name))))
+  (method public (present-locale self name)
+    (present (registered-locale self (standardize-locale name))))
   
   
-  (method public (set-current-locale name (apply-changes?: apply-changes? #f) (change-procs-arg: change-procs-arg #f))
+  (method public (set-current-locale self name (apply-changes?: apply-changes? #f) (change-procs-arg: change-procs-arg #f))
     (let ((name (standardize-locale name)))     
       (unless (eq? name current-locale)
-        (assert (registered-locale name))
+        (assert (registered-locale self name))
         (set! current-locale name)
         (when apply-changes?
           (for-each (lambda (proc)
@@ -240,11 +261,11 @@
                     changes)))))
   
   
-  (method public (register-locale-change proc <Procedure>)
+  (method public (register-locale-change self proc <Procedure>)
     (set! changes (cons proc changes)))
   
   
-  (method public (unregister-locale-change proc <Procedure>)
+  (method public (unregister-locale-change self proc <Procedure>)
     (set! changes (remove! proc changes))))
 
 
@@ -273,4 +294,4 @@
 
 
 (definition public (localize object)
-  (or (localize~ *locale-state* object) "")))
+  (or (localize-object *locale-state* object) "")))

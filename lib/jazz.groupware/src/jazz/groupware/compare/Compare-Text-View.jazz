@@ -39,6 +39,7 @@
 
 
 (import (jazz.action)
+        (jazz.event)
         (jazz.feedback)
         (jazz.graphic)
         (jazz.groupware)
@@ -53,15 +54,15 @@
 (class Compare-Text-View extends IDE-Text-View
   
   
-  (method override (preferences)
-    (get-preferences '(documents compare-text)))
+  (method override (preferences self)
+    (current-preferences '(documents compare-text)))
   
   
-  (method override (new-model)
+  (method override (new-model self)
     (new Text-Model base-style: {Text-Style Code-Base}))
   
   
-  (method override (new-syntax)
+  (method override (new-syntax self)
     (new Compare-Syntax model))
     
 
@@ -70,9 +71,9 @@
   ;;;
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'compare-text)
-          (nextmethod)))
+          (nextmethod self)))
 
     
   ;;;
@@ -80,19 +81,19 @@
   ;;;
   
 
-  (method override (context-menu evt)
-    (let ((pos (get-position~ evt)))
-      (receive (shift? control? alt? meta?) (get-down~ evt)
+  (method override (context-menu self evt)
+    (let ((pos (get-position evt)))
+      (receive (shift? control? alt? meta?) (get-down evt)
         (let ((move-caret
                 (cond ((and (not control?) (not shift?) (not alt?)) 'outside-selection)
                       ((and (not control?) shift? (not alt?)) 'never)
                       ((and control? shift? (not alt?)) 'never)
                       (else 'always))))
-          (context-menu-click pos move-caret: move-caret))
-        (track-popup-menu (get-context-menu) pos))))
+          (context-menu-click self pos move-caret: move-caret))
+        (track-popup-menu self (get-context-menu self) pos))))
   
   
-  (method override (edition-workspace)
+  (method override (edition-workspace self)
     'groupware)
   
   
@@ -101,14 +102,14 @@
   ;;;
   
   
-  (method public (compare-monikers compare green-moniker blue-moniker)
+  (method public (compare-monikers self compare green-moniker blue-moniker)
     (define (colorize-output output)
-      (let* ((model (get-model))
-             (formats (list (locate-format~ model 'Base)))
+      (let* ((model (get-model self))
+             (formats (list (locate-format model 'Base)))
              (font {Font Code})
-             (plain (intern-style~ model (new Text-Style base: 'Base font: font)))
-             (green (intern-style~ model (new Text-Style base: 'Base font: font color: Green-Color)))
-             (blue (intern-style~ model (new Text-Style base: 'Base font: font color: Blue-Color)))
+             (plain (intern-style model (new Text-Style base: 'Base font: font)))
+             (green (intern-style model (new Text-Style base: 'Base font: font color: Green-Color)))
+             (blue (intern-style model (new Text-Style base: 'Base font: font color: Blue-Color)))
              (styles (list plain green blue))
              (has-differences? #f)
              (paragraphs (map (lambda (info)
@@ -116,17 +117,17 @@
                                   (let ((style (case color ((green) 1) ((blue) 2) (else 0))))
                                     (when (/= style 0)
                                       (set! has-differences? #t))
-                                    (list 0 (list (get-string~ line) style)))))
+                                    (list 0 (list (get-string line) style)))))
                               output)))
-        (set-formatted-content~ model (new Formatted-Text formats: formats styles: styles paragraphs: paragraphs))
+        (set-formatted-content model (new Formatted-Text formats: formats styles: styles paragraphs: paragraphs))
         has-differences?))
     
-    (clear-all)
-    (let* ((output (compare-monikers~ compare green-moniker blue-moniker))
+    (clear-all self)
+    (let* ((output (compare-monikers compare green-moniker blue-moniker))
            (has-differences? (colorize-output output)))
-      (layout-scrollee)
+      (layout-scrollee self)
       (when has-differences?
-        (goto-first-diff))
+        (goto-first-diff self))
       has-differences?))
     
     
@@ -135,146 +136,146 @@
   ;;;
   
   
-  (method override (mouse-down evt)
-    (nextmethod evt)
-    (user-message "Color: {s}" (line-color (get-line~ (get-start)))))
+  (method override (mouse-down self evt)
+    (nextmethod self evt)
+    (user-message "Color: {s}" (line-color self (get-line (get-start self)))))
   
   
-  (method (line-color row)
-    (and (and (>= row 0) (<= row (get-limit)))
-         (let* ((paragraph (get-paragraph row))
-                (runs (get-runs~ paragraph)))
+  (method (line-color self row)
+    (and (and (>= row 0) (<= row (get-limit self)))
+         (let* ((paragraph (get-paragraph self row))
+                (runs (get-runs paragraph)))
            (and (= 1 (length runs))
-                (let* ((frame (get-frame))
-                       (guest (get-guest~ frame))
+                (let* ((frame (get-frame self))
+                       (guest (get-guest frame))
                        (run (first runs))
-                       (style (get-style~ run)))
+                       (style (get-style run)))
                   (and (is? style Text-Style)
-                       (let ((color (get-color~ style)))
+                       (let ((color (get-color style)))
                          (cond ((eq? color Green-Color) 'green)
                                ((eq? color Blue-Color) 'blue)
                                (else #f)))))))))
   
   
-  (method (get-run row)
-    (let ((color (line-color row)))
+  (method package (get-run self row)
+    (let ((color (line-color self row)))
       (and color
            (let* ((start row)
                   (end row)
-                  (limit (get-limit))
-                  (frame (get-frame))
-                  (guest (get-guest~ frame)))
-             (while (eq? (line-color (- start 1)) color)
+                  (limit (get-limit self))
+                  (frame (get-frame self))
+                  (guest (get-guest frame)))
+             (while (eq? (line-color self (- start 1)) color)
                (decrease! start))
-             (while (eq? (line-color (+ end 1)) color)
+             (while (eq? (line-color self (+ end 1)) color)
                (increase! end))
              (new Compare-Run color start end)))))
   
   
-  (method (get-diff row)
-    (let* ((frame (get-frame))
-           (guest (get-guest~ frame))
-           (run (get-run row)))
+  (method (get-diff self row)
+    (let* ((frame (get-frame self))
+           (guest (get-guest frame))
+           (run (get-run self row)))
       (and run
-           (case (get-color~ run)
-             ((green) (new Compare-Diff run (get-run (+ (get-end~ run) 1))))
-             ((blue)  (new Compare-Diff (get-run (- (get-start~ run) 1)) run))))))
+           (case (get-color run)
+             ((green) (new Compare-Diff run (get-run self (+ (get-end run) 1))))
+             ((blue)  (new Compare-Diff (get-run self (- (get-start run) 1)) run))))))
   
   
-  (method protected (select-diff diff default-selection)
+  (method protected (select-diff self diff default-selection)
     (let ((new-selection (and diff
-                              (new Range$Cell$ (new Cell (get-start~ diff) 0)
-                                   (next-line-or-end-of-text (get-end~ diff))))))
+                              (new Range$Cell$ (new Cell (get-start diff) 0)
+                                   (next-line-or-end-of-text self (get-end diff))))))
       (if new-selection
-          (set-selection new-selection)
-        (set-selection default-selection)
+          (set-selection self new-selection)
+        (set-selection self default-selection)
         (bell))))
   
   
-  (method protected (goto-next-diff)
-    (let ((old-selection (get-selection)))
-      (set-caret (move-forward (get-end) #f))
-      (select-diff (if (nu=? old-selection (get-selection)) #f (next-diff (get-line~ (get-end)))) old-selection)))
+  (method package (goto-next-diff self)
+    (let ((old-selection (get-selection self)))
+      (set-caret self (move-forward self (get-end self) #f))
+      (select-diff self (if (nu=? old-selection (get-selection self)) #f (next-diff self (get-line (get-end self)))) old-selection)))
   
   
-  (method protected (goto-previous-diff)
-    (let ((old-selection (get-selection)))
-      (set-caret (move-backward (get-start) #f))
-      (select-diff (if (nu=? old-selection (get-selection)) #f (previous-diff (get-line~ (get-start)))) old-selection)))
+  (method package (goto-previous-diff self)
+    (let ((old-selection (get-selection self)))
+      (set-caret self (move-backward self (get-start self) #f))
+      (select-diff self (if (nu=? old-selection (get-selection self)) #f (previous-diff self (get-line (get-start self)))) old-selection)))
   
   
-  (method protected (goto-first-diff)
-    (select-diff (next-diff (get-line~ (text-beginning))) (get-selection)))
+  (method protected (goto-first-diff self)
+    (select-diff self (next-diff self (get-line (text-beginning self))) (get-selection self)))
   
   
-  (method protected (goto-last-diff)
-    (select-diff (previous-diff (get-line~ (text-ending))) (get-selection)))
+  (method protected (goto-last-diff self)
+    (select-diff self (previous-diff self (get-line (text-ending self))) (get-selection self)))
   
   
-  (method (next-diff row)
-    (let ((diff (get-diff row))
-          (len (get-length)))
-      (while (and (< row len) (not (line-color row)))
+  (method (next-diff self row)
+    (let ((diff (get-diff self row))
+          (len (get-length self)))
+      (while (and (< row len) (not (line-color self row)))
         (increase! row))
-      (get-diff row)))
+      (get-diff self row)))
   
   
-  (method (previous-diff row)
-    (let ((diff (get-diff row)))
-      (while (and (>= row 0) (not (line-color row)))
+  (method (previous-diff self row)
+    (let ((diff (get-diff self row)))
+      (while (and (>= row 0) (not (line-color self row)))
         (decrease! row))
-      (get-diff row)))
+      (get-diff self row)))
   
   
-  (method protected (previous-end-of-line line)
+  (method protected (previous-end-of-line self line)
     (if (= line 0)
         (new Cell 0 0)
-      (new Cell (- line 1) (paragraph-length (- line 1)))))
+      (new Cell (- line 1) (paragraph-length self (- line 1)))))
   
   
-  (method protected (next-line-or-end-of-text line)
-    (if (= line (get-limit))
-        (new Cell line (paragraph-length line))
+  (method protected (next-line-or-end-of-text self line)
+    (if (= line (get-limit self))
+        (new Cell line (paragraph-length self line))
       (new Cell (+ line 1) 0)))
   
   
-  (method protected (keep-green)
-    (let* ((pos (get-start))
-           (diff (get-diff (get-line~ pos))))
+  (method package (keep-green self)
+    (let* ((pos (get-start self))
+           (diff (get-diff self (get-line pos))))
       (if (not diff)
           (bell)
-        (when (get-green~ diff)
+        (when (get-green diff)
           (for-each (lambda (n)
-                      (uncolorize-row~ syntax n))
-                    (naturals (get-start~ (get-green~ diff)) (+ (get-end~ (get-green~ diff)) 1))))
-        (when (get-blue~ diff)
-          (replace-text (get-range~ (get-blue~ diff) self) '(""))))))
+                      (uncolorize-row syntax n))
+                    (naturals (get-start (get-green diff)) (+ (get-end (get-green diff)) 1))))
+        (when (get-blue diff)
+          (replace-text self (get-range (get-blue diff) self) '(""))))))
   
   
-  (method protected (keep-blue)
-    (let* ((pos (get-start))
-           (diff (get-diff (get-line~ pos))))
+  (method package (keep-blue self)
+    (let* ((pos (get-start self))
+           (diff (get-diff self (get-line pos))))
       (if (not diff)
           (bell)
-        (when (get-blue~ diff)
+        (when (get-blue diff)
           (for-each (lambda (n)
-                      (uncolorize-row~ syntax n))
-                    (naturals (get-start~ (get-blue~ diff)) (+ (get-end~ (get-blue~ diff)) 1))))
-        (when (get-green~ diff)
-          (replace-text (get-range~ (get-green~ diff) self) '(""))))))
+                      (uncolorize-row syntax n))
+                    (naturals (get-start (get-blue diff)) (+ (get-end (get-blue diff)) 1))))
+        (when (get-green diff)
+          (replace-text self (get-range (get-green diff) self) '(""))))))
   
   
-  (method protected (keep-both)
-    (let* ((pos (get-start))
-           (diff (get-diff (get-line~ pos))))
+  (method package (keep-both self)
+    (let* ((pos (get-start self))
+           (diff (get-diff self (get-line pos))))
       (if (not diff)
           (bell)
         (for-each (lambda (n)
-                    (uncolorize-row~ syntax n))
-                  (naturals (get-start~ diff) (+ (get-end~ diff) 1))))))
+                    (uncolorize-row syntax n))
+                  (naturals (get-start diff) (+ (get-end diff) 1))))))
   
   
-  (method override (get-context-menu)
+  (method override (get-context-menu self)
     (new Compare-Text-Menu)))
 
 

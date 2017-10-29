@@ -39,6 +39,7 @@
 
 
 (import (jazz.application)
+        (jazz.component)
         (jazz.designer)
         (jazz.designer.menu)
         (jazz.editor.sql)
@@ -48,6 +49,7 @@
         (jazz.process)
         (jazz.resource)
         (jazz.schema)
+        (jazz.tree)
         (jazz.ui))
 
 
@@ -66,7 +68,7 @@
           (<!>                  name: descendant  title: "Connection" width: 291)))))
                
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'SQL-Connections)
 
   
@@ -75,11 +77,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Databases"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Connections")
   
   
@@ -88,13 +90,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (get-tree)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (get-tree self)))
+      (acquire-focus tree)))
   
   
   ;;;
@@ -102,8 +104,8 @@
   ;;;
   
   
-  (method public (get-tree)
-    (locate '(descendants tree)))
+  (method public (get-tree self)
+    (locate self '(descendants tree)))
   
   
   ;;;
@@ -111,7 +113,7 @@
   ;;;
 
 
-  (method override (new-document-controller)
+  (method override (new-document-controller self)
     (new SQL-Connections-Controller self))
   
   
@@ -120,20 +122,20 @@
   ;;;
   
   
-  (method (browse-inventory (focus?: focus? #t))
+  (method (browse-inventory self (focus?: focus? #t))
     (define (selected-data-source)
-      (let* ((tree (get-tree))
-             (selection (get-single-selection~ tree))
-             (row (get-row~ tree selection))
-             (data-source (get-user-data~ row)))
+      (let* ((tree (get-tree self))
+             (selection (get-single-selection tree))
+             (row (get-row tree selection))
+             (data-source (get-user-data row)))
         data-source))
     
     #f
     @w
     (let* ((data-source (selected-data-source))
-           (connection (get-connection (get-name~ data-source) data-source: data-source))
+           (connection (get-connection (get-name data-source) data-source: data-source))
            (browser (select-docked Inventory-Browser workspace: #f focus?: focus?)))
-      (set-connection~ browser connection)))
+      (set-connection browser connection)))
 
   
   ;;;
@@ -141,25 +143,25 @@
   ;;;
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set-shown?~ (locate-component '(descendants header)) #f)
-    (set-editor~ (locate 'descendants) self)
-    (set-client (read-connections))
-    (add-quit-listener~ (get-application) self)
-    (let ((default (get-default-source~ client)))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (set-shown? (locate-component self '(descendants header)) #f)
+    (set-editor (locate self 'descendants) self)
+    (set-client self (read-connections))
+    (add-quit-listener (get-application) self)
+    (let ((default (get-default-source client)))
       (when default
         (continuation-capture
           (lambda (break)
-            (for-each-source
+            (for-each-source self
               (lambda (source)
-                (when (equal? (get-name~ source) default)
+                (when (equal? (get-name source) default)
                   (set-active-data-source source)
                   (continuation-return break)))))))))
   
   
-  (method (for-each-source proc)
-    (for-each-descendant~ client
+  (method (for-each-source self proc)
+    (for-each-descendant client
       (lambda (component level)
         (when (is? component Data-Source)
           (proc component)))))
@@ -170,24 +172,24 @@
   ;;;
   
   
-  (method (resize-center dh dv)
-    (size-figure~ (locate 'descendants) dh dv))
+  (method package (resize-center self dh dv)
+    (size-figure (locate self 'descendants) dh dv))
 
   
-  (method package (on-open evt)
-    (open-selection))
+  (method package (on-open self evt)
+    (open-selection self))
   
   
-  (method package (on-close-all-connections evt)
+  (method package (on-close-all-connections self evt)
     (close-connections)
     @convert
     (let ((browser (select-docked Inventory-Browser workspace: #f)))
-      (set-connection~ browser #f)))
+      (set-connection browser #f)))
   
   
-  (method override (prepare-quit)
-    (when (and (get-modified?) (file? (get-origin~ (get-form~ designer))))
-      (save))
+  (method override (prepare-quit self)
+    (when (and (get-modified? self) (file? (get-origin (get-form designer))))
+      (save self))
     (close-connections))
   
   
@@ -196,15 +198,15 @@
   ;;;
   
   
-  (method public (open-selection)
-    (let* ((tree (get-tree))
-           (component (selected-component~ tree)))
+  (method public (open-selection self)
+    (let* ((tree (get-tree self))
+           (component (selected-component tree)))
       (if (not component)
           (bell)
         (when (is? component Data-Source)
           (set-active-data-source component)
-          (invalidate-view)
-          (browse-inventory focus?: #f)))))
+          (invalidate-view self)
+          (browse-inventory self focus?: #f)))))
   
   
   ;;;
@@ -212,22 +214,22 @@
   ;;;
   
   
-  (method public (new-connections-menu)
-    (let* ((tree (get-tree))
+  (method public (new-connections-menu self)
+    (let* ((tree (get-tree self))
            (menu (new Connections-Menu client: tree))
-           (selection (get-single-selection~ tree)))
-      (with-update-locked~ menu
+           (selection (get-single-selection tree)))
+      (with-update-locked menu
         (lambda ()
-          (update-component-menu menu (selected-components~ tree) (categorized-addable-classes~ tree (selected-component~ tree)) add-component-class~ '() #f)
+          (update-component-menu menu (selected-components tree) (categorized-addable-classes tree (selected-component tree)) add-component-class '() #f)
           @convert
           (if selection
-              (let* ((row (get-row~ tree selection))
-                     (data (get-user-data~ row)))
+              (let* ((row (get-row tree selection))
+                     (data (get-user-data row)))
                 (when (is? data Group)
-                  (set-visible?~ (locate~ menu 'browse-inventory) #f)
-                  (set-visible?~ (locate~ menu 'browse-separator) #f)))
-            (set-visible?~ (locate~ menu 'browse-inventory) #f)
-            (set-visible?~ (locate~ menu 'browse-separator) #f))))
+                  (set-visible?~ (locate menu 'browse-inventory) #f)
+                  (set-visible?~ (locate menu 'browse-separator) #f)))
+            (set-visible?~ (locate menu 'browse-inventory) #f)
+            (set-visible?~ (locate menu 'browse-separator) #f))))
       menu)))
 
 
@@ -239,7 +241,7 @@
 (class SQL-Connections-Controller extends Component-Editor-Controller
   
   
-  (method override (document-status)
+  (method override (document-status self)
     "Connections"))
 
 

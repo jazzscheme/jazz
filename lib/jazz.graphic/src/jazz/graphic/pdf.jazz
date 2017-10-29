@@ -40,7 +40,9 @@
 
 (import (jazz.cairo)
         (jazz.graphic)
-        (jazz.print))
+        (jazz.io)
+        (jazz.print)
+        (jazz.view))
 
 
 (definition pdf-dpi
@@ -49,10 +51,10 @@
 
 (definition public (with-pdf-job view file proc (page-setup: page-setup #f) (scaling: scaling #f))
   (let ((page-setup (or page-setup (new Page-Setup))))
-    (let ((width (fxceiling (* (/ (get-width~ page-setup) default-resolution) pdf-dpi)))
-          (height (fxceiling (* (/ (get-height~ page-setup) default-resolution) pdf-dpi))))
-      (with ((surface (new PDF-Surface #f (new Dimension width height) (parse~ file))))
-        (with-update-locked~ view
+    (let ((width (fxceiling (* (/ (get-width page-setup) default-resolution) pdf-dpi)))
+          (height (fxceiling (* (/ (get-height page-setup) default-resolution) pdf-dpi))))
+      (with ((surface (new PDF-Surface #f (new Dimension width height) (parse file))))
+        (with-update-locked view
           (lambda ()
             (proc (new PDF-Job surface view page-setup pdf-dpi scaling: scaling))))))))
 
@@ -60,7 +62,7 @@
 (definition public (document->pdf view file (page-setup: page-setup #f) (scaling: scaling #f))
   (with-pdf-job view file
     (lambda (job)
-      (print-job~ job))
+      (print-job job))
     page-setup: page-setup
     scaling: scaling))
 
@@ -76,18 +78,18 @@
   (slot page-no initialize 0)
   
   
-  (method public (emit-page page)
-    (with-page page-no
+  (method public (emit-page self page)
+    (with-page self page-no
       (lambda ()
-        (print-page surface page page-no)))
+        (print-page self surface page page-no)))
     (increase! page-no))
   
   
-  (method override (end-page no)
-    (show-page~ surface))
+  (method override (end-page self no)
+    (show-page surface))
   
   
-  (method override (print-orientation)
+  (method override (print-orientation self)
     'portrait))
 
 
@@ -102,27 +104,27 @@
   (slot size getter generate)
   
   
-  (method override (initialize _ size filename)
+  (method override (initialize self _ size filename)
     (cond-expand
       (ios
         (unimplemented))
       (else
-    (let ((handle (cairo_pdf_surface_create filename (fixnum->flonum (get-width~ size)) (fixnum->flonum (get-height~ size)))))
-      (nextmethod handle)
-      (set! size~self size)))))
+    (let ((handle (cairo_pdf_surface_create filename (fixnum->flonum (get-width size)) (fixnum->flonum (get-height size)))))
+      (nextmethod self handle)
+      (set! self.size size)))))
   
   
   ;; PDF surfaces are in 72 floating point DPI while windows regions are in integer
-  (method override (painting-tree-algorithm)
+  (method override (painting-tree-algorithm self)
     'toplevel)
   
   
-  (method override (frame-rect rect <Rect> color)
-    (set-line-width 1)
-    (set-color color)
-    (draw-rectangle rect)
-    (stroke))
+  (method override (frame-rect self rect <Rect> color)
+    (set-line-width self 1)
+    (set-color self color)
+    (draw-rectangle self rect)
+    (stroke self))
   
   
-  (method override (show-page)
+  (method override (show-page self)
     (cairo_show_page context))))

@@ -83,6 +83,37 @@
 (module jazz.jrm jazz
 
 
+(hub find-object)
+(hub get-address)
+(hub get-exception)
+(hub get-ior)
+(hub get-listener)
+(hub get-manifest)
+(hub get-object)
+(hub get-port)
+(hub get-protocol)
+(hub get-read-mutex)
+(hub get-reason)
+(hub get-reference)
+(hub get-stub-interface)
+(hub get-title)
+(hub get-uuid)
+(hub get-values)
+(hub get-write-mutex)
+(hub live?)
+(hub load-object)
+(hub local-class)
+(hub new-local-proxy)
+(hub proxy-values)
+(hub register-object)
+(hub remote-class)
+(hub require-object)
+(hub set-protocol)
+(hub set-values)
+(hub stub-reference)
+(hub unregister-object)
+
+
 (export (jazz.jrm.autoload))
 (import (jazz.jrm.autoload)
         (jazz.jrm.protocol)
@@ -161,7 +192,7 @@
       (lambda ()
         (let ((local-uuid (listening-uuid))
               (local-title (current-process-title))
-              (local-listener (and remote-listener (listening-port~ remote-listener)))
+              (local-listener (and remote-listener (listening-port remote-listener)))
               (local-address (socket-info-address (with-exception-catcher
                                                     (lambda (exc)
                                                       (throw (new Connection-Exception exc)))
@@ -191,8 +222,8 @@
 
 (definition public (connect-remote-proxy info)
   (bind (proxy host port) info
-    (let ((ior (get-ior~ proxy)))
-      (let ((uuid (get-uuid~ ior)))
+    (let ((ior (get-ior proxy)))
+      (let ((uuid (get-uuid ior)))
         ;; already connected
         (unless (find-remote-connection uuid)
           (assert (uuid=? (connect-remote host port)
@@ -235,7 +266,7 @@
                (write-port port 'already-connected)
              (let ((local-uuid (listening-uuid))
                    (local-title (current-process-title))
-                   (local-listener (listening-port~ remote-listener))
+                   (local-listener (listening-port remote-listener))
                    (local-address (socket-info-address (tcp-client-peer-socket-info port)))
                    (local-protocol simulated-protocol)
                    (before (current-seconds)))
@@ -269,18 +300,18 @@
   (slot lag         accessors generate)
   
   
-  (method override (initialize port title listener address protocol lag)
-    (set! port~self port)
-    (set! read-mutex~self (make-mutex 'read))
-    (set! write-mutex~self (make-mutex 'write))
-    (set! title~self title)
-    (set! listener~self listener)
-    (set! address~self address)
-    (set! protocol~self protocol)
-    (set! lag~self lag))
+  (method override (initialize self port title listener address protocol lag)
+    (set! self.port port)
+    (set! self.read-mutex (make-mutex 'read))
+    (set! self.write-mutex (make-mutex 'write))
+    (set! self.title title)
+    (set! self.listener listener)
+    (set! self.address address)
+    (set! self.protocol protocol)
+    (set! self.lag lag))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{a}" title)))))
@@ -315,7 +346,7 @@
 
 
 (definition protected (require-connection-port uuid)
-  (get-port~ (require-remote-connection uuid)))
+  (get-port (require-remote-connection uuid)))
 
 
 (definition protected (setup-remote-connection uuid connection)
@@ -334,7 +365,7 @@
 (definition protected (close-remote-proxy remote-proxy)
   (catch (Connection-Broke exc
            #f)
-    (let ((uuid (get-uuid~ (get-ior~ remote-proxy))))
+    (let ((uuid (get-uuid (get-ior remote-proxy))))
       (let ((port (require-connection-port uuid)))
         (close-remote-connection uuid port)))))
 
@@ -354,7 +385,7 @@
                            (eof-object))
                     (read-remote-message connection))))
         ;; simulated protocol
-        (let ((protocol (get-protocol~ connection)))
+        (let ((protocol (get-protocol connection)))
           (when (and protocol (not (eof-object? data)))
             (let ((lag protocol)
                   (sent (car data)))
@@ -615,7 +646,7 @@
 
 
 (definition public (host/service-parameter arg setting (default (unspecified)))
-  (get-parameter arg parse-host/service setting parse-host/service default))
+  (parse-parameter arg parse-host/service setting parse-host/service default))
 
 
 (definition public (start-remote-listener (host: host #f) (service: service #f) (alternate-service: alternate-service #f))
@@ -625,14 +656,14 @@
             (service (or service listen-service Remote-Listener-Service))
             (alternate-service (or alternate-service listen-alternate-service)))
         (let ((server (new Remote-Listener host: host service: service alternate-service: alternate-service)))
-          (start~ server)
+          (start server)
           (set-remote-listener server)
           (start-remote-switchboard))))))
 
 
 (definition public (stop-remote-listener)
   (when remote-listener
-    (stop~ remote-listener)
+    (stop remote-listener)
     (set-remote-listener #f)))
 
 
@@ -671,22 +702,22 @@
 
 
 (definition (read-remote-message connection)
-  (let ((mutex (get-read-mutex~ connection)))
+  (let ((mutex (get-read-mutex connection)))
     (unwind-protect
         (begin
           (mutex-lock! mutex)
-          (let ((port (get-port~ connection)))
+          (let ((port (get-port connection)))
             (input-port-timeout-set! port +inf.0)
             (read-port port)))
       (mutex-unlock! mutex))))
 
 
 (definition (send-remote-message info connection)
-  (let ((mutex (get-write-mutex~ connection)))
+  (let ((mutex (get-write-mutex connection)))
     (unwind-protect
         (begin
           (mutex-lock! mutex)
-          (let ((port (get-port~ connection)))
+          (let ((port (get-port connection)))
             (let ((timeout (send-timeout)))
               (when timeout
                 (output-port-timeout-set! port timeout (lambda () (throw-connection-broke "Send remote timeout")))))
@@ -727,10 +758,10 @@
   (define (make-absolute-timeout timeout)
     (+ (current-seconds) timeout))
   
-  (let ((proxy-ior (get-ior~ remote-proxy))
+  (let ((proxy-ior (get-ior remote-proxy))
         (invoke-thread (current-thread))
         (post-problem-handler (post-problem-handler)))
-    (let ((uuid (get-uuid~ proxy-ior))
+    (let ((uuid (get-uuid proxy-ior))
           (cookie (object->serial invoke-thread))
           (timeout (and (neq? kind 'post) (make-absolute-timeout (receive-timeout)))))
       (debug-jrm 'client 'send (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
@@ -755,16 +786,16 @@
 
 
 (definition public (local-ior? ior)
-  (uuid=? (get-uuid~ ior) (listening-uuid)))
+  (uuid=? (get-uuid ior) (listening-uuid)))
 
 
 (definition public (ior=? x y)
-  (and (uuid=? (get-uuid~ x) (get-uuid~ y))
-       (reference=? (get-reference~ x) (get-reference~ y))))
+  (and (uuid=? (get-uuid x) (get-uuid y))
+       (reference=? (get-reference x) (get-reference y))))
 
 
 (definition public (ior-server=? x y)
-  (uuid=? (get-uuid~ x) (get-uuid~ y)))
+  (uuid=? (get-uuid x) (get-uuid y)))
 
 
 (definition public (host=? x y)
@@ -784,15 +815,15 @@
     (define (reference->local-proxy stub-interface reference)
       (if (not reference)
           (get-local-register)
-        (new (local-class~ stub-interface) (serial->object reference))))
+        (new (local-class stub-interface) (serial->object reference))))
     
-    (reference->local-proxy stub-interface (get-reference~ ior)))
+    (reference->local-proxy stub-interface (get-reference ior)))
   
   (define (remote->proxy stub-interface ior)
-    (let ((remote-class (remote-class~ stub-interface)))
-      (new remote-class ior (get-values~ ior))))
+    (let ((remote-class (remote-class stub-interface)))
+      (new remote-class ior (get-values ior))))
   
-  (let ((stub-interface (resolve-runtime-reference (deserialize-runtime-reference (get-stub-interface~ ior)))))
+  (let ((stub-interface (resolve-runtime-reference (deserialize-runtime-reference (get-stub-interface ior)))))
     (if (local-ior? ior)
         (local->proxy stub-interface ior)
       (remote->proxy stub-interface ior))))
@@ -818,8 +849,8 @@
 
 (definition public (proxy-server=? x y)
   (cond ((and (remote-proxy? x) (remote-proxy? y))
-         (ior-server=? (get-ior~ x)
-                       (get-ior~ y)))
+         (ior-server=? (get-ior x)
+                       (get-ior y)))
         ((and (local-proxy? x) (local-proxy? y))
          #t)
         (else
@@ -836,8 +867,8 @@
 
 
 (definition public (local-proxy=? x y)
-  (eq? (get-object~ x)
-       (get-object~ y)))
+  (eq? (get-object x)
+       (get-object y)))
 
 
 ;;;
@@ -850,8 +881,8 @@
 
 
 (definition public (remote-proxy=? x y)
-  (ior=? (get-ior~ x)
-         (get-ior~ y)))
+  (ior=? (get-ior x)
+         (get-ior y)))
 
 
 ;;;
@@ -865,12 +896,12 @@
 
 (definition public (get-local-register)
   (when (not *local-register*)
-    (set! *local-register* (new-local-proxy~ Register)))
+    (set! *local-register* (new-local-proxy Register)))
   *local-register*)
 
 
 (definition public (new-remote-register uuid)
-  (ior->proxy (new IOR uuid (serialize-runtime-reference (reference Register-Stub)) #f '())))
+  (ior->proxy (new IOR uuid (serialize-runtime-reference (reify-reference Register-Stub)) #f '())))
 
 
 (definition public (connect-remote-register host port (slave? #f))
@@ -879,20 +910,20 @@
 
 
 (definition public (get-remote-register remote-proxy)
-  (let ((ior (get-ior~ remote-proxy)))
-    (new-remote-register (get-uuid~ ior))))
+  (let ((ior (get-ior remote-proxy)))
+    (new-remote-register (get-uuid ior))))
 
 
 (definition public (proxy-connection-info client proxy)
-  (let ((client-uuid (get-uuid~ (get-ior~ client))))
+  (let ((client-uuid (get-uuid (get-ior client))))
     (let ((client-connection (require-remote-connection client-uuid)))
-      (let ((host (get-address~ client-connection)))
+      (let ((host (get-address client-connection)))
         (if (local-proxy? proxy)
-            (let ((port (listening-port~ (get-remote-listener))))
+            (let ((port (listening-port (get-remote-listener))))
               (list proxy host port))
-          (let ((proxy-uuid (get-uuid~ (get-ior~ proxy))))
+          (let ((proxy-uuid (get-uuid (get-ior proxy))))
             (let ((proxy-connection (require-remote-connection proxy-uuid)))
-              (let ((listener (get-listener~ proxy-connection)))
+              (let ((listener (get-listener proxy-connection)))
                 ;; we cannot use the peer port number because if it was him that connected
                 ;; to us then it will have a distinct port from its process remote listener
                 (assert listener
@@ -929,28 +960,28 @@
   (define (local-proxy->reference)
     (if (proxy=? proxy (get-local-register))
         #f
-      (let ((object (get-object~ proxy)))
+      (let ((object (get-object proxy)))
         (gc-protect object)
         (object->serial object))))
   
   (let ((ior
           (new IOR
             (listening-uuid)
-            (serialize-runtime-reference (stub-reference~ proxy))
+            (serialize-runtime-reference (stub-reference proxy))
             (local-proxy->reference)
-            (proxy-values~ proxy))))
+            (proxy-values proxy))))
     (serialize-object (class-of proxy) (encode-ior ior))))
 
 
 (definition protected (marshall-remote-proxy proxy)
-  (serialize-object (class-of proxy) (encode-ior (get-ior~ proxy))))
+  (serialize-object (class-of proxy) (encode-ior (get-ior proxy))))
 
 
 (definition (encode-ior ior)
-  (vector (get-uuid~ ior)
-          (get-stub-interface~ ior)
-          (get-reference~ ior)
-          (get-values~ ior)))
+  (vector (get-uuid ior)
+          (get-stub-interface ior)
+          (get-reference ior)
+          (get-values ior)))
 
 
 ;;;
@@ -985,7 +1016,7 @@
 (definition (write-port port info)
   (with-connection
     (lambda ()
-      (write-header *jazz-code* *jazz-version* port)
+      (write-application-header *jazz-code* *jazz-version* port)
       (write-data info port)
       (force-output port))))
 
@@ -993,6 +1024,6 @@
 (definition (read-port port)
   (with-connection
     (lambda ()
-      (receive (application-code client-version) (read-header port)
+      (receive (application-code client-version) (read-application-header port)
         ;;(validate-application-code application-code)
         (read-data port))))))

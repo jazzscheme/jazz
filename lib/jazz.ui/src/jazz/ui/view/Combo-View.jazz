@@ -63,34 +63,34 @@
   ;;;
   
   
-  (method public (get-body)
-    (locate 'body))
+  (method public (get-body self)
+    (locate self 'body))
   
   
-  (method public (get-pick)
-    (locate 'pick))
+  (method public (get-pick self)
+    (locate self 'pick))
 
 
-  (method public (get-kind)
+  (method public (get-kind self)
     kind)
 
 
-  (method public (set-kind value)
+  (method public (set-kind self value)
     (if (not (memq? kind '(pick choose)))
         (error "Unknown combo kind: {t}" kind)
       (set! kind value)
       (when (eq? kind 'choose)
-        (set-enabled?~ (get-pick) #t))
-      (invalidate-view)))
+        (set-enabled? (get-pick self) #t))
+      (invalidate-view self)))
   
   
-  (method public (get-state)
+  (method public (get-state self)
     state)
   
   
-  (method public (set-state value)
+  (method public (set-state self value)
     (set! state value)
-    (invalidate-view))
+    (invalidate-view self))
 
   
   ;;;
@@ -98,10 +98,10 @@
   ;;;
   
   
-  (method (picker-view? view)
-    (let ((text (get-body))
-          (pick (get-pick)))
-      (if (get-selectable?~ text)
+  (method (picker-view? self view)
+    (let ((text (get-body self))
+          (pick (get-pick self)))
+      (if (get-selectable? text)
           (eq? view pick)
         (or (eq? view text)
             (eq? view pick)))))
@@ -112,20 +112,20 @@
   ;;;
   
   
-  (method package (on-pick evt)
-    (button-action))
+  (method package (on-pick self evt)
+    (button-action self))
   
   
-  (method protected virtual (button-action)
+  (method protected virtual (button-action self)
     )
   
   
-  (method public (push-button)
+  (method public (push-button self)
     (unwind-protect
         (begin
-          (set-state 'pushed)
-          (button-action))
-      (set-state 'inactive)))
+          (set-state self 'pushed)
+          (button-action self))
+      (set-state self 'inactive)))
   
   
   ;;;
@@ -133,14 +133,14 @@
   ;;;
   
   
-  (method public (child-state child)
-    (let ((name (get-name~ child)))
+  (method public (child-state self child)
+    (let ((name (get-name child)))
       (case state
         ((choose choose-failed out-choose) (case name ((body) 'highlighted) ((pick) 'pushed)))
         (else state))))
   
   
-  (method public virtual (highlight-pick?)
+  (method public virtual (highlight-pick? self)
     #f)
 
   
@@ -149,7 +149,7 @@
   ;;;
   
   
-  (method override (inner? view)
+  (method override (inner? self view)
     (memq? view children))
   
   
@@ -158,11 +158,11 @@
   ;;;
   
   
-  (method override (popup-destroy popup)
+  (method override (popup-destroy self popup)
     (case state
-      ((choose) (set-state 'highlighted))
-      ((out-choose) (set-state 'inactive)))
-    (invalidate-view))
+      ((choose) (set-state self 'highlighted))
+      ((out-choose) (set-state self 'inactive)))
+    (invalidate-view self))
   
   
   ;;;
@@ -170,13 +170,13 @@
   ;;;
   
   
-  (method override (layout)
-    (let ((body (get-body))
-          (pick (get-pick)))
-      (set-position~ body {Point 0 0})
-      (set-size~ body {Dimension 22 22})
-      (set-position~ pick {Point 22 0})
-      (set-size~ pick {Dimension 9 22})))
+  (method override (layout self)
+    (let ((body (get-body self))
+          (pick (get-pick self)))
+      (set-position body {Point 0 0})
+      (set-size body {Dimension 22 22})
+      (set-position pick {Point 22 0})
+      (set-size pick {Dimension 9 22})))
   
   
   ;;;
@@ -184,50 +184,50 @@
   ;;;
 
   
-  (method public (enter-child child)
-    (when (get-enabled?~ child)
+  (method public (enter-child self child)
+    (when (get-enabled? child)
       (case state
-        ((inactive) (set-state 'highlighted))
-        ((out-pushed) (set-state 'pushed))
-        ((out-choose) (set-state 'choose)))
-      (invalidate-view)))
+        ((inactive) (set-state self 'highlighted))
+        ((out-pushed) (set-state self 'pushed))
+        ((out-choose) (set-state self 'choose)))
+      (invalidate-view self)))
 
   
-  (method public (leave-child child)
+  (method public (leave-child self child)
     (case state
-      ((highlighted) (set-state 'inactive))
-      ((pushed) (set-state 'out-pushed))
-      ((choose) (set-state 'out-choose)))
-    (invalidate-view))
+      ((highlighted) (set-state self 'inactive))
+      ((pushed) (set-state self 'out-pushed))
+      ((choose) (set-state self 'out-choose)))
+    (invalidate-view self))
 
   
-  (method public (child-down child)
-    (when (view-enabled?)
-      (case (get-name~ child)
+  (method public (child-down self child)
+    (when (view-enabled? self)
+      (case (get-name child)
         ((body)
-         (set-state 'pushed)
-         (down~ child))
+         (set-state self 'pushed)
+         (down child))
         ((pick)
          (case state
            ((highlighted)
-            (set-state 'choose)
-            (down~ child))
+            (set-state self 'choose)
+            (down child))
            ((choose)
-            (close-popups)
-            (set-state 'highlighted)))))
-      (invalidate-view)))
+            (close-popups self)
+            (set-state self 'highlighted)))))
+      (invalidate-view self)))
 
   
-  (method public (child-up child)
-    (when (view-enabled?)
+  (method public (child-up self child)
+    (when (view-enabled? self)
       (unwind-protect
-          (up~ child)
+          (up child)
         (if (eq? kind 'choose)
-            (set-state 'inactive)
+            (set-state self 'inactive)
           (case state
-            ((pushed choose-failed) (set-state 'highlighted))
-            ((out-pushed) (set-state 'inactive))))
-        (invalidate-view))))
+            ((pushed choose-failed) (set-state self 'highlighted))
+            ((out-pushed) (set-state self 'inactive))))
+        (invalidate-view self))))
   
   
   ;;;
@@ -235,5 +235,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Combo-View-Descriptor))))

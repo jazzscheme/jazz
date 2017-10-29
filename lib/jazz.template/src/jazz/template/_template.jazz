@@ -38,6 +38,9 @@
 (module jazz.template jazz
 
 
+(hub expand)
+
+
 (import (jazz.io))
 
 
@@ -61,7 +64,7 @@
       (continuation-capture
         (lambda (return)
           (let ((output (open-output-string)))
-            (expand~ name-expander name associations output
+            (expand name-expander name associations output
               printer: (lambda (name value output)
                          (if (list? value)
                              (continuation-return return value)
@@ -69,46 +72,46 @@
             (get-output-string output)))))
     
     (define (expand-pathname pathname)
-      (new-brother~ pathname (expand-name (get-name~ pathname))))
+      (new-brother pathname (expand-name (get-name pathname))))
     
-    (define (copy-file template destination)
+    (define (copy-template-file template destination)
       (let ((destination (expand-pathname destination)))
-        (unless (exists?~ destination)
-          (if (member? (get-name~ destination) non-expanded-leaves test: ci=?)
-              (copy-file~ template destination)
+        (unless (exists? destination)
+          (if (member? (get-name destination) non-expanded-leaves test: ci=?)
+              (copy-file template destination)
             (call-with-output-file (path-settings destination)
               (lambda (output)
-                (expand~ content-expander template associations output)))))))
+                (expand content-expander template associations output)))))))
     
-    (define (copy-directory template destination root?)
+    (define (copy-template-directory template destination root?)
       (let ((destination (if root? destination (expand-pathname destination))))
-        (let ((destination-name (get-name~ destination)))
+        (let ((destination-name (get-name destination)))
           (unless (member? destination-name ignored-nodes test: ci=?)
             (if (member? destination-name non-expanded-nodes test: ci=?)
-                (unless (exists?~ destination)
-                  (copy-directory~ template destination))
-              (unless (exists?~ destination)
-                (create-directories~ destination))
-              (iterate-directory~ template
+                (unless (exists? destination)
+                  (copy-directory template destination))
+              (unless (exists? destination)
+                (create-directories destination))
+              (iterate-directory template
                 (lambda (path kind)
                   (let ((name (car path)))
                     (unless (filename=? name ".DS_Store")
                       (case kind
                         ((file)
-                         (copy-file (new-file~ template name) (new-file~ destination name)))
+                         (copy-template-file (new-file template name) (new-file destination name)))
                         ((directory)
-                         (copy-directory (new-directory~ template name) (new-directory~ destination name) #f))))))
+                         (copy-template-directory (new-directory template name) (new-directory destination name) #f))))))
                 full?: #f
                 files?: #t
                 directories?: #t
                 recursive?: #f))))))
     
-    (define (copy-pathname template destination root?)
+    (define (copy-template-pathname template destination root?)
       (if (file? template)
-          (copy-file template destination)
-        (copy-directory template destination root?)))
+          (copy-template-file template destination)
+        (copy-template-directory template destination root?)))
     
-    (copy-pathname template destination #t)))
+    (copy-template-pathname template destination #t)))
 
 
 ;;;
@@ -124,19 +127,19 @@
   (slot delimiter-end)
   
   
-  (method override (initialize (delimiter-escape: delimiter-escape #\~) (delimiter-start: delimiter-start #\[) (delimiter-end: delimiter-end #\]))
-    (nextmethod)
-    (set! delimiter-escape~self delimiter-escape)
-    (set! delimiter-start~self delimiter-start)
-    (set! delimiter-end~self delimiter-end))
+  (method override (initialize self (delimiter-escape: delimiter-escape #\~) (delimiter-start: delimiter-start #\[) (delimiter-end: delimiter-end #\]))
+    (nextmethod self)
+    (set! self.delimiter-escape delimiter-escape)
+    (set! self.delimiter-start delimiter-start)
+    (set! self.delimiter-end delimiter-end))
   
   
-  (method public (expand template associations output (printer: printer #f))
+  (method public (expand self template associations output (printer: printer #f))
     (declare (proper-tail-calls))
     (define (template-reader template)
       (if (sequence? template)
           (open-input-string template)
-        (open-input-file (list path: (parse~ template) eol-encoding: (get-eol-encoding)))))
+        (open-input-file (list path: (parse template) eol-encoding: (get-eol-encoding)))))
     
     (define (process-variable input output associations printer)
       (let ((name (read-variable input)))

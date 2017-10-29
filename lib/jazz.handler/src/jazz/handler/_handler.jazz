@@ -38,6 +38,16 @@
 (module jazz.handler jazz
 
 
+(hub get-form)
+(hub get-method-name)
+(hub get-parameters)
+(hub get-properties)
+(hub get-property)
+(hub get-target)
+(hub get-target-name)
+(hub invoke)
+
+
 (import (jazz.action)
         (jazz.component)
         (jazz.event)
@@ -54,9 +64,9 @@
     ((Procedure)
      (handler (apply make-event Event :action sender (or properties '()))))
     ((Handler)
-     (let ((properties (or properties (get-properties~ handler))))
+     (let ((properties (or properties (get-properties handler))))
        (let ((event (apply make-event Event :action sender properties)))
-         (invoke~ handler component event))))
+         (invoke handler component event))))
     ((Action)
      (call-action handler sender properties))
     (else
@@ -68,7 +78,7 @@
     ((Procedure)
      (handler event))
     ((Handler)
-     (invoke~ handler component event))
+     (invoke handler component event))
     ((Action)
      (call-action handler component #f event: event))
     (else
@@ -90,15 +100,15 @@
   (slot form        getter generate)
   
   
-  (method override (initialize (execute: execute #f) (target: target #f) (target-name: target-name #f) (method-name: method-name #f))
-    (nextmethod)
-    (set! execute~self execute)
-    (set! target~self target)
-    (set! target-name~self target-name)
-    (set! method-name~self method-name))
+  (method override (initialize self (execute: execute #f) (target: target #f) (target-name: target-name #f) (method-name: method-name #f))
+    (nextmethod self)
+    (set! self.execute execute)
+    (set! self.target target)
+    (set! self.target-name target-name)
+    (set! self.method-name method-name))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{{a} {s} {s}}"
             (category-name (class-of self))
             target-name
@@ -110,12 +120,12 @@
   ;;;
   
   
-  (method override (walk-references proc)
+  (method override (walk-references self proc)
     (when (eq? target-name :reference)
       (proc method-name)))
 
 
-  (method override (setup-context context)
+  (method override (setup-context self context)
     (set! form context))
   
   
@@ -124,31 +134,31 @@
   ;;;
   
   
-  (method public virtual (invoke sender . rest)
+  (method public virtual (invoke self sender . rest)
     (if execute
         (execute)
-      (let* ((target (or target (find-target sender)))
+      (let* ((target (or target (find-target self sender)))
              (proc (dispatch (class-of target) method-name)))
         (apply (~ proc target) rest))))
   
   
-  (method public (find-target sender)
+  (method public (find-target self sender)
     (define (find-form component)
       (cond ((not component)
              #f)
-            ((memq? form (get-class-forms~ (class-of component)))
+            ((memq? form (get-class-forms (class-of component)))
              component)
             (else
-             (find-form (get-parent~ component)))))
+             (find-form (get-parent component)))))
     
     (if (is-not? sender Component)
         (resolve-nickname target-name)
       (cond ((eq? target-name :form)
              (find-form sender))
             ((and (pair? target-name) (eq? (car target-name) :form))
-             (child~ (find-form sender) (cdr target-name)))
+             (child (find-form sender) (cdr target-name)))
             (else
-             (child~ sender target-name))))))
+             (child sender target-name))))))
 
 
 ;;;
@@ -168,24 +178,24 @@
 (class Event-Handler extends Handler
   
   
-  (method meta override (marshall-object obj)
+  (method meta override (marshall-object self obj)
     (serialize-literal obj))
   
   
-  (method meta override (unmarshall-object content)
+  (method meta override (unmarshall-object self content)
     (deserialize-literal content))
   
   
   (slot properties getter generate)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((properties '()) . others) rest
-      (apply nextmethod others)
-      (set! properties~self properties)))
+      (apply nextmethod self others)
+      (set! self.properties properties)))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{{a} {s} {s}{a}}"
             (category-name (class-of self))
             (or target target-name)
@@ -200,7 +210,7 @@
   ;;;
 
 
-  (method public (get-property keyword)
+  (method public (get-property self keyword)
     (getf properties keyword))
   
   
@@ -213,28 +223,28 @@
   ;; a big cleanup between event handlers and actions...
 
   
-  (method override (invoke sender event (action: action #f))
+  (method override (invoke self sender event (action: action #f))
     (cond (execute
            (execute event))
           ((eq? target-name :reference)
-           (let ((handler (locate-reference~ form method-name)))
+           (let ((handler (locate-reference form method-name)))
              (handler event)))
           (else
-           (let ((target (or target (find-target sender))))
+           (let ((target (or target (find-target self sender))))
              (if target
-                 (invoke-target target event action: action)
+                 (invoke-target self target event action: action)
                (error "Unable to find event handler target: {t}" target-name))))))
   
   
-  (method public (invoke-target target event (action: action #f))
+  (method public (invoke-target self target event (action: action #f))
     (let ((proc (dispatch (class-of target) method-name)))
       (cond ((not proc)
              (error "Unable to find event handler method: {t}" method-name))
             ((is? target Event-Consumer)
              (hook-action self event
                (lambda ()
-                 (let ((consumer (get-event-consumer~ target)))
-                   (deliver-event~ consumer self target proc event)))))
+                 (let ((consumer (get-event-consumer target)))
+                   (deliver-event consumer self target proc event)))))
             (else
              (hook-action self event
                (lambda ()
@@ -260,12 +270,12 @@
   (slot parameters getter generate)
     
   
-  (method override (initialize symbol parameters)
-    (nextmethod symbol)
-    (set! parameters~self parameters))
+  (method override (initialize self symbol parameters)
+    (nextmethod self symbol)
+    (set! self.parameters parameters))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{{a} {a}{?: {l}~}}"
             (category-name (class-of self))
             symbol
@@ -273,8 +283,9 @@
             parameters))
   
   
-  (method override (resolve-parameters)
-    (generate~ (resolve-reference) parameters)))
+  (method override (parameters-resolve self)
+    @cant-find
+    (generate (reference-resolve self) parameters)))
 
 
 ;;;
@@ -297,4 +308,4 @@
 
 
 (definition (listener-target? object listener)
-  (eq? object (get-target~ listener))))
+  (eq? object (get-target listener))))

@@ -40,6 +40,7 @@
 
 (import (jazz.graphic)
         (jazz.handler)
+        (jazz.io)
         (jazz.jml)
         (jazz.text)
         (jazz.ui)
@@ -78,14 +79,14 @@
       (<Push-Button>              name: cancel              title: "Cancel" position: {Point 253 227} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
     
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (set-moniker~ (locate 'directory) directory)
-    (set-string-content~ (locate 'dirname-text) "New"))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (set-moniker (locate self 'directory) directory)
+    (set-string-content (locate self 'dirname-text) "New"))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'dirname-text)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'dirname-text)))
 
   
   ;;;
@@ -93,7 +94,7 @@
   ;;;
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "New")
   
 
@@ -102,9 +103,9 @@
   ;;;
   
   
-  (method override (validate-dialog)
-    (receive (directory dirname name) (get-modal-result)
-      (let* ((destination (new-directory~ directory dirname))
+  (method override (validate-dialog self)
+    (receive (directory dirname name) (get-modal-result self)
+      (let* ((destination (new-directory directory dirname))
              (effective-name (if (empty-string? name) dirname name))
              (message (validate-name effective-name destination dirname)))
         (when message
@@ -112,8 +113,8 @@
           (signal-cancel)))))
   
   
-  (method override (get-modal-result)
-    (values (get-moniker~ (locate 'directory)) (get-string-content~ (locate 'dirname-text)) (get-string-content~ (locate 'name-text))))
+  (method override (get-modal-result self)
+    (values (get-moniker (locate self 'directory)) (get-string-content (locate self 'dirname-text)) (get-string-content (locate self 'name-text))))
   
 
   ;;;
@@ -121,11 +122,11 @@
   ;;;
   
   
-  (method override (get-tab-stops)
+  (method override (get-tab-stops self)
     (list
-      (get-text~ (locate 'directory))
-      (locate 'dirname-text)
-      (locate 'name-text)))
+      (get-text (locate self 'directory))
+      (locate self 'dirname-text)
+      (locate self 'name-text)))
   
 
   ;;;
@@ -133,33 +134,33 @@
   ;;;
   
   
-  (method (on-content-change evt)
-    (update-ok))
+  (method (on-content-change self evt)
+    (update-ok self))
   
   
-  (method (on-moniker-update evt)
-    (update-ok))
+  (method (on-moniker-update self evt)
+    (update-ok self))
   
   
-  (method (on-double-click evt)
-    (when (get-enabled?~ (locate 'ok))
-      (validate-dialog)
-      (let ((dialog (get-host)))
-        (end-modal~ dialog (get-modal-result~ dialog)))))
-  
-  
-  ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (when (get-enabled?~ (locate 'ok))
-      (validate-dialog)
-      (let ((dialog (get-host)))
-        (end-modal~ dialog (get-modal-result~ dialog)))))
+  (method (on-double-click self evt)
+    (when (get-enabled? (locate self 'ok))
+      (validate-dialog self)
+      (let ((dialog (get-host self)))
+        (end-modal dialog (get-modal-result dialog)))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-return-press self evt)
+    (when (get-enabled? (locate self 'ok))
+      (validate-dialog self)
+      (let ((dialog (get-host self)))
+        (end-modal dialog (get-modal-result dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
   
 
   ;;;
@@ -167,14 +168,14 @@
   ;;;
   
   
-  (method (update-ok)
-    (set-enabled?~ (locate 'ok) (and (get-moniker~ (locate 'directory))
-                                     (not (empty-string? (get-string-content~ (locate 'dirname-text)))))))
+  (method (update-ok self)
+    (set-enabled? (locate self 'ok) (and (get-moniker (locate self 'directory))
+                                     (not (empty-string? (get-string-content (locate self 'dirname-text)))))))
   
   
   (definition (validate-name name destination dirname)
-    (cond ((exists?~ destination)
-           (format "Repository already exists: {a}" (parse~ destination)))
+    (cond ((exists? destination)
+           (format "Repository already exists: {a}" (parse destination)))
           ((find-repository (string->symbol name))
            (format "A repository with this name is already installed: {a}" name))
           ((let ((first (first name)))
@@ -210,6 +211,6 @@
     (new Color red: 120 green: 120 blue: 255))
 
   
-  (method override (draw surface context)
-    (let ((size (get-size)))
-      (gradient-fill-rect~ surface (new Rect 0 0 (get-width~ size) 50) (list (list 0 {Color White}) (list 1 Header-Color)))))))
+  (method override (draw self surface context)
+    (let ((size (get-size self)))
+      (gradient-fill-rect surface (new Rect 0 0 (get-width size) 50) (list (list 0 {Color White}) (list 1 Header-Color)))))))

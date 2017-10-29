@@ -113,7 +113,7 @@
           (else (jazz:error "Ill-formed toplevel form: {s}" kind)))))))
 
 
-(define (jazz:expand unit-name . rest)
+(define (jazz:expand-to unit-name . rest)
   (let ((port (current-output-port)))
     (jazz:output-port-width-set! port 160)
     (apply jazz:expand-to-port unit-name port rest)))
@@ -173,54 +173,8 @@
 
 
 (define (jazz:verify-unit unit-name)
-  (define (collect-emits)
-    (let ((emits '()))
-      (define (backend-hook backend binding rest)
-        (%%when (eq? binding 'dispatch)
-          (set! emits (%%cons (%%car rest) emits))))
-      
-      (let ((module-declaration (jazz:expand-unit unit-name backend: #f))
-            (backend (jazz:require-backend 'scheme)))
-        (jazz:set-backend-hook backend backend-hook)
-        (parameterize ((jazz:walk-context (jazz:new-walk-context #f unit-name #f))
-                       (jazz:generate-symbol-for "%")
-                       (jazz:generate-symbol-context (or unit-name (gensym)))
-                       (jazz:generate-symbol-counter 0))
-          (jazz:emit-declaration module-declaration '() backend))
-        (jazz:set-backend-hook backend #f))
-      emits))
-    
-  (define (collect-forms)
-    (let ((forms '()))
-      (jazz:iterate-module-declaration (jazz:walk-unit unit-name)
-        (lambda (obj)
-          (if (%%is? obj jazz:Dispatch-Call)
-              (set! forms (%%cons (jazz:get-dispatch-call-name obj) forms)))))
-      forms))
-  
-  (define (difference x y)
-    (let ((diff '()))
-      (for-each (lambda (e)
-                  (%%when (%%not (%%memq e y))
-                    (set! diff (%%cons e diff))))
-                x)
-      diff))
-  
-  ;; there will be more emits as they emit inlined and specialized
-  (let ((emits (collect-emits))
-        (forms (collect-forms)))
-    (pp (list 'emits (length emits) 'forms (length forms)))
-    (cond ((jazz:command-argument "list")
-           (jazz:iterate-module-declaration (jazz:walk-unit unit-name)
-             pp))
-          ((jazz:command-argument "diff")
-           (let ((emits (jazz:remove-duplicates emits))
-                 (forms (jazz:remove-duplicates forms)))
-             (pp 'EMITS)
-             (for-each pp (difference emits forms))
-             (newline)
-             (pp 'FORMS)
-             (for-each pp (difference forms emits)))))))
+  (jazz:iterate-module-declaration (jazz:walk-unit unit-name)
+    pp))
 
 
 ;;;

@@ -38,7 +38,8 @@
 (module protected jazz.schema.data.Datatype jazz
 
 
-(import (jazz.schema))
+(import (jazz.database)
+        (jazz.schema))
 
 
 (class Datatype extends Object
@@ -50,34 +51,34 @@
   (slot scale     getter generate)
   
   
-  (method meta public (new-datatype name size (precision #f) (scale #f))
+  (method meta public (new-datatype self name size (precision #f) (scale #f))
     (new self name
-         (if (get-sizeable?~ (find-systype name)) size #f)
-         (if (get-precisionable?~ (find-systype name)) precision #f)
-         (if (get-scalable?~ (find-systype name)) scale #f)))
+         (if (get-sizeable? (find-systype self name)) size #f)
+         (if (get-precisionable? (find-systype self name)) precision #f)
+         (if (get-scalable? (find-systype self name)) scale #f)))
   
   
-  (method override (initialize name size (precision #f) (scale #f))
-    (nextmethod)
-    (set! name~self name)
-    (set! size~self size)
-    (set! precision~self precision)
-    (set! scale~self scale))
+  (method override (initialize self name size (precision #f) (scale #f))
+    (nextmethod self)
+    (set! self.name name)
+    (set! self.size size)
+    (set! self.precision precision)
+    (set! self.scale scale))
   
   
-  (method override (compare-object target)
+  (method override (compare-object self target)
     (cond ((is-not? target Datatype)
            :incompatible)
-          ((and (= name (get-name~ target))
-                (= size (get-size~ target))
-                (= precision (get-precision~ target))
-                (= scale (get-scale~ target)))
+          ((and (= name (get-name target))
+                (= size (get-size target))
+                (= precision (get-precision target))
+                (= scale (get-scale target)))
            :equal)
           (else
            :not-equal)))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{{a} {s} {s}{? {s}~}{? {s}~}}"
             (category-name (class-of self))
             name
@@ -91,20 +92,20 @@
   ;;;
   
   
-  (method public (has-size?)
+  (method public (has-size? self)
     (boolean size))
   
   
-  (method public (has-precision?)
+  (method public (has-precision? self)
     (boolean precision))
   
   
-  (method public (has-scale?)
+  (method public (has-scale? self)
     (boolean scale))
   
 
-  (method public virtual (get-native-with-value value (indirect?: indirect? #f))
-    (let* ((default-value (get-default-value~ (find-systype~ (class-of self) name)))
+  (method public virtual (get-native-with-value self value (indirect?: indirect? #f))
+    (let* ((default-value (get-default-value (find-systype (class-of self) name)))
            (value (or (let ((len (length value)))
                         (if (and (>= len 2)
                                  (= (subseq value 0 1) "(")
@@ -124,7 +125,7 @@
     (substitute-alist '((#\' . "''")) value))
   
   
-  (method public virtual (get-native)
+  (method public virtual (get-native self)
     (cond (size
            (format "{a}({a})" name size))
           ((null? precision)
@@ -141,24 +142,24 @@
   ;;;
   
   
-  (method meta public virtual (get-systypes)
+  (method meta public virtual (get-systypes self)
     '())
   
   
-  (method meta public (find-systype name)
+  (method meta public (find-systype self name)
     (find-if (lambda (systype)
-               (= (get-name~ systype) name))
-             (get-systypes)))
+               (= (get-name systype) name))
+             (get-systypes self)))
   
   
-  (method public (get-defaultable?)
-    (let ((systype (find-systype~ (class-of self) name)))
-      (and systype (get-defaultable?~ systype))))
+  (method public (get-defaultable? self)
+    (let ((systype (find-systype (class-of self) name)))
+      (and systype (get-defaultable? systype))))
   
   
-  (method public (get-default-value)
-    (let ((systype (find-systype~ (class-of self) name)))
-      (and systype (get-default-value~ systype))))
+  (method public (get-default-value self)
+    (let ((systype (find-systype (class-of self) name)))
+      (and systype (get-default-value systype))))
   
   
   ;;;
@@ -166,7 +167,7 @@
   ;;;
   
   
-  (method public virtual (present)
+  (method public virtual (present self)
     (cond (size
            (format "{a} {a}" name size))
           ((null? precision)

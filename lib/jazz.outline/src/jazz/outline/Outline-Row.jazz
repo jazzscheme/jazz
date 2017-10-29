@@ -40,6 +40,7 @@
 
 (import (jazz.geometry)
         (jazz.graphic)
+        (jazz.outline)
         (jazz.view))
 
 
@@ -66,21 +67,21 @@
   
   ;; Because outline row components can be allocated in huge numbers in
   ;; texts and trees, its initialization process has to be streamlined...
-  (method override (initialize-component rest)
+  (method override (initialize-component self rest)
     )
     
   
-  (method override (install-in-parent)
+  (method override (install-in-parent self)
     )
   
   
-  (method override (set-player plr)
-    (nextmethod plr)
+  (method override (set-player self plr)
+    (nextmethod self plr)
     (iterate sons (lambda (row <Outline-Row>)
-                    (set-player~ row plr))))
+                    (set-player row plr))))
   
   
-  (method override (set-parent prt)
+  (method override (set-parent self prt)
     (set! parent prt))
 
   
@@ -89,56 +90,56 @@
   ;;;
   
   
-  (method public inline (get-outline-view) <View>
+  (method public inline (get-outline-view self) <View>
     parent)
   
   
-  (method public inline (get-father) <Outline-Row+>
+  (method public inline (get-father self) <Outline-Row+>
     father)
   
   
-  (method public inline (set-father row)
+  (method public inline (set-father self row)
     (set! father row))
   
   
-  (method public inline (get-sons) <Axis>
+  (method public inline (get-sons self) <Axis>
     sons)
   
   
-  (method public inline (set-sons s)
+  (method public inline (set-sons self s)
     (set! sons s))
   
   
-  (method public inline (get-level)
+  (method public inline (get-level self)
     level)
   
   
-  (method public inline (set-level lvl)
+  (method public inline (set-level self lvl)
     (set! level lvl))
   
   
-  (method public inline (get-state)
+  (method public inline (get-state self)
     state)
   
   
-  (method public inline (set-state s)
+  (method public inline (set-state self s)
     (set! state s))
   
   
-  (method public inline (get-row-height)
+  (method public inline (get-row-height self)
     row-height)
   
   
-  (method public inline (set-row-height height)
+  (method public inline (set-row-height self height)
     (set! row-height height))
   
   
-  (method public (effective-row-height)
-    (or row-height (get-default-row-height~ (get-outline-view))))
+  (method public (effective-row-height self)
+    (or row-height (get-default-row-height (get-outline-view self))))
   
   
-  (method public (increase-row-height inc)
-    (set! row-height (+ (effective-row-height) inc)))
+  (method public (increase-row-height self inc)
+    (set! row-height (+ (effective-row-height self) inc)))
   
   
   ;;;
@@ -146,22 +147,22 @@
   ;;;
   
   
-  (method public (change-father father-row (position: position #f))
+  (method public (change-father self father-row (position: position #f))
     (when father
-      (remove-son~ father self))
-    (set-father father-row)
+      (remove-son father self))
+    (set-father self father-row)
     (when father
-      (add-son~ father self (or position (cardinality (get-sons~ father))))))
+      (add-son father self (or position (cardinality (get-sons father))))))
   
   
-  (method public (for-each-father proc (include-self?: include-self? #f))
+  (method public (for-each-father self proc (include-self?: include-self? #f))
     (if include-self?
         (begin
           (proc self)
-          (for-each-father proc))
+          (for-each-father self proc))
       (when father
         (proc father)
-        (for-each-father~ father proc))))
+        (for-each-father father proc))))
   
   
   ;;;
@@ -169,18 +170,18 @@
   ;;;
   
   
-  (method public (remove-every-son)
-    (let ((outline-view (get-outline-view)))
+  (method public (remove-every-son self)
+    (let ((outline-view (get-outline-view self)))
       (for-each (lambda (son)
-                  (remove-row~ outline-view son))
+                  (remove-row outline-view son))
                 (gather sons))))
   
   
-  (method public (son-rank son)
+  (method public (son-rank self son)
     (find sons son))
   
   
-  (method public (last-son)
+  (method public (last-son self)
     (last sons))
 
   
@@ -189,7 +190,7 @@
   ;;;
 
   
-  (method override (get-transparent?)
+  (method override (get-transparent? self)
     #t)
 
   
@@ -198,20 +199,20 @@
   ;;;
   
   
-  (method public (expanded?)
+  (method public (expanded? self)
     (eq? state 'expanded))
   
   
-  (method public (collapsed?)
+  (method public (collapsed? self)
     (eq? state 'collapsed))
   
   
-  (method public (expandable?)
+  (method public (expandable? self)
     (or (eq? state 'dynamic)
-        (first-visible-son)))
+        (first-visible-son self)))
   
   
-  (method public (collapsable?)
+  (method public (collapsable? self)
     (eq? state 'expanded))
   
   
@@ -220,11 +221,11 @@
   ;;;
   
   
-  (method protected (set-descendants-level lvl <fx>)
+  (method package (set-descendants-level self lvl <fx>)
     (set! level lvl)
     (iterate sons
              (lambda (son)
-                (set-descendants-level~ son (+ level 1)))))
+                (set-descendants-level son (+ level 1)))))
   
   
   ;;;
@@ -232,12 +233,12 @@
   ;;;
   
   
-  (method public virtual (get-effective-width)
-    (get-width))
+  (method public virtual (get-effective-width self)
+    (get-width self))
   
   
-  (method public (get-effective-height)
-    (or row-height (get-height)))
+  (method public (get-effective-height self)
+    (or row-height (get-height self)))
   
   
   ;;;
@@ -245,17 +246,17 @@
   ;;;
   
   
-  (method override (draw surface context)
-    (nextmethod surface context)
+  (method override (draw self surface context)
+    (nextmethod self surface context)
     (when (getf context selected?:)
-      (draw-selection surface)))
+      (draw-selection self surface)))
   
   
-  (method protected virtual (draw-selection surface <Surface>)
-    (let* ((outer (get-bounds))
+  (method protected virtual (draw-selection self surface <Surface>)
+    (let* ((outer (get-bounds self))
            (inner (inflate-rect outer -1 -1)))
-      (frame-rect~ surface outer {Color Black})
-      (frame-rect~ surface inner {Color Light-Gray})))
+      (frame-rect surface outer {Color Black})
+      (frame-rect surface inner {Color Light-Gray})))
   
   
   ;;;
@@ -263,94 +264,94 @@
   ;;;
 
 
-  (method override (show)
-    (unless (get-visible-flag)
-      (let* ((last (last-descendant))
-             (previous (previous-visible-row self))
+  (method override (show self)
+    (unless (get-visible-flag self)
+      (let* ((last (last-descendant self))
+             (previous (previous-visible-row self self))
              (next (if previous
-                       (get-next~ previous)
-                     (and father (first-visible-son~ father)))))
-        (nextmethod)
+                       (get-next previous)
+                     (and father (first-visible-son father)))))
+        (nextmethod self)
         (if parent
-            (let ((visible? (visible-in-father?)))
-              (show-rows~ parent self last previous next visible? #f #f))
+            (let ((visible? (visible-in-father? self)))
+              (show-rows parent self last previous next visible? #f #f))
           (link previous self)
           (link last next)))))
 
 
-  (method override (hide)
-    (when (get-visible-flag)
-      (let ((last (or (last-descendant) self)))
-        (nextmethod)
+  (method override (hide self)
+    (when (get-visible-flag self)
+      (let ((last (or (last-descendant self) self)))
+        (nextmethod self)
         (if parent
-            (hide-rows~ parent self last (visible-in-father?) #f)
+            (hide-rows parent self last (visible-in-father? self) #f)
           (unlink self last)))))
 
 
   ;; root-row not visible - is this ok?
-  (method override (get-visible?)
-    (and father (row-visible?)))
+  (method override (get-visible? self)
+    (and father (row-visible? self)))
   
   
-  (method public (row-visible?)
-    (and (get-visible-flag)
-         (visible-in-father?)))
+  (method public (row-visible? self)
+    (and (get-visible-flag self)
+         (visible-in-father? self)))
   
   
-  (method public (visible-in-father?)
+  (method public (visible-in-father? self)
     (or (not father)
-        (and (expanded?~ father) (row-visible?~ father))))
+        (and (expanded? father) (row-visible? father))))
   
   
-  (method public (count-visible)
+  (method public (count-visible self)
     (let ((scan next)
           (count 0))
-      (while (and scan (> (get-level~ scan) level))
-        (set! scan (get-next~ scan))
+      (while (and scan (> (get-level scan) level))
+        (set! scan (get-next scan))
         (increase! count))
       count))
   
   
-  (method public (node-height)
-    (+ (get-effective-height) (get-row-spacing~ parent) (sons-height)))
+  (method public (node-height self)
+    (+ (get-effective-height self) (get-row-spacing parent) (sons-height self)))
   
   
-  (method public (sons-height)
+  (method public (sons-height self)
     (let ((scan next)
           (total 0)
-          (rs (get-row-spacing~ parent)))
-      (while (and scan (> (get-level~ scan) level))
-        (increase! total (+ (get-effective-height~ scan) rs))
-        (set! scan (get-next~ scan)))
+          (rs (get-row-spacing parent)))
+      (while (and scan (> (get-level scan) level))
+        (increase! total (+ (get-effective-height scan) rs))
+        (set! scan (get-next scan)))
       total))
   
   
-  (method public (sons-width)
+  (method public (sons-width self)
     (let ((scan next)
           (width 0))
-      (while (and scan (> (get-level~ scan) level))
-        (let ((w (get-effective-width~ scan)))
+      (while (and scan (> (get-level scan) level))
+        (let ((w (get-effective-width scan)))
           (when (and w (> w width))
             (set! width w)))
-        (set! scan (get-next~ scan)))
+        (set! scan (get-next scan)))
       width))
   
   
-  (method public (first-visible-son)
+  (method public (first-visible-son self)
     (and (not (empty? sons))
          (let ((first (first sons)))
            ;; optimize the 99.999% case
-           (if (get-visible-flag~ first)
+           (if (get-visible-flag first)
                first
-             (find-if get-visible-flag~ sons)))))
+             (find-if get-visible-flag sons)))))
   
   
-  (method public (get-siblings)
-    (and father (get-sons~ father)))
+  (method public (get-siblings self)
+    (and father (get-sons father)))
   
   
-  (method public (previous-sibling)
-    (let ((siblings (get-siblings)))
+  (method public (previous-sibling self)
+    (let ((siblings (get-siblings self)))
       (and siblings
            (let ((rank (find siblings self)))
              (let ((previous (- rank 1)))
@@ -358,8 +359,8 @@
                     (element siblings previous)))))))
   
   
-  (method public (next-sibling)
-    (let ((siblings (get-siblings)))
+  (method public (next-sibling self)
+    (let ((siblings (get-siblings self)))
       (and siblings
            (let ((rank (find siblings self)))
              (let ((next (+ rank 1)))
@@ -367,16 +368,16 @@
                     (element siblings next)))))))
   
   
-  (method public (previous-visible-row target)
-    (let ((previous-visible-sibling (previous-visible-sibling~ target))
-          (father (get-father~ target)))
-      (or (and previous-visible-sibling (last-descendant~ previous-visible-sibling))
-          (and father (expanded?~ father) father))))
+  (method public (previous-visible-row self target)
+    (let ((previous-visible-sibling (previous-visible-sibling target))
+          (father (get-father target)))
+      (or (and previous-visible-sibling (last-descendant previous-visible-sibling))
+          (and father (expanded? father) father))))
   
   
-  (method public (previous-visible-sibling)
+  (method public (previous-visible-sibling self)
     (let* ((sibling #f)
-           (siblings (and father (get-sons~ father)))
+           (siblings (and father (get-sons father)))
            (scan (first siblings))
            (found-self? #f))
       (iterate siblings
@@ -384,18 +385,18 @@
                  (unless found-self?
                    (if (eq? scan self)
                        (set! found-self? #t)
-                     (when (get-visible-flag~ scan)
+                     (when (get-visible-flag scan)
                        (set! sibling scan))))))
       sibling))
   
   
-  (method protected (last-visible-descendant)
+  (method package (last-visible-descendant self)
     (declare (proper-tail-calls))
-    (let ((scan (first-visible-son)))
+    (let ((scan (first-visible-son self)))
       (and scan
            (begin
-             (while (and (get-next~ scan) (> (get-level~ (get-next~ scan)) level))
-               (set! scan (get-next~ scan)))
+             (while (and (get-next scan) (> (get-level (get-next scan)) level))
+               (set! scan (get-next scan)))
              scan))))
   
   
@@ -404,82 +405,82 @@
   ;;;
   
   
-  (method public (add-son row position)
-    (set-father~ row self)
+  (method public (add-son self row position)
+    (set-father row self)
     (let* ((expanded? (eq? state 'expanded))
-           (end (last-descendant~ row))
+           (end (last-descendant row))
            (count (cardinality sons))
            (pos <fx> (cond ((not position) count)
                            ((> position count) count)
                            (else position))))
-      (when (get-visible-flag~ row)
+      (when (get-visible-flag row)
         (let* ((before (cond ((= pos 0) (if expanded? self #f))
-                             ((= pos count) (if expanded? (last-descendant) (last-visible-descendant)))
-                             (else (previous-visible-row (element sons pos)))))
-               (following (and before (get-next~ before)))
+                             ((= pos count) (if expanded? (last-descendant self) (last-visible-descendant self)))
+                             (else (previous-visible-row self (element sons pos)))))
+               (following (and before (get-next before)))
                (after (cond (expanded? following)
-                            (following (and (> (get-level~ following) level) following))
-                            ((and (= pos 0)(/= count 0)) (first-visible-son))
+                            (following (and (> (get-level following) level) following))
+                            ((and (= pos 0)(/= count 0)) (first-visible-son self))
                             (else #f))))
           (link before row)
           (link end after)))
       (set! sons (insert! sons pos row))))
   
   
-  (method public (remove-son row)
-    (let ((following (next-non-descendant~ row)))
+  (method public (remove-son self row)
+    (let ((following (next-non-descendant row)))
       ;; trying to debug a difficult to reproduce bug
       (when (and following (is-not? following Outline-Row))
         (error "Invalid tree state case #1"))
-      (when (get-previous~ row)
+      (when (get-previous row)
         ;; trying to debug a difficult to reproduce bug
-        (when (and (get-previous~ row) (is-not? (get-previous~ row) Outline-Row))
+        (when (and (get-previous row) (is-not? (get-previous row) Outline-Row))
           (error "Invalid tree state case #2"))
-        (set-next~ (get-previous~ row) following))
+        (set-next (get-previous row) following))
       (when following
-        (set-previous~ following (get-previous~ row)))
+        (set-previous following (get-previous row)))
       (set! sons (axis-remove! sons row))))
   
   
-  (method public (relink replacement before after)
+  (method public (relink self replacement before after)
     (let ((before before))
       (iterate replacement
                (lambda (row)
-                 (when (get-visible-flag~ row)
+                 (when (get-visible-flag row)
                    (link before row)
-                   (set! before (or (and (expanded?~ row) (last-descendant~ row)) row)))))
+                   (set! before (or (and (expanded? row) (last-descendant row)) row)))))
       (link before after)))
   
   
-  (method public (replace-sons replacement <list> start-row start <fx> end-row end <fx>)
-    (let ((before (and start-row (get-previous~ start-row)))
+  (method public (replace-sons self replacement <list> start-row start <fx> end-row end <fx>)
+    (let ((before (and start-row (get-previous start-row)))
           (after end-row))
-      (relink replacement before after)
+      (relink self replacement before after)
       (set! sons (replace-subseq! sons start end replacement))))
   
   
-  (method public (reorder-sons replacement <Axis>)
-    (let ((before (and (expanded?) self))
-          (after (and (expanded?) (next-non-descendant))))
-      (relink replacement before after)
+  (method public (reorder-sons self replacement <Axis>)
+    (let ((before (and (expanded? self) self))
+          (after (and (expanded? self) (next-non-descendant self))))
+      (relink self replacement before after)
       (set! sons replacement)))
   
   
   ;; until we unify link and link-rows
   (definition (link before after)
     (when before
-      (set-next~ before after))
+      (set-next before after))
     (when after
-      (set-previous~ after before)))
+      (set-previous after before)))
   
   
   ;; until we unify unlink and unlink-rows
   (definition (unlink first last)
-    (let ((previous (get-previous~ first))
-          (next (get-next~ last)))
+    (let ((previous (get-previous first))
+          (next (get-next last)))
       (link previous next)
-      (set-previous~ first #f)
-      (set-next~ last #f)))
+      (set-previous first #f)
+      (set-next last #f)))
   
   
   ;;;
@@ -487,12 +488,12 @@
   ;;;
   
   
-  (method public (attached?)
+  (method public (attached? self)
     parent)
   
   
-  (method public (detach-descendants)
-    (iterate sons detach-descendants~))
+  (method public (detach-descendants self)
+    (iterate sons detach-descendants))
   
   
   ;;;
@@ -500,42 +501,42 @@
   ;;;
   
   
-  (method protected (first-descendant)
+  (method package (first-descendant self)
     (and (eq? state 'expanded)
          (not (empty? sons))
-         (first-visible-son)))
+         (first-visible-son self)))
   
   
-  (method protected (last-proper-descendant)
-    (let ((scan (first-descendant)))
+  (method package (last-proper-descendant self)
+    (let ((scan (first-descendant self)))
       (and scan
            (begin
-             (while (and (get-next~ scan) (> (get-level~ (get-next~ scan)) level))
-               (set! scan (get-next~ scan)))
+             (while (and (get-next scan) (> (get-level (get-next scan)) level))
+               (set! scan (get-next scan)))
              scan))))
   
   
-  (method protected (last-descendant)
-    (or (last-proper-descendant)
+  (method package (last-descendant self)
+    (or (last-proper-descendant self)
         self))
   
   
-  (method protected (next-non-descendant)
-    (get-next~ (last-descendant)))
+  (method package (next-non-descendant self)
+    (get-next (last-descendant self)))
   
   
-  (method protected (visible-sibling-follows?)
+  (method package (visible-sibling-follows? self)
     (and father
          (let ((found? #f))
            (some? (lambda (son)
-                    (prog1 (and found? (get-visible-flag~ son))
+                    (prog1 (and found? (get-visible-flag son))
                       (when (eq? son self)
                         (set! found? #t))))
-                  (get-sons~ father)))))
+                  (get-sons father)))))
   
   
-  (method protected (sibling-follows?)
-    (and father (neq? self (last (get-sons~ father)))))
+  (method protected (sibling-follows? self)
+    (and father (neq? self (last (get-sons father)))))
   
   
   ;;;
@@ -543,13 +544,13 @@
   ;;;
   
   
-  (method public (get-spine)
+  (method public (get-spine self)
     (let ((row self)
-          (root (get-root-row~ parent))
+          (root (get-root-row parent))
           (spine '()))
       (while (neq? row root)
         (set! spine (cons row spine))
-        (set! row (get-father~ row)))
+        (set! row (get-father row)))
       spine))
   
   
@@ -558,5 +559,5 @@
   ;;;
   
   
-  (method public (internal-fields)
+  (method public (internal-fields self)
     (values level state previous next))))

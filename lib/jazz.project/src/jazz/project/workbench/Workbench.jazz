@@ -39,6 +39,7 @@
 
 
 (import (jazz.catalog)
+        (jazz.component)
         (jazz.feedback)
         (jazz.io)
         (jazz.project))
@@ -47,7 +48,7 @@
 (class Workbench extends Project
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         )))
@@ -58,7 +59,7 @@
   ;;;
   
   
-  (method override (catalog-name)
+  (method override (catalog-name self)
     'workbench)
 
 
@@ -67,21 +68,21 @@
   ;;;
   
   
-  (method public (find-project-by-file file)
+  (method public (find-project-by-file self file)
     (continuation-capture
       (lambda (return)
-        (for-each-project
+        (for-each-project self
           (lambda (project)
-            (let ((tag-file (get-tag-reference~ (get-form~ project))))
+            (let ((tag-file (get-tag-reference (get-form project))))
               (when (and tag-file (pathname=? tag-file file))
                 (continuation-return return project)))))
         #f)))
   
   
-  (method public (find-project-by-identity target)
+  (method public (find-project-by-identity self target)
     (continuation-capture
       (lambda (return)
-        (for-each-project
+        (for-each-project self
           (lambda (project)
             (when (eq? project target)
               (continuation-return return project))))
@@ -93,29 +94,29 @@
   ;;;
   
   
-  (method public (find-source target)
+  (method public (find-source self target)
     (continuation-capture
       (lambda (return)
-        (let ((target-name (get-name~ target)))
-          (for-each-project-file
+        (let ((target-name (get-name target)))
+          (for-each-project-file self
             (lambda (project-file)
-              (let ((source (get-source~ project-file)))
+              (let ((source (get-source project-file)))
                 (when source
                   (when (and ;; key optimization
-                             (ci=? (get-name~ source) target-name)
+                             (ci=? (get-name source) target-name)
                              (pathname=? source target))
                     (continuation-return return project-file)))))))
           #f)))
   
   
-  (method public (find-filename filename)
+  (method public (find-filename self filename)
     (continuation-capture
       (lambda (return)
-        (for-each-project-file
+        (for-each-project-file self
           (lambda (project-file)
-            (let ((source (get-source~ project-file)))
+            (let ((source (get-source project-file)))
               (when source
-                (when (ci=? (get-name~ source) filename)
+                (when (ci=? (get-name source) filename)
                   (continuation-return return project-file))))))
         #f)))
 
@@ -125,30 +126,30 @@
   ;;;
   
   
-  (method override (catalog-output-base)
+  (method override (catalog-output-base self)
     "workbench")
   
   
-  (method public (load-catalogs-threaded update?)
+  (method public (load-catalogs-threaded self update?)
     (thread-start!
       (new-thread
         (lambda ()
           (user-message "Loading catalogs...")
-          (load-catalogs)
+          (load-catalogs self)
           (when update?
-            (update-catalogs))
+            (update-catalogs self))
           (clear-user-message))
         'catalogs-loader)))
   
   
-  (method public (update-catalogs)
-    (for-each-project
+  (method public (update-catalogs self)
+    (for-each-project self
       (lambda (project)
-        (let ((catalog (get-catalog~ project)))
+        (let ((catalog (get-catalog project)))
           (when catalog
             (post-catalog
               (lambda ()
-                (update~ catalog)
+                (update catalog)
                 (user-feedback "Done"))))))))
 
 
@@ -157,7 +158,7 @@
   ;;;
   
   
-  (method override (get-effective-editable?)
+  (method override (get-effective-editable? self)
     #t)
 
 
@@ -166,15 +167,15 @@
   ;;;
   
   
-  (method public (for-each-project-file proc (include-self?: include-self? #f))
-    (for-each-descendant
+  (method public (for-each-project-file self proc (include-self?: include-self? #f))
+    (for-each-descendant self
       (lambda (descendant level)
         (when (is? descendant Project-File)
           (proc descendant)))
       include-self?: include-self?
       stop-test: (lambda (descendant)
                    (and (is? descendant Project)
-                        (not (get-active?~ descendant))))))
+                        (not (get-active? descendant))))))
   
   
   ;;;
@@ -182,5 +183,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.project.descriptors:Workbench-Descriptor))))

@@ -60,7 +60,7 @@
     (<install> layout-type: fill))
   
   
-  (method override (mouse-activate?)
+  (method override (mouse-activate? self)
     #f)
 
   
@@ -69,49 +69,49 @@
   ;;;
   
   
-  (method public (get-border-type)
+  (method public (get-border-type self)
     border-type)
   
   
-  (method public (set-border-type type)
+  (method public (set-border-type self type)
     (set! border-type type)
-    (recalculate-border-insets)
-    (invalidate-borders))
+    (recalculate-border-insets self)
+    (invalidate-borders self))
   
   
-  (method public (get-border-color)
+  (method public (get-border-color self)
     border-color)
   
   
-  (method public (set-border-color color)
+  (method public (set-border-color self color)
     (set! border-color color)
-    (invalidate-borders))
+    (invalidate-borders self))
   
   
-  (method public (get-border-insets)
+  (method public (get-border-insets self)
     border-insets)
   
   
-  (method public (set-border-insets insets)
+  (method public (set-border-insets self insets)
     (set! border-insets insets)
-    (layout-view))
+    (layout-view self))
   
   
-  (method protected virtual (recalculate-border-insets)
+  (method protected virtual (recalculate-border-insets self)
     (case border-type
-      ((none) (set-border-insets {Rect 0 0 0 0}))
-      ((solid) (set-border-insets {Rect 1 1 1 1}))
-      ((edge raised palette) (set-border-insets (case style ((entry) {Rect 1 1 1 1}) (else {Rect 2 2 2 2}))))
-      ((shadow) (set-border-insets {Rect 1 1 3 3}))))
+      ((none) (set-border-insets self {Rect 0 0 0 0}))
+      ((solid) (set-border-insets self {Rect 1 1 1 1}))
+      ((edge raised palette) (set-border-insets self (case style ((entry) {Rect 1 1 1 1}) (else {Rect 2 2 2 2}))))
+      ((shadow) (set-border-insets self {Rect 1 1 3 3}))))
   
   
-  (method public (get-border-sides)
+  (method public (get-border-sides self)
     border-sides)
   
   
-  (method public (set-border-sides sides)
+  (method public (set-border-sides self sides)
     (set! border-sides sides)
-    (invalidate-borders))
+    (invalidate-borders self))
   
   
   ;;;
@@ -119,8 +119,8 @@
   ;;;
 
   
-  (method override (style-update)
-    (recalculate-border-insets))
+  (method override (style-update self)
+    (recalculate-border-insets self))
 
   
   ;;;
@@ -128,10 +128,10 @@
   ;;;
 
 
-  (method override (add-child child)
-    (nextmethod child)
+  (method override (add-child self child)
+    (nextmethod self child)
     (when (is? child View)
-      (layout-view)))
+      (layout-view self)))
   
 
   ;;;
@@ -139,16 +139,16 @@
   ;;;
   
   
-  (method override (fill-position)
-    (+ (nextmethod)
-       (new Point (get-left~ border-insets) (get-top~ border-insets))))
+  (method override (fill-position self)
+    (+ (nextmethod self)
+       (new Point (get-left border-insets) (get-top border-insets))))
   
   
-  (method override (fill-size)
-    (- (nextmethod)
+  (method override (fill-size self)
+    (- (nextmethod self)
        (new Dimension
-         (+ (get-left~ border-insets) (get-right~ border-insets))
-         (+ (get-top~ border-insets) (get-bottom~ border-insets)))))
+         (+ (get-left border-insets) (get-right border-insets))
+         (+ (get-top border-insets) (get-bottom border-insets)))))
   
   
   ;;;
@@ -156,15 +156,15 @@
   ;;;
   
   
-  (method override (inner? view)
+  (method override (inner? self view)
     (memq? view children))
   
   
-  (method override (inner-widget)
-    (let ((view (first-view)))
+  (method override (inner-widget self)
+    (let ((view (first-view self)))
       (if (and (eq? layout-type 'fill)
                view)
-          (inner-widget~ view)
+          (inner-widget view)
         self)))
   
   
@@ -173,8 +173,8 @@
   ;;;
   
   
-  (method (invalidate-borders)
-    (invalidate-border insets: border-insets))
+  (method (invalidate-borders self)
+    (invalidate-border self insets: border-insets))
   
 
   ;;;
@@ -182,49 +182,49 @@
   ;;;
 
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (define (standardize-sides)
       (listify border-sides))
     
-    (let ((bounds (get-bounds)))
-      (if (not (view-enabled?))
-          (frame-rect~ surface bounds {Color Dark})
+    (let ((bounds (get-bounds self)))
+      (if (not (view-enabled? self))
+          (frame-rect surface bounds {Color Dark})
         (case border-type
           ((none))
           ((solid)
            (when border-color
              (case border-sides
                ((none))
-               ((all) (frame-rect~ surface bounds border-color))
-               (else (frame-partial-rect~ surface bounds (standardize-sides) border-color)))))
+               ((all) (frame-rect surface bounds border-color))
+               (else (frame-partial-rect surface bounds (standardize-sides) border-color)))))
           ((edge)
-           (let ((skin (get-skin)))
-             (cond ((and (eq? style 'entry) (get-edge-flat?~ skin))
-                    (frame-rect~ surface bounds {Color Entry-Border}))
-                   ((and (eq? style 'outline) (get-edge-flat?~ skin))
+           (let ((skin (get-skin self)))
+             (cond ((and (eq? style 'entry) (get-edge-flat? skin))
+                    (frame-rect surface bounds {Color Entry-Border}))
+                   ((and (eq? style 'outline) (get-edge-flat? skin))
                     (let ((inner (inflate-rect bounds -1 -1)))
-                      (frame-rect~ surface inner {Color Outline-Border})))
+                      (frame-rect surface inner {Color Outline-Border})))
                    (else
-                    (draw-edge~ surface bounds outer: 'sunken inner: (case (get-left~ border-insets) ((1) #f) ((2) 'sunken)) edges: 'rectangle)))))
+                    (draw-edge surface bounds outer: 'sunken inner: (case (get-left border-insets) ((1) #f) ((2) 'sunken)) edges: 'rectangle)))))
           ((raised)
-           (draw-edge~ surface bounds inner: 'raised outer: 'raised edges: 'rectangle))
+           (draw-edge surface bounds inner: 'raised outer: 'raised edges: 'rectangle))
           ((shadow)
-           (let ((inner (expand-rect bounds 0 0 (- 1 (get-right~ border-insets)) (- 1 (get-bottom~ border-insets)))))
-             (frame-rect~ surface inner border-color)
-             (set-color~ surface {Color Black})
-             (set-line-width~ surface 1)
-             (line~ surface (get-right~ inner) 2 (get-right~ inner) (get-bottom~ bounds))
-             (line~ surface (+ (get-right~ inner) 1) 2 (+ (get-right~ inner) 1) (get-bottom~ bounds))
-             (line~ surface 2 (get-bottom~ inner) (get-right~ bounds) (get-bottom~ inner))
-             (line~ surface 2 (+ (get-bottom~ inner) 1) (get-right~ bounds) (+ (get-bottom~ inner) 1))))))))
+           (let ((inner (expand-rect bounds 0 0 (- 1 (get-right border-insets)) (- 1 (get-bottom border-insets)))))
+             (frame-rect surface inner border-color)
+             (set-color surface {Color Black})
+             (set-line-width surface 1)
+             (line surface (get-right inner) 2 (get-right inner) (get-bottom bounds))
+             (line surface (+ (get-right inner) 1) 2 (+ (get-right inner) 1) (get-bottom bounds))
+             (line surface 2 (get-bottom inner) (get-right bounds) (get-bottom inner))
+             (line surface 2 (+ (get-bottom inner) 1) (get-right bounds) (+ (get-bottom inner) 1))))))))
   
   
-  (method override (draw-children surface nodes context)
-    (nextmethod surface nodes context)
+  (method override (draw-children self surface nodes context)
+    (nextmethod self surface nodes context)
     (case border-type
       ((palette)
-       (let ((bounds (get-bounds)))
-         (draw-edge~ surface bounds outer: 'sunken inner: 'raised edges: '(top))))))
+       (let ((bounds (get-bounds self)))
+         (draw-edge surface bounds outer: 'sunken inner: 'raised edges: '(top))))))
   
   
   ;;;
@@ -232,7 +232,7 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (case style
       ((entry) (find-skin 'ui:border/entry))
       ((outline) (find-skin 'ui:border/outline))))
@@ -243,5 +243,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Border-View-Descriptor))))

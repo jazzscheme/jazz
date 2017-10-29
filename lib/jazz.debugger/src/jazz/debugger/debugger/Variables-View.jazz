@@ -68,7 +68,7 @@
                   (<!>            name: value     width: 303)))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Variables)
   
   
@@ -77,11 +77,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Spy"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Variables")
   
   
@@ -90,13 +90,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (get-inspector)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (get-inspector self)))
+      (acquire-focus tree)))
   
   
   ;;;
@@ -104,39 +104,39 @@
   ;;;
   
   
-  (method public (get-inspector-view)
-    (locate 'variables))
+  (method public (get-inspector-view self)
+    (locate self 'variables))
   
   
-  (method public (get-inspector)
-    (get-inspector~ (get-inspector-view)))
+  (method public (get-inspector self)
+    (get-inspector (get-inspector-view self)))
   
   
-  (method public (get-process)
-    (get-process~ (get-inspector-view)))
+  (method public (get-process self)
+    (get-process (get-inspector-view self)))
   
   
-  (method public (set-process process)
-    (set-process~ (get-inspector-view) process))
+  (method public (set-process self process)
+    (set-process (get-inspector-view self) process))
   
   
-  (method public (get-continuation-frame)
+  (method public (get-continuation-frame self)
     continuation-frame)
   
   
-  (method public (set-continuation-frame frm)
+  (method public (set-continuation-frame self frm)
     (set! continuation-frame frm)
-    (set-client~ (get-inspector-view) (determine-frame-client)))
+    (set-client (get-inspector-view self) (determine-frame-client self)))
   
   
-  (method public (frame-changed new-frame)
-    (set-process (get-process~ (get-debugger-manager)))
-    (set-continuation-frame new-frame))
+  (method public (frame-changed self new-frame)
+    (set-process self (get-process (get-debugger-manager)))
+    (set-continuation-frame self new-frame))
   
   
-  (method (determine-frame-client)
+  (method (determine-frame-client self)
     (define (show-dynamic?)
-      (get-selected?~ (locate 'dynamic)))
+      (get-selected? (locate self 'dynamic)))
     
     (and continuation-frame
          (let ((kind (if (show-dynamic?) :all :lexical)))
@@ -148,24 +148,24 @@
   ;;;
   
   
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (size-figure~ (locate 'variables) dh dv))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (size-figure (locate self 'variables) dh dv))
   
   
-  (method (on-backward evt)
-    (on-backward~ (get-inspector-view) evt))
+  (method package (on-backward self evt)
+    (on-backward (get-inspector-view self) evt))
   
   
-  (method (on-forward evt)
-    (on-forward~ (get-inspector-view) evt))
+  (method package (on-forward self evt)
+    (on-forward (get-inspector-view self) evt))
   
   
-  (method package (on-frame-change evt)
-    (let ((process (get-property~ evt process:))
-          (frame (get-property~ evt frame:)))
-      (set-process process)
-      (set-continuation-frame frame)
+  (method package (on-frame-change self evt)
+    (let ((process (get-property evt process:))
+          (frame (get-property evt frame:)))
+      (set-process self process)
+      (set-continuation-frame self frame)
       @convert
       (typecase frame
         ((Frame-Snapshot)
@@ -176,9 +176,9 @@
          (set-continuation-frame #f)))))
   
   
-  (method (on-toggle-dynamic evt)
+  (method (on-toggle-dynamic self evt)
     (when continuation-frame
-      (set-client~ (get-inspector-view) (determine-frame-client)))))
+      (set-client (get-inspector-view self) (determine-frame-client self)))))
 
 
 ;;;
@@ -189,10 +189,10 @@
 (class Variables-Inspector-View extends Inspector-View
   
   
-  (method override (form-model form)
-    (case (get-name~ form)
+  (method override (form-model self form)
+    (case (get-name form)
       ((inspector) Variables-Inspector)
-      (else (nextmethod form)))))
+      (else (nextmethod self form)))))
 
 
 ;;;
@@ -203,11 +203,11 @@
 (class Variables-Inspector extends Inspector
   
   
-  (method override (inspect data kind max-content)
+  (method override (inspect-object self data kind max-content)
     (define (inspect-frame frame)
       (typecase frame
         ((Frame-Snapshot)
-         (let ((parameters (get-parameters~ frame)))
+         (let ((parameters (get-parameters frame)))
            (map (lambda (parameter rank)
                   (if (pair? parameter)
                       (bind (name value) parameter
@@ -219,7 +219,7 @@
     (if (is? data Debugged-Frame)
         (with-jrm-exception-handler process
           (lambda ()
-            (get-variables~ data kind)))
+            (get-variables data kind)))
       (case kind
         ((frame:) (inspect-frame data))
-        (else (nextmethod data kind max-content)))))))
+        (else (nextmethod self data kind max-content)))))))

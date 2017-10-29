@@ -56,7 +56,7 @@
       `(let ((,variable ,specifier ,value))
          (dynamic-wind (lambda () #f)
                        (lambda () ,@body)
-                       (lambda () (close~ ,variable)))))))
+                       (lambda () (close ,variable)))))))
 
 
 (define (expand-with bindings body)

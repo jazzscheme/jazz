@@ -94,14 +94,14 @@
 
 ;; run the message loop
 (define (run-loop)
-  (let ((get-process (jazz:global-ref 'jazz.process:get-process))
+  (let ((get-process (jazz:global-ref 'jazz.process:current-process))
         (run-loop (jazz:global-ref 'jazz.process.Process:Process:run-loop)))
     (run-loop (get-process))))
 
 
 ;; resume the message loop
 (define (resume)
-  (let ((get-process (jazz:global-ref 'jazz.process:get-process))
+  (let ((get-process (jazz:global-ref 'jazz.process:current-process))
         (invoke-resume-loop (jazz:global-ref 'jazz.process.Process:Process:invoke-resume-loop)))
     (invoke-resume-loop (get-process))))
 
@@ -578,15 +578,15 @@
 (define jazz:file-rename rename-file)
 (define jazz:directory-delete delete-directory)
 
-(define (jazz:current-directory)
-  (let ((dir (current-directory)))
-    (jazz:pathname-normalize
-      (if (jazz:pathname-exists? dir)
-          dir
-        (jazz:home-directory)))))
-
-(define (jazz:current-directory-set! dir)
-  (current-directory dir))
+(define (jazz:current-directory . rest)
+  (if (%%null? rest)
+      (let ((dir (current-directory)))
+        (jazz:pathname-normalize
+          (if (jazz:pathname-exists? dir)
+              dir
+            (jazz:home-directory))))
+    (let ((dir (%%car rest)))
+      (current-directory dir))))
 
 (define (jazz:with-current-directory dir thunk)
   (parameterize ((current-directory dir))
@@ -636,8 +636,8 @@
 
 
 (define (jazz:get-console-port)
-  (if (jazz:global-bound? 'jazz.language.runtime.debug:get-console-port)
-      ((jazz:global-ref 'jazz.language.runtime.debug:get-console-port))
+  (if (jazz:global-bound? 'jazz.language.runtime.debug:current-console-port)
+      ((jazz:global-ref 'jazz.language.runtime.debug:current-console-port))
     #f))
 
 

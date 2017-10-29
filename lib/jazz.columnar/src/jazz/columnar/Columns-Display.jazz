@@ -38,6 +38,9 @@
 (module protected jazz.columnar.Columns-Display jazz
 
 
+(import (jazz.columnar))
+
+
 (class undocumented Columns-Display extends Object
   
   
@@ -50,8 +53,8 @@
   ;;;
   
   
-  (method override (initialize . rest)
-    (nextmethod))
+  (method override (initialize self . rest)
+    (nextmethod self))
   
   
   ;;;
@@ -59,16 +62,16 @@
   ;;;
   
   
-  (method public (add-column column (before: before #f))
+  (method public (add-column self column (before: before #f))
     (if (null? before)
         (set! columns (append! columns (list column)))
       (let ((rank (find columns before)))
         (set! columns (insert! columns rank column)))))
   
   
-  (method public (add-columns columns (before: before #f))
+  (method public (add-columns self columns (before: before #f))
     (for-each (lambda (column)
-                (add-column column before: before))
+                (add-column self column before: before))
               columns))
   
   
@@ -77,55 +80,55 @@
   ;;;
   
   
-  (method public (newline)
+  (method public (new-line self)
     (increase! line))
   
   
-  (method public (print-to output)
-    (prepare-columns)
-    (print-columns output))
+  (method public (print-to self output)
+    (prepare-columns self)
+    (print-columns self output))
   
   
-  (method public (prepare-columns)
-    (define (prepare-base)
+  (method public (prepare-columns self)
+    (define (prepare-column-base)
       (for-each (lambda (column)
-                  (fill-empty~ column)
-                  (rewind~ column))
+                  (fill-empty column)
+                  (rewind column))
                 columns))
     
-    (define (prepare-empties)
+    (define (prepare-column-empties)
       (loop (for n from 0 below line)
             (let ((previous-column #f)
                   (previous-data #f))
               (for-each (lambda (column)
-                          (unless (get-empty?~ column)
-                            (let ((data (replace-empty~ column previous-column previous-data)))
+                          (unless (get-empty? column)
+                            (let ((data (replace-empty column previous-column previous-data)))
                               (set! previous-column column)
                               (set! previous-data data))))
                         columns))))
     
-    (define (prepare-print)
+    (define (prepare-column-print)
       (for-each (lambda (column)
-                  (unless (get-empty?~ column)
-                    (prepare-print~ column)))
+                  (unless (get-empty? column)
+                    (prepare-print column)))
                 columns))
     
-    (prepare-base)
-    (prepare-empties)
-    (prepare-print))
+    (prepare-column-base)
+    (prepare-column-empties)
+    (prepare-column-print))
   
   
   ;; Bug to fix: suppose x and y columns, x is contoured and y is not.
   ;; If y is empty, then y won't have the change to end the contouring...
-  (method public (print-columns output)
+  (method public (print-columns self output)
     (let ((last (- line 1)))
       (loop (for n from 0 below line)
             (let ((previous-column #f)
                   (previous-data #f))
               (for-each (lambda (column)
-                          (unless (get-empty?~ column)
-                            (let ((data (get-next~ column)))
-                              (print-to~ column data previous-column previous-data output)
+                          (unless (get-empty? column)
+                            (let ((data (get-next column)))
+                              (print-to column data previous-column previous-data output)
                               (set! previous-column column)
                               (when data
                                 (set! previous-data data)))))

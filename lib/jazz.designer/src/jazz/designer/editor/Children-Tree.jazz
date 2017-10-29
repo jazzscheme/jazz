@@ -63,8 +63,8 @@
   ;;;
   
   
-  (method override (branch-changed)
-    (update))
+  (method override (branch-changed self)
+    (update self))
   
 
   ;;;
@@ -72,57 +72,57 @@
   ;;;
 
 
-  (method override (update (expand-state: expand-state (get-expand-state)) (selected-components: selected-components (selected-components)))
-    (with-update-locked
+  (method override (update self (expand-state: expand-state (get-expand-state self)) (selected-components: selected-components (selected-components self)))
+    (with-update-locked self
       (lambda ()
-        (setup-columns)
-        (insert-rows expand-state selected-components))))
+        (setup-columns self)
+        (insert-rows self expand-state selected-components))))
   
   
-  (method (setup-columns)
-    (let ((header (get-header)))
+  (method (setup-columns self)
+    (let ((header (get-header self)))
       (set! base (and client (get-addable-base client)))
-      (set-filled-column #f)
-      (remove-columns preserve-node-column?: #t)
+      (set-filled-column self #f)
+      (remove-columns self preserve-node-column?: #t)
       (if (or (not base) (null? details))
-          (set-filled-column (get-name~ node-column))
+          (set-filled-column self (get-name node-column))
         (let ((first? #t))
           (for-each (lambda (detail)
                       (bind (name width filled?) detail
                         (let* ((property (category-field base name))
                                (title (detail-presentation base property)))
                           (when filled?
-                            (set-filled-column name))
+                            (set-filled-column self name))
                           (if first?
                               (begin
                                 (set! first? #f)
-                                (let ((column (get-node-column)))
-                                  (set-name~ column name)
-                                  (set-title~ column title)
-                                  (set-width~ column width)))
-                            (add-column context: self class: Tree-Label-Column name: name title: title width: width)))))
+                                (let ((column (get-node-column self)))
+                                  (set-name column name)
+                                  (set-title column title)
+                                  (set-width column width)))
+                            (add-column self context: self class: Tree-Label-Column name: name title: title width: width)))))
                     details)))))
   
   
-  (method (insert-rows expand-state selected-components)
-    (remove-every-row)
+  (method (insert-rows self expand-state selected-components)
+    (remove-every-row self)
     (when client
       (let ((recursive? (get-recursive-details? client)))
-        (insert-components client #f recursive?)
-        (update-selection expand-state selected-components))))
+        (insert-components self client #f recursive?)
+        (update-selection self expand-state selected-components))))
   
   
-  (method (insert-components component father recursive?)
+  (method (insert-components self component father recursive?)
     (let ((components (get-components component)))
       (for-each (lambda (child)
                   (unless (is? child Group)
-                    (insert-component child father recursive?)))
+                    (insert-component self child father recursive?)))
                 (if (sort-component-components? component)
                     (sort < components key: get-presentation-property)
                   components))))
     
   
-  (method protected virtual (insert-component component father recursive?)
+  (method protected virtual (insert-component self component father recursive?)
     (let ((row #f))
       (when (and base details)
         (bind (first . rest) details
@@ -145,13 +145,13 @@
                                         (new Tree-Label title: title)))))
                                 rest))
                    (children (cons node labels)))
-              (set! row (add-row father: father state: 'expanded children: children user-data: component))))))
+              (set! row (add-row self father: father state: 'expanded children: children user-data: component))))))
         (when recursive?
-          (insert-components component row recursive?))))
+          (insert-components self component row recursive?))))
   
   
-  (method (present-location component)
-    (let ((ascendants (cdr (collect-ascendants~ component))))
+  (method package (present-location self component)
+    (let ((ascendants (cdr (collect-ascendants component))))
       (if (null? ascendants)
           ""
         (join (map (lambda (ascendant) (localize (get-presentation-property ascendant))) ascendants) " / "))))
@@ -162,38 +162,38 @@
   ;;;
   
   
-  (method override (on-designer evt)
-    (case (get-kind~ evt)
-      ((:child-add) (child-add (get-property~ evt child:) (get-property~ evt parent:)))
-      ((:child-remove) (child-remove (get-property~ evt child:)))
-      ((:property-change) (property-change (get-property~ evt component:) (get-property~ evt property:) (get-property~ evt value:)))))
+  (method override (on-designer self evt)
+    (case (get-kind evt)
+      ((:child-add) (child-add self (get-property evt child:) (get-property evt parent:)))
+      ((:child-remove) (child-remove self (get-property evt child:)))
+      ((:property-change) (property-change self (get-property evt component:) (get-property evt property:) (get-property evt value:)))))
   
   
-  (method (child-add child parent)
+  (method package (child-add self child parent)
     (unless (or (is? child Group) (neq? parent client))
-      (with-update-locked
+      (with-update-locked self
         (lambda ()
-          (insert-component child #f #f)))))
+          (insert-component self child #f #f)))))
   
   
-  (method (child-remove child)
-    (unless (or (is? child Group) (neq? (get-parent~ child) client))
-      (let ((row (component-row child)))
+  (method package (child-remove self child)
+    (unless (or (is? child Group) (neq? (get-parent child) client))
+      (let ((row (component-row self child)))
         (when row
-          (with-update-locked
+          (with-update-locked self
             (lambda ()
-              (remove-row row)))))))
+              (remove-row self row)))))))
   
   
-  (method (property-change component property value)
-    (unless (or (is? component Group) (neq? (get-parent~ component) client))
+  (method package (property-change self component property value)
+    (unless (or (is? component Group) (neq? (get-parent component) client))
       (let ((col (find details (field-name property) key: car)))
         (when col
-          (for-each-visible-row
+          (for-each-visible-row self
             (lambda (row rank)
-              (when (eq? (get-user-data~ row) component)
+              (when (eq? (get-user-data row) component)
                 (let* ((cell (new Cell rank col))
-                       (data (get-cell-data cell))
+                       (data (get-cell-data self cell))
                        (title (present-property component property value)))
-                  (set-title~ data title)
-                  (invalidate-cell cell)))))))))))
+                  (set-title data title)
+                  (invalidate-cell self cell)))))))))))

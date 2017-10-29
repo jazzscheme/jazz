@@ -42,12 +42,16 @@
         (jazz.component)
         (jazz.descriptor)
         (jazz.designer)
+        (jazz.editor)
         (jazz.editor.jazz)
+        (jazz.ide)
         (jazz.io)
         (jazz.jml)
         (jazz.locale)
         (jazz.picker)
         (jazz.runtime)
+        (jazz.text)
+        (jazz.ui)
         (jazz.view)
         (jazz.workspace))
 
@@ -72,7 +76,7 @@
 (definition package (component-addable-classes component)
   (remove-duplicates
     (map publicize-runtime-reference
-         (flatten
+         (flatten-lists
            (or (component-categorized-toolbox-addable-classes component) '())))
     key: serialize-runtime-reference
     test: equal?))
@@ -101,7 +105,7 @@
 (definition public (redundant-descendant? component components)
   (some? (lambda (target)
            (and (neq? component target)
-                (has-parent?~ component target)))
+                (has-parent? component target)))
          components))
 
 
@@ -153,20 +157,20 @@
   (find-frame-if-guest
     (lambda (guest)
       (and (is? guest Component-Editor)
-           (origin-equal? origin (get-origin~ (get-form~ (get-designer~ guest))))))))
+           (origin-equal? origin (get-origin (get-form (get-designer guest))))))))
 
 
 (definition public (make-trait-edition-instance reference)
   (let* ((trait (resolve-runtime-reference reference))
-         (trait-type (get-client-type~ trait))
+         (trait-type (get-client-type trait))
          (type-name (category-name trait-type))
-         (trait-form (get-form~ trait))
-         (trait-edition-form (copy-object~ trait-form #t))
+         (trait-form (get-form trait))
+         (trait-edition-form (copy-object trait-form #t))
          (edition-form (new Form action: 'new model: type-name children: (list trait-edition-form))))
-    (set-locator~ edition-form (locator-add-reference (get-locator~ trait-form) type-name (runtime-class-reference trait-type)))
-    (setup-context~ edition-form edition-form)
-    (set-origin~ edition-form reference)
-    (instantiate~ edition-form)))
+    (set-locator edition-form (locator-add-reference (get-locator trait-form) type-name (runtime-class-reference trait-type)))
+    (setup-context edition-form edition-form)
+    (set-origin edition-form reference)
+    (instantiate edition-form)))
 
 
 (definition public (open-trait reference (editor-class: editor-class #f))
@@ -174,7 +178,7 @@
     (if (is? resolved Trait)
         (let ((frame (find-editor reference)))
           (if frame
-              (focus-host~ frame)
+              (focus-host frame)
             (open-component (make-trait-edition-instance reference) editor-class: editor-class)))
       (error "Target is not a trait: {s}" resolved))))
 
@@ -183,33 +187,33 @@
   (let ((form-string (if form
                          (form->string form 2)
                        "(form\n    (<install>))")))
-    (insert-string~ (get-model~ text) (location-range~ text (list class-name :new-form)) (format "{%}{%}{%}  {a}" form-string))))
+    (insert-string (get-model text) (location-range text (list class-name :new-form)) (format "{%}{%}{%}  {a}" form-string))))
 
 
 (definition public (insert-class text class-name super-class-name)
-  (let ((explorer (new Jazz-Explorer (get-model~ text))))
-    (set-caret~ text (find-namespace-insertion-point~ explorer))
-    (insert-string~ text (format "{%}{%}{%}(class {a} extends {a})" class-name super-class-name))))
+  (let ((explorer (new Jazz-Explorer (get-model text))))
+    (set-caret text (find-namespace-insertion-point explorer))
+    (insert-string text (format "{%}{%}{%}(class {a} extends {a})" class-name super-class-name))))
 
 
 (definition (check-class-form class)
-  (let ((class-form (get-class-form~ class)))
-    (unless (and class-form (eq? (get-origin~ class-form) class))
+  (let ((class-form (get-class-form class)))
+    (unless (and class-form (eq? (get-origin class-form) class))
       (case (message-box "This class does not have a form. Do you want to add one? You will have to reopen." yes: "Yes" no: "No")
         ((yes)
          (bind (unit class-name) (cdr (serialize-class class))
            (call-with-saved-text (find-unit-source unit)
              (lambda (text)
                (insert-new-form text class-name)
-               (evaluate-range~ text (location-range~ text (list class-name :form))))))))
+               (evaluate-range text (location-range text (list class-name :form))))))))
       (signal-cancel))))
 
 
 (definition public (make-class-edition-instance class)
   (check-class-form class)
-  (let* ((class-form (get-class-form~ class))
-         (edition-form (copy-object~ class-form #t)))
-    (setup-context~ edition-form edition-form)
+  (let* ((class-form (get-class-form class))
+         (edition-form (copy-object class-form #t)))
+    (setup-context edition-form edition-form)
     (new class class-form: edition-form)))
 
 
@@ -218,8 +222,8 @@
       (let ((frame (find-editor class)))
         (if frame
             (begin
-              (focus-host~ frame)
-              (get-guest~ frame))
+              (focus-host frame)
+              (get-guest frame))
           (open-component (make-class-edition-instance class) editor-class: editor-class)))
     (error "Target is not a class: {s}" class)))
 
@@ -228,9 +232,9 @@
   (if (is? target Component)
       (let ((editor-class (or editor-class
                               (typecase target
-                                ((View) (view-editor-class~ (get-application)))
-                                ((Component) (component-editor-class~ (get-application)))))))
-        (get-guest~ (new-frame editor-class host-position: host-position host-size: host-size client: target)))
+                                ((View) (view-editor-class (get-application)))
+                                ((Component) (component-editor-class (get-application)))))))
+        (get-guest (new-frame editor-class host-position: host-position host-size: host-size client: target)))
     (error "Target is not a component: {s}" target)))
 
 
@@ -255,7 +259,7 @@
       (else
        guest)))
   
-  (determine-client (get-guest~ view)))
+  (determine-client (get-guest view)))
 
 
 (definition public (design-client)
@@ -269,7 +273,7 @@
 
 
 (definition public (design-mouse-client)
-  (design-view (mouse-view)))
+  (design-view (active-mouse-view)))
 
 
 (definition (design-view view)
@@ -287,13 +291,13 @@
         (bell)
       (let ((editor (get-view-editor client)))
         (if (not editor)
-            (set-view-editor client (get-guest~ (new-frame View-Editor host-visible?: #f client: client)))
-          (close~ editor)
+            (set-view-editor client (get-guest (new-frame View-Editor host-visible?: #f client: client)))
+          (close editor)
           (set-view-editor client #f))))))
 
 
 (definition public (save-mouse-client)
-  (let ((client (view-editor-client (mouse-view))))
+  (let ((client (view-editor-client (active-mouse-view))))
     (if (not client)
         (bell)
       (let ((editor (get-view-editor client)))
@@ -301,7 +305,7 @@
             (bell)
           (with-cursor :wait
             (lambda ()
-              (save~ editor))))))))
+              (save editor))))))))
 
 
 (definition public (design target)
@@ -318,16 +322,16 @@
 
 
 (definition public (request-unique-name-in-module unit)
-    (let ((symbols (table-keys (get-exports~ (require-module unit)))))
+    (let ((symbols (table-keys (get-exports (require-module unit)))))
       (request-name accepts-empty?: #f unicity-domain: (map symbol->string symbols))))
 
 
 (definition public (find-toolbox-module name)
-    (find (get-toolbox-modules) name key: get-module-name~ return: 'item))
+    (find (find-toolbox-modules) name key: get-module-name return: 'item))
 
 
-(definition public (get-toolbox-modules)
-  (append-map get-toolbox-modules~ (get-toolbox-managers)))
+(definition public (find-toolbox-modules)
+  (append-map collect-toolbox-modules (get-toolbox-managers)))
 
 
 (definition public (get-toolbox-managers)

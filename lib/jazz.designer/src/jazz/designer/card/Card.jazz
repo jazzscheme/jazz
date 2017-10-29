@@ -38,8 +38,10 @@
 (module protected jazz.designer.card.Card jazz
 
 
-(import (jazz.handler)
-        (jazz.ui))
+(import (jazz.designer)
+        (jazz.handler)
+        (jazz.ui)
+        (jazz.view))
 
 
 (class undocumented Card extends Layout-View
@@ -55,10 +57,10 @@
   ;;;
   
   
-  (method override (destroy)
-    (set-designer #f)
-    (set-editor #f)
-    (nextmethod))
+  (method override (destroy self)
+    (set-designer self #f)
+    (set-editor self #f)
+    (nextmethod self))
   
 
   ;;;
@@ -66,23 +68,23 @@
   ;;;
   
   
-  (method public virtual (get-editor)
+  (method public virtual (get-editor self)
     editor)
   
   
-  (method public virtual (set-editor edt)
+  (method public virtual (set-editor self edt)
     (when (neq? edt editor)
       (when editor
-        (remove-editor-listener~ editor self))
+        (remove-editor-listener editor self))
       (set! editor edt)
       (when editor
-        (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))))
+        (add-editor-listener editor (new Event-Handler target: self method-name: 'on-editor)))))
     
   
-  (method protected virtual (on-editor evt)
-    (case (get-kind~ evt)
-      ((:designer-change) (set-designer (get-property~ evt designer:)))
-      ((:selection-changed) (set-client (car (get-selection~ evt)) force?: (get-force?~ evt)))))
+  (method protected virtual (on-editor self evt)
+    (case (get-kind evt)
+      ((:designer-change) (set-designer self (get-property evt designer:)))
+      ((:selection-changed) (set-client self (car (get-selection evt)) force?: (get-force? evt)))))
 
   
   ;;;
@@ -90,21 +92,21 @@
   ;;;
 
 
-  (method public virtual (get-client)
+  (method public virtual (get-client self)
     client)
 
 
-  (method public virtual (set-client clt (force?: force? #f))
-    (set-client-direct (and clt (map inner-widget~ clt))))
+  (method public virtual (set-client self clt (force?: force? #f))
+    (set-client-direct self (and clt (map inner-widget clt))))
   
   
-  (method public virtual (set-client-direct clt (force?: force? #f))
+  (method public virtual (set-client-direct self clt (force?: force? #f))
     (when (or force? (not (equal? clt client)))
       (set! client clt)
-      (client-update)))
+      (client-update self)))
   
   
-  (method public virtual (client-update)
+  (method public virtual (client-update self)
     )
   
   
@@ -113,46 +115,46 @@
   ;;;
   
   
-  (method public virtual (get-designer)
+  (method public virtual (get-designer self)
     designer)
   
   
-  (method public virtual (set-designer dsg)
+  (method public virtual (set-designer self dsg)
     (when (neq? dsg designer)
       (when designer
-        (uninstall-listener designer))
+        (uninstall-listener self designer))
       (when dsg
-        (install-listener dsg))
+        (install-listener self dsg))
       (set! designer dsg)))
 
 
-  (method (on-designer evt)
-    (case (get-kind~ evt)
+  (method (on-designer self evt)
+    (case (get-kind evt)
       ((:property-change)
-       (call-property-change evt))
+       (call-property-change self evt))
       ((:refresh)
-       (call-refresh evt))))
+       (call-refresh self evt))))
   
   
-  (method virtual (call-refresh evt)
-    (let ((component (get-property~ evt component:)))
+  (method virtual (call-refresh self evt)
+    (let ((component (get-property evt component:)))
       (when (eq? component client)
-        (case (get-property~ evt what:)
+        (case (get-property evt what:)
           ((all)
-           (refresh component))))))
+           (refresh self component))))))
   
   
-  (method public virtual (refresh component)
+  (method public virtual (refresh self component)
     )
 
 
-  (method protected virtual (call-property-change evt)
-    (let ((component (get-property~ evt component:)))
+  (method protected virtual (call-property-change self evt)
+    (let ((component (get-property evt component:)))
       (when (eq? component client)
-        (property-change component (get-property~ evt property:) (get-property~ evt value:)))))
+        (property-change self component (get-property evt property:) (get-property evt value:)))))
   
   
-  (method public virtual (property-change component property value)
+  (method public virtual (property-change self component property value)
     )
 
   
@@ -161,13 +163,13 @@
   ;;;
 
   
-  (method (install-listener designer)
+  (method (install-listener self designer)
     (let ((listener (new Event-Handler target: self method-name: 'on-designer)))
-      (add-designer-listener~ designer listener)))
+      (add-designer-listener designer listener)))
   
   
-  (method (uninstall-listener designer)
-    (remove-designer-listener~ designer self))
+  (method (uninstall-listener self designer)
+    (remove-designer-listener designer self))
   
   
   ;;;
@@ -175,6 +177,6 @@
   ;;;
 
 
-  (method public virtual (enter-value property value)
+  (method public virtual (enter-value self property value)
     (when client
-      (set-property~ designer client property value)))))
+      (set-property designer client property value)))))

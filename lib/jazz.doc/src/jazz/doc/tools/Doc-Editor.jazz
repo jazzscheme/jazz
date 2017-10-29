@@ -89,22 +89,22 @@
             (<Properties-Card>        name: card))))))
 
   
-  (method override (form-model form)
-    (case (get-name~ form)
+  (method override (form-model self form)
+    (case (get-name form)
       ((descendants) Docs-Tree)
-      (else (nextmethod form))))
+      (else (nextmethod self form))))
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set-title~ (child~ (locate 'descendants) 'descendant) "Doc")
-    (set-filter~ (get-tree~ (locate 'card)) 'standard)
-    (set-editor~ (locate 'descendants) self)
-    (set-editor~ (locate 'card) self))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (set-title (child (locate self 'descendants) 'descendant) "Doc")
+    (set-filter (get-tree (locate self 'card)) 'standard)
+    (set-editor (locate self 'descendants) self)
+    (set-editor (locate self 'card) self))
 
   
-  (method override (focus-document)
-    (acquire-focus~ (child~ (locate 'descendants) 'descendant)))
+  (method override (focus-document self)
+    (acquire-focus (child (locate self 'descendants) 'descendant)))
 
   
   ;;;
@@ -112,8 +112,8 @@
   ;;;
   
   
-  (method public (get-tree)
-    (locate '(descendants tree)))
+  (method public (get-tree self)
+    (locate self '(descendants tree)))
   
   
   ;;;
@@ -121,23 +121,23 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Doc"})
 
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Documentation Editor")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 52 59})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 800 500})
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(home))
   
   
@@ -156,7 +156,7 @@
     
     
     (method override (name-status)
-      (editor-title~ document)))
+      (editor-title document)))
 
   
   ;;;
@@ -164,35 +164,35 @@
   ;;;
 
 
-  (method (resize-center dh dv)
-    (size-figure~ (locate 'descendants-border) 0 dv)
-    (size-figure~ (locate 'card-contour) dh dv))
+  (method package (resize-center self dh dv)
+    (size-figure (locate self 'descendants-border) 0 dv)
+    (size-figure (locate self 'card-contour) dh dv))
   
   
-  (method (on-save-doc evt)
+  (method (on-save-doc self evt)
     (with-cursor :wait
       (lambda ()
         (parameterize ((printing-doc? #t))
-          (save)))))
+          (save self)))))
   
   
   @w
   (method (on-reload-doc evt)
     (let ((appl (get-application)))
-      (let ((skins (load-skins~ appl)))
-        (set-skins-designer~ appl skins)
-        (set-skin (child~ skins (get-active~ skins)))
+      (let ((skins (load-skins appl)))
+        (set-skins-designer appl skins)
+        (set-skin (child skins (get-active skins)))
         (look-update)
-        (redraw-window~ (get-toplevel)))))
+        (redraw-window (current-toplevel)))))
   
   
-  (method (on-build-doc evt)
+  (method (on-build-doc self evt)
     (if (null? client)
         (bell)
-      (build-doc)))
+      (build-doc self)))
   
   
-  (method (build-doc)
+  (method (build-doc self)
     (unimplemented)
     @w (
     (define JazzWebsite-Site
@@ -203,21 +203,21 @@
     
     (define (render-jazzwebsite-page page)
       (let* ((content JazzWebsite-Content)
-             (file (new-file~ content (format "{a}.htm" (get-property~ page 'path))))
+             (file (new-file content (format "{a}.htm" (get-property page 'path))))
              (preferences (new JML-Preferences))
              (renderer (new XHTML-Renderer preferences))
-             (html (first-child~ page)))
+             (html (first-child page)))
         ;; why does using UTF-8 char-encoding not work with accents in the generated HTML page
         (call-with-output-file (path-settings file char-encoding: 'ISO-8859-1)
           (lambda (output)
-            (render~ renderer html output)))))
+            (render renderer html output)))))
     
     (user-feedback "Generating...")
-    (reload-documentation~ (get-application))
+    (reload-documentation (get-application))
     (let ((transformation (new JazzWebsite-Transformation))
-          (projects (list (get-client~ (find-active-catalog~ (get-documentation-cataloguer~ (get-application)) 'jazz)))))
+          (projects (list (get-client (find-active-catalog (get-documentation-cataloguer (get-application)) 'jazz)))))
       (let ((title "Jazz")
-            (content (standalone-manual-output~ transformation projects)))
+            (content (standalone-manual-output transformation projects)))
         (let ((page `(<page> path: "test"
                        (<html>
                          (<head>
@@ -230,12 +230,12 @@
                                ,@content
                                (<div> id: "footer"
                                  (<p> "Copyright &copy; 1996-2015 Guillaume Cartier")))))))))
-          (render-jazzwebsite-page (parse-jml (transform-jml~ (new DocToHTML-Transformation) (parse-jml page))))
+          (render-jazzwebsite-page (parse-jml (transform-node (new DocToHTML-Transformation) (parse-jml page))))
           (user-message "Done"))))))
   
   
-  (method (on-edit-doc evt)
-    (edit-form))
+  (method (on-edit-doc self evt)
+    (edit-form self))
   
   
   ;;;
@@ -243,17 +243,17 @@
   ;;;
 
 
-  (method public (get-entry)
+  (method public (get-entry self)
     entry)
 
  
-  (method public (set-entry info)
+  (method public (set-entry self info)
     (set! entry info)
     (bind (location object text text-location) info
-      (setup location object text text-location)))
+      (setup self location object text text-location)))
   
   
-  (method (setup loc object text text-loc)
+  (method package (setup self loc object text text-loc)
     (set! _location loc)
     (set! expression object)
     (set! text-object text)
@@ -265,8 +265,8 @@
   ;;;
   
   
-  (method override (editor-title)
-    (let ((reference (get-reference)))
+  (method override (editor-title self)
+    (let ((reference (get-reference self)))
       (if (null? reference)
           "Doc Editor"
-        (format "Doc Editor - {a}" (get-base~ (get-origin~ (get-form~ reference)))))))))
+        (format "Doc Editor - {a}" (get-base (get-origin (get-form reference)))))))))

@@ -47,11 +47,11 @@
   (slot parent)
   
   
-  (method override (initialize parent)
-    (nextmethod)
-    (set! parent~self parent)
+  (method override (initialize self parent)
+    (nextmethod self)
+    (set! self.parent parent)
     (when parent
-      (add-child~ parent self)))
+      (add-child parent self)))
   
   
   ;;;
@@ -59,27 +59,27 @@
   ;;;
 
 
-  (method public (get-parent)
+  (method public (get-parent self)
     parent)
 
 
-  (method public (set-parent value)
+  (method public (set-parent self value)
     (when parent
-      (remove-child~ parent self))
+      (remove-child parent self))
     (set! parent value)
     (when parent
-      (add-child~ parent self)))
+      (add-child parent self)))
 
 
-  (method public (append-parent value)
+  (method public (append-parent self value)
     (when parent
-      (remove-child~ parent self))
+      (remove-child parent self))
     (set! parent value)
     (when parent
-      (append-child~ parent self)))
+      (append-child parent self)))
   
   
-  (method public (set-parent-value value)
+  (method public (set-parent-value self value)
     (set! parent value))
   
   
@@ -88,21 +88,21 @@
   ;;;
   
   
-  (method public (get-toplevel)
+  (method public (get-toplevel self)
     (if (not parent)
         self
-      (get-toplevel~ parent)))
+      (get-toplevel parent)))
   
   
-  (method public (for-each-parent proc <procedure>)
+  (method public (for-each-parent self proc <procedure>)
     (when parent
       (proc parent)
-      (for-each-parent~ parent proc)))
+      (for-each-parent parent proc)))
   
   
-  (method public (for-each-ancestor proc <procedure>)
+  (method public (for-each-ancestor self proc <procedure>)
     (proc self)
-    (for-each-parent proc))
+    (for-each-parent self proc))
   
   
   ;;;
@@ -110,14 +110,14 @@
   ;;;
   
   
-  (method public (get-location)
+  (method public (get-location self)
     (if (not parent)
         '()
-      (append (get-location~ parent)
-              (get-child-location~ parent self))))
+      (append (get-location parent)
+              (get-child-location parent self))))
   
   
-  (method public virtual (get-child-location child)
+  (method public virtual (get-child-location self child)
     )
   
   
@@ -126,20 +126,20 @@
   ;;;
   
   
-  (method public virtual abstract (->jml)
+  (method public virtual abstract (->jml self)
     )
   
   
   ;;;
-  ;;;; Pretty Print
+  ;;;; Print
   ;;;
   
   
-  (method public (pretty-print printer
-                               (base: base 0)
-                               (indent-first?: indent-first? #t)
-                               (space-tag?: space-tag? #t)
-                               (space-name?: space-name? #f))
+  (method public (print-node self printer
+                             (base: base 0)
+                             (indent-first?: indent-first? #t)
+                             (space-tag?: space-tag? #t)
+                             (space-name?: space-name? #f))
     (define (compute-maxes)
       (if (or (and (not space-tag?)
                    (not space-name?))
@@ -149,7 +149,7 @@
               (max-name #f))
           (define (iter node path level)
             (when (is? node JML-Element)
-              (let* ((tag (get-tag~ node))
+              (let* ((tag (get-tag node))
                      (name (symbol->string tag))
                      (path (cons tag path)))
                 (when space-tag?
@@ -162,10 +162,10 @@
                                          (when (eq? property 'name)
                                            (when (or (not max-name) (> width max-name))
                                              (set! max-name width)))))
-                                     (get-properties~ node)))
+                                     (get-properties node)))
                 (for-each (lambda (child)
                             (iter child path (+ level 1)))
-                          (get-children~ node)))))
+                          (get-children node)))))
           
           (iter self '() base)
           (values max-tag max-name))))
@@ -187,16 +187,16 @@
                 (display-spaces (* level 2) output))
               (set! first? #f)
               (if (is? node JML-Text)
-                  (let ((text (get-text~ node)))
-                    (if (single-line?~ node)
+                  (let ((text (get-text node)))
+                    (if (single-line? node)
                         (write text output)
                       (display "#\"" output)
                       (display text output)
                       (display "\"#" output)))
-                (let* ((tag (get-tag~ node))
+                (let* ((tag (get-tag node))
                        (name (symbol->string tag))
                        (path (cons tag path))
-                       (properties (get-properties~ node)))
+                       (properties (get-properties node)))
                   (display "(<" output)
                   (display tag output)
                   (display ">" output)
@@ -204,9 +204,9 @@
                     (let ((pad (- max-tag (cardinality name) (* level 2))))
                       (display-spaces pad output)))
                   (when (and space-name? max-name (not-null? properties))
-                    (if (not (has-property?~ node 'name))
+                    (if (not (has-property? node 'name))
                         (display-spaces (+ 7 max-name) output)
-                      (let* ((value (get-property~ node 'name))
+                      (let* ((value (get-property node 'name))
                              (pres <string> (format "{s}" value)))
                         (display " name: " output)
                         (display pres output)
@@ -220,14 +220,14 @@
                                            (display ": " output)
                                            (write value output)))
                                        properties))
-                  (let ((children (get-children~ node)))
+                  (let ((children (get-children node)))
                     (if (and (null? properties)
                              (= 1 (length children))
                              (let ((node (car children)))
                                (and (is? node JML-Text)
-                                    (single-line?~ node))))
+                                    (single-line? node))))
                         (let* ((node (car children))
-                               (text (get-text~ node)))
+                               (text (get-text node)))
                           (display " " output)
                           (write text output))
                       (let ((return? (not (memq? tag '(line a)))))

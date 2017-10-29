@@ -41,11 +41,13 @@
 (import (jazz.descriptor)
         (jazz.designer)
         (jazz.domain)
+        (jazz.event)
         (jazz.graphic)
         (jazz.handler)
         (jazz.jml)
         (jazz.layout)
         (jazz.locale)
+        (jazz.outline)
         (jazz.resource)
         (jazz.text)
         (jazz.tree)
@@ -64,9 +66,9 @@
     (<install> focus-selects-all?: #t show-unfocused-selection?: #f return-press-handler: {Event-Handler :host on-ok} escape-press-handler: {Event-Handler :host on-cancel}))
       
       
-  (method override (on-tab-press evt)
-    (let ((dialog (find-ascendant Localized-Dialog)))
-      (move-selection~ dialog self (if (get-shift?~ evt) -1 +1)))))
+  (method override (on-tab-press self evt)
+    (let ((dialog (find-ascendant self Localized-Dialog)))
+      (move-selection dialog self (if (get-shift? evt) -1 +1)))))
   
 
 ;;;
@@ -85,8 +87,8 @@
             (<Locale-Text-View> name: text))))))
   
   
-  (method override (get-text-view)
-    (locate 'text)))
+  (method override (get-text-view self)
+    (locate self 'text)))
 
 
 ;;;
@@ -127,42 +129,42 @@
   ;;;
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (let ((locales-tree (locate 'locales))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (let ((locales-tree (locate self 'locales))
           (father-table (make-table)))
-      (for-each-descendant~ locale-tree
+      (for-each-descendant locale-tree
         (lambda (locale-tree-node level)
-          (let ((locale (get-locale~ locale-tree-node))
-                (parent-node (get-parent~ locale-tree-node)))
+          (let ((locale (get-locale locale-tree-node))
+                (parent-node (get-parent locale-tree-node)))
             (let ((locale-view (new Locale-View name: (keyword->symbol locale))))
               ;; modify text view
-              (let ((locale-text (get-text-view~ locale-view)))
+              (let ((locale-text (get-text-view locale-view)))
                 (unless initial-focused-view
                   (set! initial-focused-view locale-text))
-                (set-string-content~ locale-text (or (and locales-object 
-                                                          (localize~ locales-object locale)) 
+                (set-string-content locale-text (or (and locales-object 
+                                                          (localize-object locales-object locale)) 
                                                      "{}")))
               ;; create row
               (table-set! father-table locale
-                (add-row~ locales-tree
+                (add-row locales-tree
                   state: 'expanded
-                  father: (table-ref father-table (and parent-node (get-locale~ parent-node)) #f)
-                  children: (list (new Tree-Node title: (get-title~ locale-tree-node) image: {Image-Resource "Slot"})
+                  father: (table-ref father-table (and parent-node (get-locale parent-node)) #f)
+                  children: (list (new Tree-Node title: (get-title locale-tree-node) image: {Image-Resource "Slot"})
                                   locale-view)))))))))
   
   
-  (method override (focus-default)
-    (select-all~ initial-focused-view)
-    (acquire-focus~ initial-focused-view))
+  (method override (focus-default self)
+    (select-all initial-focused-view)
+    (acquire-focus initial-focused-view))
   
   
-  (method override (get-modal-result)
+  (method override (get-modal-result self)
     (let ((alist (collect (lambda (locale-view)
-                            (let ((text (get-string-content~ (get-text-view~ locale-view))))
+                            (let ((text (get-string-content (get-text-view locale-view))))
                               (and (not (string=? "{}" text))
-                                   (cons (symbol->keyword (get-name~ locale-view)) text))))
-                          (map second-child~ (collect-rows~ (locate 'locales))))))
+                                   (cons (symbol->keyword (get-name locale-view)) text))))
+                          (map second-child (collect-rows (locate self 'locales))))))
       (and (pair? alist)
            (apply new (cons Locales (alist->plist alist))))))
   
@@ -172,29 +174,29 @@
   ;;;
   
   
-  (method public (move-selection current-text-view delta)
-    (let ((current-row (find-ascendant~ current-text-view Tree-Row))
-          (locales-tree (locate 'locales))
-          (ok-button (locate 'ok))
-          (cancel-button (locate 'cancel)))
-      (acquire-focus~ locales-tree)
-      (let ((new-index (+ (row-index~ locales-tree current-row) delta)))
+  (method public (move-selection self current-text-view delta)
+    (let ((current-row (find-ascendant current-text-view Tree-Row))
+          (locales-tree (locate self 'locales))
+          (ok-button (locate self 'ok))
+          (cancel-button (locate self 'cancel)))
+      (acquire-focus locales-tree)
+      (let ((new-index (+ (row-index locales-tree current-row) delta)))
         (cond ((= -1 new-index)
-               (set-single-selection~ locales-tree (- (get-visible-count~ locales-tree) 1)))
-              ((get-row~ locales-tree new-index)
-               (set-single-selection~ locales-tree new-index))
+               (set-single-selection locales-tree (- (get-visible-count locales-tree) 1)))
+              ((get-row locales-tree new-index)
+               (set-single-selection locales-tree new-index))
               (else
-               (set-single-selection~ locales-tree 0))))))
+               (set-single-selection locales-tree 0))))))
 
   
-  (method (on-selection-change evt)
-    (let ((sender (get-sender~ evt))
-          (locales-tree (locate 'locales)))
-      (let ((selection (get-selection~ evt)))
+  (method package (on-selection-change self evt)
+    (let ((sender (get-sender evt))
+          (locales-tree (locate self 'locales)))
+      (let ((selection (get-selection evt)))
         (when (and (pair? selection) (null? (cdr selection)))
-          (let ((view (second-child~ (get-row~ locales-tree (car selection)))))
+          (let ((view (second-child (get-row locales-tree (car selection)))))
             (when view
-              (acquire-focus~ (get-text-view~ view))))))))
+              (acquire-focus (get-text-view view))))))))
   
   
   ;;;
@@ -202,15 +204,15 @@
   ;;;
 
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Catalog"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     {Locales english: "Localized Entry" french: "Saisie localisée"})
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new Localized-Dialog-Descriptor)))
   
 
@@ -229,17 +231,17 @@
     (<install> kind: choose))
   
   
-  (method public (set-locales-object value)
-    (set! locales-object~self (if (string? value) (new Locales all: value) value))
-    (set-string-content~ (locate 'body) (present~ (get-domain~ parent) value)))
+  (method public (set-locales-object self value)
+    (set! self.locales-object (if (string? value) (new Locales all: value) value))
+    (set-string-content (locate self 'body) (present (get-domain parent) value)))
   
   
-  (method override (button-action)
-    (let ((new-locales-object (get-modal Localized-Dialog locales-object: locales-object locale-tree: (get-locale-tree~ parent))))
+  (method override (button-action self)
+    (let ((new-locales-object (get-modal Localized-Dialog locales-object: locales-object locale-tree: (get-locale-tree parent))))
       (unless (nu=? locales-object new-locales-object)
         (set! locales-object new-locales-object)
-        (set-value~ parent (get-value~ parent))
-        (set-modified? #t)))))
+        (set-value parent (get-value parent))
+        (set-modified? self #t)))))
 
 
 ;;;
@@ -259,28 +261,28 @@
         (<!>             name: body  left-padding: 0 top-padding: 1))))
   
    
-  (method override (tab-view)
-    (locate '(combo body)))
+  (method override (tab-view self)
+    (locate self '(combo body)))
   
   
-  (method override (get-modified?)
-    (get-modified?~ (locate 'combo)))
+  (method override (get-modified? self)
+    (get-modified? (locate self 'combo)))
   
   
-  (method override (set-modified? value)
-    (set-modified?~ (locate 'combo) value))
+  (method override (set-modified? self value)
+    (set-modified? (locate self 'combo) value))
   
   
-  (method override (set-editable? value)
-    (set-editable?~ (locate 'combo) value))
+  (method override (set-editable? self value)
+    (set-editable? (locate self 'combo) value))
   
   
-  (method override (get-value)
-    (get-locales-object~ (locate 'combo)))
+  (method override (get-value self)
+    (get-locales-object (locate self 'combo)))
   
   
-  (method override (set-value value)
-    (set-locales-object~ (locate 'combo) value)))
+  (method override (set-value self value)
+    (set-locales-object (locate self 'combo) value)))
   
 
 
@@ -298,8 +300,8 @@
   (slot locales-object)
   
   
-  (method override (finish rest)
-    (nextmethod rest)
+  (method override (finish self rest)
+    (nextmethod self rest)
     (set! locales-object #f))
   
   
@@ -308,11 +310,11 @@
   ;;;
   
   
-  (method (make-locales-object new-str)
-    (let ((old-str (if locales-object (localize~ locales-object active-locale) #f)))
+  (method (make-locales-object self new-str)
+    (let ((old-str (if locales-object (localize-object locales-object active-locale) #f)))
       (if (equal? new-str old-str)
           locales-object
-        (let* ((old-plist (if locales-object (get-locales~ locales-object) '()))
+        (let* ((old-plist (if locales-object (get-locales locales-object) '()))
                (new-plist (if new-str
                               (plist-add old-plist active-locale new-str)
                             (plist-remove old-plist active-locale))))
@@ -321,17 +323,17 @@
             (apply new Locales new-plist))))))
   
   
-  (method override (get-value)
+  (method override (get-value self)
     (if active-locale
-        (let ((new-value (make-locales-object (nextmethod))))
+        (let ((new-value (make-locales-object self (nextmethod self))))
           (set! locales-object new-value)
           new-value)
-      (nextmethod)))
+      (nextmethod self)))
   
   
-  (method override (set-value value)
+  (method override (set-value self value)
     (set! locales-object (and active-locale (is? value Locales) value))
-    (nextmethod value))
+    (nextmethod self value))
   
    
   ;;;
@@ -339,7 +341,7 @@
   ;;;
 
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new Localized-Entry-Descriptor)))
 
 

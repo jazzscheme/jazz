@@ -39,7 +39,9 @@
 
 
 (import (jazz.geometry)
+        (jazz.graphic)
         (jazz.resource)
+        (jazz.graphic)
         (jazz.view))
 
 
@@ -57,13 +59,13 @@
   ;;;
   
   
-  (method public (get-type)
+  (method public (get-type self)
     type)
   
   
-  (method public (set-type value)
+  (method public (set-type self value)
     (set! type value)
-    (invalidate-view))
+    (invalidate-view self))
   
   
   ;;;
@@ -71,13 +73,13 @@
   ;;;
   
   
-  (method public (get-state)
+  (method public (get-state self)
     state)
   
   
-  (method public (set-state value)
+  (method public (set-state self value)
     (set! state value)
-    (invalidate-view))
+    (invalidate-view self))
   
   
   ;;;
@@ -85,40 +87,40 @@
   ;;;
   
   
-  (method override (mouse-activate?)
+  (method override (mouse-activate? self)
     #f)
 
 
-  (method override (mouse-enter)
-    (when (and (view-enabled?) (or (not mouse-down?) (eq? mouse-down-view self)))
-      (case (get-state)
-        ((inactive) (set-state 'highlighted))
-        ((out-pushed) (set-state 'pushed)))))
+  (method override (mouse-enter self)
+    (when (and (view-enabled? self) (or (not (get-mouse-down?)) (eq? (get-mouse-down-view) self)))
+      (case (get-state self)
+        ((inactive) (set-state self 'highlighted))
+        ((out-pushed) (set-state self 'pushed)))))
 
 
-  (method override (mouse-leave)
-    (when (and (view-enabled?) (or (not mouse-down?) (eq? mouse-down-view self)))
-      (case (get-state)
-        ((highlighted) (set-state 'inactive))
-        ((pushed) (set-state 'out-pushed)))))
+  (method override (mouse-leave self)
+    (when (and (view-enabled? self) (or (not (get-mouse-down?)) (eq? (get-mouse-down-view) self)))
+      (case (get-state self)
+        ((highlighted) (set-state self 'inactive))
+        ((pushed) (set-state self 'out-pushed)))))
   
   
-  (method override (mouse-down evt)
-    (set-state 'pushed))
+  (method override (mouse-down self evt)
+    (set-state self 'pushed))
   
   
-  (method override (drag-up evt . rest)
-    (when (view-enabled?)
+  (method override (drag-up self evt . rest)
+    (when (view-enabled? self)
       (unwind-protect
-          (up)
-        (case (get-state)
-          ((pushed) (set-state 'highlighted))
-          ((out-pushed) (set-state 'inactive))))))
+          (up self)
+        (case (get-state self)
+          ((pushed) (set-state self 'highlighted))
+          ((out-pushed) (set-state self 'inactive))))))
 
 
-  (method (up)
-    (when (eq? (get-state) 'pushed)
-      (process-action self)))
+  (method package (up self)
+    (when (eq? (get-state self) 'pushed)
+      (process-action self self)))
   
   
   ;;;
@@ -126,15 +128,15 @@
   ;;;
   
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (define (type-icon type)
       (case type
         ((maximize) {Image-Resource "Maximize"})
         ((restore)  {Image-Resource "Restore"})
         ((close)    {Image-Resource "Close"})))
     
-    (let ((top (center 14 (get-height))))
+    (let ((top (center 14 (get-height self))))
       @comment-not-that-these-icons-are-currently-16x16
-      (draw-opaque-image~ (get-images-portfolio~ (get-application)) surface context (type-icon type) {Color Medium} 0 top)
+      (draw-opaque-image (get-images-portfolio (get-application)) surface context (type-icon type) {Color Medium} 0 top)
       (let ((rect (new Rect 0 top 16 (+ top 14))))
-        (draw-caption~ surface rect type (if (eq? state 'pushed) #t #f)))))))
+        (draw-caption surface rect type (if (eq? state 'pushed) #t #f)))))))

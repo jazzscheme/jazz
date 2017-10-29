@@ -44,6 +44,7 @@
         (jazz.io)
         (jazz.media)
         (jazz.resource)
+        (jazz.sample.game)
         (jazz.sample.gomoku)
         (jazz.view)
         (jazz.window))
@@ -67,25 +68,27 @@
   (slot black-color    initialize {Color Black})
   (slot white-color    initialize {Color White})
 
+  (slot last-move      initialize #f accessors generate)
+
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "MsgUser"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Gomoku")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 50 10})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 700 640})
   
   
-  (method override (finish rest)
-    (nextmethod rest)
+  (method override (finish self rest)
+    (nextmethod self rest)
     (let ((size 'small)
           (rows #f)
           (columns #f))
@@ -106,23 +109,17 @@
          (set! square-width 24)
          (set! square-spacing 9)))
       (set! game (new Gomoku-Game rows: rows columns: columns))
-      (register-players~ game (list (new Gomoku-Human game BLACK) (new Gomoku-AI game WHITE)))
-      (initialize-board)))
+      (register-players game (list (new Gomoku-Human game BLACK) (new Gomoku-AI game WHITE)))
+      (initialize-board self)))
   
   
-  (method override (destroy)
-    @fix-bug
-    (close-ambience)
-    (nextmethod))
-  
-  
-  (method (initialize-board)
-    (invalidate-view)
+  (method (initialize-board self)
+    (invalidate-view self)
     @wait
     (cond ((eq? who HUMAN)
            (invalidate-view))
           ((eq? who COMPUTER)
-           (let ((move (computer-move~ game)))
+           (let ((move (computer-move game)))
              (play-move game move)))))
   
   
@@ -131,82 +128,82 @@
   ;;;
   
   
-  (method (play-move move)
-    (board-play move)
-    (redraw-view)
-    (when (eq? (get-status~ game) 'play)
-      (let ((player (get-next-player~ game)))
-        (when (computer?~ player)
-          (let ((move (computer-move~ player)))
-            (board-play move)))))
+  (method package (play-move self move)
+    (board-play self move)
+    (redraw-view self)
+    (when (eq? (get-status game) 'play)
+      (let ((player (get-next-player game)))
+        (when (computer? player)
+          (let ((move (computer-move player)))
+            (board-play self move)))))
     @move-to-board
     (cond ((eq? who HUMAN) (play-victory))
           ((eq? who COMPUTER) (play-defeat))))
   
   
-  (method (board-play move)
-    (play-move~ game move)
-    (invalidate-view))
+  (method package (board-play self move)
+    (play-move game move)
+    (invalidate-view self))
   
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (define (draw-status message color)
-      (set-font~ surface {Font Heading1})
-      (draw-text~ surface 100 530 message color))
+      (set-font surface {Font Heading1})
+      (draw-text surface 100 530 message color))
     
-    (fill-rect~ surface (get-bounds) {Color Dark-Blue})
-    (set-font~ surface {Font Heading1})
-    (draw-text~ surface square-offset 30 "Welcome to Gomoku" {Color Yellow})
-    (let ((status (get-status~ game)))
+    (fill-rect surface (get-bounds self) {Color Dark-Blue})
+    (set-font surface {Font Heading1})
+    (draw-text surface square-offset 30 "Welcome to Gomoku" {Color Yellow})
+    (let ((status (get-status game)))
       (when status
         (let* ((total-width (+ square-width square-spacing))
                (half-width (fxfloor/ square-width 2))
-               (total-board (- (* total-width (get-board-rows~ game)) half-width square-spacing)))
-          (set-color~ surface line-color)
-          (set-line-width~ surface 1)
-          (loop (for n from 0 below (get-board-rows~ game))
-                (line~ surface (+ square-offset (* n total-width) half-width) (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board))
-                (line~ surface (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board) (+ square-offset (* n total-width) half-width)))
-          (loop (for row from 0 below (get-board-rows~ game))
-                (loop (for col from 0 below (get-board-columns~ game))
-                      (let ((token (get-token~ (get-square~ game row col)))
+               (total-board (- (* total-width (get-board-rows game)) half-width square-spacing)))
+          (set-color surface line-color)
+          (set-line-width surface 1)
+          (loop (for n from 0 below (get-board-rows game))
+                (line surface (+ square-offset (* n total-width) half-width) (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board))
+                (line surface (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board) (+ square-offset (* n total-width) half-width)))
+          (loop (for row from 0 below (get-board-rows game))
+                (loop (for col from 0 below (get-board-columns game))
+                      (let ((token (get-token (get-square game row col)))
                             (rect (new Rect (+ square-offset (* col total-width)) (+ square-offset (* row total-width)) (+ square-offset (* col total-width) square-width) (+ square-offset (* row total-width) square-width))))
                         (cond ((eq? token BLACK)
-                               (ellipse~ surface rect black-color black-color))
+                               (ellipse surface rect black-color black-color))
                               ((eq? token WHITE)
-                               (ellipse~ surface rect white-color white-color)))))))
+                               (ellipse surface rect white-color white-color)))))))
         (case status
           ((win)
-           (draw-status (format "{a} wins!!!" (present~ (get-winner~ game))) {Color Yellow}))
+           (draw-status (format "{a} wins!!!" (present (get-winner game))) {Color Yellow}))
           ((draw)
            (draw-status "Draw!" {Color Yellow}))))))
   
   
-  (method override (cursor-update evt)
-    (let ((square (legal-square (get-position~ evt))))
+  (method override (cursor-update self evt)
+    (let ((square (legal-square self (get-position evt))))
       (set-cursor (if square :finger :arrow))))
   
   
-  (method override (mouse-down evt)
-    (let ((square (legal-square (get-position~ evt))))
+  (method override (mouse-down self evt)
+    (let ((square (legal-square self (get-position evt))))
       (when square
-        (play-move square))))
+        (play-move self square))))
   
   
-  (method (legal-square pos)
-    (if (eq? (get-status~ game) 'play)
-        (let ((h (get-h~ pos))
-              (v (get-v~ pos))
+  (method (legal-square self pos)
+    (if (eq? (get-status game) 'play)
+        (let ((h (get-h pos))
+              (v (get-v pos))
               (total-width (+ square-width square-spacing)))
           (if (and (>= h square-offset)
-                   (< h (+ square-offset (* (get-board-columns~ game) total-width) (- square-spacing)))
+                   (< h (+ square-offset (* (get-board-columns game) total-width) (- square-spacing)))
                    (>= v square-offset)
-                   (< v (+ square-offset (* (get-board-rows~ game) total-width) (- square-spacing))))
+                   (< v (+ square-offset (* (get-board-rows game) total-width) (- square-spacing))))
               (let ((row (fxtruncate/ (- v 90) total-width))
                     (col (fxtruncate/ (- h 90) total-width)))
-                (let ((square (get-square~ game row col)))
+                (let ((square (get-square game row col)))
                   (if square
-                      (if (eq? (get-token~ square) EMPTY)
+                      (if (eq? (get-token square) EMPTY)
                           square
                         #f)
                     #f)))
@@ -219,31 +216,33 @@
     (initialize-game self who))
   
   
-  (method (set-search-depth depth)
-    (set-search-depth~ game depth)
-    (when (get-last-move~ game)
-      (let ((who (* (get-current-next~ game) -1)))
-        (let ((delta (evaluate-move-delta~ game (get-last-move~ game) who)))
-          (set-token~ (get-last-move~ game) EMPTY)
-          (board-play~ game (get-last-move~ game))
-          (set-current-eval~ game (- (get-current-eval~ game) delta))
-          (computer-move~ game)
-          (board-unplay~ game (get-last-move~ game))
-          (set-token~ (get-last-move~ game) who)
-          (set-current-eval~ game (+ (get-current-eval~ game) delta)))))
-    (invalidate-view))
+  (method package (set-search-depth self depth)
+    (set-search-depth game depth)
+    (when (get-last-move game)
+      @cant-find
+      (let ((who (* (get-current-next game) -1)))
+        (let ((delta (evaluate-move-delta game (get-last-move game) who)))
+          (set-token (get-last-move game) EMPTY)
+          (board-play game (get-last-move game))
+          (set-current-eval game (- (get-current-eval game) delta))
+          (computer-move game)
+          @cant-find
+          (board-unplay game (get-last-move game))
+          (set-token (get-last-move game) who)
+          (set-current-eval game (+ (get-current-eval game) delta)))))
+    (invalidate-view self))
   
   
-  (method (play-computer)
-    (when (eq? (get-status~ game) 'play)
-      (let ((move (computer-move~ game)))
-        (play-move~ game move))))
+  (method (play-computer self)
+    (when (eq? (get-status game) 'play)
+      (let ((move (computer-move game)))
+        (play-move game move))))
   
   
-  (method override (key-press evt)
-    (case (get-key~ evt)
+  (method override (key-press self evt)
+    (case (get-key evt)
       @wait
-      ((#\p) (restart-game (or (get-who-starts~ game) HUMAN)))
+      ((#\p) (restart-game (or (get-who-starts game) HUMAN)))
       @wait
       ((#\h) (restart-game HUMAN))
       @wait
@@ -251,86 +250,13 @@
       @wait
       ((#\l) (load-board self))
       ((#\q) (quit))
-      ((#\1) (set-search-depth 1))
-      ((#\2) (set-search-depth 2))
-      ((#\3) (set-search-depth 3))
-      ((#\4) (set-search-depth 4))
-      ((#\5) (set-search-depth 5))
-      ((#\6) (set-search-depth 6))
-      ((#\7) (set-search-depth 7))
-      ((#\8) (set-search-depth 8))
-      ((#\9) (set-search-depth 9))
-      ((#\space) (play-computer)))))
-
-
-;;;
-;;;; Media
-;;;
-
-
-(definition play-intro?
-  #f)
-
-(definition play-ambience?
-  #t)
-
-(definition ambience-playing
-  #f)
-
-
-(definition intro-directory
-  {Directory Home "jazz" "app" "gomoku" "media" "intro"})
-
-(definition ambience-directory
-  {Directory Home "jazz" "app" "gomoku" "media" "ambience"})
-
-(definition victory-directory
-  {Directory Home "jazz" "app" "gomoku" "media" "victory"})
-
-(definition defeat-directory
-  {Directory Home "jazz" "app" "gomoku" "media" "defeat"})
-
-
-(definition (play-intro)
-  (when play-intro?
-    (let ((file (random-file intro-directory "wav")))
-      (when file
-        (play-sound file asynchronous?: #f)))))
-
-
-(definition (play-ambience)
-  @port-audio
-  (when play-ambience?
-    (let ((file (random-file ambience-directory "mp3")))
-      (when file
-        (set! ambience-playing (new-stream-sound file))
-        (play~ ambience-playing)))))
-
-(definition (close-ambience)
-  @port-audio
-  (when ambience-playing
-    (close~ ambience-playing)
-    (set! ambience-playing #f)))
-
-
-(definition (play-victory)
-  (let ((file (random-file victory-directory "wav")))
-    (when file
-      (play-sound file))))
-
-(definition (play-defeat)
-  (let ((file (random-file defeat-directory "wav")))
-    (when file
-      (play-sound file))))
-
-
-(definition (random-file directory extension)
-  (if (exists?~ directory)
-      (let ((files
-              (collect-files~ directory
-                (lambda (file)
-                  (extension=? (get-extension~ file) extension)))))
-        (if (not-null? files)
-            (random-element files)
-          #f))
-    #f)))
+      ((#\1) (set-search-depth self 1))
+      ((#\2) (set-search-depth self 2))
+      ((#\3) (set-search-depth self 3))
+      ((#\4) (set-search-depth self 4))
+      ((#\5) (set-search-depth self 5))
+      ((#\6) (set-search-depth self 6))
+      ((#\7) (set-search-depth self 7))
+      ((#\8) (set-search-depth self 8))
+      ((#\9) (set-search-depth self 9))
+      ((#\space) (play-computer self))))))

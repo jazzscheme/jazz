@@ -45,6 +45,7 @@
         (jazz.jml)
         (jazz.layout)
         (jazz.resource)
+        (jazz.outline)
         (jazz.tree)
         (jazz.ui))
 
@@ -83,19 +84,19 @@
   (slot history-manager initialize (new History-Manager self))
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (prepare-directory)
-    (update))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (prepare-directory self)
+    (update self))
   
   
-  (method protected virtual (prepare-directory)
+  (method protected virtual (prepare-directory self)
     (when (not directory)
-      (set! directory (get-current-directory))))
+      (set! directory (current-directory-get))))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (get-tree)))
+  (method override (focus-default self)
+    (acquire-focus (get-tree self)))
   
 
   ;;;
@@ -103,18 +104,18 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'content))
+  (method package (get-tree self)
+    (locate self 'content))
   
   
-  (method (get-hierarchy)
-    (locate 'hierarchy))
+  (method package (get-hierarchy self)
+    (locate self 'hierarchy))
   
   
-  (method public (setup-directory dir)
-    (add-history~ history-manager (new History-Directory directory))
-    (set-directory dir)
-    (update))
+  (method public (setup-directory self dir)
+    (add-history history-manager (new History-Directory directory))
+    (set-directory self dir)
+    (update self))
   
 
   ;;;
@@ -122,38 +123,38 @@
   ;;;
   
   
-  (method protected virtual (update)
-    (update-hierarchy)
-    (update-history)
-    (update-content)
-    (update-buttons))
+  (method package virtual (update self)
+    (update-hierarchy self)
+    (update-history self)
+    (update-content self)
+    (update-buttons self))
   
   
-  (method (update-hierarchy)
-    (let ((combo (locate 'hierarchy)))
-      (set-choices~ combo (map (lambda (pathname)
-                                 (list pathname (get-name~ pathname)))
-                               (reverse (get-hierarchy~ directory))))
-      (set-value~ combo directory)))
+  (method (update-hierarchy self)
+    (let ((combo (locate self 'hierarchy)))
+      (set-choices combo (map (lambda (pathname)
+                                 (list pathname (get-name pathname)))
+                               (reverse (get-hierarchy directory))))
+      (set-value combo directory)))
   
   
-  (method (update-history)
-    (let ((backward (get-backward-history~ history-manager))
-          (forward (get-forward-history~ history-manager)))
-      (set-enabled?~ (locate 'backward) (not-null? backward))
-      (set-enabled?~ (locate 'forward) (not-null? forward))))
+  (method (update-history self)
+    (let ((backward (get-backward-history history-manager))
+          (forward (get-forward-history history-manager)))
+      (set-enabled? (locate self 'backward) (not-null? backward))
+      (set-enabled? (locate self 'forward) (not-null? forward))))
   
   
-  (method protected virtual (update-content)
+  (method protected virtual (update-content self)
     )
   
   
-  (method protected virtual (update-buttons)
-    (let ((parent (get-parent~ (get-directory))))
-      (set-enabled?~ (locate 'up) parent)))
+  (method package virtual (update-buttons self)
+    (let ((parent (get-parent (get-directory self))))
+      (set-enabled? (locate self 'up) parent)))
   
   
-  (method (add-pathname tree pathname)
+  (method (add-pathname self tree pathname)
     (define (effective-extensions extensions)
       (map effective-extension extensions))
     
@@ -163,11 +164,11 @@
         (effective-extension (cdr extension))))
     
     (when (or (not (file? pathname))
-              (and (or (not filenames) (member? (get-name~ pathname) filenames test: ci=?))
-                   (or (not extensions) (member? (get-extension~ pathname) (effective-extensions extensions) test: extension=?))))
-      (let ((title (get-name~ pathname))
+              (and (or (not filenames) (member? (get-name pathname) filenames test: ci=?))
+                   (or (not extensions) (member? (get-extension pathname) (effective-extensions extensions) test: extension=?))))
+      (let ((title (get-name pathname))
             (image (if (directory? pathname) {Image-Resource "ClosedFolder"} {Image-Resource "Document"})))
-        (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: pathname))))
+        (add-row tree children: (list (new Tree-Node title: title image: image)) user-data: pathname))))
   
 
   ;;;
@@ -175,9 +176,9 @@
   ;;;
   
   
-  (method override (get-modal-result)
-    (set-current-directory (get-directory~ directory))
-    (anchorize (selected-pathname)))
+  (method override (get-modal-result self)
+    (current-directory-set! (get-directory directory))
+    (anchorize self (selected-pathname self)))
   
 
   ;;;
@@ -185,8 +186,8 @@
   ;;;
   
   
-  (method (down dir)
-    (setup-directory dir))
+  (method package (down self dir)
+    (setup-directory self dir))
 
   
   ;;;
@@ -194,11 +195,11 @@
   ;;;
   
   
-  (method override (current-history-item)
+  (method override (current-history-item self)
     (new History-Directory directory))
   
   
-  (method override (update-history-actions)
+  (method override (update-history-actions self)
     )
   
 
@@ -207,49 +208,49 @@
   ;;;
   
   
-  (method (on-backward evt)
-    (set-directory (get-directory~ (go-backward-history~ history-manager)))
-    (update))
+  (method package (on-backward self evt)
+    (set-directory self (get-directory (go-backward-history history-manager)))
+    (update self))
   
   
-  (method (on-forward evt)
-    (set-directory (get-directory~ (go-forward-history~ history-manager)))
-    (update))
+  (method package (on-forward self evt)
+    (set-directory self (get-directory (go-forward-history history-manager)))
+    (update self))
   
   
-  (method (on-up evt)
-    (setup-directory (get-parent~ (get-directory))))
+  (method (on-up self evt)
+    (setup-directory self (get-parent (get-directory self))))
   
   
-  (method protected virtual (hierarchy-change dir)
-    (setup-directory dir))
+  (method package virtual (hierarchy-change self dir)
+    (setup-directory self dir))
   
   
-  (method protected virtual (selection-change)
-    (update-buttons))
+  (method package virtual (selection-change self)
+    (update-buttons self))
   
   
-  (method protected virtual (default-action)
+  (method protected virtual (default-action self)
     )
   
   
-  (method (ok-enabled?)
-    (get-enabled?~ (locate 'ok)))
+  (method (ok-enabled? self)
+    (get-enabled? (locate self 'ok)))
   
   
-  (method (on-double-click evt)
-    (default-action))
-  
-  
-  ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (default-action))
+  (method (on-double-click self evt)
+    (default-action self))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-return-press self evt)
+    (default-action self))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
   
 
   ;;;
@@ -257,12 +258,12 @@
   ;;;
   
   
-  (method (selected-pathname)
-    (get-single-selected-data~ (get-tree)))
+  (method (selected-pathname self)
+    (get-single-selected-data (get-tree self)))
   
   
-  (method (anchorize pathname)
-    (anchorize~ pathname anchors: anchors)))
+  (method package (anchorize self pathname)
+    (anchorize pathname anchors: anchors)))
 
 
 ;;;
@@ -273,8 +274,8 @@
 (class Hierarchy-Combo extends Combo-Box
   
   
-  (method override (content-change origin)
-    (hierarchy-change~ (get-guest~ (get-host)) (get-value))))
+  (method override (content-change self origin)
+    (hierarchy-change (get-guest (get-host self)) (get-value self))))
 
 
 ;;;
@@ -288,12 +289,12 @@
   (slot directory getter generate)
   
   
-  (method override (initialize directory)
-    (nextmethod)
-    (set! directory~self directory))
+  (method override (initialize self directory)
+    (nextmethod self)
+    (set! self.directory directory))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{s}" directory)))))
@@ -307,5 +308,5 @@
 (class Content-Tree extends Tree-View
   
   
-  (method override (selection-change old-selection force? user-origin)
-    (selection-change~ (get-guest~ (get-host))))))
+  (method override (selection-change self old-selection force? user-origin)
+    (selection-change (get-guest (get-host self))))))

@@ -18,12 +18,12 @@
   (slot available-moves  initialize #f accessors generate)
 
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (define (make-board)
       (let ((board (make-vector board-size #f)))
         (loop (for row from 0 below board-rows)
               (loop (for col from 0 below board-columns)
-                    (let ((rank (square-rank row col)))
+                    (let ((rank (square-rank self row col)))
                       (vector-set! board rank (new Square self row col)))))
         board))
     
@@ -31,25 +31,25 @@
       (let ((moves (make-vector board-columns #f))
             (bottom-row (- board-rows 1)))
         (loop (for col from 0 below board-columns)
-              (vector-set! moves col (get-square bottom-row col)))
+              (vector-set! moves col (get-square self bottom-row col)))
         moves))
     
     (define (setup-squares)
       (loop (for row from 0 below board-rows)
             (loop (for col from 0 below board-columns)
-                  (let ((square (get-square row col)))
-                    (set-up~ square (find-square (- row 1) col))
-                    (set-down~ square (find-square (+ row 1) col))))))
+                  (let ((square (get-square self row col)))
+                    (set-up square (find-square self (- row 1) col))
+                    (set-down square (find-square self (+ row 1) col))))))
     
     (bind-keywords ((rows 6) (columns 7)) rest
-      (nextmethod)
+      (nextmethod self)
       (set! board-rows rows)
       (set! board-columns columns)
       (set! board-size (* board-rows board-columns))
       (set! board (make-board))
       (set! available-moves (make-availables))
       (setup-squares)
-      (setup-lines)))
+      (setup-lines self)))
   
   
   ;;;
@@ -64,29 +64,29 @@
       (1 . -1)))
   
   
-  (method (setup-lines)
+  (method (setup-lines self)
     (loop (for rank from 0 below board-size)
-          (let ((square (board-ref rank)))
-            (set-lines~ square (compute-lines square)))))
+          (let ((square (board-ref self rank)))
+            (set-lines square (compute-lines self square)))))
   
   
-  (method (compute-lines square)
-    (let ((line (get-line~ square))
-          (col (get-col~ square))
+  (method (compute-lines self square)
+    (let ((line (get-line square))
+          (col (get-col square))
           (lines '()))
       (loop (for dir in directions)
             (loop (for n from -3 to 0)
-                  (let ((a (find-next dir line col (+ n 0)))
-                        (b (find-next dir line col (+ n 1)))
-                        (c (find-next dir line col (+ n 2)))
-                        (d (find-next dir line col (+ n 3))))
+                  (let ((a (find-next self dir line col (+ n 0)))
+                        (b (find-next self dir line col (+ n 1)))
+                        (c (find-next self dir line col (+ n 2)))
+                        (d (find-next self dir line col (+ n 3))))
                     (if (and a b c d)
                         (set! lines (cons (new 4-Line a b c d) lines))))))
       lines))
   
   
-  (method (find-next dir line col n)
-    (find-square
+  (method (find-next self dir line col n)
+    (find-square self
       (+ line (* n (car dir)))
       (+ col (* n (cdr dir)))))
   
@@ -96,28 +96,28 @@
   ;;;
   
   
-  (method public (iterate-board proc)
+  (method public (iterate-board self proc)
     (loop (for row from 0 below board-rows)
           (loop (for col from 0 below board-columns)
-                (do (proc (get-square row col))))))
+                (do (proc (get-square self row col))))))
   
   
-  (method inline (board-ref rank) <Square>
+  (method package inline (board-ref self rank) <Square>
     (vector-ref board rank))
   
   
-  (method inline (square-rank row col) <fx>
+  (method inline (square-rank self row col) <fx>
     (+ (* row board-columns) col))
   
   
-  (method inline (get-square row col) <Square>
-    (board-ref (square-rank row col)))
+  (method package inline (get-square self row col) <Square>
+    (board-ref self (square-rank self row col)))
   
   
-  (method (find-square row col) <Square+>
+  (method (find-square self row col) <Square+>
     (if (and (>= row 0) (< row board-rows)
              (>= col 0) (< col board-columns))
-        (get-square row col)
+        (get-square self row col)
       #f))
   
   
@@ -126,22 +126,22 @@
   ;;;
   
   
-  (method inline (available-move col) <Square+>
+  (method package inline (available-move self col) <Square+>
     (vector-ref available-moves col))
   
   
-  (method inline (set-available-move col square) <void>
+  (method inline (set-available-move self col square) <void>
     (vector-set! available-moves col square))
   
   
-  (method override (play move token)
-    (set-token~ move token)
-    (set-available-move (get-col~ move) (get-up~ move)))
+  (method override (play self move token)
+    (set-token move token)
+    (set-available-move self (get-col move) (get-up move)))
   
   
-  (method override (unplay move)
-    (set-available-move (get-col~ move) move)
-    (set-token~ move EMPTY))
+  (method override (unplay self move)
+    (set-available-move self (get-col move) move)
+    (set-token move EMPTY))
   
   
   ;;;
@@ -149,25 +149,25 @@
   ;;;
   
   
-  (method override (play-move move)
-    (let ((player (next-player!)))
-      (let ((token (get-me~ player)))
-        (play move token)
-        (add-move move)
-        (inform-players move token)
-        (check-status player move token))))
+  (method override (play-move self move)
+    (let ((player (next-player! self)))
+      (let ((token (get-me player)))
+        (play self move token)
+        (add-move self move)
+        (inform-players self move token)
+        (check-status self player move token))))
   
   
-  (method override (win? move token)
+  (method override (win? self move token)
     (define (line? line)
-      (= (count-token~ line token) 4))
+      (= (count-token line token) 4))
     
-    (some? line? (get-lines~ move)))
+    (some? line? (get-lines move)))
   
   
-  (method override (draw? move token)
+  (method override (draw? self move token)
     (not (loop (for col from 0 below board-columns)
-               (some (available-move col)))))
+               (some (available-move self col)))))
   
   
   ;;;
@@ -183,13 +183,13 @@
           (loop (for token in tokens)
                 (for row from (- board-rows 1) downto 0)
                 (let ((square (get-square row col)))
-                  (set-token~ square
+                  (set-token square
                     (case token
                       ((X) HUMAN)
                       ((O) COMPUTER)))))
           (let ((move (- board-rows (length tokens) 1)))
             (set-available-move col (if (>= move 0) (get-square move col) #f))))
-    (invalidate-view~ game))
+    (invalidate-view game))
   
   
   ;;;
@@ -197,10 +197,10 @@
   ;;;
   
   
-  (method (inspect-board)
+  (method (inspect-board self)
     (loop (for row from 0 below board-rows)
           (loop (for col from 0 below board-columns)
-                (let ((token (get-token~ (get-square row col))))
+                (let ((token (get-token (get-square self row col))))
                   (display (cond ((eq? token EMPTY) ".")
                                  ((eq? token RED) "X")
                                  ((eq? token GREEN) "O")))

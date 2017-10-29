@@ -46,6 +46,7 @@
         (jazz.component)
         (jazz.console)
         (jazz.debuggee)
+        (jazz.debuggee.ui)
         (jazz.debuggee.view)
         (jazz.debugger)
         (jazz.debugger.jazz)
@@ -72,17 +73,21 @@
         (jazz.jml)
         (jazz.jrm)
         (jazz.locale)
+        (jazz.menu)
         (jazz.picker)
         (jazz.platform)
         (jazz.preferences)
         (jazz.process)
+        (jazz.profile)
         (jazz.project)
         (jazz.recorder)
         (jazz.search)
         (jazz.settings)
         (jazz.text)
+        (jazz.ui)
         (jazz.ui.dialog)
         (jazz.view)
+        (jazz.window)
         (jazz.workspace))
 
 
@@ -94,80 +99,80 @@
   (slot recorder          initialize (new Macro-Recorder))
   
   
-  (method override (install-process)
-    (nextmethod)
-    (start-debuggers))
+  (method override (install-process self)
+    (nextmethod self)
+    (start-debuggers self))
 
 
-  (method override (prepare-workbench)
-    (nextmethod)
-    (setup-cataloguer)
-    (setup-workbench))
+  (method override (prepare-workbench self)
+    (nextmethod self)
+    (setup-cataloguer self)
+    (setup-workbench self))
   
   
-  (method override (finalize-process)
-    (nextmethod)
-    (add-application-listener 'workspace (new Event-Handler target: self method-name: 'on-workspace)))
+  (method override (finalize-process self)
+    (nextmethod self)
+    (add-application-listener self 'workspace (new Event-Handler target: self method-name: 'on-workspace)))
   
   
-  (method override (finish-process)
+  (method override (finish-process self)
     (define (setup-caption-base)
-      (let ((toplevel-title (toplevel-title)))
-        (cond (toplevel-title (set-caption-base~ toplevel toplevel-title))
-              ((not (get-caption-base~ toplevel)) (set-caption-base~ toplevel "Application")))))
+      (let ((toplevel-title (effective-toplevel-title)))
+        (cond (toplevel-title (set-caption-base toplevel toplevel-title))
+              ((not (get-caption-base toplevel)) (set-caption-base toplevel "Application")))))
     
-    (define (toplevel-title)
-      (or (and profile (toplevel-title~ profile))
-          (get-toplevel-title~ (get-preferences #f))
+    (define (effective-toplevel-title)
+      (or (and profile (toplevel-title profile))
+          (get-toplevel-title (current-preferences #f))
           (find-setting 'jazz.ui.toplevel-title #f)))
     
     (set-debugger-manager (new Debugger-Manager)) ;; hack!!!!!
-    (nextmethod)
+    (nextmethod self)
     (setup-caption-base)
-    (preload-catalogs))
+    (preload-catalogs self))
 
   
-  (method override (conclude-environment)
-    (nextmethod)
+  (method override (conclude-environment self)
+    (nextmethod self)
     ;; toggle terminal is windows only at the moment
-    (let ((menu (find-menu 'debug)))
+    (let ((menu (find-menu self 'debug)))
       (when menu
-        (let ((label (find-component~ menu 'toggle-terminal)))
+        (let ((label (find-component menu 'toggle-terminal)))
           (when (and label (neq? kernel-platform 'windows))
-            (set-visible?~ label #f)
-            (layout-menu~ menu)))))
+            (set-visible? label #f)
+            (layout-menu menu)))))
     ;; do this at the last moment possible because any error beyond this point
     ;; will be handled by the IDE itself which must thus be fully functional
-    (when (use-local-debugger?)
+    (when (use-local-debugger? self)
       (if (get-controller-debugger)
-          (attach-process~ local-debugger (get-local-process) #t)
+          (attach-process local-debugger (get-local-process) #t)
         (add-debugger-release 'modal
           (lambda ()
-            (enable-window~ (get-toplevel))
+            (enable-window (get-toplevel self))
             (set-current-modal #f)
-            (update-modal-actions)))
+            (update-modal-actions self)))
         (attach-to-controller (get-local-register) #t)
         (with-system-exception-debugger
           (lambda ()
             (ready-to-controller)
-            (transmit-runtime-information~ (get-local-process) 'all)
+            (transmit-runtime-information (get-local-process) 'all)
             (current-input-port (console-input-port))
             (current-output-port (console-output-port)))))))
   
   
-  (method override (conclude-debuggee)
-    (nextmethod)
+  (method override (conclude-debuggee self)
+    (nextmethod self)
     (unless (local-debugger?)
       (start-local-debugger-repl)))
 
 
-  (method override (close-environment)
+  (method override (close-environment self)
     (unless (reloading-process?)
-      (detach-debugger-processes))
-    (nextmethod))
+      (detach-debugger-processes self))
+    (nextmethod self))
   
   
-  (method override (safe-execution?)
+  (method override (safe-execution? self)
     #t)
 
   
@@ -176,12 +181,12 @@
   ;;;
   
   
-  (method public (get-backward-history)
-    (get-backward-history~ history-manager))
+  (method public (get-backward-history self)
+    (get-backward-history history-manager))
   
   
-  (method public (get-forward-history)
-    (get-forward-history~ history-manager))
+  (method public (get-forward-history self)
+    (get-forward-history history-manager))
 
 
   ;;;
@@ -189,7 +194,7 @@
   ;;;
   
   
-  (method override (get-recorder)
+  (method override (get-recorder self)
     recorder)
 
 
@@ -198,16 +203,16 @@
   ;;;
   
   
-  (method override (use-profile?)
+  (method override (use-profile? self)
     #t)
   
   
-  (method override (use-profile-logging?)
+  (method override (use-profile-logging? self)
     #t)
   
   
-  (method override (choose-profile-login)
-    (choose-login invite: (process-name)))
+  (method override (choose-profile-login self)
+    (choose-login invite: (process-name self)))
 
   
   ;;;
@@ -215,11 +220,11 @@
   ;;;
 
 
-  (method override (default-frame-class)
+  (method override (default-frame-class self)
     Plain-Text-View)
 
 
-  (method override (known-extension-frame-class ext)
+  (method override (known-extension-frame-class self ext)
     (cond ((member? ext '("txt" "text") test: extension=?) Plain-Text-View)
           ((member? ext '("ftx") test: extension=?) Plain-Formatted-Text-View)
           ((member? ext '("c" "cc" "cp" "cpp" "cxx" "h" "hpp" "m" "rc" "i") test: extension=?) jazz.editor.c:C-Text-View)
@@ -244,10 +249,10 @@
           ((member? ext CommonLisp-Extensions test: extension=?) jazz.editor.commonlisp:CommonLisp-Text-View)
           ((member? ext Jazz-Extensions test: extension=?) Jazz-Text-View)
           ((member? ext '("jmf") test: extension=?) View-Editor)
-          (else (nextmethod ext))))
+          (else (nextmethod self ext))))
   
   
-  (method override (unknown-extension-frame-class)
+  (method override (unknown-extension-frame-class self)
     Plain-Text-View)
 
 
@@ -256,11 +261,11 @@
   ;;;
   
   
-  (method override (edit-file file . rest)
-    (let ((ext (get-extension~ file)))
-      (cond ((extension=? ext "snapshot") (edit-snapshot file))
-            ((extension=? ext "jlog") (edit-log file))
-            (else (apply nextmethod file rest)))))
+  (method override (edit-file self file . rest)
+    (let ((ext (get-extension file)))
+      (cond ((extension=? ext "snapshot") (edit-snapshot self file))
+            ((extension=? ext "jlog") (edit-log self file))
+            (else (apply nextmethod self file rest)))))
   
   
   ;;;
@@ -268,9 +273,9 @@
   ;;;
   
   
-  (method (edit-snapshot file)
-    (open-snapshot~ (get-processes-view) file)
-    (select-workspace 'debugger))
+  (method package (edit-snapshot self file)
+    (open-snapshot (get-processes-view) file)
+    (select-named-workspace 'debugger))
   
   
   ;;;
@@ -278,14 +283,14 @@
   ;;;
   
   
-  (method (edit-log file)
-    (let ((manager (get-logs-manager)))
-      (if (not (get-player~ manager))
+  (method (edit-log self file)
+    (let ((manager (get-logs-manager self)))
+      (if (not (get-player manager))
           (begin
             (message-box "Unable to find the Logs palette")
             (signal-cancel))
-        (open-log~ manager file)
-        (acquire-focus~ (get-tree~ manager)))))
+        (open-log manager file)
+        (acquire-focus (get-tree manager)))))
   
   
   ;;;
@@ -293,7 +298,7 @@
   ;;;
 
 
-  (method public (get-history-manager)
+  (method public (get-history-manager self)
     history-manager)
 
 
@@ -302,7 +307,7 @@
   ;;;
 
 
-  (method override (stage-class)
+  (method override (stage-class self)
     Wallpaper-Stage)
 
   
@@ -311,12 +316,12 @@
   ;;;
 
 
-  (method public (set-search-result icon msg)
-    (let ((status-bar (find-status-bar)))
+  (method public (set-search-result self icon msg)
+    (let ((status-bar (find-status-bar self)))
       (when status-bar
-        (let ((label (find-component~ status-bar 'search-result)))
-          (set-icon~ label icon)
-          (set-title~ label (cond ((not msg) "")
+        (let ((label (find-component status-bar 'search-result)))
+          (set-icon label icon)
+          (set-title label (cond ((not msg) "")
                                   ((is? msg Locales) msg)
                                   (else (->string msg))))))))
 
@@ -326,36 +331,36 @@
   ;;;
   
   
-  (method override (setup-nicknames)
+  (method override (setup-nicknames self)
     (define (focus-editor)
-      (let ((focus (get-focus)))
+      (let ((focus (active-focus)))
         (and focus
-             (get-view-editor (get-guest~ focus)))))
+             (get-view-editor (get-guest focus)))))
     
     (define (search-manager)
-      (get-guest~ (singleton-palette
+      (get-guest (singleton-palette
                     (lambda ()
-                      (new-palette (search-manager-class)
+                      (new-palette (search-manager-class self)
                                    host-title: "Search"
                                    host-visible?: #f
                                    host-size: {Dimension 857 169}))
                     'search)))
     
     (define (search-results)
-      (get-guest~ (singleton-docked Search-Results)))
+      (get-guest (singleton-docked Search-Results)))
     
-    (nextmethod)
+    (nextmethod self)
     (register-nickname :focus-editor         focus-editor)
     (register-nickname :search-manager       search-manager)
     (register-nickname :search-results       search-results)
     (register-nickname :debugger             (lambda () (current-debugger)))
     (register-nickname :view-debugger        (lambda () (current-view-debugger)))
     (register-nickname :recorder             (lambda () recorder))
-    (register-nickname :workbench-manager    (lambda () (get-workbench-manager)))
-    (register-nickname :repositories-manager (lambda () (get-repositories-manager))))
+    (register-nickname :workbench-manager    (lambda () (get-workbench-manager self)))
+    (register-nickname :repositories-manager (lambda () (get-repositories-manager self))))
   
   
-  (method protected virtual (search-manager-class)
+  (method protected virtual (search-manager-class self)
     )
 
 
@@ -364,9 +369,9 @@
   ;;;
   
 
-  (method override (class-actions)
+  (method override (class-actions self)
     (cons (find-actions 'ide)
-          (nextmethod)))
+          (nextmethod self)))
   
   
   ;;;
@@ -374,10 +379,10 @@
   ;;;
   
   
-  (method override (terminate-process)
-    (nextmethod)
-    (when (use-local-debugger?)
-      (unregister-object~ (get-local-register) 'debugger error?: #f)))
+  (method override (terminate-process self)
+    (nextmethod self)
+    (when (use-local-debugger? self)
+      (unregister-object (get-local-register) 'debugger error?: #f)))
 
 
   ;;;
@@ -385,9 +390,9 @@
   ;;;
   
   
-  (method override (save-environment)
-    (nextmethod)
-    (save-catalogs))
+  (method override (save-environment self)
+    (nextmethod self)
+    (save-catalogs self))
   
   
   ;;;
@@ -395,7 +400,7 @@
   ;;;
   
 
-  (method override (reload-process)
+  (method override (reload-process self)
     (message-box "An IDE cannot be reloaded yet."))
 
 
@@ -406,9 +411,9 @@
   
   @convert-to-session
   (method (load-session)
-    (let ((dir (get-current-directory~ (get-preferences '(application session)))))
+    (let ((dir (get-directory (get-preferences '(application session)))))
       (when dir
-        (set-current-directory dir))))
+        (current-directory-set! dir))))
   
   
   @convert-to-session
@@ -419,10 +424,10 @@
                   (bind-keywords ((file #f) . others) properties
                     (when (or (not file) (exists?~ file))
                       (reload-component class properties)))))
-              (get-opened-windows~ (get-preferences '(application session)))))
+              (get-opened-windows (get-preferences '(application session)))))
     
   
-  (method override (reload-component class properties)
+  (method override (reload-component self class properties)
     @to-convert
     (case class
       ((plain-text)          (apply new Plain-Text-Frame          properties))
@@ -450,17 +455,17 @@
     {File Profile "settings" "Workbench.jml"})
   
   
-  (method protected virtual (default-workbench)
+  (method protected virtual (default-workbench self)
     (new Workbench))
   
   
-  (method public virtual (setup-workbench)
+  (method public virtual (setup-workbench self)
     (define (load-workbench)
       (let ((file Workbench-File))
-        (if (and (is-alias? 'Profile) (exists?~ file))
+        (if (and (is-alias? 'Profile) (exists? file))
             (parameterize ((tag-reference-not-found-handler not-found-handler))
-              (instantiate~ (read-form file)))
-          (default-workbench))))
+              (instantiate (read-form file)))
+          (default-workbench self))))
     
     (define (not-found-handler ref)
       (let ((form
@@ -468,9 +473,9 @@
                 (<Project-Not-Found>))))
         (let ((title
                 (catch (Unknown-Alias-Exception exc
-                         (get-message~ exc))
-                  (format "{a} not found" (parse~ ref)))))
-          (set-property~ form 'title title)
+                         (get-message exc))
+                  (format "{a} not found" (parse ref)))))
+          (set-property form 'title title)
           form)))
     
     (with-safe-execution "loading the workbench"
@@ -481,25 +486,25 @@
           title: "Load Workbench"))
       continue-handler:
       (lambda (err)
-        (set-workbench (default-workbench)))))
+        (set-workbench (default-workbench self)))))
   
   
-  (method public (update-project-actions)
-    (let ((project (get-active-project))
+  (method public (update-project-actions self)
+    (let ((project (active-project))
           @wait
           (project-file (let ((guest (current-document)))
                           (and (and guest (is? guest Document))
-                               (let ((moniker (get-moniker~ (get-document-controller~ guest))))
+                               (let ((moniker (get-moniker (get-document-controller guest))))
                                  (and moniker
                                       (let ((workbench (get-workbench)))
-                                        (find-source~ workbench moniker)))))))
+                                        (find-source workbench moniker)))))))
           ;; quicky as this should probably be a test on the above project-file
           ;; so files from different languages can be build in their own ways
           (unit-name (let ((guest (current-document)))
                        (and (and guest (is? guest Document))
-                            (let ((moniker (get-moniker~ (get-document-controller~ guest))))
+                            (let ((moniker (get-moniker (get-document-controller guest))))
                               (and moniker
-                                   (find-pathname-unit (parse~ moniker))))))))
+                                   (find-pathname-unit (parse moniker))))))))
       @wait (set-action-enabled? {Action ide edit-project} project)
       @wait (set-action-enabled? {Action ide compile-file} (and project unit-name @wait project-file))
       @wait (set-action-enabled? {Action ide build-project} project)
@@ -510,8 +515,8 @@
       (set-action-enabled? {Action ide debug-project} project)))
   
   
-  (method public (run-project project (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
-    (project-run~ project
+  (method public (run-project self project (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
+    (project-run project
       profile: profile
       command-action: command-action
       command-arguments: command-arguments
@@ -519,8 +524,8 @@
       wait?: wait?))
 
 
-  (method public (debug-project project (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
-    (project-debug~ project
+  (method public (debug-project self project (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
+    (project-debug project
       executable: executable
       debugger-interactive?: debugger-interactive?
       profile: profile
@@ -530,8 +535,8 @@
       wait?: wait?))
 
 
-  (method public (validate-project project (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
-    (project-validate~ project
+  (method public (validate-project self project (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
+    (project-validate project
       executable: executable
       debugger-interactive?: debugger-interactive?
       profile: profile
@@ -546,49 +551,49 @@
   ;;;
 
 
-  (method public (fresh-prompt (text: text #f))
+  (method public (fresh-prompt self (text: text #f))
     (let ((text (or text (get-console-text))))
       (when text
-        (fresh-prompt~ text))))
+        (fresh-prompt text))))
   
   
-  (method package (on-console evt)
-    (let ((focus (get-focus))
-          (text (show-console)))
+  (method package (on-console self evt)
+    (let ((focus (active-focus))
+          (text (show-console self)))
       (when (and text (eq? text focus))
-        (cond ((or (not (at-end?~ text))
-                   (extended?~ (last-block~ text)))
-               (fresh-prompt~ text))
-              ((not (cell-displayed?~ text (get-end~ text)))
-               (ensure-displayed~ text))
+        (cond ((or (not (at-end? text))
+                   (extended? (last-block text)))
+               (fresh-prompt text))
+              ((not (cell-displayed? text (get-end text)))
+               (ensure-displayed text))
               (else
-               (select-next-console~ (get-console-manager)))))))
+               (select-next-console (get-console-manager-guest)))))))
   
   
-  (method public (show-console (class: class Lisp-Console-Manager)
+  (method public (show-console self (class: class Lisp-Console-Manager)
                                (workspace: workspace 'home)
                                (focus?: focus? #t))
     (let ((manager (select-docked class workspace: workspace)))
       (when (and manager focus?)
-        (let ((text (get-text~ manager)))
+        (let ((text (get-text manager)))
           (if (not text)
               (bell)
-            (acquire-focus~ text))
+            (acquire-focus text))
           text))))
   
   
-  (method package (on-clear-console evt)
-    (clear-console~ (get-console-text)))
+  (method package (on-clear-console self evt)
+    (clear-console (get-console-text)))
   
   
-  (method package (on-sql-console evt)
-    (let ((had-focus? (is? (get-focus) SQL-Console-Text-View)))
-      (show-console class: SQL-Console-Manager workspace: 'sql)
+  (method package (on-sql-console self evt)
+    (let ((had-focus? (is? (active-focus) SQL-Console-Text-View)))
+      (show-console self class: SQL-Console-Manager workspace: 'sql)
       (when had-focus?
-        (fresh-prompt text: (get-sql-console-text)))))
+        (fresh-prompt self text: (get-sql-console-text)))))
   
   
-  (method (on-sql-connections evt)
+  (method (on-sql-connections self evt)
     (select-docked SQL-Connections-Manager workspace: 'sql focus?: #t))
   
   
@@ -597,7 +602,7 @@
     (select-docked Inventory-Browser workspace: 'sql focus?: #t))
   
   
-  (method (on-sql-tree-output evt)
+  (method (on-sql-tree-output self evt)
     (select-docked SQL-Tree-Output 'sql focus?: #t))
   
   
@@ -606,12 +611,12 @@
   ;;;
   
   
-  (method override (get-logs-manager)
-    (get-guest~ (singleton-docked Logs-Manager)))
+  (method override (get-logs-manager self)
+    (get-guest (singleton-docked Logs-Manager)))
   
   
-  (method override (get-output-log)
-    (get-guest~ (singleton-docked Output-Log)))
+  (method override (get-output-log self)
+    (get-guest (singleton-docked Output-Log)))
     
   
   ;;;
@@ -619,8 +624,8 @@
   ;;;
   
   
-  (method public (get-profiling-results)
-    (get-guest~ (singleton-docked Profile-Results)))
+  (method public (get-profiling-results self)
+    (get-guest (singleton-docked Profile-Results)))
     
   
   ;;;
@@ -628,8 +633,8 @@
   ;;;
   
   
-  (method public (get-dependencies-analyser)
-    (get-guest~ (singleton-docked Dependencies-Analyser)))
+  (method public (get-dependencies-analyser self)
+    (get-guest (singleton-docked Dependencies-Analyser)))
 
   
   ;;;
@@ -637,10 +642,10 @@
   ;;;
   
   
-  (method override (register-base-objects)
-    (nextmethod)
-    (when (use-local-debugger?)
-      (register-object~ (get-local-register) 'debugger (new Jazz-Debugger-Local-Proxy local-debugger))))
+  (method override (register-base-objects self)
+    (nextmethod self)
+    (when (use-local-debugger? self)
+      (register-object (get-local-register) 'debugger (new Jazz-Debugger-Local-Proxy local-debugger))))
 
   
   ;;;
@@ -648,34 +653,34 @@
   ;;;
   
   
-  (method protected virtual (use-local-debugger?)
+  (method protected virtual (use-local-debugger? self)
     #t)
     
   
-  (method override (get-local-debugger)
+  (method override (get-local-debugger self)
     local-debugger)
     
   
-  (method override (get-snapshot-debugger)
+  (method override (get-snapshot-debugger self)
     snapshot-debugger)
 
   
-  (method (start-debuggers)
-    (when (use-local-debugger?)
+  (method package (start-debuggers self)
+    (when (use-local-debugger? self)
       (when (not local-debugger)
         (set! local-debugger (new Jazz-Debugger))
-        (start-debugger~ local-debugger)
+        (start-debugger local-debugger)
         (register-debugger local-debugger)
         (set-current-debugger local-debugger))
       (when (not snapshot-debugger)
         (set! snapshot-debugger (new Snapshot-Debugger))
-        (start-debugger~ snapshot-debugger)
+        (start-debugger snapshot-debugger)
         (register-debugger snapshot-debugger))))
   
   
-  (method (detach-debugger-processes)
-    (when (use-local-debugger?)
-      (for-each detach-processes~ (get-debuggers))))
+  (method (detach-debugger-processes self)
+    (when (use-local-debugger? self)
+      (for-each detach-processes (get-debuggers))))
   
   
   ;;;
@@ -683,11 +688,11 @@
   ;;;
   
   
-  (method override (initial-console-context)
-    (let ((pref (get-preferences '(tools console) error?: #f)))
+  (method override (initial-console-context self)
+    (let ((pref (current-preferences '(tools console) error?: #f)))
       (if (not pref)
           :process
-        (get-context~ pref))))
+        (get-context pref))))
   
   
   ;;;
@@ -695,7 +700,7 @@
   ;;;
   
   
-  (method override (former-class)
+  (method override (former-class self)
     Designer)
   
 
@@ -704,29 +709,29 @@
   ;;;
 
   
-  (method (on-open-favorite evt)
+  (method (on-open-favorite self evt)
     (define (find-favorite char)
-      (let ((pref (get-preferences 'favorites error?: #f)))
+      (let ((pref (current-preferences 'favorites error?: #f)))
         (and pref
-             (let ((favorites (get-children~ pref)))
+             (let ((favorites (get-children pref)))
                (find-if (lambda (favorite)
-                          (eqv? (get-shortcut~ favorite) char))
+                          (eqv? (get-shortcut favorite) char))
                         favorites)))))
     
-    (let* ((char (get-property~ evt char:))
+    (let* ((char (get-property evt char:))
            (favorite (find-favorite char)))
       (if (not favorite)
           (error "No favorite defined for {t}" char)
-        (let ((target (get-target~ favorite)))
+        (let ((target (get-target favorite)))
           (cond ((not target)
                  (message-box (format "No favorite defined for {a}" char))
                  (signal-cancel))
                 ((file? target)
-                 (edit-document target))
+                 (edit-document self target))
                 ((symbol? target)
-                 (edit-definitions target))
+                 (edit-definitions self target))
                 ((is? target Event-Handler)
-                 (invoke~ target self (apply make-event Event :launch self (get-properties~ target))))
+                 (invoke target self (apply make-event Event :launch self (get-properties target))))
                 ((is? target Action)
                  (call-action target self '() event: evt))
                 (else
@@ -738,7 +743,7 @@
   ;;;
 
   
-  (method override (edit-definitions object (class: class #f) (context: context #f) (workspace: workspace #f) (history-item: history-item #f))
+  (method override (edit-definitions self object (class: class #f) (context: context #f) (workspace: workspace #f) (history-item: history-item #f))
     ;; todo: show only entries belonging to class
     (define (filter-entries entries class)
       entries)
@@ -750,24 +755,24 @@
               (bell)
             (edit-entry entry)))
       (let ((name (->string object)))
-        (let ((definitions (filter-entries (get-coalesced-definitions~ (get-cataloguer) name context: context) class)))
+        (let ((definitions (filter-entries (get-coalesced-definitions (get-cataloguer) name context: context) class)))
           (if (null? definitions)
               (bell)
-            (add-history history-item)
+            (add-history self history-item)
             (case (length definitions)
               ((1) (edit-entry (car definitions) workspace: workspace))
-              (else (edit-definitions~ (get-search-manager) (new Projects-Search 'definitions name #f) definitions))))))))
+              (else (edit-definitions (get-search-manager) (new Projects-Search 'definitions name #f) definitions))))))))
 
   
-  (method override (edit-references object (context: context #f) (history-item: history-item #f))
+  (method override (edit-references self object (context: context #f) (history-item: history-item #f))
     (let ((name (->string object)))
-      (let ((definitions (get-references~ (get-cataloguer) name context: context)))
+      (let ((definitions (get-references (get-cataloguer) name context: context)))
         (if (null? definitions)
             (bell)
-          (add-history history-item)
+          (add-history self history-item)
           (case (length definitions)
             ((1) (edit-textual-reference (car definitions) name))
-            (else (edit-references~ (get-search-manager) (new Projects-Search 'references (make-search-context name whole-words?: #t) #f) definitions)))))))
+            (else (edit-references (get-search-manager) (new Projects-Search 'references (make-search-context name whole-words?: #t) #f) definitions)))))))
 
 
   ;;;
@@ -775,47 +780,47 @@
   ;;;
   
   
-  (method override (designer-default-imports)
+  (method override (designer-default-imports self)
     '(jazz.jml))
   
   
-  (method override (designer-form-imports form)
+  (method override (designer-form-imports self form)
     (form-imports form))
   
   
-  (method public virtual (view-editor-class)
+  (method public virtual (view-editor-class self)
     View-Editor)
   
   
-  (method public virtual (component-editor-class)
+  (method public virtual (component-editor-class self)
     Grid-Component-Editor)
   
   
-  (method public virtual (default-designer-imports)
+  (method public virtual (default-designer-imports self)
     '(jazz.jml))
   
   
-  (method public virtual (text-editor-class)
+  (method public virtual (text-editor-class self)
     Text-Editor)
   
   
-  (method public virtual (make-traits-toolbox class)
-    (instantiate~
+  (method public virtual (make-traits-toolbox self class)
+    (instantiate
       (parse-form
         `(data jazz.ide.data.toolbox
          (form
            (<Toolbox> title: "Traits"))))))
 
 
-  (method protected virtual (designer-process)
+  (method package virtual (designer-process self)
     (let ((manager (get-debugger-manager)))
-      (or (and (get-focused-mode?~ manager)
-               (get-focused-process~ manager))
+      (or (and (get-focused-mode? manager)
+               (get-focused-process manager))
           (warn-cancel "Please focus the process used by the designer"))))
   
   
-  (method public (get-designer-manager)
-    (get-guest~ (singleton-docked Designer-Manager)))
+  (method public (get-designer-manager self)
+    (get-guest (singleton-docked Designer-Manager)))
   
   
   ;;;
@@ -823,25 +828,25 @@
   ;;;
   
   
-  (method public (get-documentation symbol)
+  (method public (get-documentation self symbol)
     (and symbol
-         (let ((cataloguer (get-documentation-cataloguer)))
+         (let ((cataloguer (get-documentation-cataloguer self)))
            (and cataloguer
-                (get-definition~ cataloguer symbol)))))
+                (get-definition cataloguer symbol)))))
   
   
-  (method public (edit-documentation symbol)
-    (let ((doc (get-documentation symbol)))
+  (method public (edit-documentation self symbol)
+    (let ((doc (get-documentation self symbol)))
       (if (not doc)
           (bell)
-        (let* ((form (get-form~ doc))
-               (moniker (get-origin~ (get-toplevel~ form)))
-               (frame (edit-document moniker visible?: #f))
-               (text (get-guest~ frame))
-               (location (append (get-location~ form) (list 0)))
-               (range (location-range~ text location)))
-          (set-selection~ text range)
-          (focus-host~ frame)))))
+        (let* ((form (get-form doc))
+               (moniker (get-origin (get-toplevel form)))
+               (frame (edit-document self moniker visible?: #f))
+               (text (get-guest frame))
+               (location (append (get-location form) (list 0)))
+               (range (location-range text location)))
+          (set-selection text range)
+          (focus-host frame)))))
 
 
   @old-doc-editor
@@ -851,8 +856,8 @@
            (info (list location object text text-location)))
       (if (not editor)
           (new-frame class client: (get-documentation-catalog) entry: info)
-        (set-entry~ editor info)
-        (bring-to-front~ (get-host~ editor)))))
+        (set-entry editor info)
+        (bring-to-front (get-host editor)))))
   
   
   ;;;
@@ -860,13 +865,13 @@
   ;;;
   
   
-  (method override (navigable-results)
+  (method override (navigable-results self)
     (list
-      (get-guest~ (singleton-docked Search-Results))
-      (get-guest~ (singleton-docked Dependencies-Analyser))
+      (get-guest (singleton-docked Search-Results))
+      (get-guest (singleton-docked Dependencies-Analyser))
       @wait
-      (get-guest~ (singleton-docked Output-Log))
-      (get-guest~ (singleton-docked Violations-Manager))))
+      (get-guest (singleton-docked Output-Log))
+      (get-guest (singleton-docked Violations-Manager))))
 
 
   ;;;
@@ -874,57 +879,57 @@
   ;;;
   
   
-  (method (on-new-project evt)
-    (add-project-to~ (get-workbench-manager) (get-workbench)))
+  (method (on-new-project self evt)
+    (add-project-to (get-workbench-manager self) (get-workbench)))
   
 
-  (method package (on-open-text evt)
+  (method package (on-open-text self evt)
     (receive (files char-encoding) (choose-file multiple-selection?: #t text?: #t)
       (for-each (lambda (file)
-                  (edit-document file class: Jazz-Plain-Text-View char-encoding: char-encoding))
-                (sort string>? files key: get-name~))))
+                  (edit-document self file class: Jazz-Plain-Text-View char-encoding: char-encoding))
+                (sort string>? files key: get-name))))
 
 
-  (method package (on-open-jazz-text evt)
+  (method package (on-open-jazz-text self evt)
     (receive (files char-encoding) (choose-file title: "Choose Jazz Text File" multiple-selection?: #t text?: #t)
       (for-each (lambda (file)
-                  (edit-document file class: Jazz-Text-View char-encoding: char-encoding))
-                (sort string>? files key: get-name~))))
+                  (edit-document self file class: Jazz-Text-View char-encoding: char-encoding))
+                (sort string>? files key: get-name))))
   
   
-  (method package (on-terminal-repl evt)
+  (method package (on-terminal-repl self evt)
     (terminal-repl))
   
   
-  (method package (on-toggle-terminal evt)
+  (method package (on-toggle-terminal self evt)
     (toggle-terminal))
   
   
-  (method package (on-clear-terminal evt)
+  (method package (on-clear-terminal self evt)
     (clear-terminal))
 
 
-  (method package virtual (on-test evt)
-    (test~ (get-profile)))
+  (method package virtual (on-test self evt)
+    (test (get-profile self)))
 
 
-  (method (on-test-no evt)
-    (let ((profile (get-profile)))
-      (case (get-property~ evt no:)
-        ((0) (test0~ profile))
-        ((1) (test1~ profile))
-        ((2) (test2~ profile))
-        ((3) (test3~ profile))
-        ((4) (test4~ profile))
-        ((5) (test5~ profile))
-        ((6) (test6~ profile))
-        ((7) (test7~ profile))
-        ((8) (test8~ profile))
-        ((9) (test9~ profile)))))
+  (method (on-test-no self evt)
+    (let ((profile (get-profile self)))
+      (case (get-property evt no:)
+        ((0) (test0 profile))
+        ((1) (test1 profile))
+        ((2) (test2 profile))
+        ((3) (test3 profile))
+        ((4) (test4 profile))
+        ((5) (test5 profile))
+        ((6) (test6 profile))
+        ((7) (test7 profile))
+        ((8) (test8 profile))
+        ((9) (test9 profile)))))
   
   
-  (method package (on-focus-next-process evt)
-    (let ((focused (get-focused-process~ (get-debugger-manager)))
+  (method package (on-focus-next-process self evt)
+    (let ((focused (get-focused-process (get-debugger-manager)))
           (processes (collect-processes)))
       (define (next-process rank)
         (if (not rank)
@@ -933,11 +938,11 @@
             (element processes next-rank))))
       
       (unless (null? processes)
-        (focus-process~ (get-debugger-manager) (next-process (find processes focused test: debugged=?))))))
+        (focus-process (get-debugger-manager) (next-process (find processes focused test: debugged=?))))))
   
   
-  (method package (on-focus-previous-process evt)
-    (let ((focused (get-focused-process~ (get-debugger-manager)))
+  (method package (on-focus-previous-process self evt)
+    (let ((focused (get-focused-process (get-debugger-manager)))
           (processes (collect-processes)))
       (define (previous-process rank)
         (if (not rank)
@@ -946,170 +951,170 @@
             (element processes previous-rank))))
       
       (unless (null? processes)
-        (focus-process~ (get-debugger-manager) (previous-process (find processes focused test: debugged=?))))))
+        (focus-process (get-debugger-manager) (previous-process (find processes focused test: debugged=?))))))
 
 
-  (method package (on-reload-process evt)
-    (let ((debugged (get-focused-process~ (get-debugger-manager))))
+  (method package (on-reload-process self evt)
+    (let ((debugged (get-focused-process (get-debugger-manager))))
       (if (not debugged)
           (bell)
-        (reload-process~ debugged))))
+        (reload-process debugged))))
   
 
-  (method package (on-debug-views evt)
-    (debug-views~ (current-view-debugger)))
+  (method package (on-debug-views self evt)
+    (debug-views (current-view-debugger)))
   
   
-  (method package (on-explore-views evt)
-    (explore-views~ (current-view-debugger)))
+  (method package (on-explore-views self evt)
+    (explore-views (current-view-debugger)))
   
   
-  (method package (on-processes evt)
+  (method package (on-processes self evt)
     (select-docked Processes-View workspace: 'debugger focus?: #t))
   
   
-  (method package (on-threads evt)
+  (method package (on-threads self evt)
     (select-docked Threads-View workspace: 'debugger focus?: #t))
   
   
-  (method package (on-frames evt)
+  (method package (on-frames self evt)
     (select-docked Frames-View workspace: 'debugger focus?: #t))
   
   
-  (method package (on-restarts evt)
+  (method package (on-restarts self evt)
     (select-docked Restarts-View workspace: 'debugger focus?: #t))
   
   
-  (method package (on-exception evt)
+  (method package (on-exception self evt)
     (select-docked Exception-View workspace: 'debugger focus?: #t))
   
   
-  (method package (on-variables evt)
+  (method package (on-variables self evt)
     (select-docked Variables-View workspace: 'debugger focus?: #t))
   
   
-  (method (on-resources-monitor evt)
+  (method (on-resources-monitor self evt)
     (show-palette Resources-Monitor))
 
 
-  (method package (on-logs-viewer evt)
+  (method package (on-logs-viewer self evt)
     (show-palette Logs-Viewer))
 
   
-  (method (on-browse-class evt)
-    (let ((target (determine-browse-target)))
+  (method (on-browse-class self evt)
+    (let ((target (determine-browse-target self)))
       (let ((host (new-frame Class-Browser initialize: (lambda (view)
                                                          (when target
-                                                           (set-class-name~ view target))))))
-        (let ((browser (get-guest~ host)))
-          (focus-class-name~ browser)
+                                                           (set-class-name view target))))))
+        (let ((browser (get-guest host)))
+          (focus-class-name browser)
           (when target
-            (browse~ browser))))))
+            (browse browser))))))
 
   
-  (method (on-browse-method evt)
-    (let ((target (determine-browse-target)))
+  (method (on-browse-method self evt)
+    (let ((target (determine-browse-target self)))
       (let ((host (new-frame Class-Browser initialize: (lambda (view)
                                                          (when target
-                                                           (set-method-name~ view target))))))
-        (let ((browser (get-guest~ host)))
-          (focus-method-name~ browser)
+                                                           (set-method-name view target))))))
+        (let ((browser (get-guest host)))
+          (focus-method-name browser)
           (when target
-            (browse~ browser))))))
+            (browse browser))))))
   
   
-  (method (determine-browse-target)
-    (let ((focus (get-focus)))
+  (method (determine-browse-target self)
+    (let ((focus (active-focus)))
       (and (is? focus Code-Text-View)
-           (let ((form (current-expr~ focus)))
+           (let ((form (current-expr focus)))
              (and form
-                  (standardize-form~ focus form #t))))))
+                  (standardize-form focus form #t))))))
 
   
-  (method package (on-edit-clipboard evt)
+  (method package (on-edit-clipboard self evt)
     (let ((clipboard (get-clipboard-text)))
       (if (string? clipboard)
-          (edit-definitions clipboard)
+          (edit-definitions self clipboard)
         (bell))))
   
   
-  (method public (get-workbench-manager)
-    (get-guest~ (singleton-docked Workbench-Manager)))
+  (method public (get-workbench-manager self)
+    (get-guest (singleton-docked Workbench-Manager)))
   
   
-  (method package (on-select-project evt)
-    (select-current~ (get-workbench-manager)))
+  (method package (on-select-project self evt)
+    (select-current (get-workbench-manager self)))
   
   
-  (method package (on-edit-project evt)
-    (edit-current~ (get-workbench-manager)))
+  (method package (on-edit-project self evt)
+    (edit-current (get-workbench-manager self)))
   
   
-  (method package (on-compile-file evt)
-    (compile-current~ (get-workbench-manager)))
+  (method package (on-compile-file self evt)
+    (compile-current (get-workbench-manager self)))
   
   
-  (method package (on-preprocess-file evt)
-    (preprocess-current~ (get-workbench-manager)))
+  (method package (on-preprocess-file self evt)
+    (preprocess-current (get-workbench-manager self)))
   
   
-  (method package (on-build-project evt)
-    (build-current~ (get-workbench-manager)))
+  (method package (on-build-project self evt)
+    (build-current (get-workbench-manager self)))
   
   
-  (method package (on-clean-project evt)
-    (clean-current~ (get-workbench-manager)))
+  (method package (on-clean-project self evt)
+    (clean-current (get-workbench-manager self)))
   
   
-  (method package (on-view-project-log evt)
-    (view-log~ (get-workbench-manager)))
+  (method package (on-view-project-log self evt)
+    (view-log (get-workbench-manager self)))
   
   
-  (method package (on-configure-project evt)
-    (configure-current~ (get-workbench-manager)))
+  (method package (on-configure-project self evt)
+    (configure-current (get-workbench-manager self)))
   
   
-  (method package (on-run-project evt)
-    (run-current~ (get-workbench-manager)))
+  (method package (on-run-project self evt)
+    (run-current (get-workbench-manager self)))
   
   
-  (method package (on-debug-project evt)
-    (debug-current~ (get-workbench-manager) executable: (if (get-shift?~ evt) (choose-kernel) #f)))
+  (method package (on-debug-project self evt)
+    (debug-current (get-workbench-manager self) executable: (if (get-shift? evt) (choose-kernel) #f)))
   
   
-  (method package (on-test-project evt)
-    (test-current~ (get-workbench-manager)))
+  (method package (on-test-project self evt)
+    (test-current (get-workbench-manager self)))
   
   
-  (method package (on-validate-project evt)
-    (validate-current~ (get-workbench-manager)))
+  (method package (on-validate-project self evt)
+    (validate-current (get-workbench-manager self)))
   
   
-  (method package (on-distribute-project evt)
-    (distribute-current~ (get-workbench-manager)))
+  (method package (on-distribute-project self evt)
+    (distribute-current (get-workbench-manager self)))
   
   
-  (method package (on-dependencies-analyser evt)
+  (method package (on-dependencies-analyser self evt)
     (select-docked Dependencies-Analyser focus?: #t))
   
   
-  (method package (on-references-analyser evt)
+  (method package (on-references-analyser self evt)
     (select-docked References-Analyser focus?: #t))
   
   
-  (method (on-toolbox evt)
+  (method (on-toolbox self evt)
     (select-docked Toolbox-Manager workspace: 'designer focus?: #t))
   
   
-  (method (on-traits evt)
+  (method (on-traits self evt)
     (select-docked Traits-Editor workspace: 'designer focus?: #t))
   
   
-  (method (on-descendants evt)
+  (method (on-descendants self evt)
     (select-docked Descendants-Editor workspace: 'designer focus?: #t))
   
   
-  (method (on-showcase evt)
+  (method (on-showcase self evt)
     (new-frame Showcase))
 
 
@@ -1118,166 +1123,166 @@
   ;;;
   
   
-  (method package (on-properties evt)
+  (method package (on-properties self evt)
     (select-docked Properties-Manager focus?: #t))
 
   
-  (method package (on-search-results evt)
+  (method package (on-search-results self evt)
     (select-docked Search-Results focus?: #t))
 
   
-  (method package (on-profile-results evt)
+  (method package (on-profile-results self evt)
     (select-docked Profile-Results focus?: #t))
 
   
-  (method package (on-tracking-results evt)
+  (method package (on-tracking-results self evt)
     (select-docked Tracking-Results focus?: #t))
 
   
-  (method package (on-log-details evt)
+  (method package (on-log-details self evt)
     (select-docked Logs-Manager focus?: #t))
   
   
-  (method package (on-servers evt)
+  (method package (on-servers self evt)
     (select-docked Servers-Manager focus?: #t))
 
   
-  (method package (on-output-log evt)
+  (method package (on-output-log self evt)
     (select-docked Output-Log focus?: #t))
 
   
-  (method package (on-user-log evt)
+  (method package (on-user-log self evt)
     (let ((user-log (select-docked User-Log focus?: #t)))
-      (refresh~ user-log)))
+      (refresh user-log)))
 
   
-  (method package (on-activities evt)
+  (method package (on-activities self evt)
     (select-docked Activities-Manager focus?: #t))
 
   
-  (method package (on-workbench evt)
+  (method package (on-workbench self evt)
     (select-docked Workbench-Manager focus?: #t))
   
   
-  (method package (get-repositories-manager)
-    (get-guest~ (singleton-docked Repositories-Manager)))
+  (method package (get-repositories-manager self)
+    (get-guest (singleton-docked Repositories-Manager)))
 
   
-  (method package (on-repositories evt)
+  (method package (on-repositories self evt)
     (select-docked Repositories-Manager focus?: #t))
   
   
-  (method package (on-favorites evt)
+  (method package (on-favorites self evt)
     (select-docked Favorites-Manager focus?: #t))
 
   
-  (method package (on-chapters evt)
+  (method package (on-chapters self evt)
     (select-docked Chapters-Browser workspace: 'text focus?: #t))
 
   
-  (method package (on-hierarchy evt)
+  (method package (on-hierarchy self evt)
     (select-docked Hierarchy-Browser workspace: 'text focus?: #t))
 
   
-  (method package (on-summary evt)
+  (method package (on-summary self evt)
     (select-docked Summary-View workspace: 'text focus?: #t))
 
   
-  (method package (on-problems evt)
+  (method package (on-problems self evt)
     (select-docked Problems-View workspace: 'text focus?: #t))
   
   
-  (method package (on-bindings-manager evt)
+  (method package (on-bindings-manager self evt)
     (let ((frame (find-frame-host Bindings-Manager)))
       (if frame
-          (focus-host~ frame)
+          (focus-host frame)
         (new-frame Bindings-Manager))))
   
   
-  (method package (on-view-bindings evt)
+  (method package (on-view-bindings self evt)
     (get-modal Shortcut-Viewer))
   
   
-  (method package (on-skins-manager evt)
+  (method package (on-skins-manager self evt)
     (let ((frame (find-frame-host Skins-Manager)))
       (if frame
-          (focus-host~ frame)
+          (focus-host frame)
         (new-frame Skins-Manager))))
   
   
-  (method package (on-designer-try-out evt)
-    (let ((manager (get-designer-manager~ (get-application))))
+  (method package (on-designer-try-out self evt)
+    (let ((manager (get-designer-manager (get-application))))
       (if (not manager)
           (bell)
-        (on-try-out~ manager (make-event Event :action self)))))
+        (on-try-out manager (make-event Event :action self)))))
   
   
-  (method package (on-preferences evt)
+  (method package (on-preferences self evt)
     (new-frame Preferences-Manager))
   
   
-  (method package (on-recording evt)
+  (method package (on-recording self evt)
     (new-frame Recording-Manager))
   
   
-  (method package (on-save-profile evt)
+  (method package (on-save-profile self evt)
     (with-cursor :wait
       (lambda ()
         (user-message "Saving profile...")
-        (call-save-environment-listeners)
-        (call-quit-listeners)
-        (persist-preferences)
-        (save-bindings)
-        (save-workspaces)
+        (call-save-environment-listeners self)
+        (call-quit-listeners self)
+        (persist-preferences self)
+        (save-bindings self)
+        (save-workspaces self)
         (user-message "Done"))))
   
   
-  (method package (on-quit-without-save evt)
+  (method package (on-quit-without-save self evt)
     (when (eq? (message-box "Are you sure you want to quit without saving?" type: 'question) 'yes)
       (quit)))
   
   
-  (method package (on-compare-directories evt)
-    (if (get-shift?~ evt)
-        (let ((default (get-active-configuration~ (get-preferences '(tools compare-directories)))))
+  (method package (on-compare-directories self evt)
+    (if (get-shift? evt)
+        (let ((default (get-active-configuration (current-preferences '(tools compare-directories)))))
           (if (not default)
               (new-frame Compare-Directories)
             (let ((frame (new-frame Compare-Directories host-visible?: #f)))
               (with-cursor :wait
                 (lambda ()
-                  (configure~ (get-guest~ frame) default)
-                  (compare-trees~ (get-guest~ frame))
-                  (focus-host~ frame))))))
+                  (configure (get-guest frame) default)
+                  (compare-trees (get-guest frame))
+                  (focus-host frame))))))
       (new-frame Compare-Directories)))
   
   
-  (method package (on-compare-files evt)
+  (method package (on-compare-files self evt)
     (new-frame Compare-Files))
 
   
-  (method package (on-compare-databases evt)
+  (method package (on-compare-databases self evt)
     @convert/wait
     (new-frame Compare-Databases))
   
   
-  (method package (on-git-explorer evt)
+  (method package (on-git-explorer self evt)
     (new-frame Git-Explorer))
   
   
-  (method package (on-merge-git-conflict evt)
-    (let ((text (get-focus)))
+  (method package (on-merge-git-conflict self evt)
+    (let ((text (active-focus)))
       (if (is? text Text-View)
-          (let ((frame (new-frame Threeway-Compare-Texts host-workspace: (get-name~ (selected-workspace)) host-visible?: #f)))
-            (let ((threeway (get-guest~ frame)))
-              (merge-conflict~ threeway text)
-              (focus-host~ frame)))
+          (let ((frame (new-frame Threeway-Compare-Texts host-workspace: (get-name (selected-workspace)) host-visible?: #f)))
+            (let ((threeway (get-guest frame)))
+              (merge-conflict threeway text)
+              (focus-host frame)))
         (message-box "No text currently focused"))))
   
 
-  (method package (on-recording-manager evt)
+  (method package (on-recording-manager self evt)
     (let ((frame (find-frame-host Recording-Manager)))
       (if frame
-          (focus-host~ frame)
+          (focus-host frame)
         (new-frame Recording-Manager))))
   
 
@@ -1286,36 +1291,36 @@
   ;;;
 
 
-  (method override (setup-cataloguer)
+  (method override (setup-cataloguer self)
     (set-cataloguer (new Workbench-Cataloguer)))
   
   
-  (method protected virtual (preload-catalogs)
-    (let ((update? (or (get-first-startup?~ (get-preferences #f))
-                       (get-startup-update?~ (get-preferences 'catalog)))))
+  (method protected virtual (preload-catalogs self)
+    (let ((update? (or (get-first-startup? (current-preferences #f))
+                       (get-startup-update? (current-preferences 'catalog)))))
       ;; using delay-event to load the catalogs after the run loop is
       ;; started ensures that the null? test on the load-stack passes
       (delay-event
         (lambda ()
-          (load-catalogs-threaded~ (get-workbench) update?)))))
+          (load-catalogs-threaded (get-workbench) update?)))))
   
   
-  (method protected virtual (save-catalogs)
-    (when (use-profile?)
-      (save-catalogs~ (get-cataloguer))))
+  (method package virtual (save-catalogs self)
+    (when (use-profile? self)
+      (save-catalogs (get-cataloguer))))
   
   
-  (method (on-projects-manager evt)
+  (method (on-projects-manager self evt)
     (let ((frame (find-frame-host Projects-Manager)))
       (if frame
-          (focus-host~ frame)
+          (focus-host frame)
         (new-frame Projects-Manager))))
 
   
-  (method (on-update-catalogs evt)
+  (method (on-update-catalogs self evt)
     (with-cursor :wait
       (lambda ()
-        (update-catalogs~ (get-workbench)))))
+        (update-catalogs (get-workbench)))))
   
   
   ;;;
@@ -1323,27 +1328,27 @@
   ;;;
   
   
-  (method (on-zoom-out evt)
-    (scale-view (get-property~ evt what:) 0.75))
+  (method (on-zoom-out self evt)
+    (scale-view self (get-property evt what:) 0.75))
   
   
-  (method (on-zoom-in evt)
-    (scale-view (get-property~ evt what:) 1.25))
+  (method (on-zoom-in self evt)
+    (scale-view self (get-property evt what:) 1.25))
   
   
-  (method (on-unzoom evt)
-    (scale-view (get-property~ evt what:) #f))
+  (method (on-unzoom self evt)
+    (scale-view self (get-property evt what:) #f))
   
   
-  (method (scale-view what factor)
+  (method package (scale-view self what factor)
     (define (scaled-view what)
       (case what
         ((document) (current-document))
-        ((mouse-view) (mouse-view))))
+        ((mouse-view) (active-mouse-view))))
     
     (let ((view (scaled-view what)))
-      (scale-view~ view factor)
-      (user-message "Scaling set to {a}" (get-scaling~ view))))
+      (scale-view view factor)
+      (user-message "Scaling set to {a}" (get-scaling view))))
 
 
   ;;;
@@ -1351,7 +1356,7 @@
   ;;;
   
   
-  (method (on-capture-document evt)
+  (method (on-capture-document self evt)
     (pick-figure
       click: (lambda (view pos) (capture-document view))
       highlight: #t
@@ -1361,24 +1366,24 @@
       tooltips?: #f))
   
   
-  (method (on-capture-mouse-document evt)
-    (let ((view (mouse-view)))
+  (method (on-capture-mouse-document self evt)
+    (let ((view (active-mouse-view)))
       (if (not view)
           (bell)
         (capture-document view))))
   
   
   (definition (capture-document view)
-    (let ((host (get-host~ view)))
+    (let ((host (get-host view)))
       (if (not host)
           (bell)
-        (let ((guest (get-guest~ view)))
+        (let ((guest (get-guest view)))
           (if (not guest)
               (bell)
-            (export-picture~ guest))))))
+            (export-picture guest))))))
   
   
-  (method (on-capture-host evt)
+  (method (on-capture-host self evt)
     (pick-figure
       click: (lambda (view pos) (capture-host view))
       highlight: #t
@@ -1388,15 +1393,15 @@
       tooltips?: #f))
   
   
-  (method (on-capture-mouse-host evt)
-    (let ((view (mouse-view)))
+  (method (on-capture-mouse-host self evt)
+    (let ((view (active-mouse-view)))
       (if (not view)
           (bell)
         (capture-host view))))
   
   
   (definition (capture-host view)
-    (let ((host (get-host~ view)))
+    (let ((host (get-host view)))
       (if (not host)
           (bell)
-        (export-picture~ host))))))
+        (export-picture host))))))

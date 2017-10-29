@@ -38,6 +38,17 @@
 (module jazz.version jazz
 
 
+(hub ->64-bit-integer)
+(hub compatible?)
+(hub get-build)
+(hub get-major)
+(hub get-minor)
+(hub get-revision)
+(hub get-stage)
+(hub present)
+(hub present-string)
+
+
 (definition package (construct-version major minor (revision 0) (build 0) (stage #f))
   (new Version major minor revision build stage))
 
@@ -50,16 +61,16 @@
 (class Version extends Object
   
   
-  (method meta override (marshall-object object)
+  (method meta override (marshall-object self object)
     (serialize-object (class-of object)
-                      (vector (serialize (get-major~ object))
-                              (serialize (get-minor~ object))
-                              (serialize (get-revision~ object))
-                              (serialize (get-build~ object))
-                              (serialize (get-stage~ object)))))
+                      (vector (serialize (get-major object))
+                              (serialize (get-minor object))
+                              (serialize (get-revision object))
+                              (serialize (get-build object))
+                              (serialize (get-stage object)))))
   
   
-  (method meta override (unmarshall-object content)
+  (method meta override (unmarshall-object self content)
     (bind-vector (major minor revision build stage) content
       (allocate self
                 (deserialize major)
@@ -76,16 +87,16 @@
   (slot stage    getter generate)
     
     
-  (method override (initialize major minor (revision 0) (build 0) (stage #f))
-    (nextmethod)
-    (set! major~self major)
-    (set! minor~self minor)
-    (set! revision~self revision)
-    (set! build~self build)
-    (set! stage~self stage))
+  (method override (initialize self major minor (revision 0) (build 0) (stage #f))
+    (nextmethod self)
+    (set! self.major major)
+    (set! self.minor minor)
+    (set! self.revision revision)
+    (set! self.build build)
+    (set! self.stage stage))
   
   
-  (method override (compare-object target)
+  (method override (compare-object self target)
     (if (is-not? target Version)
         :incompatible
       (let ((try
@@ -93,20 +104,20 @@
                (cond ((< x y) :less)
                      ((> x y) :greater)
                      (else #f)))))
-        (or (try major (get-major~ target))
-            (try minor (get-minor~ target))
-            (try revision (get-revision~ target))
-            (try build (get-build~ target))
+        (or (try major (get-major target))
+            (try minor (get-minor target))
+            (try revision (get-revision target))
+            (try build (get-build target))
             :equal))))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{{a} {a}}"
             (category-name (class-of self))
-            (present-string)))
+            (present-string self)))
   
   
-  (method protected (present-string)
+  (method package (present-string self)
     (format "{a} {a}{?: {a}~}{?: {a}~}{?: {a}~}"
             major
             minor
@@ -115,7 +126,7 @@
             stage stage))
   
   
-  (method public (present)
+  (method public (present self)
     (format "{a}.{a}{a}{a}{a}"
             major
             minor
@@ -130,12 +141,12 @@
               (format " {a}" stage))))
   
   
-  (method public (compatible? version)
-    (and (= major (get-major~ version))
-         (= minor (get-minor~ version))))
+  (method public (compatible? self version)
+    (and (= major (get-major version))
+         (= minor (get-minor version))))
   
   
-  (method public (->64-bit-integer)
+  (method public (->64-bit-integer self)
     (+ (* major (arithmetic-shift 1 48))
        (* minor (arithmetic-shift 1 32))
        (* revision (arithmetic-shift 1 16))

@@ -40,11 +40,13 @@
 
 (import (jazz.debuggee)
         (jazz.event)
+        (jazz.io)
         (jazz.jrm)
         (jazz.network)
         (jazz.process)
         (jazz.settings)
-        (jazz.snapshot))
+        (jazz.snapshot)
+        (jazz.version))
 
 
 (class Server-Panel extends Object
@@ -62,7 +64,7 @@
     #f)
   
   
-  (method (run-loop server)
+  (method package (run-panel self server)
     (define input
       #f)
     
@@ -104,7 +106,7 @@
               ((reboot) (reboot-command arguments))
               ((snapshot) (snapshot-command arguments))
               ((quit) (quit-command arguments))
-              (else (process-server-command command arguments output)))))))
+              (else (process-server-command self command arguments output)))))))
     
     (define (start-command arguments)
       (start-server))
@@ -120,14 +122,14 @@
     
     (define (listener-command arguments)
       (let ((listener (get-remote-listener)))
-        (format output "{a}{%}" (and listener (encode-host/port (listening-host~ listener) (listening-port~ listener))))))
+        (format output "{a}{%}" (and listener (encode-host/port (listening-host listener) (listening-port listener))))))
     
     (define (listen-command arguments)
       (listen))
     
     (define (debug-command arguments)
       (server-debug (if (null? arguments)
-                        (not (get-debug?~ server))
+                        (not (get-debug? server))
                       (car arguments))))
     
     (define (attach-command arguments)
@@ -145,8 +147,8 @@
                           #f)
                         (lambda ()
                           (setup-debuggee debugger: debugger)
-                          (start-repl-thread (current-thread) #f (get-console-port))
-                          (select-console)
+                          (start-repl-thread (current-thread) #f (current-console-port))
+                          (select-debugger-console)
                           #t))))
               (setup-input/output)
               (format output "Attached to debugger {a}{%}" debugger))))))
@@ -180,19 +182,19 @@
       (force-output output))
     
     (define (quit-command arguments)
-      (let ((process (get-process)))
+      (let ((process (current-process)))
         (if (not process)
             (quit)
           (set! quiting? #t)
           (post-event
             (lambda ()
-              (quit-process~ process))))))
+              (quit-process process))))))
     
     (define (reboot-command arguments)
-      (reboot-process~ (get-process)))
+      (reboot-process (current-process)))
     
     (define (snapshot-command arguments)
-      (format output "{a}{%}" (parse~ (snapshot-process))))
+      (format output "{a}{%}" (parse (snapshot-process))))
     
     ;;;
     ;;;; Server
@@ -200,12 +202,12 @@
     
     (define (server-at)
       (format "{a}:{a}"
-              (or (server-host~ server) localhost)
-              (server-service~ server)))
+              (or (server-host server) localhost)
+              (server-service server)))
     
     (define (start-server)
       (define (start-stopped)
-        (start~ server)
+        (start server)
         (format output "Server started at {a}{%}" (server-at)))
       
       (define (format-exception exc)
@@ -218,7 +220,7 @@
               (else
                exc)))
       
-      (let ((state (get-state~ server)))
+      (let ((state (get-state server)))
         (case state
           ((stopped)
            (if (get-controller-debugger)
@@ -233,42 +235,42 @@
            (format output "Server is {s}{%}" state)))))
     
     (define (stop-server)
-      (let ((state (get-state~ server)))
+      (let ((state (get-state server)))
         (case state
           ((started)
-           (stop~ server)
+           (stop server)
            (format output "Server stopped{%}"))
           (else
            (format output "Server is {s}{%}" state)))))
     
     (define (restart-server)
-      (let ((state (get-state~ server)))
+      (let ((state (get-state server)))
         (case state
           ((stopped started)
-           (restart~ server)
+           (restart server)
            (format output "Server restarted at {a}{%}" (server-at)))
           (else
            (format output "Server is {s}{%}" state)))))
     
     (define (server-info detailed?)
-      (format output "Server {a}{%}" (get-state~ server))
-      (format output "  name                    : {a}{%}" (server-name~ server))
+      (format output "Server {a}{%}" (get-state server))
+      (format output "  name                    : {a}{%}" (server-name server))
       (format output "  class                   : {a}{%}" (category-identifier (class-of server)))
-      (format output "  host                    : {a}{%}" (or (server-host~ server) localhost))
-      (format output "  service                 : {a}{%}" (server-service~ server))
-      (output-server-info detailed? output)
-      (format output "  hits                    : {a}{%}" (server-hits~ server))
-      (format output "  debug?                  : {a}{%}" (server-debug?~ server)))
+      (format output "  host                    : {a}{%}" (or (server-host server) localhost))
+      (format output "  service                 : {a}{%}" (server-service server))
+      (output-server-info self detailed? output)
+      (format output "  hits                    : {a}{%}" (server-hits server))
+      (format output "  debug?                  : {a}{%}" (server-debug? server)))
     
     (define (server-debug debug?)
-      (set-debug?~ server debug?)
+      (set-debug? server debug?)
       (format output "Server {a}being debugged{%}" (if debug? "" "not ")))
     
     (define (listen)
-      (start-remote-server~ (get-process))
+      (start-remote-server (current-process))
       (setup-local-process)
       (let ((listener (require-remote-listener)))
-        (format output "{a}{%}" (encode-host/port (listening-host~ listener) (listening-port~ listener)))))
+        (format output "{a}{%}" (encode-host/port (listening-host listener) (listening-port listener)))))
     
     ;;;
     ;;;; Panel
@@ -276,7 +278,7 @@
     
     (setup-input/output)
     
-    (format output "{a} v{a}{%}{%}" (server-title~ server) (present~ (server-version~ server)))
+    (format output "{a} v{a}{%}{%}" (server-title server) (present (server-version server)))
     (force-output output)
     
     (start-server)
@@ -308,9 +310,9 @@
                (loop #t))))))
   
   
-  (method protected virtual (process-server-command command arguments output)
+  (method protected virtual (process-server-command self command arguments output)
     (error "Unknown command: {s}" command))
   
   
-  (method protected virtual (output-server-info detailed? output)
+  (method protected virtual (output-server-info self detailed? output)
     )))

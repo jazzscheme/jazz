@@ -39,6 +39,7 @@
 
 
 (import (jazz.debugger)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree))
 
@@ -52,7 +53,7 @@
   (slot stop initialize #f)
 
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Exception)
 
   
@@ -61,11 +62,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Info"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Exception")
 
   
@@ -74,21 +75,21 @@
   ;;;
   
   
-  (method public (get-thread)
+  (method public (get-thread self)
     thread)
   
   
-  (method public (set-thread value)
+  (method public (set-thread self value)
     (set! thread value)
-    (set! stop (and thread (get-active-stop~ thread)))
-    (update))
+    (set! stop (and thread (get-active-stop thread)))
+    (update self))
   
   
-  (method public (thread-changed new-thread)
+  (method public (thread-changed self new-thread)
     (set! thread new-thread)
-    (set! stop (and thread (get-active-stop~ thread)))
-    (update)
-    (edit-stop/detail))
+    (set! stop (and thread (get-active-stop thread)))
+    (update self)
+    (edit-stop/detail self))
 
   
   ;;;
@@ -96,48 +97,48 @@
   ;;;
 
   
-  (method protected (update)
+  (method package (update self)
     (define (stop-title stop)
-      (let ((reason (get-reason~ stop)))
+      (let ((reason (get-reason stop)))
         (if (not reason)
             "Break"
           (let ((line (car (split reason "\n"))))
             line))))
     
     (define (stop-image stop)
-      (case (get-kind~ stop)
+      (case (get-kind stop)
         ((exception) {Image-Resource "ErrorStop"})
         (else {Image-Resource "BreakStop"})))
     
     (define (stop-reason-lines stop)
-      (let ((reason (or (get-reason~ stop) "Break")))
+      (let ((reason (or (get-reason stop) "Break")))
         (split reason "\n")))
     
     (define (insert-detail tree father detail)
-      (let ((title (get-title~ detail))
-            (icon (get-icon~ detail)))
+      (let ((title (get-title detail))
+            (icon (get-icon detail)))
         (let ((image (if icon (new Image-Resource icon) #f)))
-          (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: detail)))
+          (let ((row (add-row tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: detail)))
             (for-each (lambda (subdetail)
                         (insert-detail tree row subdetail))
-                      (get-children~ detail))))))
+                      (get-children detail))))))
     
     (with-system-exception-debugger
       (lambda ()
-        (let ((tree (locate 'detail)))
-          (remove-every-row~ tree)
-          (with-update-locked~ tree
+        (let ((tree (locate self 'detail)))
+          (remove-every-row tree)
+          (with-update-locked tree
             (lambda ()
-              (when (and stop (get-kind~ stop))
+              (when (and stop (get-kind stop))
                 (let ((title (stop-title stop))
                       (image (stop-image stop))
-                      (detail (get-detail~ stop)))
+                      (detail (get-detail stop)))
                   (if detail
                       (insert-detail tree #f detail)
-                    (let ((stop-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
+                    (let ((stop-row (add-row tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
                       (for-each (lambda (line)
                                   (when (not (empty-string? line))
                                     (let ((title line)
                                           (image {Image-Resource "Green"}))
-                                      (add-row~ tree father: stop-row children: (list (new Tree-Node title: title image: image))))))
+                                      (add-row tree father: stop-row children: (list (new Tree-Node title: title image: image))))))
                                 (cdr (stop-reason-lines stop)))))))))))))))

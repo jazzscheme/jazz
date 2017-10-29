@@ -65,20 +65,20 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Traits"})
   
 
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Traits")
   
   
-  (method override (client-activate)
-    (set-client (current-document)))
+  (method override (client-activate self)
+    (set-client self (current-document)))
   
   
-  (method override (client-deactivate)
-    (set-client #f))
+  (method override (client-deactivate self)
+    (set-client self #f))
   
   
   ;;;
@@ -86,10 +86,10 @@
   ;;;
   
   
-  (method override (focus-default)
-    (let ((tree (locate 'tree)))
-      (acquire-focus~ tree)
-      (select-first-row~ tree)))
+  (method override (focus-default self)
+    (let ((tree (locate self 'tree)))
+      (acquire-focus tree)
+      (select-first-row tree)))
     
   
   ;;;
@@ -97,10 +97,10 @@
   ;;;
   
   
-  (method override (install-in-host host)
-    (nextmethod host)
-    (set-layout-type~ (get-root~ host) 'fill)
-    (set-layout-insets~ (get-root~ host) {Rect 0 2 0 0}))
+  (method override (install-in-host self host)
+    (nextmethod self host)
+    (set-layout-type (get-root host) 'fill)
+    (set-layout-insets (get-root host) {Rect 0 2 0 0}))
 
   
   ;;;
@@ -108,8 +108,8 @@
   ;;;
   
   
-  (method public (get-tree)
-    (locate 'tree))
+  (method public (get-tree self)
+    (locate self 'tree))
 
   
   ;;;
@@ -117,12 +117,12 @@
   ;;;
   
   
-  (method public (get-client)
-    (get-client~ (get-tree)))
+  (method public (get-client self)
+    (get-client (get-tree self)))
   
   
-  (method public (set-client client)
-    (set-client~ (get-tree) client)))
+  (method public (set-client self client)
+    (set-client (get-tree self) client)))
 
 
 ;;;
@@ -146,42 +146,42 @@
   ;;;
   
   
-  (method public (get-client)
+  (method public (get-client self)
     client)
   
   
-  (method public (set-client clt)
+  (method public (set-client self clt)
     (when (neq? clt client)
       (set! client clt)
-      (update-tree)))
+      (update-tree self)))
   
   
-  (method (update-tree)
-    (remove-every-row)
+  (method (update-tree self)
+    (remove-every-row self)
     (when client
-      (let ((node (insert-client)))
+      (let ((node (insert-client self)))
         (for-each (lambda (trait)
-                    (insert-trait node trait))
-                  (child-traits~ client)))))
+                    (insert-trait self node trait))
+                  (child-traits client)))))
   
   
-  (method (insert-client)
+  (method (insert-client self)
     (let ((title (get-presentation-property client))
-          (image (component-image client)))
-      (add-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: client)))
+          (image (component-image self client)))
+      (add-row self state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: client)))
   
   
-  (method (insert-trait node trait)
-    (let ((children (get-children~ trait))
+  (method (insert-trait self node trait)
+    (let ((children (get-children trait))
           (title    (get-presentation-property trait))
-          (image    (component-image trait)))
-      (let ((handle (add-row father: node state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: trait)))
+          (image    (component-image self trait)))
+      (let ((handle (add-row self father: node state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: trait)))
         (for-each (lambda (child)
-                    (insert-trait handle child))
+                    (insert-trait self handle child))
                   children))))
   
   
-  (method protected virtual (component-image component)
+  (method package virtual (component-image self component)
     (get-component-image component))
   
   
@@ -190,16 +190,16 @@
   ;;;
   
   
-  (method (on-selection-change evt)
-    (select-trait (or (selected-trait) client)))
+  (method package (on-selection-change self evt)
+    (select-trait self (or (selected-trait self) client)))
   
   
-  (method public (selected-trait)
-    (let ((selection (get-single-selection)))
+  (method public (selected-trait self)
+    (let ((selection (get-single-selection self)))
       (when selection
-        (get-user-data~ (get-row selection)))))
+        (get-user-data (get-row self selection)))))
   
   
-  (method (select-trait trait)
+  (method package (select-trait self trait)
     (when trait
-      (set-active-trait~ client trait)))))
+      (set-active-trait client trait)))))

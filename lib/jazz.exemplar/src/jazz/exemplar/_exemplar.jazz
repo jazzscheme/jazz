@@ -39,6 +39,38 @@
 (module jazz.exemplar jazz
 
 
+(hub ->exemplar)
+(hub attribute/unspecified=?)
+(hub empty-interned)
+(hub extend)
+(hub for-each-ascendant)
+(hub get)
+(hub get-ascendants)
+(hub get-attribute)
+(hub get-attribute-no-default)
+(hub get-attributes)
+(hub get-base)
+(hub get-domain)
+(hub get-index)
+(hub get-interned)
+(hub get-rank)
+(hub inherits?)
+(hub init)
+(hub intern)
+(hub locate)
+(hub locate-own)
+(hub modify-from)
+(hub owned-attributes)
+(hub present)
+(hub register)
+(hub register-children)
+(hub set-attribute)
+(hub set-base)
+(hub set-domain)
+(hub supports?)
+(hub symbolize)
+
+
 (export
   (jazz.exemplar.preferences (autoload Exemplars-Preferences Exemplar-Preferences)))
 
@@ -51,13 +83,13 @@
 (class Exemplar extends Object
   
   
-  (method meta override (marshall-object obj)
+  (method meta override (marshall-object self obj)
     (serialize-object (class-of obj)
-                      (vector (serialize (get-base~ obj))
-                              (serialize (owned-attributes~ obj)))))
+                      (vector (serialize (get-base obj))
+                              (serialize (owned-attributes obj)))))
   
   
-  (method meta override (unmarshall-object content)
+  (method meta override (unmarshall-object self content)
     (bind-vector (base attributes) content
       (apply new self base: base attributes)))
   
@@ -67,70 +99,70 @@
   (slot protected ascendants initialize #f)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((domain #f) (base '()) . others) rest
-      (nextmethod)
-      (set! domain~self (or domain (default-domain)))
-      (set! base~self (listify base))
-      (initialize-attributes others)))
+      (nextmethod self)
+      (set! self.domain (or domain (default-domain self)))
+      (set! self.base (listify base))
+      (initialize-attributes self others)))
   
   
-  (method protected virtual (initialize-attributes attributes)
+  (method protected virtual (initialize-attributes self attributes)
     (for-each-property (lambda (key value)
-                         (set-attribute (keyword->symbol key) value))
+                         (set-attribute self (keyword->symbol key) value))
                        attributes))
   
   
-  (method override (copy-object deep?)
+  (method override (copy-object self deep?)
     (let ((exemplar (new (class-of self))))
-      (set-domain~ exemplar domain)
-      (set-base~ exemplar base)
+      (set-domain exemplar domain)
+      (set-base exemplar base)
       (for-each (lambda (attribute)
-                  (set-attribute~ exemplar attribute (get-attribute attribute)))
-                (get-attributes))
+                  (set-attribute exemplar attribute (get-attribute self attribute)))
+                (get-attributes self))
       exemplar))
 
 
-  (method override (compare-object target)
+  (method override (compare-object self target)
     (cond ((is-not? target (class-of self))
            :incompatible)
-          ((and (equal? base (get-base~ target))
+          ((and (equal? base (get-base target))
                 (every? (lambda (attribute)
-                          (equal? (get attribute) (get~ target attribute)))
-                        (get-attributes)))
+                          (equal? (get self attribute) (get target attribute)))
+                        (get-attributes self)))
            :equal)
           (else
            :not-equal)))
 
   
-  (method override (print output readably)
-    (let ((presentation (present)))
+  (method override (print self output readably)
+    (let ((presentation (present self)))
       (format output "~{{a}{?: {a}~}}"
         (reference-name (category-name (class-of self)))
         (not (empty-string? presentation)) presentation)))
   
   
-  (method protected (owned-attributes)
+  (method package (owned-attributes self)
     (let ((queue (new-queue)))
       (for-each (lambda (attribute)
-                  (let ((value (get-attribute attribute)))
+                  (let ((value (get-attribute self attribute)))
                     (when (specified? value)
                       (enqueue queue (symbol->keyword attribute))
                       (enqueue queue value))))
-                (get-attributes))
+                (get-attributes self))
       (queue-list queue)))
   
   
-  (method public (present)
+  (method public (present self)
     (define (owned-attributes)
       (let ((fact (new List-Factory)))
         (for-each (lambda (attribute)
-                    (let ((value (get-attribute attribute)))
+                    (let ((value (get-attribute self attribute)))
                       (when (specified? value)
-                        (put~ fact (format "{s}" (symbol->keyword attribute)))
-                        (put~ fact (present-attribute attribute value)))))
-                  (get-attributes))
-        (get-output~ fact)))
+                        (put fact (format "{s}" (symbol->keyword attribute)))
+                        (put fact (present-attribute self attribute value)))))
+                  (get-attributes self))
+        (get-output fact)))
     
     (let ((attributes (owned-attributes)))
       (let ((has-base? (not-null? base))
@@ -141,7 +173,7 @@
                 has-attributes? attributes))))
   
   
-  (method protected virtual (present-attribute attribute value)
+  (method protected virtual (present-attribute self attribute value)
     (->string value :reader))
   
   
@@ -150,13 +182,13 @@
   ;;;
   
   
-  (method public (inherits? name/target)
+  (method public (inherits? self name/target)
     (define (inherits-exemplar? target)
       (if (eq? self target)
           #t
         (continuation-capture
           (lambda (return)
-            (for-each-ascendant
+            (for-each-ascendant self
               (lambda (ascendant)
                 (when (eq? ascendant target)
                   (continuation-return return #t))))
@@ -164,24 +196,24 @@
     
     (if (is? name/target Exemplar)
         (inherits-exemplar? name/target)
-      (let ((target (locate~ domain name/target error?: #f)))
+      (let ((target (locate domain name/target error?: #f)))
         (and target
              (inherits-exemplar? target)))))
   
   
-  (method public (for-each-ascendant proc)
+  (method public (for-each-ascendant self proc)
     (for-each (lambda (ascendant)
                 (proc ascendant)
-                (for-each-ascendant~ ascendant proc))
-              (get-ascendants)))
+                (for-each-ascendant ascendant proc))
+              (get-ascendants self)))
   
   
-  (method public (extend . rest)
+  (method public (extend self . rest)
     (let ((exemplar (new (class-of self))))
-      (set-domain~ exemplar domain)
-      (modify-from~ exemplar self)
+      (set-domain exemplar domain)
+      (modify-from exemplar self)
       (for-each-property (lambda (keyword value)
-                           (set-attribute~ exemplar (keyword->symbol keyword) value))
+                           (set-attribute exemplar (keyword->symbol keyword) value))
                          rest)
       exemplar))
   
@@ -191,12 +223,12 @@
   ;;;
   
   
-  (method public (modify-from from)
+  (method public (modify-from self from)
     (unless (eq? self from)
-      (set-base (get-base~ from))
+      (set-base self (get-base from))
       (for-each (lambda (attribute)
-                  (set-attribute attribute (get-attribute~ from attribute)))
-                (get-attributes))))
+                  (set-attribute self attribute (get-attribute from attribute)))
+                (get-attributes self))))
   
   
   ;;;
@@ -204,21 +236,21 @@
   ;;;
   
   
-  (method protected virtual (default-domain)
+  (method protected virtual (default-domain self)
     #f)
   
   
-  (method public (get-domain)
+  (method public (get-domain self)
     domain)
   
   
-  (method public (set-domain d)
+  (method public (set-domain self d)
     (set! domain d)
-    (reset-ascendants))
+    (reset-ascendants self))
   
   
-  (method public (intern)
-    (intern~ domain self))
+  (method public (intern self)
+    (intern domain self))
   
   
   ;;;
@@ -226,13 +258,13 @@
   ;;;
   
   
-  (method public (get-base)
+  (method public (get-base self)
     base)
   
   
-  (method public (set-base b)
+  (method public (set-base self b)
     (set! base (listify b))
-    (reset-ascendants))
+    (reset-ascendants self))
   
   
   ;;;
@@ -240,15 +272,15 @@
   ;;;
   
   
-  (method public (get-ascendants)
+  (method public (get-ascendants self)
     (when (not ascendants)
       (set! ascendants (map (lambda (name)
-                              (locate~ domain name))
+                              (locate domain name))
                             (reverse base))))
     ascendants)
   
   
-  (method (reset-ascendants)
+  (method (reset-ascendants self)
     (set! ascendants #f))
   
   
@@ -257,37 +289,37 @@
   ;;;
   
   
-  (method public (supports? attribute)
-    (memq? attribute (get-attributes)))
+  (method public (supports? self attribute)
+    (memq? attribute (get-attributes self)))
   
   
-  (method protected virtual (get-attributes)
+  (method package virtual (get-attributes self)
     '())
   
   
-  (method protected virtual (get-attribute-default attribute)
+  (method protected virtual (get-attribute-default self attribute)
     (unspecified))
   
   
-  (method protected virtual (get-attribute-no-default attribute)
+  (method package virtual (get-attribute-no-default self attribute)
     (unspecified))
   
   
-  (method protected virtual (get-attribute attribute)
+  (method package virtual (get-attribute self attribute)
     (unknown-attribute attribute))
   
   
-  (method protected virtual (set-attribute attribute value)
+  (method package virtual (set-attribute self attribute value)
     (unknown-attribute attribute))
   
   
-  (method protected virtual (attribute=? attribute x y)
+  (method protected virtual (attribute=? self attribute x y)
     (eqv? x y))
   
   
-  (method protected (attribute/unspecified=? attribute x y)
+  (method package (attribute/unspecified=? self attribute x y)
     (or (and (unspecified? x) (unspecified? y))
-        (and (specified? x) (specified? y) (attribute=? attribute x y))))
+        (and (specified? x) (specified? y) (attribute=? self attribute x y))))
   
   
   (definition (unknown-attribute attribute)
@@ -299,11 +331,11 @@
   ;;;
   
   
-  (method public virtual (get attribute)
+  (method public virtual (get self attribute)
     (unspecified))
   
   
-  (method public virtual (set attribute value)
+  (method public virtual (set self attribute value)
     (error "Unknown attribute: {t}" attribute)))
 
 
@@ -319,13 +351,13 @@
 
 
 (definition public (register-exemplar name exemplar domain)
-  (let ((actual (locate-own~ domain name error?: #f)))
+  (let ((actual (locate-own domain name error?: #f)))
     (cond (actual
-           (modify-from~ actual exemplar)
+           (modify-from actual exemplar)
            actual)
           (else
-           (set-domain~ exemplar domain)
-           (register~ domain name exemplar)
+           (set-domain exemplar domain)
+           (register domain name exemplar)
            exemplar))))
 
 
@@ -336,10 +368,10 @@
 
 (specialize inline as exemplar=? (= e1 <Exemplar> e2 <Exemplar>) <bool>
   (and (eq? (class-of e1) (class-of e2))
-       (equal? (get-base~ e1) (get-base~ e2))
+       (equal? (get-base e1) (get-base e2))
        (every? (lambda (attribute)
-                 (attribute/unspecified=?~ e1 attribute (get-attribute~ e1 attribute) (get-attribute~ e2 attribute)))
-               (get-attributes~ e1))))
+                 (attribute/unspecified=? e1 attribute (get-attribute e1 attribute) (get-attribute e2 attribute)))
+               (get-attributes e1))))
 
 
 ;; should be possible to do a generic hash function by adding the class, the base and the attributes
@@ -363,16 +395,16 @@
   (slot chained)
   
   
-  (method override (initialize (name: name #f) (initer: initer #f) (intern?: intern? #f) (chained: chained '()))
-    (nextmethod)
-    (set! name~self name)
-    (set! initer~self initer)
-    (set! index~self (make-table test: eq?))
-    (set! interned~self (and intern? (new Axis 0)))
-    (set! chained~self chained))
+  (method override (initialize self (name: name #f) (initer: initer #f) (intern?: intern? #f) (chained: chained '()))
+    (nextmethod self)
+    (set! self.name name)
+    (set! self.initer initer)
+    (set! self.index (make-table test: eq?))
+    (set! self.interned (and intern? (new Axis 0)))
+    (set! self.chained chained))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{?{a}~}" name))))
@@ -383,14 +415,14 @@
   ;;;
   
   
-  (method public (register name exemplar)
+  (method public (register self name exemplar)
     (table-set! index name exemplar))
   
   
-  (method public (reference rank/name)
+  (method public (reference self rank/name)
     (if (integer? rank/name)
-        (element (get-interned) rank/name)
-      (locate rank/name)))
+        (element (get-interned self) rank/name)
+      (locate self rank/name)))
   
   
   ;;;
@@ -398,7 +430,7 @@
   ;;;
   
   
-  (method (init)
+  (method package (init self)
     (when initer
       (let ((thunk initer))
         (set! initer #f)
@@ -410,27 +442,27 @@
   ;;;
   
   
-  (method public (get-index)
-    (init)
+  (method public (get-index self)
+    (init self)
     index)
   
   
-  (method public (locate-own name (error?: error? #t))
-    (or (table-ref (get-index) name #f)
+  (method public (locate-own self name (error?: error? #t))
+    (or (table-ref (get-index self) name #f)
         (and error? (error "Unable to locate: {t}" name))))
   
   
-  (method public (locate name (error?: error? #t))
-    (or (table-ref (get-index) name #f)
-        (find-object (lambda (domain) (locate~ domain name error?: #f)) chained)
+  (method public (locate self name (error?: error? #t))
+    (or (table-ref (get-index self) name #f)
+        (find-if (lambda (domain) (locate domain name error?: #f)) chained return: 'result)
         (and error? (error "Unable to locate: {t}" name))))
   
   
-  (method public (symbolize target (test: test #f))
+  (method public (symbolize self target (test: test #f))
     (let ((test (or test exemplar=?)))
       (continuation-capture
         (lambda (return)
-          (iterate-table (get-index)
+          (iterate-table (get-index self)
             (lambda (name exemplar)
               (when (test target exemplar)
                 (continuation-return return (new (class-of target) base: name)))))
@@ -442,32 +474,32 @@
   ;;;
   
   
-  (method public (get-interned)
-    (init)
+  (method public (get-interned self)
+    (init self)
     interned)
   
   
-  (method public (set-interned value)
+  (method public (set-interned self value)
     (set! interned (coerce value Axis)))
   
   
-  (method public (empty-interned)
+  (method public (empty-interned self)
     (set! interned (new Axis 0)))
   
   
-  (method public (intern exemplar)
-    (init)
+  (method public (intern self exemplar)
+    (init self)
     (if (not interned)
         exemplar
       (or (find-in interned exemplar test: exemplar=?)
           (begin
-            (set-domain~ exemplar self)
+            (set-domain exemplar self)
             (axis-add interned exemplar)
             exemplar))))
   
   
-  (method public (get-rank exemplar)
-    (find (get-interned) exemplar))
+  (method public (get-rank self exemplar)
+    (find (get-interned self) exemplar))
   
   
   ;;;
@@ -475,5 +507,5 @@
   ;;;
   
   
-  (method public (get-chained)
+  (method public (get-chained self)
     chained)))

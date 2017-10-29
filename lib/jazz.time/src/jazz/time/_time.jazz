@@ -41,6 +41,13 @@
 (require (time)
          (jazz.time.classes))
 
+
+(hub cpu-duration)
+(hub real-duration)
+(hub real-duration-in-milliseconds)
+(hub reset)
+
+
 (export (time))
 (import (time))
 
@@ -102,13 +109,13 @@
 (class primitive Time metaclass Time-Class extends Object
    
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{{a}{a}}"
       (category-name (class-of self))
       (date/time-literal-parameter-list self (make-default-time) (map (lambda (proc) (compose ->string proc)) (list time-second time-nanosecond time-type)))))
   
   
-  (method override (compare-object target)
+  (method override (compare-object self target)
     (if (time? target)
         (cond ((time=? self target) :equal)
               ((time<? self target) :less)
@@ -122,7 +129,7 @@
 (class primitive Date metaclass Date-Class extends Object
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{{a}{a}}"
       (category-name (class-of self))
       (date/time-literal-parameter-list self (make-default-date) (map (lambda (format-string) 
@@ -130,7 +137,7 @@
                                                                       '("~Y" "~m" "~d" "~H" "~M" "~S" "~N" "\"~z\"")))))
   
   
-  (method override (compare-object target)
+  (method override (compare-object self target)
     (if (date? target)
         (let ((time1 (date->time-utc self))
               (time2 (date->time-utc target)))
@@ -242,16 +249,16 @@
   
   @convert
   (method public (get-duration field)
-    (let ((delta (- (get-elapse~ (get-time~ end)) (get-elapse~ (get-time~ start)))))
-      (get-duration~ (new Time delta) field)))
+    (let ((delta (- (get-elapse (get-time end)) (get-elapse (get-time start)))))
+      (get-duration (new Time delta) field)))
   
   
   @convert
   (method public (present)
     (format :string "{a} {a} {a}"
-            (present-date~ start)
-            (localize {Locales english: "to" french: "au"})
-            (present-date~ end)))
+            (present-date start)
+            (localize-object {Locales english: "to" french: "au"})
+            (present-date end)))
   
   
   @convert
@@ -259,14 +266,14 @@
     (let ((date start))
       (while (<= date end)
         (proc date)
-        (set! date (add~ date 'day 1)))))
+        (set! date (add date 'day 1)))))
   
   
   @convert
   (method public (includes-day-of-week? day)
     (for-each-day
       (lambda (date)
-        (when (= (symbolic-day-of-week~ Date (get-day-of-week~ date)) day)
+        (when (= (symbolic-day-of-week Date (get-day-of-week date)) day)
           (return #t))))
     #f))
 
@@ -287,35 +294,35 @@
   (slot cpu-start)
 
 
-  (method override (initialize)
-    (nextmethod)
-    (reset))
+  (method override (initialize self)
+    (nextmethod self)
+    (reset self))
 
 
-  (method public (reset)
+  (method public (reset self)
     (set! real-start (real-time))
     (set! cpu-start (cpu-time)))
 
 
-  (method public (real-duration)
+  (method public (real-duration self)
     (- (real-time) real-start))
   
-  (method public (real-duration-in-milliseconds)
-    (seconds->milliseconds (real-duration)))
+  (method public (real-duration-in-milliseconds self)
+    (seconds->milliseconds (real-duration self)))
   
-  (method public (cpu-duration)
+  (method public (cpu-duration self)
     (- (cpu-time) cpu-start))
 
-  (method public (cpu-duration-in-milliseconds)
-    (seconds->milliseconds (cpu-duration)))
+  (method public (cpu-duration-in-milliseconds self)
+    (seconds->milliseconds (cpu-duration self)))
 
 
-  (method public (report-duration)
+  (method public (report-duration self)
     (user-message "Duration: {s} ms real, {s} ms cpu"
-                  (real-duration-in-milliseconds)
-                  (cpu-duration-in-milliseconds)))
+                  (real-duration-in-milliseconds self)
+                  (cpu-duration-in-milliseconds self)))
 
 
-  (method public (report-fps)
+  (method public (report-fps self)
     (user-message "FPS: {s}"
-                  (/ 1. (real-duration))))))
+                  (/ 1. (real-duration self))))))

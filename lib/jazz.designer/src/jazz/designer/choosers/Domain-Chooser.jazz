@@ -42,6 +42,7 @@
         (jazz.handler)
         (jazz.jml)
         (jazz.locale)
+        (jazz.outline)
         (jazz.tree)
         (jazz.ui)
         (jazz.view))
@@ -66,11 +67,11 @@
       (<Push-Button>              name: cancel       title: "Cancel" position: {Point 114 351} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
 
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (let ((tree (get-tree)))
-      (setup-names tree)
-      (acquire-focus~ tree)))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (let ((tree (get-tree self)))
+      (setup-names self tree)
+      (acquire-focus tree)))
 
   
   ;;;
@@ -78,12 +79,12 @@
   ;;;
 
 
-  (method (get-tree)
-    (locate 'names-tree))
+  (method package (get-tree self)
+    (locate self 'names-tree))
   
   
-  (method (get-text)
-    (locate '(column-size text)))
+  (method package (get-text self)
+    (locate self '(column-size text)))
 
   
   ;;;
@@ -91,15 +92,15 @@
   ;;;
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Choose Values")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 450 300})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 252 120})
   
   
@@ -109,15 +110,15 @@
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (let ((dialog (get-host)))
-      (end-modal~ dialog (get-modal-result~ dialog))))
+  (method override (on-return-press self evt)
+    (let ((dialog (get-host self)))
+      (end-modal dialog (get-modal-result dialog))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
 
   
   ;;;
@@ -125,9 +126,9 @@
   ;;;
 
   
-  (method (setup-names tree)
-    (remove-every-row~ tree)
-    (with-update-locked~ tree
+  (method (setup-names self tree)
+    (remove-every-row tree)
+    (with-update-locked tree
       (lambda ()
         (for-each (lambda (info)
                     (let* ((border 0)
@@ -138,7 +139,7 @@
                            (title (if (string? info) info (localize (cadr info))))
                            (checked? (member? name selected))
                            (checkbox (new Check-Box font: font parent: layout title: title checked?: checked? color: color user-data: name)))
-                      (add-row~ tree children: (list layout) user-data: checkbox)))
+                      (add-row tree children: (list layout) user-data: checkbox)))
                   names))))
   
   
@@ -147,13 +148,13 @@
   ;;;
   
   
-  (method override (get-modal-result)
-    (let ((tree (get-tree))
+  (method override (get-modal-result self)
+    (let ((tree (get-tree self))
           (fact (new List-Factory)))
-      (for-each-row~ tree
+      (for-each-row tree
         (lambda (row rank)
-          (let ((checkbox (get-user-data~ row)))
-            (when (and (is? checkbox Check-Box) (get-checked?~ checkbox))
-              (let ((name (get-user-data~ checkbox)))
-                (put~ fact name))))))
-      (get-output~ fact)))))
+          (let ((checkbox (get-user-data row)))
+            (when (and (is? checkbox Check-Box) (get-checked? checkbox))
+              (let ((name (get-user-data checkbox)))
+                (put fact name))))))
+      (get-output fact)))))

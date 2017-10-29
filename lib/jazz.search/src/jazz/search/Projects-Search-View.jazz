@@ -46,7 +46,9 @@
         (jazz.graphic)
         (jazz.handler)
         (jazz.jml)
+        (jazz.outline)
         (jazz.project)
+        (jazz.reporter)
         (jazz.search)
         (jazz.tree)
         (jazz.ui)
@@ -73,26 +75,26 @@
               (<Entries-Combo> name: entries)))))))
   
   
-  (method override (finish rest)
+  (method override (finish self rest)
     (define (setup-projects)
       (let ((workbench (get-workbench))
-            (combo (locate 'project)))
-        (set-choices~ combo (collect-choices workbench))
-        (set-value~ combo workbench)))
+            (combo (locate self 'project)))
+        (set-choices combo (collect-choices workbench))
+        (set-value combo workbench)))
     
     (define (collect-choices workbench)
       (let ((choices (new-queue)))
-        (for-each-project~ workbench
+        (for-each-project workbench
           (lambda (project)
-            (when (not-null? (get-children~ project))
+            (when (not-null? (get-children project))
               (enqueue choices (list project (->string (get-presentation-property project))))))
           include-inactives?: #t
           include-groups?: #t)
         (queue-list choices)))
     
-    (nextmethod rest)
+    (nextmethod self rest)
     (setup-projects)
-    (setup-entries 'files))
+    (setup-entries self 'files))
   
 
   ;;;
@@ -100,7 +102,7 @@
   ;;;
 
   
-  (method override (get-search-domains)
+  (method override (get-search-domains self)
     '(files
       definitions
       references))
@@ -111,15 +113,15 @@
   ;;;
   
   
-  (method (setup-entries domain)
-    (let ((combo (locate 'entries)))
+  (method (setup-entries self domain)
+    (let ((combo (locate self 'entries)))
       (case domain
         ((files)
-         (set-choices~ combo '((#f "All") (projects "Projects") (packages "Packages") (documentation "Documentation")))
-         (set-value~ combo #f))
+         (set-choices combo '((#f "All") (projects "Projects") (packages "Packages") (documentation "Documentation")))
+         (set-value combo #f))
         (else
-         (set-choices~ combo (list (list #f "All")))
-         (set-value~ combo #f)))))
+         (set-choices combo (list (list #f "All")))
+         (set-value combo #f)))))
   
   
   ;;;
@@ -127,12 +129,12 @@
   ;;;
   
   
-  (method (on-search-domain evt)
-    (let ((domain (get-name~ (get-sender~ evt))))
-      (setup-entries domain)))
+  (method (on-search-domain self evt)
+    (let ((domain (get-name (get-sender evt))))
+      (setup-entries self domain)))
   
   
-  (method (project-change project)
+  (method (project-change self project)
     )
     
 
@@ -141,16 +143,16 @@
   ;;;
 
   
-  (method override (search-targets find replace)
+  (method override (search-targets self find replace)
     (define (search-files)
       (let ((search (new Projects-Search 'files find replace)))
         (let ((reporter (new User-Reporter))
               (resultset (new Search-Resultset search)))
-          (let ((project (selected-project))
-                (entries (selected-entries))
+          (let ((project (selected-project self))
+                (entries (selected-entries self))
                 (processed-table (make-table))
                 (processed? #f))
-            (for-each-project~ project
+            (for-each-project project
               (lambda (project)
                 (define (search-all)
                   (search-projects)
@@ -158,23 +160,23 @@
                   (search-documentation))
                 
                 (define (search-projects)
-                  (iterate-files~ project
+                  (iterate-files project
                     (lambda (file)
-                      (search-in-file search file resultset reporter))))
+                      (search-in-file self search file resultset reporter))))
                 
                 (define (search-packages)
-                  (let ((description-file (get-description-file~ project)))
+                  (let ((description-file (get-description-file project)))
                     (when description-file
-                      (search-in-file search description-file resultset reporter))))
+                      (search-in-file self search description-file resultset reporter))))
                 
                 (define (search-documentation)
-                  (let ((documentation (get-documentation~ project)))
+                  (let ((documentation (get-documentation project)))
                     (when documentation
-                      (search-in-file search documentation resultset reporter))))
+                      (search-in-file self search documentation resultset reporter))))
                 
                 (set! processed? #t)
-                (unless (and (dynamic-project?~ project)
-                             (let ((key (get-path~ (project-context~ project))))
+                (unless (and (dynamic-project? project)
+                             (let ((key (get-path (project-context project))))
                                (if (table-ref processed-table key #f)
                                    #t
                                  (table-set! processed-table key #t)
@@ -190,35 +192,35 @@
                            processed?)))
           (post-event
             (lambda ()
-              (let ((results (get-results)))
-                (select-results~ results resultset))))
-          (user-feedback~ reporter "Done"))))
+              (let ((results (get-results self)))
+                (select-results results resultset))))
+          (report-feedback reporter "Done"))))
     
-    (define (search-definitions)
+    (define (search-projects-definitions)
       (let ((search (new Projects-Search 'definitions find replace))
-            (project (selected-project))
+            (project (selected-project self))
             (cataloguer (get-cataloguer)))
-        (let ((definitions (search-definitions~ cataloguer (get-find~ search) context: project)))
+        (let ((definitions (search-definitions cataloguer (get-find search) context: project)))
           (if (null? definitions)
               (message-box "No search results found")
             (case (length definitions)
               ((1) (edit-entry (car definitions)))
-              (else (let ((results (get-results)))
-                      (select-results~ results (make-definition-search-resultset search definitions)))))))))
+              (else (let ((results (get-results self)))
+                      (select-results results (make-definition-search-resultset search definitions)))))))))
     
-    (define (search-references)
+    (define (search-projects-references)
       (let ((search (new Projects-Search 'references find replace))
-            (project (selected-project))
+            (project (selected-project self))
             (cataloguer (get-cataloguer)))
-        (let ((references (search-references~ cataloguer (get-find~ search) context: project)))
+        (let ((references (search-references cataloguer (get-find search) context: project)))
           (if (null? references)
               (message-box "No search results found")
             (case (length references)
-              ((1) (edit-reference~ (car references) 'forward search))
-              (else (let ((results (get-results)))
-                      (select-results~ results (make-reference-search-resultset search references)))))))))
+              ((1) (edit-reference (car references) 'forward search))
+              (else (let ((results (get-results self)))
+                      (select-results results (make-reference-search-resultset search references)))))))))
     
-    (case (get-search-domain)
+    (case (get-search-domain self)
       ((files)
        (thread-start!
          (new-thread
@@ -227,9 +229,9 @@
                (search-files)))
            'search)))
       ((definitions)
-       (search-definitions))
+       (search-projects-definitions))
       ((references)
-       (search-references))))
+       (search-projects-references))))
   
   
   ;;;
@@ -237,8 +239,8 @@
   ;;;
   
   
-  (method (selected-project)
-    (let ((project (get-value~ (locate 'project))))
+  (method (selected-project self)
+    (let ((project (get-value (locate self 'project))))
       (if (is? project Project)
           project
         (execute-event
@@ -247,8 +249,8 @@
         (signal-cancel))))
   
   
-  (method (selected-entries)
-    (get-value~ (locate 'entries))))
+  (method (selected-entries self)
+    (get-value (locate self 'entries))))
 
 
 ;;;
@@ -264,23 +266,23 @@
   ;;;
   
   
-  (method override (button-action)
-    (let ((picker (new Project-Picker size: (new Dimension (- (get-width) 2) 200) action-handler: (new Event-Handler target: self method-name: 'on-project-picked))))
-      (let ((tree (locate~ picker 'tree)))
-        (let ((row (user-data-row~ tree (get-value) include-invisibles?: #t)))
+  (method override (button-action self)
+    (let ((picker (new Project-Picker size: (new Dimension (- (get-width self) 2) 200) action-handler: (new Event-Handler target: self method-name: 'on-project-picked))))
+      (let ((tree (locate picker 'tree)))
+        (let ((row (user-data-row tree (get-value self) include-invisibles?: #t)))
           (when row
-            (ensure-expanded~ tree row)
-            (set-single-selection~ tree (row->line~ tree row))))
-        (select-user-data-row~ tree (get-value))
-        (receive (pos alternate-pos) (combo-popup-positions picker)
-          (popup picker pos alternate-position: alternate-pos initiator: self)
+            (ensure-expanded tree row)
+            (set-single-selection tree (row->line tree row))))
+        (select-user-data-row tree (get-value self))
+        (receive (pos alternate-pos) (combo-popup-positions self picker)
+          (popup self picker pos alternate-position: alternate-pos initiator: self)
           (push-focus tree)))))
   
   
-  (method (on-project-picked evt)
-    (let ((project (get-property~ evt project:)))
-      (close-popups)
-      (call-content-change 'popup))))
+  (method (on-project-picked self evt)
+    (let ((project (get-property evt project:)))
+      (close-popups self)
+      (call-content-change self 'popup))))
 
 
 ;;;
@@ -303,53 +305,53 @@
               (<Tree-Node-Column>  name: name    title: "Name" width: 250 toplevel-controls?: #f)))))))
   
   
-  (method override (finish initargs)
-    (nextmethod initargs)
-    (setup-projects))
+  (method override (finish self initargs)
+    (nextmethod self initargs)
+    (setup-projects self))
   
   
-  (method (setup-projects)
-    (let ((tree (locate 'tree)))
+  (method (setup-projects self)
+    (let ((tree (locate self 'tree)))
       (define (insert-project project father)
-        (and (not-null? (get-children~ project))
+        (and (not-null? (get-children project))
              (let ((title (get-presentation-property project))
                    (image (get-component-image project))
                    (state (if (not father) 'expanded 'collapsed)))
-               (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: project))))
+               (add-row tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: project))))
       
-      (fold-projects~ (get-workbench)
+      (fold-projects (get-workbench)
         insert-project
         #f
         include-inactives?: #t
         include-groups?: #t)))
   
   
-  (method (on-selection-change evt)
-    (when (eq? (get-user-origin~ evt) 'mouse)
+  (method package (on-selection-change self evt)
+    (when (eq? (get-user-origin evt) 'mouse)
       (set! mouse-selected? #t)))
   
   
-  (method (on-mouse-up evt)
+  (method (on-mouse-up self evt)
     (when mouse-selected?
-      (process-selected)))
+      (process-selected self)))
   
   
-  (method override (on-return-press evt)
-    (process-selected))
+  (method override (on-return-press self evt)
+    (process-selected self))
   
   
-  (method override (on-escape-press evt)
-    (close-popups~ (get-toplevel)))
+  (method override (on-escape-press self evt)
+    (close-popups (current-toplevel)))
   
   
-  (method (process-selected)
-    (let ((tree (locate 'tree)))
-      (let ((project (get-single-selected-data~ tree)))
+  (method (process-selected self)
+    (let ((tree (locate self 'tree)))
+      (let ((project (get-single-selected-data tree)))
         (when project
-          (let ((combo (popup-initiator)))
-            (close-popups~ combo)
+          (let ((combo (popup-initiator self)))
+            (close-popups combo)
             (when project
-              (set-value~ combo project))))))))
+              (set-value combo project))))))))
 
 
 ;;;

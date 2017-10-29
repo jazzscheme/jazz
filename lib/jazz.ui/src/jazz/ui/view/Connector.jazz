@@ -38,7 +38,8 @@
 (module protected jazz.ui.view.Connector jazz
 
 
-(import (jazz.graphic)
+(import (jazz.designer)
+        (jazz.graphic)
         (jazz.ui))
 
 
@@ -59,25 +60,25 @@
   ;;;
 
 
-  (method public (get-start)
+  (method public (get-start self)
     start)
 
 
-  (method public (set-start value)
+  (method public (set-start self value)
     (set! start value)
     (when start-view
-      (ending-removed start-view)
+      (ending-removed self start-view)
       (set! start-view #f)))
 
 
-  (method public (get-end)
+  (method public (get-end self)
     end)
 
 
-  (method public (set-end value)
+  (method public (set-end self value)
     (set! end value)
     (when end-view
-      (ending-removed end-view)
+      (ending-removed self end-view)
       (set! end-view #f)))
   
   
@@ -86,7 +87,7 @@
   ;;;
   
   
-  (method protected virtual (default-client)
+  (method protected virtual (default-client self)
     parent)
   
 
@@ -95,32 +96,32 @@
   ;;;
   
   
-  (method public (get-start-view)
-    (or start-view (and start (set! start-view (setup-ending start)))))
+  (method public (get-start-view self)
+    (or start-view (and start (set! start-view (setup-ending self start)))))
   
   
-  (method public (get-end-view)
-    (or end-view (and end (set! end-view (setup-ending end)))))
+  (method public (get-end-view self)
+    (or end-view (and end (set! end-view (setup-ending self end)))))
   
   
-  (method (setup-ending name)
-    (let ((client (if client (find-component client) (default-client))))
+  (method (setup-ending self name)
+    (let ((client (if client (find-component self client) (default-client self))))
       (when client
-        (let ((view (find-ending client name)))
+        (let ((view (find-ending self client name)))
           (when view
-            (ending-added view)
+            (ending-added self view)
             view)))))
   
   
-  (method protected virtual (find-ending client name)
-    (find-component~ client name))
+  (method protected virtual (find-ending self client name)
+    (find-component client name))
   
   
-  (method protected virtual (ending-added view)
+  (method protected virtual (ending-added self view)
     )
   
   
-  (method protected virtual (ending-removed view)
+  (method protected virtual (ending-removed self view)
     )
   
 
@@ -129,21 +130,21 @@
   ;;;
   
   
-  (method public (update)
-    (let ((s (get-start-view))
-          (e (get-end-view)))
+  (method public (update self)
+    (let ((s (get-start-view self))
+          (e (get-end-view self)))
       (when (and s e)
-        (let* ((s (get-center~ s))
-               (e (get-center~ e))
-               (lw (fxceiling (+ (/ (cast <fl> (line-width)) 2) Tolerance)))
-               (top (- (min (get-v~ s) (get-v~ e)) lw))
-               (left (- (min (get-h~ s) (get-h~ e)) lw))
-               (right (+ (max (get-h~ s) (get-h~ e)) lw))
-               (bottom (+ (max (get-v~ s) (get-v~ e)) lw)))
-          (set-rect (new Rect left top right bottom))
-          (let ((p (get-position)))
-            (set-from (- s p))
-            (set-to (- e p)))))))
+        (let* ((s (get-center s))
+               (e (get-center e))
+               (lw (fxceiling (+ (/ (cast <fl> (line-width self)) 2) Tolerance)))
+               (top (- (min (get-v s) (get-v e)) lw))
+               (left (- (min (get-h s) (get-h e)) lw))
+               (right (+ (max (get-h s) (get-h e)) lw))
+               (bottom (+ (max (get-v s) (get-v e)) lw)))
+          (set-rect self (new Rect left top right bottom))
+          (let ((p (get-position self)))
+            (set-from self (- s p))
+            (set-to self (- e p)))))))
   
 
   ;;;
@@ -156,15 +157,16 @@
     {Color Black})
   
   
-  (method protected virtual (unselected-color)
+  (method protected virtual (unselected-color self)
     Unselected-Color)
 
   
-  (method override (line-color)
-    (let ((rank (selection-rank~ surrogate)))
+  (method override (line-color self)
+    @cant-find-selected-color
+    (let ((rank (selection-rank surrogate)))
       (if rank
-          (selected-color~ (get-editor~ surrogate) rank)
-        (unselected-color))))
+          (selected-color (get-editor surrogate) rank)
+        (unselected-color self))))
   
   
   ;;;
@@ -172,5 +174,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Connector-Descriptor))))

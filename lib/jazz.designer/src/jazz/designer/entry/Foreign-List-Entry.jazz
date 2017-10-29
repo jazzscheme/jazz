@@ -39,8 +39,10 @@
 
 
 (import (jazz.designer)
+        (jazz.event)
         (jazz.handler)
         (jazz.jml)
+        (jazz.outline)
         (jazz.tree)
         (jazz.ui))
 
@@ -78,9 +80,9 @@
                   (<Tree-Node-Column> name: to-entry    controls?: #f toplevel-controls?: #f display-images?: #f width: 200)))))))))
   
   
-  (method protected (guest-installed-in-host)
-    (let ((tree (locate 'from-tree)))
-      (focus-and-select~ tree)))
+  (method package (guest-installed-in-host self)
+    (let ((tree (locate self 'from-tree)))
+      (focus-and-select tree)))
 
   
   ;;;
@@ -88,15 +90,15 @@
   ;;;
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Choose Values")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 450 300})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 252 320})
 
   
@@ -105,8 +107,8 @@
   ;;;
   
   
-  (method public (get-result)
-    (let ((value (to->value)))
+  (method public (get-result self)
+    (let ((value (to->value self)))
       (if composite?
           (sort < value)
         value)))
@@ -117,47 +119,47 @@
   ;;;
 
 
-  (method public (get-presenter)
+  (method public (get-presenter self)
     presenter)
 
 
-  (method public (set-presenter value)
+  (method public (set-presenter self value)
     (set! presenter value)
-    (update))
+    (update self))
 
 
-  (method public (get-all)
+  (method public (get-all self)
     all)
 
 
-  (method public (set-all value)
+  (method public (set-all self value)
     (set! all value)
-    (update))
+    (update self))
 
   
-  (method override (get-value)
+  (method override (get-value self)
     value)
   
   
-  (method override (set-value v)
+  (method override (set-value self v)
     (set! value v)
-    (set! to (value->to))
-    (update))
+    (set! to (value->to self))
+    (update self))
 
 
-  (method public (get-composite?)
+  (method public (get-composite? self)
     composite?)
 
 
-  (method public (set-composite? value)
+  (method public (set-composite? self value)
     (set! composite? value)
-    (set! to (value->to))
-    (set-title~ (locate 'add) (if composite? "Add >>" "Choose >>"))
-    (set-multiple-selection?~ (locate 'from-tree) composite?))
+    (set! to (value->to self))
+    (set-title (locate self 'add) (if composite? "Add >>" "Choose >>"))
+    (set-multiple-selection? (locate self 'from-tree) composite?))
 
 
   ;; assume nullable? = #t for now
-  (method (value->to)
+  (method (value->to self)
     (if composite?
         value
       (if (not value)
@@ -166,7 +168,7 @@
   
   
   ;; assume nullable? = #t for now
-  (method (to->value)
+  (method (to->value self)
     (if composite?
         to
       (if (not to)
@@ -179,11 +181,11 @@
   ;;;
   
   
-  (method protected (setup client key)
-    (let ((foreign (child~ (get-creator~ client) key)))
-      (set-all (map (lambda (component)
-                      (get-name~ component))
-                    (get-children~ foreign)))))
+  (method package (setup self client key)
+    (let ((foreign (child (get-creator client) key)))
+      (set-all self (map (lambda (component)
+                      (get-name component))
+                    (get-children foreign)))))
   
   
   ;;;
@@ -191,20 +193,20 @@
   ;;;
   
   
-  (method override (layout)
-    (let* ((size (get-size))
-           (width (get-width~ size))
-           (height (get-height~ size))
-           (from (locate 'from-border))
-           (to (locate 'to-border))
+  (method override (layout self)
+    (let* ((size (get-size self))
+           (width (get-width size))
+           (height (get-height size))
+           (from (locate self 'from-border))
+           (to (locate self 'to-border))
            (tree-width (quotient (- width 100) 2))
            (buttons-pos (quotient (- height 52) 2)))
-      (set-position~ from (new Point 0 0))
-      (set-size~ from (new Dimension tree-width height))
-      (set-position~ (locate 'add) (new Point (+ tree-width 10) buttons-pos))
-      (set-position~ (locate 'remove) (new Point (+ tree-width 10) (+ buttons-pos 30)))
-      (set-position~ to (new Point (- width tree-width) 0))
-      (set-size~ to (new Dimension tree-width height))))
+      (set-position from (new Point 0 0))
+      (set-size from (new Dimension tree-width height))
+      (set-position (locate self 'add) (new Point (+ tree-width 10) buttons-pos))
+      (set-position (locate self 'remove) (new Point (+ tree-width 10) (+ buttons-pos 30)))
+      (set-position to (new Point (- width tree-width) 0))
+      (set-size to (new Dimension tree-width height))))
   
   
   ;;;
@@ -212,70 +214,70 @@
   ;;;
   
   
-  (method (on-selection-change evt)
-    (update-buttons))
+  (method package (on-selection-change self evt)
+    (update-buttons self))
   
   
-  (method (on-double-click evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
-        ((from-tree) (when (get-enabled?~ (locate 'add)) (on-add evt)))
-        ((to-tree) (when (get-enabled?~ (locate 'remove)) (on-remove evt))))))
+  (method (on-double-click self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
+        ((from-tree) (when (get-enabled? (locate self 'add)) (on-add self evt)))
+        ((to-tree) (when (get-enabled? (locate self 'remove)) (on-remove self evt))))))
   
   
-  (method (on-add evt)
-    (let* ((from-tree (locate 'from-tree))
-           (to-tree (locate 'to-tree))
-           (values (get-selected-data~ from-tree)))
+  (method (on-add self evt)
+    (let* ((from-tree (locate self 'from-tree))
+           (to-tree (locate self 'to-tree))
+           (values (get-selected-data from-tree)))
       (set! to (if composite? (append to values) values))
-      (update)
+      (update self)
       (if allow-duplicates?
-          (set-selection~ from-tree (user-data-indexes~ from-tree values))
-        (acquire-focus~ to-tree)
-        (set-selection~ to-tree (user-data-indexes~ to-tree values)))
-      (set-modified? #t)))
+          (set-selection from-tree (user-data-indexes from-tree values))
+        (acquire-focus to-tree)
+        (set-selection to-tree (user-data-indexes to-tree values)))
+      (set-modified? self #t)))
   
   
-  (method (on-remove evt)
-    (let* ((from-tree (locate 'from-tree))
-           (to-tree (locate 'to-tree))
-           (values (get-selected-data~ to-tree)))
+  (method (on-remove self evt)
+    (let* ((from-tree (locate self 'from-tree))
+           (to-tree (locate self 'to-tree))
+           (values (get-selected-data to-tree)))
       (set! to (difference to values))
-      (update)
+      (update self)
       (unless allow-duplicates?
-        (acquire-focus~ from-tree)
-        (set-selection~ from-tree (user-data-indexes~ from-tree values)))
-      (set-modified? #t)))
+        (acquire-focus from-tree)
+        (set-selection from-tree (user-data-indexes from-tree values)))
+      (set-modified? self #t)))
   
   
-  (method (update-buttons)
-    (let* ((from-tree (locate 'from-tree))
-           (from? (get-selection~ from-tree))
-           (to-tree (locate 'to-tree))
-           (to? (get-selection~ to-tree)))
-      (set-enabled?~ (locate 'add) from?)
-      (set-enabled?~ (locate 'remove) to?)))
+  (method package (update-buttons self)
+    (let* ((from-tree (locate self 'from-tree))
+           (from? (get-selection from-tree))
+           (to-tree (locate self 'to-tree))
+           (to? (get-selection to-tree)))
+      (set-enabled? (locate self 'add) from?)
+      (set-enabled? (locate self 'remove) to?)))
   
   
-  (method override (on-tab-press evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method override (on-tab-press self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((from-tree)
-          (focus-and-select~ (locate 'to-tree)))
+          (focus-and-select (locate self 'to-tree)))
         ((to-tree)
-          (focus-and-select~ (locate 'from-tree))))))
+          (focus-and-select (locate self 'from-tree))))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (let ((dialog (get-host)))
-      (end-modal~ dialog (get-modal-result~ dialog))))
+  (method override (on-return-press self evt)
+    (let ((dialog (get-host self)))
+      (end-modal dialog (get-modal-result dialog))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
   
   
   ;;;
@@ -283,25 +285,25 @@
   ;;;
   
   
-  (method (update)
+  (method package (update self)
     (define (update-from)
-      (let ((from-tree (locate 'from-tree)))
-        (remove-every-row~ from-tree)
-        (with-update-locked~ from-tree
+      (let ((from-tree (locate self 'from-tree)))
+        (remove-every-row from-tree)
+        (with-update-locked from-tree
           (lambda ()
             (for-each (lambda (object)
                         (let ((title (present object)))
-                          (add-row~ from-tree children: (list (new Tree-Node title: title)) user-data: object)))
+                          (add-row from-tree children: (list (new Tree-Node title: title)) user-data: object)))
                       (sort < (if allow-duplicates? all (difference all to test: equal?))))))))
     
     (define (update-to)
-      (let ((to-tree (locate 'to-tree)))
-        (remove-every-row~ to-tree)
-        (with-update-locked~ to-tree
+      (let ((to-tree (locate self 'to-tree)))
+        (remove-every-row to-tree)
+        (with-update-locked to-tree
           (lambda ()
             (for-each (lambda (object)
                         (let ((title (present object)))
-                          (add-row~ to-tree children: (list (new Tree-Node title: title)) user-data: object)))
+                          (add-row to-tree children: (list (new Tree-Node title: title)) user-data: object)))
                       (sort < to))))))
     
     (define (present object)
@@ -311,4 +313,4 @@
     
     (update-from)
     (update-to)
-    (update-buttons))))
+    (update-buttons self))))

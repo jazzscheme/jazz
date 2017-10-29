@@ -40,7 +40,8 @@
 
 
 (import (jazz.graphic)
-        (jazz.view))
+        (jazz.view)
+        (jazz.sample.mandelbrot))
 
 
 (class Mandelbrot extends View
@@ -62,11 +63,11 @@
   ;;;
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Mandelbrot")
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 600 600})
   
   
@@ -75,22 +76,22 @@
   ;;;
   
   
-  (method (setup-coordinates)
-    (let* ((width (get-width))
-           (height (get-height))
+  (method (setup-coordinates self)
+    (let* ((width (get-width self))
+           (height (get-height self))
            (ch (/ (cast <fl> width) 2))
            (cv (/ (cast <fl> height) 2))
            (scale (/ (cast <fl> (- (min width height) 50)) 5)))
-      (set! ch~self ch)
-      (set! cv~self cv)
-      (set! scale~self scale)))
+      (set! self.ch ch)
+      (set! self.cv cv)
+      (set! self.scale scale)))
   
   
-  (method (complex->view r i)
+  (method (complex->view self r i)
     (new Point (fxround (+ ch (* r scale))) (fxround (+ cv (* i scale)))))
   
   
-  (method (view->complex h v . rest)
+  (method (view->complex self h v . rest)
     (let ((r (/ (- h ch) scale))
           (i (/ (- v cv) scale)))
       (make-rectangular r i)))
@@ -101,16 +102,16 @@
   ;;;
   
   
-  (method (iterate dragging?)
+  (method (iterate self dragging?)
     (define (iteration-color n)
       (if (not n)
           {Color Black}
         (element Colors (modulo n (length Colors)))))
     
-    (with-view-surface
+    (with-view-surface self
       (lambda (surface)
-        (set-color~ surface {Color Dark-Red})
-        (set-line-width~ surface 1)
+        (set-color surface {Color Dark-Red})
+        (set-line-width surface 1)
         (let ((z 0)
               (pixel #f)
               (outside? #f))
@@ -118,17 +119,17 @@
                 (do (unless outside?
                       (let ((next (+ (* z z) c)))
                         (when (not dragging?)
-                          (line surface (real-part z) (imag-part z) (real-part next) (imag-part next))
+                          (line self surface (real-part z) (imag-part z) (real-part next) (imag-part next))
                           (sleep .1))
                         (let ((norm (norm next)))
                           (if (> norm 2)
                               (begin
-                                (set! pixel (new Pixel c (complex->view (real-part c) (imag-part c)) n (iteration-color n)))
+                                (set! pixel (new Pixel c (complex->view self (real-part c) (imag-part c)) n (iteration-color n)))
                                 (set! outside? #t))
                             (set! z next)))))))
           (when (not outside?)
-            (set! pixel (new Pixel c (complex->view (real-part c) (imag-part c)) #f (iteration-color #f))))
-          (put~ pixels pixel)
+            (set! pixel (new Pixel c (complex->view self (real-part c) (imag-part c)) #f (iteration-color #f))))
+          (put pixels pixel)
           (if dragging?
               (draw-pixel surface pixel)
             (loop (for radius from 1 to Pixel-Radius)
@@ -138,7 +139,7 @@
           (sleep .25)))))
   
   
-  (method (change-iterations)
+  (method (change-iterations self)
     (let ((new-iterations (request-string title: "Iterations" prefix: "Iterations" initial-value: (->string iterations))))
       (set! iterations (parse-integer new-iterations))))
 
@@ -148,15 +149,15 @@
   ;;;
   
   
-  (method override (size-change size)
+  (method override (size-change self size)
     (define (recalculate-pixel-positions)
       (for-each (lambda (pixel)
-                  (let ((c (get-c~ pixel)))
-                    (set-pos~ pixel (complex->view (real-part c) (imag-part c)))))
-                (get-output~ pixels)))
+                  (let ((c (get-c pixel)))
+                    (set-pos pixel (complex->view self (real-part c) (imag-part c)))))
+                (get-output pixels)))
     
-    (nextmethod size)
-    (setup-coordinates)
+    (nextmethod self size)
+    (setup-coordinates self)
     (recalculate-pixel-positions))
 
   
@@ -186,33 +187,33 @@
     #t)
   
   
-  (method override (draw surface context)
-    (let ((bounds (get-bounds)))
-      (fill-rect~ surface bounds Background-Color)
-      (set-color~ surface {Color White})
-      (set-line-width~ surface 1)
-      (line surface -2 0 2 0)
-      (line surface 0 -2 0 2)
-      (let ((lt (complex->view -2 -2))
-            (rb (complex->view 2 2)))
-        (frame-rect~ surface (new Rect (get-h~ lt) (get-v~ lt) (get-h~ rb) (get-v~ rb)) {Color Red})
-        (ellipse~ surface (new Rect (get-h~ lt) (get-v~ lt) (get-h~ rb) (get-v~ rb)) Radius-Color #f))
+  (method override (draw self surface context)
+    (let ((bounds (get-bounds self)))
+      (fill-rect surface bounds Background-Color)
+      (set-color surface {Color White})
+      (set-line-width surface 1)
+      (line self surface -2 0 2 0)
+      (line self surface 0 -2 0 2)
+      (let ((lt (complex->view self -2 -2))
+            (rb (complex->view self 2 2)))
+        (frame-rect surface (new Rect (get-h lt) (get-v lt) (get-h rb) (get-v rb)) {Color Red})
+        (ellipse surface (new Rect (get-h lt) (get-v lt) (get-h rb) (get-v rb)) Radius-Color #f))
       (for-each (lambda (pixel)
                   (draw-pixel surface pixel))
-                (get-output~ pixels))))
+                (get-output pixels))))
   
   
   (definition (draw-pixel surface pixel (radius Pixel-Radius))
-    (let ((pos (get-pos~ pixel))
-          (color (get-color~ pixel)))
+    (let ((pos (get-pos pixel))
+          (color (get-color pixel)))
       (when Draw-Outside?
-        (ellipse~ surface (new Rect (- (get-h~ pos) radius) (- (get-v~ pos) radius) (+ (get-h~ pos) radius) (+ (get-v~ pos) radius)) color color))))
+        (ellipse surface (new Rect (- (get-h pos) radius) (- (get-v pos) radius) (+ (get-h pos) radius) (+ (get-v pos) radius)) color color))))
   
   
-  (method (line surface r i dr di)
-    (let ((src (complex->view r i))
-          (dst (complex->view dr di)))
-      (line~ surface (get-h~ src) (get-v~ src) (get-h~ dst) (get-v~ dst))))
+  (method package (line self surface r i dr di)
+    (let ((src (complex->view self r i))
+          (dst (complex->view self dr di)))
+      (line surface (get-h src) (get-v src) (get-h dst) (get-v dst))))
   
   
   ;;;
@@ -220,26 +221,26 @@
   ;;;
   
   
-  (method override (mouse-down evt)
-    (acquire-focus)
-    (let ((pos (get-position~ evt)))
-      (let ((c (view->complex (get-h~ pos) (get-v~ pos))))
-        (set! c~self c)
-        (set! n~self 0)
-        (iterate #f)
-        (redraw-view))))
+  (method override (mouse-down self evt)
+    (acquire-focus self)
+    (let ((pos (get-position evt)))
+      (let ((c (view->complex self (get-h pos) (get-v pos))))
+        (set! self.c c)
+        (set! self.n 0)
+        (iterate self #f)
+        (redraw-view self))))
   
   
-  (method override (drag-move evt)
-    (let ((pos (get-position~ evt)))
-      (let ((c (view->complex (get-h~ pos) (get-v~ pos))))
-        (set! c~self c)
-        (set! n~self 0)
-        (iterate #t))))
+  (method override (drag-move self evt)
+    (let ((pos (get-position evt)))
+      (let ((c (view->complex self (get-h pos) (get-v pos))))
+        (set! self.c c)
+        (set! self.n 0)
+        (iterate self #t))))
   
   
-  (method override (mouse-up evt)
-    (redraw-view))
+  (method override (mouse-up self evt)
+    (redraw-view self))
   
   
   ;;;
@@ -247,15 +248,15 @@
   ;;;
   
   
-  (method override (key-press evt)
-    (case (get-key~ evt)
-      ((#\c) (clear))
-      ((#\i) (change-iterations))))
+  (method override (key-press self evt)
+    (case (get-key evt)
+      ((#\c) (clear self))
+      ((#\i) (change-iterations self))))
   
   
-  (method (clear)
-    (reset~ pixels)
-    (redraw-view)))
+  (method package (clear self)
+    (reset pixels)
+    (redraw-view self)))
 
 
 ;;;
@@ -272,9 +273,9 @@
   (slot color accessors generate)
   
   
-  (method override (initialize c pos iter color)
-    (nextmethod)
-    (set! c~self c)
-    (set! pos~self pos)
-    (set! iter~self iter)
-    (set! color~self color))))
+  (method override (initialize self c pos iter color)
+    (nextmethod self)
+    (set! self.c c)
+    (set! self.pos pos)
+    (set! self.iter iter)
+    (set! self.color color))))

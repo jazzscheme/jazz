@@ -42,6 +42,8 @@
         (jazz.graphic)
         (jazz.locale)
         (jazz.skin)
+        (jazz.text)
+        (jazz.ui)
         (jazz.view)
         (jazz.window))
 
@@ -54,7 +56,7 @@
   (property shadow?       initialize #f    accessors explicit)
   
   
-  (method override (default-size)
+  (method override (default-size self)
     {Dimension 100 16})
   
   
@@ -63,31 +65,31 @@
   ;;;
   
   
-  (method public (get-justification)
+  (method public (get-justification self)
     justification)
   
   
-  (method public (set-justification value)
+  (method public (set-justification self value)
     (set! justification value)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-color)
+  (method public (get-color self)
     color)
 
 
-  (method public (set-color value)
+  (method public (set-color self value)
     (set! color value)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-shadow?)
+  (method public (get-shadow? self)
     shadow?)
 
 
-  (method public (set-shadow? value)
+  (method public (set-shadow? self value)
     (set! shadow? value)
-    (invalidate-view))
+    (invalidate-view self))
 
   
   ;;;
@@ -95,7 +97,7 @@
   ;;;
   
   
-  (method protected virtual (label-title)
+  (method protected virtual (label-title self)
     title)
 
   
@@ -104,9 +106,9 @@
   ;;;
   
   
-  (method override (effective-font)
-    (let ((font (and style (get-font~ style))))
-      (or font (nextmethod))))
+  (method override (effective-font self)
+    (let ((font (and style (get-font style))))
+      (or font (nextmethod self))))
 
   
   ;;;
@@ -114,8 +116,8 @@
   ;;;
   
   
-  (method override (style-update)
-    (adjust-size))
+  (method override (style-update self)
+    (adjust-size self))
 
   
   ;;;
@@ -123,14 +125,14 @@
   ;;;
   
   
-  (method override (preferred-size)
-    (let ((title (localize (label-title))))
+  (method override (preferred-size self)
+    (let ((title (localize (label-title self))))
       (if (not title)
-          (default-size)
-        (let ((extent (text-extent~ (effective-font) title)))
+          (default-size self)
+        (let ((extent (text-extent (effective-font self) title)))
           (new Dimension
-            (get-width~ extent)
-            (max 16 (get-height~ extent)))))))
+            (get-width extent)
+            (max 16 (get-height extent)))))))
   
   
   ;;;
@@ -138,13 +140,13 @@
   ;;;
   
   
-  (method override (cursor-update evt)
-    (if (mouse-copy? evt)
+  (method override (cursor-update self evt)
+    (if (mouse-copy? self evt)
         (set-cursor :finger)
-      (nextmethod evt)))
+      (nextmethod self evt)))
   
   
-  (method override (mouse-data pos)
+  (method override (mouse-data self pos)
     title)
   
   
@@ -153,29 +155,29 @@
   ;;;
   
   
-  (method override (draw-background surface context)
-    (let ((skin (get-skin)))
-      (when (neq? (get-background~ skin) 'none)
-        (nextmethod surface context))))
+  (method override (draw-background self surface context)
+    (let ((skin (get-skin self)))
+      (when (neq? (get-background skin) 'none)
+        (nextmethod self surface context))))
   
   
-  (method override (draw surface context)
-    (let ((title (localize (or (label-title) ""))))
-      (let ((pos (justify-lazy (lambda () (get-text-extent~ surface title))
-                               (lambda () (get-size))
+  (method override (draw self surface context)
+    (let ((title (localize (or (label-title self) ""))))
+      (let ((pos (justify-lazy (lambda () (get-text-extent surface title))
+                               (lambda () (get-size self))
                                (if (pair? justification) justification (list justification 'center)))))
         (if style
-            (let ((h (get-h~ pos))
-                  (v (get-v~ pos))
-                  (line-height (get-height))
+            (let ((h (get-h pos))
+                  (v (get-v pos))
+                  (line-height (get-height self))
                   (tabs '())
                   (left 0)
-                  (enabled? (view-enabled?)))
-              (draw-style~ style surface context title h v line-height tabs left enabled?))
+                  (enabled? (view-enabled? self)))
+              (draw-style style surface context title h v line-height tabs left enabled?))
           (when shadow?
-            (draw-text~ surface (+ (get-h~ pos) 2) (+ (get-v~ pos) 2) title {Color Medium-Gray}))
-          (let ((enabled? (view-enabled?)))
-            (draw-text~ surface (get-h~ pos) (get-v~ pos) title (text-color) enabled?: enabled?))))))
+            (draw-text surface (+ (get-h pos) 2) (+ (get-v pos) 2) title {Color Medium-Gray}))
+          (let ((enabled? (view-enabled? self)))
+            (draw-text surface (get-h pos) (get-v pos) title (text-color self) enabled?: enabled?))))))
   
   
   ;;;
@@ -183,14 +185,14 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:label))
   
   
-  (method protected virtual (text-color)
-    (let ((skin (get-skin)))
+  (method protected virtual (text-color self)
+    (let ((skin (get-skin self)))
       (if enabled?
-          (or color (get-text-color~ skin) {Color Black})
+          (or color (get-text-color skin) {Color Black})
         {Color Dark})))
   
   
@@ -199,5 +201,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Label-View-Descriptor))))

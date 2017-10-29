@@ -41,6 +41,7 @@
 (import (jazz.graphic)
         (jazz.handler)
         (jazz.jml)
+        (jazz.outline)
         (jazz.tree)
         (jazz.ui)
         (jazz.view))
@@ -67,8 +68,8 @@
       (<Push-Button>              name: cancel    title: "Cancel" position: {Point 694 315} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (get-tree)))
+  (method override (focus-default self)
+    (acquire-focus (get-tree self)))
 
   
   ;;;
@@ -76,8 +77,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'tree))
+  (method package (get-tree self)
+    (locate self 'tree))
 
   
   ;;;
@@ -85,8 +86,8 @@
   ;;;
   
   
-  (method public (set-invite value)
-    (set-title~ (locate 'invite) value))
+  (method public (set-invite self value)
+    (set-title (locate self 'invite) value))
 
   
   ;;;
@@ -94,38 +95,38 @@
   ;;;
   
   
-  (method public (get-content)
+  (method public (get-content self)
     content)
   
   
-  (method public (set-content value)
+  (method public (set-content self value)
     (set! content value)
-    (let ((tree (get-tree)))
-      (setup-content tree)
-      (setup-selection tree)))
+    (let ((tree (get-tree self)))
+      (setup-content self tree)
+      (setup-selection self tree)))
   
   
-  (method public (get-multiple-selection?)
+  (method public (get-multiple-selection? self)
     multiple-selection?)
   
   
-  (method public (set-multiple-selection? flag)
+  (method public (set-multiple-selection? self flag)
     (set! multiple-selection? flag)
-    (let ((tree (get-tree)))
-      (set-multiple-selection?~ tree flag)))
+    (let ((tree (get-tree self)))
+      (set-multiple-selection? tree flag)))
   
   
-  (method public (set-selected selected)
-    (let ((tree (get-tree)))
+  (method public (set-selected self selected)
+    (let ((tree (get-tree self)))
       (cond (multiple-selection?
-             (let ((rows (user-data-rows~ tree selected)))
-               (set-selection~ tree (map (lambda (row)
-                                           (row->line~ tree row))
+             (let ((rows (user-data-rows tree selected)))
+               (set-selection tree (map (lambda (row)
+                                           (row->line tree row))
                                          rows))))
             (else
-             (let ((row (user-data-row~ tree selected)))
+             (let ((row (user-data-row tree selected)))
                (when row
-                 (set-single-selection~ tree (row->line~ tree row))))))))
+                 (set-single-selection tree (row->line tree row))))))))
 
   
   ;;;
@@ -133,15 +134,15 @@
   ;;;
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Choose Element")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 450 300})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 300 500})
   
   
@@ -150,30 +151,30 @@
   ;;;
   
   
-  (method (on-double-click evt)
-    (let ((dialog (get-host)))
-      (end-modal~ dialog (get-modal-result~ dialog))))
+  (method (on-double-click self evt)
+    (let ((dialog (get-host self)))
+      (end-modal dialog (get-modal-result dialog))))
   
   
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (size-figure~ (locate 'border) dh dv)
-    (move-figure~ (locate 'separator) 0 dv)
-    (size-figure~ (locate 'separator) dh 0)
-    (move-figure~ (locate 'ok) dh dv)
-    (move-figure~ (locate 'cancel) dh dv))
-  
-  
-  ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (let ((dialog (get-host)))
-      (end-modal~ dialog (get-modal-result~ dialog))))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (size-figure (locate self 'border) dh dv)
+    (move-figure (locate self 'separator) 0 dv)
+    (size-figure (locate self 'separator) dh 0)
+    (move-figure (locate self 'ok) dh dv)
+    (move-figure (locate self 'cancel) dh dv))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-return-press self evt)
+    (let ((dialog (get-host self)))
+      (end-modal dialog (get-modal-result dialog))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
 
   
   ;;;
@@ -181,24 +182,24 @@
   ;;;
   
   
-  (method (update)
-    (setup-content (get-tree)))
+  (method package (update self)
+    (setup-content self (get-tree self)))
 
   
-  (method (setup-content tree)
-    (remove-every-row~ tree)
-    (with-update-locked~ tree
+  (method (setup-content self tree)
+    (remove-every-row tree)
+    (with-update-locked tree
       (lambda ()
         (let ((present (or present ->string)))
           (for-each (lambda (element)
                       (let ((title (present element)))
-                        (add-row~ tree children: (list (new Tree-Node title: title)) user-data: element)))
+                        (add-row tree children: (list (new Tree-Node title: title)) user-data: element)))
                     content)))))
   
   
-  (method (setup-selection tree)
+  (method (setup-selection self tree)
     (when (not-null? content)
-      (set-selection~ tree (list 0))))
+      (set-selection tree (list 0))))
   
   
   ;;;
@@ -206,8 +207,8 @@
   ;;;
   
   
-  (method override (get-modal-result)
-    (let ((tree (get-tree)))
+  (method override (get-modal-result self)
+    (let ((tree (get-tree self)))
       (if multiple-selection?
-          (get-selected-data~ tree)
-        (get-single-selected-data~ tree))))))
+          (get-selected-data tree)
+        (get-single-selected-data tree))))))

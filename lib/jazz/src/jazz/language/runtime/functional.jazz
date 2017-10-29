@@ -41,7 +41,8 @@
 (proclaim (warn optimizations))
 
 
-(import (jazz.language.runtime.kernel)
+(import (jazz.language.runtime.hubs)
+        (jazz.language.runtime.kernel)
         (jazz.language.runtime.object)
         (irregex))
 
@@ -64,7 +65,7 @@
   (slot entries getter generate)
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (print-unreadable self output
       (lambda (output)
         (system-format output "{s}" name)))))
@@ -81,15 +82,15 @@
   (slot name getter generate)
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (print-unreadable self output
       (lambda (output)
         (system-format output "{s}" name))))
   
   
-  (method protected virtual abstract (field-locator))
-  (method protected virtual abstract (field-ref))
-  (method protected virtual abstract (field-set! value)))
+  (method package virtual abstract (field-locator self))
+  (method package virtual abstract (field-ref self))
+  (method package virtual abstract (field-set! self value)))
 
 
 ;;;
@@ -103,16 +104,16 @@
   (slot symbol getter generate)
   
   
-  (method override (field-locator)
+  (method override (field-locator self)
     symbol)
   
   
-  (method override (field-ref)
+  (method override (field-ref self)
     (and (global-bound? symbol)
          (global-ref symbol)))
   
   
-  (method override (field-set! value)
+  (method override (field-set! self value)
     (when (global-bound? symbol)
       (global-set! symbol value))))
 
@@ -140,15 +141,15 @@
   (slot locator getter generate)
   
   
-  (method override (field-locator)
+  (method override (field-locator self)
     locator)
   
   
-  (method override (field-ref)
+  (method override (field-ref self)
     (global-ref locator))
   
   
-  (method override (field-set! value)
+  (method override (field-set! self value)
     (global-set! locator value)))
 
 
@@ -163,15 +164,15 @@
   (slot locator getter generate)
   
   
-  (method override (field-locator)
+  (method override (field-locator self)
     locator)
   
   
-  (method override (field-ref)
+  (method override (field-ref self)
     (global-ref locator))
   
   
-  (method override (field-set! value)
+  (method override (field-set! self value)
     (global-set! locator value)))
 
 
@@ -183,15 +184,15 @@
 (class Type extends Object
   
   
-  (method core virtual (of-type? object))
-  (method core virtual (of-subtype? subtype))
-  (method core virtual (specifiable?))
-  (method core virtual (category-type?))
-  (method core virtual (resolve-type))
-  (method core virtual (emit-specifier))
-  (method core virtual (emit-type source-declaration environment backend))
-  (method core virtual (emit-test value source-declaration environment backend))
-  (method core virtual (emit-check value source-declaration environment backend)))
+  (method core virtual (of-type? self object))
+  (method core virtual (of-subtype? self subtype))
+  (method core virtual (specifiable? self))
+  (method core virtual (category-type? self))
+  (method core virtual (resolve-type self))
+  (method core virtual (emit-specifier self))
+  (method core virtual (emit-type self source-declaration environment backend))
+  (method core virtual (emit-test self value source-declaration environment backend))
+  (method core virtual (emit-check self value source-declaration environment backend)))
 
 
 ;;;
@@ -209,31 +210,31 @@
   (slot descendants  getter generate)   ;; only the direct descendants
   
   
-  (method core virtual (update-category))
+  (method core virtual (update-category self))
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (print-unreadable self output
       (lambda (output)
-        (system-format output "{s}" (get-name)))))
+        (system-format output "{s}" (get-name self)))))
   
   
-  (method public (get-name)
+  (method public (get-name self)
     identifier)
   
   
-  (method public virtual (mop-category-field field-name)
+  (method public virtual (mop-category-field self field-name)
     (category-field self field-name))
   
   
-  (method public virtual (mop-field-value property)
+  (method public virtual (mop-field-value self property)
     ))
 
 
 (definition public (typed? obj category-identifier)
   (some? (lambda (category <Category>)
-           (eq? (get-name~ category) category-identifier))
-         (get-ancestors~ (class-of obj))))
+           (eq? (get-name category) category-identifier))
+         (get-ancestors (class-of obj))))
 
 
 ;;;
@@ -255,24 +256,24 @@
   (slot interface-table getter generate)
   
   
-  (method public virtual (coerce-object obj)
+  (method public virtual (coerce-object self obj)
     (error "Unable to coerce {t} into a {t}" obj (category-name self)))
   
   
-  (method public virtual (external-name (error?: error? #t))
+  (method public virtual (external-name self (error?: error? #t))
     (and error? (error "{t} class does not define an external name" (category-name self))))
   
   
-  (method public virtual (marshall-object object)
+  (method public virtual (marshall-object self object)
     #f)
   
   
-  (method public virtual (unmarshall-object content)
+  (method public virtual (unmarshall-object self content)
     #f)
   
   
-  (method public virtual (mop-instance-slots object)
-    (get-instance-slots)))
+  (method public virtual (mop-instance-slots self object)
+    (get-instance-slots self)))
 
 
 (class Object-Class metaclass Class extends Class)
@@ -289,7 +290,7 @@
 (definition public inline (coerce object <Object> class <Class>)
   (if (is? object class)
       object
-    (coerce-object~ class object)))
+    (coerce-object class object)))
 
 
 ;;;
@@ -352,7 +353,7 @@
   (slot profile    accessors generate)
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (print-unreadable self output
       (lambda (output)
         (system-format output "{s}" identifier)))))
@@ -405,7 +406,7 @@
 (class primitive Boolean metaclass Boolean-Class extends Object
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (native-class "booleans")))
 
 
@@ -710,17 +711,17 @@
 (class primitive Char metaclass Char-Class extends Object
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (native-class "chars"))
   
   
-  (method override (coerce-string)
+  (method override (coerce-string self)
     (let ((port (open-output-string)))
       (write-char self port)
       (get-output-string port)))
   
   
-  (method override (compare-object c)
+  (method override (compare-object self c)
     (if (is? c Char)
         (let ((v1 (char->integer self))
               (v2 (char->integer c)))
@@ -730,40 +731,40 @@
       :incompatible))
   
   
-  (method override (ci-compare-object c)
+  (method override (ci-compare-object self c)
     (compare (downcase self)
              (downcase c)))
   
   
-  (method override (di-compare-object c)
+  (method override (di-compare-object self c)
     (ci-compare (diacritic-equivalent self)
                 (diacritic-equivalent c)))
   
   
-  (method override (object-similar? object)
+  (method override (object-similar? self object)
     (unimplemented 'object-similar?)
     @convert
     (and (char? object)
          (char-similar? self object)))
 
 
-  (method override (object-alphabetic?)
-    (or (object-upper-case?)
-        (object-lower-case?)))
+  (method override (object-alphabetic? self)
+    (or (object-upper-case? self)
+        (object-lower-case? self)))
 
 
-  (method override (object-numeric?)
+  (method override (object-numeric? self)
     (let ((n (char->integer self)))
       (and (>= n Numeric-Lowerbound)
            (<= n Numeric-Upperbound))))
 
 
-  (method override (object-alphanumeric?)
-    (or (object-alphabetic?)
-        (object-numeric?)))
+  (method override (object-alphanumeric? self)
+    (or (object-alphabetic? self)
+        (object-numeric? self)))
 
 
-  (method override (object-whitespace?)
+  (method override (object-whitespace? self)
     (or (eqv? self #\space)
         (eqv? self #\tab)
         (eqv? self #\return)
@@ -771,32 +772,32 @@
         (eqv? self #\page)))
 
 
-  (method override (object-upper-case?)
+  (method override (object-upper-case? self)
     (let ((n (char->integer self)))
       (and (>= n Uppercase-Lowerbound)
            (<= n Uppercase-Upperbound))))
 
 
-  (method override (object-lower-case?)
+  (method override (object-lower-case? self)
     (let ((n (char->integer self)))
       (and (>= n Lowercase-Lowerbound)
            (<= n Lowercase-Upperbound))))
 
 
-  (method override (object-upcase)
+  (method override (object-upcase self)
     (if (lower-case? self)
         (integer->char (- (char->integer self) 32))
       self))
 
 
-  (method override (object-downcase)
+  (method override (object-downcase self)
     (if (upper-case? self)
         (integer->char (+ (char->integer self) 32))
       self))
 
 
-  (method override (object-capitalize)
-    (object-upcase)))
+  (method override (object-capitalize self)
+    (object-upcase self)))
 
 
 (definition whitechar?
@@ -809,39 +810,39 @@
 
 
 (definition public inline (alphabetic? object <Object>)
-  (object-alphabetic?~ object))
+  (object-alphabetic? object))
 
 
 (definition public inline (numeric? object <Object>)
-  (object-numeric?~ object))
+  (object-numeric? object))
 
 
 (definition public inline (alphanumeric? object <Object>)
-  (object-alphanumeric?~ object))
+  (object-alphanumeric? object))
 
 
 (definition public inline (whitespace? object <Object>)
-  (object-whitespace?~ object))
+  (object-whitespace? object))
 
 
 (definition public inline (upper-case? object <Object>)
-  (object-upper-case?~ object))
+  (object-upper-case? object))
 
 
 (definition public inline (lower-case? object <Object>)
-  (object-lower-case?~ object))
+  (object-lower-case? object))
 
 
 (definition public inline (upcase object <Object>)
-  (object-upcase~ object))
+  (object-upcase object))
 
 
 (definition public inline (downcase object <Object>)
-  (object-downcase~ object))
+  (object-downcase object))
 
 
 (definition public inline (capitalize object <Object>)
-  (object-capitalize~ object))
+  (object-capitalize object))
 
 
 (definition public (upcase-capitalized str)
@@ -933,13 +934,13 @@
 (class primitive Port metaclass Port-Class extends Object
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (native-class "ports"))
   
   
-  (method override (destroy)
+  (method override (destroy self)
     (close-port self)
-    (nextmethod)))
+    (nextmethod self)))
 
 
 ;;;
@@ -953,21 +954,21 @@
 (class primitive Symbol metaclass Symbol-Class extends Object
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (native-class "symbols"))
   
   
-  (method override (coerce-string)
+  (method override (coerce-string self)
     (symbol->string self))
   
   
-  (method override (compare-object obj)
+  (method override (compare-object self obj)
     (if (symbol? obj)
         (compare (symbol->string self) (symbol->string obj))
       :incompatible))
   
   
-  (method override (ci-compare-object obj)
+  (method override (ci-compare-object self obj)
     (if (symbol? obj)
         (ci-compare (symbol->string self) (symbol->string obj))
       :incompatible)))
@@ -1013,7 +1014,7 @@
 (class primitive Keyword metaclass Keyword-Class extends Object
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (native-class "keywords")))
 
 
@@ -1090,11 +1091,11 @@
 (class primitive Numeric metaclass Numeric-Class extends Object
 
 
-  (method public virtual abstract (numeric-norm))
-  (method public virtual abstract (numeric-add obj))
-  (method public virtual abstract (numeric-negate))
-  (method public virtual abstract (numeric-multiply n))
-  (method public virtual abstract (numeric-inverse)))
+  (method public virtual abstract (numeric-norm self))
+  (method public virtual abstract (numeric-add self obj))
+  (method public virtual abstract (numeric-negate self))
+  (method public virtual abstract (numeric-multiply self n))
+  (method public virtual abstract (numeric-inverse self)))
 
 
 ;;;
@@ -1108,11 +1109,11 @@
 (class primitive Number metaclass Number-Class extends Numeric
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (native-class "numbers"))
   
   
-  (method override (compare-object obj)
+  (method override (compare-object self obj)
     (if (number? obj)
         (cond ((= self obj) :equal)
               ((< self obj) :less)
@@ -1120,35 +1121,35 @@
       :incompatible))
   
   
-  (method override (ci-compare-object obj)
-    (compare-object obj))
+  (method override (ci-compare-object self obj)
+    (compare-object self obj))
   
   
-  (method override (di-compare-object obj)
-    (compare-object obj))
+  (method override (di-compare-object self obj)
+    (compare-object self obj))
   
   
-  (method override (numeric-norm)
+  (method override (numeric-norm self)
     (abs self))
   
   
-  (method override (numeric-add obj)
+  (method override (numeric-add self obj)
     (if (number? obj)
         (+ self obj)
       (error "Unsupported nu+ : {t} {t}" self obj)))
   
   
-  (method override (numeric-negate)
+  (method override (numeric-negate self)
     (- self))
   
   
-  (method override (numeric-multiply obj)
+  (method override (numeric-multiply self obj)
     (if (number? obj)
         (* self obj)
       (error "Unsupported nu* : {t} {t}" self obj)))
   
   
-  (method override (numeric-inverse)
+  (method override (numeric-inverse self)
     (/ self)))
 
 
@@ -1163,7 +1164,7 @@
 (class primitive Complex metaclass Complex-Class extends Number
   
   
-  (method override (numeric-norm)
+  (method override (numeric-norm self)
     (sqrt (+ (expt (real-part self) 2) (expt (imag-part self) 2)))))
 
 
@@ -1343,14 +1344,14 @@
     (let (iter (result <Numeric> (car rest)) (scan (cdr rest)))
       (if (null? scan)
           result
-        (iter (numeric-add~ result (car scan)) (cdr scan))))))
+        (iter (numeric-add result (car scan)) (cdr scan))))))
 
 
 (definition public (nu- n <Numeric> . rest)
   (if (null? rest)
-      (numeric-negate~ n)
+      (numeric-negate n)
     (let ((r <Numeric> (apply nu+ rest)))
-      (nu+ n (numeric-negate~ r)))))
+      (nu+ n (numeric-negate r)))))
 
 
 (definition public (nu* . rest)
@@ -1359,14 +1360,14 @@
     (let (iter (result <Numeric> (car rest)) (scan (cdr rest)))
       (if (null? scan)
           result
-        (iter (numeric-multiply~ result (car scan)) (cdr scan))))))
+        (iter (numeric-multiply result (car scan)) (cdr scan))))))
 
 
 (definition public (nu/ n <Numeric> . rest)
   (if (null? rest)
-      (numeric-inverse~ n)
+      (numeric-inverse n)
     (let ((r <Numeric> (apply nu* rest)))
-      (nu* n (numeric-inverse~ r)))))
+      (nu* n (numeric-inverse r)))))
 
 
 (definition public (minimum lst <pair> (key: key #f) (compare: compare compare))
@@ -1410,7 +1411,7 @@
 
 
 (definition public inline (norm x <Numeric>)
-  (numeric-norm~ x))
+  (numeric-norm x))
 
 
 (definition public (distance start <Numeric> end <Numeric>)
@@ -1583,67 +1584,67 @@
   (slot peeked initialize Empty)
   
   
-  (method override (iterate-object)
+  (method override (iterate-object self)
     self)
 
 
-  (method public virtual (get-next)
-    (prog1 (peek)
-      (next)))
+  (method public virtual (get-next self)
+    (prog1 (peek self)
+      (next self)))
 
 
-  (method public virtual (peek)
+  (method public virtual (peek self)
     (when (eq? peeked Empty)
-      (set! peeked (next)))
+      (set! peeked (next self)))
     peeked)
   
   
-  (method public virtual (unget object)
+  (method public virtual (unget self object)
     (if (eq? peeked Empty)
         (set! peeked object)
       (error "Unable to unget {t}" object)))
 
 
-  (method public virtual (next)
+  (method public virtual (next self)
     (cond ((eof-object? peeked)
            peeked)
           ((neq? peeked Empty)
            (prog1 peeked
              (set! peeked Empty)))
           (else
-           (get-next!))))
+           (get-next! self))))
 
 
-  (method public virtual (done?) <bool>
-    (eof-object? (peek)))
+  (method public virtual (done? self) <bool>
+    (eof-object? (peek self)))
 
 
-  (method public virtual (get-next!)
+  (method public virtual (get-next! self)
     )
 
 
-  (method public virtual (put object)
+  (method public virtual (put self object)
     (error "This iterator cannot put"))
 
 
-  (method public virtual (get-position)
+  (method public virtual (get-position self)
     (error "This iterator cannot get position: {t}" self))
 
 
-  (method public virtual (set-position pos)
+  (method public virtual (set-position self pos)
     (error "This iterator cannot set position: {t}" self))
 
 
-  (method public virtual (get-state)
+  (method public virtual (get-state self)
     #f)
 
 
-  (method public virtual (reset-state old)
+  (method public virtual (reset-state self old)
     ))
 
 
-(definition public inline (iterate-sequence obj <Object>) <Iterator>
-  (iterate-object~ obj))
+(definition public inline (iterator obj <Object>) <Iterator>
+  (iterate-object obj))
 
 
 ;;;
@@ -1657,71 +1658,71 @@
   (slot direction initialize 'forward setter generate)
 
 
-  (method protected virtual (peek-forward)
+  (method protected virtual (peek-forward self)
     (error "You need to implement peek-forward"))
 
 
-  (method protected virtual (peek-backward)
+  (method protected virtual (peek-backward self)
     (error "You need to implement peek-backward"))
 
 
-  (method override (peek)
-    (if (done?)
+  (method override (peek self)
+    (if (done? self)
         (eof-object)
       (case direction
-        ((forward)  (peek-forward))
-        ((backward) (peek-backward)))))
+        ((forward)  (peek-forward self))
+        ((backward) (peek-backward self)))))
 
 
-  (method public virtual (goto-beginning)
+  (method public virtual (goto-beginning self)
     (error "You need to implement goto-beginning"))
 
 
-  (method public virtual (goto-end)
+  (method public virtual (goto-end self)
     (error "You need to implement goto-end"))
 
 
-  (method public virtual (forward)
+  (method public virtual (forward self)
     (error "You need to implement forward"))
 
 
-  (method public virtual (backward)
+  (method public virtual (backward self)
     (error "You need to implement backward"))
 
 
-  (method override (next)
-    (and (not (done?))
+  (method override (next self)
+    (and (not (done? self))
          (case direction
-           ((forward)  (forward))
-           ((backward) (backward)))))
+           ((forward)  (forward self))
+           ((backward) (backward self)))))
 
 
-  (method protected virtual (done-forward?)
+  (method protected virtual (done-forward? self)
     (error "You need to implement done-forward?"))
 
 
-  (method protected virtual (done-backward?)
+  (method protected virtual (done-backward? self)
     (error "You need to implement done-backward?"))
 
 
-  (method override (done?)
+  (method override (done? self)
     (case direction
-      ((forward)  (done-forward?))
-      ((backward) (done-backward?))))
+      ((forward)  (done-forward? self))
+      ((backward) (done-backward? self))))
 
 
-  (method protected virtual (put-forward object)
+  (method protected virtual (put-forward self object)
     (error "This iterator cannot put forward"))
 
 
-  (method protected virtual (put-backward object)
+  (method protected virtual (put-backward self object)
     (error "This iterator cannot put backward"))
 
 
-  (method override (put object)
+  (method override (put self object)
     (case direction
-      ((forward)  (put-forward object))
-      ((backward) (put-backward object)))))
+      ((forward)  (put-forward self object))
+      ((backward) (put-backward self object)))))
 
 
 (definition public (explore object <Object> . rest) <Explorer>
@@ -1736,7 +1737,7 @@
 
 (definition (coerce-sequence seq class)
   (let ((len (cardinality seq)))
-    (let ((new-sequence (make-sequence~ class len)))
+    (let ((new-sequence (make-sequence class len)))
       (loop (for n from 0 below len)
             (for elem in-sequence seq)
             (set-element! new-sequence n elem))
@@ -1746,34 +1747,34 @@
 (class Sequence-Class extends Class
   
   
-  (method public virtual abstract (make-sequence len <int>))
+  (method public virtual abstract (make-sequence self len <int>))
   
   
-  (method override (coerce-object seq)
+  (method override (coerce-object self seq)
     (coerce-sequence seq self)))
 
 
 (class primitive Sequence metaclass Sequence-Class extends Object
   
   
-  (method override (coerce-string)
+  (method override (coerce-string self)
     (coerce-sequence self String))
 
   
-  (method override (compare-object seq)
+  (method override (compare-object self seq)
     (if (is? seq Sequence)
         (compare-sequence self seq compare)
       :incompatible))
   
   
-  (method override (di-compare-object seq)
+  (method override (di-compare-object self seq)
     (compare-sequence self seq di-compare))
   
   
-  (method override (copy-object deep? <bool>)
+  (method override (copy-object self deep? <bool>)
     (let* ((subcopy (if deep? (lambda (x) (subcopy x deep?)) identity))
            (len (cardinality self))
-           (new-seq (make-sequence~ (class-of self) len)))
+           (new-seq (make-sequence (class-of self) len)))
       (let (iter (i <fx> 0))
         (if (= i len)
             new-seq
@@ -1782,43 +1783,43 @@
             (iter (+ i 1)))))))
   
   
-  (method override (iterate-object)
+  (method override (iterate-object self)
     (new Sequence-Explorer self))
 
 
-  (method override (object-alphabetic?)
+  (method override (object-alphabetic? self)
     (every? alphabetic? self))
 
 
-  (method override (object-numeric?)
+  (method override (object-numeric? self)
     (every? numeric? self))
 
 
-  (method override (object-alphanumeric?)
+  (method override (object-alphanumeric? self)
     (every? alphanumeric? self))
 
 
-  (method override (object-whitespace?)
+  (method override (object-whitespace? self)
     (every? whitespace? self))
 
 
-  (method override (object-upper-case?)
+  (method override (object-upper-case? self)
     (every? upper-case? self))
 
 
-  (method override (object-lower-case?)
+  (method override (object-lower-case? self)
     (every? lower-case? self))
 
 
-  (method override (object-upcase)
+  (method override (object-upcase self)
     (accumulate self upcase (class-of self)))
 
 
-  (method override (object-downcase)
+  (method override (object-downcase self)
     (accumulate self downcase (class-of self)))
 
 
-  (method override (object-capitalize)
+  (method override (object-capitalize self)
     (let ((break? #t))
       (accumulate self
                   (lambda (object)
@@ -1832,34 +1833,42 @@
                   (class-of self))))
   
   
-  (method protected virtual abstract (sequence-element n <fx>) <any>)
+  (method package virtual abstract (sequence-element self n <fx>) <any>)
   
   
-  (method protected virtual abstract (sequence-set-element! n <fx> obj <any>) <void>)
+  (method package virtual abstract (sequence-set-element! self n <fx> obj <any>) <void>)
   
   
-  (method protected virtual abstract (sequence-cardinality) <fx>)
+  (method package virtual abstract (sequence-cardinality self) <fx>)
   
   
-  (method protected virtual abstract (sequence-tail start))
+  (method package virtual abstract (sequence-tail self start))
   
   
-  (method protected virtual abstract (sequence-last))
+  (method package virtual abstract (sequence-last self))
   
   
-  (method protected virtual abstract (sequence-butlast))
+  (method package virtual abstract (sequence-butlast self))
   
   
-  (method protected virtual (sequence-subseq! start <fx> end <fx>)
+  (method package virtual (sequence-subseq! self start <fx> end <fx>)
     (if (and (= start 0) (= end -1))
         self
       (new Subseq self start (- (if (= end -1) (cardinality self) end) start))))
 
 
-  (method protected virtual (sequence-replace-subseq! start <fx> end <fx> replacement)
+  (method package virtual (sequence-replace-subseq! self start <fx> end <fx> replacement)
     (concatenate! (subseq self 0 start)
                   replacement
-                  (subseq self end (cardinality self)))))
+                  (subseq self end (cardinality self))))
+  
+  
+  (method public (empty? self)
+    (= 0 (cardinality self)))
+  
+  
+  (method public (laden? self)
+    (/= 0 (cardinality self))))
 
 
 (definition public inline (sequence? obj)
@@ -1867,35 +1876,27 @@
 
 
 (definition public inline (element seq <Sequence> n <int>) <any>
-  (sequence-element~ seq n))
+  (sequence-element seq n))
 
 
 (definition public inline (set-element! seq <Sequence> n <int> obj <any>) <void>
-  (sequence-set-element!~ seq n obj))
+  (sequence-set-element! seq n obj))
 
 
 (definition public inline (cardinality seq <Sequence>) <int>
-  (sequence-cardinality~ seq))
-
-
-(definition public inline (empty? seq)
-  (= 0 (cardinality seq)))
-
-
-(definition public inline (laden? seq)
-  (/= 0 (cardinality seq)))
+  (sequence-cardinality seq))
 
 
 (definition public inline (tail seq <Sequence> start)
-  (sequence-tail~ seq start))
+  (sequence-tail seq start))
 
 
 (definition public inline (last seq <Sequence>)
-  (sequence-last~ seq))
+  (sequence-last seq))
 
 
 (definition public inline (butlast seq <Sequence>)
-  (sequence-butlast~ seq))
+  (sequence-butlast seq))
 
 
 (definition public (compare-sequence s1 s2 compare)
@@ -1923,7 +1924,7 @@
   (declare (proper-tail-calls))
   (let* ((len (- (or end (cardinality seq)) start))
          (cls <Sequence-Class> (or type (class-of seq)))
-         (sub (make-sequence~ cls len))
+         (sub (make-sequence cls len))
          (i 0)
          (j start))
     (while (< i len)
@@ -1934,11 +1935,11 @@
 
 
 (definition public inline (replace-subseq! seq <Sequence> start end replacement)
-  (sequence-replace-subseq!~ seq start end replacement))
+  (sequence-replace-subseq! seq start end replacement))
 
 
 (definition public (subseq! seq <Sequence> start (end (cardinality seq))) <Sequence>
-  (sequence-subseq!~ seq start end))
+  (sequence-subseq! seq start end))
 
 
 (definition public (sort test seq (key: key #f))
@@ -1987,11 +1988,11 @@
              (any? (cdr lst)))))
   
   (declare (proper-tail-calls))
-  (let ((iterators (map iterate-sequence seqs)))
+  (let ((iterators (map iterator seqs)))
     (let (loop)
-      (let ((done? (any? (map done?~ iterators))))
+      (let ((done? (any? (map done? iterators))))
         (when (not done?)
-          (apply proc (map get-next~ iterators))
+          (apply proc (map get-next iterators))
           (loop)))))
   (unspecified))
 
@@ -2054,12 +2055,12 @@
     (for-each (lambda (value)
                 (if (apply-test test separator value)
                     (begin
-                      (put~ sections (get-output~ section))
-                      (reset~ section))
-                  (put~ section value)))
+                      (put sections (get-output section))
+                      (reset section))
+                  (put section value)))
               lst)
-    (put~ sections (get-output~ section))
-    (get-output~ sections)))
+    (put sections (get-output section))
+    (get-output sections)))
 
 
 (definition public (count target <Object> seq <Object> (key: key #f) (test: test #f))
@@ -2098,9 +2099,9 @@
 (definition public (find seq target (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f) (return: return 'position))
   (if (and (null/pair? seq) (not reversed?))
       (list-find seq target key test (or start 0) return)
-    (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
+    (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterator seq))))
       (when start
-        (set-position~ iterator start))
+        (set-position iterator start))
       (continuation-capture
         (lambda (exit)
           (iterate iterator
@@ -2108,9 +2109,26 @@
                      (when (apply-test test target (apply-key key object))
                        (continuation-return exit (case return
                                                    ((item) object)
-                                                   ((position) (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1)))
+                                                   ((position) (if reversed? (get-position iterator) (- (get-position iterator) 1)))
                                                    (else (error "Unknown return type: {t}" return)))))))
           #f)))))
+
+
+(definition public (find-rank target <Object> seq <Object> (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f))
+  (if (and (null/pair? seq) (not reversed?))
+      (list-find seq target key test (or start 0) #f)
+    (if (and (string? seq) (not start))
+        (string-find seq target reversed?: reversed?)
+      (continuation-capture
+        (lambda (exit)
+          (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterator seq))))
+            (when start
+              (set-position iterator start))
+            (iterate iterator
+                     (lambda (object)
+                       (when (apply-test test target (apply-key key object))
+                         (continuation-return exit (if reversed? (get-position iterator) (- (get-position iterator) 1))))))
+            #f))))))
 
 
 (definition (list-find list target key test start return)
@@ -2124,14 +2142,6 @@
                 (else   rank)))
              (else
               (iter (cdr rest) (+ rank 1)))))))
-
-
-(definition public (find-object proc <procedure> seq <Object> (key: key #f))
-  (loop (for obj in-sequence seq)
-        (for val = (proc (apply-key key obj)))
-        (when val
-          (return val))
-        (finally #f)))
 
 
 (definition public (find-in seq target (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f))
@@ -2149,9 +2159,9 @@
   
   (if (and (null/pair? seq) (not reversed?))
       (find-in-list)
-    (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
+    (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterator seq))))
       (when start
-        (set-position~ iterator start))
+        (set-position iterator start))
       (continuation-capture
         (lambda (exit)
           (iterate iterator
@@ -2162,10 +2172,10 @@
 
 
 (definition public (find-balanced open close seq (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f) (return: return 'item))
-  (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq)))
+  (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterator seq)))
         (count 0))
     (when start
-      (set-position~ iterator start))
+      (set-position iterator start))
     (continuation-capture
       (lambda (exit)
         (iterate iterator
@@ -2177,7 +2187,7 @@
                           (when (< count 0)
                             (case return
                               ((item) (continuation-return exit object))
-                              ((position) (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))
+                              ((position) (continuation-return exit (if reversed? (get-position iterator) (- (get-position iterator) 1))))
                               (else (error "Unknown return type: {t}" return))))))))
         #f))))
 
@@ -2187,49 +2197,32 @@
       (find-if-list predicate seq key (or start 0) return)
     (continuation-capture
       (lambda (exit)
-        (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
+        (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterator seq))))
           (when start
-            (set-position~ iterator start))
+            (set-position iterator start))
           (iterate iterator
                    (lambda (object)
                      (when (predicate (apply-key key object))
                        (continuation-return exit (case return
                                                    ((item) object)
-                                                   ((position) (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1)))
+                                                   ((position) (if reversed? (get-position iterator) (- (get-position iterator) 1)))
                                                    (else (error "Unknown return type: {t}" return))))))))
         #f))))
-
-
-(definition public (get-rank target <Object> seq <Object> (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f))
-  (if (and (null/pair? seq) (not reversed?))
-      (list-find seq target key test (or start 0) #f)
-    (if (and (string? seq) (not start))
-        (string-find seq target reversed?: reversed?)
-      (continuation-capture
-        (lambda (exit)
-          (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
-            (when start
-              (set-position~ iterator start))
-            (iterate iterator
-                     (lambda (object)
-                       (when (apply-test test target (apply-key key object))
-                         (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))))
-            #f))))))
 
 
 (definition public (skip predicate <procedure> seq <Object> (key: key #f) (start: start #f) (reversed?: reversed? #f))
   (continuation-capture
     (lambda (return)
-      (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
+      (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterator seq))))
         (when start
-          (set-position~ iterator start))
+          (set-position iterator start))
         (iterate iterator
                  (lambda (object)
                    (when (not (predicate (apply-key key object)))
                      (continuation-return return (if reversed?
-                                                     (+ (get-position~ iterator) 1)
-                                                   (- (get-position~ iterator) 1))))))
-        (get-position~ iterator)))))
+                                                     (+ (get-position iterator) 1)
+                                                   (- (get-position iterator) 1))))))
+        (get-position iterator)))))
 
 
 (definition public (append-map proc <procedure> list1 . lists)
@@ -2307,9 +2300,9 @@
       (let* ((first (car rest))
              (list? (null/pair? first)))
         (for-each (lambda (sequence)
-                    (put-sequence~ fact sequence))
+                    (put-sequence fact sequence))
                   rest)
-        (let ((output (get-output~ fact)))
+        (let ((output (get-output fact)))
           (if (not list?)
               (coerce output (class-of first))
             output))))))
@@ -2331,14 +2324,14 @@
       '()
     (let ((first (car lists))
           (dst (new List-Factory)))
-      (put-sequence~ dst first)
+      (put-sequence dst first)
       (for-each (lambda (set)
-                  (iterate (iterate-sequence set)
+                  (iterate (iterator set)
                            (lambda (object)
-                             (when (not (member? (apply-key key object) (get-output~ dst) key: key test: test))
-                               (put~ dst object)))))
+                             (when (not (member? (apply-key key object) (get-output dst) key: key test: test))
+                               (put dst object)))))
                 (cdr lists))
-      (coerce (get-output~ dst) (class-of first)))))
+      (coerce (get-output dst) (class-of first)))))
 
 
 (definition public (intersection (key: key #f) (test: test #f) . lists)
@@ -2347,24 +2340,24 @@
     (let ((first (car lists))
           (lists (cdr lists))
           (dst (new List-Factory)))
-      (iterate (iterate-sequence first)
+      (iterate (iterator first)
                (lambda (object)
                  (when (every? (lambda (set)
                                  (member? (apply-key key object) set key: key test: test))
                                lists)
-                   (put~ dst object))))
-      (coerce (get-output~ dst) (class-of first)))))
+                   (put dst object))))
+      (coerce (get-output dst) (class-of first)))))
 
 
 (definition public (difference x <Object> y <Object> (key: key #f) (test: test eqv?))
   (if (null? y)
       x
     (let ((dst (new List-Factory)))
-      (iterate (iterate-sequence x)
+      (iterate (iterator x)
                (lambda (object)
                  (when (not (member? (apply-key key object) y key: key test: test))
-                   (put~ dst object))))
-      (coerce (get-output~ dst) (class-of x)))))
+                   (put dst object))))
+      (coerce (get-output dst) (class-of x)))))
 
 
 (definition public (set-xor x <Object> y <Object> (test: test eqv?))
@@ -2374,11 +2367,11 @@
 
 (definition public (remove target <Object> seq <Object> (key: key #f) (test: test eqv?))
   (let ((dst (new List-Factory)))
-    (iterate (iterate-sequence seq)
+    (iterate (iterator seq)
              (lambda (object)
                (when (not (apply-test test (apply-key key object) target))
-                 (put~ dst object))))
-    (coerce (get-output~ dst) (class-of seq))))
+                 (put dst object))))
+    (coerce (get-output dst) (class-of seq))))
 
 
 (specialize as string-remove (remove target <char> str <string>) <string>
@@ -2435,13 +2428,13 @@
 (definition public (remove-duplicates seq <Object> (key: key #f) (test: test eqv?))
   (let ((table (make-table test: test))
         (dst (new List-Factory)))
-    (iterate (iterate-sequence seq)
+    (iterate (iterator seq)
              (lambda (object)
                (let ((k (apply-key key object)))
                  (when (not (table-ref table k #f))
-                   (put~ dst object)
+                   (put dst object)
                    (table-set! table k #t)))))
-    (coerce (get-output~ dst) (class-of seq))))
+    (coerce (get-output dst) (class-of seq))))
 
 
 (definition public (collect-duplicates seq <Object> (key: key identity) (test: test eqv?))
@@ -2474,14 +2467,14 @@
 (definition public (mismatch target <Object> seq <Object> (test: test equal?))
   (continuation-capture
     (lambda (return)
-      (let ((srce (iterate-sequence seq))
-            (targ (iterate-sequence target))
+      (let ((srce (iterator seq))
+            (targ (iterator target))
             (pos 0))
-        (while (not (done?~ srce))
-          (when (or (done?~ targ) (not (test (get-next~ srce) (get-next~ targ))))
+        (while (not (done? srce))
+          (when (or (done? targ) (not (test (get-next srce) (get-next targ))))
             (continuation-return return pos))
           (increase! pos))
-        (if (done?~ targ)
+        (if (done? targ)
             #f
           pos)))))
 
@@ -2504,12 +2497,12 @@
 (definition public (prefix? target <Object> seq <Object>)
   (continuation-capture
     (lambda (return)
-      (let ((targ (iterate-sequence target))
-            (iter (iterate-sequence seq)))
-        (while (and (not (done?~ targ)) (not (done?~ iter)))
-          (when (nu/=? (get-next~ targ) (get-next~ iter))
+      (let ((targ (iterator target))
+            (iter (iterator seq)))
+        (while (and (not (done? targ)) (not (done? iter)))
+          (when (nu/=? (get-next targ) (get-next iter))
             (continuation-return return #f)))
-        (done?~ targ)))))
+        (done? targ)))))
 
 
 (definition public (copy-into! seq1 seq2)
@@ -2533,7 +2526,7 @@
   (slot user-data         <any>        accessors generate)
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (print-unreadable self output
       (lambda (output)
         (system-format output "{s}" target)))))
@@ -2548,7 +2541,7 @@
 
 (definition public (->search-context obj)
   (cond ((is? obj Search-Context) obj)
-        ((is? obj Search-Set) (car (get-contexts~ obj)))
+        ((is? obj Search-Set) (car (get-contexts obj)))
         ((string? obj) (make-search-context obj))
         (else (error "Unable to make a search context out of {s}" obj))))
 
@@ -2591,30 +2584,30 @@
 
 
 (definition (search-context->sre context <Search-Context>)
-  (let ((seq (let ((target (get-target~ context)))
-               (cond ((get-regexp?~ context)
+  (let ((seq (let ((target (get-target context)))
+               (cond ((get-regexp? context)
                       `(posix-string ,target))
-                     ((get-ignore-diacritic?~ context)
+                     ((get-ignore-diacritic? context)
                       (->diacritic-ignoring-sre target))
                      (else target)))))
-    (if (get-ignore-case?~ context)
+    (if (get-ignore-case? context)
         (list 'w/nocase seq)
       seq)))
 
 (definition public (search-context-regexp context <Search-Context>)
-  (or (get-regexp~ context)
+  (or (get-regexp context)
       (let ((rx (sre->irregex (search-context->sre context))))
-        (set-regexp~ context rx)
+        (set-regexp context rx)
         rx)))
 
 
 (definition (regular-search-impl seq <Sequence> target <any> match-test <procedure+> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
   (let* ((search-set (->search-set target))
-         (first-context <Search-Context> (car (get-contexts~ search-set)))
-         (whole-words? (get-whole-words?~ first-context))
-         (match-test (or match-test (get-match-test~ first-context)))
-         (constituent-test (or constituent-test (get-constituent-test~ first-context) word-constituent?))
-         (regexp (get-regexp~ search-set))
+         (first-context <Search-Context> (car (get-contexts search-set)))
+         (whole-words? (get-whole-words? first-context))
+         (match-test (or match-test (get-match-test first-context)))
+         (constituent-test (or constituent-test (get-constituent-test first-context) word-constituent?))
+         (regexp (get-regexp search-set))
          (card (cardinality seq))
          (start (or start (if reversed? card 0)))
          (end (or end (if reversed? 0 card))))
@@ -2728,10 +2721,10 @@
              (let ((pos (find-if separator seq start: previous return: 'position)))
                (if (not pos)
                    (set! done? #t)
-                 (put~ result (subseq seq previous pos))
+                 (put result (subseq seq previous pos))
                  (set! previous (+ pos 1)))))
-           (put~ result (subseq seq previous))
-           (get-output~ result)))
+           (put result (subseq seq previous))
+           (get-output result)))
         (else
          (let ((previous 0)
                (incr (cardinality separator))
@@ -2739,11 +2732,11 @@
            (let (iterate)
              (let ((pos (search seq separator start: previous)))
                (when pos
-                 (put~ result (subseq seq previous pos))
+                 (put result (subseq seq previous pos))
                  (set! previous (+ pos incr))
                  (iterate))))
-           (put~ result (subseq seq previous))
-           (get-output~ result)))))
+           (put result (subseq seq previous))
+           (get-output result)))))
 
 
 (definition public (split-justified seq <Object> width separators <Object> (column: column <fx> 0))
@@ -2755,12 +2748,12 @@
       (let ((effective-width (- width column)))
         (if (<= (- size pos) effective-width)
             (begin
-              (put~ result (subseq seq pos))
+              (put result (subseq seq pos))
               (set! done? #t))
-          (put~ result (subseq seq pos (+ pos effective-width)))
+          (put result (subseq seq pos (+ pos effective-width)))
           (set! column 0)
           (increase! pos effective-width))))
-    (get-output~ result)))
+    (get-output result)))
 
 
 (definition public (join sequences <Object> separator <Object>)
@@ -2774,12 +2767,12 @@
            (if (string? first)
                (join-strings sequences separator)
              (let ((dst (new List-Factory)))
-               (put~ dst first)
+               (put dst first)
                (for-each (lambda (seq)
-                           (put~ dst separator)
-                           (put~ dst seq))
+                           (put dst separator)
+                           (put dst seq))
                          (cdr sequences))
-               (apply concatenate (get-output~ dst))))))))
+               (apply concatenate (get-output dst))))))))
 
 
 (definition public (join-symbols symbols separator)
@@ -2792,65 +2785,65 @@
     (for-each (lambda (element)
                 (if first?
                     (set! first? #f)
-                  (put-sequence~ fact inserted))
-                (put~ fact element))
+                  (put-sequence fact inserted))
+                (put fact element))
               sequence)
-    (get-output~ fact)))
+    (get-output fact)))
 
 
 (definition public (substitute old-value <Object> new-value <Object> seq <Object> (key: key #f) (test: test #f) (sequence?: sequence? #f))
   (declare (proper-tail-calls))
-  (let ((src (iterate-sequence seq))
+  (let ((src (iterator seq))
         (dst (new List-Factory)))
-    (while (not (done?~ src))
-      (let ((object (get-next~ src)))
+    (while (not (done? src))
+      (let ((object (get-next src)))
         (if (apply-test test old-value (apply-key key object))
             (if (not sequence?)
-                (put~ dst new-value)
-              (put-sequence~ dst new-value))
-          (put~ dst object))))
-    (coerce (get-output~ dst) (class-of seq))))
+                (put dst new-value)
+              (put-sequence dst new-value))
+          (put dst object))))
+    (coerce (get-output dst) (class-of seq))))
 
 
 (definition public (substitute-alist replacements <Object> seq <Object> (key: key #f) (test: test #f))
   (declare (proper-tail-calls))
-  (let ((src (iterate-sequence seq))
+  (let ((src (iterator seq))
         (dst (new List-Factory)))
-    (while (not (done?~ src))
-      (let ((object (get-next~ src))
+    (while (not (done? src))
+      (let ((object (get-next src))
             (found? #f))
         (for-each (lambda (replacement)
                     (unless found?
                       (bind (old . new) replacement
                         (when (apply-test test old (apply-key key object))
-                          (put-sequence~ dst new)
+                          (put-sequence dst new)
                           (set! found? #t)))))
                   replacements)
         (unless found?
-          (put~ dst object))))
-    (coerce (get-output~ dst) (class-of seq))))
+          (put dst object))))
+    (coerce (get-output dst) (class-of seq))))
 
 
 (definition public (fill! seq object (start: start #f))
   (declare (proper-tail-calls))
-  (let ((src (iterate-sequence seq)))
+  (let ((src (iterator seq)))
     (when start
-      (set-position~ src start))
-    (while (not (done?~ src))
-      (put~ src object)
-      (next~ src)))
+      (set-position src start))
+    (while (not (done? src))
+      (put src object)
+      (next src)))
   seq)
 
 
 (definition public (replace! seq replacement (start: start #f))
   (declare (proper-tail-calls))
-  (let ((src (iterate-sequence seq))
-        (rep (iterate-sequence replacement)))
+  (let ((src (iterator seq))
+        (rep (iterator replacement)))
     (when start
-      (set-position~ src start))
-    (while (and (not (done?~ src)) (not (done?~ rep)))
-      (put~ src (get-next~ rep))
-      (next~ src)))
+      (set-position src start))
+    (while (and (not (done? src)) (not (done? rep)))
+      (put src (get-next rep))
+      (next src)))
   seq)
 
 
@@ -2872,28 +2865,28 @@
 
 (definition public (merge-ordered proc x y (key: key #f) (left-key: left-key key) (right-key: right-key key) (compare: compare #f) (case-insensitive?: case-insensitive? #f))
   (declare (proper-tail-calls))
-  (let ((ix (iterate-sequence x))
-        (iy (iterate-sequence y))
+  (let ((ix (iterator x))
+        (iy (iterator y))
         (compare-proc (or compare (if case-insensitive? global-ci-compare global-compare))))
-    (while (and (not (done?~ ix)) (not (done?~ iy)))
-      (let* ((ex (peek~ ix))
-             (ey (peek~ iy))
+    (while (and (not (done? ix)) (not (done? iy)))
+      (let* ((ex (peek ix))
+             (ey (peek iy))
              (kx (apply-key left-key ex))
              (ky (apply-key right-key ey)))
         (case (compare-proc kx ky)
           ((:equal)   (proc :same kx ex ey)
-           (next~ ix)
-           (next~ iy))
+           (next ix)
+           (next iy))
           ((:less)    (proc :left kx ex #f)
-           (next~ ix))
+           (next ix))
           ((:greater) (proc :right ky #f ey)
-           (next~ iy))
+           (next iy))
           (else       (error "Unable to compare {t} and {t}" kx ky)))))
-    (while (not (done?~ ix))
-      (let ((expr (get-next~ ix)))
+    (while (not (done? ix))
+      (let ((expr (get-next ix)))
         (proc :left (apply-key left-key expr) expr #f)))
-    (while (not (done?~ iy))
-      (let ((expr (get-next~ iy)))
+    (while (not (done? iy))
+      (let ((expr (get-next iy)))
         (proc :right (apply-key right-key expr) #f expr)))))
 
 
@@ -2909,11 +2902,11 @@
                                 (object (car list)))
                            (if (or (not object)
                                    (neq? (compare (apply-key key object) min-key) :equal))
-                               (put~ res #f)
-                             (put~ res object)
+                               (put res #f)
+                             (put res object)
                              (set-car! pair (cdr list)))))
                        scan)
-        (proc min-key (get-output~ res))))))
+        (proc min-key (get-output res))))))
 
 
 (definition public (next-element seq elem (key: key #f) (test: test #f) (cycle?: cycle? #t))
@@ -3014,13 +3007,15 @@
 (definition (find-if-list predicate list key start returned)
   (let ((key (if (not key) (lambda (x) x) key)))
     (let (iter (rest (tail list start)) (rank <fx> start))
-       (cond ((null? rest) #f)
-             ((predicate (key (car rest)))
-              (cond ((eq? returned 'position) rank)
-                    ((eq? returned 'item) (car rest))
-                    (else (error "Unknown return type {t}" returned))))
-             (else
-              (iter (cdr rest) (+ rank 1)))))))
+       (if (null? rest)
+           #f
+         (let ((result (predicate (key (car rest)))))
+           (if result
+               (cond ((eq? returned 'item) (car rest))
+                     ((eq? returned 'position) rank)
+                     ((eq? returned 'result) result)
+                     (else (error "Unknown return type {t}" returned)))
+             (iter (cdr rest) (+ rank 1))))))))
 
 
 (definition public inline (insert-sequence! sequence pos seq)
@@ -3040,71 +3035,71 @@
   (slot current              <fx>)
 
 
-  (method override (initialize seq (direction: direction 'forward) (start: start #f))
-    (nextmethod)
+  (method override (initialize self seq (direction: direction 'forward) (start: start #f))
+    (nextmethod self)
     (set! sequence seq)
     (set! sequence-cardinality (cardinality sequence))
-    (set-direction direction)
+    (set-direction self direction)
     (if (not start)
         (case direction
-          ((forward)  (goto-beginning))
-          ((backward) (goto-end)))
+          ((forward)  (goto-beginning self))
+          ((backward) (goto-end self)))
       (set! current start)))
 
 
-  (method override (peek-forward)
+  (method override (peek-forward self)
     (element sequence current))
 
 
-  (method override (peek-backward)
+  (method override (peek-backward self)
     (element sequence (- current 1)))
 
 
-  (method override (goto-beginning)
+  (method override (goto-beginning self)
     (set! current 0))
 
 
-  (method override (goto-end)
+  (method override (goto-end self)
     (set! current sequence-cardinality))
 
 
-  (method override (forward)
+  (method override (forward self)
     (increase! current 1))
 
 
-  (method override (backward)
+  (method override (backward self)
     (decrease! current 1))
 
 
-  (method override (done-forward?)
+  (method override (done-forward? self)
     (>= current sequence-cardinality))
 
 
-  (method override (done-backward?)
+  (method override (done-backward? self)
     (= current 0))
 
 
-  (method override (put-forward object <Object>)
+  (method override (put-forward self object <Object>)
     (set-element! sequence current object))
 
 
-  (method override (put-backward object <Object>)
+  (method override (put-backward self object <Object>)
     (set-element! sequence (- current 1) object))
 
 
-  (method override (get-position)
+  (method override (get-position self)
     current)
 
 
-  (method override (set-position pos <fx>)
+  (method override (set-position self pos <fx>)
     (set! current (between 0 pos sequence-cardinality)))
 
 
-  (method override (get-state)
+  (method override (get-state self)
     current)
 
 
-  (method override (reset-state state <fx>)
+  (method override (reset-state self state <fx>)
     (set! current state)))
 
 
@@ -3116,11 +3111,11 @@
 (class List-Class extends Sequence-Class
   
   
-  (method override (make-sequence len)
+  (method override (make-sequence self len)
     (make-list len))
   
   
-  (method override (coerce-object seq)
+  (method override (coerce-object self seq)
     (let ((queue (new-queue)))
       (iterate seq
                (lambda (object)
@@ -3131,11 +3126,11 @@
 (class primitive List metaclass List-Class extends Sequence
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (native-class "lists"))
   
   
-  (method override (copy-object deep?)
+  (method override (copy-object self deep?)
     (map (lambda (x)
            (if deep?
                (subcopy x deep?)
@@ -3143,48 +3138,48 @@
          self))
   
   
-  (method override (iterate-object)
+  (method override (iterate-object self)
     (new List-Iterator self))
   
   
-  (method override (sequence-element n) <any>
+  (method override (sequence-element self n) <any>
     (list-ref self n))
   
   
-  (method override (sequence-set-element! n <fx> obj <any>) <void>
+  (method override (sequence-set-element! self n <fx> obj <any>) <void>
     (list-set! self n obj))
   
   
-  (method override (sequence-cardinality) <fx>
+  (method override (sequence-cardinality self) <fx>
     (length self))
   
   
-  (method override (sequence-tail n)
+  (method override (sequence-tail self n)
     (let (tail (lst self) (n n))
       (if (or (null? lst) (= n 0))
           lst
         (tail (cdr lst) (- n 1)))))
   
   
-  (method override (sequence-last)
+  (method override (sequence-last self)
     (if (null? (cdr self))
         (car self)
       (last (cdr self))))
   
   
-  (method override (sequence-butlast)
+  (method override (sequence-butlast self)
     (if (or (null? self) (null? (cdr self)))
         '()
       (cons (car self) (butlast (cdr self)))))
   
   
-  (method override (sequence-subseq! start end)
+  (method override (sequence-subseq! self start end)
     (if (or (= start 0) (= end -1))
         self
       (subseq self start end)))
   
   
-  (method (replace-subseq! start end seq)
+  (method (replace-subseq! self start end seq)
     (if (= start 0)
         (begin
           (set-cdr! (last-tail seq) (tail self end))
@@ -3202,13 +3197,13 @@
 (class primitive Null metaclass Null-Class extends List
 
 
-  (method override (compare-object obj)
+  (method override (compare-object self obj)
     (if (null? obj)
         :equal
       :not-equal))
   
   
-  (method override (di-compare-object obj)
+  (method override (di-compare-object self obj)
     (if (null? obj)
         :equal
       :not-equal)))
@@ -3220,7 +3215,7 @@
 (class primitive Pair metaclass Pair-Class extends List
 
 
-  (method override (compare-object obj)
+  (method override (compare-object self obj)
     (if (pair? obj)
         (case (compare (car self) (car obj))
           ((:less) :less)
@@ -3240,7 +3235,7 @@
       :not-equal))
 
 
-  (method override (di-compare-object obj)
+  (method override (di-compare-object self obj)
     (if (pair? obj)
         (case (di-compare (car self) (car obj))
           ((:less) :less)
@@ -3260,14 +3255,14 @@
       :not-equal))
   
   
-  (method override (walk-references proc)
-    (walk-references~ (car self) proc)
-    (walk-references~ (cdr self) proc))
+  (method override (walk-references self proc)
+    (walk-references (car self) proc)
+    (walk-references (cdr self) proc))
   
   
-  (method override (setup-context context)
-    (setup-context~ (car self) context)
-    (setup-context~ (cdr self) context)))
+  (method override (setup-context self context)
+    (setup-context (car self) context)
+    (setup-context (cdr self) context)))
 
 
 (specialize inline (element list <list> n) <any>
@@ -3435,10 +3430,10 @@
         (scan rest))
     (while (not-null? scan)
       (if (null? (cdr scan))
-          (put-sequence~ fact (car scan))
-        (put~ fact (car scan)))
+          (put-sequence fact (car scan))
+        (put fact (car scan)))
       (set! scan (cdr scan)))
-    (get-output~ fact)))
+    (get-output fact)))
 
 
 (definition public inline (memq? target <Object> list <Object>)
@@ -3629,7 +3624,7 @@
     (queue-list queue)))
 
 
-(definition public (flatten llist)
+(definition public (flatten-lists llist)
   (apply append llist))
 
 
@@ -3650,10 +3645,10 @@
 (definition public (sort-property-list prop-list <Object>)
   (let* ((factory (new List-Factory))
          (proc    (lambda (property value)
-                    (put~ factory (list property value))))
+                    (put factory (list property value))))
          (alist   (begin
                     (for-each-property proc prop-list)
-                    (get-output~ factory)))
+                    (get-output factory)))
          (sorted  (sort < alist key: car)))
     (apply append sorted)))
 
@@ -3684,13 +3679,13 @@
   (slot position)
 
 
-  (method override (initialize list <list>)
-    (nextmethod)
+  (method override (initialize self list <list>)
+    (nextmethod self)
     (set! current list)
     (set! position 0))
 
 
-  (method override (get-next!)
+  (method override (get-next! self)
     (if (null? current)
         (eof-object)
       (prog1 (car current)
@@ -3698,19 +3693,19 @@
         (set! position (+ position 1)))))
 
 
-  (method override (done?)
+  (method override (done? self)
     (and (null? current) (eq? peeked Empty)))
 
 
-  (method override (put object)
+  (method override (put self object)
     (set-car! current object))
 
 
-  (method override (get-position)
+  (method override (get-position self)
     position)
 
 
-  (method override (set-position pos)
+  (method override (set-position self pos)
     (let ((delta (- pos position)))
       (cond ((< delta 0) (error "List iterators cannot move backward"))
             ((> delta 0)
@@ -3718,16 +3713,16 @@
              (set! current (tail current delta))))))
 
 
-  (method override (get-state)
+  (method override (get-state self)
     (cons current position))
 
 
-  (method override (reset-state state)
+  (method override (reset-state self state)
     (set! current (car state))
     (set! position (cdr state)))
   
   
-  (method public (get-list)
+  (method public (get-list self)
     current))
 
 
@@ -3746,35 +3741,35 @@
   (slot size       <fx> initialize 0   getter generate)
 
 
-  (method (put object <Object>)
+  (method package (put self object <Object>)
     (cond ((null? current)
            (set! current (cons object current))
            (set! list current))
           (else
            (when last-list
-             (copy-last-list))
+             (copy-last-list self))
            (set-cdr! current (cons object '()))
            (set! current (cdr current))))
     (prog1 size
       (increase! size)))
 
 
-  (method (put-unique object (test: test eqv?))
+  (method (put-unique self object (test: test eqv?))
     (unless (member? object list test: test)
-      (put object)))
+      (put self object)))
 
 
-  (method (put-sequence seq <Object>)
+  (method package (put-sequence self seq <Object>)
     (when seq
       (if (not (pair? seq))
-          (iterate seq put)
+          (iterate seq (~ put self))
         (cond ((null? current)
                (set! current seq)
                (set! last-list seq)
                (set! list seq))
               (else
                (when last-list
-                 (copy-last-list))
+                 (copy-last-list self))
                (set! last-list seq)
                (set! last-anchor current)
                (set-cdr! current seq))))
@@ -3782,19 +3777,19 @@
         (increase! size (cardinality seq)))))
   
   
-  (method public (is-empty?)
+  (method public (is-empty? self)
     (null? current))
   
   
-  (method public (get-last-element)
+  (method public (get-last-element self)
     (car current))
 
 
-  (method (get-output)
+  (method package (get-output self)
     list)
 
 
-  (method public (reset)
+  (method public (reset self)
     (set! list '())
     (set! last-list #f)
     (set! last-anchor #f)
@@ -3802,7 +3797,7 @@
     (set! size 0))
 
 
-  (method private (copy-last-list)
+  (method private (copy-last-list self)
     (cond ((not last-anchor)
            (set! list (copy last-list))
            (set! current (last-tail list)))
@@ -3821,11 +3816,11 @@
 (class primitive Table extends Object
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (native-class "tables"))
 
 
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (system-format output "{a} entries"
@@ -3916,8 +3911,8 @@
       (let ((module (and (unit-loadable? module-name)
                          (require-module module-name))))
         (if (and module
-                 (eq? (get-access~ module) 'public)
-                 (table-ref (get-exports~ module) name #f))
+                 (eq? (get-access module) 'public)
+                 (table-ref (get-exports module) name #f))
             (list 'module-public module-name name)
           (let ((path (butlast (split-identifier module-name))))
             (if (null? path)
@@ -3931,7 +3926,7 @@
 
 (definition public (serialize-class class)
   (or (table-ref *serialized-classes* class #f)
-      (let ((serialize (serialize-reference (get-name~ class))))
+      (let ((serialize (serialize-reference (get-name class))))
         (table-set! *serialized-classes* class serialize)
         serialize)))
 
@@ -3952,7 +3947,7 @@
 
 
 (definition public (serialize obj)
-  (or (marshall-object~ (class-of obj) obj)
+  (or (marshall-object (class-of obj) obj)
       (if (object? obj)
           (error "Unable to serialize: {a}" obj)
         obj)))
@@ -3962,7 +3957,7 @@
   (if (serialized? obj)
       (let ((class (deserialize-class (serialized-class obj)))
             (content (serialized-content obj)))
-        (or (unmarshall-object~ class content)
+        (or (unmarshall-object class content)
             (error "Unable to deserialize: {a}" (category-name class))))
     obj))
 
@@ -4034,7 +4029,7 @@
 
 
 (definition public (symbolize-property property <Object>)
-  (cond ((field? property) (get-name~ property))
+  (cond ((field? property) (get-name property))
         ((keyword? property) (keyword->symbol property))
         (else property)))
 
@@ -4043,10 +4038,10 @@
   (let ((fact (new List-Factory)))
     (for-each-property
       (lambda (property value)
-        (put~ fact (symbolize-property property))
-        (put~ fact value))
+        (put fact (symbolize-property property))
+        (put fact value))
       properties)
-    (get-output~ fact)))
+    (get-output fact)))
 
 
 (definition public (keywordize-property property <Object>)
@@ -4059,10 +4054,10 @@
   (let ((fact (new List-Factory)))
     (for-each-property
       (lambda (property value)
-        (put~ fact (keywordize-property property))
-        (put~ fact value))
+        (put fact (keywordize-property property))
+        (put fact value))
       properties)
-    (get-output~ fact)))
+    (get-output fact)))
 
 
 (definition public (read-property object <Object> expr <Object>)
@@ -4105,26 +4100,26 @@
 (class String-Class extends Sequence-Class
   
   
-  (method override (make-sequence len)
+  (method override (make-sequence self len)
     (make-string len))
   
   
-  (method override (coerce-object obj <Object>)
-    (coerce-string~ obj)))
+  (method override (coerce-object self obj <Object>)
+    (coerce-string obj)))
 
 
 (class primitive String metaclass String-Class extends Sequence
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (native-class "strings"))
   
   
-  (method override (coerce-string)
+  (method override (coerce-string self)
     self)
 
 
-  (method override (compare-object obj)
+  (method override (compare-object self obj)
     (if (string? obj)
         ;; kinda annoying to have to potentialy scan the list twice
         (cond ((string=? self obj)
@@ -4136,7 +4131,7 @@
       :incompatible))
   
   
-  (method override (ci-compare-object obj)
+  (method override (ci-compare-object self obj)
     (if (string? obj)
         ;; kinda annoying to have to potentialy scan the list twice
         (cond ((string-ci=? self obj)
@@ -4148,30 +4143,30 @@
       :incompatible))
   
   
-  (method override (sequence-element n <fx>) <any>
+  (method override (sequence-element self n <fx>) <any>
     (string-ref self n))
   
   
-  (method override (sequence-set-element! n <fx> obj <any>) <void>
+  (method override (sequence-set-element! self n <fx> obj <any>) <void>
     (string-set! self n obj))
   
   
-  (method override (sequence-cardinality) <fx>
+  (method override (sequence-cardinality self) <fx>
     (string-length self))
   
   
-  (method override (sequence-tail n)
+  (method override (sequence-tail self n)
     (let ((lgt (cardinality self)))
       (if (>= n lgt)
           ""
         (substring self n (cardinality self)))))
   
   
-  (method override (sequence-last)
+  (method override (sequence-last self)
     (element self (- (cardinality self) 1)))
   
   
-  (method override (sequence-butlast)
+  (method override (sequence-butlast self)
     (substring self 0 (- (cardinality self) 1))))
 
 
@@ -4392,12 +4387,12 @@
   (slot boxed getter generate)
     
     
-  (method override (initialize (boxed #f))
-    (nextmethod)
-    (set! boxed~self boxed))
+  (method override (initialize self (boxed #f))
+    (nextmethod self)
+    (set! self.boxed boxed))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (if (not boxed)
         (system-format output "~{{a}}"
           (category-name (class-of self)))
@@ -4420,21 +4415,21 @@
   (slot mutex-condition          initialize (make-condition))
   
   
-  (method override (initialize count)
-    (nextmethod)
+  (method override (initialize self count)
+    (nextmethod self)
     (set! priority-count count)
     (set! queue-vector
           (list->vector (map (lambda (n) (new-queue))
                              (naturals 0 priority-count)))))
   
   
-  (method public (empty?)
+  (method public (empty? self)
     (mutex-lock! mutex)
-    (prog1 (not (top-queue))
+    (prog1 (not (top-queue self))
       (mutex-unlock! mutex)))
   
   
-  (method public (size)
+  (method public (size self)
     (mutex-lock! mutex)
     (prog1 (let ((count 0))
              (loop (for queue in-vector queue-vector)
@@ -4443,7 +4438,7 @@
       (mutex-unlock! mutex)))
   
   
-  (method (top-queue)
+  (method (top-queue self)
     (let (iter (priority (- priority-count 1)))
       (if (>= priority 0)
           (let ((queue (element queue-vector priority)))
@@ -4453,7 +4448,7 @@
         #f)))
   
   
-  (method public (push obj (priority 0))
+  (method public (push self obj (priority 0))
     (assert (< priority priority-count))
     (mutex-lock! mutex)
     (enqueue (element queue-vector priority) obj)
@@ -4461,11 +4456,11 @@
     (condition-signal! mutex-condition))
   
   
-  (method public (pop timeout)
+  (method public (pop self timeout)
     (declare (proper-tail-calls))
     (let (iter)
       (mutex-lock! mutex)
-      (let ((queue (top-queue)))
+      (let ((queue (top-queue self)))
         (if queue
             (prog1 (dequeue queue)
               (mutex-unlock! mutex))
@@ -4646,12 +4641,12 @@
 
 (definition package (thread-write-message thread thunk priority)
   (let ((thread-queue (get-thread-queue thread)))
-    (push~ thread-queue thunk priority)))
+    (push thread-queue thunk priority)))
 
 
 (definition package (thread-read-message (timeout: timeout +infinity))
   (let ((thread-queue (get-thread-queue (current-thread))))
-    (pop~ thread-queue timeout)))
+    (pop thread-queue timeout)))
 
 
 (definition package (thread-write thread thunk (priority 0))
@@ -4791,14 +4786,14 @@
 (class Vector-Class extends Sequence-Class
   
   
-  (method override (make-sequence len)
+  (method override (make-sequence self len)
     (make-vector len)))
 
 
 (class primitive Vector metaclass Vector-Class extends Sequence
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (native-class "vectors"))
 
 
@@ -4809,27 +4804,27 @@
          (zero? (cardinality object))))
   
   
-  (method override (sequence-element n)
+  (method override (sequence-element self n)
     (vector-ref self n))
   
   
-  (method override (sequence-set-element! n obj)
+  (method override (sequence-set-element! self n obj)
     (vector-set! self n obj))
   
   
-  (method override (sequence-cardinality)
+  (method override (sequence-cardinality self)
     (vector-length self))
   
   
-  (method override (sequence-tail n)
+  (method override (sequence-tail self n)
     (list->vector (tail (vector->list self) n)))
   
   
-  (method override (sequence-last)
+  (method override (sequence-last self)
     (element self (- (cardinality self) 1)))
   
   
-  (method override (sequence-butlast)
+  (method override (sequence-butlast self)
     (list->vector (butlast (vector->list self)))))
 
 
@@ -4915,7 +4910,7 @@
 (class Axis-Class extends Sequence-Class
   
   
-  (method override (make-sequence len)
+  (method override (make-sequence self len)
     (new Axis len)))
 
 
@@ -4926,34 +4921,34 @@
   (slot content <vector> accessors generate)
   
   
-  (method override (initialize (s <fx> 0))
+  (method override (initialize self (s <fx> 0))
     (set! size s)
     (set! content (make-vector s #f)))
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (print-unreadable self output
       (lambda (output)
         (system-format output "{s} {s}" size content))))
   
   
-  (method override (sequence-element n <fx>) <any>
+  (method override (sequence-element self n <fx>) <any>
     (element self n))
   
   
-  (method override (sequence-set-element! n <fx> obj <any>) <void>
+  (method override (sequence-set-element! self n <fx> obj <any>) <void>
     (set-element! self n obj))
   
   
-  (method override (sequence-cardinality) <fx>
+  (method override (sequence-cardinality self) <fx>
     (cardinality self))
   
   
-  (method override (sequence-tail n <fx>) <Axis>
+  (method override (sequence-tail self n <fx>) <Axis>
     (tail self n))
   
   
-  (method override (sequence-last) <any>
+  (method override (sequence-last self) <any>
     (last self)))
 
 
@@ -4962,21 +4957,21 @@
 
 
 (specialize inline (element axis <Axis> n) <any>
-  (vector-ref (get-content~ axis) (cast <fx> n)))
+  (vector-ref (get-content axis) (cast <fx> n)))
 
 
 (specialize inline (set-element! axis <Axis> n obj) <void>
-  (vector-set! (get-content~ axis) (cast <fx> n) obj))
+  (vector-set! (get-content axis) (cast <fx> n) obj))
 
 
 (specialize inline (cardinality axis <Axis>) <fx>
-  (get-size~ axis))
+  (get-size axis))
 
 
 (specialize (tail axis <Axis> n) <Axis>
   (let ((n (cast <fx> n)))
     (let ((new-axis (new Axis n))
-          (offset (- (get-size~ axis) n)))
+          (offset (- (get-size axis) n)))
       (let (iter (i 0))
         (if (>= i n)
             new-axis
@@ -4985,7 +4980,7 @@
 
 
 (specialize (last axis <Axis>) <any>
-  (element axis (- (get-size~ axis) 1)))
+  (element axis (- (get-size axis) 1)))
 
 
 (specialize (insert! axis <Axis> pos obj) <Axis>
@@ -5000,7 +4995,7 @@
     (let* ((before (- end start))
            (after (cardinality replacement))
            (delta (- after before))
-           (old-size (get-size~ axis))
+           (old-size (get-size axis))
            (new-size (+ old-size delta)))
       (cond ((< after before)
              (let (iter (n (- old-size end))
@@ -5035,19 +5030,19 @@
 
 
 (definition public (axis-adjust axis <Axis> n <fx>)
-  (cond ((<= n (cardinality (get-content~ axis)))
-         (set-size~ axis n))
-        ((= (get-size~ axis) 0)
-         (set-size~ axis n)
-         (set-content~ axis (make-vector AXIS_MIN_SIZE #f)))
+  (cond ((<= n (cardinality (get-content axis)))
+         (set-size axis n))
+        ((= (get-size axis) 0)
+         (set-size axis n)
+         (set-content axis (make-vector AXIS_MIN_SIZE #f)))
         (else
-         (let ((old-real-size (cardinality (get-content~ axis)))
-               (old-content (get-content~ axis)))
-           (set-size~ axis n)
-           (set-content~ axis (make-vector (fxround (* n AXIS_GOLDEN_RATIO)) #f))
+         (let ((old-real-size (cardinality (get-content axis)))
+               (old-content (get-content axis)))
+           (set-size axis n)
+           (set-content axis (make-vector (fxround (* n AXIS_GOLDEN_RATIO)) #f))
            (let (iter (i 0))
              (when (< i old-real-size)
-               (set-element! (get-content~ axis) i (element old-content i))
+               (set-element! (get-content axis) i (element old-content i))
                (iter (+ i 1))))))))
 
 
@@ -5065,15 +5060,15 @@
 
 
 (specialize inline as axis-ref (element axis <Axis> n) <object>
-  (vector-ref (get-content~ axis) (cast <fx> n)))
+  (vector-ref (get-content axis) (cast <fx> n)))
 
 
 (specialize inline as axis-set! (set-element! axis <Axis> n obj) <void>
-  (vector-set! (get-content~ axis) (cast <fx> n) obj))
+  (vector-set! (get-content axis) (cast <fx> n) obj))
 
 
 (specialize inline as axis-cardinality (cardinality axis <Axis>) <fx>
-  (get-size~ axis))
+  (get-size axis))
 
 
 (instantiate-for-each axis-for-each <Axis>)
@@ -5116,41 +5111,41 @@
   (slot members initialize '() accessors generate)
   
   
-  (method (add-member member)
+  (method package (add-member self member)
     (set! members (append! members (list member))))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (system-format output "{a}" members))))
 
 
-  (method (name->member name)
-    (or (find-in members name key: get-name~ test: eq?)
+  (method (name->member self name)
+    (or (find-in members name key: get-name test: eq?)
         (error "Unknown enumeration name: {t} in {t}" name self)))
 
 
-  (method (value->member value)
-    (or (find-in members value key: get-value~ test: eqv?)
+  (method (value->member self value)
+    (or (find-in members value key: get-value test: eqv?)
         (error "Unknown enumeration value: {t} in {t}" value self)))
 
 
-  (method public (name->value name)
-    (get-value~ (name->member name)))
+  (method public (name->value self name)
+    (get-value (name->member self name)))
 
 
-  (method public (value->name value)
-    (get-name~ (value->member value)))
+  (method public (value->name self value)
+    (get-name (value->member self value)))
   
   
-  (method public (bits->names bits)
+  (method public (bits->names self bits)
     (let ((fact (new List-Factory)))
       (for-each (lambda (member)
-                  (when (mask-bit-set? bits (get-value~ member))
-                    (put~ fact (get-name~ member))))
+                  (when (mask-bit-set? bits (get-value member))
+                    (put fact (get-name member))))
                 members)
-      (get-output~ fact))))
+      (get-output fact))))
 
 
 (class Enumeration-Member metaclass Enumeration extends Object
@@ -5159,19 +5154,19 @@
   (slot name getter generate)
   
   
-  (method override (initialize name)
-    (nextmethod)
-    (set! name~self name)
-    (add-member~ (class-of self) self))
+  (method override (initialize self name)
+    (nextmethod self)
+    (set! self.name name)
+    (add-member (class-of self) self))
 
 
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (system-format output "{a}" name))))
   
   
-  (method protected virtual (get-value)
+  (method package virtual (get-value self)
     ))
 
 
@@ -5210,6 +5205,10 @@
 ;;;
 
 
+;; quick solution
+(hub find-component)
+
+
 (definition *nicknames*
   (make-table test: eq?))
 
@@ -5227,7 +5226,7 @@
              (let ((path (cdr name)))
                (if (null? path)
                    component
-                 (find-component~ component path)))))
+                 (find-component component path)))))
     (let ((resolver (table-ref *nicknames* name #f)))
       (and resolver (resolver)))))
 
@@ -5303,12 +5302,6 @@
 ;;;
 
 
-(definition inline (parse-file file)
-  (if (string? file)
-      file
-    (parse~ file)))
-
-
 (definition public undocumented (make-u8-content size content)
   (cons size content))
 
@@ -5333,9 +5326,9 @@
       (let ((u8vector (make-u8vector chunk-size)))
         (let ((read (read-subu8vector u8vector 0 chunk-size port)))
           (if (= read 0)
-              (make-u8-content size (get-output~ fact))
+              (make-u8-content size (get-output fact))
             (increase! size read)
-            (put~ fact (cons u8vector read))
+            (put fact (cons u8vector read))
             (loop)))))))
 
 
@@ -5464,10 +5457,10 @@
       (let ((fact (new List-Factory)))
         (let (iterate)
           (let ((lst (read-delimited input "delimited" char #t)))
-            (put~ fact lst)
+            (put fact lst)
             (skip-whites input)
             (if (eof-object? (peek-char input))
-                (get-output~ fact)
+                (get-output fact)
               (iterate))))))))
 
 
@@ -5585,11 +5578,11 @@
 (definition public (textual expr (output (current-output-port)))
   (write expr output)
   @wait-bug-fix-for-char-and-probably-others
-  (print~ expr output :text))
+  (print expr output :text))
 
 
 (definition public (describe expr (output (current-output-port)))
-  (print~ expr output :describe))
+  (print expr output :describe))
 
 
 (definition public (fresh-line (output (current-output-port)))
@@ -5716,14 +5709,14 @@
   (slot size     <fx> accessors generate)
   
   
-  (method override (initialize sequence start <fx> size <fx>)
-    (nextmethod)
-    (set! sequence~self sequence)
-    (set! start~self start)
-    (set! size~self size))
+  (method override (initialize self sequence start <fx> size <fx>)
+    (nextmethod self)
+    (set! self.sequence sequence)
+    (set! self.start start)
+    (set! self.size size))
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (if (string? sequence)
         ;; should take detail into account
         (loop (for n from start below (+ start size))
@@ -5733,25 +5726,25 @@
           (system-format output "{s} {s} {s}" sequence start size)))))
   
   
-  (method override (coerce-string)
+  (method override (coerce-string self)
     (if (string? sequence)
         (substring sequence start (+ start size))
       (error "Cannot coerce sequence to string")))
   
   
-  (method override (sequence-element n <fx>) <any>
+  (method override (sequence-element self n <fx>) <any>
     (element sequence (+ start n)))
   
   
-  (method override (sequence-set-element! n <fx> obj <any>) <void>
+  (method override (sequence-set-element! self n <fx> obj <any>) <void>
     (set-element! sequence (+ start n) obj))
   
   
-  (method override (sequence-cardinality) <int>
+  (method override (sequence-cardinality self) <int>
     size)
   
   
-  (method override (sequence-subseq! s <fx> e <fx>) <Subseq>
+  (method override (sequence-subseq! self s <fx> e <fx>) <Subseq>
     (if (or (= s 0) (= e -1))
         self
       (new Subseq sequence (+ start s) (- (if (= e -1) (cardinality self) e) s)))))
@@ -5765,23 +5758,23 @@
 
 
 (definition public (offset-subseq! subseq <Subseq> offset <fx>) <void>
-  (set-start~ subseq (+ (get-start~ subseq) offset)))
+  (set-start subseq (+ (get-start subseq) offset)))
 
 
 (definition public (grow-subseq! subseq <Subseq> n <fx>) <void>
-  (set-size~ subseq (+ (get-size~ subseq) n)))
+  (set-size subseq (+ (get-size subseq) n)))
 
 
 (specialize inline as subseq-ref (element subseq <Subseq> n) <object>
-  (element (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n))))
+  (element (get-sequence subseq) (+ (get-start subseq) (cast <fx> n))))
 
 
 (specialize inline as subseq-set! (set-element! subseq <Subseq> n obj) <void>
-  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n)) obj))
+  (set-element! (get-sequence subseq) (+ (get-start subseq) (cast <fx> n)) obj))
 
 
 (specialize inline as subseq-cardinality (cardinality subseq <Subseq>) <int>
-  (get-size~ subseq))
+  (get-size subseq))
 
 
 ;;;
@@ -5800,39 +5793,39 @@
   (slot size     <fx>     accessors generate)
   
   
-  (method override (initialize sequence <string> start <fx> size <fx>)
-    (nextmethod)
-    (set! sequence~self sequence)
-    (set! start~self start)
-    (set! size~self size))
+  (method override (initialize self sequence <string> start <fx> size <fx>)
+    (nextmethod self)
+    (set! self.sequence sequence)
+    (set! self.start start)
+    (set! self.size size))
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (let ((str (substring sequence start (+ start size))))
       (if (eq? detail :human)
-          (print~ str output detail)
+          (print str output detail)
         (print-unreadable self output
           (lambda (output)
             (system-format output "{s}" str))))))
   
   
-  (method public (print-content output)
+  (method public (print-content self output)
     (display (substring sequence start (+ start size)) output))
   
   
-  (method override (sequence-element n <fx>) <any>
+  (method override (sequence-element self n <fx>) <any>
     (element sequence (+ start n)))
   
   
-  (method override (sequence-set-element! n <fx> obj <any>) <void>
+  (method override (sequence-set-element! self n <fx> obj <any>) <void>
     (set-element! sequence (+ start n) obj))
   
   
-  (method override (sequence-cardinality) <int>
+  (method override (sequence-cardinality self) <int>
     size)
   
   
-  (method override (sequence-subseq! s <fx> e <fx>) <Subseq$string$>
+  (method override (sequence-subseq! self s <fx> e <fx>) <Subseq$string$>
     (if (and (= s 0) (= e -1))
         self
       (new Subseq$string$ sequence (+ start s) (- (if (= e -1) (cardinality self) e) s)))))
@@ -5846,15 +5839,15 @@
 
 
 (specialize inline (element subseq <Subseq$string$> n) <char>
-  (element (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n))))
+  (element (get-sequence subseq) (+ (get-start subseq) (cast <fx> n))))
 
 
 (specialize inline (set-element! subseq <Subseq$string$> n obj) <void>
-  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n)) (cast <char> obj)))
+  (set-element! (get-sequence subseq) (+ (get-start subseq) (cast <fx> n)) (cast <char> obj)))
 
 
 (specialize inline (cardinality subseq <Subseq$string$>) <fx>
-  (get-size~ subseq))
+  (get-size subseq))
 
 
 (specialize (subseq! seq <string> s e) <Subseq$string$>
@@ -5866,15 +5859,15 @@
 (specialize (subseq! subseq <Subseq$string$> s e) <Subseq$string$>
   (let ((s (cast <fx> s))
         (e (cast <fx> e)))
-    (new Subseq$string$ (get-sequence~ subseq) (+ (get-start~ subseq) s) (- e s))))
+    (new Subseq$string$ (get-sequence subseq) (+ (get-start subseq) s) (- e s))))
 
 
 (specialize (offset-subseq! subseq <Subseq$string$> offset) <void>
-  (set-start~ subseq (+ (get-start~ subseq) (cast <fx> offset))))
+  (set-start subseq (+ (get-start subseq) (cast <fx> offset))))
 
 
 (specialize (grow-subseq! subseq <Subseq$string$> n) <void>
-  (set-size~ subseq (+ (get-size~ subseq) (cast <fx> n))))
+  (set-size subseq (+ (get-size subseq) (cast <fx> n))))
 
 
 ;;;
@@ -5944,7 +5937,7 @@
 
 
 (definition public (call-site-ref name)
-  (get-procedure~ (registered-site name)))
+  (get-procedure (registered-site name)))
 
 (definition public (call-site-set! name value)
-  (set-procedure~ (registered-site name) value)))
+  (set-procedure (registered-site name) value)))

@@ -55,11 +55,11 @@
   (slot selection initialize #f)
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (set-date date)
-    (install-days)
-    (set-selection (find-calendar-day date)))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (set-date self date)
+    (install-days self)
+    (set-selection self (find-calendar-day self date)))
   
   
   ;;;
@@ -67,23 +67,23 @@
   ;;;
 
 
-  (method public (get-date)
+  (method public (get-date self)
     date)
 
 
-  (method public (set-date value)
+  (method public (set-date self value)
     (set! date (or value (current-date)))
-    (when (get-finished?)
-      (date-update)))
+    (when (get-finished? self)
+      (date-update self)))
   
   
-  (method protected virtual (date-update)
-    (update-days)
-    (invalidate-view))
+  (method protected virtual (date-update self)
+    (update-days self)
+    (invalidate-view self))
 
 
-  (method public virtual (get-manager)
-    (find-ascendant Calendar-Dialog))
+  (method public virtual (get-manager self)
+    (find-ascendant self Calendar-Dialog))
 
 
   ;;;
@@ -91,9 +91,9 @@
   ;;;
   
   
-  (method override (guest-actions)
+  (method override (guest-actions self)
     (cons (find-actions 'calendar)
-          (nextmethod)))
+          (nextmethod self)))
 
 
   ;;;
@@ -101,12 +101,12 @@
   ;;;
   
   
-  (method (on-prior evt)
-    (prior-press))
+  (method (on-prior self evt)
+    (prior-press self))
   
   
-  (method (on-next evt)
-    (next-press))
+  (method (on-next self evt)
+    (next-press self))
   
   
   ;;;
@@ -114,14 +114,14 @@
   ;;;
   
   
-  (method override (focus-gained)
+  (method override (focus-gained self)
     (when selection
-      (invalidate-view~ selection)))
+      (invalidate-view selection)))
   
   
-  (method override (focus-lost)
+  (method override (focus-lost self)
     (when selection
-      (invalidate-view~ selection)))
+      (invalidate-view selection)))
 
 
   ;;;
@@ -129,36 +129,36 @@
   ;;;
   
   
-  (method override (left-arrow-press modifiers)
-    (move-selection -1 0))
+  (method override (left-arrow-press self modifiers)
+    (move-selection self -1 0))
   
   
-  (method override (up-arrow-press modifiers)
-    (move-selection 0 -1))
+  (method override (up-arrow-press self modifiers)
+    (move-selection self 0 -1))
   
   
-  (method override (right-arrow-press modifiers)
-    (move-selection 1 0))
+  (method override (right-arrow-press self modifiers)
+    (move-selection self 1 0))
   
   
-  (method override (down-arrow-press modifiers)
-    (move-selection 0 1))
+  (method override (down-arrow-press self modifiers)
+    (move-selection self 0 1))
   
   
-  (method public virtual (prior-press)
-    (goto-previous-month))
+  (method public virtual (prior-press self)
+    (goto-previous-month self))
   
   
-  (method public virtual (next-press)
-    (goto-next-month))
+  (method public virtual (next-press self)
+    (goto-next-month self))
   
   
-  (method (move-selection dx dy)
+  (method package (move-selection self dx dy)
     (if (null? selection)
         (bell)
-      (let ((nx (max 0 (min 6 (+ (get-day~ selection) dx))))
-            (ny (max 0 (min 4 (+ (get-week~ selection) dy)))))
-        (set-selection (find-calendar-cell nx ny)))))
+      (let ((nx (max 0 (min 6 (+ (get-day selection) dx))))
+            (ny (max 0 (min 4 (+ (get-week selection) dy)))))
+        (set-selection self (find-calendar-cell self nx ny)))))
   
   
   ;;;
@@ -166,36 +166,36 @@
   ;;;
   
   
-  (method (install-days)
+  (method (install-days self)
     (define (install-day week day date)
-      (new (calendar-day-class) parent: self week: week day: day date: date))
+      (new (calendar-day-class self) parent: self week: week day: day date: date))
     
-    (let ((date (calendar-base)))
+    (let ((date (calendar-base self)))
       (for-each (lambda (week)
                   (for-each (lambda (day)
                               (install-day week day date)
-                              (set! date (add-one-day date)))
+                              (set! date (add-one-day self date)))
                             (naturals 0 7)))
                 (naturals 0 6))))
   
   
-  (method protected virtual (calendar-day-class)
+  (method protected virtual (calendar-day-class self)
     Calendar-Day)
   
   
-  (method (calendar-base)
+  (method (calendar-base self)
     (let (subtract (date (date-add (make-date 0 0 0 0 1 (date-month date) (date-year date) (date-zone-offset (current-date))) -1 'day)))
       (if (zero? (date-week-day date))
           date
-        (subtract (subtract-one-day date)))))
+        (subtract (subtract-one-day self date)))))
   
   
-  (method (add-one-day date)
+  (method (add-one-day self date)
     (date-add date 1 'day))
   
   
   ;; This method fix a broblem with date-add when original date is 31 and the Next or Previous Month as 30 or less days.
-  (method (select-correct-month date month)
+  (method (select-correct-month self date month)
     (let ((new-month (if (< month 1) 12 (if (> month 12) 1 month)))
           (correct-date date))
       (while (> (date-month correct-date) new-month)
@@ -203,21 +203,21 @@
       correct-date))
   
   
-  (method (add-one-month date)
+  (method (add-one-month self date)
     (let ((next-month-date (date-add date 1 'month)))
-      (select-correct-month next-month-date (+ (date-month date) 1))))
+      (select-correct-month self next-month-date (+ (date-month date) 1))))
   
   
-  (method (subtract-one-day date)
+  (method (subtract-one-day self date)
     (date-add date -1 'day))
   
   
-  (method (subtract-one-month date)
+  (method (subtract-one-month self date)
     (let ((last-month-date (date-add date -1 'month)))
-      (select-correct-month last-month-date (- (date-month date) 1))))
+      (select-correct-month self last-month-date (- (date-month date) 1))))
   
   
-  (method (normalize-date date)
+  (method (normalize-date self date)
     (make-date 0 0 0 0 (date-day date) (date-month date) (date-year date) (date-zone-offset date)))
   
   
@@ -226,14 +226,14 @@
   ;;;
   
   
-  (method (update-days)
-    (let ((date (calendar-base))
+  (method (update-days self)
+    (let ((date (calendar-base self))
           (scan children))
       (for-each (lambda (week)
                   (for-each (lambda (day)
                               (let ((calendar-day (car scan)))
-                                (set-date~ calendar-day date)
-                                (set! date (add-one-day date))
+                                (set-date calendar-day date)
+                                (set! date (add-one-day self date))
                                 (set! scan (cdr scan))))
                             (naturals 0 7)))
                 (naturals 0 6))))
@@ -244,15 +244,15 @@
   ;;;
   
   
-  (method override (layout)
-    (let ((width (quotient (get-width) 7))
-          (height (quotient (get-height) 6)))
+  (method override (layout self)
+    (let ((width (quotient (get-width self) 7))
+          (height (quotient (get-height self) 6)))
       (for-each (lambda (view)
                   (when (is? view Calendar-Day)
-                    (let ((row (get-week~ view))
-                          (col (get-day~ view)))
-                      (set-position~ view (new Point (+ 1 (* col (+ width spacing))) (* row (+ height spacing))))
-                      (set-size~ view (new Dimension width height)))))
+                    (let ((row (get-week view))
+                          (col (get-day view)))
+                      (set-position view (new Point (+ 1 (* col (+ width spacing))) (* row (+ height spacing))))
+                      (set-size view (new Dimension width height)))))
                 children)))
   
   
@@ -261,7 +261,7 @@
   ;;;
   
   
-  (method public virtual (day-color day)
+  (method public virtual (day-color self day)
     #f)
   
   
@@ -270,18 +270,18 @@
   ;;;
   
   
-  (method public (find-calendar-day date)
+  (method public (find-calendar-day self date)
     (find-if (lambda (view)
                (and (is? view Calendar-Day)
-                    (nu=? date (get-date~ view))))
+                    (nu=? date (get-date view))))
              children))
   
   
-  (method public (find-calendar-cell x y)
+  (method public (find-calendar-cell self x y)
     (find-if (lambda (view)
                (and (is? view Calendar-Day)
-                    (= x (get-day~ view))
-                    (= y (get-week~ view))))
+                    (= x (get-day view))
+                    (= y (get-week view))))
              children))
   
   
@@ -290,21 +290,21 @@
   ;;;
 
 
-  (method public (get-selection)
+  (method public (get-selection self)
     selection)
 
 
-  (method public (set-selection day)
+  (method public (set-selection self day)
     (when (neq? selection day)
       (when selection
-        (set-selected?~ selection #f))
+        (set-selected? selection #f))
       (set! selection day)
       (when selection
-        (set-selected?~ selection #t))
-      (selection-update)))
+        (set-selected? selection #t))
+      (selection-update self)))
   
   
-  (method protected virtual (selection-update)
+  (method package virtual (selection-update self)
     )
   
   
@@ -312,15 +312,17 @@
   ;;;; Navigation
   ;;;
   
-  (method public (goto-previous-month)
-    (goto-month date subtract-one-month))
+  (method public (goto-previous-month self)
+    (goto-month self date (lambda (date)
+                            (subtract-one-month self date))))
   
   
-  (method public (goto-next-month)
-    (goto-month date add-one-month))
+  (method public (goto-next-month self)
+    (goto-month self date (lambda (date)
+                            (add-one-month self date))))
   
   
-  (method (goto-month new-date proc)
+  (method (goto-month self new-date proc)
     (let ((new-date (proc new-date)))
-      (set-date new-date)
-      (set-selection (find-calendar-day new-date))))))
+      (set-date self new-date)
+      (set-selection self (find-calendar-day self new-date))))))

@@ -39,6 +39,7 @@
 
 
 (import (jazz.action)
+        (jazz.graphic)
         (jazz.handler)
         (jazz.jml)
         (jazz.menu)
@@ -65,7 +66,7 @@
   ;;;
   
   
-  (method override (menu-actions)
+  (method override (menu-actions self)
     (find-actions 'menubar))
 
   
@@ -74,13 +75,13 @@
   ;;;
   
   
-  (method (on-restore evt)
-    (restore~ (current-stage)))
+  (method (on-restore self evt)
+    (restore (current-stage)))
   
   
-  (method (on-close evt)
+  (method package (on-close self evt)
     (let ((frame (current-frame)))
-      (close-host~ frame)))
+      (close-host frame)))
   
   
   ;;;
@@ -88,23 +89,23 @@
   ;;;
 
 
-  (method override (up-arrow-press modifiers)
-    (navigate-open #t))
+  (method override (up-arrow-press self modifiers)
+    (navigate-open self #t))
 
 
-  (method override (down-arrow-press modifiers)
-    (navigate-open))
+  (method override (down-arrow-press self modifiers)
+    (navigate-open self))
   
   
-  (method override (left-arrow-press modifiers)
-    (navigate-previous))
+  (method override (left-arrow-press self modifiers)
+    (navigate-previous self))
   
   
-  (method override (right-arrow-press modifiers)
-    (navigate-next))
+  (method override (right-arrow-press self modifiers)
+    (navigate-next self))
 
 
-  (method override (escape-press evt)
+  (method override (escape-press self evt)
     (pop-all-focuses))
   
   
@@ -113,36 +114,36 @@
   ;;;
   
   
-  (method override (maximize)
-    (update-buttons))
+  (method override (maximize self)
+    (update-buttons self))
   
   
-  (method override (restore)
-    (hide-buttons))
+  (method override (restore self)
+    (hide-buttons self))
   
   
-  (method public virtual (update-buttons)
+  (method public virtual (update-buttons self)
     (let ((stage (current-stage)))
       (if stage
-          (let ((frames (get-views~ stage)))
-            (if (and (not-null? frames) (get-maximized?~ stage))
-                (show-buttons)
-              (hide-buttons)))
-        (hide-buttons))))
+          (let ((frames (get-views stage)))
+            (if (and (not-null? frames) (get-maximized? stage))
+                (show-buttons self)
+              (hide-buttons self)))
+        (hide-buttons self))))
   
   
-  (method (show-buttons)
-    (unless (always-maximized?)
-      (set-visible?~ (locate 'restore) #t)
-      (set-visible?~ (locate 'close) #t)))
+  (method (show-buttons self)
+    (unless (always-maximized? self)
+      (set-visible? (locate self 'restore) #t)
+      (set-visible? (locate self 'close) #t)))
   
   
-  (method (hide-buttons)
-    (set-visible?~ (locate 'restore) #f)
-    (set-visible?~ (locate 'close) #f))
+  (method (hide-buttons self)
+    (set-visible? (locate self 'restore) #f)
+    (set-visible? (locate self 'close) #f))
   
   
-  (method protected virtual (always-maximized?)
+  (method protected virtual (always-maximized? self)
     #f)
   
   
@@ -151,29 +152,29 @@
   ;;;
   
   
-  (method override (layout)
+  (method override (layout self)
     (define (restore-rect top right)
       (new Rect (- right 37) (+ top 4) (- right 21) (+ top 18)))
     
     (define (close-rect top right)
       (new Rect (- right 19) (+ top 4) (- right  3) (+ top 18)))
     
-    (let* ((bounds (get-bounds))
+    (let* ((bounds (get-bounds self))
            (top 0)
-           (right (+ (get-right~ bounds) 3)))
-      (set-rect~ (locate 'restore) (restore-rect top right))
-      (set-rect~ (locate 'close) (close-rect top right))))
+           (right (+ (get-right bounds) 3)))
+      (set-rect (locate self 'restore) (restore-rect top right))
+      (set-rect (locate self 'close) (close-rect top right))))
   
   
-  (method override (layout-menu)
-    (let ((height (get-height))
+  (method override (layout-menu self)
+    (let ((height (get-height self))
           (h 0))
-      (for-each-view
+      (for-each-view self
         (lambda (view)
           (when (is? view Item)
-            (set-position~ view (new Point h 2))
-            (let ((width (preferred-body-width~ view)))
-              (set-size~ view (new Dimension width (- height 3)))
+            (set-position view (new Point h 2))
+            (let ((width (preferred-body-width view)))
+              (set-size view (new Dimension width (- height 3)))
               (increase! h width)))))))
   
   
@@ -182,13 +183,13 @@
   ;;;
   
   
-  (method override (draw-background surface context)
-    (let ((skin (get-skin)))
-      (let ((background (get-background~ skin)))
+  (method override (draw-background self surface context)
+    (let ((skin (get-skin self)))
+      (let ((background (get-background skin)))
         (if (not background)
-            (nextmethod surface context)
-          (let ((bounds (get-bounds)))
-            (fill-background~ surface bounds background))))))
+            (nextmethod self surface context)
+          (let ((bounds (get-bounds self)))
+            (fill-background surface bounds background))))))
   
   
   ;;;
@@ -196,5 +197,5 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:menubar))))

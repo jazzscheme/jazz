@@ -50,8 +50,11 @@
         (jazz.menu)
         (jazz.outline)
         (jazz.platform)
+        (jazz.preferences)
         (jazz.print)
+        (jazz.reference)
         (jazz.resource)
+        (jazz.text)
         (jazz.tree)
         (jazz.ui)
         (jazz.ui.dialog)
@@ -129,7 +132,7 @@
   (slot device-transformation                    initialize #f getter generate) ; DANGER, DO NOT SHARE!!
   
   
-  (method override (shortcut-update action-item));;abstract
+  (method override (shortcut-update self action-item));;abstract
   
   
   ;;;
@@ -137,13 +140,13 @@
   ;;;
   
   
-  (method override (conclude rest)
-    (nextmethod rest)
-    (layout)
-    (layout-scrollee))
+  (method override (conclude self rest)
+    (nextmethod self rest)
+    (layout self)
+    (layout-scrollee self))
 
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{?{a} ~}{?{s} ~}{a} {a}" name title position size))))
@@ -154,31 +157,31 @@
   ;;;
   
   
-  (method public virtual (close-with-confirm)
-    (close))
+  (method public virtual (close-with-confirm self)
+    (close self))
   
   
-  (method override (destroy-component)
-    (detach-mouse-in)
-    (detach-view-focus)
-    (flush-device-transformation)
-    (nextmethod))
+  (method override (destroy-component self)
+    (detach-mouse-in self)
+    (detach-view-focus self)
+    (flush-device-transformation self)
+    (nextmethod self))
 
 
-  (method override (destroy)
-    (nextmethod)
+  (method override (destroy self)
+    (nextmethod self)
     (let ((parent parent)
-          (rect (get-rect)))
-      (let ((host (get-host)))
+          (rect (get-rect self)))
+      (let ((host (get-host self)))
         (when host
-          (view-destroyed~ host self)))
-      (set-offscreen? #f)
+          (view-destroyed host self)))
+      (set-offscreen? self #f)
       (set! player #f)
       (when transformation
         (cairo_matrix_t-free transformation)
         (set! transformation #f))
       (when (is? parent View)
-        (invalidate-rect~ parent rect))))
+        (invalidate-rect parent rect))))
   
   
   ;;;
@@ -186,21 +189,21 @@
   ;;;
   
   
-  (method protected (detach-mouse-in)
+  (method protected (detach-mouse-in self)
     (let ((mouse-in (get-mouse-in)))
-      (when (and mouse-in (has-ascendant?~ mouse-in self))
+      (when (and mouse-in (has-ascendant? mouse-in self))
         (reset-mouse-in)
-        (dispatch-mouse-leave~ mouse-in))))
+        (dispatch-mouse-leave mouse-in))))
   
   
-  (method protected (detach-view-focus)
-    (let ((focus (get-focus)))
-      (and focus (has-ascendant?~ focus self)
+  (method protected (detach-view-focus self)
+    (let ((focus (active-focus)))
+      (and focus (has-ascendant? focus self)
         (let ((window-focus (get-window-focus)))
           ;; quick hack for cocoa pending bug
           (and window-focus
                (and (eq? player window-focus)
-                    (reset-focus~ window-focus)
+                    (reset-focus window-focus)
                     focus))))))
   
   
@@ -209,13 +212,13 @@
   ;;;
 
   
-  (method override (component-alias name)
+  (method override (component-alias self name)
     (case name
-      ((:host) (get-host))
-      ((:guest) (get-guest))
-      ((:root) (get-root))
-      ((:initiator) (popup-initiator))
-      (else (nextmethod name))))
+      ((:host) (get-host self))
+      ((:guest) (get-guest self))
+      ((:root) (get-root self))
+      ((:initiator) (popup-initiator self))
+      (else (nextmethod self name))))
   
   
   ;;;
@@ -223,32 +226,32 @@
   ;;;
   
   
-  (method override (get-player)
+  (method override (get-player self)
     player)
   
   
-  (method override (set-player plr)
+  (method override (set-player self plr)
     (when (neq? player plr)
-      (detach-mouse-in)
-      (let ((own-focus (detach-view-focus)))
+      (detach-mouse-in self)
+      (let ((own-focus (detach-view-focus self)))
         (set! player plr)
-        (nextmethod plr)
+        (nextmethod self plr)
         (when (and player own-focus)
-          (acquire-focus~ own-focus)))))
+          (acquire-focus own-focus)))))
   
   
-  (method public (in-player?)
+  (method public (in-player? self)
     (boolean player))
 
 
-  (method public (get-overlapped)
-    (let ((player (get-player)))
+  (method public (get-overlapped self)
+    (let ((player (get-player self)))
       (and player
-           (get-overlapped~ player))))
+           (get-overlapped player))))
   
   
-  (method public (different-overlapped? window)
-    (or (not window) (neq? (get-overlapped) (get-overlapped~ window))))
+  (method public (different-overlapped? self window)
+    (or (not window) (neq? (get-overlapped self) (get-overlapped window))))
   
   
   ;;;
@@ -256,28 +259,28 @@
   ;;;
 
 
-  (method public virtual (get-host)
-    (find-ascendant Host-View))
+  (method public virtual (get-host self)
+    (find-ascendant self Host-View))
   
   
-  (method public virtual (get-guest)
-    (let ((host (get-host)))
-      (and host (get-guest~ host))))
+  (method public virtual (get-guest self)
+    (let ((host (get-host self)))
+      (and host (get-guest host))))
   
   
-  (method public virtual (install-in-host host)
+  (method public virtual (install-in-host self host)
     )
   
   
-  (method public virtual (uninstall-from-host host)
+  (method public virtual (uninstall-from-host self host)
     )
   
   
-  (method public virtual (save-guest designer session)
+  (method public virtual (save-guest self designer session)
     )
   
   
-  (method public (add-guest-preferences designer session . initargs)
+  (method public (add-guest-preferences self designer session . initargs)
     (unimplemented 'add-guest-preferences)
     @Guest-Preferences
     (let* ((host (get-host))
@@ -285,32 +288,32 @@
                    position: (get-position)
                    size:     (get-size)
                    name:     (category-identifier (class-of self))
-                   initargs: (cons position: (cons (get-position~ host)
-                                                   (cons size: (cons (get-size~ host)
+                   initargs: (cons position: (cons (get-position host)
+                                                   (cons size: (cons (get-size host)
                                                                      initargs)))))))
-      (add-child~ designer pref session design-events?: #f select?: #f)))
+      (add-child designer pref session design-events?: #f select?: #f)))
   
   
-  (method public virtual (host-activate)
+  (method public virtual (host-activate self)
     )
   
   
-  (method public virtual (host-deactivate)
+  (method public virtual (host-deactivate self)
     )
   
   
-  (method public virtual (focus-default)
-    (acquire-focus))
+  (method public virtual (focus-default self)
+    (acquire-focus self))
   
   
-  (method public virtual (get-text-view)
+  (method public virtual (get-text-view self)
     #f)
   
   
-  (method public (frame-guest?)
-    (let ((host (get-host)))
+  (method public (frame-guest? self)
+    (let ((host (get-host self)))
       (and (is? host Frame-Host)
-           (eq? (get-guest~ host) self))))
+           (eq? (get-guest host) self))))
   
   
   ;;;
@@ -318,145 +321,145 @@
   ;;;
   
   
-  (method meta protected virtual (dialog-class)
+  (method meta protected virtual (dialog-class self)
     Dialog)
   
   
-  (method meta protected virtual (frame-class)
+  (method meta protected virtual (frame-class self)
     Internal-Frame-Host)
   
   
-  (method meta protected virtual (palette-class)
+  (method meta protected virtual (palette-class self)
     Palette)
   
   
-  (method meta protected virtual (docked-class)
+  (method meta protected virtual (docked-class self)
     Docked-Host)
   
   
-  (method meta protected virtual (toolbar-class)
+  (method meta protected virtual (toolbar-class self)
     Toolbar-Host)
   
   
-  (method meta protected virtual (host-icon)
+  (method meta protected virtual (host-icon self)
     {Image-Resource "Window"})
   
   
-  (method meta protected virtual (host-title)
+  (method meta protected virtual (host-title self)
     #f)
   
   
-  (method meta protected virtual (host-position)
+  (method meta protected virtual (host-position self)
     #f)
   
   
-  (method meta protected virtual (host-size)
+  (method meta protected virtual (host-size self)
     #f)
   
   
-  (method public virtual (host-minimal-size)
+  (method public virtual (host-minimal-size self)
     {Dimension 100 100})
   
   
-  (method public virtual (host-workspaces)
+  (method public virtual (host-workspaces self)
     '())
   
   
-  (method public (effective-host-workspaces)
+  (method public (effective-host-workspaces self)
     (define (pref-workspace pref)
-      (let ((associations (get-associations~ pref)))
+      (let ((associations (get-associations pref)))
         (continuation-capture
           (lambda (return)
             (for-each (lambda (association)
                         (bind (reference . workspace) association
-                          (let ((class (resolve-reference~ reference)))
+                          (let ((class (reference-resolve reference)))
                             (when (is? self class)
                               (continuation-return return workspace)))))
                       associations)
             #f))))
     
     (define (host-workspace)
-      (get-workspace~ (get-host)))
+      (get-workspace (get-host self)))
     
     (define (filter-inexistant-workspaces pref workspaces)
       ;; also add dynamically generated workspaces page and preview
-      (let ((names (cons 'page (cons 'preview (map get-name~ (get-children~ pref))))))
+      (let ((names (cons 'page (cons 'preview (map get-name (get-children pref))))))
         (collect-if (lambda (name)
                       (and name (memq? name names)))
                     workspaces)))
     
     (let ((pref (get-workspaces-preferences)))
       (filter-inexistant-workspaces pref
-        (cons (pref-workspace pref) (cons (host-workspace) (host-workspaces))))))
+        (cons (pref-workspace pref) (cons (host-workspace) (host-workspaces self))))))
   
   
-  (method public (for-each-view-docked proc)
+  (method public (for-each-view-docked self proc)
     (for-each (lambda (child)
                 (cond ((or (is? child Splitter-View)
                            (is? child Pad-View))
-                       (for-each-view-docked~ child proc))
+                       (for-each-view-docked child proc))
                       ((is? child Host-View)
-                       (proc (get-guest~ child)))))
+                       (proc (get-guest child)))))
               children))
   
   
-  (method public (find-view-docked type)
+  (method public (find-view-docked self type)
     (continuation-capture
       (lambda (return)
-        (for-each-view-docked
+        (for-each-view-docked self
           (lambda (guest)
             (when (is? guest type)
               (continuation-return return guest))))
         #f)))
   
   
-  (method public (find-host guest-type)
+  (method public (find-host self guest-type)
     (find-if (lambda (view)
                (and (is? view Host-View)
-                    (is? (get-guest~ view) guest-type)))
+                    (is? (get-guest view) guest-type)))
              children))
   
   
-  (method public (find-guest guest-type)
-    (let ((host (find-host guest-type)))
+  (method public (find-guest self guest-type)
+    (let ((host (find-host self guest-type)))
       (and host
-           (get-guest~ host))))
+           (get-guest host))))
   
   
-  (method public (collect-guest guest-type)
+  (method public (collect-guest self guest-type)
     (collect (lambda (view)
                (and (is? view Host-View)
-                    (let ((guest (get-guest~ view)))
+                    (let ((guest (get-guest view)))
                       (and (is? guest guest-type)
                            guest))))
              children))
 
 
-  (method public (get-frame)
-    (find-ascendant Frame-Host))
+  (method public (get-frame self)
+    (find-ascendant self Frame-Host))
   
   
-  (method public virtual (guest-icon)
-    (host-icon~ (class-of self)))
+  (method public virtual (guest-icon self)
+    (host-icon (class-of self)))
   
   
-  (method public virtual (focus-activate)
+  (method public virtual (focus-activate self)
     )
   
   
-  (method public virtual (focus-deactivate)
+  (method public virtual (focus-deactivate self)
     )
   
   
-  (method public virtual (maximize)
+  (method public virtual (maximize self)
     )
   
   
-  (method public virtual (restore)
+  (method public virtual (restore self)
     )
   
   
-  (method public virtual (split-view)
+  (method public virtual (split-view self)
     #f)
   
   
@@ -465,7 +468,7 @@
   ;;;
   
   
-  (method meta public virtual (new-event . rest)
+  (method meta public virtual (new-event self . rest)
     (apply new-frame self rest))
   
   
@@ -474,7 +477,7 @@
   ;;;
   
   
-  (method public virtual (tool-preferences)
+  (method public virtual (tool-preferences self)
     #f)
   
   
@@ -483,18 +486,18 @@
   ;; when switching documents like designs, the selection is preserved...
   ;; Note: the show-invisibles? slot of Design-Book-View is clearly a handcoded
   ;; piece of code that could be redone using tool-infos
-  (method (get-tools-info)
+  (method (get-tools-info self)
     (unless tools-info
       (set! tools-info (make-table test: eq?)))
     tools-info)
   
   
-  (method public virtual (get-tool-info tool-name)
-    (table-ref (get-tools-info) tool-name #f))
+  (method public virtual (get-tool-info self tool-name)
+    (table-ref (get-tools-info self) tool-name #f))
   
   
-  (method public virtual (set-tool-info tool-name info)
-    (table-set! (get-tools-info) tool-name info))
+  (method public virtual (set-tool-info self tool-name info)
+    (table-set! (get-tools-info self) tool-name info))
   
   
   ;;;
@@ -502,19 +505,19 @@
   ;;;
   
   
-  (method public virtual (host-install)
+  (method public virtual (host-install self)
     )
   
   
-  (method public virtual (host-uninstall)
+  (method public virtual (host-uninstall self)
     )
   
   
-  (method public virtual (client-activate)
+  (method public virtual (client-activate self)
     )
   
   
-  (method public virtual (client-deactivate)
+  (method public virtual (client-deactivate self)
     )
   
   
@@ -523,11 +526,11 @@
   ;;;
   
   
-  (method public virtual (get-tools-view)
+  (method public virtual (get-tools-view self)
     #f)
   
   
-  (method public virtual (workspace-minimisable?)
+  (method public virtual (workspace-minimisable? self)
     #t)
     
   
@@ -536,15 +539,15 @@
   ;;;
   
   
-  (method public virtual (validate-dialog)
+  (method public virtual (validate-dialog self)
     )
   
   
-  (method public virtual (get-modal-result)
+  (method public virtual (get-modal-result self)
     #f)
   
   
-  (method public virtual (has-dialog-result?)
+  (method public virtual (has-dialog-result? self)
     #f)
   
   
@@ -553,7 +556,7 @@
   ;;;
   
   
-  (method public virtual (get-component-editor)
+  (method public virtual (get-component-editor self)
     #f)
   
   
@@ -562,11 +565,11 @@
   ;;;
   
   
-  (method public virtual (content-valid?)
+  (method public virtual (content-valid? self)
     #t)
   
   
-  (method public virtual (validate-content)
+  (method public virtual (validate-content self)
     )
   
   
@@ -575,20 +578,20 @@
   ;;;
   
   
-  (method override (setup-parent)
-    (nextmethod)
-    (set-player (if parent (get-player~ parent) #f)))
+  (method override (setup-parent self)
+    (nextmethod self)
+    (set-player self (if parent (get-player parent) #f)))
   
   
-  (method override (set-parent parent)
+  (method override (set-parent self parent)
     (assert (primordial-thread?))
-    (let ((invalidater (view-invalidater)))
-      (nextmethod parent)
-      (set-player (and parent (get-player~ parent)))
+    (let ((invalidater (view-invalidater self)))
+      (nextmethod self parent)
+      (set-player self (and parent (get-player parent)))
       (when invalidater
         (invalidater))
       (when parent
-        (invalidate-view))))
+        (invalidate-view self))))
   
   
   ;;;
@@ -596,17 +599,17 @@
   ;;;
   
   
-  (method public virtual (get-title)
+  (method public virtual (get-title self)
     title)
   
   
-  (method public virtual (set-title value)
+  (method public virtual (set-title self value)
     (set! title value)
-    (adjust-title))
+    (adjust-title self))
   
   
-  (method protected virtual (adjust-title)
-    (adjust-size))
+  (method protected virtual (adjust-title self)
+    (adjust-size self))
   
   
   ;;;
@@ -614,32 +617,32 @@
   ;;;
     
   
-  (method override (initially-visible?)
+  (method override (initially-visible? self)
     #f)
 
 
-  (method override (show)
-    (nextmethod)
-    (call-layout)
+  (method override (show self)
+    (nextmethod self)
+    (call-layout self)
     ;; quicky should really be calling mouse-enter
     (when (and (eq? self (get-mouse-in))
                tooltip-in?)
-      (popup-tooltip (mouse-position)))
-    (invalidate-view))
+      (popup-tooltip self (mouse-position self)))
+    (invalidate-view self))
 
 
-  (method override (hide)
-    (let ((invalidater (view-invalidater)))
-      (nextmethod)
+  (method override (hide self)
+    (let ((invalidater (view-invalidater self)))
+      (nextmethod self)
       ;; quicky should really be calling mouse-leave
       (when (and (eq? self (get-mouse-in))
                  tooltip-in?)
-        (close-self-tooltip))
+        (close-self-tooltip self))
       (when invalidater
         (invalidater))))
   
   
-  (method protected virtual (update-displayed)
+  (method package virtual (update-displayed self)
     )
   
   
@@ -648,19 +651,19 @@
   ;;;
   
 
-  (method public virtual (get-enabled?)
+  (method public virtual (get-enabled? self)
     enabled?)
 
 
-  (method public virtual (set-enabled? flag)
+  (method public virtual (set-enabled? self flag)
     (set! enabled? flag)
-    (invalidate-view))
+    (invalidate-view self))
   
   
-  (method public (view-enabled?)
-    (and (get-enabled?)
+  (method public (view-enabled? self)
+    (and (get-enabled? self)
          (or (is-not? parent View)
-             (view-enabled?~ parent))))
+             (view-enabled? parent))))
   
   
   ;;;
@@ -668,41 +671,41 @@
   ;;;
   
 
-  (method public (get-scaling)
+  (method public (get-scaling self)
     scaling)
   
   
-  (method public (effective-scaling)
+  (method public (effective-scaling self)
     (or scaling 1.))
 
 
-  (method public (set-scaling value)
+  (method public (set-scaling self value)
     (set! scaling value)
-    (update-transformation))
+    (update-transformation self))
   
   
-  (method public (scale-view factor)
-    (set-scaling (and factor (* (effective-scaling) factor))))
+  (method public (scale-view self factor)
+    (set-scaling self (and factor (* (effective-scaling self) factor))))
   
 
-  (method public (get-rotation)
+  (method public (get-rotation self)
     rotation)
   
   
-  (method public (effective-rotation)
+  (method public (effective-rotation self)
     (or rotation 0.))
 
 
-  (method public (set-rotation value)
+  (method public (set-rotation self value)
     (set! rotation value)
-    (update-transformation))
+    (update-transformation self))
   
   
-  (method override (get-transformation)
+  (method override (get-transformation self)
     transformation)
   
   
-  (method (update-transformation)
+  (method (update-transformation self)
     (set! transformation (and (or scaling rotation)
                               (let ((matrix (cairo_matrix_t-make)))
                                 (cairo_matrix_init_identity matrix)
@@ -711,13 +714,13 @@
                                 (when scaling
                                   (cairo_matrix_scale matrix scaling scaling))
                                 matrix)))
-    (update-displayed)
-    (update-scrollbars)
+    (update-displayed self)
+    (update-scrollbars self)
     ;; Depending on whether it's the view's point of vue or it's parent
     ;; we either have to invalidate the view or its parent...
     (if parent
-        (invalidate-view~ parent)
-      (invalidate-view)))
+        (invalidate-view parent)
+      (invalidate-view self)))
 
   
   ;;;
@@ -725,12 +728,12 @@
   ;;;
   
   
-  (method override (enabled-update action-item)
-    (set-enabled? (get-enabled?~ action-item)))
+  (method override (enabled-update self action-item)
+    (set-enabled? self (get-enabled? action-item)))
   
   
-  (method public virtual (actionable-reachable?)
-    (view-visible?))
+  (method public virtual (actionable-reachable? self)
+    (view-visible? self))
 
   
   ;;;
@@ -738,22 +741,22 @@
   ;;;
 
 
-  (method public (outline-select)
-    (let* ((row (outline-row))
-           (column (outline-column))
-           (line (row->line~ outline-view row))
-           (col (column->col~ outline-view column))
-           (elem (if (and (is? outline-view Tree-View) (eq? (get-selection-mode~ outline-view) 'cell)) (new Cell line col) line)))
-      (acquire-focus)
-      (set-selection~ outline-view (list elem))))
+  (method public (outline-select self)
+    (let* ((row (outline-row self))
+           (column (outline-column self))
+           (line (row->line outline-view row))
+           (col (column->col outline-view column))
+           (elem (if (and (is? outline-view Tree-View) (eq? (get-selection-mode outline-view) 'cell)) (new Cell line col) line)))
+      (acquire-focus self)
+      (set-selection outline-view (list elem))))
   
   
-  (method public (outline-row)
-    (find-ascendant Outline-Row))
+  (method public (outline-row self)
+    (find-ascendant self Outline-Row))
   
   
-  (method public (outline-column)
-    (get-column~ outline-view (find (get-children~ parent) self)))
+  (method public (outline-column self)
+    (get-column outline-view (find (get-children parent) self)))
 
 
   ;;;
@@ -761,15 +764,15 @@
   ;;;
   
   
-  (method override (get-offscreen?)
+  (method override (get-offscreen? self)
     offscreen?)
   
   
-  (method override (set-offscreen? flag <bool>)
+  (method override (set-offscreen? self flag <bool>)
     (when (neq? flag offscreen?)
       (set! offscreen? flag)
       (when (not offscreen?)
-        (close-offscreen))))
+        (close-offscreen self))))
 
 
   ;;;
@@ -777,11 +780,11 @@
   ;;;
   
   
-  (method override (get-layer)
+  (method override (get-layer self)
     layer)
   
   
-  (method override (set-layer value)
+  (method override (set-layer self value)
     (set! layer value))
 
 
@@ -790,11 +793,11 @@
   ;;;
   
   
-  (method override (get-effect)
+  (method override (get-effect self)
     effect)
   
   
-  (method override (set-effect value)
+  (method override (set-effect self value)
     (set! effect value))
   
   
@@ -803,25 +806,25 @@
   ;;;
   
 
-  (method override (set-position pos <Point>)
+  (method override (set-position self pos <Point>)
     (when (/= pos position)
       ;; todo: it is possible to invalidate more precisely
       (let ((inval? (and player (is? parent View) (not (inhibit-invalidates?)))))
-        (let* ((bounds (and inval? (get-bounds)))
-               (old (and inval? (acquire~ parent self bounds))))
+        (let* ((bounds (and inval? (get-bounds self)))
+               (old (and inval? (acquire parent self bounds))))
           (set! position pos)
           (when player
-            (let ((new (get-bounds)))
+            (let ((new (get-bounds self)))
               (when old
-                (invalidate-rect~ parent old))
-              (invalidate-rect new)))))
-      (position-change position)))
+                (invalidate-rect parent old))
+              (invalidate-rect self new)))))
+      (position-change self position)))
   
 
-  (method package (set-position-noupdate pos <Point>)
+  (method package (set-position-noupdate self pos <Point>)
     (when (/= pos position)
       (set! position pos)
-      (position-change position)))
+      (position-change self position)))
 
   
   ;;;
@@ -829,67 +832,67 @@
   ;;;
   
   
-  (method override (default-size) <Dimension>
+  (method override (default-size self) <Dimension>
     {Dimension 100 100})
   
   
-  (method public virtual (minimal-size)
+  (method public virtual (minimal-size self)
     #f)
   
   
-  (method public virtual (preferred-size) <Dimension>
-    (get-size))
+  (method public virtual (preferred-size self) <Dimension>
+    (get-size self))
   
-  (method public virtual (preferred-width) <fx>
-    (get-width~ (preferred-size)))
+  (method public virtual (preferred-width self) <fx>
+    (get-width (preferred-size self)))
   
-  (method public virtual (preferred-height) <fx>
-    (get-height~ (preferred-size)))
+  (method public virtual (preferred-height self) <fx>
+    (get-height (preferred-size self)))
   
   
-  (method public virtual (fit-size)
+  (method public virtual (fit-size self)
     )
   
   
-  (method (invalidated-size sz)
+  (method (invalidated-size self sz)
     (and player (is? parent View) (not (inhibit-invalidates?))
-      (let ((old (get-bounds))
+      (let ((old (get-bounds self))
             (new (size-rect sz)))
-        (acquire~ parent self (rect-union old new)))))
+        (acquire parent self (rect-union old new)))))
   
 
-  (method override (set-size sz <Dimension>)
+  (method override (set-size self sz <Dimension>)
     @validate-size
-    (assert (and (>= (get-width~ sz) 0)
-                 (>= (get-height~ sz) 0)))
+    (assert (and (>= (get-width sz) 0)
+                 (>= (get-height sz) 0)))
     (when (/= sz size)
-      (let ((invalidated-size (invalidated-size sz)))
+      (let ((invalidated-size (invalidated-size self sz)))
         (set! size sz)
-        (size-change size)
+        (size-change self size)
         (unless scroller
-          (content-size-change size))
+          (content-size-change self size))
         (when parent
-          (adjust-fit~ parent))
+          (adjust-fit parent))
         (when invalidated-size
-          (invalidate-rect~ parent invalidated-size)))))
+          (invalidate-rect parent invalidated-size)))))
   
   
-  (method override (set-size-noevent sz <Dimension>)
+  (method override (set-size-noevent self sz <Dimension>)
     (when (/= sz size)
-      (let ((invalidated-size (invalidated-size sz)))
+      (let ((invalidated-size (invalidated-size self sz)))
         (set! size sz)
         (when invalidated-size
-          (invalidate-rect~ parent invalidated-size)))))
+          (invalidate-rect parent invalidated-size)))))
   
   
-  (method public (set-preferred-size)
-    (set-size (preferred-size)))
+  (method public (set-preferred-size self)
+    (set-size self (preferred-size self)))
   
-  (method public (set-preferred-width)
-    (set-width (preferred-width)))
+  (method public (set-preferred-width self)
+    (set-width self (preferred-width self)))
   
-  (method public (set-preferred-height)
-    (set-height (preferred-height)))
+  (method public (set-preferred-height self)
+    (set-height self (preferred-height self)))
   
   
   ;;;
@@ -897,8 +900,8 @@
   ;;;
   
   
-  (method public (layout-view)
-    (layout-drawing))
+  (method public (layout-view self)
+    (layout-drawing self))
 
 
   ;;;
@@ -906,44 +909,44 @@
   ;;;
   
   
-  (method public (front-view)
+  (method public (front-view self)
     (last children))
   
   
-  (method public (back-view)
+  (method public (back-view self)
     (first children))
   
   
-  (method override (send-before target)
-    (nextmethod target)
-    (invalidate-view))
+  (method override (send-before self target)
+    (nextmethod self target)
+    (invalidate-view self))
   
   
-  (method override (bring-to-front)
-    (unless (front?)
-      (nextmethod)
-      (invalidate-view)))
+  (method override (bring-to-front self)
+    (unless (front? self)
+      (nextmethod self)
+      (invalidate-view self)))
 
 
-  (method override (send-to-back)
-    (unless (back?)
-      (nextmethod)
-      (invalidate-view)))
+  (method override (send-to-back self)
+    (unless (back? self)
+      (nextmethod self)
+      (invalidate-view self)))
   
   
-  (method override (front-child? child)
+  (method override (front-child? self child)
     (eq? child (last children)))
   
   
-  (method override (back-child? child)
+  (method override (back-child? self child)
     (eq? child (first children)))
 
 
-  (method override (send-child-to-front child)
+  (method override (send-child-to-front self child)
     (set! children (move-to-tail! child children)))
 
 
-  (method override (send-child-to-back child)
+  (method override (send-child-to-back self child)
     (set! children (move-to-head! child children)))
 
   
@@ -952,26 +955,26 @@
   ;;;
   
   
-  (method public virtual (scrollee-size) <Dimension>
-    (new Dimension (scrollee-width) (scrollee-height)))
+  (method public virtual (scrollee-size self) <Dimension>
+    (new Dimension (scrollee-width self) (scrollee-height self)))
   
   
-  (method protected virtual (scrollee-width)
-    (get-width))
+  (method package virtual (scrollee-width self)
+    (get-width self))
   
   
-  (method protected virtual (scrollee-height)
-    (get-height))
+  (method package virtual (scrollee-height self)
+    (get-height self))
   
   
   ;; not sure yet if we should always resize a scrollee not in a scroller
   ;; so for now we override those methods to implement dynamic scrollees
-  (method protected virtual (dynamic-scrollee?)
+  (method protected virtual (dynamic-scrollee? self)
     #f)
   
   
-  (method protected virtual (dynamic-set-scrollee-size)
-    (set-size (scrollee-size)))
+  (method protected virtual (dynamic-set-scrollee-size self)
+    (set-size self (scrollee-size self)))
 
   
   ;;;
@@ -979,7 +982,7 @@
   ;;;
   
   
-  (method public (with-update-locked proc)
+  (method public (with-update-locked self proc)
     (if update-locked?
         (proc)
       (unwind-protect
@@ -987,12 +990,12 @@
             (set! update-locked? #t)
             (proc))
         (set! update-locked? #f)
-        (invalidate-update))))
+        (invalidate-update self))))
   
   
-  (method protected virtual (invalidate-update)
-    (invalidate-view)
-    (update-scrollbars))
+  (method package virtual (invalidate-update self)
+    (invalidate-view self)
+    (update-scrollbars self))
 
   
   ;;;
@@ -1000,10 +1003,10 @@
   ;;;
   
 
-  (method override (render surface draw-self? nodes context)
+  (method override (render self surface draw-self? nodes context)
     (if renderer
-        (render~ renderer self surface draw-self? nodes context)
-      (nextmethod surface draw-self? nodes context)))
+        (render renderer self surface draw-self? nodes context)
+      (nextmethod self surface draw-self? nodes context)))
 
   
   ;;;
@@ -1011,20 +1014,20 @@
   ;;;
   
   
-  (method override (draw-background surface context)
-    (let ((background (get-drawing-background context)))
+  (method override (draw-background self surface context)
+    (let ((background (get-drawing-background self context)))
       (when background
-        (let ((bounds (get-bounds)))
-          (fill-rect~ surface bounds background)))))
+        (let ((bounds (get-bounds self)))
+          (fill-rect surface bounds background)))))
   
   
-  (method public virtual (get-drawing-background context)
+  (method public virtual (get-drawing-background self context)
     background)
   
   
-  (method override (draw-content surface context)
-    (set-font~ surface (effective-font))
-    (draw surface context))
+  (method override (draw-content self surface context)
+    (set-font surface (effective-font self))
+    (draw self surface context))
   
   
   ;;;
@@ -1032,7 +1035,7 @@
   ;;;
   
   
-  (method public virtual (get-skin)
+  (method public virtual (get-skin self)
     )
 
 
@@ -1041,17 +1044,17 @@
   ;;;
   
   
-  (method override (get-offscreen surface <Surface+>)
-    (let ((width (get-width~ size))
-          (height (get-height~ size)))
+  (method override (get-offscreen self surface <Surface+>)
+    (let ((width (get-width size))
+          (height (get-height size)))
       (if (and offscreen
-               (let ((size (get-size~ offscreen)))
-                 (and (<= width (get-width~ size))
-                      (<= height (get-height~ size)))))
+               (let ((size (get-size offscreen)))
+                 (and (<= width (get-width size))
+                      (<= height (get-height size)))))
           (begin
-            (renew-context~ offscreen)
+            (renew-context offscreen)
             offscreen)
-        (close-offscreen)
+        (close-offscreen self)
         (set! offscreen (new-offscreen surface width height))
         offscreen)))
   
@@ -1060,9 +1063,9 @@
     (new Memory-Surface surface (new Dimension width height)))
   
   
-  (method package (close-offscreen)
+  (method package (close-offscreen self)
     (when offscreen
-      (close~ offscreen)
+      (close offscreen)
       (set! offscreen #f)))
 
   
@@ -1071,8 +1074,8 @@
   ;;;
 
   
-  (method override (get-opaque?)
-    (boolean (and background (neq? background 'none) (>= (get-alpha~ background) 1.))))
+  (method override (get-opaque? self)
+    (boolean (and background (neq? background 'none) (>= (get-alpha background) 1.))))
 
   
   ;;;
@@ -1080,24 +1083,24 @@
   ;;;
   
   
-  (method public virtual (custom-page-setup?)
+  (method public virtual (custom-page-setup? self)
     #f)
   
   
-  (method public virtual (get-page-setup)
-    (default-page-setup~ (get-application)))
+  (method public virtual (get-page-setup self)
+    (default-page-setup (get-application)))
   
   
-  (method public virtual (get-page-setup-designer)
-    (default-page-setup-designer~ (get-application)))
+  (method public virtual (get-page-setup-designer self)
+    (default-page-setup-designer (get-application)))
   
   
-  (method public virtual (get-page-setup-parcel designer)
-    (default-page-setup-parcel~ (get-application) designer))
+  (method public virtual (get-page-setup-parcel self designer)
+    (default-page-setup-parcel (get-application) designer))
   
   
-  (method public virtual (apply-page-setup designer form page-setup)
-    (default-apply-page-setup~ (get-application) designer form page-setup))
+  (method public virtual (apply-page-setup self designer form page-setup)
+    (default-apply-page-setup (get-application) designer form page-setup))
 
   
   ;;;
@@ -1105,68 +1108,68 @@
   ;;;
   
   
-  (method public virtual (print-document)
+  (method public virtual (print-document self)
     (platform-print-document self))
 
   
-  (method public virtual (print-layout (from-preview?: from-preview? #f))
+  (method public virtual (print-layout self (from-preview?: from-preview? #f))
     (with-locked-update
       (lambda ()
         (let* ((client (current-document))
                (current (selected-workspace))
                (ws (new Page-Workspace name: 'page previous: current)))
-          (apply-preferences~ ws)
-          (let* ((toplevel (get-toplevel))
-                 (toolbar (find-docked~ toplevel Page-Toolbar)))
-            (set-visible?~ (locate~ toolbar 'print-preview) (not from-preview?))
-            (layout-view~ toolbar)
-            (invalidate-window~ toplevel))
+          (apply-preferences ws)
+          (let* ((toplevel (current-toplevel))
+                 (toolbar (find-docked toplevel Page-Toolbar)))
+            (set-visible? (locate toolbar 'print-preview) (not from-preview?))
+            (layout-view toolbar)
+            (invalidate-window toplevel))
           (let* ((frame (new-frame Page-Editor host-title: "Print Layout" client: client))
-                 (pane (get-guest~ frame)))
-            (acquire-focus~ pane))))))
+                 (pane (get-guest frame)))
+            (acquire-focus pane))))))
 
   
-  (method public virtual (print-layout-debug (from-preview?: from-preview? #f))
+  (method public virtual (print-layout-debug self (from-preview?: from-preview? #f))
     (let ((client (current-document)))
       (let ((frame (new-frame Page-Editor host-title: "Print Layout" client: client)))
-        (let ((pane (get-guest~ frame)))
-          (acquire-focus~ pane)))))
+        (let ((pane (get-guest frame)))
+          (acquire-focus pane)))))
   
 
-  (method public virtual (print-preview (from-layout?: from-layout? #f))
+  (method public virtual (print-preview self (from-layout?: from-layout? #f))
     (with-locked-update
       (lambda ()
         (let* ((frame (new-frame Preview-Pane host-title: "Print Preview" client: self))
-               (pane (get-guest~ frame))
+               (pane (get-guest frame))
                (current (selected-workspace))
                (ws (new Preview-Workspace name: 'preview previous: current pane: pane)))
-          (apply-preferences~ ws)
-          (let* ((toplevel (get-toplevel))
-                 (toolbar (find-docked~ toplevel Preview-Toolbar)))
-            (set-visible?~ (locate~ toolbar 'print-layout) (not from-layout?))
-            (layout-view~ toolbar)
-            (invalidate-window~ toplevel))
-          (set-visible?~ frame #t)
-          (acquire-focus~ pane)))))
+          (apply-preferences ws)
+          (let* ((toplevel (current-toplevel))
+                 (toolbar (find-docked toplevel Preview-Toolbar)))
+            (set-visible? (locate toolbar 'print-layout) (not from-layout?))
+            (layout-view toolbar)
+            (invalidate-window toplevel))
+          (set-visible? frame #t)
+          (acquire-focus pane)))))
   
 
-  (method public virtual (print-preview-debug (from-layout?: from-layout? #f))
-    (setup-page-setup~ (get-application))
+  (method public virtual (print-preview-debug self (from-layout?: from-layout? #f))
+    (setup-page-setup (get-application))
     (let ((frame (new-frame Preview-Pane host-title: "Print Preview" client: self)))
-      (let ((pane (get-guest~ frame)))
-        (acquire-focus~ pane))))
+      (let ((pane (get-guest frame)))
+        (acquire-focus pane))))
   
   
-  (method public virtual (get-page-area context)
+  (method public virtual (get-page-area self context)
     #f)
   
   
-  (method public virtual (get-print-area context)
-    (position/size->rect {Point 0 0} (scrollee-size)))
+  (method public virtual (get-print-area self context)
+    (position/size->rect {Point 0 0} (scrollee-size self)))
   
   
-  (method public virtual (paginate page-width page-height)
-    (let* ((area (get-print-area #f))
+  (method public virtual (paginate self page-width page-height)
+    (let* ((area (get-print-area self #f))
            (width (rect-width area))
            (height (rect-height area))
            (cols (fxceiling/ width page-width))
@@ -1174,35 +1177,35 @@
            (pages (new List-Factory)))
       (for-each (lambda (row)
                   (for-each (lambda (col)
-                              (let* ((h (+ (get-left~ area) (* col page-width)))
-                                     (v (+ (get-top~ area) (* row page-height)))
+                              (let* ((h (+ (get-left area) (* col page-width)))
+                                     (v (+ (get-top area) (* row page-height)))
                                      (page (new Rect h v (+ h page-width) (+ v page-height))))
-                                (put~ pages page)))
+                                (put pages page)))
                             (naturals 0 cols)))
                 (naturals 0 rows))
-      (get-output~ pages)))
+      (get-output pages)))
   
   
-  (method protected (with-printing proc)
+  (method package (with-printing self proc)
     (let ((preserved #f))
       (unwind-protect
           (begin
-            (set! preserved (setup-printing))
+            (set! preserved (setup-printing self))
             (proc))
         (when preserved
-          (restore-printing preserved)))))
+          (restore-printing self preserved)))))
   
   
-  (method protected virtual (setup-printing)
+  (method package virtual (setup-printing self)
     (let ((pos position))
       (set! position (new Point 0 0))
-      (update-displayed)
+      (update-displayed self)
       (list position: pos)))
   
   
-  (method protected virtual (restore-printing preserved)
+  (method package virtual (restore-printing self preserved)
     (set! position (getf preserved position:))
-    (update-displayed))
+    (update-displayed self))
   
   
   ;;;
@@ -1210,11 +1213,11 @@
   ;;;
   
   
-  (method public (export-picture (context: context '()) (where: where 'file) (destination: destination #f))
-    (with ((surface (new Memory-Surface #f (get-size))))
-      (set-clipper~ surface (new Rect 0 0 (get-width) (get-height)))
-      (paint-drawing surface context)
-      (export-to-png~ surface (or destination (choose-new-file default-extension: "png")))))
+  (method public (export-picture self (context: context '()) (where: where 'file) (destination: destination #f))
+    (with ((surface (new Memory-Surface #f (get-size self))))
+      (set-clipper surface (new Rect 0 0 (get-width self) (get-height self)))
+      (paint-drawing self surface context)
+      (export-to-png surface (or destination (choose-new-file default-extension: "png")))))
 
 
   ;;;
@@ -1222,25 +1225,25 @@
   ;;;
   
   
-  (method public (get-scroller)
+  (method public (get-scroller self)
     scroller)
   
   
-  (method public virtual (set-scroller view)
+  (method public virtual (set-scroller self view)
     (set! scroller view))
   
   
-  (method public virtual (set-scroll-pos pos (redraw?: redraw? #f))
+  (method public virtual (set-scroll-pos self pos (redraw?: redraw? #f))
     (when scroller
-      (set-scroll-pos~ scroller pos redraw?: redraw?)))
+      (set-scroll-pos scroller pos redraw?: redraw?)))
     
   
-  (method public virtual (set-scroll-info part min max line page)
+  (method public virtual (set-scroll-info self part min max line page)
     (when scroller
-      (set-scroll-info~ scroller part min max line page)))
+      (set-scroll-info scroller part min max line page)))
   
   
-  (method public (compute-scroll-info)
+  (method public (compute-scroll-info self)
     (let ((vmin #f)
           (vmax #f)
           (vline #f)
@@ -1254,17 +1257,17 @@
       (define (vupdate)
         (let ((adjust (if hscroll? scrollbar-size 0)))
           (set! vmin  0)
-          (set! vmax  (- (get-height) adjust))
-          (set! vline (get-line-size 'vert))
-          (set! vpage (- (get-page-size 'vert) adjust))
+          (set! vmax  (- (get-height self) adjust))
+          (set! vline (get-line-size self 'vert))
+          (set! vpage (- (get-page-size self 'vert) adjust))
           (set! vscroll? (> vmax vpage))))
       
       (define (hupdate)
         (let ((adjust (if vscroll? scrollbar-size 0)))
           (set! hmin  0)
-          (set! hmax  (- (get-width) adjust))
-          (set! hline (get-line-size 'horz))
-          (set! hpage (- (get-page-size 'horz) adjust))
+          (set! hmax  (- (get-width self) adjust))
+          (set! hline (get-line-size self 'horz))
+          (set! hpage (- (get-page-size self 'horz) adjust))
           (set! hscroll? (> hmax hpage))))
       
       (vupdate)
@@ -1274,195 +1277,195 @@
       (values vmin vmax vline vpage hmin hmax hline hpage)))
   
   
-  (method public (update-scrollbars)
+  (method public (update-scrollbars self)
     (when (and scroller (not update-locked?))
-      (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info)
-        (set-vscroll-needed?~ scroller (> vmax vpage))
-        (when (get-vscroll?~ scroller)
-          (set-scroll-info 'vert vmin vmax vline vpage))
-        (set-hscroll-needed?~ scroller (> hmax hpage))
-        (when (get-hscroll?~ scroller)
-          (set-scroll-info 'horz hmin hmax hline hpage)))))
+      (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info self)
+        (set-vscroll-needed? scroller (> vmax vpage))
+        (when (get-vscroll? scroller)
+          (set-scroll-info self 'vert vmin vmax vline vpage))
+        (set-hscroll-needed? scroller (> hmax hpage))
+        (when (get-hscroll? scroller)
+          (set-scroll-info self 'horz hmin hmax hline hpage)))))
   
   
-  (method public (vscroll-needed?)
-    (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info)
+  (method public (vscroll-needed? self)
+    (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info self)
       (> vmax vpage)))
   
   
-  (method public (hscroll-needed?)
-    (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info)
+  (method public (hscroll-needed? self)
+    (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info self)
       (> hmax hpage)))
   
   
-  (method public (scroll delta <Point> (redraw?: redraw? #f))
+  (method public (scroll self delta <Point> (redraw?: redraw? #f))
     (unless (= delta {Point 0 0})
-      (scroll-to (+ (get-scrolled-position) delta) redraw?: redraw?)))
+      (scroll-to self (+ (get-scrolled-position self) delta) redraw?: redraw?)))
   
   
-  (method public (scroll-to dest <Point> (redraw?: redraw? #f))
-    (when (get-scroller)
-      (let ((pos (get-scrolled-position)))
+  (method public (scroll-to self dest <Point> (redraw?: redraw? #f))
+    (when (get-scroller self)
+      (let ((pos (get-scrolled-position self)))
         (when (/= dest pos)
-          (let* ((size (get-size))
-                 (display-size (get-display-size))
+          (let* ((size (get-size self))
+                 (display-size (get-display-size self))
                  (min-dist {Distance 0 0})
                  (max-dist (dimension->distance (- display-size size)))
                  (new-dist (distance-min (distance-max (point->distance dest) max-dist) min-dist))
-                 (new-pos (get-display-position (distance->point new-dist))))
+                 (new-pos (get-display-position self (distance->point new-dist))))
             (when (/= new-pos position)
               (set! position new-pos)
               (let ((delta (- new-dist (point->distance pos))))
-                (set-scroll-pos (distance->point (- new-dist)) redraw?: redraw?)
-                (update-scrollbars)
-                (scroll-invalidate delta)
-                (if (or transformation (not (get-scrollable?)))
-                    (invalidate-view)
-                  (let ((display (get-display)))
-                    (let ((rect (get-bounds~ display)))
-                      (scroll-view~ display delta rect)))))))))))
+                (set-scroll-pos self (distance->point (- new-dist)) redraw?: redraw?)
+                (update-scrollbars self)
+                (scroll-invalidate self delta)
+                (if (or transformation (not (get-scrollable? self)))
+                    (invalidate-view self)
+                  (let ((display (get-display self)))
+                    (let ((rect (get-bounds display)))
+                      (scroll-view display delta rect)))))))))))
   
   
-  (method public (scroll2 delta <Point> (redraw?: redraw? #f))
+  (method public (scroll2 self delta <Point> (redraw?: redraw? #f))
     (unless (= delta {Point 0 0})
-      (scroll-to2 (+ (get-scrolled-position) delta) redraw?: redraw?)))
+      (scroll-to2 self (+ (get-scrolled-position self) delta) redraw?: redraw?)))
   
   
-  (method public (scroll-to2 dest <Point> (redraw?: redraw? #f))
-    (when (get-scroller)
-      (let ((pos (get-scrolled-position)))
+  (method public (scroll-to2 self dest <Point> (redraw?: redraw? #f))
+    (when (get-scroller self)
+      (let ((pos (get-scrolled-position self)))
         (when (/= dest pos)
-          (let* ((size (get-size))
-                 (display-size (get-display-size))
+          (let* ((size (get-size self))
+                 (display-size (get-display-size self))
                  (min-dist {Distance 0 0})
                  (max-dist (dimension->distance (- display-size size)))
                  (new-dist (distance-min (distance-max (point->distance dest) max-dist) min-dist))
-                 (new-pos (get-display-position (distance->point new-dist))))
+                 (new-pos (get-display-position self (distance->point new-dist))))
             (when (/= new-pos position)
               (set! position new-pos)
               (let ((delta (- new-dist (point->distance pos))))
-                (set-scroll-pos (distance->point (- new-dist)) redraw?: redraw?)
-                (update-scrollbars)
-                (scroll-invalidate delta)
-                (if (or transformation (not (get-scrollable?)))
-                    (invalidate-view)
-                  (let ((display (get-display)))
-                    (let ((rect (get-bounds~ display)))
-                      (scroll-view2~ display delta rect)))))))))))
+                (set-scroll-pos self (distance->point (- new-dist)) redraw?: redraw?)
+                (update-scrollbars self)
+                (scroll-invalidate self delta)
+                (if (or transformation (not (get-scrollable? self)))
+                    (invalidate-view self)
+                  (let ((display (get-display self)))
+                    (let ((rect (get-bounds display)))
+                      (scroll-view2 display delta rect)))))))))))
   
   
-  (method protected virtual (redraw-scrollbars)
+  (method protected virtual (redraw-scrollbars self)
     )
   
   
-  (method protected virtual (scroll-invalidate delta)
+  (method protected virtual (scroll-invalidate self delta)
     )
   
   
-  (method public (scroll-view delta rect)
-    (let ((player (get-player)))
-      (when (and player (view-visible?))
-        (with-clipped-transformation-surface
+  (method public (scroll-view self delta rect)
+    (let ((player (get-player self)))
+      (when (and player (view-visible? self))
+        (with-clipped-transformation-surface self
           (lambda (surface)
-            (let ((delta (device->logical~ surface delta))
-                  (acquired (logical->device~ surface rect))
-                  (clip-rect (logical->device~ surface (get-clipper~ surface))))
-              (scroll-window~ player delta acquired clip-rect)))))))
+            (let ((delta (device->logical surface delta))
+                  (acquired (logical->device surface rect))
+                  (clip-rect (logical->device surface (get-clipper surface))))
+              (scroll-window player delta acquired clip-rect)))))))
   
   
   ;; an attempt at a platform-independent scroll-view
-  (method public (scroll-view2 delta rect)
-    (let ((player (get-player))
-          (root (get-root)))
-      (when (and player (view-visible?))
-        (with-clipped-transformation-surface
+  (method public (scroll-view2 self delta rect)
+    (let ((player (get-player self))
+          (root (get-root self)))
+      (when (and player (view-visible? self))
+        (with-clipped-transformation-surface self
           (lambda (surface)
-            (let ((delta (device->logical~ surface delta))
-                  (acquired (logical->device~ surface rect))
-                  (clip-rect (logical->device~ surface (get-clipper~ surface))))
-              (scroll-offscreen2~ root delta acquired clip-rect)))))))
+            (let ((delta (device->logical surface delta))
+                  (acquired (logical->device surface rect))
+                  (clip-rect (logical->device surface (get-clipper surface))))
+              (scroll-offscreen2 root delta acquired clip-rect)))))))
   
   
-  (method (scroll-offscreen2 delta src-rect clip-rect)
-    (with-view-surface
+  (method package (scroll-offscreen2 self delta src-rect clip-rect)
+    (with-view-surface self
       (lambda (surface)
-        (let* ((dh (get-x~ delta))
-               (dv (get-y~ delta))
+        (let* ((dh (get-x delta))
+               (dv (get-y delta))
                (src-rect (rect-intersection src-rect clip-rect))
                (dst-rect (offset-rect src-rect dh dv))
                (modified-rect (rect-intersection (rect-union src-rect dst-rect) clip-rect))
                (new-clipper (rect-intersection modified-rect dst-rect))
-               (offscreen (get-offscreen #f)))
-          (set-source-surface~ surface offscreen dh dv)
-          (draw-rectangle~ surface new-clipper)
-          (fill~ surface)
-          (set-source-surface~ offscreen offscreen dh dv)
-          (draw-rectangle~ offscreen new-clipper)
-          (fill~ offscreen)
-          (let ((ml (get-left~ modified-rect))
-                (mt (get-top~ modified-rect))
-                (mr (get-right~ modified-rect))
-                (mb (get-bottom~ modified-rect)))
+               (offscreen (get-offscreen self #f)))
+          (set-source-surface surface offscreen dh dv)
+          (draw-rectangle surface new-clipper)
+          (fill surface)
+          (set-source-surface offscreen offscreen dh dv)
+          (draw-rectangle offscreen new-clipper)
+          (fill offscreen)
+          (let ((ml (get-left modified-rect))
+                (mt (get-top modified-rect))
+                (mr (get-right modified-rect))
+                (mb (get-bottom modified-rect)))
             (when (< dh 0)
-              (invalidate-rect (new Rect (+ mr dh) mt mr mb)))
+              (invalidate-rect self (new Rect (+ mr dh) mt mr mb)))
             (when (< dv 0)
-              (invalidate-rect (new Rect ml (+ mb dv) mr mb)))
+              (invalidate-rect self (new Rect ml (+ mb dv) mr mb)))
             (when (> dh 0)
-              (invalidate-rect (new Rect ml mt (+ ml dh) mb)))
+              (invalidate-rect self (new Rect ml mt (+ ml dh) mb)))
             (when (> dv 0)
-              (invalidate-rect (new Rect ml mt mr (+ mt dv)))))))))
+              (invalidate-rect self (new Rect ml mt mr (+ mt dv)))))))))
  
   
-  (method public (get-scrolled-distance) <Distance>
+  (method public (get-scrolled-distance self) <Distance>
     (if scroller
-        (nu- (display->view (point->distance position)))
+        (nu- (display->view self (point->distance position)))
       {Distance 0 0}))
  
   
-  (method public (get-scrolled-distance-h) <fx>
-    (get-x~ (get-scrolled-distance)))
+  (method public (get-scrolled-distance-h self) <fx>
+    (get-x (get-scrolled-distance self)))
  
   
-  (method public (get-scrolled-distance-v) <fx>
-    (get-y~ (get-scrolled-distance)))
+  (method public (get-scrolled-distance-v self) <fx>
+    (get-y (get-scrolled-distance self)))
  
   
-  (method public (get-scrolled-position) <Point>
+  (method public (get-scrolled-position self) <Point>
     (if scroller
-        (distance->point (display->view (point->distance position)))
+        (distance->point (display->view self (point->distance position)))
       {Point 0 0}))
  
   
-  (method public (get-scrolled-h) <fx>
-    (get-h~ (get-scrolled-position)))
+  (method public (get-scrolled-h self) <fx>
+    (get-h (get-scrolled-position self)))
  
   
-  (method public (get-scrolled-v) <fx>
-    (get-v~ (get-scrolled-position)))
+  (method public (get-scrolled-v self) <fx>
+    (get-v (get-scrolled-position self)))
   
   
-  (method public virtual (get-scroll-client)
+  (method public virtual (get-scroll-client self)
     self)
   
   
-  (method public virtual (get-line-size orientation) <fx>
+  (method public virtual (get-line-size self orientation) <fx>
     (case orientation
       ((vert) 13)
       ((horz) 8)))
   
   
-  (method public virtual (get-page-size orientation) <fx>
-    (let ((size (get-display-size)))
+  (method public virtual (get-page-size self orientation) <fx>
+    (let ((size (get-display-size self)))
       (case orientation
-        ((vert) (get-height~ size))
-        ((horz) (get-width~ size)))))
+        ((vert) (get-height size))
+        ((horz) (get-width size)))))
   
   
-  (method public virtual (get-scrollable?)
+  (method public virtual (get-scrollable? self)
     #t)
   
   
-  (method public (with-scrollee-locked proc)
+  (method public (with-scrollee-locked self proc)
     (if scrollee-locked?
         (proc)
       (unwind-protect
@@ -1472,50 +1475,50 @@
         (set! scrollee-locked? #f))))
   
   
-  (method public virtual (layout-scrollee)
+  (method public virtual (layout-scrollee self)
     (define (scroll-to-fit)
-      (let ((bottom (get-bottom))
-            (fit (get-display-height)))
+      (let ((bottom (get-bottom self))
+            (fit (get-display-height self)))
         (when (< bottom fit)
-          (scroll (new Point 0 (- fit bottom)))))
-      (let ((right (get-right))
-            (fit (get-display-width)))
+          (scroll self (new Point 0 (- fit bottom)))))
+      (let ((right (get-right self))
+            (fit (get-display-width self)))
         (when (< right fit)
-          (scroll (new Point (- fit right) 0)))))
+          (scroll self (new Point (- fit right) 0)))))
     
     (unless update-locked?
       (unless (inhibit-scrollee-layouts?)
-        (let ((dynamic? (dynamic-scrollee?)))
+        (let ((dynamic? (dynamic-scrollee? self)))
           (when dynamic?
-            (dynamic-set-scrollee-size))
+            (dynamic-set-scrollee-size self))
           (if (not scroller)
-              (layout-scrollee-content)
-            (let ((size (scrollee-size)))
+              (layout-scrollee-content self)
+            (let ((size (scrollee-size self)))
               (when size
                 (unless dynamic?
-                  (set-size size))
+                  (set-size self size))
                 (scroll-to-fit)
                 ;; prevents multiple useless layouts that can occur when update scrollbars
                 ;; resizes a view that will call layout-scrollee in response (ex: tree header)
                 (unless scrollee-locked?
                   ;; it is important to update scrollbars first as this can change
                   ;; the scrollee size and we do not want to layout twice for nothing
-                  (with-scrollee-locked
+                  (with-scrollee-locked self
                     (lambda ()
-                      (update-scrollbars)))
-                  (layout-scrollee-content)))))))))
+                      (update-scrollbars self)))
+                  (layout-scrollee-content self)))))))))
   
   
   ;; temp patch until update-displayed is 100% fixed
-  (method public virtual (layout-scrollee-patch)
+  (method public virtual (layout-scrollee-patch self)
     )
   
   
-  (method public virtual (layout-scrollee-content)
+  (method public virtual (layout-scrollee-content self)
     )
 
 
-  (method package virtual (scroll-action action line page thumb-pos orientation)
+  (method package virtual (scroll-action self action line page thumb-pos orientation)
     )
 
 
@@ -1524,43 +1527,43 @@
   ;;;
   
   
-  (method public virtual (content-size-change size)
+  (method public virtual (content-size-change self size)
     )
 
   
-  (method public (get-display)
+  (method public (get-display self)
     (if scroller
         parent
       self))
   
   
-  (method public (get-display-position pos <Point>) <Point>
-    (distance->point (view->display (point->distance pos))))
+  (method public (get-display-position self pos <Point>) <Point>
+    (distance->point (view->display self (point->distance pos))))
     
   
-  (method public (get-display-size) <Dimension>
-    (display->view (get-size~ (get-display))))
+  (method public (get-display-size self) <Dimension>
+    (display->view self (get-size (get-display self))))
     
   
-  (method public (get-display-width) <fx>
-    (get-width~ (get-display-size)))
+  (method public (get-display-width self) <fx>
+    (get-width (get-display-size self)))
     
   
-  (method public (get-display-height) <fx>
-    (get-height~ (get-display-size)))
+  (method public (get-display-height self) <fx>
+    (get-height (get-display-size self)))
   
   
-  (method public (view->display shape)
-    (acquire~ (get-display) self shape))
+  (method public (view->display self shape)
+    (acquire (get-display self) self shape))
 
   
-  (method public (display->view shape)
-    (acquire~ self (get-display) shape))
+  (method public (display->view self shape)
+    (acquire self (get-display self) shape))
   
   
-  (method public (scroll-needed start end context (force-vertical: force-vertical #f) (force-horizontal: force-horizontal #f) (reposition: reposition #f) (center?: center? #f)) <Point>
-    (let ((distance (get-scrolled-distance))
-          (display-size (get-display-size))
+  (method public (scroll-needed self start end context (force-vertical: force-vertical #f) (force-horizontal: force-horizontal #f) (reposition: reposition #f) (center?: center? #f)) <Point>
+    (let ((distance (get-scrolled-distance self))
+          (display-size (get-display-size self))
           (needed
             (lambda (start end context pos size force-direction reposition? center?)
               (let* ((start-offset (- pos start))
@@ -1576,13 +1579,13 @@
                   ((and (< start-offset 0) (< end-offset 0)) (proc (if (not force-direction) big-range? (eq? force-direction 'head))))
                   (else 0))))))
       (new Point
-        (needed (get-h~ start) (get-h~ end) (and context (car context)) (get-x~ distance) (get-width~ display-size) force-horizontal (eq? reposition 'horizontal) #f)
-        (needed (get-v~ start) (get-v~ end) (and context (cdr context)) (get-y~ distance) (get-height~ display-size) force-vertical (eq? reposition 'vertical) center?))))
+        (needed (get-h start) (get-h end) (and context (car context)) (get-x distance) (get-width display-size) force-horizontal (eq? reposition 'horizontal) #f)
+        (needed (get-v start) (get-v end) (and context (cdr context)) (get-y distance) (get-height display-size) force-vertical (eq? reposition 'vertical) center?))))
   
   
-  (method public (horizontal-scroll-needed target direction) <fx>
-    (let* ((start (get-scrolled-distance-h))
-           (end (+ start (get-display-width))))
+  (method public (horizontal-scroll-needed self target direction) <fx>
+    (let* ((start (get-scrolled-distance-h self))
+           (end (+ start (get-display-width self))))
       (case direction
         ((backward)
          (if (< target start)
@@ -1594,9 +1597,9 @@
            0)))))
   
   
-  (method public (vertical-scroll-needed target direction) <fx>
-    (let* ((start (get-scrolled-distance-v))
-           (end (+ start (get-display-height))))
+  (method public (vertical-scroll-needed self target direction) <fx>
+    (let* ((start (get-scrolled-distance-v self))
+           (end (+ start (get-display-height self))))
       (case direction
         ((backward)
          (if (< target start)
@@ -1617,16 +1620,16 @@
     'Label)
 
 
-  (method public (get-font)
+  (method public (get-font self)
     font)
   
 
-  (method public virtual (set-font fnt)
+  (method public virtual (set-font self fnt)
     (set! font fnt)
-    (adjust-size))
+    (adjust-size self))
   
   
-  (method public virtual (effective-font)
+  (method public virtual (effective-font self)
     (or font (registered-font default-font)))
 
 
@@ -1635,18 +1638,18 @@
   ;;;
 
 
-  (method public (get-style)
+  (method public (get-style self)
     style)
 
 
-  (method public (set-style value)
+  (method public (set-style self value)
     (when (neq? value style)
       (set! style value)
-      (style-update)))
+      (style-update self)))
   
   
-  (method protected virtual (style-update)
-    (invalidate-view))
+  (method protected virtual (style-update self)
+    (invalidate-view self))
 
   
   ;;;
@@ -1654,13 +1657,13 @@
   ;;;
   
   
-  (method public (get-background)
+  (method public (get-background self)
     background)
   
   
-  (method public virtual (set-background color)
+  (method public virtual (set-background self color)
     (set! background color)
-    (invalidate-view))
+    (invalidate-view self))
   
   
   ;;;
@@ -1668,22 +1671,22 @@
   ;;;
   
 
-  (method public (get-auto-size?)
+  (method public (get-auto-size? self)
     auto-size?)
 
 
-  (method public (set-auto-size? value)
+  (method public (set-auto-size? self value)
     (set! auto-size? value)
-    (adjust-size))
+    (adjust-size self))
   
   
-  (method public (adjust-size)
+  (method public (adjust-size self)
     (when auto-size?
       (case auto-size?
-        ((width) (set-preferred-width))
-        ((height) (set-preferred-height))
-        (else (set-preferred-size))))
-    (invalidate-view))
+        ((width) (set-preferred-width self))
+        ((height) (set-preferred-height self))
+        (else (set-preferred-size self))))
+    (invalidate-view self))
   
   
   ;;;
@@ -1691,9 +1694,9 @@
   ;;;
   
   
-  (method public (find-mouse-view pos)
+  (method public (find-mouse-view self pos)
     (or (get-captured-view)
-        (find-drawing pos)))
+        (find-drawing self pos)))
 
 
   ;;;
@@ -1701,37 +1704,37 @@
   ;;;
 
 
-  (method public (first-view)
-    (let ((views (get-views)))
+  (method public (first-view self)
+    (let ((views (get-views self)))
       (if (null? views)
           #f
         (first views))))
 
 
-  (method public (second-view)
-    (let ((views (get-views)))
+  (method public (second-view self)
+    (let ((views (get-views self)))
       (if (>= (length views) 2)
           (second views)
         #f)))
 
 
-  (method public (last-view)
-    (let ((views (get-views)))
+  (method public (last-view self)
+    (let ((views (get-views self)))
       (if (null? views)
           #f
         (last views))))
     
   
-  (method public (get-views (include-invisibles?: include-invisibles? #f))
+  (method public (get-views self (include-invisibles?: include-invisibles? #f))
     (reverse!
       (collect-if (lambda (child)
                     (and (is? child View)
-                         (or include-invisibles? (get-visible?~ child))))
-                  (get-children))))
+                         (or include-invisibles? (get-visible? child))))
+                  (get-children self))))
   
 
-  (method public (front-view?)
-    (eq? self (first-view~ parent)))
+  (method public (front-view? self)
+    (eq? self (first-view parent)))
   
   
   ;;;
@@ -1739,14 +1742,14 @@
   ;;;
   
   
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'view)
-          (nextmethod)))
+          (nextmethod self)))
   
   
-  (method override (guest-actions)
+  (method override (guest-actions self)
     (cons (find-actions 'guest)
-          (nextmethod)))
+          (nextmethod self)))
 
 
   ;;;
@@ -1754,13 +1757,13 @@
   ;;;
 
 
-  (method (call-content-change origin (event: event #f))
+  (method package (call-content-change self origin (event: event #f))
     (if content-change-handler
         (invoke-handler self content-change-handler (or event (make-event Event :change self (list origin: origin))))
-      (content-change origin)))
+      (content-change self origin)))
   
   
-  (method public virtual (content-change origin)
+  (method public virtual (content-change self origin)
     )
 
 
@@ -1769,7 +1772,7 @@
   ;;;
   
 
-  (method public (call-selection-handler old selection force? user-origin)
+  (method public (call-selection-handler self old selection force? user-origin)
     (when selection-handler
       (invoke-handler self selection-handler (new Selection-Event :selection-change self (modifiers-mask) old selection force?: force? user-origin: user-origin))))
   
@@ -1779,11 +1782,11 @@
   ;;;
   
   
-  (method public virtual (get-view-state)
+  (method public virtual (get-view-state self)
     )
   
   
-  (method public virtual (set-view-state state)
+  (method public virtual (set-view-state self state)
     )
 
 
@@ -1792,11 +1795,11 @@
   ;;;
 
 
-  (method public virtual (get-modified?)
+  (method public virtual (get-modified? self)
     modified?)
 
 
-  (method public virtual (set-modified? state)
+  (method public virtual (set-modified? self state)
     (when (neq? state modified?)
       (set! modified? state)))
 
@@ -1806,29 +1809,29 @@
   ;;;
   
   
-  (method public virtual (position-change position <Point>)
+  (method public virtual (position-change self position <Point>)
     )
   
   
-  (method public virtual (size-change size <Dimension>)
-    (let ((pw (and previous-size (get-width~ previous-size)))
-          (ph (and previous-size (get-height~ previous-size)))
-          (width (get-width~ size))
-          (height (get-height~ size)))
+  (method public virtual (size-change self size <Dimension>)
+    (let ((pw (and previous-size (get-width previous-size)))
+          (ph (and previous-size (get-height previous-size)))
+          (width (get-width size))
+          (height (get-height size)))
       (set! previous-size size)
       (when pw
         (let ((dh (- width pw))
               (dv (- height ph)))
           (when (or (/= dh 0) (/= dv 0))
-            (resize dh dv)))))
-    (layout-scrollee)
-    (unless (adjust?)
-      (invalidate-layout)
-      (when (get-finished?)
-        (call-layout))))
+            (resize self dh dv)))))
+    (layout-scrollee self)
+    (unless (adjust? self)
+      (invalidate-layout self)
+      (when (get-finished? self)
+        (call-layout self))))
 
 
-  (method protected virtual (resize dh <fx> dv <fx>)
+  (method package virtual (resize self dh <fx> dv <fx>)
     )
 
   
@@ -1837,92 +1840,92 @@
   ;;;
   
   
-  (method public (acquire-focus)
-    (set-focus self))
+  (method public (acquire-focus self)
+    (change-active-focus self))
 
 
-  (method public (call-focus-gained)
-    (set-focus-actions~ (get-application) (get-focus-actions self))
+  (method public (call-focus-gained self)
+    (set-focus-actions (get-application) (determine-focus-actions self))
     (if focus-gained-handler
         (invoke-handler self focus-gained-handler (make-event Event :focus-gained self))
-      (focus-gained)))
+      (focus-gained self)))
 
 
-  (method public (call-focus-lose)
-    (set-focus-actions~ (get-application) '())
+  (method public (call-focus-lose self)
+    (set-focus-actions (get-application) '())
     (if focus-lose-handler
         (invoke-handler self focus-lose-handler (make-event Event :focus-lose self))
-      (focus-lose)))
+      (focus-lose self)))
   
   
-  (method public (call-focus-lost)
-    (focus-lost))
+  (method public (call-focus-lost self)
+    (focus-lost self))
   
   
-  (method public (has-focus?)
-    (eq? self (get-focus)))
+  (method public (has-focus? self)
+    (eq? self (active-focus)))
   
   
-  (method public (is-focused?)
-    (or (has-focus?)
-        (and player (memq? self (get-pushed-focuses~ player)))
-        (let ((focus (get-focus)))
-          (and focus (eq? (get-outline-view~ focus) self)))))
+  (method public (is-focused? self)
+    (or (has-focus? self)
+        (and player (memq? self (get-pushed-focuses player)))
+        (let ((focus (active-focus)))
+          (and focus (eq? (get-outline-view focus) self)))))
   
   
-  (method public (contains-focus?)
+  (method public (contains-focus? self)
     (define (contains? view)
-      (has-ascendant?~ view self))
+      (has-ascendant? view self))
     
-    (let ((focus (get-focus)))
+    (let ((focus (active-focus)))
       (or (and focus (contains? focus))
-          (and player (some? contains? (get-pushed-focuses~ player))))))
+          (and player (some? contains? (get-pushed-focuses player))))))
   
   
-  (method public virtual (focus-lose)
+  (method public virtual (focus-lose self)
     )
   
   
-  (method public virtual (focus-lost)
+  (method public virtual (focus-lost self)
     )
   
   
-  (method public virtual (focus-master)
+  (method public virtual (focus-master self)
     self)
   
   
-  (method public virtual (focus-reset)
+  (method public virtual (focus-reset self)
     #f)
   
   
-  (method public virtual (focus-gained)
+  (method public virtual (focus-gained self)
     )
   
   
-  (method public virtual (focus-delegate)
+  (method public virtual (focus-delegate self)
     )
   
   
-  (method public virtual (focus-update-actions)
+  (method public virtual (focus-update-actions self)
     )
 
 
-  (method public virtual (get-focus-container)
-    (find-ascendant Focus-Container))
+  (method public virtual (get-focus-container self)
+    (find-ascendant self Focus-Container))
   
   
-  (method public virtual (focusable?)
-    (and (in-player?)
-         (get-visible?)
-         (let ((container (get-focus-container)))
+  (method public virtual (focusable? self)
+    (and (in-player? self)
+         (get-visible? self)
+         (let ((container (get-focus-container self)))
            (or (not container)
-               (container-focusable?~ container)))))
+               (container-focusable? container)))))
   
   
-  (method public virtual (ensure-focusable)
-    (let ((container (get-focus-container)))
+  (method public virtual (ensure-focusable self)
+    (let ((container (get-focus-container self)))
       (when container
-        (ensure-container-focusable~ container))))
+        (ensure-container-focusable container))))
 
 
   ;;;
@@ -1930,27 +1933,27 @@
   ;;;
   
   
-  (method public (get-action-handler)
+  (method public (get-action-handler self)
     action-handler)
   
   
-  (method public virtual (set-action-handler value)
+  (method public virtual (set-action-handler self value)
     (set! action-handler value)
     (when (is? action-handler Action)
       (let ((action-item (require-action-item action-handler)))
         (when action-item
-          (register-actionable~ action-item self)))))
+          (register-actionable action-item self)))))
 
 
-  (method public virtual (process-action sender (properties (action-properties)))
-    (notify-action sender properties))
+  (method public virtual (process-action self sender (properties (action-properties self)))
+    (notify-action self sender properties))
   
   
-  (method protected virtual (action-properties)
+  (method protected virtual (action-properties self)
     #f)
   
   
-  (method public (notify-action sender properties)
+  (method public (notify-action self sender properties)
     (when action-handler
       (notify-handler self action-handler sender properties)))
   
@@ -1960,25 +1963,25 @@
   ;;;
 
   
-  (method protected (dispatch-receive-files pos files)
-    (let ((view (find-mouse-view pos)))
+  (method package (dispatch-receive-files self pos files)
+    (let ((view (find-mouse-view self pos)))
       (when view
-        (let ((view-pos (acquire~ view self pos)))
-          (call-receive-files~ view view-pos files)))))
+        (let ((view-pos (acquire view self pos)))
+          (call-receive-files view view-pos files)))))
 
   
-  (method public (call-receive-files pos files)
+  (method public (call-receive-files self pos files)
     (if receive-files-handler
         (invoke-handler self receive-files-handler (make-event Event :receive-files self position: pos files: files))
-      (receive-files pos files)))
+      (receive-files self pos files)))
   
   
-  (method public virtual (receive-files pos pathnames)
+  (method public virtual (receive-files self pos pathnames)
     (let ((appl (get-application)))
-      (let ((stage (find-ascendant Stage include-self?: #t)))
+      (let ((stage (find-ascendant self Stage include-self?: #t)))
         (when stage
           (set-current-stage stage)))
-      (receive-files~ appl pos pathnames)))
+      (receive-files appl pos pathnames)))
 
 
   ;;;
@@ -1986,42 +1989,42 @@
   ;;;
   
   
-  (method public (call-cursor-update event)
+  (method public (call-cursor-update self event)
     (if cursor-update-handler
         (invoke-handler self cursor-update-handler event)
-      (cursor-update event)))
+      (cursor-update self event)))
   
   
-  (method public virtual (cursor-update evt)
+  (method public virtual (cursor-update self evt)
     (unless (current-drag-drop)
       (set-cursor :arrow)))
   
   
-  (method public (mouse-pressed?)
-    mouse-down?)
+  (method public (mouse-pressed? self)
+    (get-mouse-down?))
   
   
-  (method public (mouse-right-pressed?)
+  (method public (mouse-right-pressed? self)
     (get-mouse-right-down?))
   
   
-  (method public (mouse-in?)
+  (method public (mouse-in? self)
     (eq? self (get-mouse-in)))
   
   
-  (method public (mouse-over?)
-    (over-view? (mouse-position)))
+  (method public (mouse-over? self)
+    (over-view? self (mouse-position self)))
 
 
-  (method public (over-view? point)
-    (let ((bounds (get-bounds)))
+  (method public (over-view? self point)
+    (let ((bounds (get-bounds self)))
       (in-rect? point bounds)))
 
 
-  (method public (mouse-position)
-    (let ((player (get-player))
-          (root (get-root)))
-      (acquire root (mouse-position~ player))))
+  (method public (mouse-position self)
+    (let ((player (get-player self))
+          (root (get-root self)))
+      (acquire self root (mouse-position player))))
 
 
   ;;;
@@ -2029,403 +2032,403 @@
   ;;;
   
   
-  (method (make-mouse-event count . rest)
+  (method (make-mouse-event self count . rest)
     (let ((event (apply make-event Mouse-Event rest)))
-      (set-count~ event count)
+      (set-count event count)
       event))
     
   
-  (method (call-mouse-hover pos)
+  (method (call-mouse-hover self pos)
     (if mouse-hover-handler
         (invoke-handler self mouse-hover-handler (make-event Mouse-Event :mouse-hover self position: pos))
-      (mouse-hover pos))
-    (when (get-tooltip?)
-      (popup-tooltip pos)))
+      (mouse-hover self pos))
+    (when (get-tooltip? self)
+      (popup-tooltip self pos)))
   
   
-  (method protected (root-mouse-down h v)
+  (method package (root-mouse-down self h v)
     (let* ((pos (new Point h v))
-           (view (find-mouse-view pos)))
+           (view (find-mouse-view self pos)))
       (when view
-        (let ((acquired (acquire~ view self pos)))
-          (dispatch-mouse-down view (make-mouse-event 1 :mouse-down view position: acquired))))))
+        (let ((acquired (acquire view self pos)))
+          (dispatch-mouse-down self view (make-mouse-event self 1 :mouse-down view position: acquired))))))
   
   
-  (method protected (dispatch-mouse-down view event)
-    (when (view-enabled?~ view)
+  (method package (dispatch-mouse-down self view event)
+    (when (view-enabled? view)
       (hook-event event)
-      (close-popups~ view event: 'mouse-down)
-      (let ((actual-focus (get-focus)))
+      (close-popups view event: 'mouse-down)
+      (let ((actual-focus (active-focus)))
         (set-mouse-down? #t)
         (set-mouse-down-view view)
-        (set-mouse-down-point (get-position-value~ event))
-        (unless (and (mouse-copy?~ view event) actual-focus (mouse-copy~ view event actual-focus))
-          (when (mouse-activate?~ view)
-            (let ((host (get-host~ view)))
-              (when (and host (mouse-activate?~ host) (not (focused-host? host)))
-                (mouse-activate~ host))))
-          (call-mouse-down~ view event)
-          (call-cursor-update~ view event)))))
+        (set-mouse-down-point (get-position-value event))
+        (unless (and (mouse-copy? view event) actual-focus (mouse-copy view event actual-focus))
+          (when (mouse-activate? view)
+            (let ((host (get-host view)))
+              (when (and host (mouse-activate? host) (not (focused-host? host)))
+                (mouse-activate host))))
+          (call-mouse-down view event)
+          (call-cursor-update view event)))))
 
   
-  (method public (call-mouse-down event)
+  (method public (call-mouse-down self event)
     (if mouse-down-handler
         (invoke-handler self mouse-down-handler event)
-      (mouse-down event)))
+      (mouse-down self event)))
   
   
-  (method protected (dispatch-mouse-move h v)
+  (method package (dispatch-mouse-move self h v)
     (let ((pos (new Point h v)))
-      (let ((view (find-mouse-view pos)))
+      (let ((view (find-mouse-view self pos)))
         (when view
-          (let ((player (get-player~ view)))
-            (when (and player (is-not? (get-overlapped) Tooltip))
+          (let ((player (get-player view)))
+            (when (and player (is-not? (get-overlapped self) Tooltip))
               (when (neq? view (get-mouse-in))
                 (when (get-mouse-in)
-                  (dispatch-mouse-leave~ (get-mouse-in))
-                  (cancel-mouse-leave-tracking (get-handle~ player))
-                  (unless (or (is? player Tooltip) (in-tooltip? pos))
-                    (cancel-tooltip-tracking)))
+                  (dispatch-mouse-leave (get-mouse-in))
+                  (cancel-mouse-leave-tracking (get-handle player))
+                  (unless (or (is? player Tooltip) (in-tooltip? self pos))
+                    (cancel-tooltip-tracking self)))
                 (set-mouse-in view)
                 (when (get-mouse-in)
-                  (dispatch-mouse-enter~ (get-mouse-in)))
-                (when (get-tooltip-in?~ (get-mouse-in))
-                  (popup-tooltip~ (get-mouse-in) pos force?: #t))
-                (track-mouse-leave (get-handle~ player)))
+                  (dispatch-mouse-enter (get-mouse-in)))
+                (when (get-tooltip-in? (get-mouse-in))
+                  (popup-tooltip (get-mouse-in) pos force?: #t))
+                (track-mouse-leave (get-handle player)))
               (unless (or *current-tooltip-context* (current-drag-drop))
-                (track-tooltip~ (get-mouse-in)))
-              (if mouse-down?
-                  (let ((acquired (acquire~ mouse-down-view self pos)))
-                    (let ((event (make-event Mouse-Event :mouse-move mouse-down-view position: acquired)))
-                      (call-cursor-update~ mouse-down-view event)
-                      (process-drag-move~ mouse-down-view event)))
-                (let ((acquired (acquire~ view self pos)))
+                (track-tooltip (get-mouse-in)))
+              (if (get-mouse-down?)
+                  (let ((acquired (acquire (get-mouse-down-view) self pos)))
+                    (let ((event (make-event Mouse-Event :mouse-move (get-mouse-down-view) position: acquired)))
+                      (call-cursor-update (get-mouse-down-view) event)
+                      (process-drag-move (get-mouse-down-view) event)))
+                (let ((acquired (acquire view self pos)))
                   (let ((event (make-event Mouse-Event :mouse-move view position: acquired)))
-                    (call-cursor-update~ view event)
-                    (process-mouse-move~ view event))))))))))
+                    (call-cursor-update view event)
+                    (process-mouse-move view event))))))))))
 
   
-  (method (process-mouse-move event)
+  (method package (process-mouse-move self event)
     (when *current-tooltip-context*
-      (process-tooltip event))
-    (call-mouse-move event))
+      (process-tooltip self event))
+    (call-mouse-move self event))
   
   
-  (method (call-mouse-move event)
+  (method (call-mouse-move self event)
     (if mouse-move-handler
         (invoke-handler self mouse-move-handler event)
-      (mouse-move event)))
+      (mouse-move self event)))
   
   
-  (method protected (root-mouse-up h v)
+  (method package (root-mouse-up self h v)
     (let* ((pos (new Point h v))
-           (view (find-mouse-view pos))
-           (acquired (and view (acquire~ view self pos))))
-      (dispatch-mouse-up view (make-event Mouse-Event :mouse-up (or view self) position: acquired))))
+           (view (find-mouse-view self pos))
+           (acquired (and view (acquire view self pos))))
+      (dispatch-mouse-up self view (make-event Mouse-Event :mouse-up (or view self) position: acquired))))
   
   
-  (method protected (dispatch-mouse-up view event)
+  (method package (dispatch-mouse-up self view event)
     (when view
-      (let ((position (get-position-value~ event)))
-        (when mouse-down?
-          (let ((drag-event (make-event Mouse-Event :mouse-up mouse-down-view position: (acquire~ mouse-down-view view position))))
+      (let ((position (get-position-value event)))
+        (when (get-mouse-down?)
+          (let ((drag-event (make-event Mouse-Event :mouse-up (get-mouse-down-view) position: (acquire (get-mouse-down-view) view position))))
             (hook-event drag-event)
-            (process-drag-up~ mouse-down-view drag-event)))
+            (process-drag-up (get-mouse-down-view) drag-event)))
         (let ((event (make-event Mouse-Event :mouse-move view position: position)))
-          (call-cursor-update~ view event)
-          (process-mouse-up~ view event))))
+          (call-cursor-update view event)
+          (process-mouse-up view event))))
     (when (get-delayed-mouse-action)
       (let ((action (get-delayed-mouse-action)))
         (set-delayed-mouse-action #f)
         (action))))
 
   
-  (method (process-mouse-up event)
+  (method package (process-mouse-up self event)
     (when (current-drag-drop)
-      (drag-drop (current-drag-drop) (get-position-value~ event)))
-    (call-mouse-up event))
+      (drag-drop self (current-drag-drop) (get-position-value event)))
+    (call-mouse-up self event))
 
   
-  (method (call-mouse-up event)
+  (method (call-mouse-up self event)
     (if mouse-up-handler
         (invoke-handler self mouse-up-handler event)
-      (mouse-up event)))
+      (mouse-up self event)))
 
   
-  (method (process-drag-move event)
-    (let ((pos (get-position-value~ event)))
-      (if (and (eq? self mouse-down-view) (get-draggable?) (or (not (current-drag-drop)) (eq? self (get-view~ (get-source~ (current-drag-drop))))))
+  (method package (process-drag-move self event)
+    (let ((pos (get-position-value event)))
+      (if (and (eq? self (get-mouse-down-view)) (get-draggable? self) (or (not (current-drag-drop)) (eq? self (get-view (get-source (current-drag-drop))))))
           (begin
-            (when (allow-start-drag? pos)
-              (let ((drag-drop (get-drag-drop)))
+            (when (allow-start-drag? self pos)
+              (let ((drag-drop (get-drag-drop self)))
                 (when drag-drop
-                  (drag-start pos drag-drop))))
+                  (drag-start self pos drag-drop))))
             (when (current-drag-drop)
-              (drag-follow pos)))
-        (call-drag-move event))))
+              (drag-follow self pos)))
+        (call-drag-move self event))))
   
   
-  (method protected virtual (allow-start-drag? pos)
-    (and mouse-down? (not (current-drag-drop)) (not (near? pos mouse-down-point drag-tolerance))))
+  (method package virtual (allow-start-drag? self pos)
+    (and (get-mouse-down?) (not (current-drag-drop)) (not (near? pos (get-mouse-down-point) drag-tolerance))))
   
   
-  (method (call-drag-move event)
+  (method (call-drag-move self event)
     (if drag-move-handler
         (invoke-handler self drag-move-handler event)
-      (drag-move event)))
+      (drag-move self event)))
 
   
-  (method (process-drag-up event (dragging? (current-drag-drop)))
+  (method package (process-drag-up self event (dragging? (current-drag-drop)))
     (set-mouse-down? #f)
     (set-mouse-down-view #f)
     (set-mouse-down-point #f)
     (when player
-      (call-drag-up event dragging?)))
+      (call-drag-up self event dragging?)))
 
   
-  (method (call-drag-up event dragging?)
+  (method (call-drag-up self event dragging?)
     (if drag-up-handler
         (invoke-handler self drag-up-handler event)
-      (drag-up event dragging?)))
+      (drag-up self event dragging?)))
   
   
-  (method protected (root-double-click h v)
+  (method package (root-double-click self h v)
     (let* ((pos (new Point h v))
-           (view (find-mouse-view pos)))
+           (view (find-mouse-view self pos)))
       (when view
-        (let ((acquired (acquire~ view self pos)))
-          (dispatch-double-click view (make-mouse-event 2 :double-click view position: acquired))))))
+        (let ((acquired (acquire view self pos)))
+          (dispatch-double-click self view (make-mouse-event self 2 :double-click view position: acquired))))))
   
   
-  (method protected (dispatch-double-click view event)
-    (when (view-enabled?~ view)
+  (method package (dispatch-double-click self view event)
+    (when (view-enabled? view)
       (hook-event event)
-      (close-popups~ view event: 'double-click)
+      (close-popups view event: 'double-click)
       (set-mouse-down? #t)
       (set-mouse-down-view view)
-      (set-mouse-down-point (get-position-value~ event))
-      (when (mouse-activate?~ view)
-        (let ((host (get-host~ view)))
-          (when (and host (mouse-activate?~ host) (not (focused-host? host)))
-            (mouse-activate~ host))))
-      (call-double-click~ view event)))
+      (set-mouse-down-point (get-position-value event))
+      (when (mouse-activate? view)
+        (let ((host (get-host view)))
+          (when (and host (mouse-activate? host) (not (focused-host? host)))
+            (mouse-activate host))))
+      (call-double-click view event)))
   
   
-  (method public virtual (call-double-click event)
+  (method public virtual (call-double-click self event)
     (if double-click-handler
         (invoke-handler self double-click-handler event)
-      (double-click event)))
+      (double-click self event)))
   
   
-  (method protected (root-multiple-click count h v)
+  (method package (root-multiple-click self count h v)
     (let* ((pos (new Point h v))
-           (view (find-mouse-view pos)))
+           (view (find-mouse-view self pos)))
       (when view
-        (let ((acquired (acquire~ view self pos)))
-          (dispatch-multiple-click view (make-mouse-event count :multiple-click view position: acquired))))))
+        (let ((acquired (acquire view self pos)))
+          (dispatch-multiple-click self view (make-mouse-event self count :multiple-click view position: acquired))))))
   
   
-  (method protected (dispatch-multiple-click view event)
-    (when (view-enabled?~ view)
+  (method protected (dispatch-multiple-click self view event)
+    (when (view-enabled? view)
       (hook-event event)
-      (close-popups~ view event: 'multiple-click)
+      (close-popups view event: 'multiple-click)
       (set-mouse-down? #t)
       (set-mouse-down-view view)
-      (set-mouse-down-point (get-position-value~ event))
-      (when (mouse-activate?~ view)
-        (let ((host (get-host~ view)))
-          (when (and host (mouse-activate?~ host) (not (focused-host? host)))
-            (mouse-activate~ host))))
-      (call-multiple-click~ view event)))
+      (set-mouse-down-point (get-position-value event))
+      (when (mouse-activate? view)
+        (let ((host (get-host view)))
+          (when (and host (mouse-activate? host) (not (focused-host? host)))
+            (mouse-activate host))))
+      (call-multiple-click view event)))
   
   
-  (method public virtual (call-multiple-click event)
+  (method public virtual (call-multiple-click self event)
     (if multiple-click-handler
         (invoke-handler self multiple-click-handler event)
-      (multiple-click event)))
+      (multiple-click self event)))
   
   
-  (method protected (root-context-menu h v)
+  (method package (root-context-menu self h v)
     (let* ((pos (new Point h v))
-           (view (find-mouse-view pos)))
+           (view (find-mouse-view self pos)))
       (when view
-        (let ((acquired (acquire~ view self pos)))
-          (dispatch-context-menu view (make-event Mouse-Event :context-menu view position: acquired))))))
+        (let ((acquired (acquire view self pos)))
+          (dispatch-context-menu self view (make-event Mouse-Event :context-menu view position: acquired))))))
   
   
-  (method protected (dispatch-context-menu view event)
-    (when (view-enabled?~ view)
+  (method package (dispatch-context-menu self view event)
+    (when (view-enabled? view)
       (hook-event event)
-      (close-popups~ view event: 'context-menu)
-      (call-context-menu~ view event)))
+      (close-popups view event: 'context-menu)
+      (call-context-menu view event)))
   
   
-  (method public (call-context-menu event)
+  (method public (call-context-menu self event)
     (if context-menu-handler
         (invoke-handler self context-menu-handler event)
-      (context-menu event)))
+      (context-menu self event)))
     
   
-  (method protected (root-middle-mouse-down h v)
+  (method package (root-middle-mouse-down self h v)
     (let* ((pos (new Point h v))
-           (view (find-mouse-view pos)))
+           (view (find-mouse-view self pos)))
       (when view
-        (let ((acquired (acquire~ view self pos)))
-          (dispatch-middle-mouse-down view (make-event Mouse-Event :middle-mouse-down view position: acquired))))))
+        (let ((acquired (acquire view self pos)))
+          (dispatch-middle-mouse-down self view (make-event Mouse-Event :middle-mouse-down view position: acquired))))))
 
   
-  (method protected (dispatch-middle-mouse-down view event)
-    (when (view-enabled?~ view)
-      (middle-mouse-down~ view event)))
+  (method protected (dispatch-middle-mouse-down self view event)
+    (when (view-enabled? view)
+      (middle-mouse-down view event)))
     
   
-  (method protected (root-middle-mouse-up h v)
+  (method package (root-middle-mouse-up self h v)
     (let* ((pos (new Point h v))
-           (view (find-mouse-view pos)))
+           (view (find-mouse-view self pos)))
       (when view
-        (let ((acquired (acquire~ view self pos)))
-          (dispatch-middle-mouse-up view (make-event Mouse-Event :middle-mouse-up view position: acquired))))))
+        (let ((acquired (acquire view self pos)))
+          (dispatch-middle-mouse-up self view (make-event Mouse-Event :middle-mouse-up view position: acquired))))))
   
   
-  (method protected (dispatch-middle-mouse-up view event)
-    (when (view-enabled?~ view)
-      (middle-mouse-up~ view event)))
+  (method protected (dispatch-middle-mouse-up self view event)
+    (when (view-enabled? view)
+      (middle-mouse-up view event)))
     
   
-  (method protected (root-right-mouse-down h v)
+  (method package (root-right-mouse-down self h v)
     (let* ((pos (new Point h v))
-           (view (find-mouse-view pos)))
+           (view (find-mouse-view self pos)))
       (when view
-        (let ((acquired (acquire~ view self pos)))
-          (dispatch-right-mouse-down view (make-event Mouse-Event :right-mouse-down view position: acquired))))))
+        (let ((acquired (acquire view self pos)))
+          (dispatch-right-mouse-down self view (make-event Mouse-Event :right-mouse-down view position: acquired))))))
   
   
-  (method protected (dispatch-right-mouse-down view event)
+  (method protected (dispatch-right-mouse-down self view event)
     (set-mouse-right-down? #t)
-    (when (view-enabled?~ view)
-      (right-mouse-down~ view event)))
+    (when (view-enabled? view)
+      (right-mouse-down view event)))
     
   
-  (method protected (root-right-mouse-up h v)
+  (method package (root-right-mouse-up self h v)
     (let* ((pos (new Point h v))
-           (view (find-mouse-view pos)))
+           (view (find-mouse-view self pos)))
       (when view
-        (let ((acquired (acquire~ view self pos)))
-          (dispatch-right-mouse-up view (make-event Mouse-Event :right-mouse-up view position: acquired))))))
+        (let ((acquired (acquire view self pos)))
+          (dispatch-right-mouse-up self view (make-event Mouse-Event :right-mouse-up view position: acquired))))))
   
   
-  (method protected (dispatch-right-mouse-up view event)
+  (method protected (dispatch-right-mouse-up self view event)
     (set-mouse-right-down? #f)
-    (when (view-enabled?~ view)
-      (right-mouse-up~ view event)))
+    (when (view-enabled? view)
+      (right-mouse-up view event)))
   
   
-  (method (dispatch-mouse-enter)
-    (call-mouse-enter))
+  (method package (dispatch-mouse-enter self)
+    (call-mouse-enter self))
   
   
-  (method (call-mouse-enter)
+  (method (call-mouse-enter self)
     (if mouse-enter-handler
         (invoke-handler self mouse-enter-handler (make-event Mouse-Event :mouse-enter self))
-      (mouse-enter)))
+      (mouse-enter self)))
   
   
-  (method (dispatch-mouse-leave)
-    (call-mouse-leave))
+  (method package (dispatch-mouse-leave self)
+    (call-mouse-leave self))
   
   
-  (method (call-mouse-leave)
-    (cancel-hovering)
-    (close-self-tooltip)
+  (method (call-mouse-leave self)
+    (cancel-hovering self)
+    (close-self-tooltip self)
     (if mouse-leave-handler
         (invoke-handler self mouse-leave-handler (make-event Mouse-Event :mouse-leave self))
-      (mouse-leave)))
+      (mouse-leave self)))
   
   
-  (method public virtual (mouse-hover pos)
+  (method public virtual (mouse-hover self pos)
     )
   
   
-  (method public virtual (mouse-wheel pos delta)
+  (method public virtual (mouse-wheel self pos delta)
     (unless (get-mouse-down?)
-      (let ((scroller (find-ascendant Scroller-View)))
+      (let ((scroller (find-ascendant self Scroller-View)))
         (when scroller
-          (let ((client (get-client~ scroller)))
+          (let ((client (get-client scroller)))
             (when client
-              (scroll~ client delta)))))))
+              (scroll client delta)))))))
 
   
-  (method public virtual (mouse-enter)
-    )
-
-  
-  (method public virtual (mouse-leave)
+  (method public virtual (mouse-enter self)
     )
 
   
-  (method public virtual (mouse-down evt)
+  (method public virtual (mouse-leave self)
+    )
+
+  
+  (method public virtual (mouse-down self evt)
     )
   
   
-  (method public virtual (mouse-move evt)
+  (method public virtual (mouse-move self evt)
     )
   
   
-  (method public virtual (mouse-up evt)
+  (method public virtual (mouse-up self evt)
     )
   
   
-  (method public virtual (drag-move evt)
+  (method public virtual (drag-move self evt)
     )
   
   
-  (method public virtual (drag-up evt . rest)
+  (method public virtual (drag-up self evt . rest)
     )
   
   
-  (method public virtual (double-click evt)
-    (call-mouse-down evt))
+  (method public virtual (double-click self evt)
+    (call-mouse-down self evt))
   
   
-  (method public virtual (multiple-click evt)
-    (if (odd? (get-count~ evt))
-        (call-mouse-down evt)
-      (call-double-click evt)))
+  (method public virtual (multiple-click self evt)
+    (if (odd? (get-count evt))
+        (call-mouse-down self evt)
+      (call-double-click self evt)))
   
   
-  (method public virtual (with-context-click pos proc)
+  (method public virtual (with-context-click self pos proc)
     (proc))
   
   
-  (method public virtual (context-menu evt)
+  (method public virtual (context-menu self evt)
     )
   
   
-  (method public virtual (get-context-menu)
+  (method public virtual (get-context-menu self)
     #f)
   
   
-  (method public virtual (middle-mouse-down evt)
-    (mouse-down evt))
+  (method public virtual (middle-mouse-down self evt)
+    (mouse-down self evt))
   
   
-  (method public virtual (middle-mouse-up evt)
-    (mouse-up evt))
+  (method public virtual (middle-mouse-up self evt)
+    (mouse-up self evt))
   
   
-  (method public virtual (right-mouse-down evt)
+  (method public virtual (right-mouse-down self evt)
     )
   
   
-  (method public virtual (right-mouse-up evt)
+  (method public virtual (right-mouse-up self evt)
     )
   
   
-  (method public virtual (mouse-activate?)
+  (method public virtual (mouse-activate? self)
     #t)
 
 
-  (method public (mouse-view)
+  (method public (mouse-view self)
     (or (get-captured-view) (get-mouse-in)))
 
 
@@ -2444,35 +2447,35 @@
     5)
   
   
-  (method public (track-hovering (time: time Hovering-Time))
+  (method public (track-hovering self (time: time Hovering-Time))
     (define (check-hovering start)
       (execute-event
         (lambda ()
-          (if (neq? (mouse-view) self)
-              (cancel-hovering)
+          (if (neq? (mouse-view self) self)
+              (cancel-hovering self)
             (when hover-history
-              (let ((pos (mouse-position)))
+              (let ((pos (mouse-position self)))
                 (if (< (length hover-history) Hovering-Steps)
                     (set! hover-history (cons pos hover-history))
                   (if (every? (lambda (point)
                                 (< (distance point pos) Hovering-Tolerance))
                               hover-history)
                       (begin
-                        (cancel-hovering)
-                        (call-mouse-hover pos))
+                        (cancel-hovering self)
+                        (call-mouse-hover self pos))
                     (set! hover-history (cons pos hover-history))
                     (set-cdr! (tail hover-history (- Hovering-Steps 1)) '())))))))))
     
-    (cancel-hovering)
-    (let ((start (mouse-position))
+    (cancel-hovering self)
+    (let ((start (mouse-position self))
           (period (/ (cast <fl> time) Hovering-Steps)))
       (set! hover-history '())
       (set! hover-pulse (new Pulse 'hovering period (lambda () (check-hovering start)) delay: 0))))
   
   
-  (method public (cancel-hovering)
+  (method public (cancel-hovering self)
     (when hover-pulse
-      (close~ hover-pulse)
+      (close hover-pulse)
       (set! hover-history #f)
       (set! hover-pulse #f)))
   
@@ -2489,55 +2492,55 @@
     #f)
   
   
-  (method (track-tooltip)
+  (method package (track-tooltip self)
     (define (recently-closed?)
       (and *recent-tooltip-close* (< (current-seconds) *recent-tooltip-close*)))
     
-    (when (and (get-tooltip?) (get-player))
+    (when (and (get-tooltip? self) (get-player self))
       (if (recently-closed?)
-          (track-hovering time: 0.1)
-        (track-hovering))))
+          (track-hovering self time: 0.1)
+        (track-hovering self))))
   
   
-  (method (cancel-tooltip-tracking)
-    (cancel-hovering)
-    (close-tooltip))
+  (method package (cancel-tooltip-tracking self)
+    (cancel-hovering self)
+    (close-tooltip self))
   
   
-  (method public (reset-tooltip)
-    (cancel-tooltip-tracking))
+  (method public (reset-tooltip self)
+    (cancel-tooltip-tracking self))
   
   
-  (method (in-tooltip? pos)
+  (method (in-tooltip? self pos)
     (and *current-tooltip-context*
-         (let ((view (get-view~ *current-tooltip-context*))
-               (rect (get-bounds~ *current-tooltip-context*)))
+         (let ((view (get-view *current-tooltip-context*))
+               (rect (get-bounds *current-tooltip-context*)))
            (and rect
-                (in-rect? (acquire~ view self pos) rect)))))
+                (in-rect? (acquire view self pos) rect)))))
   
   
-  (method (process-tooltip evt)
-    (let ((overlapped (get-overlapped)))
+  (method (process-tooltip self evt)
+    (let ((overlapped (get-overlapped self)))
       (unless (is? overlapped Tooltip)
-        (let ((view (get-view~ *current-tooltip-context*))
-              (bounds (get-bounds~ *current-tooltip-context*))
-              (new-bounds (get-tooltip-bounds (get-position-value~ evt))))
-          (unless (and (eq? overlapped (get-overlapped~ view))
+        (let ((view (get-view *current-tooltip-context*))
+              (bounds (get-bounds *current-tooltip-context*))
+              (new-bounds (get-tooltip-bounds self (get-position-value evt))))
+          (unless (and (eq? overlapped (get-overlapped view))
                        (nu=? bounds new-bounds))
-            (reset-tooltip))))))
+            (reset-tooltip self))))))
   
   
-  (method (popup-tooltip pos (force?: force? #f))
+  (method package (popup-tooltip self pos (force?: force? #f))
     (define (same-position?)
       (and *last-tooltip-position* (nu=? pos *last-tooltip-position*)))
     
     (define (new-tooltip-view text)
-      (if (and (get-formatted-tooltip?) (pair? text))
+      (if (and (get-formatted-tooltip? self) (pair? text))
           (let* ((view (new Tooltip-Text size: {Dimension 4000 100}))
-                 (text-view (get-text~ view))
-                 (text-model (get-model~ text-view)))
-            (set-text~ text-model text)
-            (set-size~ view (nu+ (scrollee-content-size~ text-view) {Dimension 2 2}))
+                 (text-view (get-text view))
+                 (text-model (get-model text-view)))
+            (set-text text-model text)
+            (set-size view (nu+ (scrollee-content-size text-view) {Dimension 2 2}))
             view)
         (new Tooltip-Label title: text)))
     
@@ -2545,11 +2548,11 @@
       (let ((view (if new-view (new-view text) (new-tooltip-view text)))
             (border (if new-border (new-border) (new Border-View border-type: 'solid))))
         (when font
-          (set-font~ view font))
-        (set-preferred-size~ view)
+          (set-font view font))
+        (set-preferred-size view)
         (let ((padding (or padding (new Dimension 0 (get-cursor-height))))
               (position (or position pos)))
-          (popup view position padding: padding class: Tooltip border: border))))
+          (popup self view position padding: padding class: Tooltip border: border))))
     
     (define (get-cursor-height)
       (let ((cursor (get-cursor)))
@@ -2557,65 +2560,65 @@
           ((:ibeam) 9)
           (else 21))))
     
-    (and (or (and (not (or mouse-down? (current-drag-drop) (in-tooltip? pos)))
+    (and (or (and (not (or (get-mouse-down?) (current-drag-drop) (in-tooltip? self pos)))
                   (not (get-locked-tooltip)))
              force?)
-         (let ((replace-locked? (and (get-locked-tooltip) (eq? self (get-view~ (get-locked-tooltip))))))
-           (close-tooltip force?: replace-locked?)
+         (let ((replace-locked? (and (get-locked-tooltip) (eq? self (get-view (get-locked-tooltip))))))
+           (close-tooltip self force?: replace-locked?)
            (and (or (not (same-position?)) force?)
                 (begin
-                  (set-current-tooltip-context (get-tooltip-context pos))
+                  (set-current-tooltip-context (get-tooltip-context self pos))
                   (if *current-tooltip-context*
-                      (let ((text (get-text~ *current-tooltip-context*))
-                            (font (get-font~ *current-tooltip-context*))
-                            (position (get-position~ *current-tooltip-context*))
-                            (padding (get-padding~ *current-tooltip-context*))
-                            (new-view (get-new-view~ *current-tooltip-context*))
-                            (new-border (get-new-border~ *current-tooltip-context*)))
-                        (set-tooltip~ *current-tooltip-context* (new-tooltip text font position padding new-view new-border)))
+                      (let ((text (get-text *current-tooltip-context*))
+                            (font (get-font *current-tooltip-context*))
+                            (position (get-position *current-tooltip-context*))
+                            (padding (get-padding *current-tooltip-context*))
+                            (new-view (get-new-view *current-tooltip-context*))
+                            (new-border (get-new-border *current-tooltip-context*)))
+                        (set-tooltip *current-tooltip-context* (new-tooltip text font position padding new-view new-border)))
                     (set! *last-tooltip-position* pos)
-                    (reset-tooltip))
+                    (reset-tooltip self))
                   (when replace-locked?
                     (set-locked-tooltip *current-tooltip-context*)
-                    (set-locked-popup (get-tooltip~ *current-tooltip-context*)))
+                    (set-locked-popup (get-tooltip *current-tooltip-context*)))
                   *current-tooltip-context*)))))
   
   
-  (method public (lock-tooltip pos)
-    (let ((tooltip-context (popup-tooltip pos force?: #t)))
+  (method public (lock-tooltip self pos)
+    (let ((tooltip-context (popup-tooltip self pos force?: #t)))
       (set-locked-tooltip tooltip-context)
-      (set-locked-popup (get-tooltip~ tooltip-context))
+      (set-locked-popup (get-tooltip tooltip-context))
       tooltip-context))
   
   
-  (method public (unlock-tooltip)
+  (method public (unlock-tooltip self)
     (set-locked-tooltip #f)
-    (close-tooltip))
+    (close-tooltip self))
   
   
   ;; only works for rich tooltips for now
-  (method public (update-tooltip text)
+  (method public (update-tooltip self text)
     (when *current-tooltip-context*
-      (let* ((tooltip (get-tooltip~ *current-tooltip-context*))
-             (border (first-child~ (get-root~ tooltip)))
-             (view (first-child~ border))
-             (text-view (get-text~ view)))
-        (set-size~ view {Dimension 4000 100})
-        (set-text~ (get-model~ text-view) text)
-        (set-size~ tooltip (nu+ (scrollee-content-size~ text-view) {Dimension 6 6}))
-        (set-size~ border (get-size~ tooltip))
-        (layout-view~ border))))
+      (let* ((tooltip (get-tooltip *current-tooltip-context*))
+             (border (first-child (get-root tooltip)))
+             (view (first-child border))
+             (text-view (get-text view)))
+        (set-size view {Dimension 4000 100})
+        (set-text (get-model text-view) text)
+        (set-size tooltip (nu+ (scrollee-content-size text-view) {Dimension 6 6}))
+        (set-size border (get-size tooltip))
+        (layout-view border))))
   
   
-  (method virtual (close-self-tooltip)
-    (when (and *current-tooltip-context* (eq? self (get-view~ *current-tooltip-context*)))
-      (close-tooltip)))
+  (method virtual (close-self-tooltip self)
+    (when (and *current-tooltip-context* (eq? self (get-view *current-tooltip-context*)))
+      (close-tooltip self)))
   
   
-  (method (close-tooltip (force?: force? #f))
+  (method (close-tooltip self (force?: force? #f))
     (when (and *current-tooltip-context* (or (neq? *current-tooltip-context* (get-locked-tooltip)) force?))
-      (let ((tooltip (get-tooltip~ *current-tooltip-context*)))
-        (when (and tooltip (opened?~ tooltip))
+      (let ((tooltip (get-tooltip *current-tooltip-context*)))
+        (when (and tooltip (opened? tooltip))
           (close-popup tooltip)))
       (set-current-tooltip-context #f)
       (set! *recent-tooltip-close* (+ (current-seconds) 0.5))))
@@ -2626,24 +2629,24 @@
   ;;;
   
   
-  (method public (get-selected-element (class: class Radio-Button) (group: group #f))
+  (method public (get-selected-element self (class: class Radio-Button) (group: group #f))
     (let ((element
             (find-if (lambda (child)
                        (and (is? child class)
-                            (eqv? (get-group~ child) group)
-                            (get-selected?~ child)))
+                            (eqv? (get-group child) group)
+                            (get-selected? child)))
                      children)))
       (when element
-        (get-name~ element))))
+        (get-name element))))
   
   
-  (method public (set-selected-element name (class: class Radio-Button) (group: group #f))
+  (method public (set-selected-element self name (class: class Radio-Button) (group: group #f))
     (let ((found? #f))
       (for-each (lambda (child)
                   (when (and (is? child class)
-                             (eqv? (get-group~ child) group))
-                    (let ((selected? (eq? (get-name~ child) name)))
-                      (set-selected?~ child selected?)
+                             (eqv? (get-group child) group))
+                    (let ((selected? (eq? (get-name child) name)))
+                      (set-selected? child selected?)
                       (when selected?
                         (set! found? #t)))))
                 children)
@@ -2651,11 +2654,11 @@
         (error "Unable to find element: {t}" name))))
   
   
-  (method public (unselect-elements (class: class Radio-Button) (group: group #f))
+  (method public (unselect-elements self (class: class Radio-Button) (group: group #f))
     (for-each (lambda (child)
                 (when (and (is? child class)
-                           (eqv? (get-group~ child) group))
-                  (unselect~ child)))
+                           (eqv? (get-group child) group))
+                  (unselect child)))
               children))
 
 
@@ -2664,17 +2667,17 @@
   ;;;
   
   
-  (method public (track-popup-menu menu pos (alternate-position: alternate-position #f) (initiator: initiator self))
+  (method public (track-popup-menu self menu pos (alternate-position: alternate-position #f) (initiator: initiator self))
     (define (all-invisible? menu)
       (every? (lambda (item)
-                (not (get-visible?~ item)))
-              (get-children~ menu)))
+                (not (get-visible? item)))
+              (get-children menu)))
     
     (if (is-not? menu Context-Menu)
         (error "{t} is not of the expected Context-Menu class" menu)
       (and (not (all-invisible? menu))
-           (clear-highlighted~ menu)
-           (let ((popup (popup menu pos alternate-position: alternate-position class: Menu-Transient initiator: initiator)))
+           (clear-highlighted menu)
+           (let ((popup (popup self menu pos alternate-position: alternate-position class: Menu-Transient initiator: initiator)))
              (push-focus menu)
              popup))))
   
@@ -2684,23 +2687,23 @@
   ;;;
   
   
-  (method public virtual (mouse-copy? event)
+  (method public virtual (mouse-copy? self event)
     (mouse-copy-down? event))
 
   
-  (method public virtual (mouse-copy event destination)
-    (let ((data (mouse-data (get-position~ event))))
+  (method public virtual (mouse-copy self event destination)
+    (let ((data (mouse-data self (get-position event))))
       (if (not data)
           #f
-        (mouse-insert~ destination data)
+        (mouse-insert destination data)
         #t)))
 
   
-  (method public virtual (mouse-data pos)
+  (method public virtual (mouse-data self pos)
     #f)
 
   
-  (method public virtual (mouse-insert object)
+  (method public virtual (mouse-insert self object)
     )
   
   
@@ -2709,18 +2712,18 @@
   ;;;
   
   
-  (method public (to-desktop shape)
+  (method public (to-desktop self shape)
     (let ((desktop (get-desktop))
-          (player (get-player))
-          (root (get-root)))
-      (acquire~ desktop player (acquire~ root self shape))))
+          (player (get-player self))
+          (root (get-root self)))
+      (acquire desktop player (acquire root self shape))))
   
   
-  (method public (from-desktop shape)
+  (method public (from-desktop self shape)
     (let ((desktop (get-desktop))
-          (player (get-player))
-          (root (get-root)))
-      (acquire root (acquire~ player desktop shape))))
+          (player (get-player self))
+          (root (get-root self)))
+      (acquire self root (acquire player desktop shape))))
   
   
   ;;;
@@ -2728,32 +2731,32 @@
   ;;;
   
   
-  (method public (popup . rest)
-    (apply popup~ (get-window-manager) self rest))
+  (method public (popup self . rest)
+    (apply popup (get-window-manager) self rest))
   
   
-  (method package (close-current-popup)
+  (method package (close-current-popup self)
     (when (is? player Popup)
       (close-popup player)))
   
   
-  (method public virtual (close-popups (event: event #f) (all?: all? #f) (exclude: exclude #f) (initiator: initiator #f))
+  (method public virtual (close-popups self (event: event #f) (all?: all? #f) (exclude: exclude #f) (initiator: initiator #f))
     (when player
-      (close-popups~ player all?: all? exclude: exclude initiator: initiator)))
+      (close-popups player all?: all? exclude: exclude initiator: initiator)))
   
   
-  (method public virtual (popup-destroy popup)
+  (method public virtual (popup-destroy self popup)
     )
   
   
-  (method public (popup-initiator)
-    (let ((overlapped (get-overlapped)))
+  (method public (popup-initiator self)
+    (let ((overlapped (get-overlapped self)))
       (and (is? overlapped Popup)
-           (get-initiator~ overlapped))))
+           (get-initiator overlapped))))
   
   
-  (method public (owned? overlapped)
-    (memq? overlapped (get-owners~ (get-overlapped))))
+  (method public (owned? self overlapped)
+    (memq? overlapped (get-owners (get-overlapped self))))
 
 
   ;;;
@@ -2761,118 +2764,118 @@
   ;;;
 
 
-  (method public virtual (get-draggable?)
+  (method public virtual (get-draggable? self)
     draggable?)
 
 
-  (method public (set-draggable? flag)
+  (method public (set-draggable? self flag)
     (set! draggable? flag))
 
 
-  (method public virtual (get-drag-drop)
-    (let ((source (get-drag-source)))
+  (method public virtual (get-drag-drop self)
+    (let ((source (get-drag-source self)))
       (and source
            (new DnD source: source))))
   
   
-  (method public virtual (get-drag-source)
-    (let ((pos (get-drag-position)))
-      (new Drag-Source view: self position: pos image: (get-drag-image pos))))
+  (method public virtual (get-drag-source self)
+    (let ((pos (get-drag-position self)))
+      (new Drag-Source view: self position: pos image: (get-drag-image self pos))))
   
   
-  (method public virtual (get-drag-position)
-    mouse-down-point)
+  (method public virtual (get-drag-position self)
+    (get-mouse-down-point))
   
   
-  (method public virtual (get-drag-image pos)
+  (method public virtual (get-drag-image self pos)
     #f)
   
   
-  (method protected virtual (drag-acquires-focus?)
+  (method package virtual (drag-acquires-focus? self)
     #t)
   
   
-  (method (drag-start pos drag-drop)
+  (method (drag-start self pos drag-drop)
     (set-current-drag-drop drag-drop)
-    (let ((view (get-view~ (get-source~ drag-drop))))
-      (when (drag-acquires-focus?~ view)
-        (acquire-focus~ view))
-      (acquire-capture~ view)
-      (let ((global (to-desktop~ view pos)))
-        (hide-drag-image)
-        (process-drag-feedback global))))
+    (let ((view (get-view (get-source drag-drop))))
+      (when (drag-acquires-focus? view)
+        (acquire-focus view))
+      (acquire-capture view)
+      (let ((global (to-desktop view pos)))
+        (hide-drag-image self)
+        (process-drag-feedback self global))))
   
   
-  (method (drag-follow pos)
+  (method (drag-follow self pos)
     (when (current-drag-drop)
       (let* ((drag-drop (current-drag-drop))
-             (view (get-view~ (get-source~ drag-drop)))
-             (global (to-desktop~ view pos)))
-        (process-drag-feedback global))))
+             (view (get-view (get-source drag-drop)))
+             (global (to-desktop view pos)))
+        (process-drag-feedback self global))))
   
   
-  (method (drag-drop drag-drop pos)
-    (drag-end)
-    (if (get-target~ drag-drop)
-        (drop drag-drop pos)
-      (drop-void drag-drop)))
+  (method (drag-drop self drag-drop pos)
+    (drag-end self)
+    (if (get-target drag-drop)
+        (drop self drag-drop pos)
+      (drop-void self drag-drop)))
   
   
-  (method (drag-end)
+  (method package (drag-end self)
     (when (current-drag-drop)
       (let ((drag-drop (current-drag-drop)))
-        (hide-drag-image)
-        (unhighlight-current drag-drop)
-        (release-capture~ (get-view~ (get-source~ drag-drop)))
+        (hide-drag-image self)
+        (unhighlight-current self drag-drop)
+        (release-capture (get-view (get-source drag-drop)))
         (set-current-drag-drop #f)
         (update-cursor))))
   
   
-  (method (process-drag-feedback global)
+  (method (process-drag-feedback self global)
     (let* ((drag-drop (current-drag-drop))
-           (current (get-view~ drag-drop))
+           (current (get-view drag-drop))
            (desktop (get-desktop))
-           (view (find-view~ desktop global)))
-      (set-view~ drag-drop view)
+           (view (find-view desktop global)))
+      (set-view drag-drop view)
       (when view
-        (let* ((local (to-view~ desktop global view))
-               (target (call-current-drop~ view drag-drop local)))
+        (let* ((local (to-view desktop global view))
+               (target (call-current-drop view drag-drop local)))
           (if (not target)
               (set-cursor :no)
-            (when (neq? target (get-target~ drag-drop))
+            (when (neq? target (get-target drag-drop))
               (set-cursor (if target :move :no))
-              (hide-drag-image)
-              (unhighlight-current drag-drop)
-              (set-target~ drag-drop target)
+              (hide-drag-image self)
+              (unhighlight-current self drag-drop)
+              (set-target drag-drop target)
               (when target
-                (highlight-current drag-drop view local))
+                (highlight-current self drag-drop view local))
               (when target
-                (show-drag-image))))))))
+                (show-drag-image self))))))))
   
   
-  (method (hide-drag-image)
+  (method (hide-drag-image self)
     @old(ImageList_DragShowNolock #f))
   
   
-  (method (show-drag-image)
+  (method (show-drag-image self)
     @old(ImageList_DragShowNolock #t))
   
   
-  (method (highlight-current drag-drop view local)
-    (highlight-drop~ view drag-drop local))
+  (method (highlight-current self drag-drop view local)
+    (highlight-drop view drag-drop local))
   
   
-  (method (unhighlight-current drag-drop)
-    (let ((current-target (get-target~ drag-drop)))
+  (method (unhighlight-current self drag-drop)
+    (let ((current-target (get-target drag-drop)))
       (when current-target
-        (unhighlight-drop~ (get-view~ current-target) drag-drop))))
+        (unhighlight-drop (get-view current-target) drag-drop))))
   
   
-  (method public virtual (highlight-drop drag-drop pos)
+  (method public virtual (highlight-drop self drag-drop pos)
     )
   
   
-  (method public virtual (unhighlight-drop drag-drop)
+  (method public virtual (unhighlight-drop self drag-drop)
     )
 
 
@@ -2881,51 +2884,51 @@
   ;;;
   
   
-  (method public (call-current-drop drag-drop pos)
+  (method public (call-current-drop self drag-drop pos)
     (if current-drop-handler
         (invoke-handler self current-drop-handler (new Drop-Event :drop-target self (modifiers-mask) drag-drop position: pos))
-      (current-drop drag-drop pos)))
+      (current-drop self drag-drop pos)))
 
   
-  (method public virtual (current-drop drag-drop pos)
+  (method public virtual (current-drop self drag-drop pos)
     #f)
   
   
-  (method public (standard-current-drop evt acceptance (handler: handler #f))
-    (let* ((sender (get-sender~ evt))
-           (pos (get-position~ evt))
-           (drag-drop (get-drag-drop~ evt))
-           (current (get-target~ drag-drop))
-           (drag-start (get-view~ (get-source~ drag-drop)))
-           (drag-over (get-view~ drag-drop))
+  (method public (standard-current-drop self evt acceptance (handler: handler #f))
+    (let* ((sender (get-sender evt))
+           (pos (get-position evt))
+           (drag-drop (get-drag-drop evt))
+           (current (get-target drag-drop))
+           (drag-start (get-view (get-source drag-drop)))
+           (drag-over (get-view drag-drop))
            (drag-info (cons drag-start drag-over)))
       (if (neq? drag-start drag-over)
-          (let ((criteria (find-if (lambda (criteria) (accepts?~ criteria drag-info)) acceptance)))
+          (let ((criteria #f @cant-find (find-if (lambda (criteria) (accepts? criteria drag-info)) acceptance)))
             (if criteria
                 (new Drop-Target handler: handler view: sender position: pos criteria: criteria)
-              (current-drop~ sender drag-drop pos)))
-        (current-drop~ sender drag-drop pos))))
+              (current-drop sender drag-drop pos)))
+        (current-drop sender drag-drop pos))))
 
   
-  (method public virtual (drop drag-drop pos)
-    (let* ((src (get-view~ (get-source~ drag-drop)))
-           (trg (get-target~ drag-drop))
-           (dst (or (get-handler~ trg) (get-view~ trg))))
+  (method public virtual (drop self drag-drop pos)
+    (let* ((src (get-view (get-source drag-drop)))
+           (trg (get-target drag-drop))
+           (dst (or (get-handler trg) (get-view trg))))
       (when dst
-        (call-receive-drop~ dst self (acquire~ dst src pos) drag-drop))))
+        (call-receive-drop dst self (acquire dst src pos) drag-drop))))
   
   
-  (method public virtual (drop-void drag-drop)
+  (method public virtual (drop-void self drag-drop)
     )
   
   
-  (method public (call-receive-drop sender pos drag-drop)
+  (method public (call-receive-drop self sender pos drag-drop)
     (if receive-drop-handler
         (invoke-handler self receive-drop-handler (new Drop-Event :receive-drop sender (modifiers-mask) drag-drop position: pos))
-      (receive-drop sender pos drag-drop)))
+      (receive-drop self sender pos drag-drop)))
   
   
-  (method public virtual (receive-drop sender pos drag-drop)
+  (method public virtual (receive-drop self sender pos drag-drop)
     )
 
 
@@ -2934,129 +2937,129 @@
   ;;;
   
   
-  (method protected (call-key-press event)
+  (method package (call-key-press self event)
     (if key-press-handler
         (invoke-handler self key-press-handler event)
       (let ((handler {Event-Handler :focus on-insert}))
         (hook-action handler event
           (lambda ()
-            (key-press event))))))
+            (key-press self event))))))
   
   
-  (method (on-arrow evt)
-    (call-arrow-press evt))
+  (method (on-arrow self evt)
+    (call-arrow-press self evt))
 
   
-  (method (call-arrow-press evt)
+  (method package (call-arrow-press self evt)
     (if arrow-press-handler
         (invoke-handler self arrow-press-handler evt)
-      (arrow-press evt)))
+      (arrow-press self evt)))
 
 
-  (method public virtual (arrow-press evt)
-    (let ((direction (get-property~ evt direction:))
-          (modifiers (get-modifiers~ evt)))
+  (method public virtual (arrow-press self evt)
+    (let ((direction (get-property evt direction:))
+          (modifiers (get-modifiers evt)))
       (case direction
-        ((left)  (left-arrow-press  modifiers))
-        ((right) (right-arrow-press modifiers))
-        ((up)    (up-arrow-press    modifiers))
-        ((down)  (down-arrow-press  modifiers)))))
+        ((left)  (left-arrow-press self  modifiers))
+        ((right) (right-arrow-press self modifiers))
+        ((up)    (up-arrow-press self    modifiers))
+        ((down)  (down-arrow-press self  modifiers)))))
 
 
-  (method public virtual (left-arrow-press modifiers)
+  (method public virtual (left-arrow-press self modifiers)
     )
 
 
-  (method public virtual (right-arrow-press modifiers)
+  (method public virtual (right-arrow-press self modifiers)
     )
 
 
-  (method public virtual (up-arrow-press modifiers)
+  (method public virtual (up-arrow-press self modifiers)
     )
 
 
-  (method public virtual (down-arrow-press modifiers)
+  (method public virtual (down-arrow-press self modifiers)
     )
   
   
-  (method package virtual (on-escape-press evt)
-    (let ((event (new Keyboard-Event :char (get-sender~ evt) (get-modifiers~ evt) key: #\escape)))
-      (call-escape-press event)))
+  (method package virtual (on-escape-press self evt)
+    (let ((event (new Keyboard-Event :char (get-sender evt) (get-modifiers evt) key: #\escape)))
+      (call-escape-press self event)))
   
   
-  (method (call-escape-press event)
+  (method package (call-escape-press self event)
     (if escape-press-handler
         (invoke-handler self escape-press-handler event)
-      (escape-press event)))
+      (escape-press self event)))
 
 
-  (method public virtual (escape-press evt)
+  (method public virtual (escape-press self evt)
     )
   
   
-  (method package virtual (on-backspace-press evt)
-    (let ((event (new Keyboard-Event :char (get-sender~ evt) (get-modifiers~ evt) key: #\backspace)))
-      (call-backspace-press event)))
+  (method package virtual (on-backspace-press self evt)
+    (let ((event (new Keyboard-Event :char (get-sender evt) (get-modifiers evt) key: #\backspace)))
+      (call-backspace-press self event)))
   
   
-  (method (call-backspace-press event)
+  (method (call-backspace-press self event)
     (if backspace-press-handler
         (invoke-handler self backspace-press-handler event)
-      (backspace-press event)))
+      (backspace-press self event)))
 
 
-  (method public virtual (backspace-press evt . rest)
+  (method public virtual (backspace-press self evt . rest)
     )
   
   
-  (method package virtual (on-return-press evt)
-    (let ((event (new Keyboard-Event :char (get-sender~ evt) (get-modifiers~ evt) key: #\return)))
-      (call-return-press event)))
+  (method package virtual (on-return-press self evt)
+    (let ((event (new Keyboard-Event :char (get-sender evt) (get-modifiers evt) key: #\return)))
+      (call-return-press self event)))
   
 
-  (method (call-return-press event)
+  (method package (call-return-press self event)
     (if return-press-handler
         (invoke-handler self return-press-handler event)
-      (return-press event)))
+      (return-press self event)))
 
 
-  (method public virtual (return-press evt)
+  (method public virtual (return-press self evt)
     )
   
   
-  (method package virtual (on-tab-press evt)
-    (let ((event (new Keyboard-Event :char (get-sender~ evt) (get-modifiers~ evt) key: #\tab)))
-      (call-tab-press event)))
+  (method package virtual (on-tab-press self evt)
+    (let ((event (new Keyboard-Event :char (get-sender evt) (get-modifiers evt) key: #\tab)))
+      (call-tab-press self event)))
   
   
-  (method (call-tab-press event)
+  (method (call-tab-press self event)
     (if tab-press-handler
         (invoke-handler self tab-press-handler event)
-      (tab-press event)))
+      (tab-press self event)))
 
 
-  (method public virtual (tab-press evt)
-    (navigate-view (get-shift?~ evt)))
+  (method public virtual (tab-press self evt)
+    (navigate-view self (get-shift? evt)))
   
   
-  (method virtual (on-key-press evt)
-    (key-press (get-property~ evt key:)))
+  (method virtual (on-key-press self evt)
+    (key-press self (get-property evt key:)))
 
 
-  (method public virtual (key-press evt)
+  (method public virtual (key-press self evt)
     )
   
   
-  (method protected (dispatch-key-press key)
+  (method package (dispatch-key-press self key)
     (if (and (current-drag-drop) (eqv? key #\escape))
         (begin
-          (drag-end)
+          (drag-end self)
           (complete-drag-up #t))
-      (let ((view (get-focus)))
+      (let ((view (active-focus)))
         (when view
           (let ((event (make-event Keyboard-Event :char self key: key)))
             (hook-event event)
-            (call-key-press~ view event))))))
+            (call-key-press view event))))))
 
 
   ;;;
@@ -3064,35 +3067,35 @@
   ;;;
   
   
-  (method public (find-tab-manager)
-    (if (get-tab-stops)
+  (method public (find-tab-manager self)
+    (if (get-tab-stops self)
         self
-      (let ((ascendant (find-ascendant View)))
+      (let ((ascendant (find-ascendant self View)))
         (if (not ascendant)
             self
-          (find-tab-manager~ ascendant)))))
+          (find-tab-manager ascendant)))))
   
   
-  (method public virtual (navigate-tab from backward?)
+  (method public virtual (navigate-tab self from backward?)
     (define (navigate from to)
-      (tab-stop-exit~ from)
-      (acquire-focus~ to)
-      (tab-stop-enter~ to))
+      (tab-stop-exit from)
+      (acquire-focus to)
+      (tab-stop-enter to))
 
-    (let ((to (navigated-view from backward?)))
+    (let ((to (navigated-view self from backward?)))
       (if to
-          (let ((enabled (view-enabled?~ to)))
+          (let ((enabled (view-enabled? to)))
             (while (and navigable? (not enabled))
-              (set! to (navigated-view to backward?))
-              (set! enabled (view-enabled?~ to)))
+              (set! to (navigated-view self to backward?))
+              (set! enabled (view-enabled? to)))
             (if (is? to View)
-                (navigate-tab~ to self backward?)
+                (navigate-tab to self backward?)
               (navigate from to)))
         (navigate from self))))
   
   
-  (method public (navigated-view from backward? (test: test #f))
-    (let ((stops (get-tab-stops)))
+  (method public (navigated-view self from backward? (test: test #f))
+    (let ((stops (get-tab-stops self)))
       (and stops
            (let ((count (length stops))
                  (rank (find stops from test: test)))
@@ -3101,20 +3104,20 @@
                     (element stops new-rank)))))))
   
   
-  (method protected (navigate-view backward?)
-    (let ((manager (find-tab-manager)))
-      (navigate-tab~ manager self backward?)))
+  (method package (navigate-view self backward?)
+    (let ((manager (find-tab-manager self)))
+      (navigate-tab manager self backward?)))
   
   
-  (method public virtual (get-tab-stops)
+  (method public virtual (get-tab-stops self)
     #f)
   
   
-  (method public virtual (tab-stop-enter)
-    (select-all))
+  (method public virtual (tab-stop-enter self)
+    (select-all self))
   
   
-  (method public virtual (tab-stop-exit)
+  (method public virtual (tab-stop-exit self)
     )
 
 
@@ -3123,191 +3126,191 @@
   ;;;
   
   
-  (method (on-undo evt)
+  (method (on-undo self evt)
     (if (not surrogate)
-        (undo)
-      (undo~ surrogate)))
+        (undo self)
+      (undo surrogate)))
   
   
-  (method (on-redo evt)
+  (method (on-redo self evt)
     (if (not surrogate)
-        (redo)
-      (redo~ surrogate)))
+        (redo self)
+      (redo surrogate)))
   
   
-  (method (on-cut evt)
+  (method (on-cut self evt)
     (if (not surrogate)
-        (cut-selection)
-      (cut-selection~ surrogate)))
+        (cut-selection self)
+      (cut-selection surrogate)))
   
   
-  (method (on-copy evt)
+  (method (on-copy self evt)
     (if (not surrogate)
-        (copy-selection)
-      (copy-selection~ surrogate)))
+        (copy-selection self)
+      (copy-selection surrogate)))
   
   
-  (method (on-paste evt)
+  (method (on-paste self evt)
     (if (not surrogate)
-        (paste-clipboard)
-      (paste-clipboard~ surrogate)))
+        (paste-clipboard self)
+      (paste-clipboard surrogate)))
   
   
-  (method (on-paste-properties evt)
+  (method (on-paste-properties self evt)
     (if (not surrogate)
-        (paste-properties)
-      (paste-properties~ surrogate)))
+        (paste-properties self)
+      (paste-properties surrogate)))
   
   
-  (method (on-delete evt)
+  (method package (on-delete self evt)
     (if (not surrogate)
-        (delete-selection)
-      (delete-selection~ surrogate)))
+        (delete-selection self)
+      (delete-selection surrogate)))
   
   
-  (method (on-rename evt)
+  (method (on-rename self evt)
     (if (not surrogate)
-        (rename-selection)
-      (rename-selection~ surrogate)))
+        (rename-selection self)
+      (rename-selection surrogate)))
   
   
-  (method (on-select-all evt)
+  (method package (on-select-all self evt)
     (if (not surrogate)
-        (select-all)
-      (select-all~ surrogate)))
+        (select-all self)
+      (select-all surrogate)))
   
   
-  (method public (can-view-undo?)
+  (method public (can-view-undo? self)
     (if surrogate
-        (can-undo?~ surrogate)
-      (can-undo?)))
+        (can-undo? surrogate)
+      (can-undo? self)))
   
   
-  (method public virtual (can-undo?)
+  (method public virtual (can-undo? self)
     #f)
   
   
-  (method public (can-view-redo?)
+  (method public (can-view-redo? self)
     (if surrogate
-        (can-redo?~ surrogate)
-      (can-redo?)))
+        (can-redo? surrogate)
+      (can-redo? self)))
   
   
-  (method public virtual (can-redo?)
+  (method public virtual (can-redo? self)
     #f)
   
   
-  (method public (can-view-cut?)
+  (method public (can-view-cut? self)
     (if surrogate
-        (can-cut?~ surrogate)
-      (can-cut?)))
+        (can-cut? surrogate)
+      (can-cut? self)))
   
   
-  (method public virtual (can-cut?)
+  (method public virtual (can-cut? self)
     #f)
   
   
-  (method public (can-view-copy?)
+  (method public (can-view-copy? self)
     (if surrogate
-        (can-copy?~ surrogate)
-      (can-copy?)))
+        (can-copy? surrogate)
+      (can-copy? self)))
   
   
-  (method public virtual (can-copy?)
+  (method public virtual (can-copy? self)
     #f)
   
   
-  (method public (can-view-paste?)
+  (method public (can-view-paste? self)
     (if surrogate
-        (can-paste?~ surrogate)
-      (can-paste?)))
+        (can-paste? surrogate)
+      (can-paste? self)))
   
   
-  (method public virtual (can-paste?)
+  (method public virtual (can-paste? self)
     #f)
   
   
-  (method public (can-view-paste-properties?)
+  (method public (can-view-paste-properties? self)
     (if surrogate
-        (can-paste-properties?~ surrogate)
-      (can-paste-properties?)))
+        (can-paste-properties? surrogate)
+      (can-paste-properties? self)))
   
   
-  (method public virtual (can-paste-properties?)
+  (method public virtual (can-paste-properties? self)
     #f)
   
   
-  (method public (can-view-delete?)
+  (method public (can-view-delete? self)
     (if surrogate
-        (can-delete?~ surrogate)
-      (can-delete?)))
+        (can-delete? surrogate)
+      (can-delete? self)))
   
   
-  (method public virtual (can-delete?)
+  (method public virtual (can-delete? self)
     #f)
   
   
-  (method public (can-view-rename?)
+  (method public (can-view-rename? self)
     (if surrogate
-        (can-rename?~ surrogate)
-      (can-rename?)))
+        (can-rename? surrogate)
+      (can-rename? self)))
   
   
-  (method public virtual (can-rename?)
+  (method public virtual (can-rename? self)
     #f)
   
   
-  (method public (can-view-select-all?)
+  (method public (can-view-select-all? self)
     (if surrogate
-        (can-select-all?~ surrogate)
-      (can-select-all?)))
+        (can-select-all? surrogate)
+      (can-select-all? self)))
   
   
-  (method public virtual (can-select-all?)
+  (method public virtual (can-select-all? self)
     #f)
   
   
-  (method public virtual (undo)
+  (method public virtual (undo self)
     )
   
   
-  (method public virtual (redo)
+  (method public virtual (redo self)
     )
   
   
-  (method public virtual (cut-selection)
+  (method public virtual (cut-selection self)
     )
   
   
-  (method public virtual (copy-selection)
+  (method public virtual (copy-selection self)
     )
   
   
-  (method public virtual (paste-clipboard)
+  (method public virtual (paste-clipboard self)
     )
   
   
-  (method public virtual (paste-clipboard-value value)
+  (method public virtual (paste-clipboard-value self value)
     )
   
   
-  (method public virtual (cycle-paste-clipboard previous-clipboard clipboard)
+  (method public virtual (cycle-paste-clipboard self previous-clipboard clipboard)
     )
   
   
-  (method public virtual (paste-properties)
+  (method public virtual (paste-properties self)
     )
   
   
-  (method public virtual (delete-selection)
+  (method public virtual (delete-selection self)
     )
   
   
-  (method public virtual (rename-selection)
+  (method public virtual (rename-selection self)
     )
   
   
-  (method public virtual (select-all . rest)
+  (method public virtual (select-all self . rest)
     )
 
 
@@ -3316,14 +3319,14 @@
   ;;;
   
   
-  (method public (acquire-capture)
+  (method public (acquire-capture self)
     (set-captured-view self)
-    (acquire-capture~ (get-player)))
+    (acquire-capture (get-player self)))
   
   
-  (method public (release-capture)
+  (method public (release-capture self)
     (set-captured-view #f)
-    (release-capture~ (get-player)))
+    (release-capture (get-player self)))
 
 
   ;;;
@@ -3331,50 +3334,50 @@
   ;;;
 
 
-  (method public virtual (get-tooltip?)
+  (method public virtual (get-tooltip? self)
     tooltip?)
 
 
-  (method public (set-tooltip? flag)
+  (method public (set-tooltip? self flag)
     (set! tooltip? flag))
 
 
-  (method public virtual (get-tooltip-in?)
+  (method public virtual (get-tooltip-in? self)
     tooltip-in?)
 
 
-  (method public (set-tooltip-in? flag)
+  (method public (set-tooltip-in? self flag)
     (set! tooltip-in? flag))
 
 
-  (method public virtual (get-tooltip-text)
+  (method public virtual (get-tooltip-text self)
     (and tooltip-text
          (let* ((shortcut (and (is? action-handler Action)
-                               (get-shortcut~ (require-action-item action-handler))))
-                (add-shortcut (if shortcut (lambda (text) (format "{a} ({a})" text (present-shortcut~ shortcut))) identity)))
+                               (get-shortcut (require-action-item action-handler))))
+                (add-shortcut (if shortcut (lambda (text) (format "{a} ({a})" text (present-shortcut shortcut))) identity)))
            (if (string? tooltip-text)
                (add-shortcut tooltip-text)
              (apply new Locales (alist->plist (map (lambda (locale-name)
-                                                     (cons locale-name (add-shortcut (localize~ tooltip-text locale-name))))
-                                                   (provide-locales~ tooltip-text))))))))
+                                                     (cons locale-name (add-shortcut (localize-object tooltip-text locale-name))))
+                                                   (provide-locales tooltip-text))))))))
   
   
-  (method public virtual (set-tooltip-text text)
+  (method public virtual (set-tooltip-text self text)
     (set! tooltip-text text))
   
   
   ;; a quicky... this should probably by default return the value of a property
-  (method public virtual (get-formatted-tooltip?)
+  (method public virtual (get-formatted-tooltip? self)
     #f)
   
   
-  (method public virtual (get-tooltip-bounds pos)
+  (method public virtual (get-tooltip-bounds self pos)
     #f)
   
   
-  (method public virtual (get-tooltip-context pos)
-    (let ((text (get-tooltip-text))
-          (bounds (get-tooltip-bounds pos)))
+  (method public virtual (get-tooltip-context self pos)
+    (let ((text (get-tooltip-text self))
+          (bounds (get-tooltip-bounds self pos)))
       (and text
            (new Tooltip-Context view: self text: text bounds: bounds))))
   
@@ -3384,47 +3387,47 @@
   ;;;
 
 
-  (method public (with-view-surface proc)
-    (with-window-surface (get-player)
+  (method public (with-view-surface self proc)
+    (with-window-surface (get-player self)
       (lambda (cairo-surface)
         (with ((surface (new Surface cairo-surface)))
-          (with-clipping-view-transformation surface (get-rootmost)
+          (with-clipping-view-transformation self surface (get-rootmost self)
             (lambda ()
               (proc surface)))))))
   
   
-  (method public (flush-device-transformation)
+  (method public (flush-device-transformation self)
     (when device-transformation
       (for-each (lambda (child)
-                  (flush-device-transformation~ child))
+                  (flush-device-transformation child))
                 children)
       (cairo_matrix_t-free device-transformation) ; DANGER, should handle it through wills
       (set! device-transformation #f)))
   
   
-  (method public (build-device-transformation)
-    (let ((surface (transformation-surface)))
-      (with-cached-transformation surface
+  (method public (build-device-transformation self)
+    (let ((surface (transformation-surface self)))
+      (with-cached-transformation self surface
         (lambda ()
           ;; hacked for testing
-          (cairo_matrix_t-xx-ref (cairo_get_matrix_raw (get-context~ surface)))))))
+          (cairo_matrix_t-xx-ref (cairo_get_matrix_raw (get-context surface)))))))
   
   
-  (method public (with-cached-transformation surface thunk)
+  (method public (with-cached-transformation self surface thunk)
     (define (save-and-thunk)
       (set! device-transformation (cairo_matrix_t-make))
-      (cairo_get_matrix (get-context~ surface) device-transformation)
+      (cairo_get_matrix (get-context surface) device-transformation)
       (thunk))
     
     (if (not device-transformation)
         (if parent
-            (with-cached-transformation~ parent surface
+            (with-cached-transformation parent surface
               (lambda ()
-                (with-self-transformation surface save-and-thunk)))
-          (with-pristine-transformation~ surface save-and-thunk))
-      (with-preserved-matrix~ surface
+                (with-self-transformation self surface save-and-thunk)))
+          (with-pristine-transformation surface save-and-thunk))
+      (with-preserved-matrix surface
         (lambda ()
-          (cairo_set_matrix (get-context~ surface) device-transformation)
+          (cairo_set_matrix (get-context surface) device-transformation)
           (thunk)))))
 
 
@@ -3433,90 +3436,90 @@
   ;;;
   
   
-  (method public (invalidate-view)
-    (let ((bounds (get-bounds)))
-      (invalidate-rect bounds)))
+  (method public (invalidate-view self)
+    (let ((bounds (get-bounds self)))
+      (invalidate-rect self bounds)))
   
   
-  (method public (invalidate-rect rect)
-    (when (and (not (inhibit-invalidates?)) (view-visible?))
+  (method public (invalidate-rect self rect)
+    (when (and (not (inhibit-invalidates?)) (view-visible? self))
       (let ((acquired
-              (with-clipped-transformation-surface
+              (with-clipped-transformation-surface self
                 (lambda (surface)
-                  (logical->device~ surface (if (inhibit-clipping?)
+                  (logical->device surface (if (inhibit-clipping?)
                                                 rect
-                                              (rect-intersection rect (get-clipper~ surface))))))))
-        (invalidate-rect~ player acquired))))
+                                              (rect-intersection rect (get-clipper surface))))))))
+        (invalidate-rect player acquired))))
   
   
   ;; todo: not using acquire is a potentiel scaling bug...
-  (method public (invalidate-region region)
-    (when (and (not (inhibit-invalidates?)) (view-visible?))
-      (with-clipped-transformation-surface
+  (method public (invalidate-region self region)
+    (when (and (not (inhibit-invalidates?)) (view-visible? self))
+      (with-clipped-transformation-surface self
         (lambda (surface)
-          (let ((delta (logical->device~ surface {Point 0 0})))
-            (offset!~ region (get-h~ delta) (get-v~ delta))
+          (let ((delta (logical->device surface {Point 0 0})))
+            (offset! region (get-h delta) (get-v delta))
             (unless (inhibit-clipping?)
-              (with ((clipper (new Region rect: (logical->device~ surface (get-clipper~ surface)))))
-                (combine-and!~ region clipper))))))
-      (invalidate-region~ player region)))
+              (with ((clipper (new Region rect: (logical->device surface (get-clipper surface)))))
+                (combine-and! region clipper))))))
+      (invalidate-region player region)))
   
   
-  (method public (redraw-view (rect: rect #f) (region: region #f))
-    (let ((player (get-player)))
+  (method public (redraw-view self (rect: rect #f) (region: region #f))
+    (let ((player (get-player self)))
       (when player
         (cond (rect
                (let ((acquired
-                       (with-clipped-transformation-surface
+                       (with-clipped-transformation-surface self
                          (lambda (surface)
-                           (logical->device~ surface (rect-intersection rect (get-clipper~ surface)))))))
-                 (redraw-window~ player rect: acquired)))
+                           (logical->device surface (rect-intersection rect (get-clipper surface)))))))
+                 (redraw-window player rect: acquired)))
               ;; todo: not using acquire is a potentiel scaling bug...
               (region
-               (with-clipped-transformation-surface
+               (with-clipped-transformation-surface self
                  (lambda (surface)
-                   (let ((delta (logical->device~ surface {Point 0 0})))
-                     (offset!~ region (get-h~ delta) (get-v~ delta))
-                     (with ((clipper (new Region rect: (logical->device~ surface (get-clipper~ surface)))))
-                       (combine-and!~ region clipper)))))
-               (redraw-window~ player region: region))
+                   (let ((delta (logical->device surface {Point 0 0})))
+                     (offset! region (get-h delta) (get-v delta))
+                     (with ((clipper (new Region rect: (logical->device surface (get-clipper surface)))))
+                       (combine-and! region clipper)))))
+               (redraw-window player region: region))
               (else
                (let ((acquired
-                       (with-clipped-transformation-surface
+                       (with-clipped-transformation-surface self
                          (lambda (surface)
-                           (logical->device~ surface (rect-intersection (get-bounds) (get-clipper~ surface)))))))
-                 (redraw-window~ player rect: acquired)))))))
+                           (logical->device surface (rect-intersection (get-bounds self) (get-clipper surface)))))))
+                 (redraw-window player rect: acquired)))))))
   
 
   ;; Mainly used by the scrollbar to only redraw itself when scrolling
-  (method public (redraw-view-only)
-    (let ((player (get-player)))
+  (method public (redraw-view-only self)
+    (let ((player (get-player self)))
       (when player
-        (let ((hwnd (get-handle~ player)))
+        (let ((hwnd (get-handle player)))
           (platform-redraw-view-only self hwnd)))))
   
   
-  (method public (update-view (effect: effect #f))
-    (let ((player (get-player)))
+  (method public (update-view self (effect: effect #f))
+    (let ((player (get-player self)))
       (when player
-        (set-effect effect)
-        (update-window~ player))))
+        (set-effect self effect)
+        (update-window player))))
   
   
-  (method public (without-invalidates thunk)
+  (method public (without-invalidates self thunk)
     (prog1 (parameterize ((inhibit-invalidates? #t))
              (thunk))
-      (invalidate-view)))
+      (invalidate-view self)))
   
   
-  (method public (view-invalidater)
+  (method public (view-invalidater self)
     (and player (not (inhibit-invalidates?))
-      (with-clipped-transformation-surface
+      (with-clipped-transformation-surface self
         (lambda (surface)
           (let ((player player)
-                (rect (logical->device~ surface (get-clipper~ surface))))
+                (rect (logical->device surface (get-clipper surface))))
             (lambda ()
-              (invalidate-rect~ player rect)))))))
+              (invalidate-rect player rect)))))))
 
   
   ;;;
@@ -3524,19 +3527,19 @@
   ;;;
 
 
-  (method public (invalidate-border (insets: insets {Rect 1 1 1 1}))
-    (when (get-finished?)
-      (with ((region (border-region insets: insets)))
-        (invalidate-region region))))
+  (method public (invalidate-border self (insets: insets {Rect 1 1 1 1}))
+    (when (get-finished? self)
+      (with ((region (border-region self insets: insets)))
+        (invalidate-region self region))))
 
 
-  (method public (redraw-border (insets: insets {Rect 1 1 1 1}))
-    (with ((region (border-region insets: insets)))
-      (redraw-view region: region)))
+  (method public (redraw-border self (insets: insets {Rect 1 1 1 1}))
+    (with ((region (border-region self insets: insets)))
+      (redraw-view self region: region)))
 
 
-  (method public (border-region (insets: insets {Rect 1 1 1 1}))
-    (let ((bounds (get-bounds)))
+  (method public (border-region self (insets: insets {Rect 1 1 1 1}))
+    (let ((bounds (get-bounds self)))
       (frame-region bounds insets: insets)))
 
 
@@ -3545,41 +3548,41 @@
   ;;;
 
   
-  (method package (on-save evt)
+  (method package (on-save self evt)
     (if (not surrogate)
-        (save)
-      (save~ surrogate)))
+        (save self)
+      (save surrogate)))
   
   
-  (method package (on-save-as evt)
-    (save-as))
+  (method package (on-save-as self evt)
+    (save-as self))
   
   
-  (method package (on-revert-saved evt)
-    (revert-saved))
+  (method package (on-revert-saved self evt)
+    (revert-saved self))
         
   
-  (method package (on-compare-saved evt)
-    (compare-saved))
+  (method package (on-compare-saved self evt)
+    (compare-saved self))
 
 
-  (method public virtual (save)
+  (method public virtual (save self)
     )
 
 
-  (method public virtual (save-as)
+  (method public virtual (save-as self)
     )
   
   
-  (method public virtual (save-to moniker)
-    )
-
-  
-  (method public virtual (revert-saved)
+  (method public virtual (save-to self moniker)
     )
 
   
-  (method public virtual (compare-saved)
+  (method public virtual (revert-saved self)
+    )
+
+  
+  (method public virtual (compare-saved self)
     )
   
   
@@ -3588,7 +3591,7 @@
   ;;;
   
   
-  (method protected virtual (record-actions?)
+  (method package virtual (record-actions? self)
     #t)
   
   
@@ -3597,7 +3600,7 @@
   ;;;
   
   
-  (method meta override (try-out)
+  (method meta override (try-out self)
     (new-frame self))
   
   
@@ -3606,5 +3609,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.view.descriptors:View-Descriptor))))

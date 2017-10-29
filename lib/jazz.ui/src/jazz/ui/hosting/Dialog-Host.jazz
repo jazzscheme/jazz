@@ -46,7 +46,8 @@
         (jazz.jml)
         (jazz.ui)
         (jazz.ui.dialog)
-        (jazz.view))
+        (jazz.view)
+        (jazz.window))
 
 
 (class undocumented Dialog-Host extends Host-View
@@ -68,7 +69,7 @@
   ;;;
   
   
-  (method (destroy-modal)
+  (method package (destroy-modal self)
     (set! modal-closed? #t)
     (set! modal-result #f))
 
@@ -78,9 +79,9 @@
   ;;;
   
 
-  (method override (class-actions)
+  (method override (class-actions self)
     (cons (find-actions 'dialog)
-          (nextmethod)))
+          (nextmethod self)))
 
   
   ;;;
@@ -88,13 +89,13 @@
   ;;;
   
   
-  (method public (on-ok evt)
-    (validate-dialog)
-    (end-modal (get-modal-result)))
+  (method public (on-ok self evt)
+    (validate-dialog self)
+    (end-modal self (get-modal-result self)))
   
 
-  (method public (on-cancel evt)
-    (cancel-modal))
+  (method public (on-cancel self evt)
+    (cancel-modal self))
 
   
   ;;;
@@ -102,47 +103,47 @@
   ;;;
   
   
-  (method override (validate-dialog)
+  (method override (validate-dialog self)
     (when guest
-      (validate-dialog~ guest)))
+      (validate-dialog guest)))
   
   
-  (method override (get-modal-result)
-    (get-modal-result~ guest))
+  (method override (get-modal-result self)
+    (get-modal-result guest))
   
   
-  (method public (process-modal)
-    (close-popups)
+  (method public (process-modal self)
+    (close-popups self)
     (release-captured-view)
     (prog1 (let* ((application (get-application))
-                  (toplevel (get-toplevel))
+                  (toplevel (current-toplevel))
                   (overlapped (current-window))
                   (preserved (current-modal))
-                  (player (get-player)))
-             (enter-modal~ player overlapped)
+                  (player (get-player self)))
+             (enter-modal player overlapped)
              (unwind-protect
                  (begin
                    (set! modal-done? #f)
                    (set-current-modal self)
                    (when toplevel
-                     (update-modal-actions~ application))
-                   (show~ player)
+                     (update-modal-actions application))
+                   (show player)
                    (execute-event
                      (lambda ()
                        (catch Cancel-Signal
                          (with-current-loop
                            (lambda ()
-                             (run-modal~ player
+                             (run-modal player
                                (lambda ()
                                  modal-done?)))))))
                    (cond (modal-closed? (signal-cancel))
                          (modal-signal (signal modal-signal))
                          (else modal-result)))
-               (exit-modal~ player overlapped)
+               (exit-modal player overlapped)
                (set-current-modal preserved)
                (when toplevel
-                 (update-modal-actions~ application))
-               (close~ player)))
+                 (update-modal-actions application))
+               (close player)))
       (when modal-action
         (modal-action))))
   
@@ -152,18 +153,18 @@
   ;;;
   
   
-  (method public (end-modal result)
+  (method public (end-modal self result)
     (set! modal-done? #t)
     (set! modal-closed? #f)
     (set! modal-result result))
   
   
-  (method public (cancel-modal)
+  (method public (cancel-modal self)
     (set! modal-done? #t)
     (set! modal-signal (new Cancel-Signal)))
   
   
-  (method public (close-modal action)
+  (method public (close-modal self action)
     (set! modal-done? #t)
     (set! modal-closed? #f)
     (set! modal-result #f)

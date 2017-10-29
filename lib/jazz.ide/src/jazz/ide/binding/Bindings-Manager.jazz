@@ -40,12 +40,14 @@
 
 (import (jazz.action)
         (jazz.application)
+        (jazz.designer)
         (jazz.graphic)
         (jazz.handler)
         (jazz.ide)
         (jazz.jml)
         (jazz.layout)
         (jazz.preferences)
+        (jazz.process)
         (jazz.resource)
         (jazz.text)
         (jazz.tree)
@@ -107,11 +109,11 @@
                 (<BindingsByShortcuts-Tree> name: shortcuts          selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press}))))))))
 
 
-  (method override (conclude initargs)
-    (nextmethod initargs)
-    (view-bindings)
-    (update-traits)
-    (update-buttons))
+  (method override (conclude self initargs)
+    (nextmethod self initargs)
+    (view-bindings self)
+    (update-traits self)
+    (update-buttons self))
   
   
   ;;;
@@ -119,28 +121,28 @@
   ;;;
     
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "EditLink"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Bindings Manager")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 28 14})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 595 635})
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(home))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'filter-text)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'filter-text)))
   
   
   ;;;
@@ -148,8 +150,8 @@
   ;;;
   
   
-  (method override (filter filter-search)
-    (filter-rows~ (get-tree)
+  (method override (filter self filter-search)
+    (filter-rows (get-tree self)
       (lambda (title)
         (search title filter-search))))
   
@@ -159,14 +161,14 @@
   ;;;
   
   
-  (method (get-tree)
+  (method package (get-tree self)
     (if shortcuts?
-        (locate 'shortcuts)
-      (locate 'actions)))
+        (locate self 'shortcuts)
+      (locate self 'actions)))
   
   
-  (method (get-filter-text)
-    (locate 'filter-text))
+  (method (get-filter-text self)
+    (locate self 'filter-text))
   
   
   ;;;
@@ -174,74 +176,74 @@
   ;;;
   
   
-  (method (on-shortcuts evt)
+  (method (on-shortcuts self evt)
     (set! shortcuts? (not shortcuts?))
-    (set-visible?~ (locate 'actions-border) (not shortcuts?))
-    (set-visible?~ (locate 'shortcuts-border) shortcuts?)
-    (set-toplevel-controls?~ (get-node-column~ (get-tree)) categorized?)
-    (layout-view)
-    (view-bindings)
-    (filter-target~ (get-filter-text)))
+    (set-visible? (locate self 'actions-border) (not shortcuts?))
+    (set-visible? (locate self 'shortcuts-border) shortcuts?)
+    (set-toplevel-controls? (get-node-column (get-tree self)) categorized?)
+    (layout-view self)
+    (view-bindings self)
+    (filter-target (get-filter-text self)))
   
   
-  (method (on-categorize evt)
+  (method (on-categorize self evt)
     (set! categorized? (not categorized?))
-    (set-toplevel-controls?~ (get-node-column~ (get-tree)) categorized?)
-    (view-bindings)
-    (filter-target~ (get-filter-text)))
+    (set-toplevel-controls? (get-node-column (get-tree self)) categorized?)
+    (view-bindings self)
+    (filter-target (get-filter-text self)))
   
   
-  (method (on-show-all evt)
+  (method (on-show-all self evt)
     )
   
   
-  (method (on-double-click evt)
-    (edit-action)
+  (method (on-double-click self evt)
+    (edit-action self)
     @waiting
     (bind-shortcut))
   
   
-  (method override (on-return-press evt)
-    (edit-action)
+  (method override (on-return-press self evt)
+    (edit-action self)
     @waiting
     (bind-shortcut))
   
   
-  (method (on-unbind-shortcut evt)
-    (unbind-shortcut))
+  (method (on-unbind-shortcut self evt)
+    (unbind-shortcut self))
   
   
-  (method (on-restore-shortcut evt)
-    (restore-shortcut))
+  (method (on-restore-shortcut self evt)
+    (restore-shortcut self))
   
   
-  (method (on-bind-shortcut evt)
-    (bind-shortcut))
+  (method (on-bind-shortcut self evt)
+    (bind-shortcut self))
   
   
-  (method (on-edit-action evt)
-    (edit-action))
+  (method (on-edit-action self evt)
+    (edit-action self))
   
   
-  (method (on-selection-change evt)
-    (update-buttons))
+  (method package (on-selection-change self evt)
+    (update-buttons self))
   
   
-  (method (trait-change trait)
+  (method package (trait-change self trait)
     (let ((appl (get-application))
-          (bindings (get-bindings)))
-      (when (neq? trait (get-active-trait~ bindings))
+          (bindings (current-bindings)))
+      (when (neq? trait (get-active-trait bindings))
         (with-cursor :wait
           (lambda ()
-            (set-active-trait~ bindings trait)
-            (set-preferences-property~ appl (get-preferences #f) 'active-bindings (get-name~ trait))
-            (view-bindings)
-            (filter-target~ (get-filter-text))
-            (update-buttons))))))
+            (set-active-trait bindings trait)
+            (set-preferences-property appl (current-preferences #f) 'active-bindings (get-name trait))
+            (view-bindings self)
+            (filter-target (get-filter-text self))
+            (update-buttons self))))))
   
   
-  (method (on-filter-text-change evt)
-    (filter-target~ (get-filter-text)))
+  (method (on-filter-text-change self evt)
+    (filter-target (get-filter-text self)))
   
   
   ;;;
@@ -249,46 +251,46 @@
   ;;;
   
   
-  (method (unbind-shortcut)
+  (method (unbind-shortcut self)
     (let ((appl (get-application))
-          (tree (get-tree)))
-      (receive (action-item rank) (selected-action-item/rank)
-        (let ((designer (get-bindings-designer~ appl))
-              (old (get-shortcut~ action-item)))
-          (set-property~ designer action-item 'shortcut #f)
-          (update-shortcut~ appl action-item old (get-shortcut~ action-item))
+          (tree (get-tree self)))
+      (receive (action-item rank) (selected-action-item/rank self)
+        (let ((designer (get-bindings-designer appl))
+              (old (get-shortcut action-item)))
+          (set-property designer action-item 'shortcut #f)
+          (update-shortcut appl action-item old (get-shortcut action-item))
           (update-action-item tree designer action-item rank)))))
   
   
-  (method (restore-shortcut)
+  (method (restore-shortcut self)
     (let ((appl (get-application))
-          (tree (get-tree)))
-      (receive (action-item rank) (selected-action-item/rank)
-        (let ((designer (get-bindings-designer~ appl))
-              (old (get-shortcut~ action-item)))
-          (remove-property~ designer action-item 'shortcut #f)
-          (update-shortcut~ appl action-item old (get-shortcut~ action-item))
+          (tree (get-tree self)))
+      (receive (action-item rank) (selected-action-item/rank self)
+        (let ((designer (get-bindings-designer appl))
+              (old (get-shortcut action-item)))
+          (remove-property designer action-item 'shortcut #f)
+          (update-shortcut appl action-item old (get-shortcut action-item))
           (update-action-item tree designer action-item rank)))))
   
   
-  (method (bind-shortcut)
+  (method (bind-shortcut self)
     (let ((appl (get-application))
-          (tree (get-tree)))
-      (receive (action-item rank) (selected-action-item/rank)
-        (let ((designer (get-bindings-designer~ appl))
-              (old (get-shortcut~ action-item)))
-          (set-property~ designer action-item 'shortcut (get-modal Shortcut-Chooser))
-          (update-shortcut~ appl action-item old (get-shortcut~ action-item))
+          (tree (get-tree self)))
+      (receive (action-item rank) (selected-action-item/rank self)
+        (let ((designer (get-bindings-designer appl))
+              (old (get-shortcut action-item)))
+          (set-property designer action-item 'shortcut (get-modal Shortcut-Chooser))
+          (update-shortcut appl action-item old (get-shortcut action-item))
           (update-action-item tree designer action-item rank)))))
   
   
   (definition (update-action-item tree designer action-item rank)
     (let ((shortcut-cell (new Cell rank 1))
           (owner-cell (new Cell rank 2)))
-      (set-cell-data~ tree shortcut-cell (new Tree-Label title: (present-shortcut~ tree (get-shortcut~ action-item))))
-      (set-cell-data~ tree owner-cell (new Tree-Image image: (owner-image~ tree designer action-item 'shortcut)))
-      (invalidate-cell~ tree shortcut-cell)
-      (invalidate-cell~ tree owner-cell)))
+      (set-cell-data tree shortcut-cell (new Tree-Label title: (present-shortcut tree (get-shortcut action-item))))
+      (set-cell-data tree owner-cell (new Tree-Image image: (owner-image tree designer action-item 'shortcut)))
+      (invalidate-cell tree shortcut-cell)
+      (invalidate-cell tree owner-cell)))
   
   
   ;;;
@@ -296,11 +298,11 @@
   ;;;
   
   
-  (method (edit-action)
-    (let ((action-handler (get-action-handler~ (selected-action-item))))
+  (method (edit-action self)
+    (let ((action-handler (get-action-handler (selected-action-item self))))
       (if (not action-handler)
           (bell)
-        (edit-definitions~ (get-application) (get-method-name~ action-handler)))))
+        (edit-definitions (get-application) (get-method-name action-handler)))))
   
   
   ;;;
@@ -308,16 +310,16 @@
   ;;;
   
   
-  (method (selected-action-item/rank)
-    (let* ((tree (get-tree))
-           (rank (get-single-selection~ tree)))
+  (method (selected-action-item/rank self)
+    (let* ((tree (get-tree self))
+           (rank (get-single-selection tree)))
       (and rank
-           (let ((data (get-user-data~ (get-row~ tree rank))))
+           (let ((data (get-user-data (get-row tree rank))))
              (values data rank)))))
   
   
-  (method (selected-action-item)
-    (let ((info (selected-action-item/rank)))
+  (method (selected-action-item self)
+    (let ((info (selected-action-item/rank self)))
       (if (not info)
           #f
         (receive (action-item rank) info
@@ -329,34 +331,34 @@
   ;;;
   
   
-  (method (view-bindings)
+  (method package (view-bindings self)
     (let ((appl (get-application)))
-      (let ((designer (get-bindings-designer~ appl))
-            (bindings (get-bindings))
+      (let ((designer (get-bindings-designer appl))
+            (bindings (current-bindings))
             (what (if shortcuts? 'shortcuts 'actions))
             (kind (if categorized? 'categorized 'flat))
-            (tree (get-tree)))
-        (view-bindings~ tree designer bindings what kind))))
+            (tree (get-tree self)))
+        (view-bindings tree designer bindings what kind))))
   
   
-  (method (update-traits)
-    (let ((bindings (get-bindings))
-          (combo (locate 'traits)))
-      (set-choices~ combo (map (lambda (trait)
-                                 (list trait (->string (get-name~ trait))))
-                               (child-traits~ bindings)))
-      (let ((branch (get-branch~ bindings)))
+  (method (update-traits self)
+    (let ((bindings (current-bindings))
+          (combo (locate self 'traits)))
+      (set-choices combo (map (lambda (trait)
+                                 (list trait (->string (get-name trait))))
+                               (child-traits bindings)))
+      (let ((branch (get-branch bindings)))
         (when branch
-          (set-value~ combo (get-trait~ branch))))))
+          (set-value combo (get-trait branch))))))
   
   
-  (method (update-buttons)
-    (let ((action-item (selected-action-item)))
+  (method package (update-buttons self)
+    (let ((action-item (selected-action-item self)))
       @waiting
       (set-enabled?~ (locate 'unbind-shortcut) action-item)
       @waiting
       (set-enabled?~ (locate 'restore-shortcut) action-item)
-      (set-enabled?~ (locate 'edit-action) action-item)
+      (set-enabled? (locate self 'edit-action) action-item)
       @waiting
       (set-enabled?~ (locate 'bind-shortcut) action-item))))
 
@@ -369,5 +371,5 @@
 (class Traits-Combo extends Combo-Box
   
   
-  (method override (content-change origin)
-    (trait-change~ (get-guest~ (get-host)) (get-value)))))
+  (method override (content-change self origin)
+    (trait-change (get-guest (get-host self)) (get-value self)))))

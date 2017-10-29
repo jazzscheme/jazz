@@ -38,7 +38,12 @@
 (module jazz.digest jazz
 
 
-(import (jazz.time))
+(hub get-hash)
+(hub get-time)
+
+
+(import (jazz.io)
+        (jazz.time))
 
 
 (definition package (construct-file-digest hash time)
@@ -46,11 +51,11 @@
 
 
 (definition public (file-digest file (digest #f))
-  (let ((digest-time (and digest (get-time~ digest)))
-        (file-time (time->seconds (get-modification-time~ file))))
+  (let ((digest-time (and digest (get-time digest)))
+        (file-time (time->seconds (get-modification-time file))))
     (if (and digest-time (= digest-time file-time))
         digest
-      (let ((file-hash (digest-file (parse~ file) 'SHA-1)))
+      (let ((file-hash (digest-file (parse file) 'SHA-1)))
         (new File-Digest file-hash file-time)))))
 
 
@@ -61,23 +66,23 @@
   (slot time getter generate)
     
     
-  (method override (initialize hash time)
-    (nextmethod)
-    (set! hash~self hash)
-    (set! time~self time))
+  (method override (initialize self hash time)
+    (nextmethod self)
+    (set! self.hash hash)
+    (set! self.time time))
   
   
-  (method override (compare-object target)
+  (method override (compare-object self target)
     (cond ((is-not? target File-Digest)
            :incompatible)
-          ((and (string=? hash (get-hash~ target))
-                (= time (get-time~ target)))
+          ((and (string=? hash (get-hash target))
+                (= time (get-time target)))
            :equal)
           (else
            :not-equal)))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{{a} {s} {s}}"
             (category-name (class-of self))
             hash

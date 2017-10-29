@@ -103,37 +103,37 @@
 
 
   (method (view-type-libs)
-    (with ((type-lib (open-type-lib~ Registry)))
+    (with ((type-lib (open-type-lib Registry)))
       (user-message "Gathering Keys...")
       (let* ((tree (locate 'registry))
-             (all (iterate-subkeys~ type-lib))
+             (all (iterate-subkeys type-lib))
              (guid-names (gather all))
              (informations (new List-Factory)))
         (for-each (lambda (guid-name)
                     (user-message "Processing {a}" guid-name)
-                    (let ((info (get-information~ type-lib guid-name)))
+                    (let ((info (get-information type-lib guid-name)))
                       (when info
-                        (put~ informations (cons guid-name info)))))
+                        (put informations (cons guid-name info)))))
                   guid-names)
-        (with-update-locked~ tree
+        (with-update-locked tree
           (lambda ()
             (for-each (lambda (info)
                         (bind (guid-name desc major-version minor-version language-id pathname) info
                           (when (not (empty-string? desc))
-                            (add-row~ tree children: (list (new Tree-Node title: desc image: {Image-Resource "TypeLib"})) user-data: info))))
-                      (sort < (get-output~ informations) key: second)))))
+                            (add-row tree children: (list (new Tree-Node title: desc image: {Image-Resource "TypeLib"})) user-data: info))))
+                      (sort < (get-output informations) key: second)))))
       (user-message "Done")))
 
 
   (method (on-selection-change evt)
-    (let* ((sender (get-sender~ evt))
-           (selection (get-single-selection~ sender)))
+    (let* ((sender (get-sender evt))
+           (selection (get-single-selection sender)))
       (when selection
-        (let ((info (get-user-data~ (get-row~ sender selection))))
+        (let ((info (get-user-data (get-row sender selection))))
           (when info
             (bind (guid-name desc major-version minor-version language-id pathname) info
               (let ((frame (singleton Type-Viewer))
                     (guid (new GUID (subseq guid-name 1 (- (cardinality guid-name) 1)))))
-                @wait (view-registered-typelib~ (get-guest~ frame) guid major-version minor-version language-id)
-                (view-file~ (get-guest~ frame) pathname)
-                (focus-host~ frame))))))))))
+                @wait (view-registered-typelib (get-guest frame) guid major-version minor-version language-id)
+                (view-file (get-guest frame) pathname)
+                (focus-host frame))))))))))

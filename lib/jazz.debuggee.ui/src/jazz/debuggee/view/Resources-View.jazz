@@ -38,10 +38,13 @@
 (module protected jazz.debuggee.view.Resources-View jazz
 
 
-(import (jazz.graphic)
+(import (jazz.event)
+        (jazz.graphic)
         (jazz.handler)
         (jazz.jml)
+        (jazz.log)
         (jazz.menu)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui))
@@ -91,8 +94,8 @@
   ;;;
   
   
-  (method public (get-tree)
-    (locate 'resources))
+  (method public (get-tree self)
+    (locate self 'resources))
 
   
   ;;;
@@ -100,73 +103,73 @@
   ;;;
   
   
-  (method public (clear)
+  (method public (clear self)
     (if (null? log)
         (bell)
-      (clear~ log)
-      (update)))
+      (clear log)
+      (update self)))
   
   
-  (method (on-double-click evt)
-    (bind (rank . counters) (selected-data)
+  (method (on-double-click self evt)
+    (bind (rank . counters) (selected-data self)
       (if (null? counters)
           (bell)
         (if (eqv? reference rank)
-            (clear-reference)
-          (set-reference)))))
+            (clear-reference self)
+          (set-reference self)))))
   
   
-  (method (on-context-menu evt)
-    (let ((sender (get-sender~ evt))
-          (pos (get-position~ evt))
+  (method (on-context-menu self evt)
+    (let ((sender (get-sender evt))
+          (pos (get-position evt))
           (menu (new Resources-Menu client: self)))
-      (set-selected?~ (child~ menu what) #t)
+      (set-selected? (child menu what) #t)
       (case what
         ((delta)
-         (set-visible?~ (child~ menu 'reference-separator) #f)
-         (set-visible?~ (child~ menu 'set-reference) #f)
-         (set-visible?~ (child~ menu 'clear-reference) #f)))
+         (set-visible? (child menu 'reference-separator) #f)
+         (set-visible? (child menu 'set-reference) #f)
+         (set-visible? (child menu 'clear-reference) #f)))
       (when (null? reference)
-        (set-visible?~ (child~ menu 'clear-reference) #f))
-      (layout-menu~ menu)
-      (with-context-click~ sender pos
+        (set-visible? (child menu 'clear-reference) #f))
+      (layout-menu menu)
+      (with-context-click sender pos
         (lambda ()
-          (track-popup-menu~ sender menu pos)))))
+          (track-popup-menu sender menu pos)))))
   
   
-  (method (show-delta)
+  (method package (show-delta self)
     (set! what 'delta)
-    (view-content))
+    (view-content self))
   
   
-  (method (show-before)
+  (method package (show-before self)
     (set! what 'before)
-    (view-content))
+    (view-content self))
   
   
-  (method (show-after)
+  (method package (show-after self)
     (set! what 'after)
-    (view-content))
+    (view-content self))
   
   
-  (method (set-reference)
-    (bind (rank . counters) (selected-data)
+  (method package (set-reference self)
+    (bind (rank . counters) (selected-data self)
       (if (null? counters)
           (bell)
         (set! reference rank)
-        (view-content))))
+        (view-content self))))
   
   
-  (method (clear-reference)
+  (method package (clear-reference self)
     (set! reference #f)
-    (view-content))
+    (view-content self))
   
   
-  (method (selected-data)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree))
-           (row (get-row~ tree (get-line~ selection)))
-           (data (get-user-data~ row)))
+  (method (selected-data self)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree))
+           (row (get-row tree (get-line selection)))
+           (data (get-user-data row)))
       data))
 
   
@@ -175,14 +178,14 @@
   ;;;
   
   
-  (method public (update (reload?: reload? #t))
-    (when (and reload? log (get-file~ log))
-      (reload~ log))
-    (view-content))
+  (method public (update self (reload?: reload? #t))
+    (when (and reload? log (get-file log))
+      (reload log))
+    (view-content self))
   
   
-  (method protected virtual (extract-log-content log)
-    (get-toplevel-nodes~ log))
+  (method protected virtual (extract-log-content self log)
+    (get-toplevel-nodes log))
   
   
   ;;;
@@ -203,27 +206,27 @@
     (list #f #f))
   
   
-  (method public (view-log log)
-    (set! log~self log)
-    (clear-reference)
-    (view-content))
+  (method public (view-log self log)
+    (set! self.log log)
+    (clear-reference self)
+    (view-content self))
   
   
-  (method (view-content)
+  (method (view-content self)
     (define (insert-node tree father node)
-      (case (get-tag~ node)
+      (case (get-tag node)
         ((resources) (insert-resources tree father node))
         (else (insert-entry tree father node))))
     
     (define (insert-entry tree father entry)
-      (let* ((name (or (get-property~ entry 'name) ""))
+      (let* ((name (or (get-property entry 'name) ""))
              (image {Image-Resource "Blue"})
              (reference-entry? (and reference (eq? entry reference-entry)))
              (reference-scan (if reference reference-counters '()))
              (rank (if (null? father) (prog1 next-rank (increase! next-rank)) #f))
              (counters (entry-counters entry))
              (user-data (cons rank counters))
-             (row (add-row~ tree father: father position: 0
+             (row (add-row tree father: father position: 0
                     children: (cons (new Tree-Node title: name image: image)
                                     (map (lambda (counter property)
                                            (prog1 (if (null? counters)
@@ -250,15 +253,15 @@
                     user-data: user-data)))
         (for-each (lambda (child)
                     (insert-node tree row child))
-                  (get-children~ entry))))
+                  (get-children entry))))
     
     (define (insert-resources tree father resources)
       (case what
         ((delta)
-         (let ((name (or (get-property~ resources 'name) ""))
+         (let ((name (or (get-property resources 'name) ""))
                (image {Image-Resource "Red"})
                (counters (resources-counters resources)))
-           (add-row~ tree father: father
+           (add-row tree father: father
              children: (cons (new Tree-Node title: name image: image)
                              (map (lambda (counter)
                                     (new Tree-Label title: (->string counter)))
@@ -266,8 +269,8 @@
              user-data: resources)))))
     
     (define (entry-counters entry)
-      (let ((before (find-name~ entry 'before))
-            (after (find-name~ entry 'after)))
+      (let ((before (find-name entry 'before))
+            (after (find-name entry 'after)))
         (case what
           ((delta)
            (when (and before after)
@@ -298,17 +301,17 @@
     
     (define (resources-counters resources)
       (map (lambda (property)
-             (get-property~ resources property))
+             (get-property resources property))
            Resources-Properties))
     
-    (let ((tree (get-tree)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+    (let ((tree (get-tree self)))
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (when log
             (set! next-rank 0)
             (set! last-counters (make-table test: eq?))
-            (let ((entries (extract-log-content log)))
+            (let ((entries (extract-log-content self log)))
               (set! reference-entry (and reference (element entries reference)))
               (set! reference-counters (and reference-entry (entry-counters reference-entry)))
               (for-each (lambda (node)
@@ -335,21 +338,21 @@
       (<Radio-Item>     name: clear-reference     title: "Clear Reference" action-handler: {Event-Handler :form on-clear-reference})))
   
   
-  (method (on-show-delta evt)
-    (show-delta~ client))
+  (method (on-show-delta self evt)
+    (show-delta client))
   
   
-  (method (on-show-before evt)
-    (show-before~ client))
+  (method (on-show-before self evt)
+    (show-before client))
   
   
-  (method (on-show-after evt)
-    (show-after~ client))
+  (method (on-show-after self evt)
+    (show-after client))
   
   
-  (method (on-set-reference evt)
-    (set-reference~ client))
+  (method (on-set-reference self evt)
+    (set-reference client))
   
   
-  (method (on-clear-reference evt)
-    (clear-reference~ client))))
+  (method (on-clear-reference self evt)
+    (clear-reference client))))

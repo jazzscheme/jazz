@@ -38,7 +38,9 @@
 (module protected jazz.validation.validate.Validation-Manager jazz
 
 
-(import (jazz.log))
+(import (jazz.jml)
+        (jazz.log)
+        (jazz.validation))
 
 
 (class Validation-Manager extends Object
@@ -51,56 +53,56 @@
   (slot log             getter generate)
   
   
-  (method override (initialize (feedback: feedback #f)
+  (method override (initialize self (feedback: feedback #f)
                                (feedback-port: feedback-port #f)
                                (report-success?: report-success? #t)
                                (report-results?: report-results? #t)
                                (log: log #f))
-    (nextmethod)
-    (set! feedback~self (or feedback default-feedback))
-    (set! feedback-port~self (or feedback-port :terminal))
-    (set! report-success?~self report-success?)
-    (set! report-results?~self report-results?)
-    (set! log~self (or log (new Log name: 'validate))))
+    (nextmethod self)
+    (set! self.feedback (or feedback (~ default-feedback self)))
+    (set! self.feedback-port (or feedback-port :terminal))
+    (set! self.report-success? report-success?)
+    (set! self.report-results? report-results?)
+    (set! self.log (or log (new Log name: 'validate))))
   
   
-  (method (default-feedback format-string . rest)
+  (method (default-feedback self format-string . rest)
     (apply format feedback-port format-string rest)
     (format feedback-port "{%}"))
   
   
-  (method public (validate suite)
+  (method public (validate self suite)
     (define (validate-suite)
-      (for-each invoke-tester (get-testers~ suite)))
+      (for-each invoke-tester (get-testers suite)))
     
     (define (invoke-tester tester)
-      (set-manager~ tester self)
-      (set-suite~ tester suite)
+      (set-manager tester self)
+      (set-suite tester suite)
       (feedback "Validating {a}..." (category-name (class-of tester)))
-      (test~ tester))
+      (test tester))
     
     (validate-suite)
     (when report-results?
-      (report-results)))
+      (report-results self)))
   
   
-  (method public (log-failure suite tester section message class location properties)
-    (log-entry~ log 'failure (format "{a} {a}{?.{a}~}" (get-title~ suite) tester section) message class: class location: location properties: properties))
+  (method public (log-failure self suite tester section message class location properties)
+    (log-entry log 'failure (format "{a} {a}{?.{a}~}" (get-title suite) tester section) message class: class location: location properties: properties))
   
   
-  (method public (get-failures)
-    (get-toplevel-nodes~ log))
+  (method public (get-failures self)
+    (get-toplevel-nodes log))
   
   
-  (method public (report-results)
-    (let ((failures (get-failures)))
+  (method public (report-results self)
+    (let ((failures (get-failures self)))
       (if (null? failures)
           (when report-success?
             (format feedback-port "Test suite completed successfully.{%}"))
         (format feedback-port "{%}********************************")
         (format feedback-port "{%}The following assertions failed:{%}{%}")
         (for-each (lambda (failure)
-                    (let ((name (get-property~ failure 'name))
-                          (message (get-property~ failure 'message)))
+                    (let ((name (get-property failure 'name))
+                          (message (get-property failure 'message)))
                       (format feedback-port "{a} : {a}{%}" name message)))
                   failures))))))

@@ -128,6 +128,7 @@
 ;;;
 
 
+(jazz:define-virtual-syntax (jazz:emit-check? (jazz:Parameter parameter)))
 (jazz:define-virtual-syntax (jazz:emit-parameter (jazz:Parameter parameter) declaration environment backend))
 
 

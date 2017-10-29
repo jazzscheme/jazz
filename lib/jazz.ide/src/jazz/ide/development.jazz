@@ -43,6 +43,7 @@
 (import (jazz.clipboard)
         (jazz.component)
         (jazz.editor.jazz)
+        (jazz.editor.sql)
         (jazz.editor.sql.view)
         (jazz.feedback)
         (jazz.geometry)
@@ -50,6 +51,7 @@
         (jazz.io)
         (jazz.jml)
         (jazz.locale)
+        (jazz.text)
         (jazz.ui.dialog)
         (jazz.view)
         (jazz.workspace))
@@ -64,15 +66,11 @@
   (inspect object))
 
 
-(definition public (ins object)
-  (inspect-object object))
-
-
 (definition public (inspect-form form/component)
   (with-text-inspector
     (lambda (output)
-      (let ((form (if (is? form/component Form) form/component (get-form~ form/component))))
-        (pretty-print~ (form->node form) output)
+      (let ((form (if (is? form/component Form) form/component (get-form form/component))))
+        (print-node (form->node form) output)
         (newline output)))))
 
 
@@ -80,34 +78,34 @@
   (with-text-inspector
     (lambda (output)
       (let ((first? #t))
-        (for-each-trait~ component
+        (for-each-trait component
           (lambda (trait)
             (if first?
                 (set! first? #f)
               (format output "{%}{%}"))
-            (format output "{a}{%}" (get-name~ trait))
-            (let ((form (get-restore-form~ trait)))
+            (format output "{a}{%}" (get-name trait))
+            (let ((form (get-restore-form trait)))
               (if (not form)
                   (format output " ~#f{%}")
-                (pretty-print~ (form->node form) output)
+                (print-node (form->node form) output)
                 (newline output)))))))))
 
 
 (definition public (with-text-inspector proc)
   (let ((output (open-output-string)))
     (proc output)
-    (let* ((workspace (get-name~ (selected-workspace)))
+    (let* ((workspace (get-name (selected-workspace)))
            (frame (new-frame Jazz-Text-View host-visible?: #f host-workspace: workspace))
-           (text (get-guest~ frame)))
-      (set-string-content~ text (get-output-string output))
-      (set-caret~ text (text-beginning~ text))
-      (set-modified?~ text #f)
-      (acquire-focus~ text))))
+           (text (get-guest frame)))
+      (set-string-content text (get-output-string output))
+      (set-caret text (text-beginning text))
+      (set-modified? text #f)
+      (acquire-focus text))))
 
 
 (definition public (methods class/obj)
   (let ((class (if (class? class/obj) class/obj (class-of class/obj))))
-    (map field-name (collect-type Method (table-values (get-fields~ class))))))
+    (map field-name (collect-type Method (table-values (get-fields class))))))
 
 
 ;;;
@@ -143,13 +141,13 @@
 
 
 (definition public (cd)
-  (let ((dir (choose-directory selected-directory: (get-current-directory))))
-    (set-current-directory dir)
+  (let ((dir (choose-directory selected-directory: (current-directory-get))))
+    (current-directory-set! dir)
     dir))
 
 
 (definition public (cp)
-  (let ((path (format "{l}" (get-list~ (cd)))))
+  (let ((path (format "{l}" (get-list (cd)))))
     (set-clipboard-text path)
     (user-message "Clipboard set to {a}" path)
     #f))
@@ -162,9 +160,9 @@
 
 (definition public (find-files pattern directory)
   (let ((regexp (make-search-context pattern regexp?: #t)))
-    (iterate-directory~ directory
+    (iterate-directory directory
       (lambda (file)
-        (let ((name (get-name~ file)))
+        (let ((name (get-name file)))
           (when (search name regexp)
             (debug file)))))))
 
@@ -176,14 +174,14 @@
         (replacement-regexp (new Regular-Expression replacement))
         (succeeded 0)
         (failed (new List-Factory)))
-    (iterate-directory~ directory
+    (iterate-directory directory
       (lambda (file)
-        (let* ((name (get-name~ file))
-               (match (match~ find-regexp name)))
+        (let* ((name (get-name file))
+               (match (match find-regexp name)))
           (when match
-            (let* ((new-name (replace~ replacement-regexp match))
-                   (new-file (new-file~ (get-directory~ file) new-name)))
-              (move-pathname~ file new-file)
+            (let* ((new-name (replace replacement-regexp match))
+                   (new-file (new-file (get-directory file) new-name)))
+              (move-pathname file new-file)
               (increase! succeeded)))))
       files?: #t
       directories?: #f)
@@ -206,16 +204,16 @@
     (<install> background: {Color Dark}))
   
   
-  (method public (get-invite)
+  (method public (get-invite self)
     invite)
   
   
-  (method public (set-invite value)
+  (method public (set-invite self value)
     (set! invite value)
-    (invalidate-view))
+    (invalidate-view self))
   
   
-  (method override (receive-files pos files)
+  (method override (receive-files self pos files)
     (receiver self pos files))
   
   
@@ -223,15 +221,15 @@
     {Font Heading2})
   
   
-  (method override (draw surface context)
-    (set-font~ surface Background-Font)
+  (method override (draw self surface context)
+    (set-font surface Background-Font)
     (let* ((title (localize (or invite "Drop Files Here")))
-           (extent (get-text-extent~ surface title))
-           (pos (center extent (get-display-size))))
+           (extent (get-text-extent surface title))
+           (pos (center extent (get-display-size self))))
       ;; shadow
-      (draw-text~ surface (+ (get-h~ pos) 2) (+ (get-v~ pos) 2) title {Color Black})
+      (draw-text surface (+ (get-h pos) 2) (+ (get-v pos) 2) title {Color Black})
       ;; text
-      (draw-text~ surface (get-h~ pos) (get-v~ pos) title {Color Gray}))))
+      (draw-text surface (get-h pos) (get-v pos) title {Color Gray}))))
 
 
 (definition public (setup-receiver receiver (title: title #f) (position: position #f) (size: size #f) (invite: invite #f))
@@ -249,6 +247,6 @@
 
 (definition public (inspect-tables tables (name: name #f) (max-display: max-display 250))
   (let ((console-text (get-sql-console-text)))
-    (set-current-request~ console-text name)
-    (display-tables~ console-text tables max-display 0)
+    (set-current-request console-text name)
+    (display-tables console-text tables max-display 0)
     tables)))

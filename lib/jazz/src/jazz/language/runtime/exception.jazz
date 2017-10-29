@@ -99,23 +99,23 @@
 (class Exception extends Object
   
   
-  (method core virtual (present-exception))
-  (method core virtual (exception-message))
-  (method core virtual (get-detail))
+  (method core virtual (present-exception self))
+  (method core virtual (exception-message self))
+  (method core virtual (get-detail self))
   
   
-  (method public virtual (get-message)
+  (method public virtual (get-message self)
     #f)
   
   
-  (method public virtual (present-message . rest)
-    (list (get-message)))
+  (method public virtual (present-message self . rest)
+    (list (get-message self)))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
-        (format output "{?{s}~}" (get-message))))))
+        (format output "{?{s}~}" (get-message self))))))
 
 
 (definition public (exception? obj)
@@ -126,15 +126,15 @@
 (class package Exception-Detail-Class extends Class
   
   
-  (method override (marshall-object object)
+  (method override (marshall-object self object)
     (serialize-object (class-of object)
-                      (vector (get-icon~ object)
-                              (get-title~ object)
-                              (get-location~ object)
-                              (get-children~ object))))
+                      (vector (get-icon object)
+                              (get-title object)
+                              (get-location object)
+                              (get-children object))))
   
   
-  (method override (unmarshall-object content)
+  (method override (unmarshall-object self content)
     (allocate Exception-Detail
               (vector-ref content 0)
               (vector-ref content 1)
@@ -151,15 +151,15 @@
   (slot children getter generate)
   
   
-  (method override (initialize icon title location children)
-    (nextmethod)
-    (set! icon~self icon)
-    (set! title~self title)
-    (set! location~self location)
-    (set! children~self children))
+  (method override (initialize self icon title location children)
+    (nextmethod self)
+    (set! self.icon icon)
+    (set! self.title title)
+    (set! self.location location)
+    (set! self.children children))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{{a} {s} {s} {s} {s}}"
             (category-name (class-of self))
             icon
@@ -174,9 +174,9 @@
   (slot exception getter generate)
   
   
-  (method override (initialize exception)
-    (nextmethod)
-    (set! exception~self exception)))
+  (method override (initialize self exception)
+    (nextmethod self)
+    (set! self.exception exception)))
 
 
 (definition public (wrap-exception obj)
@@ -191,9 +191,9 @@
   (slot continue)
   
   
-  (method override (initialize continue)
-    (nextmethod)
-    (set! continue~self continue)))
+  (method override (initialize self continue)
+    (nextmethod self)
+    (set! self.continue continue)))
 
 
 (class Continue extends Exception)
@@ -205,9 +205,9 @@
   (slot message setter generate getter (override generate))
   
   
-  (method override (initialize (message: message #f))
-    (nextmethod)
-    (set-message message)))
+  (method override (initialize self (message: message #f))
+    (nextmethod self)
+    (set-message self message)))
 
 
 (definition public (error? obj)
@@ -223,15 +223,15 @@
   (slot end    getter generate)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((source #f) (start #f) (end #f) . others) rest
-      (apply nextmethod others)
-      (set! source~self source)
-      (set! start~self start)
-      (set! end~self end)))
+      (apply nextmethod self others)
+      (set! self.source source)
+      (set! self.start start)
+      (set! self.end end)))
   
   
-  (method public (get-range)
+  (method public (get-range self)
     (new Range start end)))
 
 
@@ -243,12 +243,12 @@
   (slot end    getter generate)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((source #f) (start #f) (end #f) . others) rest
-      (apply nextmethod others)
-      (set! source~self source)
-      (set! start~self start)
-      (set! end~self end))))
+      (apply nextmethod self others)
+      (set! self.source source)
+      (set! self.start start)
+      (set! self.end end))))
 
 
 (class package Conversion-Error extends Parse-Error
@@ -258,14 +258,14 @@
   (slot type   getter generate)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((object #f) (type #f) . others) rest
-      (apply nextmethod others)
-      (set! object~self object)
-      (set! type~self type)))
+      (apply nextmethod self others)
+      (set! self.object object)
+      (set! self.type type)))
   
   
-  (method override (get-message)
+  (method override (get-message self)
     (let ((type (if (string? type) type (category-identifier type))))
       (format "Unable to convert \"{a}\" into {a} {a}"
               object
@@ -281,12 +281,12 @@
   (slot end    getter generate)
   
   
-  (method override (initialize source . rest)
+  (method override (initialize self source . rest)
     (bind-keywords ((start #f) (end #f) . others) rest
-      (apply nextmethod others)
-      (set! source~self source)
-      (set! start~self start)
-      (set! end~self end)))
+      (apply nextmethod self others)
+      (set! self.source source)
+      (set! self.start start)
+      (set! self.end end)))
   
   
   ;;;
@@ -294,7 +294,7 @@
   ;;;
   
   
-  (method public (get-range)
+  (method public (get-range self)
     (new Range start end)))
 
 
@@ -393,14 +393,14 @@
   (slot handler getter generate)
   
   
-  (method override (initialize name message handler)
-    (nextmethod)
-    (set! name~self name)
-    (set! message~self message)
-    (set! handler~self handler))
+  (method override (initialize self name message handler)
+    (nextmethod self)
+    (set! self.name name)
+    (set! self.message message)
+    (set! self.handler handler))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{a}"
@@ -430,18 +430,18 @@
 
 (definition public (find-restart name)
   (find-if (lambda (restart)
-             (eq? (get-name~ restart) name))
+             (eq? (get-name restart) name))
            (current-restarts)))
 
 
 (definition public (find-restarts name)
   (collect-if (lambda (restart)
-                (eq? (get-name~ restart) name))
+                (eq? (get-name restart) name))
               (current-restarts)))
 
 
 (definition public (invoke-restart restart . rest)
-  (let ((handler (get-handler~ restart)))
+  (let ((handler (get-handler restart)))
     (apply handler rest)))
 
 

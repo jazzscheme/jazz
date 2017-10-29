@@ -2468,7 +2468,7 @@
     (jazz:output-value value output ':reader)))
 
 
-(define (jazz:print value output detail)
+(define (jazz:print-detail value output detail)
   (case detail
     ((:human) (display value output))
     ((:reader :text :describe) (write value output))
@@ -2490,7 +2490,7 @@
   (cond ((or (%%null? value) (%%pair? value))
          (jazz:output-list value output detail))
         ((jazz:primitive? value)
-         (jazz:print value output detail))
+         (jazz:print-detail value output detail))
         (else
          (jazz:print-jazz value output detail))))
 

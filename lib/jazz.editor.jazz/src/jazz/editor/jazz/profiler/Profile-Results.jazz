@@ -39,12 +39,14 @@
 
 
 (import (jazz.debugger)
+        (jazz.event)
         (jazz.feedback)
         (jazz.graphic)
         (jazz.handler)
         (jazz.jml)
         (jazz.jrm)
         (jazz.layout)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -89,24 +91,24 @@
                 (<Calls-Tree> name: calls    selection-handler: {Selection-Handler :form on-select-location} return-press-handler: {Event-Handler :form on-return-press}))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Profiles)
   
   
-  (method override (finish initargs)
-    (nextmethod initargs)
-    (set-choices~ (locate 'profiler)
+  (method override (finish self initargs)
+    (nextmethod self initargs)
+    (set-choices (locate self 'profiler)
       '((statprof "Statistical")
         (detprof "Deterministic")))
-    (set-value~ (locate 'profiler) 'statprof)
-    (set-choices~ (locate 'depth)
+    (set-value (locate self 'profiler) 'statprof)
+    (set-choices (locate self 'depth)
       (loop (for d from 0 to 8)
             (collect (list d (->string d)))))
-    (set-value~ (locate 'depth) 4)
-    (set-choices~ (locate 'shown)
+    (set-value (locate self 'depth) 4)
+    (set-choices (locate self 'shown)
       (loop (for d from 0 to 8)
             (collect (list d (->string d)))))
-    (set-value~ (locate 'shown) 1))
+    (set-value (locate self 'shown) 1))
   
   
   ;;;
@@ -114,19 +116,19 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Constructor"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Profiles")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 28 14})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 408 608})
   
   
@@ -135,12 +137,12 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (get-tree)))
+  (method override (focus-default self)
+    (acquire-focus (get-tree self)))
   
   
   ;;;
@@ -148,8 +150,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'calls))
+  (method package (get-tree self)
+    (locate self 'calls))
   
   
   ;;;
@@ -157,63 +159,63 @@
   ;;;
   
   
-  (method (on-start-profiler evt)
+  (method (on-start-profiler self evt)
     (user-feedback "Profiler started")
-    (profiler-start~ (require-focused-process~ (get-debugger-manager))))
+    (profiler-start (require-focused-process (get-debugger-manager))))
   
   
-  (method (on-stop-profiler evt)
-    (profiler-stop~ (require-focused-process~ (get-debugger-manager)))
-    (view-profile)
+  (method (on-stop-profiler self evt)
+    (profiler-stop (require-focused-process (get-debugger-manager)))
+    (view-profile self)
     (user-message "Profiler stopped"))
   
   
-  (method (on-choose-profile evt)
+  (method (on-choose-profile self evt)
     (define (present-profile profile)
       (if profile
           (->string profile)
         "<default>"))
     
-    (let ((process (require-focused-process~ (get-debugger-manager))))
-      (let ((profiles (profiler-profiles~ process))
-            (profile (profiler-selected-profile~ process)))
-        (profiler-selected-profile-set!~ process (request-list (sort string<? profiles key: present-profile) title: "Choose Profile" invite: "Select a profile from the list" present: present-profile selected: profile))
-        (view-profile))))
+    (let ((process (require-focused-process (get-debugger-manager))))
+      (let ((profiles (profiler-profiles process))
+            (profile (profiler-selected-profile process)))
+        (profiler-selected-profile-set! process (request-list (sort string<? profiles key: present-profile) title: "Choose Profile" invite: "Select a profile from the list" present: present-profile selected: profile))
+        (view-profile self))))
   
   
-  (method (on-change-profiler evt)
-    (reset-profile (get-value~ (get-sender~ evt)) #f #f))
+  (method (on-change-profiler self evt)
+    (reset-profile self (get-value (get-sender evt)) #f #f))
   
   
-  (method (on-change-depth evt)
-    (reset-profile #f (get-value~ (get-sender~ evt)) #f))
+  (method (on-change-depth self evt)
+    (reset-profile self #f (get-value (get-sender evt)) #f))
   
   
-  (method (on-change-shown evt)
-    (view-profile))
+  (method (on-change-shown self evt)
+    (view-profile self))
   
   
-  (method (on-reset-profile evt)
-    (let ((all? (get-shift?~ evt)))
-      (reset-profile #f #f all?)))
+  (method (on-reset-profile self evt)
+    (let ((all? (get-shift? evt)))
+      (reset-profile self #f #f all?)))
   
   
-  (method (reset-profile profiler depth all?)
-    (profile-reset~ (require-focused-process~ (get-debugger-manager)) profiler depth all?)
-    (view-profile))
+  (method (reset-profile self profiler depth all?)
+    (profile-reset (require-focused-process (get-debugger-manager)) profiler depth all?)
+    (view-profile self))
   
   
-  (method (on-refresh-profile evt)
-    (view-profile))
+  (method (on-refresh-profile self evt)
+    (view-profile self))
   
   
-  (method (on-select-location evt)
-    (let ((user-origin (get-user-origin~ evt)))
-      (edit-source)
+  (method (on-select-location self evt)
+    (let ((user-origin (get-user-origin evt)))
+      (edit-source self)
       ;; as a quick solution we let the previous call give the focus to the document
       ;; because a lot of framework behavior depends on a new document gaining focus
       (when user-origin
-        (acquire-focus~ (locate 'calls)))))
+        (acquire-focus (locate self 'calls)))))
   
   
   ;;;
@@ -225,12 +227,12 @@
     '())
   
   
-  (method (edit-source)
+  (method (edit-source self)
     (for-each (lambda (indicator)
-                (edit-location~ indicator #f))
+                (edit-location indicator #f))
               *frame-indicators*)
     (set! *frame-indicators*
-          (let ((locations (selected-locations)))
+          (let ((locations (selected-locations self)))
             (if (not locations)
                 '()
               (let ((highest .4)
@@ -239,7 +241,7 @@
                        (bind (location value minimum maximum) info
                          (let ((value (+ highest (* (if (= minimum maximum) .5 (/ (- maximum value) (- maximum minimum))) (- lowest highest)))))
                            (let ((indicator (new Location-Indicator (new Color red: 1. green: value blue: value))))
-                             (edit-location~ indicator location)
+                             (edit-location indicator location)
                              indicator))))
                      locations))))))
   
@@ -249,8 +251,8 @@
   ;;;
   
   
-  (method (selected-locations)
-    (get-single-selected-data~ (get-tree)))
+  (method (selected-locations self)
+    (get-single-selected-data (get-tree self)))
   
   
   ;;;
@@ -258,12 +260,12 @@
   ;;;
   
   
-  (method (view-profile)
+  (method (view-profile self)
     (with-cursor :wait
       (lambda ()
-        (let ((tree (get-tree))
+        (let ((tree (get-tree self))
               (profile (parameterize ((receive-timeout 30))
-                         (profiler-profile~ (require-focused-process~ (get-debugger-manager))))))
+                         (profiler-profile (require-focused-process (get-debugger-manager))))))
           (when profile
             (bind (label profiler depth frames-count frames-duration calls-count calls-duration process-info calls) profile
               (bind (user-time sys-time real-time gc-time bytes-allocated) process-info
@@ -302,26 +304,26 @@
                 (define (add-call-rows call minimum maximum (father #f))
                   (bind (stack count duration) call
                     (if (null? stack)
-                        (add-row~ tree father: father children: (make-children "<nostack>" count duration) user-data: #f)
+                        (add-row tree father: father children: (make-children "<nostack>" count duration) user-data: #f)
                       (bind (head-frame . frames) stack
-                        (let ((row (add-row~ tree father: father children: (make-children head-frame count duration) user-data: (list (list (second head-frame) count minimum maximum)))))
+                        (let ((row (add-row tree father: father children: (make-children head-frame count duration) user-data: (list (list (second head-frame) count minimum maximum)))))
                           (for-each (lambda (frame)
-                                      (add-row~ tree father: row children: (make-children frame #f #f) user-data: (list (list (second frame) 0 0 0))))
+                                      (add-row tree father: row children: (make-children frame #f #f) user-data: (list (list (second frame) 0 0 0))))
                                     frames))))))
                 
-                (set-value~ (locate 'profiler) profiler)
-                (set-value~ (locate 'depth) depth)
-                (let ((shown (min depth (get-value~ (locate 'shown)))))
-                  (set-value~ (locate 'shown) shown)
-                  (remove-every-row~ tree)
+                (set-value (locate self 'profiler) profiler)
+                (set-value (locate self 'depth) depth)
+                (let ((shown (min depth (get-value (locate self 'shown)))))
+                  (set-value (locate self 'shown) shown)
+                  (remove-every-row tree)
                   (let ((alloc (fxfloor/ bytes-allocated 1024))
                         (fps (calculate-fps)))
                     (let ((title (format "{?{a}: ~}program: {a} ms, kernel: {a} ms, gc: {a} ms, allocation: {a} kb{? {a}~}" label user-time sys-time gc-time alloc fps)))
-                      (set-title~ (locate 'profile) title)
-                      (set-tooltip?~ (locate 'profile) #t)
-                      (set-tooltip-text~ (locate 'profile) title)))
+                      (set-title (locate self 'profile) title)
+                      (set-tooltip? (locate self 'profile) #t)
+                      (set-tooltip-text (locate self 'profile) title)))
                   (if (= shown 0)
-                      (with-update-locked~ tree
+                      (with-update-locked tree
                         (lambda ()
                           (let ((cardinalities (map second calls)))
                             (let ((minimum (minimum cardinalities))
@@ -344,7 +346,7 @@
                                                     stack
                                                   (subseq stack 0 shown))))))
                                 calls)
-                      (with-update-locked~ tree
+                      (with-update-locked tree
                         (lambda ()
                           (for-each (lambda (info)
                                       (bind (locator total-count calls) info
@@ -369,7 +371,7 @@
                                                                    (bind (location . cardinality) pair
                                                                      (list location cardinality locator-minimum locator-maximum)))
                                                                  locator-pairs)))
-                                                  (let ((father (add-row~ tree children: (make-children locator-name total-count #f) user-data: data)))
+                                                  (let ((father (add-row tree children: (make-children locator-name total-count #f) user-data: data)))
                                                     (let ((cardinalities (map second sorted-calls)))
                                                       (let ((minimum (minimum cardinalities))
                                                             (maximum (maximum cardinalities)))

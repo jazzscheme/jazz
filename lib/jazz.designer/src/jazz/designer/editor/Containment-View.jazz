@@ -39,11 +39,13 @@
 
 
 (import (jazz.descriptor)
+        (jazz.designer)
         (jazz.graphic)
         (jazz.handler)
         (jazz.jml)
         (jazz.resource)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.view))
 
 
 (class undocumented Containment-View extends Layout-View
@@ -62,9 +64,9 @@
   ;;;
   
   
-  (method override (destroy)
-    (set-editor #f)
-    (nextmethod))
+  (method override (destroy self)
+    (set-editor self #f)
+    (nextmethod self))
 
 
   ;;;
@@ -72,27 +74,27 @@
   ;;;
   
   
-  (method public (get-editor)
+  (method public (get-editor self)
     editor)
     
   
-  (method public (set-editor edt)
+  (method public (set-editor self edt)
     (when (neq? edt editor)
       (when editor
-        (remove-editor-listener~ editor self))
+        (remove-editor-listener editor self))
       (set! editor edt)
       (when editor
-        (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))
-      (set-client (and editor (get-selection~ editor)))))
+        (add-editor-listener editor (new Event-Handler target: self method-name: 'on-editor)))
+      (set-client self (and editor (get-selection editor)))))
   
   
-  (method protected virtual (on-editor evt)
-    (case (get-kind~ evt)
-      ((:selection-changed) (selection-changed (get-selection~ evt) (get-old~ evt) (get-origin~ evt) (get-force-parent?~ evt) (get-user-origin~ evt)))))
+  (method protected virtual (on-editor self evt)
+    (case (get-kind evt)
+      ((:selection-changed) (selection-changed self (get-selection evt) (get-old evt) (get-origin evt) (get-force-parent? evt) (get-user-origin evt)))))
   
   
-  (method protected virtual (selection-changed selection old origin force-parent? focus?)
-    (set-client selection))
+  (method protected virtual (selection-changed self selection old origin force-parent? focus?)
+    (set-client self selection))
   
   
   ;;;
@@ -100,20 +102,20 @@
   ;;;
 
 
-  (method public (get-client)
+  (method public (get-client self)
     client)
   
   
-  (method public (set-client clt)
-    (set-client-direct (and clt (map inner-widget~ clt))))
+  (method public (set-client self clt)
+    (set-client-direct self (and clt (map inner-widget clt))))
 
 
-  (method public (set-client-direct clt)
+  (method public (set-client-direct self clt)
     (define (collect-outers client)
       (when (and client editor)
-        (let ((reference (get-reference~ editor)))
+        (let ((reference (get-reference editor)))
           (map (lambda (component)
-                 (outer-component~ component reference))
+                 (outer-component component reference))
                client))))
     
     (define (collect-groups outers)
@@ -130,9 +132,9 @@
         (define (collect component)
           (enqueue queue component)
           (for-each (lambda (child)
-                      (when (inner?~ component child)
+                      (when (inner? component child)
                         (collect child)))
-                    (get-children~ component)))
+                    (get-children component)))
         
         (collect outer)
         (queue-list queue)))
@@ -147,21 +149,21 @@
           (car selected))))
     
     (define (setup-tool tool)
-      (set-action-handler~ tool (new Event-Handler execute: (selector tool))))
+      (set-action-handler tool (new Event-Handler execute: (selector tool))))
     
     (define (selector tool)
       (lambda (event)
-        (let ((selection (get-selection~ tool)))
-          (set-client-direct selection)
-          (set-client-direct~ (get-parent) selection))
-        (acquire-focus~ tool)))
+        (let ((selection (get-selection tool)))
+          (set-client-direct self selection)
+          (set-client-direct (get-parent self) selection))
+        (acquire-focus tool)))
     
     (let* ((outers (collect-outers clt))
            (old-outers (collect-outers client))
            (groups (and clt (not-null? clt) (collect-groups outers))))
       (set! client clt)
       (unless (equal? outers old-outers)
-        (close-children)
+        (close-children self)
         (when (and client (not-null? client))
           (cond (groups
                   (for-each (lambda (group)
@@ -169,12 +171,12 @@
                             groups))
                 (else
                  (setup-tool (new Containment-Tool parent: self resource: {Image-Resource "All"} portfolio: :images selected?: #t selection: client uniform?: #f))))
-          (layout-view)))
+          (layout-view self)))
       (when groups
         (let* ((selected-group (selected-group groups client))
-               (selected-tool (find children selected-group test: equal? key: get-selection~ return: 'item)))
+               (selected-tool (find children selected-group test: equal? key: get-selection return: 'item)))
           (when (and selected-group selected-tool)
-            (set-selected?~ selected-tool #t)))))))
+            (set-selected? selected-tool #t)))))))
 
 
 ;;;
@@ -193,17 +195,17 @@
     (<install> tooltip?: #t))
   
   
-  (method override (get-formatted-tooltip?)
+  (method override (get-formatted-tooltip? self)
     #f)
   
   
-  (method override (get-tooltip-context pos)
+  (method override (get-tooltip-context self pos)
     (let ((any (car selection)))
       (new Tooltip-Context
         view: self
         text: (if uniform?
                   (format "{a}{? {a}~}"
                           (category-name (class-of any))
-                          (uniform (map get-name~ selection)))
+                          (uniform (map get-name selection)))
                 (format "{a} selected"
                         (length selection))))))))

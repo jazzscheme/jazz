@@ -54,20 +54,20 @@
 (class Walk-Binding extends Type
   
   
-  (method core virtual (walk-binding-lookup symbol source-declaration))
-  (method core virtual (walk-binding-referenced))
-  (method core virtual (walk-binding-validate-call walker resume source-declaration operator arguments form-src))
-  (method core virtual (walk-binding-validate-assignment walker resume source-declaration symbol-src))
-  (method core virtual (walk-binding-assignable?))
-  (method core virtual (walk-binding-walkable?))
-  (method core virtual (walk-binding-walk-form walker resume declaration environment form-src))
-  (method core virtual (walk-binding-expandable?))
-  (method core virtual (walk-binding-expand-form walker resume declaration environment form-src))
-  (method core virtual (emit-binding-symbol source-declaration environment backend))
-  (method core virtual (emit-binding-reference source-declaration environment backend))
-  (method core virtual (emit-binding-call binding-src arguments arguments-codes source-declaration environment backend))
-  (method core virtual (emit-inlined-binding-call arguments call source-declaration environment backend))
-  (method core virtual (emit-binding-assignment value source-declaration environment backend)))
+  (method core virtual (walk-binding-lookup self symbol source-declaration))
+  (method core virtual (walk-binding-referenced self))
+  (method core virtual (walk-binding-validate-call self walker resume source-declaration operator arguments form-src))
+  (method core virtual (walk-binding-validate-assignment self walker resume source-declaration symbol-src))
+  (method core virtual (walk-binding-assignable? self))
+  (method core virtual (walk-binding-walkable? self))
+  (method core virtual (walk-binding-walk-form self walker resume declaration environment form-src))
+  (method core virtual (walk-binding-expandable? self))
+  (method core virtual (walk-binding-expand-form self walker resume declaration environment form-src))
+  (method core virtual (emit-binding-symbol self source-declaration environment backend))
+  (method core virtual (emit-binding-reference self source-declaration environment backend))
+  (method core virtual (emit-binding-call self binding-src arguments arguments-codes source-declaration environment backend))
+  (method core virtual (emit-inlined-binding-call self arguments call source-declaration environment backend))
+  (method core virtual (emit-binding-assignment self value source-declaration environment backend)))
 
 
 (native-syntax jazz:walk-binding-lookup)
@@ -98,20 +98,20 @@
   (slot hits accessors generate)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((name #f) (type #f)) rest
-      (set! name~self name)
-      (set! type~self type)
-      (set! hits~self #f)))
+      (set! self.name name)
+      (set! self.type type)
+      (set! self.hits #f)))
   
   
-  (method core virtual (resolve-binding))
+  (method core virtual (resolve-binding self))
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (print-unreadable self output
       (lambda (output)
-        (format output "{s}" (get-name))))))
+        (format output "{s}" (get-name self))))))
 
 
 (native-syntax jazz:resolve-binding)
@@ -132,29 +132,31 @@
   (slot parent        getter generate)
   (slot locator       getter generate)
   (slot source        accessors generate)
+  (slot name-source   accessors generate)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((access #f) (compatibility #f) (attributes #f) (parent #f) . others) rest
-      (apply nextmethod others)
-      (set! access~self access)
-      (set! compatibility~self compatibility)
-      (set! attributes~self attributes)
-      (set! toplevel~self #f)
-      (set! parent~self parent)
-      (set! locator~self #f)
-      (set! source~self #f)
+      (apply nextmethod self others)
+      (set! self.access access)
+      (set! self.compatibility compatibility)
+      (set! self.attributes attributes)
+      (set! self.toplevel #f)
+      (set! self.parent parent)
+      (set! self.locator #f)
+      (set! self.source #f)
+      (set! self.name-source #f)
       (setup-declaration self)))
   
   
-  (method core virtual (compose-declaration-locator))
-  (method core virtual (lookup-declaration symbol access source-declaration))
-  (method core virtual (get-declaration-inclusions))
-  (method core virtual (get-nextmethod-signature))
-  (method core virtual (emit-declaration environment backend))
-  (method core virtual (expand-referenced-declaration))
-  (method core virtual (outline-generate output))
-  (method core virtual (outline-extract meta)))
+  (method core virtual (compose-declaration-locator self))
+  (method core virtual (lookup-declaration self symbol access source-declaration))
+  (method core virtual (get-declaration-inclusions self))
+  (method core virtual (get-nextmethod-signature self))
+  (method core virtual (emit-declaration self environment backend))
+  (method core virtual (expand-referenced-declaration self))
+  (method core virtual (outline-generate self output))
+  (method core virtual (outline-extract self meta)))
 
 
 (native-syntax jazz:lookup-declaration)
@@ -179,7 +181,7 @@
   (slot declaration getter generate)
   
   
-  (method core virtual (resolve-reference module-declaration)))
+  (method core virtual (resolve-reference self module-declaration)))
 
 
 (native-syntax jazz:resolve-reference)
@@ -271,7 +273,7 @@
   (slot phase getter generate)
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "on {s}"
@@ -292,7 +294,7 @@
   (slot transformation  getter generate)
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "on {s}"
@@ -369,14 +371,14 @@
 (class Literal-Class extends Class
   
   
-  (method override (marshall-object obj)
+  (method override (marshall-object self obj)
     (serialize-object (class-of obj)
                       (vector
-                        (serialize (get-name~ obj))
-                        (serialize (get-arguments~ obj)))))
+                        (serialize (get-name obj))
+                        (serialize (get-arguments obj)))))
   
   
-  (method override (unmarshall-object content)
+  (method override (unmarshall-object self content)
     (bind-vector (name arguments) content
       (new self
         (deserialize name)
@@ -390,18 +392,18 @@
   (slot arguments getter generate)
   
   
-  (method override (initialize name arguments)
-    (set! name~self name)
-    (set! arguments~self arguments))
+  (method override (initialize self name arguments)
+    (set! self.name name)
+    (set! self.arguments arguments))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (if (*print-literal*)
         (format output "~{{a}{?: {l detail: :v}~}}" name (not-null? arguments) arguments readably)
       (format output "~{Literal {s} {s}}" name arguments)))
   
   
-  (method override (walk-references proc)
+  (method override (walk-references self proc)
     (walk-literal (source-code name) arguments proc)))
 
 
@@ -596,7 +598,7 @@
   (slot type getter generate)
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{a}"
@@ -611,7 +613,7 @@
 (class Dialect extends Object
   
   
-  (method core virtual (dialect-walker))
+  (method core virtual (dialect-walker self))
   
   
   (slot name         getter generate)
@@ -652,15 +654,15 @@
   (slot autoloads    getter generate)
   
   
-  (method core virtual (walker-declarations))
-  (method core virtual (walker-bindings))
-  (method core virtual (walk-form resume declaration environment form))
-  (method core virtual (walk-symbol resume declaration environment symbol-src))
-  (method core virtual (walk-symbol-assignment resume declaration environment symbol-src value))
-  (method core virtual (validate-proclaim resume declaration environment form-src))
-  (method core virtual (runtime-export declaration))
-  (method core virtual (lookup-environment resume declaration environment symbol-src symbol))
-  (method core virtual (lookup-analyse declaration symbol-src referenced-declaration)))
+  (method core virtual (walker-declarations self))
+  (method core virtual (walker-bindings self))
+  (method core virtual (walk-form self resume declaration environment form))
+  (method core virtual (walk-symbol self resume declaration environment symbol-src))
+  (method core virtual (walk-symbol-assignment self resume declaration environment symbol-src value))
+  (method core virtual (validate-proclaim self resume declaration environment form-src))
+  (method core virtual (runtime-export self declaration))
+  (method core virtual (lookup-environment self resume declaration environment symbol-src symbol))
+  (method core virtual (lookup-analyse self declaration symbol-src referenced-declaration)))
 
 
 (native-syntax jazz:validate-access)
@@ -692,15 +694,15 @@
 (class package Walk-Location-Class extends Class
   
   
-  (method override (marshall-object object)
+  (method override (marshall-object self object)
     (serialize-object (class-of object)
-                      (vector (get-unit-locator~ object)
-                              (get-declaration-locator~ object)
-                              (get-locat~ object)
-                              (get-path~ object))))
+                      (vector (get-unit-locator object)
+                              (get-declaration-locator object)
+                              (get-locat object)
+                              (get-path object))))
   
   
-  (method override (unmarshall-object content)
+  (method override (unmarshall-object self content)
     (allocate Walk-Location
               (vector-ref content 0)
               (vector-ref content 1)
@@ -717,15 +719,15 @@
   (slot path                getter generate)
   
   
-  (method override (initialize unit-locator declaration-locator locat path)
-    (nextmethod)
-    (set! unit-locator~self unit-locator)
-    (set! declaration-locator~self declaration-locator)
-    (set! locat~self locat)
-    (set! path~self path))
+  (method override (initialize self unit-locator declaration-locator locat path)
+    (nextmethod self)
+    (set! self.unit-locator unit-locator)
+    (set! self.declaration-locator declaration-locator)
+    (set! self.locat locat)
+    (set! self.path path))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{{a} {s} {s} {s} {s}}"
             (category-name (class-of self))
             unit-locator
@@ -803,11 +805,12 @@
 (class Signature extends Object
   
   
-  (slot mandatory  getter generate)
-  (slot positional getter generate)
-  (slot optional   getter generate)
-  (slot named      getter generate)
-  (slot rest       getter generate))
+  (slot mandatory   getter generate)
+  (slot positional  getter generate)
+  (slot optional    getter generate)
+  (slot named       getter generate)
+  (slot rest        getter generate)
+  (slot expressions getter generate))
 
 
 ;;;
@@ -833,11 +836,11 @@
   (slot reference-count getter generate)
   
   
-  (method override (initialize name type source)
-    (set! name~self name)
-    (set! type~self type)
-    (set! source~self source)
-    (set! reference-count~self 0)))
+  (method override (initialize self name type source)
+    (set! self.name name)
+    (set! self.type type)
+    (set! self.source source)
+    (set! self.reference-count 0)))
 
 
 ;;;
@@ -856,7 +859,7 @@
 (class Parameter extends Variable
   
   
-  (method core virtual (emit-parameter declaration environment backend)))
+  (method core virtual (emit-parameter self declaration environment backend)))
 
 
 ;;;
@@ -1011,7 +1014,7 @@
   (slot form        getter generate)
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{s}"
@@ -1031,17 +1034,17 @@
   (slot type          getter generate)
   
   
-  (method override (initialize variable declared-type type)
-    (set! variable~self variable)
-    (set! declared-type~self declared-type)
-    (set! type~self type))
+  (method override (initialize self variable declared-type type)
+    (set! self.variable variable)
+    (set! self.declared-type declared-type)
+    (set! self.type type))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{s}"
-          (get-name~ variable))))))
+          (get-name variable))))))
 
 
 ;;;
@@ -1093,15 +1096,15 @@
   (slot source getter generate)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((type #f) (source #f)) rest
-      (nextmethod)
-      (set! type~self type)
-      (set! source~self source)))
+      (nextmethod self)
+      (set! self.type type)
+      (set! self.source source)))
   
   
-  (method core virtual (emit-expression declaration environment backend))
-  (method core virtual (emit-call arguments arguments-codes declaration environment backend)))
+  (method core virtual (emit-expression self declaration environment backend))
+  (method core virtual (emit-call self arguments arguments-codes declaration environment backend)))
 
 
 (native-syntax jazz:emit-expression)
@@ -1130,7 +1133,7 @@
   (slot expansion getter generate)
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{s}"
@@ -1156,7 +1159,8 @@
 (class Quasiquote extends Expression
   
   
-  (slot form getter generate))
+  (slot form        getter generate)
+  (slot expressions getter generate))
 
 
 ;;;
@@ -1170,7 +1174,7 @@
   (slot binding getter generate)
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{s}"
@@ -1185,8 +1189,9 @@
 (class Assignment extends Expression
   
   
-  (slot binding getter generate)
-  (slot value   getter generate))
+  (slot binding       getter generate)
+  (slot value         getter generate)
+  (slot symbol-source getter generate))
 
 
 ;;;
@@ -1213,9 +1218,9 @@
   (slot body     getter generate)
   
   
-  (method override (initialize bindings body)
-    (set! bindings~self bindings)
-    (set! body~self body)))
+  (method override (initialize self bindings body)
+    (set! self.bindings bindings)
+    (set! self.body body)))
 
 
 ;;;
@@ -1296,7 +1301,10 @@
 ;;;
 
 
-(class Internal-Define-Variable extends Variable)
+(class Internal-Define-Variable extends Variable
+  
+  
+  (slot signature getter generate))
 
 
 ;;;
@@ -1310,8 +1318,8 @@
   (slot expressions getter generate)
   
   
-  (method override (initialize expressions)
-    (set! expressions~self expressions)))
+  (method override (initialize self expressions)
+    (set! self.expressions expressions)))
 
 
 ;;;

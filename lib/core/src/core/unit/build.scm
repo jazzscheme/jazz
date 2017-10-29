@@ -90,7 +90,13 @@
                                                               declaration)))
                                                 (jazz:find-public-declaration module-declaration symbol))))
                                    (and found
-                                        (%%eq? (jazz:get-lexical-binding-name (jazz:get-declaration-toplevel found)) module-locator))))
+                                        (or (%%eq? (jazz:get-lexical-binding-name (jazz:get-declaration-toplevel found)) module-locator)
+                                            ;; GAZOUM mega quick dirty hack around the problem that because hubs do not
+                                            ;; trigger import conflicts then this code is totally brittle and it is possible
+                                            ;; to find a hub in one module and next time in another thus triggering incessant
+                                            ;; recompilations
+                                            (and jazz:manifest-ignore?
+                                                 (jazz:manifest-ignore? found))))))
                                module-references))))))
   
   (let ((manifest (get-manifest)))
@@ -103,6 +109,10 @@
                            references)
             #f))
       #f)))
+
+
+(jazz:define-variable-override jazz:manifest-valid?
+  jazz:manifest-references-valid?)
 
 
 ;;;

@@ -38,7 +38,8 @@
 (module jazz.sample.game.minimax jazz
 
 
-(import (jazz.platform))
+(import (jazz.platform)
+        (jazz.sample.game))
 
 
 (proclaim (warn optimizations))
@@ -58,7 +59,7 @@
   (slot last-time                   initialize #f accessors generate)
   
   
-  (method (increase-last-evaluations-count)
+  (method package (increase-last-evaluations-count self)
     (increase! last-evaluations-count)))
 
 
@@ -79,9 +80,7 @@
                             evaluate-move-delta
                             (current-eval: current-eval 0)
                             (search-depth: search-depth Default-Search-Depth))
-  
   (let ((statistics (new Minimax-Statistics)))
-    
     (define (best-move)
       (let ((best '())
             (best-eval #f)
@@ -98,10 +97,9 @@
                     ((or (not best-eval) (best-test eval best-eval))
                      (set! best (list move))
                      (set! best-eval eval))))))
-        (set-last-eval~ statistics best-eval)
-        (set-last-evaluations~ statistics (reverse evals))
+        (set-last-eval statistics best-eval)
+        (set-last-evaluations statistics (reverse evals))
         (random-element best)))
-    
     
     (define (gather-candidates token iterate-moves max-candidates)
       (let ((all '())
@@ -115,10 +113,9 @@
         (let ((best-test (if (= token 1) > <)))
           (map car (subseq (sort best-test all key: cdr) 0 (min max-candidates nb))))))
   
-    
     (define (evaluate-move move token <fx> eval <fx> depth <fx>) <fx>
       (play move token)
-      (increase-last-evaluations-count~ statistics)
+      (increase-last-evaluations-count statistics)
       (let ((delta (evaluate-move-delta move token)))
         (let ((new-eval (+ eval delta)))
           @validate-incremental-evaluation
@@ -132,12 +129,10 @@
             (unplay move)
             best-eval))))
     
-    
     (define (evaluate token <fx> eval <fx> depth <fx>) <fx>
       (if (= depth search-depth)
           eval
         (evaluate-best token eval depth)))
-    
     
     (define (evaluate-best token <fx> eval <fx> depth <fx>) <fx>
       (let ((best-eval 10000000))

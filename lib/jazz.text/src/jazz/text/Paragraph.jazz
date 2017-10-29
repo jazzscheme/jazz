@@ -38,7 +38,8 @@
 (module protected jazz.text.Paragraph jazz
 
 
-(import (jazz.geometry)
+(import (jazz.exemplar)
+        (jazz.geometry)
         (jazz.graphic)
         (jazz.outline)
         (jazz.text)
@@ -57,7 +58,7 @@
   (slot protected lines  <list>                 accessors generate)
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (write string output))))
@@ -65,7 +66,7 @@
 
   ;; temp optimization that will not work
   ;; if a text embeds others views in itself
-  (method override (set-size sz)
+  (method override (set-size self sz)
     (set! size sz))
 
 
@@ -74,16 +75,16 @@
   ;;;
   
   
-  (method public (get-length) <fx>
+  (method public (get-length self) <fx>
     (cast <fx> (cardinality string)))
   
   
-  (method public (paragraph-left) <fx>
-    (+ (get-h~ position) (get-left-margin~ format)))
+  (method public (paragraph-left self) <fx>
+    (+ (get-h position) (get-left-margin format)))
 
 
-  (method public (paragraph-top) <fx>
-    (get-v~ position))
+  (method public (paragraph-top self) <fx>
+    (get-v position))
   
   
   ;;;
@@ -91,10 +92,10 @@
   ;;;
   
   
-  (method public (compute-width) <fx>
-    (let ((width (get-left-margin~ format)))
+  (method public (compute-width self) <fx>
+    (let ((width (get-left-margin format)))
       (for-each (lambda (run <Run>)
-                  (increase! width (compute-width~ run)))
+                  (increase! width (compute-width run)))
                 runs)
       width))
 
@@ -105,47 +106,47 @@
 
 
   ;; All these special cases need major cleanup!
-  (method protected (range-region left-padding <fx> start end width transformer)
+  (method package (range-region self left-padding <fx> start end width transformer)
     (let ((rs <fx> (or start 0))
           (re <fx> (or end (cardinality string)))
-          (left <fx> (paragraph-left))
-          (top <fx>  (paragraph-top)))
+          (left <fx> (paragraph-left self))
+          (top <fx>  (paragraph-top self)))
       (cond ;; full paragraph
             ((and (= rs 0) (not end))
-             (let ((rect (new Rect left top (+ left width) (+ top (get-height~ size)))))
+             (let ((rect (new Rect left top (+ left width) (+ top (get-height size)))))
                (new Cairo-Region rect: (transformer rect))))
             ;; end of the last line
             ((and (= rs re) (not end))
              (let* ((line <Line> (last lines))
-                    (beginning (get-h~ (col->view~ line re)))
+                    (beginning (get-h (col->view line re)))
                     (right (+ left-padding (- width left)))
-                    (rect (new Rect (+ left beginning) (+ top (get-top~ line)) (+ left right) (+ top (get-bottom~ line))))
+                    (rect (new Rect (+ left beginning) (+ top (get-top line)) (+ left right) (+ top (get-bottom line))))
                     (offset (offset-rect rect left top)))
                (new Cairo-Region rect: (transformer rect))))
             ;; partial range
             (else
-             (let ((s (col->text rs))
-                   (e (col->text re))
+             (let ((s (col->text self rs))
+                   (e (col->text self re))
                    (w (+ left-padding (- width left)))
                    (region (new Cairo-Region)))
-               (for-each-logical-range s e 0
+               (for-each-logical-range self s e 0
                  (lambda (line <Line> beginning limit)
-                   (with ((sub (range-region~ line left top w beginning (if (not end) #f limit) self transformer)))
-                     (combine-or!~ region sub))))
+                   (with ((sub (range-region line left top w beginning (if (not end) #f limit) self transformer)))
+                     (combine-or! region sub))))
                region)))))
   
   
-  (method (for-each-logical-range start <Cell> end <Cell> ignored proc <procedure>)
+  (method (for-each-logical-range self start <Cell> end <Cell> ignored proc <procedure>)
     (when (/= start end)
-      (if (= (get-line~ start) (get-line~ end))
-          (proc (get-line (get-line~ start)) (get-col~ start) (get-col~ end))
-        (let ((beginning (get-line~ start))
-              (limit (get-line~ end)))
+      (if (= (get-line start) (get-line end))
+          (proc (get-line self (get-line start)) (get-col start) (get-col end))
+        (let ((beginning (get-line start))
+              (limit (get-line end)))
           (loop (for n from beginning to limit)
-                (let* ((line (get-line n))
-                       (len (get-length~ line)))
-                  (cond ((= n beginning) (proc line (get-col~ start) #f))
-                        ((= n limit) (proc line #f (get-col~ end)))
+                (let* ((line (get-line self n))
+                       (len (get-length line)))
+                  (cond ((= n beginning) (proc line (get-col start) #f))
+                        ((= n limit) (proc line #f (get-col end)))
                         (else (proc line #f #f)))))))))
 
 
@@ -154,12 +155,12 @@
   ;;;
   
   
-  (method public (get-line n <fx>) <Line>
+  (method public (get-line self n <fx>) <Line>
     (element lines n))
   
   
-  (method public (get-line-at col <fx>) <Line>
-    (get-line (get-line~ (col->text col))))
+  (method public (get-line-at self col <fx>) <Line>
+    (get-line self (get-line (col->text self col))))
 
 
   ;;;
@@ -167,7 +168,7 @@
   ;;;
   
   
-  (method public (get-run col <fx>) <Run+>
+  (method public (get-run self col <fx>) <Run+>
     (continuation-capture
       (lambda (return)
         (for-each-run runs
@@ -177,29 +178,29 @@
         #f)))
   
   
-  (method public (first-run) <Run+>
+  (method public (first-run self) <Run+>
     (if (null? runs)
         #f
       (car runs)))
   
   
-  (method protected (range-runs start <fx> end <fx>)
+  (method package (range-runs self start <fx> end <fx>)
     (let ((fact (new List-Factory))
           (make
            (lambda (run <Run> s <fx> e <fx>)
-             (new Run (subseq! string s e) (get-style~ run)))))
-      (for-each-range-run start end
+             (new Run (subseq! string s e) (get-style run)))))
+      (for-each-range-run self start end
         (lambda (where run offset limit)
           (case where
             ((inside)
-             (put~ fact run))
+             (put fact run))
             ((over)
-             (put~ fact (make run start end)))
+             (put fact (make run start end)))
             ((left)
-             (put~ fact (make run start limit)))
+             (put fact (make run start limit)))
             ((right)
-             (put~ fact (make run offset end))))))
-      (get-output~ fact)))
+             (put fact (make run offset end))))))
+      (get-output fact)))
   
   
   ;;        s        e
@@ -210,7 +211,7 @@
   ;;      o     l                      -> left
   ;;              o      l             -> right
   ;;
-  (method (for-each-range-run start <fx> end <fx> proc)
+  (method (for-each-range-run self start <fx> end <fx> proc)
     (for-each-run runs
       (lambda (run <Run> offset <fx> limit <fx>)
         (proc (cond ((or (<= limit start) (>= offset end))
@@ -228,7 +229,7 @@
               limit))))
   
   
-  (method public (determine-run-range target)
+  (method public (determine-run-range self target)
     (continuation-capture
       (lambda (return)
         (for-each-run runs
@@ -243,116 +244,116 @@
   ;;;
   
   
-  (method protected (set-style start <fx> end <fx> style)
-    (modify-style start end
+  (method package (set-style self start <fx> end <fx> style)
+    (modify-style self start end
       (lambda (s)
         style)))
   
   
-  (method protected (set-text-alignment start <fx> end <fx> alignment)
-    (modify-style start end
+  (method package (set-text-alignment self start <fx> end <fx> alignment)
+    (modify-style self start end
       (lambda (style <Style>)
-        (extend~ style alignment: alignment))))
+        (extend style alignment: alignment))))
   
   
-  (method protected (set-text-font start <fx> end <fx> font)
-    (modify-style start end
+  (method package (set-text-font self start <fx> end <fx> font)
+    (modify-style self start end
       (lambda (style <Style>)
-        (extend~ style font: font))))
+        (extend style font: font))))
   
   
-  (method protected (set-text-color start <fx> end <fx> color)
-    (modify-style start end
+  (method package (set-text-color self start <fx> end <fx> color)
+    (modify-style self start end
       (lambda (style <Style>)
-        (extend~ style color: color))))
+        (extend style color: color))))
   
   
-  (method protected (set-highlight-color start <fx> end <fx> color)
-    (modify-style start end
+  (method package (set-highlight-color self start <fx> end <fx> color)
+    (modify-style self start end
       (lambda (style <Style>)
-        (extend~ style highlight: color))))
+        (extend style highlight: color))))
   
   
-  (method protected (set-frame-color start <fx> end <fx> color)
-    (modify-style start end
+  (method package (set-frame-color self start <fx> end <fx> color)
+    (modify-style self start end
       (lambda (style <Style>)
-        (extend~ style frame: color))))
+        (extend style frame: color))))
   
   
-  (method protected (set-font-name start <fx> end <fx> name)
-    (modify-style start end
+  (method package (set-font-name self start <fx> end <fx> name)
+    (modify-style self start end
       (lambda (style <Style>)
-        (when (supports?~ style 'font)
-          (extend~ style font: (extend~ (get-font~ style) font-name: name))))))
+        (when (supports? style 'font)
+          (extend style font: (extend (get-font style) font-name: name))))))
   
   
-  (method protected (set-point-size start <fx> end <fx> size)
-    (modify-style start end
+  (method package (set-point-size self start <fx> end <fx> size)
+    (modify-style self start end
       (lambda (style <Style>)
-        (when (supports?~ style 'font)
-          (extend~ style font: (extend~ (get-font~ style) point-size: size))))))
+        (when (supports? style 'font)
+          (extend style font: (extend (get-font style) point-size: size))))))
   
   
-  (method protected (toggle-bold start <fx> end <fx>)
-    (modify-style start end
+  (method package (toggle-bold self start <fx> end <fx>)
+    (modify-style self start end
       (lambda (style <Style>)
-        (let ((font (get-font~ style)))
-          (extend~ style font: (extend~ font bold?: (not (get-bold?~ font))))))))
+        (let ((font (get-font style)))
+          (extend style font: (extend font bold?: (not (get-bold? font))))))))
   
   
-  (method protected (toggle-italic start <fx> end <fx>)
-    (modify-style start end
+  (method package (toggle-italic self start <fx> end <fx>)
+    (modify-style self start end
       (lambda (style <Style>)
-        (let ((font (get-font~ style)))
-          (extend~ style font: (extend~ (get-font~ style) italic?: (not (get-italic?~ font))))))))
+        (let ((font (get-font style)))
+          (extend style font: (extend (get-font style) italic?: (not (get-italic? font))))))))
   
   
-  (method protected (toggle-underline start <fx> end <fx>)
-    (modify-style start end
+  (method package (toggle-underline self start <fx> end <fx>)
+    (modify-style self start end
       (lambda (style <Style>)
-        (let ((font (get-font~ style)))
-          (extend~ style font: (extend~ (get-font~ style) underline?: (not (get-underline?~ font))))))))
+        (let ((font (get-font style)))
+          (extend style font: (extend (get-font style) underline?: (not (get-underline? font))))))))
   
   
-  (method protected (modify-style start <fx> end <fx> proc)
+  (method package (modify-style self start <fx> end <fx> proc)
     (let* ((model <Text-Model> parent)
            (start <fx> (or start 0))
            (end <fx> (or end (cardinality string)))
            (fact (new List-Factory))
            (split
             (lambda (run <Run> s <fx> e <fx>)
-              (new Run (subseq! string s e) (get-style~ run))))
+              (new Run (subseq! string s e) (get-style run))))
            (make
             (lambda (run <Run> s <fx> e <fx>)
-              (let* ((style (get-style~ run))
+              (let* ((style (get-style run))
                      (new-style (or (proc style) style)))
-                (new Run (subseq! string s e) (intern-style~ model new-style))))))
-      (for-each-range-run start end
+                (new Run (subseq! string s e) (intern-style model new-style))))))
+      (for-each-range-run self start end
         (lambda (where run offset limit)
           (case where
             ((outside)
-             (put~ fact run))
+             (put fact run))
             ((inside)
-             (put~ fact (make run offset limit)))
+             (put fact (make run offset limit)))
             ((over)
-             (put~ fact (split run offset start))
-             (put~ fact (make run start end))
-             (put~ fact (split run end limit)))
+             (put fact (split run offset start))
+             (put fact (make run start end))
+             (put fact (split run end limit)))
             ((left)
-             (put~ fact (split run offset start))
-             (put~ fact (make run start limit)))
+             (put fact (split run offset start))
+             (put fact (make run start limit)))
             ((right)
-             (put~ fact (make run offset end))
-             (put~ fact (split run end limit))))))
-      (set! runs (coalesce-runs (get-output~ fact)))))
+             (put fact (make run offset end))
+             (put fact (split run end limit))))))
+      (set! runs (coalesce-runs (get-output fact)))))
 
 
-  (method protected (remove-coloring default-style <Style>)
+  (method package (remove-coloring self default-style <Style>)
     (let ((modified? #f))
       (for-each (lambda (run <Run>)
-                  (let ((style (get-style~ run)))
-                    (when (and (is? style Text-Style) (get-color~ style))
-                      (set-style~ run default-style)
+                  (let ((style (get-style run)))
+                    (when (and (is? style Text-Style) (get-color style))
+                      (set-style run default-style)
                       (set! modified? #t))))
                 runs)
       modified?))
@@ -365,10 +366,10 @@
             (scan (cdr runs)))
         (while (not-null? scan)
           (let ((previous-run <Run> (car previous)))
-            (let ((previous-style (get-style~ previous-run)))
-              (if (or (neq? previous-style (get-style~ (car scan))) (not (propagate?~ previous-style)))
+            (let ((previous-style (get-style previous-run)))
+              (if (or (neq? previous-style (get-style (car scan))) (not (propagate? previous-style)))
                   (set! previous scan)
-                (grow-subseq! (get-string~ previous-run) (cast <fx> (cardinality (get-string~ (car scan)))))
+                (grow-subseq! (get-string previous-run) (cast <fx> (cardinality (get-string (car scan)))))
                 (set-cdr! previous (cdr scan)))
               (set! scan (cdr scan))))))
       runs))
@@ -379,45 +380,45 @@
   ;;;
   
   
-  (method protected (flatten) <void>
+  (method package (flatten self) <void>
     (let ((line (new Line parent runs 0 0 0 0 0)))
       (set! lines (list line))
-      (set! row-height (get-height~ line))))
+      (set! row-height (get-height line))))
   
   
-  (method protected (wrap context width <fx>) <void>
+  (method package (wrap self context width <fx>) <void>
     (let* ((model <Text-Model> parent)
            (rank 0)
            (offset 0)
-           (justification (get-justification~ format))
-           (margin (get-left-margin~ format))
-           (spacing (get-paragraph-spacing~ model))
+           (justification (get-justification format))
+           (margin (get-left-margin format))
+           (spacing (get-paragraph-spacing model))
            (left margin)
            (top 0)
-           (tabs (get-tabs~ model))
+           (tabs (get-tabs model))
            (lines (new List-Factory))
            (lruns (new List-Factory))
            (place (lambda (run)
-                    (put~ lruns run))))
+                    (put lruns run))))
       (define (break-line right)
-        (let* ((runs (get-output~ lruns))
+        (let* ((runs (get-output lruns))
                (line-left (case justification ((#f left) 0) ((center) (center right width)) ((right) (justify right width 'tail))))
                (line (new Line model runs rank offset line-left top right))
-               (height (get-height~ line)))
-          (for-each (lambda (run <Run>) (height-update~ run height)) runs)
-          (put~ lines line)
-          (reset~ lruns)
+               (height (get-height line)))
+          (for-each (lambda (run <Run>) (height-update run height)) runs)
+          (put lines line)
+          (reset lruns)
           (set! left margin)
           (increase! top height)
           (increase! rank)
-          (increase! offset (get-length~ line))
+          (increase! offset (get-length line))
           top))
       
       (for-each (lambda (run <Run>)
-                  (set! left (wrap~ run context margin left top width tabs place break-line)))
+                  (set! left (wrap run context margin left top width tabs place break-line)))
                 runs)
       (break-line left)
-      (set! lines~self (get-output~ lines))
+      (set! self.lines (get-output lines))
       (set! row-height (+ top spacing))))
   
 
@@ -433,33 +434,33 @@
     {Color red:  51 green: 102 blue: 255})
 
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (define (draw-bullet h <fx> v <fx> left <fx>) <void>
-      (let* ((height (get-height~ (car lines)))
+      (let* ((height (get-height (car lines)))
              (size (fxround (percent 40 height)))
-             (outside (or (get-bullet-outside~ format) Bullet-Outside))
-             (inside (or (get-bullet-inside~ format) Bullet-Inside))
+             (outside (or (get-bullet-outside format) Bullet-Outside))
+             (inside (or (get-bullet-inside format) Bullet-Inside))
              (vert (+ (fxround/ (- height size) 2) 1)))
         ;; Can you believe that drawing an ellipse of size 8 is buggy under Windows!!!
         (when (= size 8)
           (set! size 7))
-        (ellipse~ surface (new Rect (- left 7 size) (+ v vert) (- left 7) (+ v vert size)) outside inside)))
+        (ellipse surface (new Rect (- left 7 size) (+ v vert) (- left 7) (+ v vert size)) outside inside)))
     
     (let* ((model <Text-Model> parent)
-           (tabs (get-tabs~ model))
-           (left-margin (get-left-margin~ format))
-           (right-margin (get-right-margin~ format))
-           (background (get-background~ format))
+           (tabs (get-tabs model))
+           (left-margin (get-left-margin format))
+           (right-margin (get-right-margin format))
+           (background (get-background format))
            (h left-margin)
            (v 0))
       (when background
-        (let ((rect (new Rect left-margin 0 (- (get-width) right-margin) (get-height))))
-          (fill-rect~ surface rect background)))
-      (when (get-bulleted?~ format)
+        (let ((rect (new Rect left-margin 0 (- (get-width self) right-margin) (get-height self))))
+          (fill-rect surface rect background)))
+      (when (get-bulleted? format)
         (draw-bullet h v left-margin))
       (for-each (lambda (line <Line>)
-                  (draw-line~ line surface context h v tabs left-margin)
-                  (increase! v (get-height~ line)))
+                  (draw-line line surface context h v tabs left-margin)
+                  (increase! v (get-height line)))
                 lines)))
 
 
@@ -468,20 +469,20 @@
   ;;;
   
   
-  (method protected (replace-range start <fx> end str <string>) <void>
+  (method package (replace-range self start <fx> end str <string>) <void>
     (define (find-propagatable-style before)
       (if (not (eqv? start end))
-          (let ((runs (range-runs start end)))
+          (let ((runs (range-runs self start end)))
             (and (not-null? runs)
                  (let ((run (car runs)))
-                   (let ((style (get-style~ run)))
-                     (and (propagate?~ style)
+                   (let ((style (get-style run)))
+                     (and (propagate? style)
                           style)))))
         (continuation-capture
           (lambda (return)
             (for-each-reversed (lambda (run <Run>)
-                                 (let ((style (get-style~ run)))
-                                   (when (propagate?~ style)
+                                 (let ((style (get-style run)))
+                                   (when (propagate? style)
                                      (continuation-return return style))))
                                before)
             #f))))
@@ -491,29 +492,29 @@
            (end <fx> (or end (cardinality string)))
            (new-end (+ start inserted))
            (delta (- inserted (- end start)))
-           (before (range-runs 0 start))
-           (after (range-runs end (get-length)))
+           (before (range-runs self 0 start))
+           (after (range-runs self end (get-length self)))
            (style (or (and (not-null? before)
-                           (get-propagate-styles?~ model)
+                           (get-propagate-styles? model)
                            (find-propagatable-style before))
-                      (get-default-style~ model))))
+                      (get-default-style model))))
       (set! string (replace-subseq! string start end str))
       (let* ((replacement (new Run (subseq! string start new-end) style))
-             (replacement-list (if (> (get-length~ replacement) 0) (list replacement) '())))
+             (replacement-list (if (> (get-length replacement) 0) (list replacement) '())))
         (for-each-run before
           (lambda (run <Run> offset <fx> limit <fx>)
-            (set-string~ run (subseq! string offset limit))))
+            (set-string run (subseq! string offset limit))))
         (for-each-run after
           (lambda (run <Run> offset <fx> limit <fx>)
-            (set-string~ run (subseq! string (+ new-end offset) (+ new-end limit)))))
+            (set-string run (subseq! string (+ new-end offset) (+ new-end limit)))))
         (set! runs (coalesce-runs (append! before replacement-list after))))))
   
   
-  (method protected (replace-runs start <fx> end replacement)
+  (method protected (replace-runs self start <fx> end replacement)
     (define (runs->str runs) <string>
       (let ((output (open-output-string)))
         (for-each (lambda (run <Run>)
-                    (print-content~ (get-string~ run) output))
+                    (print-content (get-string run) output))
                   runs)
         (get-output-string output)))
     
@@ -522,31 +523,31 @@
            (end <fx> (or end (cardinality string)))
            (new-end (+ start inserted))
            (delta (- inserted (- end start)))
-           (before (range-runs 0 start))
-           (after (range-runs end (get-length))))
+           (before (range-runs self 0 start))
+           (after (range-runs self end (get-length self))))
       (set! string (replace-subseq! string start end str))
       (for-each-run before
         (lambda (run <Run> offset <fx> limit <fx>)
-          (set-string~ run (subseq! string offset limit))))
+          (set-string run (subseq! string offset limit))))
       (for-each-run replacement
         (lambda (run <Run> offset <fx> limit <fx>)
-          (let ((style (get-style~ run)))
+          (let ((style (get-style run)))
             (when (is? style View-Style)
-              (set-parent~ (get-view~ style) self)))
-          (set-string~ run (subseq! string (+ start offset) (+ start limit)))))
+              (set-parent (get-view style) self)))
+          (set-string run (subseq! string (+ start offset) (+ start limit)))))
       (for-each-run after
         (lambda (run <Run> offset <fx> limit <fx>)
-          (set-string~ run (subseq! string (+ new-end offset) (+ new-end limit)))))
+          (set-string run (subseq! string (+ new-end offset) (+ new-end limit)))))
       (set! runs (coalesce-runs (append! before replacement after)))))
   
   
-  (method protected (replace-beginning runs <list>) <void>
-    (replace-runs 0 0 runs))
+  (method package (replace-beginning self runs <list>) <void>
+    (replace-runs self 0 0 runs))
   
   
-  (method protected (replace-ending runs <list>) <void>
+  (method package (replace-ending self runs <list>) <void>
     (let ((len (cast <fx> (cardinality string))))
-      (replace-runs len len runs)))
+      (replace-runs self len len runs)))
 
 
 
@@ -555,66 +556,66 @@
   ;;;
   
   
-  (method protected (view->col pos <Point>) <fx>
-    (let ((pos (new Point (- (get-h~ pos) (get-left-margin~ format)) (max 0 (min (- (get-height) 1) (get-v~ pos))))))
+  (method package (view->col self pos <Point>) <fx>
+    (let ((pos (new Point (- (get-h pos) (get-left-margin format)) (max 0 (min (- (get-height self) 1) (get-v pos))))))
       (continuation-capture
         (lambda (return)
           (for-each (lambda (line <Line>)
-                      (let ((col (view->col~ line pos)))
+                      (let ((col (view->col line pos)))
                         (when col
-                          (continuation-return return (+ (get-offset~ line) col)))))
+                          (continuation-return return (+ (get-offset line) col)))))
                     lines)
           #f))))
   
   
-  (method protected (col->view col <fx>) <Point>
+  (method package (col->view self col <fx>) <Point>
     (let ((last-line (last lines)))
       (continuation-capture
         (lambda (return)
           (define (view->point view)
             (new Point
-              (+ (paragraph-left) (get-h~ view))
-              (get-v~ view)))
+              (+ (paragraph-left self) (get-h view))
+              (get-v view)))
           
           (for-each (lambda (line <Line>)
                       (when (neq? line last-line)
-                        (let ((offset-col (- col (get-offset~ line))))
-                          (let ((view (col->view-strict~ line offset-col)))
+                        (let ((offset-col (- col (get-offset line))))
+                          (let ((view (col->view-strict line offset-col)))
                             (when view
                               (continuation-return return (view->point view)))))))
                     lines)
-          (let ((offset-col (- col (get-offset~ last-line))))
-            (view->point (col->view~ last-line offset-col)))))))
+          (let ((offset-col (- col (get-offset last-line))))
+            (view->point (col->view last-line offset-col)))))))
   
   
-  (method protected (col->view-extended col <fx>)
+  (method package (col->view-extended self col <fx>)
     (let ((last-line (last lines)))
       (continuation-capture
         (lambda (return)
           (define (view->point view)
             (new Point
-              (+ (paragraph-left) (get-h~ view))
-              (get-v~ view)))
+              (+ (paragraph-left self) (get-h view))
+              (get-v view)))
           
           (for-each (lambda (line <Line>)
                       (when (neq? line last-line)
-                        (let ((offset-col (- col (get-offset~ line))))
-                          (let ((view (col->view-strict~ line offset-col)))
+                        (let ((offset-col (- col (get-offset line))))
+                          (let ((view (col->view-strict line offset-col)))
                             (when view
                               (continuation-return return (cons line (view->point view))))))))
                     lines)
-          (let ((offset-col (- col (get-offset~ last-line))))
-            (cons last-line (view->point (col->view~ last-line offset-col))))))))
+          (let ((offset-col (- col (get-offset last-line))))
+            (cons last-line (view->point (col->view last-line offset-col))))))))
   
   
-  (method protected (col->text col <fx>) <Cell>
+  (method package (col->text self col <fx>) <Cell>
     (let ((last #f))
       (continuation-capture
         (lambda (return)
           (for-each (lambda (line <Line>)
-                      (let ((text (col->text~ line col)))
+                      (let ((text (col->text line col)))
                         (when text
                           (continuation-return return text)))
                       (set! last line))
                     lines)
-          (new Cell (get-rank~ last) (get-length~ last))))))))
+          (new Cell (get-rank last) (get-length last))))))))

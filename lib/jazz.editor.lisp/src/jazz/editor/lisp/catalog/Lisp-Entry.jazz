@@ -40,8 +40,12 @@
 
 (import (jazz.catalog)
         (jazz.catalog.edit)
+        (jazz.editor.lisp)
         (jazz.feedback)
-        (jazz.resource))
+        (jazz.resource)
+        (jazz.search)
+        (jazz.text)
+        (jazz.view))
 
 
 (class Lisp-Entry extends Indexed-Entry
@@ -54,40 +58,40 @@
   (slot type       getter generate)
   
   
-  (method override (initialize name kind modifiers parameters signature type line column end-line end-column definitions references)
-    (nextmethod name line column end-line end-column definitions references)
-    (set! kind~self kind)
-    (set! modifiers~self modifiers)
-    (set! parameters~self parameters)
-    (set! signature~self signature)
-    (set! type~self type))
+  (method override (initialize self name kind modifiers parameters signature type line column end-line end-column definitions references)
+    (nextmethod self name line column end-line end-column definitions references)
+    (set! self.kind kind)
+    (set! self.modifiers modifiers)
+    (set! self.parameters parameters)
+    (set! self.signature signature)
+    (set! self.type type))
   
   
-  (method override (get-kind)
+  (method override (get-kind self)
     kind)
 
   
-  (method public (set-modifiers m)
-    (set! modifiers~self m))
+  (method public (set-modifiers self m)
+    (set! self.modifiers m))
 
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{a} {a}" name kind))))
   
   
-  (method override (print-catalog level output)
+  (method override (print-catalog self level output)
     (format output "{%}{_ :v}~{{s} {s} {s} {s} {s} {s} {s} {s} {s} {s} {s} {s}"
             (* level 2)
             (category-name (class-of self))
             name kind modifiers parameters signature type line column end-line end-column
             references)
-    (print-definitions level output)
+    (print-definitions self level output)
     (format output "}"))
   
   
-  (method override (get-image)
+  (method override (get-image self)
     {Image-Resource "Method"})
 
 
@@ -96,11 +100,11 @@
   ;;;
   
   
-  (method public (set-parameters lst)
+  (method public (set-parameters self lst)
     (set! parameters lst))
   
   
-  (method public (set-type t)
+  (method public (set-type self t)
     (set! type t))
 
 
@@ -109,44 +113,44 @@
   ;;;
 
 
-  (method override (present)
-    (present-identifier))
+  (method override (present self)
+    (present-identifier self))
 
 
-  (method override (present-name)
-    (let ((name (get-name)))
+  (method override (present-name self)
+    (let ((name (get-name self)))
       (cond ((not name)
-             (present-noname))
+             (present-noname self))
             ((string? signature)
              (string-append name signature))
             (else
              name))))
 
 
-  (method override (present-identifier)
-    (let ((name (get-name)))
+  (method override (present-identifier self)
+    (let ((name (get-name self)))
       (if (not name)
-          (present-noname)
+          (present-noname self)
         (if (pair? signature)
-            (format :string "{a} {a}" (present-name) signature)
-          (compose-name (present-name))))))
+            (format :string "{a} {a}" (present-name self) signature)
+          (compose-name self (present-name self))))))
   
   
-  (method (compose-name name)
-    (if (and (is? parent Lisp-Entry) (get-name~ parent))
-        (let ((parent-name (present-name~ parent)))
+  (method (compose-name self name)
+    (if (and (is? parent Lisp-Entry) (get-name parent))
+        (let ((parent-name (present-name parent)))
           (format :string "{a}:{a}" parent-name name))
       name))
   
   
-  (method override (present-noname)
+  (method override (present-noname self)
     "<toplevel>")
   
   
-  (method public (->locator)
+  (method public (->locator self)
     (define (locator-name entry)
-      (let ((parent (get-parent~ entry))
-            (name (get-name~ entry)))
+      (let ((parent (get-parent entry))
+            (name (get-name entry)))
         (if (is-not? parent Lisp-Entry)
             name
           (format :string "{a}:{a}" (locator-name parent) name))))
@@ -159,13 +163,13 @@
   ;;;
   
   
-  (method override (update-indexes definitions-index references-index)
-    (update-index definitions-index name)
+  (method override (update-indexes self definitions-index references-index)
+    (update-index self definitions-index name)
     (for-each (lambda (key)
-                (update-index references-index key))
+                (update-index self references-index key))
               references)
     (for-each (lambda (definition)
-                (update-indexes~ definition definitions-index references-index))
+                (update-indexes definition definitions-index references-index))
               definitions)))
 
 
@@ -176,27 +180,27 @@
 
 (specific (edit-reference (<Lisp-Entry> entry) direction search-result . rest)
   (define (find-declaration-range text)
-    (and (equal? (reference->name (get-string~ text (get-selection~ text))) (get-name~ entry))
-         (declaration-range~ text (get-start~ text))))
+    (and (equal? (reference->name (get-string text (get-selection text))) (get-name entry))
+         (declaration-range text (get-start text))))
   
   (define (fallback-find text)
     (user-message "Unable to find definition")
-    (let ((target (get-find~ (get-search~ search-result))))
-      (or (select-next~ text target)
-          (select-previous~ text target))))
+    (let ((target (get-find (get-search search-result))))
+      (or (select-next text target)
+          (select-previous text target))))
   
   (receive (frame new?) (apply edit-entry entry return-new?: #t rest)
-    (let ((text (get-guest~ frame)))
+    (let ((text (get-guest frame)))
       (let ((range (find-declaration-range text)))
         (if range
-            (let ((start (get-start~ range))
-                  (end (get-end~ range)))
-              (set-beginning~ search-result start)
-              (set-ending~ search-result end)
+            (let ((start (get-start range))
+                  (end (get-end range)))
+              (set-beginning search-result start)
+              (set-ending search-result end)
               (let ((direction (or direction 'forward)))
                 (let ((range (case direction
                                ((forward) (new Range$Cell$ start start))
                                ((backward) (new Range$Cell$ end end)))))
-                  (highlight-reference~ text direction range search-result))))
+                  (highlight-reference text direction range search-result))))
           (fallback-find text))))
     (values frame new?))))

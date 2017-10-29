@@ -38,6 +38,79 @@
 (module jazz.io jazz
 
 
+(hub anchorize)
+(hub collect-files)
+(hub compare-pathname)
+(hub context-alias?)
+(hub context-setup?)
+(hub copy-directory)
+(hub copy-file)
+(hub copy-times)
+(hub count-directories)
+(hub count-files)
+(hub create)
+(hub create-directories)
+(hub delete-directory)
+(hub delete-file)
+(hub empty-directory)
+(hub exists?)
+(hub expand)
+(hub follow-component)
+(hub follow-form)
+(hub get-alias)
+(hub get-anchor)
+(hub get-anchors)
+(hub get-attributes)
+(hub get-base)
+(hub get-children)
+(hub get-content)
+(hub get-context)
+(hub get-descendant-anchors)
+(hub get-directory)
+(hub get-extension)
+(hub get-file)
+(hub get-hidden?)
+(hub get-hierarchy)
+(hub get-list)
+(hub get-modification-seconds)
+(hub get-modification-time)
+(hub get-name)
+(hub get-parent)
+(hub get-path)
+(hub get-protocol)
+(hub get-size)
+(hub get-table)
+(hub get-title)
+(hub install-directory)
+(hub install-file)
+(hub is-directory?)
+(hub iterate-directory)
+(hub load-binary)
+(hub load-form)
+(hub load-lines)
+(hub meta-root?)
+(hub move-pathname)
+(hub new-brother)
+(hub new-directory)
+(hub new-file)
+(hub new-unique-file)
+(hub overwrite-read-only)
+(hub parse)
+(hub platform-parse)
+(hub present)
+(hub present-location)
+(hub present-name)
+(hub read-only?)
+(hub remove-directory)
+(hub save-binary)
+(hub save-lines)
+(hub set-context)
+(hub set-parent)
+(hub set-path)
+(hub set-read/write)
+(hub subpath)
+
+
 (export
   (jazz.io.Category-Moniker (autoload Category-Moniker))
   (jazz.io.Directory-Group (autoload Directory-Group Directory-Group-Class))
@@ -45,7 +118,8 @@
   (jazz.io.Path (autoload Path))
   (jazz.io.URL (autoload URL)))
 
-(import (jazz.time))
+(import (jazz.component.hubs)
+        (jazz.time))
 
 
 ;;;
@@ -75,7 +149,7 @@
 
 (definition public (path-settings pathname . rest)
   (bind-keywords ((char-encoding #f) (eol-encoding #f) . others) rest
-    `(path: ,(parse~ pathname)
+    `(path: ,(parse pathname)
       ,@(if char-encoding
             `(char-encoding: ,char-encoding)
           '())
@@ -96,12 +170,12 @@
   (slot table  getter explicit initialize #f)
   
   
-  (method override (initialize path (parent: parent #f))
-    (set! path~self path)
-    (set! parent~self parent))
+  (method override (initialize self path (parent: parent #f))
+    (set! self.path path)
+    (set! self.parent parent))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (cond ((eq? self *root-alias*)
@@ -109,20 +183,20 @@
               ((not parent)
                (format output ""))
               (else
-               (format output "{a}" (get-anchor)))))))
+               (format output "{a}" (get-anchor self)))))))
   
   
-  (method protected (get-anchor)
+  (method package (get-anchor self)
     (define (collect-names)
       (let (iterate (parent parent)
                     (alias self)
                     (names '()))
         (if (not parent)
             names
-          (let ((name (table-find (get-table~ parent) alias)))
+          (let ((name (table-find (get-table parent) alias)))
             (if (not name)
                 names
-              (iterate (get-parent~ parent) parent (cons (symbol->string name) names)))))))
+              (iterate (get-parent parent) parent (cons (symbol->string name) names)))))))
     
     (if (not parent)
         #f
@@ -131,27 +205,27 @@
           (string->symbol (join names ":"))))))
   
   
-  (method public (get-table)
+  (method public (get-table self)
     (or table (let ((table (make-table test: eq?)))
-                (set! table~self table)
+                (set! self.table table)
                 table)))
   
   
-  (method public (get-children)
-    (table-values (get-table)))
+  (method public (get-children self)
+    (table-values (get-table self)))
   
   
-  (method public (get-descendant-anchors)
+  (method public (get-descendant-anchors self)
     (let ((queue (new-queue)))
       (for-each-alias self
         (lambda (alias)
           (unless (eq? alias self)
-            (enqueue queue (get-anchor~ alias)))))
+            (enqueue queue (get-anchor alias)))))
       (queue-list queue)))
   
   
-  (method public (get-anchors)
-    (cons (get-anchor) (get-descendant-anchors))))
+  (method public (get-anchors self)
+    (cons (get-anchor self) (get-descendant-anchors self))))
 
 
 (class Unknown-Alias-Exception extends Exception
@@ -160,11 +234,11 @@
   (slot alias getter generate)
   
   
-  (method override (initialize alias)
-    (set! alias~self alias))
+  (method override (initialize self alias)
+    (set! self.alias alias))
   
   
-  (method override (get-message)
+  (method override (get-message self)
     (format "Unknown alias: {t}" alias)))
 
 
@@ -172,7 +246,7 @@
   (new Alias #f))
 
 (definition public (get-aliases)
-  (get-table~ *root-alias*))
+  (get-table *root-alias*))
 
 (definition public (get-root-alias)
   *root-alias*)
@@ -186,17 +260,17 @@
   (is-alias? name))
 
 
-(definition public (get-alias name (error?: error? #t))
+(definition public (find-alias-path name (error?: error? #t))
   (let ((result (find-alias name)))
     (if result
-        (get-path~ result)
+        (get-path result)
       (and error? (throw (new Unknown-Alias-Exception name))))))
 
 
 (definition public (set-alias! name path)
   (let ((result (find-alias name)))
     (if result
-        (table-set! (get-parent~ result)
+        (table-set! (get-parent result)
                     (last (split-symbol name #\:))
                     path)
       (throw (new Unknown-Alias-Exception name)))))
@@ -212,7 +286,7 @@
     (if (null? path)
         result
       (let ((name (car path)))
-        (let ((alias (table-ref (get-table~ result) name #f)))
+        (let ((alias (table-ref (get-table result) name #f)))
           (if alias
               (iterate (cdr path) alias)
             (and error? (throw (new Unknown-Alias-Exception name)))))))))
@@ -234,9 +308,9 @@
 
 (definition public (register-alias name path (root: root #f) (override?: override? #f))
   (define (expand-up path)
-    (let ((dir (anchorize~ (get-parent~ (new Directory (list (car path)))) ignored-anchors: (list name)))
+    (let ((dir (anchorize (get-parent (new Directory (list (car path)))) ignored-anchors: (list name)))
           (sub (cddr path)))
-      (append (get-list~ dir) sub)))
+      (append (get-list dir) sub)))
   
   (define (process-up path)
     (if (and (pair? path)
@@ -246,7 +320,7 @@
       path))
   
   (define (set-alias root name alias)
-    (let ((table (get-table~ root)))
+    (let ((table (get-table root)))
       (if (and (table-ref table name #f) (not override?))
           (error "Alias already registered: {s}" name)
         (table-set! table name alias)
@@ -262,7 +336,7 @@
 
 (definition public (unregister-alias name (root: root #f))
   (receive (root name) (canonical-alias name root)
-    (let ((table (get-table~ root)))
+    (let ((table (get-table root)))
       (if (table-ref table name #f)
           (table-clear table name)
         (error "The alias {s} does not exist" name)))))
@@ -270,7 +344,7 @@
 
 (definition public (for-each-alias alias proc)
   (proc alias)
-  (iterate-table (get-table~ alias)
+  (iterate-table (get-table alias)
     (lambda (name child)
       (for-each-alias child proc))))
 
@@ -293,10 +367,10 @@
         (register-alias 'Settings '(Jazz-Settings)))
       
       (define (register-repositories)
-        (for-each register-repository-aliases (get-repositories)))
+        (for-each register-repository-aliases (repositories-get)))
       
       (define (register-build-repository)
-        (let ((repository (get-build-repository)))
+        (let ((repository (build-repository-get)))
           (when repository
             (register-repository-alias repository))))
       
@@ -375,7 +449,7 @@
 
 
 (definition (validate-alias name path)
-  (if (exists?~ (new Directory path))
+  (if (exists? (new Directory path))
       path
     (error "Unable to set alias {t} to inexistant directory: {t}" name path)))
 
@@ -485,6 +559,12 @@
   (format "{a}.{a}" base extension))
 
 
+(definition inline (parse-file file)
+  (if (string? file)
+      file
+    (parse file)))
+
+
 ;;;
 ;;;; Difference
 ;;;
@@ -505,19 +585,19 @@
 
 
 (definition public (different-file-times? file1 file2)
-  (different-times? (get-modification-time~ file1)
-                    (get-modification-time~ file2)))
+  (different-times? (get-modification-time file1)
+                    (get-modification-time file2)))
 
 
 (definition public (different-file-digests? file1 file2)
-  (not (equal? (digest-file (parse~ file1) 'SHA-1)
-               (digest-file (parse~ file2) 'SHA-1))))
+  (not (equal? (digest-file (parse file1) 'SHA-1)
+               (digest-file (parse file2) 'SHA-1))))
 
 
 (definition public (different-file-times/digests? file1 file2)
   (if (different-file-digests? file1 file2)
-      (not (equal? (digest-file (parse~ file1) 'SHA-1)
-                   (digest-file (parse~ file2) 'SHA-1)))
+      (not (equal? (digest-file (parse file1) 'SHA-1)
+                   (digest-file (parse file2) 'SHA-1)))
     #f))
 
 
@@ -529,14 +609,14 @@
 (class Moniker-Class extends Class
   
   
-  (method public virtual (get-protocol)
+  (method public virtual (get-protocol self)
     ))
 
 
 (class Moniker metaclass Moniker-Class extends Object
   
   
-  (method public virtual (compare-pathname object)
+  (method public virtual (compare-pathname self object)
     #f)
   
   
@@ -545,20 +625,20 @@
   ;;;
   
   
-  (method public virtual (present)
+  (method public virtual (present self)
     )
   
   
-  (method public virtual (present-base)
-    (->string (get-base)))
+  (method public virtual (present-base self)
+    (->string (get-base self)))
   
   
-  (method public virtual (present-name)
-    (->string (get-name)))
+  (method public virtual (present-name self)
+    (->string (get-name self)))
   
   
-  (method public virtual (present-location)
-    (format "{l detail: :human}" (get-list)))
+  (method public virtual (present-location self)
+    (format "{l detail: :human}" (get-list self)))
   
   
   ;;;
@@ -566,92 +646,92 @@
   ;;;
 
 
-  (method public virtual (exists?)
+  (method public virtual (exists? self)
     )
   
   
-  (method public (read-only?)
-    (not (get-writable?)))
+  (method public (read-only? self)
+    (not (get-writable? self)))
   
   
-  (method public (read/write?)
-    (get-writable?))
+  (method public (read/write? self)
+    (get-writable? self))
   
   
-  (method public (set-read-only)
-    (set-writable? #f))
+  (method public (set-read-only self)
+    (set-writable? self #f))
   
   
-  (method public (set-read/write)
-    (set-writable? #t))
+  (method public (set-read/write self)
+    (set-writable? self #t))
   
   
-  (method public virtual (get-writable?)
+  (method public virtual (get-writable? self)
     )
   
   
-  (method public virtual (set-writable? flag)
+  (method public virtual (set-writable? self flag)
     )
   
   
-  (method public virtual (writable?)
+  (method public virtual (writable? self)
     )
 
 
-  (method public virtual (get-modification-seconds)
+  (method public virtual (get-modification-seconds self)
     )
 
 
-  (method public virtual (get-modification-time)
+  (method public virtual (get-modification-time self)
     )
 
 
-  (method public virtual (get-file)
+  (method public virtual (get-file self)
     )
 
 
-  (method public virtual (get-name)
+  (method public virtual (get-name self)
     )
 
 
-  (method public virtual (get-base)
-    )
-  
-  
-  (method public virtual (get-extension)
-    )
-
-
-  (method public virtual (get-list)
+  (method public virtual (get-base self)
     )
   
   
-  (method public virtual (get-parent)
+  (method public virtual (get-extension self)
+    )
+
+
+  (method public virtual (get-list self)
     )
   
   
-  (method public (get-hierarchy)
+  (method public virtual (get-parent self)
+    )
+  
+  
+  (method public (get-hierarchy self)
     (let (loop (moniker self) (hierarchy '()))
       (if (not moniker)
           hierarchy
-        (loop (get-parent~ moniker) (cons moniker hierarchy)))))
+        (loop (get-parent moniker) (cons moniker hierarchy)))))
   
   
-  (method public virtual (get-content . rest)
+  (method public virtual (get-content self . rest)
     )
   
   
   ;; I think this is only for depot monikers and should probably be removed
-  (method public virtual (get-children . rest)
+  (method public virtual (get-children self . rest)
     )
   
   
-  (method public virtual (is-different? moniker)
+  (method public virtual (is-different? self moniker)
     )
   
   
-  (method public (relocated-list old-root new-root)
-    (append (get-list~ new-root) (tail (get-list) (length (get-list~ old-root)))))
+  (method public (relocated-list self old-root new-root)
+    (append (get-list new-root) (tail (get-list self) (length (get-list old-root)))))
   
   
   ;;;
@@ -659,15 +739,15 @@
   ;;;
 
 
-  (method public virtual (load-lines . rest)
+  (method public virtual (load-lines self . rest)
     )
 
 
-  (method public virtual (save-lines lines . rest)
+  (method public virtual (save-lines self lines . rest)
     )
   
   
-  (method public virtual (load-form)
+  (method public virtual (load-form self)
     ))
 
 
@@ -688,12 +768,12 @@
 (class Pathname-Class extends (:class Moniker)
   
   
-  (method override (marshall-object obj)
+  (method override (marshall-object self obj)
     (serialize-object (class-of obj)
-                      (vector (get-list~ obj))))
+                      (vector (get-list obj))))
   
   
-  (method override (unmarshall-object content)
+  (method override (unmarshall-object self content)
     (bind-vector (path) content
       (new self path))))
 
@@ -705,13 +785,13 @@
   (slot context initialize #f accessors generate)
   
   
-  (method override (initialize lst)
-    (nextmethod)
-    (validate-components lst)
-    (set-list lst))
+  (method override (initialize self lst)
+    (nextmethod self)
+    (validate-components self lst)
+    (set-list self lst))
   
   
-  (method protected virtual (validate-components object)
+  (method protected virtual (validate-components self object)
     (let ((original object))
       (define (validate object)
         (cond ((null? object))
@@ -727,7 +807,7 @@
       (validate object)))
   
   
-  (method public (parse . rest)
+  (method public (parse self . rest)
     (bind-optionals ((separator "/")) rest
       (let ((output (open-output-string))
             (first? #t)
@@ -749,8 +829,8 @@
                  (display path output))
                 ((symbol? path)
                  (validate-recursive path)
-                 (if (pathname-alias? path)
-                     (parse (pathname-alias path))
+                 (if (pathname-alias? self path)
+                     (parse (pathname-alias self path))
                    (throw (new Unknown-Alias-Exception path))))
                 ((pair? path)
                  (parse (car path))
@@ -758,154 +838,154 @@
                 (else
                  (error "Bad pathname component {t}" path))))
         
-        (let ((path (get-list)))
+        (let ((path (get-list self)))
           (if (equal? path '(:root))
               "/"
             (parse path)
-            (add-suffix output)
+            (add-suffix self output)
             (pathname-expand (get-output-string output)))))))
   
   
-  (method public (platform-parse)
-    (parse platform-separator))
+  (method public (platform-parse self)
+    (parse self platform-separator))
   
   
-  (method protected virtual (meta-root?)
+  (method package virtual (meta-root? self)
     #f)
   
   
-  (method protected virtual (add-suffix output)
+  (method protected virtual (add-suffix self output)
     )
   
   
-  (method override public (present-location)
+  (method override public (present-location self)
     (format "{l detail: :human}"
             (if context
-                (append (get-path~ context) (cdr (get-list)))
-              (get-list))))
+                (append (get-path context) (cdr (get-list self)))
+              (get-list self))))
   
   
-  (method public (relocated-pathname old-root new-root)
-    (append (get-list~ new-root) (tail (get-list) (length (get-list~ old-root)))))
+  (method public (relocated-pathname self old-root new-root)
+    (append (get-list new-root) (tail (get-list self) (length (get-list old-root)))))
 
 
-  (method public virtual (create)
+  (method public virtual (create self)
     )
 
 
-  (method public (move-pathname dst (error?: error? #t))
-    (file-rename (parse) (parse~ dst)))
+  (method public (move-pathname self dst (error?: error? #t))
+    (file-rename (parse self) (parse dst)))
   
   
-  (method override (compare-object target)
+  (method override (compare-object self target)
     (cond ((is-not? target (class-of self))
            :incompatible)
-          ((= (get-list) (get-list~ target))
+          ((= (get-list self) (get-list target))
            :equal)
           (else
            :not-equal)))
   
   
-  (method override (compare-pathname object)
+  (method override (compare-pathname self object)
     (and (is? object Pathname)
-         (filename=? (parse) (parse~ object))))
+         (filename=? (parse self) (parse object))))
   
   
-  (method public (context-alias?)
+  (method public (context-alias? self)
     (eq? (car path) :context))
   
   
-  (method public (context-setup?)
+  (method public (context-setup? self)
     (or context (neq? (car path) :context)))
   
   
-  (method public (pathname-alias? alias)
+  (method public (pathname-alias? self alias)
     (or (is-alias? alias)
         (and (eq? alias :context) context)))
   
   
-  (method public (pathname-alias alias)
+  (method public (pathname-alias self alias)
     (if (eq? alias :context)
         (if context 
-            (get-path~ context)
+            (get-path context)
           (error "No context alias specified"))
-      (get-alias alias)))
+      (find-alias-path alias)))
   
   
-  (method public (expand)
+  (method public (expand self)
     (let ((fact (new List-Factory)))
       (define (expand object)
         (cond ((eq? object #t))
-              ((eq? object :root) (put~ fact :root))
-              ((string? object) (put~ fact object))
-              ((symbol? object) (expand (pathname-alias object)))
+              ((eq? object :root) (put fact :root))
+              ((string? object) (put fact object))
+              ((symbol? object) (expand (pathname-alias self object)))
               ((pair? object)
                (expand (car object))
                (expand (cdr object)))))
       
-      (expand (get-list))
-      (get-output~ fact)))
+      (expand (get-list self))
+      (get-output fact)))
   
   
-  (method public (expand-context)
+  (method public (expand-context self)
     (if context
-        (append (get-path~ context) (cdr (get-list)))
-      (get-list)))
+        (append (get-path context) (cdr (get-list self)))
+      (get-list self)))
 
 
-  (method override (get-list)
+  (method override (get-list self)
     path)
 
 
-  (method public (set-list value)
+  (method public (set-list self value)
     (set! path value))
 
-  (method override (get-name)
-    (effective-name (get-list)))
+  (method override (get-name self)
+    (effective-name self (get-list self)))
   
   
-  (method (effective-name lst)
+  (method (effective-name self lst)
     (let ((name (last lst)))
       (cond ((eq? name :root)
              "/")
             ((symbol? name)
-             (effective-name (pathname-alias name)))
+             (effective-name self (pathname-alias self name)))
             (else
              (extract-name name)))))
   
   
-  (method override (get-base)
-    (let ((name (get-name)))
+  (method override (get-base self)
+    (let ((name (get-name self)))
       (if (symbol? name)
           name
         (extract-base name))))
   
   
-  (method override (get-extension)
-    (extract-extension (get-name)))
+  (method override (get-extension self)
+    (extract-extension (get-name self)))
   
   
-  (method override (get-parent)
-    (let ((path (expand-context)))
-      (let ((effective-path (if (= (length path) 1) (expand) path)))
+  (method override (get-parent self)
+    (let ((path (expand-context self)))
+      (let ((effective-path (if (= (length path) 1) (expand self) path)))
         (if (or (null? effective-path) (null? (cdr effective-path)))
             #f
           (new Directory (butlast effective-path))))))
   
   
-  (method public (get-brother name)
-    (new (class-of self) (append (get-list~ (get-parent)) (list name))))
+  (method public (get-brother self name)
+    (new (class-of self) (append (get-list (get-parent self)) (list name))))
   
   
-  (method public virtual (new-brother name)
+  (method public virtual (new-brother self name)
     )
   
   
-  (method public virtual (get-directory)
+  (method public virtual (get-directory self)
     )
   
   
-  (method public (get-attributes (error?: error? #t))
+  (method public (get-attributes self (error?: error? #t))
     (unimplemented 'get-attributes)
     @windows-specific
     (let ((attributes (GetFileAttributes (parse))))
@@ -914,7 +994,7 @@
         attributes)))
   
   
-  (method public (set-attributes flags)
+  (method public (set-attributes self flags)
     (unimplemented 'set-attributes)
     @windows-specific
     (let ((ok? (SetFileAttributes (parse) flags)))
@@ -922,35 +1002,35 @@
         (error "Unable to set file attributes for {t}" self))))
   
   
-  (method override (get-writable?)
+  (method override (get-writable? self)
     #t ;; super quicky
     @windows-specific
     (not (mask-bit-set? (get-attributes) FILE_ATTRIBUTE_READONLY)))
   
   
-  (method override (set-writable? flag)
+  (method override (set-writable? self flag)
     (unimplemented 'set-writable?)
     @windows-specific
     (set-attributes (mask-bit-set (get-attributes) FILE_ATTRIBUTE_READONLY (not flag))))
 
 
-  (method override (exists?)
-    (file-exists? (parse)))
+  (method override (exists? self)
+    (file-exists? (parse self)))
 
 
-  (method (is-directory?)
-    (and (exists?)
-         (eq? (pathname-type (parse))
+  (method package (is-directory? self)
+    (and (exists? self)
+         (eq? (pathname-type (parse self))
               'directory)))
   
   
-  (method public virtual (create-directories)
+  (method public virtual (create-directories self)
     )
   
   
-  (method public (subpath target)
-    (let (iterate (path (expand))
-                  (target-path (expand~ target)))
+  (method public (subpath self target)
+    (let (iterate (path (expand self))
+                  (target-path (expand target)))
       (cond ((null? path)
              target-path)
             ((null? target-path)
@@ -961,8 +1041,8 @@
              #f))))
   
   
-  (method public (subpath? target)
-    (boolean (subpath target)))
+  (method public (subpath? self target)
+    (boolean (subpath self target)))
 
 
   ;;;
@@ -970,11 +1050,11 @@
   ;;;
   
   
-  (method public (anchor-to anchor (error?: error? #t))
-    (let* ((base-list (get-list~ anchor))
-           (base-expd (expand~ anchor))
+  (method public (anchor-to self anchor (error?: error? #t))
+    (let* ((base-list (get-list anchor))
+           (base-expd (expand anchor))
            (base-length (length base-expd))
-           (expd (expand))
+           (expd (expand self))
            (rank (mismatch base-expd expd test: filename=?))
            (result-list (unspecified)))
       (continuation-capture
@@ -990,15 +1070,15 @@
           (new (class-of self) result-list)))))
   
   
-  (method public (anchorize (anchors: anchors #f) (ignored-anchors: ignored-anchors #f))
+  (method public (anchorize self (anchors: anchors #f) (ignored-anchors: ignored-anchors #f))
     (define (determine-anchors)
       (if (not anchors)
-          (get-descendant-anchors~ (get-root-alias))
-        (apply append (map get-anchors~ (map find-alias anchors)))))
+          (get-descendant-anchors (get-root-alias))
+        (apply append (map get-anchors (map find-alias anchors)))))
     
     (let* ((anchors (difference (determine-anchors) (or ignored-anchors '())))
-           (anchored (collect (lambda (anchor) (and (valid-alias? anchor) (anchor-to (new Directory (list anchor)) error?: #f))) anchors))
-           (sorted (sort < anchored key: (lambda (path) (length (get-list~ path))))))
+           (anchored (collect (lambda (anchor) (and (valid-alias? anchor) (anchor-to self (new Directory (list anchor)) error?: #f))) anchors))
+           (sorted (sort < anchored key: (lambda (path) (length (get-list path))))))
       (if (null? sorted)
           self
         (car sorted))))
@@ -1009,11 +1089,11 @@
   ;;;
 
 
-  (method override (setup-context toplevel-context)
-    (when (context-alias?)
-      (let ((data (get-data~ toplevel-context)))
+  (method override (setup-context self toplevel-context)
+    (when (context-alias? self)
+      (let ((data (get-data toplevel-context)))
         (when data
-          (set! context (get-context~ data)))))))
+          (set! context (get-context data)))))))
 
 
 (definition public inline (pathname? object)
@@ -1021,23 +1101,23 @@
 
 
 (definition public inline (pathname=? x <Moniker> y <Moniker>)
-  (compare-pathname~ x y))
+  (compare-pathname x y))
 
 
 (definition public inline (pathname-exists? pathname <Pathname>)
-  (file-exists? (parse~ pathname)))
+  (file-exists? (parse pathname)))
 
 
 (definition public inline (pathname-delete pathname <Pathname>)
-  (file-delete (parse~ pathname)))
+  (file-delete (parse pathname)))
 
 
 (definition public inline (pathname-modification-seconds pathname <Pathname>)
-  (file-modification-seconds (parse~ pathname)))
+  (file-modification-seconds (parse pathname)))
 
 
 (definition public (pathname-hash pathname <Pathname>)
-  (filename=?-hash (parse~ pathname)))
+  (filename=?-hash (parse pathname)))
 
 
 ;;;
@@ -1048,16 +1128,16 @@
 (class File-Class extends (:class Pathname)
   
   
-  (method override (get-protocol)
+  (method override (get-protocol self)
     'file))
 
 
 (class File metaclass File-Class extends Pathname
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{File {l detail: :v}}"
-            (get-list)
+            (get-list self)
             readably))
   
   
@@ -1066,12 +1146,12 @@
   ;;;
   
   
-  (method override (new-brother name)
-    (new-file~ (get-parent) name))
+  (method override (new-brother self name)
+    (new-file (get-parent self) name))
   
   
-  (method override (present)
-    (format "{l}" (get-list)))
+  (method override (present self)
+    (format "{l}" (get-list self)))
   
   
   ;;;
@@ -1079,122 +1159,122 @@
   ;;;
 
 
-  (method override (get-file)
+  (method override (get-file self)
     self)
   
   
-  (method override (get-directory)
-    (get-parent))
+  (method override (get-directory self)
+    (get-parent self))
 
 
-  (method override (create)
-    (unless (exists?)
-      (create-directories)
+  (method override (create self)
+    (unless (exists? self)
+      (create-directories self)
       ;; is there any smarter way to do this in gambit?
       (call-with-output-file (path-settings self)
         (lambda (output)
           ))))
   
   
-  (method override (create-directories)
-    (create-directories~ (get-parent)))
+  (method override (create-directories self)
+    (create-directories (get-parent self)))
   
   
-  (method public (copy-times dst)
-    (let ((src (parse))
-          (dst (parse~ dst)))
+  (method public (copy-times self dst)
+    (let ((src (parse self))
+          (dst (parse dst)))
       (file-times-set! dst (file-access-time src) (file-modification-time src))))
 
 
-  (method public (copy-file dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (preserve-times?: preserve-times? #f) (feedback: feedback #f))
+  (method public (copy-file self dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (preserve-times?: preserve-times? #f) (feedback: feedback #f))
     (when feedback
       (feedback self))
-    (overwrite-read-only~ dst overwrite-read-only?)
-    (when (and overwrite? (exists?~ dst))
-      (delete-file~ dst))
-    (file-copy (parse) (parse~ dst))
+    (overwrite-read-only dst overwrite-read-only?)
+    (when (and overwrite? (exists? dst))
+      (delete-file dst))
+    (file-copy (parse self) (parse dst))
     (when preserve-times?
-      (copy-times dst)))
+      (copy-times self dst)))
   
   
-  (method public (install-file dst (feedback: feedback #f))
-    (if (exists?~ dst)
+  (method public (install-file self dst (feedback: feedback #f))
+    (if (exists? dst)
         (when (different-file-times? self dst)
           (cond ((different-file-digests? self dst)
                  (when feedback
                    (feedback 'replacing self))
-                 (copy-file dst preserve-times?: #t))
+                 (copy-file self dst preserve-times?: #t))
                 (else
                  (when feedback
                    (feedback 'touching self))
-                 (copy-times dst))))
+                 (copy-times self dst))))
       (when feedback
         (feedback 'copying self))
-      (create-directories~ dst)
-      (copy-file dst preserve-times?: #t)))
+      (create-directories dst)
+      (copy-file self dst preserve-times?: #t)))
   
   
-  (method public (delete-file (overwrite-read-only?: overwrite-read-only? #f) (error?: error? #t))
-    (if (not (exists?))
+  (method public (delete-file self (overwrite-read-only?: overwrite-read-only? #f) (error?: error? #t))
+    (if (not (exists? self))
         (and error? (error "Unable to delete inexistant file: {s}" self))
-      (overwrite-read-only overwrite-read-only?)
-      (file-delete (parse))))
+      (overwrite-read-only self overwrite-read-only?)
+      (file-delete (parse self))))
   
   
-  (method (overwrite-read-only overwrite-read-only?)
+  (method package (overwrite-read-only self overwrite-read-only?)
     @windows-specific
     (when (and overwrite-read-only? (exists?) (read-only?))
       (set-read/write)))
   
   
-  (method public (get-size)
+  (method public (get-size self)
     (unimplemented 'get-size)
     @windows-specific
     (with ((input (new File-Reader self readable?: #f)))
-      (get-size~ input)))
+      (get-size input)))
 
 
-  (method override (get-modification-seconds)
-    (file-modification-seconds (parse)))
+  (method override (get-modification-seconds self)
+    (file-modification-seconds (parse self)))
 
 
-  (method override (get-modification-time)
-    (seconds->time (file-modification-seconds (parse))))
+  (method override (get-modification-time self)
+    (seconds->time (file-modification-seconds (parse self))))
 
 
-  (method public (set-modification-time time)
+  (method public (set-modification-time self time)
     (unimplemented 'set-modification-time)
     @windows-specific
-    (let ((ft (get-filetime~ time))
+    (let ((ft (get-filetime time))
           (at (get-attributes)))
       ;; this is ugly big time...
       (set-read/write)
       (call-with-output-file (path-settings self mode: 'append)
         (lambda (output)
-          (SetFileTime (get-handle~ output) NULL NULL ft)))
+          (SetFileTime (get-handle output) NULL NULL ft)))
       (set-attributes at)))
   
   
-  (method public (touch)
+  (method public (touch self)
     (unimplemented 'touch)
     @windows-specific
-    (set-modification-time (get-time~ (universal-date))))
+    (set-modification-time (get-time (universal-date))))
   
   
-  (method public (get-hidden?)
+  (method public (get-hidden? self)
     (unimplemented 'get-hidden?)
     @windows-specific
     (mask-bit-set? (get-attributes) FILE_ATTRIBUTE_HIDDEN))
   
   
-  (method public (set-hidden? flag)
+  (method public (set-hidden? self flag)
     (unimplemented 'set-hidden?)
     @windows-specific
     (set-attributes (mask-bit-set (get-attributes) FILE_ATTRIBUTE_HIDDEN flag)))
   
   
-  (method override (writable?)
-    (and (exists?)
+  (method override (writable? self)
+    (and (exists? self)
          (with-exception-filter
            os-exception?
            (lambda (exception) #f)
@@ -1204,8 +1284,8 @@
                  #t))))))
   
   
-  (method public (clone-file extension)
-    (new File (append (get-list~ (get-directory)) (list (format "{a}.{a}" (get-base) extension)))))
+  (method public (clone-file self extension)
+    (new File (append (get-list (get-directory self)) (list (format "{a}.{a}" (get-base self) extension)))))
   
   
   ;;;
@@ -1213,12 +1293,12 @@
   ;;;
 
 
-  (method override (load-lines (char-encoding: char-encoding #f) (char-encoding-errors: char-encoding-errors #t))
+  (method override (load-lines self (char-encoding: char-encoding #f) (char-encoding-errors: char-encoding-errors #t))
     (call-with-input-file (path-settings self char-encoding: (or char-encoding 'UTF) char-encoding-errors: char-encoding-errors eol-encoding: 'cr-lf)
       read-lines))
 
 
-  (method override (save-lines lines (char-encoding: char-encoding #f) (eol-encoding: eol-encoding #f))
+  (method override (save-lines self lines (char-encoding: char-encoding #f) (eol-encoding: eol-encoding #f))
     (call-with-output-file (path-settings self char-encoding: (or char-encoding 'UTF-8) eol-encoding: eol-encoding)
       (lambda (output)
         (write-lines output lines))))
@@ -1229,7 +1309,7 @@
   ;;;
 
 
-  (method (load-binary)
+  (method package (load-binary self)
     (call-with-input-file (path-settings self)
       (lambda (port)
         (let ((fileSize <fx> (input-port-byte-position port 0 2)))
@@ -1239,7 +1319,7 @@
             content)))))
 
 
-  (method (save-binary content)
+  (method package (save-binary self content)
     (call-with-output-file (path-settings self)
       (lambda (port)
         (write-subu8vector content 0 (u8vector-length content) port)))))
@@ -1261,8 +1341,8 @@
                (uuid (make-uuid-suffix)))
            (let (iterate (n 0))
              (let ((suffix (if (= n 0) "" (format "_{a}" n))))
-               (let ((file (new-file~ dir (format "{a}{a}_{a}{a}.{a}" prefix timestamp uuid suffix ext))))
-                 (if (exists?~ file)
+               (let ((file (new-file dir (format "{a}{a}_{a}{a}.{a}" prefix timestamp uuid suffix ext))))
+                 (if (exists? file)
                      (iterate (+ n 1))
                    file)))))
     (mutex-unlock! timestamped-file-mutex)))
@@ -1288,10 +1368,10 @@
 
 (definition public (ensure-read/write moniker (cancel-action: cancel-action 'throw))
   @convert
-  (let ((file (get-file~ moniker)))
+  (let ((file (get-file moniker)))
     (if (or (not (exists?~ file)) (read/write?~ file))
         'no-action
-      (let ((code (case (message-box (format "File {s} is read-only. Overwrite?" (get-name~ moniker))
+      (let ((code (case (message-box (format "File {s} is read-only. Overwrite?" (get-name moniker))
                                      title: "File Status"
                                      type: 'question
                                      process-keys?: #f)
@@ -1306,13 +1386,13 @@
 
 
 (definition public (backup-file file)
-  (new-unique-file~ (get-parent~ file) (format "{a}.back.{a}" (get-base~ file) (get-extension~ file)) separator: #f))
+  (new-unique-file (get-parent file) (format "{a}.back.{a}" (get-base file) (get-extension file)) separator: #f))
 
 
 (definition public (fail-safe-save file proc)
   (unimplemented 'fail-safe-save)
   @unwind-protect
-  (let ((temp (clone-file~ file "tmp"))
+  (let ((temp (clone-file file "tmp"))
         (back (backup-file file))
         (completed? #f))
     (unwind-protect
@@ -1320,13 +1400,13 @@
           (proc temp)
           (set! completed? #t))
       (cond ((not completed?)
-             (delete-file~ temp error?: #f))
+             (delete-file temp error?: #f))
             ((exists?~ file)
-             (move-pathname~ file back)
-             (move-pathname~ temp file)
-             (delete-file~ back))
+             (move-pathname file back)
+             (move-pathname temp file)
+             (delete-file back))
             (else
-             (move-pathname~ temp file))))))
+             (move-pathname temp file))))))
 
 
 ;;;
@@ -1337,16 +1417,16 @@
 (class Directory-Class extends (:class Pathname)
   
   
-  (method override (get-protocol)
+  (method override (get-protocol self)
     'dir))
 
 
 (class Directory metaclass Directory-Class extends Pathname
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (format output "~{Directory {l detail: :v}}"
-            (get-list)
+            (get-list self)
             readably))
   
   
@@ -1355,12 +1435,12 @@
   ;;;
   
   
-  (method override (new-brother name)
-    (new-directory~ (get-parent) name))
+  (method override (new-brother self name)
+    (new-directory (get-parent self) name))
   
   
-  (method override (present)
-    (format "{l}" (get-list)))
+  (method override (present self)
+    (format "{l}" (get-list self)))
   
   
   ;;;
@@ -1368,11 +1448,11 @@
   ;;;
   
   
-  (method override (get-directory)
+  (method override (get-directory self)
     self)
 
 
-  (method override (get-modification-time)
+  (method override (get-modification-time self)
     #f)
   
   
@@ -1387,69 +1467,69 @@
     (else))
   
   
-  (method override (create)
-    (directory-create (parse)))
+  (method override (create self)
+    (directory-create (parse self)))
   
   
-  (method override (create-directories)
-    (unless (exists?)
-      (let ((parent (get-parent)))
+  (method override (create-directories self)
+    (unless (exists? self)
+      (let ((parent (get-parent self)))
         (when parent
-          (create-directories~ parent)))
-      (create)))
+          (create-directories parent)))
+      (create self)))
   
   
-  (method public (new-file name) <File>
-    (add-context (new File (append (get-list) (if (null/pair? name) name (list name))))))
+  (method public (new-file self name) <File>
+    (add-context self (new File (append (get-list self) (if (null/pair? name) name (list name))))))
   
   
-  (method public (new-directory name) <Directory>
-    (add-context (new Directory (append (get-list) (if (null/pair? name) name (list name))))))
+  (method public (new-directory self name) <Directory>
+    (add-context self (new Directory (append (get-list self) (if (null/pair? name) name (list name))))))
   
   
-  (method public (new-unique-file name (separator: separator "_"))
-    (let ((file (new-file name)))
-      (if (not (exists?~ file))
+  (method public (new-unique-file self name (separator: separator "_"))
+    (let ((file (new-file self name)))
+      (if (not (exists? file))
           file
         (let ((base (extract-base name))
               (ext (extract-extension name))
               (suffix 1))
-          (while (exists?~ file)
-            (set! file (new-file (format "{a}{a}{a width: 2 justify: :right padding: #\\0}.{a}" base (or separator "") suffix ext)))
+          (while (exists? file)
+            (set! file (new-file self (format "{a}{a}{a width: 2 justify: :right padding: #\\0}.{a}" base (or separator "") suffix ext)))
             (increase! suffix))
           file))))
   
   
-  (method (add-context pathname)
+  (method (add-context self pathname)
     (when context
-      (set-context~ pathname context))
+      (set-context pathname context))
     pathname)
 
 
-  (method public (copy-directory dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (copier: copier #f) (copy?: copy? #t) (preserve-times?: preserve-times? #f) (feedback: feedback #f))
+  (method public (copy-directory self dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (copier: copier #f) (copy?: copy? #t) (preserve-times?: preserve-times? #f) (feedback: feedback #f))
     (when feedback
       (feedback self))
-    (when (and overwrite? (exists?~ dst))
-      (delete-directory~ dst overwrite-read-only?: overwrite-read-only?))
-    (create-directories~ dst)
+    (when (and overwrite? (exists? dst))
+      (delete-directory dst overwrite-read-only?: overwrite-read-only?))
+    (create-directories dst)
     (let ((destination
             (lambda (path)
-              (append (get-list~ dst) (list (get-name~ path))))))
-      (iterate-directory
+              (append (get-list dst) (list (get-name path))))))
+      (iterate-directory self
         (lambda (path)
           (when (or (eq? copy? #t) (copy? path))
             (if (is? path File)
                 (let ((dest (new File (destination path))))
                   (if copier
                       (copier path dest)
-                    (copy-file~ path dest preserve-times?: preserve-times? feedback: feedback)))
-              (copy-directory~ path (new Directory (destination path)) feedback: feedback copy?: copy?))))
+                    (copy-file path dest preserve-times?: preserve-times? feedback: feedback)))
+              (copy-directory path (new Directory (destination path)) feedback: feedback copy?: copy?))))
         files?: #t
         directories?: #t
         recursive?: #f)))
   
   
-  (method public (install-directory dst (filter: filter #f) (feedback: feedback #f) (force-feedback?: force-feedback? #f) (progress-feedback: progress-feedback #f))
+  (method public (install-directory self dst (filter: filter #f) (feedback: feedback #f) (force-feedback?: force-feedback? #f) (progress-feedback: progress-feedback #f))
     (define (merge-into src-dir dst-dir feedback)
       (merge-ordered (lambda (what key left right)
                        (case what
@@ -1459,12 +1539,12 @@
                               ((File)
                                (when feedback
                                  (feedback 'copying left))
-                               (copy-file~ left (new-file~ dst-dir (get-name~ left)) preserve-times?: #t))
+                               (copy-file left (new-file dst-dir (get-name left)) preserve-times?: #t))
                               ((Directory)
                                (when feedback
                                  (feedback 'copying left))
-                               (let ((right (new-directory~ dst-dir (get-name~ left))))
-                                 (create~ right)
+                               (let ((right (new-directory dst-dir (get-name left))))
+                                 (create right)
                                  (merge-into left right (if force-feedback? feedback #f)))))))
                          ((:right)
                           (when (or (not filter) (filter 'delete right))
@@ -1472,11 +1552,11 @@
                               ((File)
                                (when feedback
                                  (feedback 'deleting right))
-                               (delete-file~ right))
+                               (delete-file right))
                               ((Directory)
                                (when feedback
                                  (feedback 'deleting right))
-                               (delete-directory~ right)))))
+                               (delete-directory right)))))
                          ((:same)
                           (when (or (not filter) (filter 'replace left))
                             (typecase left
@@ -1489,24 +1569,24 @@
                                     (cond ((different-file-digests? left right)
                                            (when feedback
                                              (feedback 'replacing left))
-                                           (copy-file~ left right preserve-times?: #t))
+                                           (copy-file left right preserve-times?: #t))
                                           (else
                                            (when feedback
                                              (feedback 'touching left))
-                                           (copy-times~ left right)))))
+                                           (copy-times left right)))))
                                  ((Directory)
                                   (when feedback
                                     (feedback 'replacing left))
-                                  (delete-directory~ right)
-                                  (copy-file~ left (new-file~ dst-dir (get-name~ left)) preserve-times?: #t))))
+                                  (delete-directory right)
+                                  (copy-file left (new-file dst-dir (get-name left)) preserve-times?: #t))))
                               ((Directory)
                                (typecase right
                                  ((File)
                                   (when feedback
                                     (feedback 'replacing left))
-                                  (delete-file~ right)
-                                  (let ((right (new-directory~ dst-dir (get-name~ left))))
-                                    (create~ right)
+                                  (delete-file right)
+                                  (let ((right (new-directory dst-dir (get-name left))))
+                                    (create right)
                                     (merge-into left right (if force-feedback? feedback #f))))
                                  ((Directory)
                                   (when (and force-feedback? feedback)
@@ -1514,53 +1594,53 @@
                                   (when progress-feedback
                                     (progress-feedback 'entering left))
                                   (merge-into left right feedback)))))))))
-                     (sort filename-test (get-content~ src-dir) key: get-name~)
-                     (sort filename-test (get-content~ dst-dir) key: get-name~)
-                     left-key: get-name~
-                     right-key: get-name~
+                     (sort filename-test (get-content src-dir) key: get-name)
+                     (sort filename-test (get-content dst-dir) key: get-name)
+                     left-key: get-name
+                     right-key: get-name
                      compare: filename-compare))
     
-    (if (exists?~ dst)
+    (if (exists? dst)
         (merge-into self dst feedback)
       (when feedback
         (feedback 'copying self))
-      (create-directories~ dst)
+      (create-directories dst)
       (merge-into self dst (if force-feedback? feedback #f))))
   
   
-  (method public virtual (delete-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
-    (empty-directory overwrite-read-only?: overwrite-read-only? feedback: feedback)
-    (remove-directory))
+  (method public virtual (delete-directory self (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
+    (empty-directory self overwrite-read-only?: overwrite-read-only? feedback: feedback)
+    (remove-directory self))
   
   
-  (method public (empty-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
-    (iterate-directory
+  (method public (empty-directory self (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
+    (iterate-directory self
       (lambda (path)
         (if (is? path File)
-            (delete-file~ path overwrite-read-only?: overwrite-read-only?)
-          (delete-directory~ path overwrite-read-only?: overwrite-read-only? feedback: feedback)))
+            (delete-file path overwrite-read-only?: overwrite-read-only?)
+          (delete-directory path overwrite-read-only?: overwrite-read-only? feedback: feedback)))
       files?: #t
       directories?: #t
       recursive?: #f))
   
   
-  (method public (remove-directory)
-    (directory-delete (parse)))
+  (method public (remove-directory self)
+    (directory-delete (parse self)))
   
   
-  (method override (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
+  (method override (get-content self (nodes?: nodes? #t) (leaves?: leaves? #t))
     (define (collect-nodes fact)
-      (iterate-directory
+      (iterate-directory self
         (lambda (item)
-          (put~ fact item))
+          (put fact item))
         files?: #f
         directories?: #t
         recursive?: #f))
     
     (define (collect-leaves fact)
-      (iterate-directory
+      (iterate-directory self
         (lambda (item)
-          (put~ fact item))
+          (put fact item))
         files?: #t
         directories?: #f
         recursive?: #f))
@@ -1568,7 +1648,7 @@
     (let ((fact (new List-Factory)))
       (when nodes? (collect-nodes fact))
       (when leaves? (collect-leaves fact))
-      (get-output~ fact)))
+      (get-output fact)))
      
    
   ;;;
@@ -1576,7 +1656,7 @@
   ;;;
   
   
-  (method override (add-suffix output)
+  (method override (add-suffix self output)
     (write-char #\/ output))
      
    
@@ -1585,14 +1665,14 @@
   ;;;
   
   
-  (method public (collect-files predicate)
+  (method public (collect-files self predicate)
     (let ((fact (new List-Factory)))
-      (iterate-directory
+      (iterate-directory self
         (lambda (file)
           (when (predicate file)
-            (put~ fact file)))
+            (put fact file)))
         recursive?: #f)
-      (get-output~ fact)))
+      (get-output fact)))
      
    
   ;;;
@@ -1600,20 +1680,20 @@
   ;;;
   
   
-  (method public (collect-directories)
+  (method public (collect-directories self)
     (let ((fact (new List-Factory)))
-      (iterate-directory
+      (iterate-directory self
         (lambda (dir)
-          (put~ fact dir))
+          (put fact dir))
         files?: #f
         directories?: #t
         recursive?: #f)
-      (get-output~ fact)))
+      (get-output fact)))
   
   
-  (method public (count-directories)
+  (method public (count-directories self)
     (let ((count 0))
-      (iterate-directory
+      (iterate-directory self
         (lambda (dir)
           (increase! count))
         full?: #t
@@ -1628,7 +1708,7 @@
   ;;;
   
   
-  (method public virtual (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (sort?: sort? #t) (sort-type?: sort-type? #t) (sort-test: sort-test #f) (recursive?: recursive? #t) (ignored-toplevel-dirnames: ignored-toplevel-dirnames #f) (ignored-toplevel-filenames: ignored-toplevel-filenames #f) (ignored-dirnames: ignored-dirnames #f))
+  (method public virtual (iterate-directory self proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (sort?: sort? #t) (sort-type?: sort-type? #t) (sort-test: sort-test #f) (recursive?: recursive? #t) (ignored-toplevel-dirnames: ignored-toplevel-dirnames #f) (ignored-toplevel-filenames: ignored-toplevel-filenames #f) (ignored-dirnames: ignored-dirnames #f))
     (declare (proper-tail-calls))
     (let ()
       (define (iterate-directory-content files? directories? sort? recursive? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames prefix base proc)
@@ -1681,12 +1761,12 @@
                             (proc name type))))))
                   (directory-content-patch base)))
       
-      (let ((directory (if full? (get-list) #f)))
-        (iterate-directory-content files? directories? sort? recursive? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames '() (parse)
+      (let ((directory (if full? (get-list self) #f)))
+        (iterate-directory-content files? directories? sort? recursive? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames '() (parse self)
           (lambda (lst type)
             (case type
-              ((file) (if full? (proc (new-file lst)) (proc lst 'file)))
-              ((directory) (if full? (proc (new-directory lst)) (proc lst 'directory)))))))))
+              ((file) (if full? (proc (new-file self lst)) (proc lst 'file)))
+              ((directory) (if full? (proc (new-directory self lst)) (proc lst 'directory)))))))))
   
   
   ;; quicky because showing .* files in the open dialog creates problems
@@ -1700,11 +1780,11 @@
         (directory-content (list path: path ignore-hidden: 'dot-and-dot-dot)))))
   
   
-  (method public (count-files (ignored-dirnames: ignored-dirnames #f) (filter: filter #f) (max-count: max-count #f))
+  (method public (count-files self (ignored-dirnames: ignored-dirnames #f) (filter: filter #f) (max-count: max-count #f))
     (let ((count 0))
       (continuation-capture
         (lambda (return)
-          (iterate-directory
+          (iterate-directory self
             (lambda (file)
               (when (or (not filter) (filter file))
                 (increase! count)
@@ -1764,9 +1844,9 @@
         (let ((fact (new List-Factory)))
           (when nodes?
             (for-each (lambda (letter)
-                        (put~ fact (new Directory (list (string letter #\:)))))
+                        (put fact (new Directory (list (string letter #\:)))))
                       (enumerate-drives)))
-          (get-output~ fact)))))
+          (get-output fact)))))
 
   (else))
 
@@ -1778,32 +1858,32 @@
 ;; quick solution
 (definition public (digest-directory dir algorithm)
   (let ((output (open-output-string)))
-    (iterate-directory~ dir
+    (iterate-directory dir
       (lambda (path)
         (typecase path
           ((File)
-           (display (digest-file (parse~ path) algorithm) output))
+           (display (digest-file (parse path) algorithm) output))
           ((Directory)
-           (display (get-name~ path) output))))
+           (display (get-name path) output))))
       files?: #t
       directories?: #t
       recursive?: #t)
     (digest-string (get-output-string output) algorithm)))
 
 
-(definition public (get-current-directory)
+(definition public (current-directory-get)
   (new Directory (tokenise-filename (current-directory))))
 
 
-(definition public (set-current-directory directory)
-  (current-directory-set! (parse~ directory)))
+(definition public (current-directory-set! directory)
+  (current-directory (parse directory)))
 
 
 (definition public (with-preserved-current-directory proc)
-  (let ((preserved (get-current-directory)))
+  (let ((preserved (current-directory-get)))
     (unwind-protect
         (proc)
-      (set-current-directory preserved))))
+      (current-directory-set! preserved))))
 
 
 (definition public (normalize-directory dirname)
@@ -1819,20 +1899,20 @@
 
 (definition public (different-file-contents? file1 file2)
   (define (different-text-file-content? file1 file2)
-    (not (equal? (load-lines~ file1 char-encoding-errors: #f)
-                 (load-lines~ file2 char-encoding-errors: #f))))
+    (not (equal? (load-lines file1 char-encoding-errors: #f)
+                 (load-lines file2 char-encoding-errors: #f))))
   
   (declare (proper-tail-calls))
-  (if (and (member? (get-extension~ file1) Text-Extensions test: extension=?)
-           (member? (get-extension~ file2) Text-Extensions test: extension=?))
+  (if (and (member? (get-extension file1) Text-Extensions test: extension=?)
+           (member? (get-extension file2) Text-Extensions test: extension=?))
       (different-text-file-content? file1 file2)
     (call-with-input-file (path-settings file1 eol-encoding: 'cr-lf)
       (lambda (input1)
         (call-with-input-file (path-settings file2 eol-encoding: 'cr-lf)
           (lambda (input2)
             (or @convert
-                (/= (get-size~ input1)
-                    (get-size~ input2))
+                (/= (get-size input1)
+                    (get-size input2))
                 (let (iterate)
                   (let ((u1 (read-u8 input1))
                         (u2 (read-u8 input2)))

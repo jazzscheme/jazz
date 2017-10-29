@@ -39,6 +39,7 @@
 
 
 (import (jazz.database)
+        (jazz.io)
         (jazz.jml)
         (jazz.schema)
         (jazz.text)
@@ -64,17 +65,17 @@
   ;;;
 
 
-  (method public (get-source)
+  (method public (get-source self)
     (new Archive-Schema-Source
-      (get-moniker~ (locate 'file-browser))
-      (get-value~ (locate 'schema-combo))))
+      (get-moniker (locate self 'file-browser))
+      (get-value (locate self 'schema-combo))))
 
 
-  (method public (set-source source)
-    (let ((moniker (if source (get-file~ source) #f))
-          (content (if source (get-schema~ source) #f)))
-      (set-moniker~ (locate 'file-browser) moniker)
-      (set-content~ (locate 'schema-combo) content)))
+  (method public (set-source self source)
+    (let ((moniker (if source (get-file source) #f))
+          (content (if source (get-schema source) #f)))
+      (set-moniker (locate self 'file-browser) moniker)
+      (set-content (locate self 'schema-combo) content)))
 
   
   ;;;
@@ -82,23 +83,23 @@
   ;;;
   
   
-  (method (moniker-changed)
-    (let* ((browser (locate 'file-browser))
-           (file (get-moniker~ browser)))
+  (method (moniker-changed self)
+    (let* ((browser (locate self 'file-browser))
+           (file (get-moniker browser)))
       (when (valid-archive-pathname? file)
-        (receive (version properties) (read-header~ Schema-Archive file)
+        (receive (version properties) (read-header Schema-Archive file)
           (let* ((typed-schemas (getf properties schemas:))
                  (title (when typed-schemas
                           (bind (schema kind) (car typed-schemas)
                             (present-schema schema kind)))))
-            (update-valid-combo typed-schemas)
-            (set-content~ (locate 'schema-combo) (or title "")))))))
+            (update-valid-combo self typed-schemas)
+            (set-content (locate self 'schema-combo) (or title "")))))))
   
   
   (definition (valid-archive-pathname? file)
     (and file
-         (= (get-extension~ file) "arv")
-         (exists?~ file)))
+         (= (get-extension file) "arv")
+         (exists? file)))
 
   
   ;;;
@@ -106,34 +107,34 @@
   ;;;
   
   
-  (method (update-schema-combo)
-    (let* ((browser (locate 'file-browser))
-           (file (get-moniker~ browser)))
+  (method (update-schema-combo self)
+    (let* ((browser (locate self 'file-browser))
+           (file (get-moniker browser)))
       (if (valid-archive-pathname? file)
-          (receive (version properties) (read-header~ Schema-Archive file)
+          (receive (version properties) (read-header Schema-Archive file)
             (let ((typed-schemas (getf properties schemas:)))
-              (update-valid-combo typed-schemas)
+              (update-valid-combo self typed-schemas)
               #t))
         (message-box "Please enter a valid archive pathname")
-        (let ((text (get-text~ browser)))
-          (acquire-focus~ text)
-          (select-all~ text)
+        (let ((text (get-text browser)))
+          (acquire-focus text)
+          (select-all text)
           #f))))
   
   
-  (method (update-valid-combo typed-schemas)
+  (method (update-valid-combo self typed-schemas)
     (let ((choices
            (map (lambda (typed-schema)
                   (bind (schema kind) typed-schema
                     (let ((title (present-schema schema kind)))
                       (list schema title schema))))
                 typed-schemas)))
-      (set-choices~ (locate 'schema-combo) choices)))
+      (set-choices (locate self 'schema-combo) choices)))
   
   
   (definition (present-schema schema kind)
-    (let ((provider (get-provider~ Provider kind)))
-      (format "{a} ({a})" schema (present~ provider))))
+    (let ((provider (get-provider Provider kind)))
+      (format "{a} ({a})" schema (present provider))))
 
   
   ;;;
@@ -141,8 +142,8 @@
   ;;;
   
   
-  (method override (validate-content)
-    (validate-content~ (locate 'schema-combo))))
+  (method override (validate-content self)
+    (validate-content (locate self 'schema-combo))))
 
 
 ;;;

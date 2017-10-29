@@ -41,12 +41,15 @@
 (import (jazz.action)
         (jazz.catalog.edit)
         (jazz.catalog.entry)
+        (jazz.event)
         (jazz.graphic)
         (jazz.handler)
         (jazz.ide)
         (jazz.jml)
         (jazz.layout)
+        (jazz.outline)
         (jazz.resource)
+        (jazz.text)
         (jazz.tree)
         (jazz.ui)
         (jazz.view))
@@ -84,7 +87,7 @@
                   (<Tree-Node-Column>                      title: "Name" display-images?: #f width: 419)))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'class-browser)
 
   
@@ -93,24 +96,24 @@
   ;;;
     
 
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Class"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Class Browser")
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 800 600})
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(home))
 
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'class)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'class)))
   
   
   ;;;
@@ -118,38 +121,38 @@
   ;;;
   
   
-  (method public (get-class-name)
-    (let ((str (get-string-content~ (locate 'class))))
+  (method public (get-class-name self)
+    (let ((str (get-string-content (locate self 'class))))
       (and (not (empty-string? str))
            str)))
   
   
-  (method public (set-class-name value)
-    (let ((name-view (locate 'class)))
+  (method public (set-class-name self value)
+    (let ((name-view (locate self 'class)))
       (when value
-        (set-string-content~ name-view value))
-      (select-all~ name-view)))
+        (set-string-content name-view value))
+      (select-all name-view)))
   
   
-  (method public (focus-class-name)
-    (acquire-focus~ (locate 'class)))
+  (method public (focus-class-name self)
+    (acquire-focus (locate self 'class)))
   
   
-  (method public (get-method-name)
-    (let ((str (get-string-content~ (locate 'method))))
+  (method public (get-method-name self)
+    (let ((str (get-string-content (locate self 'method))))
       (and (not (empty-string? str))
            str)))
   
   
-  (method public (set-method-name value)
-    (let ((name-view (locate 'method)))
+  (method public (set-method-name self value)
+    (let ((name-view (locate self 'method)))
       (when value
-        (set-string-content~ name-view value))
-      (select-all~ name-view)))
+        (set-string-content name-view value))
+      (select-all name-view)))
   
   
-  (method public (focus-method-name)
-    (acquire-focus~ (locate 'method)))
+  (method public (focus-method-name self)
+    (acquire-focus (locate self 'method)))
   
   
   ;;;
@@ -158,9 +161,9 @@
   
   
   
-  (method override (guest-actions)
+  (method override (guest-actions self)
     (cons (find-actions 'class-browser)
-          (nextmethod)))
+          (nextmethod self)))
 
   
   ;;;
@@ -168,23 +171,23 @@
   ;;;
 
 
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (move-figure~ (locate 'browse) dh 0)
-    (size-figure~ (locate 'classes-border) dh dv))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (move-figure (locate self 'browse) dh 0)
+    (size-figure (locate self 'classes-border) dh dv))
   
   
-  (method (on-browse evt)
-    (browse))
+  (method (on-browse self evt)
+    (browse self))
   
   
-  (method override (on-return-press evt)
-    (on-browse evt))
+  (method override (on-return-press self evt)
+    (on-browse self evt))
   
   
-  (method (on-double-click evt)
-    (let ((tree (get-sender~ evt)))
-      (for-each edit-entry (get-selected-data~ tree))))
+  (method (on-double-click self evt)
+    (let ((tree (get-sender evt)))
+      (for-each edit-entry (get-selected-data tree))))
   
   
   ;;;
@@ -192,11 +195,11 @@
   ;;;
   
   
-  (method override (get-tab-stops)
+  (method override (get-tab-stops self)
     (list
-      (locate 'class)
-      (locate 'method)
-      (locate 'classes)))
+      (locate self 'class)
+      (locate self 'method)
+      (locate self 'classes)))
 
   
   ;;;
@@ -204,27 +207,27 @@
   ;;;
   
   
-  (method protected (browse)
+  (method package (browse self)
     (define (get-class-entry)
-      (let ((class-name (get-class-name)))
+      (let ((class-name (get-class-name self)))
         (if (not class-name)
-            (find-entry "Object" 'class)
-          (find-entry class-name 'class))))
+            (find-cataloguer-entry "Object" 'class)
+          (find-cataloguer-entry class-name 'class))))
     
     (let ((entry (get-class-entry)))
       (if (not entry)
-          (message-box (format "Unable to find class: {a}" (or (get-class-name) "")))
-        (let ((kind (get-kind~ entry)))
+          (message-box (format "Unable to find class: {a}" (or (get-class-name self) "")))
+        (let ((kind (get-kind entry)))
           (if (neq? kind 'class)
               (message-box (format "Can only browse classes: {s}" kind))
             (with-cursor :wait
               (lambda ()
-                (let ((method-name (get-method-name)))
-                  (browse-inheritance-tree entry method-name)))))))))
+                (let ((method-name (get-method-name self)))
+                  (browse-inheritance-tree self entry method-name)))))))))
   
   
-  (method (browse-inheritance-tree entry method-name)
-    (let* ((tree (locate 'classes))
+  (method (browse-inheritance-tree self entry method-name)
+    (let* ((tree (locate self 'classes))
            (methods (and method-name (method-entries method-name)))
            (method-ascendants (and method-name (remove-duplicates (apply append! (map class-entry-ascendants (map method-entry-class methods)))))))
       (define class-ascendant-cache
@@ -246,23 +249,23 @@
               (descendants (if method-ascendants (collect-if (lambda (class) (eq? (find-class-ascendant class) type)) method-ascendants) (class-entry-descendants type))))
           (for-each (lambda (subtype)
                       (downward subtype father))
-                    (sort string<? descendants key: get-name~))))
+                    (sort string<? descendants key: get-name))))
       
       (define (insert-class type father)
         (let* ((state 'expanded)
-               (title (->string (get-name~ type)))
+               (title (->string (get-name type)))
                (method (and methods (find methods type key: method-entry-class return: 'item)))
                (font (and method {Font Label-Bold}))
                (color (and method
-                           (cond ((or (memq? 'virtual (get-modifiers~ method))
-                                      (memq? 'chained (get-modifiers~ method)))
+                           (cond ((or (memq? 'virtual (get-modifiers method))
+                                      (memq? 'chained (get-modifiers method)))
                                   {Color Dark-Red})
                                  (else
                                   {Color Dark-Green})))))
-          (add-row~ tree father: father state: state children: (list (new Tree-Node title: title font: font color: color image: {Image-Resource "Class"})) user-data: (or method type))))
+          (add-row tree father: father state: state children: (list (new Tree-Node title: title font: font color: color image: {Image-Resource "Class"})) user-data: (or method type))))
       
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (let ((ascendant (class-entry-ascendant entry)))
             (downward entry (and ascendant (upward ascendant))))))))))

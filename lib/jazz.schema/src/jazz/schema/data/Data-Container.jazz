@@ -39,7 +39,8 @@
 (module protected jazz.schema.data.Data-Container jazz
 
 
-(import (jazz.schema)
+(import (jazz.database)
+        (jazz.schema)
         (jazz.syntax (phase syntax))
         (jazz.time))
 
@@ -51,10 +52,10 @@
   (slot state accessors generate)
   
   
-  (method override (initialize table state)
-    (nextmethod)
-    (set! state~self state)
-    (set! table~self table))
+  (method override (initialize self table state)
+    (nextmethod self)
+    (set! self.state state)
+    (set! self.table table))
   
   
   ;;;
@@ -62,55 +63,55 @@
   ;;;
   
   
-  (method public virtual (get-values))
-  (method public virtual (get identifier))
+  (method public virtual (get-values self))
+  (method public virtual (get self identifier))
   
   
-  (method public (save connection (user: user #f))
+  (method public (save self connection (user: user #f))
     (define (save-statement)
       (case state
-        ((update) (update-statement user))
-        ((insert) (insert-statement user))
-        ((delete) (delete-statement user))
+        ((update) (update-statement self user))
+        ((insert) (insert-statement self user))
+        ((delete) (delete-statement self user))
         (else #f)))
     
     (let ((statement (save-statement)))
       (if statement
-          (execute~ connection statement)
+          (execute connection statement)
         #t)))
 
 
-  (method virtual (insert-statement user)
-    (let* ((columns (collect (lambda (column) (and (not (auto-generate?~ column)) (get-name~ column))) (get-columns~ table)))
-           (values (map (lambda (name) (format-value (get name))) columns)))
-      (let ((name (get-name~ table))
+  (method virtual (insert-statement self user)
+    (let* ((columns (collect (lambda (column) (and (not (auto-generate? column)) (get-name column))) (get-columns table)))
+           (values (map (lambda (name) (format-value (get self name))) columns)))
+      (let ((name (get-name table))
             (columns (join (map format-column columns) ", "))
             (values (join values ", "))
             (user (if user (format "{a}." user) "")))
         (tie "insert into {user}[{name}]({columns}) values ({values})"))))
   
   
-  (method virtual (update-statement user)
-    (let* ((primary-key (get-name~ (get-primary-key~ table)))
-           (primary-value (format-value (get primary-key)))
+  (method virtual (update-statement self user)
+    (let* ((primary-key (get-name (get-primary-key table)))
+           (primary-value (format-value (get self primary-key)))
            (columns (collect (lambda (column)
-                               (let ((name (get-name~ column)))
-                                 (and (not (auto-generate?~ column))
+                               (let ((name (get-name column)))
+                                 (and (not (auto-generate? column))
                                       (not (equal? name primary-key))
                                       name)))
-                             (get-columns~ table)))
-           (values (map (lambda (name) (get name)) columns)))
-      (let ((name (get-name~ table))
+                             (get-columns table)))
+           (values (map (lambda (name) (get self name)) columns)))
+      (let ((name (get-name table))
             (primary-key (format-column primary-key))
             (columns+values (join (map (lambda (column value) (string-append (format-column column) "=" (format-value value))) columns values) ", "))
             (user (if user (format "{a}." user) "")))
         (tie "update {user}[{name}] set {columns+values} where ({primary-key}={primary-value})"))))
   
   
-  (method virtual (delete-statement user)
-    (let ((name (get-name~ table))
-          (primary-key (get-name~ (get-primary-key~ table))))
-      (let ((primary-value (format-value (get primary-key)))
+  (method virtual (delete-statement self user)
+    (let ((name (get-name table))
+          (primary-key (get-name (get-primary-key table))))
+      (let ((primary-value (format-value (get self primary-key)))
             (primary-key (format-column primary-key)))
         (tie "delete from [{name}] where ({primary-key}={primary-value})"))))
   

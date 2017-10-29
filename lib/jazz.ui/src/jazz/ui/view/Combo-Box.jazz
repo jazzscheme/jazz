@@ -38,7 +38,8 @@
 (module protected jazz.ui.view.Combo-Box jazz
 
 
-(import (jazz.handler)
+(import (jazz.event)
+        (jazz.handler)
         (jazz.locale)
         (jazz.menu)
         (jazz.skin)
@@ -78,42 +79,42 @@
   ;;;
   
   
-  (method override (button-action)
+  (method override (button-action self)
     (when selectable?
-      (acquire-focus~ (get-body)))
-    (when (and (get-editable?)
-               (update-choices))
-      (let ((menu (new-choices-menu))
-            (pick (get-pick)))
+      (acquire-focus (get-body self)))
+    (when (and (get-editable? self)
+               (update-choices self))
+      (let ((menu (new-choices-menu self))
+            (pick (get-pick self)))
         (define (determine-width)
-          (let ((border (popups-border~ (get-window-manager))))
-            (- (get-width) border border)))
+          (let ((border (popups-border (get-window-manager))))
+            (- (get-width self) border border)))
         
         (cond (menu
-               (receive (pos alternate-pos) (combo-popup-positions menu)
-                 (layout-menu~ menu width: (determine-width))
-                 (track-popup-menu menu pos alternate-position: alternate-pos)))
+               (receive (pos alternate-pos) (combo-popup-positions self menu)
+                 (layout-menu menu width: (determine-width))
+                 (track-popup-menu self menu pos alternate-position: alternate-pos)))
               (else
                (bell)
-               (set-state (if (picker-view? (mouse-view)) 'highlighted 'inactive)))))))
+               (set-state self (if (picker-view? self (mouse-view self)) 'highlighted 'inactive)))))))
   
   
-  (method protected (combo-popup-positions view)
-    (values (new Point -1 (+ (get-height) 1))
-            (new Point -1 (- (+ 5 (get-height~ view))))))
+  (method protected (combo-popup-positions self view)
+    (values (new Point -1 (+ (get-height self) 1))
+            (new Point -1 (- (+ 5 (get-height view))))))
   
   
-  (method protected virtual (on-action evt)
-    (let ((choice (get-user-data~ (get-sender~ evt)))
-          (text (get-body)))
-      (set-choice choice)
-      (select-all~ (get-body))
-      (set-modified?~ text #t)
-      (call-content-change 'popup)
-      (combo-choice)))
+  (method package virtual (on-action self evt)
+    (let ((choice (get-user-data (get-sender evt)))
+          (text (get-body self)))
+      (set-choice self choice)
+      (select-all (get-body self))
+      (set-modified? text #t)
+      (call-content-change self 'popup)
+      (combo-choice self)))
   
   
-  (method protected virtual (combo-choice)
+  (method protected virtual (combo-choice self)
     )
   
   
@@ -122,14 +123,14 @@
   ;;;
 
 
-  (method public (get-choices-updater)
+  (method public (get-choices-updater self)
     choices-updater)
 
 
-  (method public (set-choices-updater value)
+  (method public (set-choices-updater self value)
     (set! choices-updater value)
     (when (and (eq? kind 'pick) choices-updater)
-      (set-enabled?~ (get-pick) #t)))
+      (set-enabled? (get-pick self) #t)))
   
   
   ;;;
@@ -137,18 +138,18 @@
   ;;;
   
   
-  (method protected virtual (update-choices)
+  (method protected virtual (update-choices self)
     (if (and choices-updater (null? choices))
         (choices-updater self)
       #t))
   
   
-  (method protected virtual (new-choices-menu)
-    (let ((current (get-entry))
+  (method protected virtual (new-choices-menu self)
+    (let ((current (get-entry self))
           (handler (or action-handler (new Event-Handler target: self method-name: 'on-action))))
       (define (checked? choice title)
         (if editable?
-            (string=? title (standardize-content current))
+            (string=? title (standardize-content self current))
           (eq? choice selected)))
       
       (define (create-combo-item choice title parent)
@@ -159,22 +160,22 @@
         (for-each (lambda (choice)
                     (if (not choice)
                         (new Separator-Item parent: menu)
-                      (let ((title (present-choice choice)))
+                      (let ((title (present-choice self choice)))
                         (create-combo-item choice title menu))))
                   choices))
       
       (define (new-choices-menu-condensed menu)
-        (make-condensed-menu~ menu choices create-combo-item key: present-choice))
+        (make-condensed-menu menu choices create-combo-item key: (~ present-choice self)))
       
       (and choices
-           (let ((menu (new (context-menu-class))))
+           (let ((menu (new (context-menu-class self))))
              (if condensed?
                  (new-choices-menu-condensed menu)
                (new-choices-menu-plain menu))
              menu))))
   
   
-  (method protected virtual (context-menu-class)
+  (method protected virtual (context-menu-class self)
     Context-Menu)
   
   
@@ -183,20 +184,20 @@
   ;;;
 
 
-  (method public (get-choices)
+  (method public (get-choices self)
     choices)
 
 
-  (method public (set-choices value)
-    (let ((old (get-choice)))
+  (method public (set-choices self value)
+    (let ((old (get-choice self)))
       (set! choices value)
       (when (eq? kind 'pick)
-        (set-enabled?~ (get-pick) (or choices-updater (not-null? choices))))
+        (set-enabled? (get-pick self) (or choices-updater (not-null? choices))))
       (when old
-        (set-choice old))))
+        (set-choice self old))))
   
   
-  (method (get-choice)
+  (method (get-choice self)
     (define (collect-matches entry)
       (let ((test (or entry-test nu=?))
             (queue (new-queue)))
@@ -209,12 +210,12 @@
                               (enqueue queue choice))))
                         
                         (if (not presented)
-                            (tryout (value->presented value))
+                            (tryout (value->presented self value))
                           (for-each tryout presented)))))
                   choices)
         (queue-list queue)))
     
-    (let ((matches (collect-matches (get-entry))))
+    (let ((matches (collect-matches (get-entry self))))
       (if (and selected (memq? selected matches))
           selected
         (and (not-null? matches)
@@ -226,16 +227,16 @@
   ;;;
   
   
-  (method public (present-choices)
+  (method public (present-choices self)
     (format "{l detail: :reader separator: \", \"}"
-            (map present-choice choices)))
+            (map (~ present-choice self) choices)))
   
   
-  (method protected (present-choice choice)
+  (method package (present-choice self choice)
     (and choice
          (bind (value . presented) choice
            (if (not presented)
-               (value->presented value)
+               (value->presented self value)
              (localize (first presented))))))
   
   
@@ -244,33 +245,33 @@
   ;;;
   
   
-  (method public (present-value value)
-    (let ((choice (value->choice value)))
+  (method public (present-value self value)
+    (let ((choice (value->choice self value)))
       (if (not choice)
-          (value->presented value)
-        (present-choice choice))))
+          (value->presented self value)
+        (present-choice self choice))))
   
   
-  (method (value->choice value)
+  (method (value->choice self value)
     (assoc value choices))
   
   
-  (method (choice->value choice)
+  (method (choice->value self choice)
     (car choice))
   
   
-  (method public virtual (value->presented value)
+  (method public virtual (value->presented self value)
     (if (not value)
         "{}"
       (->string (localize value))))
   
   
-  (method public virtual (invalid->value presented)
+  (method public virtual (invalid->value self presented)
     (signal (new Parse-Error message: (format "Invalid value: {a}" presented))))
   
   
-  (method public (valid? value)
-    (boolean (value->choice value)))
+  (method public (valid? self value)
+    (boolean (value->choice self value)))
   
   
   ;;;
@@ -278,37 +279,37 @@
   ;;;
   
   
-  (method public virtual (get-entry)
-    (get-content))
+  (method public virtual (get-entry self)
+    (get-content self))
   
   
-  (method public virtual (set-entry content)
-    (set-content content))
+  (method public virtual (set-entry self content)
+    (set-content self content))
   
   
-  (method public (valid-value?)
-    (boolean (get-choice)))
+  (method public (valid-value? self)
+    (boolean (get-choice self)))
   
   
-  (method public (get-value)
-    (let ((choice (get-choice)))
+  (method public (get-value self)
+    (let ((choice (get-choice self)))
       (if (not choice)
-          (invalid->value (get-content))
+          (invalid->value self (get-content self))
         (car choice))))
   
   
-  (method public (set-value value (generate-event?: generate-event? #f))
-    (set-choice (value->choice value) generate-event?: generate-event?))
+  (method public (set-value self value (generate-event?: generate-event? #f))
+    (set-choice self (value->choice self value) generate-event?: generate-event?))
   
   
-  (method public (set-choice choice (generate-event?: generate-event? #f))
+  (method public (set-choice self choice (generate-event?: generate-event? #f))
     (set! selected choice)
-    (set-entry (present-value (choice->value choice)))
+    (set-entry self (present-value self (choice->value self choice)))
     (when generate-event?
-      (call-content-change #f)))
+      (call-content-change self #f)))
   
   
-  (method protected virtual (standardize-content content)
+  (method protected virtual (standardize-content self content)
     content)
   
   
@@ -317,20 +318,20 @@
   ;;;
   
   
-  (method override (validate-content)
+  (method override (validate-content self)
     (let* ((unique? (= 1 (length choices)))
            (unique (and unique? (car choices)))
-           (unique-entry (and unique? (present-choice unique)))
+           (unique-entry (and unique? (present-choice self unique)))
            (type (if unique? 'question 'message))
            (no (if unique? (format "Accept Unique Item: {a}" unique-entry) #f)))
       (catch (Parse-Error err
                (case (message-box (exception-reason err) type: type yes: "Change It" no: no)
                  ((yes)
-                  (focus-body)
+                  (focus-body self)
                   (signal-cancel))
                  ((no)
-                  (set-entry unique-entry))))
-        (get-value))))
+                  (set-entry self unique-entry))))
+        (get-value self))))
   
   
   ;;;
@@ -338,7 +339,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Combo-Box-Descriptor)))
 
 
@@ -350,7 +351,7 @@
 (class Combo-Item extends Check-Item
   
   
-  (method override (effective-font)
+  (method override (effective-font self)
     (let ((skin (find-skin 'ui:combo)))
-      (or (get-text-font~ skin)
-          (nextmethod))))))
+      (or (get-text-font skin)
+          (nextmethod self))))))

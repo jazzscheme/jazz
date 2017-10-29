@@ -38,8 +38,10 @@
 (module protected jazz.editor.jazz.log.Log-Viewer jazz
 
 
-(import (jazz.debuggee.view)
+(import (jazz.debuggee.ui)
+        (jazz.debuggee.view)
         (jazz.document)
+        (jazz.event)
         (jazz.geometry)
         (jazz.graphic)
         (jazz.handler)
@@ -47,13 +49,14 @@
         (jazz.layout)
         (jazz.locale)
         (jazz.resource)
+        (jazz.tree)
         (jazz.ui))
 
 
 (class Log-Viewer extends Layout-View implements Document
 
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'log-viewer)
 
 
@@ -79,16 +82,16 @@
           (<No-Data-Viewer>)))))
   
   
-  (method override (save-content moniker));;abstract
-  (method override (default-extension));;abstract
-  (method override (extensions));;abstract
-  (method override (focus-document));;abstract
-  (method override (current-history-item));;abstract
-  (method override (compare-moniker moniker));;abstract
+  (method override (save-content self moniker));;abstract
+  (method override (default-extension self));;abstract
+  (method override (extensions self));;abstract
+  (method override (focus-document self));;abstract
+  (method override (current-history-item self));;abstract
+  (method override (compare-moniker self moniker));;abstract
   
   
-  (method override (finish rest)
-    (nextmethod rest)
+  (method override (finish self rest)
+    (nextmethod self rest)
     ;; selection-handler: {Event-Handler :form on-selection-change}
     )
   
@@ -98,15 +101,15 @@
   ;;;
   
 
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Log"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Log Viewer")
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 850 500})
 
 
@@ -115,57 +118,57 @@
   ;;;
 
 
-  (method override (get-document-controller)
+  (method override (get-document-controller self)
     (unless document-controller
-      (set! document-controller (new-document-controller)))
+      (set! document-controller (new-document-controller self)))
     document-controller)
 
 
-  (method override (new-document-controller)
+  (method override (new-document-controller self)
     (new Document-Controller self))
   
   
-  (method override (install-scroller?)
+  (method override (install-scroller? self)
     #t)
   
   
-  (method (get-moniker)
-    (get-moniker~ (get-document-controller)))
+  (method package (get-moniker self)
+    (get-moniker (get-document-controller self)))
   
   
-  (method (set-moniker moniker)
-    (set-moniker~ (get-document-controller) moniker))
+  (method package (set-moniker self moniker)
+    (set-moniker (get-document-controller self) moniker))
   
   
-  (method override (verify-reload)
+  (method override (verify-reload self)
     )
   
   
-  (method override (reload-moniker moniker)
+  (method override (reload-moniker self moniker)
     )
 
 
-  (method override (get-modified?)
-    (get-modified?~ (get-document-controller)))
+  (method override (get-modified? self)
+    (get-modified? (get-document-controller self)))
 
 
-  (method override (set-modified? state)
-    (set-modified?~ (get-document-controller) state))
+  (method override (set-modified? self state)
+    (set-modified? (get-document-controller self) state))
   
   
-  (method (update-status)
-    (update-status~ (get-document-controller)))
+  (method package (update-status self)
+    (update-status (get-document-controller self)))
   
   
-  (method (update-moniker-time moniker)
-    (update-moniker-time~ (get-document-controller) moniker))
+  (method package (update-moniker-time self moniker)
+    (update-moniker-time (get-document-controller self) moniker))
 
 
-  (method override (tool-update tool?)
+  (method override (tool-update self tool?)
     )
 
 
-  (method override (console-update console?)
+  (method override (console-update self console?)
     )
   
   
@@ -174,9 +177,9 @@
   ;;;
   
   
-  (method override (load-content moniker)
-    (open-file~ (get-tree) moniker)
-    (invalidate-view))
+  (method override (load-content self moniker)
+    (open-log-file (get-tree self) moniker)
+    (invalidate-view self))
   
   
   ;;;
@@ -184,8 +187,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (get-tree~ (locate 'log-view)))
+  (method package (get-tree self)
+    (get-tree (locate self 'log-view)))
   
   
   ;;;
@@ -193,31 +196,31 @@
   ;;;
   
   
-  (method (on-open evt)
-    (on-open~ (get-tree) evt))
+  (method package (on-open self evt)
+    (on-open (get-tree self) evt))
   
   
-  (method (on-edit evt)
-    (on-edit~ (get-tree) evt))
+  (method package (on-edit self evt)
+    (on-edit (get-tree self) evt))
 
 
-  (method (on-clear evt)
-    (on-clear~ (get-tree) evt))
+  (method package (on-clear self evt)
+    (on-clear (get-tree self) evt))
 
 
-  (method (on-refresh evt)
-    (let ((log-view (locate 'log-view)))
-      (update~ log-view)))
+  (method package (on-refresh self evt)
+    (let ((log-view (locate self 'log-view)))
+      (update log-view)))
 
 
-  (method (on-selection-change evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method package (on-selection-change self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((log-tree)
-         (let ((selection (get-single-selection~ sender)))
+         (let ((selection (get-single-selection sender)))
            (when selection
-             (let ((node (get-user-data~ (get-row~ sender selection))))
-               (view-data node))))))))
+             (let ((node (get-user-data (get-row sender selection))))
+               (view-data self node))))))))
   
   
   ;;;
@@ -225,27 +228,27 @@
   ;;;
 
 
-  (method protected virtual (view-data node)
+  (method protected virtual (view-data self node)
     (define (data-viewer-class data)
       (if (and data (is? data Viewable))
-          (or (get-viewer-class~ data) No-Data-Viewer)
+          (or (get-viewer-class data) No-Data-Viewer)
         No-Data-Viewer))
     
-    (close-data-viewer)
+    (close-data-viewer self)
     (when (is? node JML-Node)
-      (let* ((data (get-property~ node 'data))
+      (let* ((data (get-property node 'data))
              (class (data-viewer-class data))
-             (container (locate 'data-container)))
+             (container (locate self 'data-container)))
         (set! data-viewer
               (new class
                 client: data
                 parent: container))
-        (layout-view~ container))))
+        (layout-view container))))
   
   
-  (method (close-data-viewer)
+  (method (close-data-viewer self)
     (when data-viewer
-      (close~ data-viewer)
+      (close data-viewer)
       (set! data-viewer #f))))
 
 
@@ -264,16 +267,16 @@
     (<install> border-type: edge style: entry))
   
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (define Background-Font
       {Font Heading2})
     
     (define (draw-no-data surface)
-      (set-font~ surface Background-Font)
+      (set-font surface Background-Font)
       (let* ((title (localize "No Data"))
-             (extent (get-text-extent~ surface title))
-             (pos (center extent (get-display-size))))
-        (draw-text~ surface (get-h~ pos) (get-v~ pos) title {Color Medium-Gray})))
+             (extent (get-text-extent surface title))
+             (pos (center extent (get-display-size self))))
+        (draw-text surface (get-h pos) (get-v pos) title {Color Medium-Gray})))
     
-    (nextmethod surface context)
+    (nextmethod self surface context)
     (draw-no-data surface))))

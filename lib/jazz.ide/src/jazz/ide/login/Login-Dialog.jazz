@@ -45,6 +45,8 @@
         (jazz.ide.login)
         (jazz.io)
         (jazz.jml)
+        (jazz.outline)
+        (jazz.process)
         (jazz.settings)
         (jazz.text)
         (jazz.tree)
@@ -93,49 +95,49 @@
           (<!>                      name: existing-border   visible?: #t)))))
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Login")
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (setup-new-profile)
-    (setup-existing-profiles)
-    (set-title~ (locate 'title) (format "Welcome{? to {a}~}" invite)))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (setup-new-profile self)
+    (setup-existing-profiles self)
+    (set-title (locate self 'title) (format "Welcome{? to {a}~}" invite)))
   
   
-  (method (setup-new-profile)
-    (set-string-content~ (locate 'new-profile) (user-name))
-    (setup-templates))
+  (method (setup-new-profile self)
+    (set-string-content (locate self 'new-profile) (user-name))
+    (setup-templates self))
   
   
-  (method override (focus-default)
-    (case (get-active-trait-name)
-      ((new) (focus-new))
-      ((existing) (focus-existing))))
+  (method override (focus-default self)
+    (case (get-active-trait-name self)
+      ((new) (focus-new self))
+      ((existing) (focus-existing self))))
   
   
-  (method (setup-templates)
+  (method (setup-templates self)
     (let ((kinds (parse-jml (get-profile-kinds)))
-          (combo (locate '(template box))))
-      (set-choices~ combo (map (lambda (kind)
-                                 (list kind (get-property~ kind 'name)))
-                               (get-children~ kinds)))
-      (set-value~ combo (first-child~ kinds))))
+          (combo (locate self '(template box))))
+      (set-choices combo (map (lambda (kind)
+                                 (list kind (get-property kind 'name)))
+                               (get-children kinds)))
+      (set-value combo (first-child kinds))))
   
   
-  (method (setup-existing-profiles)
-    (receive (profiles rank) (collect-profile-info)
-      (set-checked?~ (locate 'always-use) (and rank (let ((profile (element profiles rank))
-                                                          (settings (get-settings~ (get-application))))
+  (method (setup-existing-profiles self)
+    (receive (profiles rank) (collect-profile-info self)
+      (set-checked? (locate self 'always-use) (and rank (let ((profile (element profiles rank))
+                                                          (settings (get-settings (get-application))))
                                                       (and settings (ci=? (profile-title profile)
-                                                                          (get-setting~ settings 'profile))))))
-      (cond ((some-user-profile?)
-             (install-existing profiles rank)
-             (set-selected?~ (locate 'existing-button) #t))
+                                                                          (get-setting settings 'profile))))))
+      (cond ((some-user-profile? self)
+             (install-existing self profiles rank)
+             (set-selected? (locate self 'existing-button) #t))
             (else
-             (install-new)
-             (set-selected?~ (locate 'new-button) #t)))))
+             (install-new self)
+             (set-selected? (locate self 'new-button) #t)))))
   
 
   ;;;
@@ -143,28 +145,28 @@
   ;;;
   
   
-  (method override (validate-dialog)
-    (let ((message (validate-profile)))
+  (method override (validate-dialog self)
+    (let ((message (validate-profile self)))
       (when message
         (message-box message)
         (signal-cancel))))
   
   
-  (method override (get-modal-result)
-    (let ((template (get-property~ (get-value~ (locate '(template box))) 'template))
-          (always-use? (get-checked?~ (locate 'always-use))))
-      (case (get-active-trait-name)
+  (method override (get-modal-result self)
+    (let ((template (get-property (get-value (locate self '(template box))) 'template))
+          (always-use? (get-checked? (locate self 'always-use))))
+      (case (get-active-trait-name self)
         ((new)
-         (let ((content (get-string-content~ (locate 'new-profile))))
+         (let ((content (get-string-content (locate self 'new-profile))))
            (let ((name (string->symbol (capitalize content)))
                  (unit (string->symbol (profile-unit-name content))))
              (values name unit template always-use?))))
         ((existing)
-         (let* ((tree (locate 'profiles))
-                (rank (get-single-selection~ tree)))
+         (let* ((tree (locate self 'profiles))
+                (rank (get-single-selection tree)))
            (if (not rank)
                (values #f #f #f)
-             (let ((profile (get-user-data~ (get-row~ tree rank))))
+             (let ((profile (get-user-data (get-row tree rank))))
                (values (profile-name profile) (profile-unit profile) template always-use?))))))))
   
   
@@ -177,8 +179,8 @@
   ;;;
   
   
-  (method override (get-tab-stops)
-    (case (get-active-trait-name)
+  (method override (get-tab-stops self)
+    (case (get-active-trait-name self)
       ((new)
        '())
       ((existing)
@@ -190,42 +192,42 @@
   ;;;
   
   
-  (method (on-new evt)
-    (install-new))
+  (method (on-new self evt)
+    (install-new self))
   
   
-  (method (on-existing evt)
-    (receive (profiles rank) (collect-profile-info)
-      (install-existing profiles rank)))
+  (method (on-existing self evt)
+    (receive (profiles rank) (collect-profile-info self)
+      (install-existing self profiles rank)))
   
   
-  (method (on-content-change evt)
-    (update-login))
+  (method (on-content-change self evt)
+    (update-login self))
   
   
-  (method (on-moniker-update evt)
-    (update-login))
+  (method (on-moniker-update self evt)
+    (update-login self))
   
   
-  (method (on-double-click evt)
-    (when (get-enabled?~ (locate 'login))
-      (validate-dialog)
-      (let ((dialog (get-host)))
-        (end-modal~ dialog (get-modal-result~ dialog)))))
-  
-  
-  ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (when (get-enabled?~ (locate 'login))
-      (validate-dialog)
-      (let ((dialog (get-host)))
-        (end-modal~ dialog (get-modal-result~ dialog)))))
+  (method (on-double-click self evt)
+    (when (get-enabled? (locate self 'login))
+      (validate-dialog self)
+      (let ((dialog (get-host self)))
+        (end-modal dialog (get-modal-result dialog)))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-return-press self evt)
+    (when (get-enabled? (locate self 'login))
+      (validate-dialog self)
+      (let ((dialog (get-host self)))
+        (end-modal dialog (get-modal-result dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
   
 
   ;;;
@@ -233,41 +235,41 @@
   ;;;
   
   
-  (method (install-new)
-    (set-active-trait (locate 'new))
+  (method (install-new self)
+    (set-active-trait self (locate self 'new))
     (when player
-      (focus-new))
-    (update-login))
+      (focus-new self))
+    (update-login self))
   
   
-  (method (focus-new)
-    (let ((text (locate 'new-profile)))
-      (acquire-focus~ text)
-      (select-all~ text)))
+  (method (focus-new self)
+    (let ((text (locate self 'new-profile)))
+      (acquire-focus text)
+      (select-all text)))
   
   
-  (method (install-existing profiles rank)
-    (set-active-trait (locate 'existing))
-    (let ((tree (locate 'profiles))
+  (method (install-existing self profiles rank)
+    (set-active-trait self (locate self 'existing))
+    (let ((tree (locate self 'profiles))
           (rank (or rank (and (not-null? profiles) 0))))
-      (remove-every-row~ tree)
+      (remove-every-row tree)
       (for-each (lambda (profile)
                   (let ((title (profile-title profile)))
-                    (add-row~ tree children: (list (new Tree-Node title: title)) user-data: profile)))
+                    (add-row tree children: (list (new Tree-Node title: title)) user-data: profile)))
                 profiles)
-      (when (and rank (< rank (get-visible-count~ tree)))
-        (set-single-selection~ tree rank)
-        (ensure-displayed~ tree)))
+      (when (and rank (< rank (get-visible-count tree)))
+        (set-single-selection tree rank)
+        (ensure-displayed tree)))
     (when player
-      (focus-existing))
-    (update-login))
+      (focus-existing self))
+    (update-login self))
   
   
-  (method (focus-existing)
-    (acquire-focus~ (locate 'profiles)))
+  (method (focus-existing self)
+    (acquire-focus (locate self 'profiles)))
   
   
-  (method (collect-profile-info)
+  (method (collect-profile-info self)
     (define (collect-existing-profiles)
       (let ((jazz-repository (find-repository 'Jazz)))
         (let ((ranked-profiles (collect (lambda (info)
@@ -289,7 +291,7 @@
         (values profiles rank))))
   
   
-  (method (some-user-profile?)
+  (method (some-user-profile? self)
     (let ((jazz-repository (find-repository 'Jazz)))
       (some? (lambda (info)
                (bind (package . profile) info
@@ -302,12 +304,12 @@
   ;;;
   
   
-  (method (update-login)
-    (case (get-active-trait-name)
+  (method (update-login self)
+    (case (get-active-trait-name self)
       ((new)
-       (set-enabled?~ (locate 'login) (not (empty-string? (get-string-content~ (locate 'new-profile))))))
+       (set-enabled? (locate self 'login) (not (empty-string? (get-string-content (locate self 'new-profile))))))
       ((existing)
-       (set-enabled?~ (locate 'login) (not-null? (get-selection~ (locate 'profiles)))))))
+       (set-enabled? (locate self 'login) (not-null? (get-selection (locate self 'profiles)))))))
   
 
   ;;;
@@ -315,16 +317,16 @@
   ;;;
   
   
-  (method (validate-profile)
-    (case (get-active-trait-name)
+  (method (validate-profile self)
+    (case (get-active-trait-name self)
       ((new)
-       (let ((profile-name (get-string-content~ (locate 'new-profile))))
-         (validate-new-profile profile-name)))
+       (let ((profile-name (get-string-content (locate self 'new-profile))))
+         (validate-new-profile self profile-name)))
       (else
        #f)))
   
   
-  (method (validate-new-profile profile-name)
+  (method (validate-new-profile self profile-name)
     (let ((unit-name (profile-unit-name profile-name)))
       (let ((directory (new Directory (list 'Profiles "lib" unit-name))))
         (cond ((let ((first (first profile-name)))
@@ -337,8 +339,8 @@
                                   (memv? char '(#\minus #\_))))
                             profile-name))
                "Profile name can only contain letters, digits, dashes and underscores")
-              ((exists?~ directory)
-               (format "Profile directory already exists: {a}" (parse~ directory)))
+              ((exists? directory)
+               (format "Profile directory already exists: {a}" (parse directory)))
               (else
                #f)))))
   
@@ -352,6 +354,6 @@
     (new Color red: 120 green: 120 blue: 255))
 
   
-  (method override (draw surface context)
-    (let ((size (get-size)))
-      (gradient-fill-rect~ surface (new Rect 0 0 (get-width~ size) 50) (list (list 0 {Color White}) (list 1 Header-Color)))))))
+  (method override (draw self surface context)
+    (let ((size (get-size self)))
+      (gradient-fill-rect surface (new Rect 0 0 (get-width size) 50) (list (list 0 {Color White}) (list 1 Header-Color)))))))

@@ -44,10 +44,13 @@
         (jazz.application)
         (jazz.application.services)
         (jazz.clipboard)
+        (jazz.command)
         (jazz.component)
         (jazz.debuggee)
+        (jazz.designer)
         (jazz.document)
         (jazz.event)
+        (jazz.exemplar)
         (jazz.graphic)
         (jazz.handler)
         (jazz.history)
@@ -57,15 +60,20 @@
         (jazz.layout)
         (jazz.locale)
         (jazz.menu)
+        (jazz.outline)
         (jazz.platform)
         (jazz.preferences)
         (jazz.print)
         (jazz.process)
         (jazz.profile)
+        (jazz.project)
+        (jazz.recorder)
+        (jazz.reference)
         (jazz.runtime)
         (jazz.settings)
         (jazz.skin)
         (jazz.text)
+        (jazz.tree)
         (jazz.ui)
         (jazz.ui.dialog)
         (jazz.view)
@@ -97,7 +105,7 @@
   (slot shortcut-hook            initialize #f                        accessors generate)
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'application)
 
   
@@ -106,11 +114,11 @@
   ;;;
 
 
-  (method override (get-toplevel)
+  (method override (get-toplevel self)
     toplevel)
   
   
-  (method override (is-application?)
+  (method override (is-application? self)
     #t)
 
 
@@ -119,106 +127,106 @@
   ;;;
   
   
-  (method override (prepare-bindings)
-    (nextmethod)
+  (method override (prepare-bindings self)
+    (nextmethod self)
     ;; this is critical as any problem in the boot process
     ;; might display a message-box that needs basic bindings
-    (set-bindings (new Application-Bindings)))
+    (set-current-bindings (new Application-Bindings)))
   
   
-  (method override (prepare-locales)
-    (nextmethod)
-    (register-locale-change~ (get-locale-state) locale-change))
+  (method override (prepare-locales self)
+    (nextmethod self)
+    (register-locale-change (get-locale-state) (~ locale-change self)))
   
   
   ;; quick hack
-  (method override (prepare-platform)
+  (method override (prepare-platform self)
     (initialize-platform))
 
 
-  (method override (prepare-profile)
-    (nextmethod)
+  (method override (prepare-profile self)
+    (nextmethod self)
     (set-application self)
-    (setup-shortcuts)
-    (prepare-window-manager))
+    (setup-shortcuts self)
+    (prepare-window-manager self))
 
 
-  (method override (prepare-environment)
-    (nextmethod)
-    (prepare-colors)
-    (prepare-fonts)
-    (prepare-formats)
-    (prepare-styles)
-    (provide-platform)
-    (provide-feedback)
-    (provide-edition))
+  (method override (prepare-environment self)
+    (nextmethod self)
+    (prepare-colors self)
+    (prepare-fonts self)
+    (prepare-formats self)
+    (prepare-styles self)
+    (provide-platform self)
+    (provide-feedback self)
+    (provide-edition self))
 
   
-  (method override (install-environment)
-    (nextmethod)
-    (install-skins)
-    (install-bindings)
-    (install-workspaces)
-    (initialize-toplevel)
+  (method override (install-environment self)
+    (nextmethod self)
+    (install-skins self)
+    (install-bindings self)
+    (install-workspaces self)
+    (initialize-toplevel self)
     (initialize-clipboard)
-    (register-clipboard-formats))
+    (register-clipboard-formats self))
 
 
-  (method override (finalize-environment)
-    (nextmethod)
+  (method override (finalize-environment self)
+    (nextmethod self)
     (set-cursor :arrow)
-    (splash-screen))
+    (splash-screen self))
 
   
-  (method override (setup-profile)
+  (method override (setup-profile self)
     (define (create-profile)
       (with-safe-execution "loading the profile"
         (lambda ()
           (set! profile (if (find-unit-source profile-class)
                             (new (load-profile-class profile-class))
-                          (new-default-profile))))
+                          (new-default-profile self))))
         continue-text: (list (format "to bypass this problem by using a generic profile class"))
         continue-handler:
         (lambda (err)
-          (set! profile (new-default-profile)))))
+          (set! profile (new-default-profile self)))))
     
-    (when (use-profile?)
+    (when (use-profile? self)
       (create-profile)
-      (set-profile-actions (get-class-actions profile))))
+      (set-profile-actions self (get-class-actions profile))))
   
   
-  (method override (finish-environment)
-    (nextmethod)
-    (add-save-environment-listener self)
+  (method override (finish-environment self)
+    (nextmethod self)
+    (add-save-environment-listener self self)
     (when profile
       (with-safe-execution "initing the profile"
         (lambda ()
-          (init~ profile))
+          (init profile))
         continue-handler:
         (lambda (err)
           )))
-    (reload-session)
-    (remove-splash-screen))
+    (reload-session self)
+    (remove-splash-screen self))
   
   
-  (method override (finish-process)
-    (nextmethod)
-    (select-default-workspace)
-    (update-focus-actions)
-    (update-windowing-actions))
+  (method override (finish-process self)
+    (nextmethod self)
+    (select-default-workspace self)
+    (update-focus-actions self)
+    (update-windowing-actions self))
   
   
-  (method override (conclude-environment)
-    (nextmethod)
-    (initialize-actions)
+  (method override (conclude-environment self)
+    (nextmethod self)
+    (initialize-actions self)
     (look-update)
-    (show-toplevel)
+    (show-toplevel self)
     (when (run-loop?)
-      (select-foreground~ toplevel))
+      (select-foreground toplevel))
     (when profile
       (with-safe-execution "finalizing the profile"
         (lambda ()
-          (finalize~ profile))
+          (finalize profile))
         continue-handler:
         (lambda (err)
           ))))
@@ -229,13 +237,13 @@
   ;;;
   
   
-  (method override (terminate-process)
-    (nextmethod)
+  (method override (terminate-process self)
+    (nextmethod self)
     (reset-palettes)
     (reset-dockeds)
     (reset-toolbars)
     (when toplevel
-      (close~ toplevel)
+      (close toplevel)
       (set! toplevel #f)
       (set! profile-class #f)
       (set! profile #f)))
@@ -259,8 +267,8 @@
   (method (test-java)
     (setup-jvm classpath: Java-Classpath)
     (c-test)
-    (let* ((loader (getSystemClassLoader~ java.lang.ClassLoader))
-           (class (forName~ java.lang.Class "yo" #t loader)))
+    (let* ((loader (getSystemClassLoader java.lang.ClassLoader))
+           (class (forName java.lang.Class "yo" #t loader)))
       (message-box (format "{a}" class))))
 
 
@@ -269,8 +277,8 @@
   ;;;
 
 
-  (method override (start-loop)
-    (set-preference (get-preferences-root) 'first-startup? #f)
+  (method override (start-loop self)
+    (set-preference (current-preferences-root) 'first-startup? #f)
     (thread-priority-boost-set! (event-thread) 1)
     (process-events))
 
@@ -280,14 +288,14 @@
   ;;;
   
   
-  (method public virtual (clipboard-prefix)
+  (method public virtual (clipboard-prefix self)
     (format "{a}_{a}_"
-            (process-name)
-            (present~ (process-version))))
+            (process-name self)
+            (present (process-version self))))
   
   
-  (method protected virtual (register-clipboard-formats)
-    (register-jazz-clipboard-formats (clipboard-prefix)))
+  (method protected virtual (register-clipboard-formats self)
+    (register-jazz-clipboard-formats (clipboard-prefix self)))
 
 
   ;;;
@@ -302,29 +310,29 @@
     256)
   
   
-  (method public (get-clipboard-ring)
+  (method public (get-clipboard-ring self)
     Clipboard-Ring)
   
   
-  (method public (empty-clipboard-ring?)
+  (method public (empty-clipboard-ring? self)
     (null? Clipboard-Ring))
   
   
-  (method public (add-clipboard)
+  (method public (add-clipboard self)
     (let ((clipboard (get-clipboard)))
       (when clipboard
         (set! Clipboard-Ring (cons clipboard Clipboard-Ring))
         (trim-clipboard)
-        (update-focus-actions))))
+        (update-focus-actions self))))
   
   
-  (method public (push-clipboard-list list)
+  (method public (push-clipboard-list self list)
     (let ((pushed (length list)))
       (if (> pushed Max-Ring)
           (error "Unable to push list of {a} onto the clipboard ring" pushed)
         (set! Clipboard-Ring (append list Clipboard-Ring))
         (trim-clipboard)
-        (update-focus-actions))))
+        (update-focus-actions self))))
   
   
   (definition (trim-clipboard)
@@ -332,15 +340,15 @@
       (set-cdr! (tail Clipboard-Ring (- Max-Ring 1)) '())))
   
   
-  (method (pop-clipboard)
+  (method (pop-clipboard self)
     (let ((clipboard (car Clipboard-Ring)))
       (set! Clipboard-Ring (cdr Clipboard-Ring))
       (set-clipboard clipboard)
-      (update-focus-actions)
+      (update-focus-actions self)
       clipboard))
 
   
-  (method package (paste-cycle-ring reversed?)
+  (method package (paste-cycle-ring self reversed?)
     (define (cycle-clipboard)
       (set! Clipboard-Ring (append (cdr Clipboard-Ring) (list (car Clipboard-Ring))))
       (car Clipboard-Ring))
@@ -351,28 +359,28 @@
     
     (if (null? Clipboard-Ring)
         (bell)
-      (let ((focus (get-focus))
+      (let ((focus (active-focus))
             (previous-clipboard (get-clipboard)))
         (let ((clipboard (if reversed?
                              (cycle-clipboard-reversed)
                            (cycle-clipboard))))
           (set-clipboard clipboard)
-          (cycle-paste-clipboard~ focus previous-clipboard clipboard)))))
+          (cycle-paste-clipboard focus previous-clipboard clipboard)))))
   
   
-  (method package (on-copy-formatted evt)
-    (let ((focus (get-focus)))
+  (method package (on-copy-formatted self evt)
+    (let ((focus (active-focus)))
       (if (is-not? focus Text-View)
           (bell)
-        (copy-formatted-selection~ focus))))
+        (copy-formatted-selection focus))))
   
   
-  (method package (on-paste-cycle-ring evt)
-    (paste-cycle-ring #f))
+  (method package (on-paste-cycle-ring self evt)
+    (paste-cycle-ring self #f))
 
 
-  (method package (on-paste-cycle-ring-reversed evt)
-    (paste-cycle-ring #t))
+  (method package (on-paste-cycle-ring-reversed self evt)
+    (paste-cycle-ring self #t))
   
   
   ;;;
@@ -380,33 +388,33 @@
   ;;;
   
   
-  (method package (on-add-history evt)
-    (add-current~ history-manager))
+  (method package (on-add-history self evt)
+    (add-current history-manager))
   
   
-  (method package (on-backward-history evt)
-    (go-backward-history~ history-manager))
+  (method package (on-backward-history self evt)
+    (go-backward-history history-manager))
   
   
-  (method package (on-forward-history evt)
-    (go-forward-history~ history-manager))
+  (method package (on-forward-history self evt)
+    (go-forward-history history-manager))
   
   
-  (method public (add-history item)
-    (add-history~ history-manager item))
+  (method public (add-history self item)
+    (add-history history-manager item))
   
   
-  (method override (current-history-item)
+  (method override (current-history-item self)
     (let ((frame (current-frame)))
       (and frame
-           (let ((guest (get-guest~ frame)))
+           (let ((guest (get-guest frame)))
              (and (is? guest Document)
-                  (current-history-item~ guest))))))
+                  (current-history-item guest))))))
   
   
-  (method override (update-history-actions)
-    (let ((backward (get-backward-history~ history-manager))
-          (forward (get-forward-history~ history-manager)))
+  (method override (update-history-actions self)
+    (let ((backward (get-backward-history history-manager))
+          (forward (get-forward-history history-manager)))
       (set-action-enabled? {Action application backward-history} (not-null? backward))
       (set-action-enabled? {Action application forward-history} (not-null? forward))))
 
@@ -416,25 +424,25 @@
   ;;;
   
   
-  (method public virtual (get-recorder)
+  (method public virtual (get-recorder self)
     #f)
   
   
-  (method package (macro-recording?)
-    (let ((recorder (get-recorder)))
-      (and recorder (get-recording?~ recorder))))
+  (method package (macro-recording? self)
+    (let ((recorder (get-recorder self)))
+      (and recorder (get-recording? recorder))))
   
   
-  (method package (macro-playing?)
-    (let ((recorder (get-recorder)))
-      (and recorder (get-playing?~ recorder))))
+  (method package (macro-playing? self)
+    (let ((recorder (get-recorder self)))
+      (and recorder (get-playing? recorder))))
   
   
-  (method package (macro-active?)
-    (let ((recorder (get-recorder)))
+  (method package (macro-active? self)
+    (let ((recorder (get-recorder self)))
       (and recorder
-           (or (get-recording?~ recorder)
-               (get-playing?~ recorder)))))
+           (or (get-recording? recorder)
+               (get-playing? recorder)))))
 
 
   ;;;
@@ -442,13 +450,13 @@
   ;;;
   
   
-  (method protected virtual (use-profile-logging?)
+  (method protected virtual (use-profile-logging? self)
     #f)
   
   
-  (method override (log-profile)
+  (method override (log-profile self)
     (define (login-profile)
-      (receive (name unit template always-use?) (choose-profile-login)
+      (receive (name unit template always-use?) (choose-profile-login self)
         (cond-expand
           ;; to make dialog close more responsive
           (mac (poll-events))
@@ -456,36 +464,36 @@
         (let ((one-shoot? (shift-down?)))
           (when settings
             (unless one-shoot?
-              (set-setting~ settings 'profile (if always-use? (->string name) #f)))
-            (when (and always-use? (not one-shoot?) (not (get-setting~ settings 'profile-warned? #f)))
+              (set-setting settings 'profile (if always-use? (->string name) #f)))
+            (when (and always-use? (not one-shoot?) (not (get-setting settings 'profile-warned? #f)))
               (message-box (format "{a} will now always start using profile {a}. Note that you can always get this dialog back by keeping the shift key pressed when launching."
-                                   (process-name)
+                                   (process-name self)
                                    name))
-              (set-setting~ settings 'profile-warned? #t))
-            (save-content~ settings))
+              (set-setting settings 'profile-warned? #t))
+            (save-content settings))
           (values name unit template))))
     
     (define (system-profile)
-      (values 'Me 'jazz.profile (profile-kind))
+      (values 'Me 'jazz.profile (profile-kind self))
       @convert
       (standard-profile (get-system-user-name)))
     
     (define (load-profile-jazzini)
       (let ((file {File Profile ".jazzini"}))
-        (when (exists?~ file)
-          (load (parse~ file)))))
+        (when (exists? file)
+          (load (parse file)))))
     
-    (let ((use-logging? (use-profile-logging?)))
-      (let ((profile-arg (and (or (not use-logging?) (not (shift-down?))) (or (jazz-profile) (profile-parameter)))))
-        (receive (name unit template) (cond (profile-arg (standard-profile (->string profile-arg)))
+    (let ((use-logging? (use-profile-logging? self)))
+      (let ((profile-arg (and (or (not use-logging?) (not (shift-down?))) (or (jazz-profile) (profile-parameter self)))))
+        (receive (name unit template) (cond (profile-arg (standard-profile self (->string profile-arg)))
                                             (use-logging? (login-profile))
                                             (else (system-profile)))
           (set! profile-class (compose-identifier unit name))
-          (install-profile name unit template)
+          (install-profile self name unit template)
           (load-profile-jazzini)))))
   
   
-  (method protected virtual (choose-profile-login)
+  (method protected virtual (choose-profile-login self)
     )
 
 
@@ -494,44 +502,44 @@
   ;;;
   
   
-  (method override (preserve-environment)
-    (nextmethod)
-    (call-save-environment-listeners))
+  (method override (preserve-environment self)
+    (nextmethod self)
+    (call-save-environment-listeners self))
   
   
-  (method override (close-environment)
+  (method override (close-environment self)
     ;; called before closing frames because saving a class form
     ;; can potentialy modify an opened text
-    (call-quit-listeners)
-    (confirm-all-close)
-    (close-all-no-confirm)
-    (save-bindings)
-    (save-workspaces)
-    (save-page-setup)
-    (nextmethod))
+    (call-quit-listeners self)
+    (confirm-all-close self)
+    (close-all-no-confirm self)
+    (save-bindings self)
+    (save-workspaces self)
+    (save-page-setup self)
+    (nextmethod self))
   
   
-  (method virtual (confirm-all-close)
+  (method virtual (confirm-all-close self)
     (define (frame-dependent-document? frame)
       (and (is? frame Host-View)
-           (let ((guest (get-guest~ frame)))
+           (let ((guest (get-guest frame)))
              (and (is? guest Document)
-                  (let ((controller (get-document-controller~ guest)))
-                    (dependent-document?~ controller))))))
+                  (let ((controller (get-document-controller guest)))
+                    (dependent-document? controller))))))
     
     (for-each (lambda (frame)
                 (unless (frame-dependent-document? frame)
-                  (confirm-close~ frame)))
+                  (confirm-close frame)))
               (all-frames include-invisibles?: #t)))
   
   
-  (method (close-all)
-    (for-each close-host~ (all-frames include-invisibles?: #t)))
+  (method (close-all self)
+    (for-each close-host (all-frames include-invisibles?: #t)))
   
   
-  (method (close-all-no-confirm)
+  (method (close-all-no-confirm self)
     (for-each (lambda (host)
-                (close-host~ host confirm?: #f))
+                (close-host host confirm?: #f))
               (all-frames include-invisibles?: #t)))
 
 
@@ -547,28 +555,28 @@
     #f)
   
   
-  (method protected virtual (splash-screen)
+  (method protected virtual (splash-screen self)
     )
   
   
-  (method (show-splash-screen (duration: duration #f))
-    (set! Splash-Screen (show-splash))
+  (method (show-splash-screen self (duration: duration #f))
+    (set! Splash-Screen (show-splash self))
     (set! Splash-End (and duration (+ (current-seconds) duration))))
   
   
-  (method (remove-splash-screen)
+  (method (remove-splash-screen self)
     (when Splash-Screen
       (let ((time (current-seconds)))
         (when (and Splash-End (> Splash-End time))
           (sleep (- Splash-End time)))
-        (remove-splash Splash-Screen))))
+        (remove-splash self Splash-Screen))))
   
   
-  (method protected virtual (show-splash)
+  (method protected virtual (show-splash self)
     )
   
   
-  (method protected virtual (remove-splash splash-screen)
+  (method protected virtual (remove-splash self splash-screen)
     )
 
 
@@ -577,21 +585,21 @@
   ;;;
   
   
-  (method public virtual (show-help)
+  (method public virtual (show-help self)
     #f)
   
   
-  (method package (on-about evt)
-    (show-about))
+  (method package (on-about self evt)
+    (show-about self))
   
   
-  (method public virtual (show-about)
-    (let ((name (process-name))
-          (owner (process-owner))
-          (copyright (process-copyright))
-          (licensee (process-licensee))
-          (version (present~ (process-version)))
-          (email (process-email)))
+  (method public virtual (show-about self)
+    (let ((name (process-name self))
+          (owner (process-owner self))
+          (copyright (process-copyright self))
+          (licensee (process-licensee self))
+          (version (present (process-version self)))
+          (email (process-email self)))
       (message-box
         `(<span>
            (<paragraph> (<text> font: Text color: Dark-Blue ,(format "{a} v{a}" name version)))
@@ -619,16 +627,16 @@
   (slot quit-listeners initialize '())
   
   
-  (method public (add-quit-listener listener)
+  (method public (add-quit-listener self listener)
     (set! quit-listeners (cons listener quit-listeners)))
   
   
-  (method public (remove-quit-listener listener)
+  (method public (remove-quit-listener self listener)
     (set! quit-listeners (remove! listener quit-listeners)))
   
   
-  (method public (call-quit-listeners)
-    (for-each prepare-quit~ quit-listeners))
+  (method public (call-quit-listeners self)
+    (for-each prepare-quit quit-listeners))
 
 
   ;;;
@@ -636,38 +644,38 @@
   ;;;
   
   
-  (method public virtual (deactivate)
+  (method public virtual (deactivate self)
     (when active?
-      (close-popups~ toplevel)
+      (close-popups toplevel)
       (reset-mouse-in)
       (set! active? #f)))
   
   
-  (method public virtual (activate)
+  (method public virtual (activate self)
     (unless active?
       (set! active? #t)
-      (activate-verify-reloads)))
+      (activate-verify-reloads self)))
   
   
   (cond-expand
     (cocoa
-     (method (activate-verify-reloads)
+     (method (activate-verify-reloads self)
        (delay-event
          (lambda ()
-           (verify-reloads)))))
+           (verify-reloads self)))))
     (else
      (method (activate-verify-reloads)
        (verify-reloads))))
   
   
-  (method public (verify-reloads)
+  (method public (verify-reloads self)
     (define (collect-reloads)
       (collect (lambda (view)
                  (and (is? view Frame-Host)
-                      (let ((guest (get-guest~ view)))
+                      (let ((guest (get-guest view)))
                         (and (is? guest Document)
-                             (let ((controller (get-document-controller~ guest)))
-                               (and (needs-reload?~ controller)
+                             (let ((controller (get-document-controller guest)))
+                               (and (needs-reload? controller)
                                     controller))))))
                (all-frames include-invisibles?: #t)))
     
@@ -675,20 +683,20 @@
       (when (not-null? reloads)
         (let ((partition (partition reloads key: class-of test: eq?)))
           (for-each (lambda (category)
-                      (let ((code (propose-multiple-reloads~ (car category))))
+                      (let ((code (propose-multiple-reloads (car category))))
                         (with-cursor :wait
                           (lambda ()
                             (for-each (lambda (controller)
-                                        (propose-reload-action~ controller code))
+                                        (propose-reload-action controller code))
                                       (cdr category))))))
                     partition)))))
   
   
-  (method public (verify-reload moniker)
-    (let ((frame (find-document moniker)))
+  (method public (verify-reload self moniker)
+    (let ((frame (find-document self moniker)))
       (when frame
-        (let ((document (get-guest~ frame)))
-          (verify-reload~ (get-document-controller~ document))))))
+        (let ((document (get-guest frame)))
+          (verify-reload (get-document-controller document))))))
 
 
   ;;;
@@ -699,17 +707,17 @@
   (slot save-environment-listeners initialize '())
   
   
-  (method public (add-save-environment-listener listener)
+  (method public (add-save-environment-listener self listener)
     (set! save-environment-listeners (cons listener save-environment-listeners)))
   
   
-  (method public (remove-save-environment-listener listener)
+  (method public (remove-save-environment-listener self listener)
     (set! save-environment-listeners (remove! listener save-environment-listeners)))
   
   
-  (method public (call-save-environment-listeners)
+  (method public (call-save-environment-listeners self)
     (for-each (lambda (listener)
-                (save-environment~ listener))
+                (save-environment listener))
               save-environment-listeners))
   
   
@@ -718,33 +726,33 @@
   ;;;
   
   
-  (method public (reload-session)
-    (reload-opened-windows))
+  (method public (reload-session self)
+    (reload-opened-windows self))
   
   
-  (method public virtual (reload-opened-windows)
+  (method public virtual (reload-opened-windows self)
     )
   
   
-  (method public virtual (reload-component class properties)
+  (method public virtual (reload-component self class properties)
     )
 
   
-  (method override (save-environment)
+  (method override (save-environment self)
     (define (save-application)
-      (let ((process-preferences (get-preferences-root)))
+      (let ((process-preferences (current-preferences-root)))
         (when process-preferences
           @convert/wait
           (set-preference process-preferences active-context: context)
-          (set-preference process-preferences current-directory: (get-current-directory)))))
+          (set-preference process-preferences current-directory: (current-directory-get)))))
     
     (define (save-all-guest)
       @wait
       (for-each (lambda (frame)
                   (when (is? frame Host-Frame)
-                    (let ((guest (get-guest~ frame)))
+                    (let ((guest (get-guest frame)))
                       (when guest
-                        (save-guest~ guest session-designer session)))))
+                        (save-guest guest session-designer session)))))
                 (all-frames include-invisibles?: #t)))
     
     (save-application)
@@ -756,7 +764,7 @@
   ;;;
   
   
-  (method protected virtual (prepare-window-manager)
+  (method protected virtual (prepare-window-manager self)
     (set-window-manager (new Window-Manager)))
 
   
@@ -765,11 +773,11 @@
   ;;;
   
   
-  (method public virtual (display-aliases?)
+  (method public virtual (display-aliases? self)
     #t)
   
   
-  (method public virtual (display-protocol?)
+  (method public virtual (display-protocol? self)
     #t)
   
   
@@ -778,11 +786,11 @@
   ;;;
   
   
-  (method (prepare-colors)
+  (method (prepare-colors self)
     (when (is-alias? 'Profile)
       (let ((file {File Profile "settings" "Colors.jml"}))
-        (when (exists?~ file)
-          (register-children~ (instantiate~ (read-form file)) (colors-domain))))))
+        (when (exists? file)
+          (register-children (instantiate (read-form file)) (colors-domain))))))
 
 
   ;;;
@@ -790,11 +798,11 @@
   ;;;
   
   
-  (method (prepare-fonts)
+  (method (prepare-fonts self)
     (when (is-alias? 'Profile)
       (let ((file {File Profile "settings" "Fonts.jml"}))
-        (when (exists?~ file)
-          (register-children~ (instantiate~ (read-form file)) (fonts-domain))))))
+        (when (exists? file)
+          (register-children (instantiate (read-form file)) (fonts-domain))))))
 
 
   ;;;
@@ -802,11 +810,11 @@
   ;;;
   
   
-  (method (prepare-formats)
+  (method (prepare-formats self)
     (when (is-alias? 'Profile)
       (let ((file {File Profile "settings" "Formats.jml"}))
-        (when (exists?~ file)
-          (register-children~ (instantiate~ (read-form file)) (formats-domain))))))
+        (when (exists? file)
+          (register-children (instantiate (read-form file)) (formats-domain))))))
 
 
   ;;;
@@ -814,11 +822,11 @@
   ;;;
   
   
-  (method (prepare-styles)
+  (method (prepare-styles self)
     (when (is-alias? 'Profile)
       (let ((file {File Profile "settings" "Styles.jml"}))
-        (when (exists?~ file)
-          (register-children~ (instantiate~ (read-form file)) (styles-domain))))))
+        (when (exists? file)
+          (register-children (instantiate (read-form file)) (styles-domain))))))
 
 
   ;;;
@@ -826,10 +834,10 @@
   ;;;
   
   
-  (method (provide-platform)
-    (provide-service 'drop-file-callback drop-file)
-    (provide-service 'quit-callback quit-process)
-    (provide-service 'user-notification user-notification))
+  (method (provide-platform self)
+    (provide-service 'drop-file-callback (~ drop-file self))
+    (provide-service 'quit-callback (~ quit-process self))
+    (provide-service 'user-notification (~ user-notification self)))
 
 
   ;;;
@@ -837,7 +845,7 @@
   ;;;
   
   
-  (method protected virtual (provide-feedback)
+  (method protected virtual (provide-feedback self)
     (provide-service 'user-message user-message)
     (provide-service 'user-feedback user-feedback)
     (provide-service 'clear-user-message clear-user-message)
@@ -851,8 +859,8 @@
   ;;;
   
   
-  (method protected virtual (provide-edition)
-    (provide-service 'edit-document edit-document))
+  (method protected virtual (provide-edition self)
+    (provide-service 'edit-document (~ edit-document self)))
 
   
   ;;;
@@ -860,40 +868,40 @@
   ;;;
   
   
-  (method public (add-focus-listener listener)
+  (method public (add-focus-listener self listener)
     (set! focus-listeners (add-listener listener focus-listeners)))
   
   
-  (method public (remove-focus-listener listener)
+  (method public (remove-focus-listener self listener)
     (set! focus-listeners (remove-listener listener focus-listeners)))
 
   
-  (method package (process-focus-change new-focus)
+  (method package (process-focus-change self new-focus)
     (when focus-listeners
       (let ((evt (new Focus-Event :focus-change self (modifiers-mask) new-focus)))
         (for-each (lambda (listener)
-                    (invoke~ listener self evt))
+                    (invoke listener self evt))
                   focus-listeners)))
-    (update-focus-actions))
+    (update-focus-actions self))
   
   
-  (method public virtual (update-focus-actions)
-    (let* ((focus (get-focus))
+  (method public virtual (update-focus-actions self)
+    (let* ((focus (active-focus))
            (view? (and focus (is? focus View))))
       (when preferences-designer
-        (set-action-enabled? {Action view undo} (and view? (can-view-undo?~ focus)))
-        (set-action-enabled? {Action view redo} (and view? (can-view-redo?~ focus)))
-        (set-action-enabled? {Action view cut} (and view? (can-view-cut?~ focus)))
-        (set-action-enabled? {Action view copy} (and view? (can-view-copy?~ focus)))
-        (set-action-enabled? {Action application copy-formatted} (and view? (can-view-copy?~ focus)))
-        (set-action-enabled? {Action view paste} (and view? (can-view-paste?~ focus)))
-        (set-action-enabled? {Action application paste-cycle-ring} (and view? (can-view-paste?~ focus) (not-null? Clipboard-Ring)))
-        (set-action-enabled? {Action application paste-cycle-ring-reversed} (and view? (can-view-paste?~ focus) (not-null? Clipboard-Ring)))
-        (set-action-enabled? {Action view paste-properties} (and view? (can-view-paste-properties?~ focus)))
-        (set-action-enabled? {Action view delete} (and view? (can-view-delete?~ focus)))
-        (set-action-enabled? {Action view select-all} (and view? (can-view-select-all?~ focus)))
+        (set-action-enabled? {Action view undo} (and view? (can-view-undo? focus)))
+        (set-action-enabled? {Action view redo} (and view? (can-view-redo? focus)))
+        (set-action-enabled? {Action view cut} (and view? (can-view-cut? focus)))
+        (set-action-enabled? {Action view copy} (and view? (can-view-copy? focus)))
+        (set-action-enabled? {Action application copy-formatted} (and view? (can-view-copy? focus)))
+        (set-action-enabled? {Action view paste} (and view? (can-view-paste? focus)))
+        (set-action-enabled? {Action application paste-cycle-ring} (and view? (can-view-paste? focus) (not-null? Clipboard-Ring)))
+        (set-action-enabled? {Action application paste-cycle-ring-reversed} (and view? (can-view-paste? focus) (not-null? Clipboard-Ring)))
+        (set-action-enabled? {Action view paste-properties} (and view? (can-view-paste-properties? focus)))
+        (set-action-enabled? {Action view delete} (and view? (can-view-delete? focus)))
+        (set-action-enabled? {Action view select-all} (and view? (can-view-select-all? focus)))
         (when view?
-          (focus-update-actions~ focus)))))
+          (focus-update-actions focus)))))
   
   
   ;;;
@@ -901,37 +909,37 @@
   ;;;
   
   
-  (method public (add-selected-listener listener)
+  (method public (add-selected-listener self listener)
     (set! selected-listeners (add-listener listener selected-listeners)))
   
   
-  (method public (remove-selected-listener listener)
+  (method public (remove-selected-listener self listener)
     (set! selected-listeners (remove-listener listener selected-listeners)))
   
   
-  (method public (get-selected)
+  (method public (get-selected self)
     selected)
   
   
-  (method public (set-selected owner sel (force?: force? #f))
+  (method public (set-selected self owner sel (force?: force? #f))
     (let ((new-owner? (neq? owner selected-owner)))
       (when (or force? new-owner? (neq? sel selected))
-        (process-selected-change owner selected sel force?))))
+        (process-selected-change self owner selected sel force?))))
   
   
-  (method public (close-selected owner)
+  (method public (close-selected self owner)
     (when (eq? owner selected-owner)
       (set! selected-owner #f)
-      (process-selected-change #f selected #f #f)))
+      (process-selected-change self #f selected #f #f)))
 
   
-  (method (process-selected-change owner old-selected new-selected force?)
+  (method (process-selected-change self owner old-selected new-selected force?)
     (set! selected-owner owner)
     (set! selected new-selected)
     (when (and selected-listeners (not (unloading-process?)))
       (let ((evt (new Selected-Event :selected-change self (modifiers-mask) owner old-selected new-selected force?: force?)))
         (for-each (lambda (listener)
-                    (invoke~ listener self evt))
+                    (invoke listener self evt))
                   selected-listeners))))
 
   
@@ -940,27 +948,27 @@
   ;;;
   
   
-  (method public (add-application-listener category listener)
-    (set-application-listeners category (add-listener listener (get-application-listeners category))))
+  (method public (add-application-listener self category listener)
+    (set-application-listeners self category (add-listener listener (get-application-listeners self category))))
   
   
-  (method public (remove-application-listener category listener)
-    (set-application-listeners category (remove-listener listener (get-application-listeners category))))
+  (method public (remove-application-listener self category listener)
+    (set-application-listeners self category (remove-listener listener (get-application-listeners self category))))
 
   
-  (method package (process-application-event category kind sender . properties)
-    (let ((listeners (get-application-listeners category)))
+  (method package (process-application-event self category kind sender . properties)
+    (let ((listeners (get-application-listeners self category)))
       (let ((evt (apply make-event Application-Event kind sender properties)))
         (for-each (lambda (listener)
-                    (invoke~ listener self evt))
+                    (invoke listener self evt))
                   listeners))))
   
   
-  (method (get-application-listeners category)
+  (method (get-application-listeners self category)
     (table-ref application-listeners category '()))
   
   
-  (method (set-application-listeners category listeners)
+  (method (set-application-listeners self category listeners)
     (table-set! application-listeners category listeners))
 
   
@@ -969,47 +977,47 @@
   ;;;
   
   
-  (method public virtual (default-frame-class)
+  (method public virtual (default-frame-class self)
     #f)
 
 
-  (method public virtual (file-frame-class file)
-    (let ((extension (get-extension~ file)))
-      (or (extension-frame-class extension)
+  (method public virtual (file-frame-class self file)
+    (let ((extension (get-extension file)))
+      (or (extension-frame-class self extension)
           (error "Unknown file extension: {a}" extension))))
 
 
-  (method public virtual (extension-frame-class ext)
-    (or (profile-extension-frame-class ext)
-        (known-extension-frame-class ext)
-        (unknown-extension-frame-class)))
+  (method public virtual (extension-frame-class self ext)
+    (or (profile-extension-frame-class self ext)
+        (known-extension-frame-class self ext)
+        (unknown-extension-frame-class self)))
   
   
-  (method (profile-extension-frame-class ext)
+  (method (profile-extension-frame-class self ext)
     (and profile
-         (extension-frame-class~ profile ext)))
+         (extension-frame-class profile ext)))
 
 
-  (method public virtual (known-extension-frame-class ext)
+  (method public virtual (known-extension-frame-class self ext)
     #f)
   
   
-  (method public virtual (unknown-extension-frame-class)
+  (method public virtual (unknown-extension-frame-class self)
     #f)
 
 
-  (method public virtual (frame-class (file: file #f))
+  (method public virtual (frame-class self (file: file #f))
     (if (not file)
-        (default-frame-class)
-      (file-frame-class file)))
+        (default-frame-class self)
+      (file-frame-class self file)))
   
   
-  (method (get-default-frame-class)
-    (let* ((pref (get-workspace-preferences))
-           (model (get-frame-model~ pref)))
+  (method (get-default-frame-class self)
+    (let* ((pref (current-workspace-preferences))
+           (model (get-frame-model pref)))
       (if model
-          (resolve-reference~ model)
-        (default-frame-class))))
+          (reference-resolve model)
+        (default-frame-class self))))
 
   
   ;;;
@@ -1017,25 +1025,25 @@
   ;;;
   
   
-  (method (initialize-toplevel)
-    (set! toplevel (new-toplevel)))
+  (method (initialize-toplevel self)
+    (set! toplevel (new-toplevel self)))
   
   
-  (method public virtual (new-toplevel)
+  (method public virtual (new-toplevel self)
     (new Toplevel))
   
   
-  (method public virtual (show-toplevel)
+  (method public virtual (show-toplevel self)
     (define (setup-stage)
       (let ((stage (current-stage)))
         (when stage
           (case (find-setting 'jazz.ui.stage-state #f)
-            ((restored) (restore~ stage))
-            ((maximized) (maximize~ stage))))))
+            ((restored) (restore stage))
+            ((maximized) (maximize stage))))))
     
     (setup-stage)
-    (set-visible?~ toplevel #t)
-    (acquire-focus~ toplevel))
+    (set-visible? toplevel #t)
+    (acquire-focus toplevel))
 
   
   ;;;
@@ -1043,11 +1051,11 @@
   ;;;
   
   
-  (method public virtual (new-stage)
-    (new (stage-class) parent: (new Stage-Border) name: 'stage))
+  (method public virtual (new-stage self)
+    (new (stage-class self) parent: (new Stage-Border) name: 'stage))
   
   
-  (method protected virtual (stage-class)
+  (method protected virtual (stage-class self)
     Stage)
   
   
@@ -1056,11 +1064,11 @@
   ;;;
   
   
-  (method (setup-shortcuts)
+  (method (setup-shortcuts self)
     (set! shortcut-table (make-table test: shortcut=? hash: shortcut-hash)))
   
   
-  (method (unregister-actions-shortcuts old-actions)
+  (method (unregister-actions-shortcuts self old-actions)
     (define (unregister-shortcut action-item shortcut)
       ;; the second test is necessary because bindings can be changed on-the-fly in the ide
       (when (and shortcut (table-ref shortcut-table shortcut #f))
@@ -1068,70 +1076,70 @@
     
     (when shortcut-table
       (for-each (lambda (actions)
-                  (when (get-visible?~ actions)
+                  (when (get-visible? actions)
                     (for-each (lambda (action-item)
-                                (when (get-visible?~ action-item)
+                                (when (get-visible? action-item)
                                   (for-each (lambda (shortcut)
                                               (unregister-shortcut action-item shortcut))
-                                            (all-shortcuts~ action-item))))
-                              (get-children~ actions))))
+                                            (all-shortcuts action-item))))
+                              (get-children actions))))
                 old-actions)))
   
   
-  (method (register-actions-shortcuts new-actions)
+  (method (register-actions-shortcuts self new-actions)
     (define (register-shortcut action-item shortcut)
       (when shortcut
         (table-add shortcut-table shortcut action-item)))
     
     (when shortcut-table
       (for-each-reversed (lambda (actions)
-                           (when (get-visible?~ actions)
+                           (when (get-visible? actions)
                              (for-each (lambda (action-item)
-                                         (when (get-visible?~ action-item)
+                                         (when (get-visible? action-item)
                                            (for-each (lambda (shortcut)
                                                        (register-shortcut action-item shortcut))
-                                                     (all-shortcuts~ action-item))))
-                                       (get-children~ actions))))
+                                                     (all-shortcuts action-item))))
+                                       (get-children actions))))
                          new-actions)))
       
   
-  (method (update-actions-shortcuts old-actions new-actions)
-    (unregister-actions-shortcuts old-actions)
-    (register-actions-shortcuts new-actions))
+  (method (update-actions-shortcuts self old-actions new-actions)
+    (unregister-actions-shortcuts self old-actions)
+    (register-actions-shortcuts self new-actions))
   
   
-  (method public (update-shortcut action-item old-shortcut new-shortcut)
+  (method public (update-shortcut self action-item old-shortcut new-shortcut)
     (when old-shortcut
       (table-remove! shortcut-table old-shortcut action-item))
     (when new-shortcut
       (table-add shortcut-table new-shortcut action-item)))
   
   
-  (method public virtual (dispatch-shortcut shortcut)
+  (method public virtual (dispatch-shortcut self shortcut)
     (if (or (not shortcut-hook)
             (not (shortcut-hook shortcut)))
-        (let ((action-items (collect-if get-action-handler~ (get-allowed-actions shortcut))))
+        (let ((action-items (collect-if get-action-handler (get-allowed-actions self shortcut))))
           (and (not-null? action-items)
                (let ((action (car action-items)))
-                 (and (action-allowed? action)
+                 (and (action-allowed? self action)
                       (parameterize ((event-type 'keyboard))
                         ;; the memq? is a quick hack
-                        (unless (memq? (get-name~ action) '(start-recording stop-recording))
-                          (hook-event (new Keyboard-Event :char #f (modifiers->mask (get-modifiers~ shortcut)) key: (get-key~ shortcut))))
-                        (invoke~ action self #f)
+                        (unless (memq? (get-name action) '(start-recording stop-recording))
+                          (hook-event (new Keyboard-Event :char #f (modifiers->mask (get-modifiers shortcut)) key: (get-key shortcut))))
+                        (invoke action self #f)
                         #t)))))
       #t))
   
   
-  (method public (get-bound-actions shortcut)
+  (method public (get-bound-actions self shortcut)
     (table-ref shortcut-table shortcut '()))
   
   
-  (method public (get-allowed-actions shortcut)
+  (method public (get-allowed-actions self shortcut)
     (define (filter-allowed actions)
-      (collect-if action-allowed? actions))
+      (collect-if (~ action-allowed? self) actions))
     
-    (let ((actions (get-bound-actions shortcut)))
+    (let ((actions (get-bound-actions self shortcut)))
       ;; This temporary test is because I am not sure it is what we want in general
       ;; It could be very surprising to do a shortcut that's supposed to do nothing
       ;; as it's disabled and find out that something completly different happened!
@@ -1140,21 +1148,21 @@
         actions)))
   
   
-  (method public (action-allowed? action-item)
+  (method public (action-allowed? self action-item)
     (define (some-actionable-active?)
       (some? (lambda (actionable)
-               (and (get-enabled?~ actionable)
-                    (actionable-reachable?~ actionable)))
-             (get-actionables~ action-item)))
+               (and (get-enabled? actionable)
+                    (actionable-reachable? actionable)))
+             (get-actionables action-item)))
     
     ;; maybe we shouldn't even use the action-item's enabled? property
-    (and (get-enabled?~ action-item)
-         (or (not (actions-orphaned?~ (get-parent~ action-item)))
-             (allow-orphaned-action? action-item)
+    (and (get-enabled? action-item)
+         (or (not (actions-orphaned? (get-parent action-item)))
+             (allow-orphaned-action? self action-item)
              (some-actionable-active?))))
   
   
-  (method protected virtual (allow-orphaned-action? action-item)
+  (method protected virtual (allow-orphaned-action? self action-item)
     #f)
   
   
@@ -1167,38 +1175,38 @@
     {File Profile "settings" "Bindings.jml"})
   
   
-  (method (install-bindings)
+  (method package (install-bindings self)
     (define (set-bindings/designer bindings)
-      (set-bindings bindings)
-      (set! bindings-designer (new (former-class) form: (get-form~ bindings) reference: bindings)))
+      (set-current-bindings bindings)
+      (set! bindings-designer (new (former-class self) form: (get-form bindings) reference: bindings)))
     
     (with-safe-execution "loading the bindings"
       (lambda ()
-        (let ((bindings (load-bindings)))
+        (let ((bindings (load-bindings self)))
           (set-bindings/designer bindings)
-          (let ((active (or (get-active-bindings~ (get-preferences #f)) 'jazz)))
-            (let ((trait (locate-component~ bindings active)))
+          (let ((active (or (get-active-bindings (current-preferences #f)) 'jazz)))
+            (let ((trait (locate-component bindings active)))
               (when (is? trait Trait)
-                (set-base-traits~ bindings (list trait)))))))
+                (set-base-traits bindings (list trait)))))))
       continue-handler:
       (lambda (err)
-        (set-bindings/designer (default-bindings)))))
+        (set-bindings/designer (default-bindings self)))))
   
   
-  (method protected virtual (load-bindings)
+  (method protected virtual (load-bindings self)
     (let ((file Bindings-File))
-      (if (and (is-alias? 'Profile) (exists?~ file))
-          (instantiate~ (read-form file))
-        (default-bindings))))
+      (if (and (is-alias? 'Profile) (exists? file))
+          (instantiate (read-form file))
+        (default-bindings self))))
   
   
-  (method protected virtual (default-bindings)
+  (method protected virtual (default-bindings self)
     (new Application-Bindings))
   
   
-  (method (save-bindings)
-    (when (and bindings-designer (get-modified?~ bindings-designer) (file? (get-origin~ (get-form~ bindings-designer))))
-      (save~ bindings-designer)))
+  (method (save-bindings self)
+    (when (and bindings-designer (get-modified? bindings-designer) (file? (get-origin (get-form bindings-designer))))
+      (save bindings-designer)))
     
   
   ;;;
@@ -1206,42 +1214,42 @@
   ;;;
   
   
-  (method protected virtual (install-skins)
+  (method protected virtual (install-skins self)
     @skin-convert
     (with-safe-execution "loading the skins"
       (lambda ()
         (let ((skins (load-skins)))
           (set-skins-designer skins)
-          (set-skin (child~ skins (or (get-active~ skins) (default-skin))))))
+          (set-skin (child skins (or (get-active skins) (default-skin))))))
       continue-handler:
       (lambda (err)
         (let ((skins (default-skins)))
           (set-skins-designer skins)
-          (set-skin (child~ skins (default-skin)))))))
+          (set-skin (child skins (default-skin)))))))
   
   
-  (method protected virtual (skins-file)
+  (method package virtual (skins-file self)
     @skin-convert
     {File Profile "settings" "Skins.jml"})
   
   
-  (method protected virtual (load-skins)
+  (method protected virtual (load-skins self)
     @skin-convert
     (let ((file (skins-file)))
       (if (and (is-alias? 'Profile) (exists?~ file))
-          (instantiate~ (read-form file))
+          (instantiate (read-form file))
         (default-skins))))
   
   
-  (method protected (set-skins-designer skins)
+  (method protected (set-skins-designer self skins)
     @skin-convert
-    (set! skins-designer (new (former-class) form: (get-form~ skins) reference: skins)))
+    (set! skins-designer (new (former-class) form: (get-form skins) reference: skins)))
   
   
-  (method (save-skins)
+  (method (save-skins self)
     @skin-convert
-    (when (and skins-designer (get-modified?~ skins-designer) (file? (get-origin~ (get-form~ skins-designer))))
-      (save~ skins-designer)))
+    (when (and skins-designer (get-modified?~ skins-designer) (file? (get-origin (get-form skins-designer))))
+      (save skins-designer)))
 
   
   ;;;
@@ -1253,34 +1261,34 @@
     {File Profile "settings" "Workspaces.jml"})
   
   
-  (method (install-workspaces)
+  (method (install-workspaces self)
     (define (set-workspaces-designer workspaces)
-      (set! workspaces-designer (new (former-class) form: (get-form~ workspaces) reference: workspaces)))
+      (set! workspaces-designer (new (former-class self) form: (get-form workspaces) reference: workspaces)))
     
     (with-safe-execution "loading the workspaces"
       (lambda ()
-        (set-workspaces-designer (load-workspaces)))
+        (set-workspaces-designer (load-workspaces self)))
       continue-handler:
       (lambda (err)
-        (set-workspaces-designer (default-workspaces)))))
+        (set-workspaces-designer (default-workspaces self)))))
   
   
-  (method protected virtual (load-workspaces)
+  (method protected virtual (load-workspaces self)
     (let ((file Workspaces-File))
-      (if (and (is-alias? 'Profile) (exists?~ file))
-          (instantiate~ (read-form file))
-        (default-workspaces))))
+      (if (and (is-alias? 'Profile) (exists? file))
+          (instantiate (read-form file))
+        (default-workspaces self))))
   
   
-  (method protected virtual (default-workspaces)
-    (instantiate~
+  (method protected virtual (default-workspaces self)
+    (instantiate
       (<form>
         (<Workspaces-Preferences>))))
   
   
-  (method (save-workspaces)
-    (when (and workspaces-designer (get-modified?~ workspaces-designer) (file? (get-origin~ (get-form~ workspaces-designer))))
-      (save~ workspaces-designer)))
+  (method (save-workspaces self)
+    (when (and workspaces-designer (get-modified? workspaces-designer) (file? (get-origin (get-form workspaces-designer))))
+      (save workspaces-designer)))
   
   
   ;;;
@@ -1288,40 +1296,40 @@
   ;;;
   
   
-  (method public (set-application-actions actions-list)
-    (update-actions-shortcuts application-actions actions-list)
+  (method public (set-application-actions self actions-list)
+    (update-actions-shortcuts self application-actions actions-list)
     (set! application-actions actions-list))
   
   
-  (method public (set-profile-actions actions-list)
-    (update-actions-shortcuts profile-actions actions-list)
+  (method public (set-profile-actions self actions-list)
+    (update-actions-shortcuts self profile-actions actions-list)
     (set! profile-actions actions-list))
 
 
-  (method public (set-guest-actions actions-list)
-    (update-actions-shortcuts guest-actions actions-list)
+  (method public (set-guest-actions self actions-list)
+    (update-actions-shortcuts self guest-actions actions-list)
     (set! guest-actions actions-list))
   
   
-  (method public (set-focus-actions actions-list)
-    (update-actions-shortcuts focus-actions actions-list)
+  (method public (set-focus-actions self actions-list)
+    (update-actions-shortcuts self focus-actions actions-list)
     (set! focus-actions actions-list))
   
   
-  (method (gather-application-actions)
-    (append (global-actions) (get-class-actions self)))
+  (method (gather-application-actions self)
+    (append (global-actions self) (get-class-actions self)))
   
   
-  (method (initialize-actions)
-    (set-application-actions (gather-application-actions)))
+  (method (initialize-actions self)
+    (set-application-actions self (gather-application-actions self)))
   
   
-  (method (updating-actions update)
-    (unregister-actions-shortcuts application-actions)
+  (method package (updating-actions self update)
+    (unregister-actions-shortcuts self application-actions)
     (update)
-    (let ((actions (gather-application-actions)))
-      (register-actions-shortcuts actions)
-      (set-application-actions actions)))
+    (let ((actions (gather-application-actions self)))
+      (register-actions-shortcuts self actions)
+      (set-application-actions self actions)))
 
   
   ;;;
@@ -1329,24 +1337,24 @@
   ;;;
 
 
-  (method public (find-menubar)
+  (method public (find-menubar self)
     (let ((host (get-toolbar :menubar)))
-      (and host (in-player?~ host)
-        (get-guest~ host))))
+      (and host (in-player? host)
+        (get-guest host))))
   
   
-  (method public (find-menu name)
-    (let ((menubar (find-menubar)))
+  (method public (find-menu self name)
+    (let ((menubar (find-menubar self)))
       (and menubar
-           (let ((menuitem (find-component~ menubar name)))
+           (let ((menuitem (find-component menubar name)))
              (and menuitem
-                  (get-content~ menuitem))))))
+                  (get-content menuitem))))))
   
   
-  (method public (update-menubar-buttons)
-    (let ((menubar (find-menubar)))
+  (method public (update-menubar-buttons self)
+    (let ((menubar (find-menubar self)))
       (when menubar
-        (update-buttons~ menubar))))
+        (update-buttons menubar))))
 
   
   ;;;
@@ -1358,36 +1366,36 @@
     #f)
 
 
-  (method public (set-status-message msg action-handler update?)
-    (let ((message (get-message-view)))
+  (method public (set-status-message self msg action-handler update?)
+    (let ((message (get-message-view self)))
       (if (not message)
           (set! Undisplayed-Message msg)
         (set! Undisplayed-Message #f)
         (post-event
           (lambda ()
-            (set-title~ message (cond ((not msg) "")
+            (set-title message (cond ((not msg) "")
                                       ((is? msg Locales) msg)
                                       (else (->string msg))))
-            (set-action-handler~ message action-handler)))
+            (set-action-handler message action-handler)))
         (when (and update? (primordial-thread?))
-          (update-view~ message)))))
+          (update-view message)))))
 
 
-  (method public (find-status-bar)
+  (method public (find-status-bar self)
     (let ((host (get-toolbar :status)))
-      (and host (in-player?~ host)
-        (get-guest~ host))))
+      (and host (in-player? host)
+        (get-guest host))))
   
   
-  (method public (get-message-view)
-    (let ((status-bar (find-status-bar)))
+  (method public (get-message-view self)
+    (let ((status-bar (find-status-bar self)))
       (and status-bar
-           (find-component~ status-bar 'message))))
+           (find-component status-bar 'message))))
   
   
-  (method public (show-undisplayed-message)
+  (method public (show-undisplayed-message self)
     (when Undisplayed-Message
-      (set-status-message Undisplayed-Message #f #f)
+      (set-status-message self Undisplayed-Message #f #f)
       (set! Undisplayed-Message #f)))
 
   
@@ -1396,13 +1404,13 @@
   ;;;
   
   
-  (method protected virtual (global-actions)
+  (method protected virtual (global-actions self)
     '())
   
   
-  (method override (class-actions)
+  (method override (class-actions self)
     (cons (find-actions 'application)
-          (nextmethod)))
+          (nextmethod self)))
 
 
   ;;;
@@ -1410,22 +1418,22 @@
   ;;;
   
   
-  (method override (setup-nicknames)
-    (nextmethod)
+  (method override (setup-nicknames self)
+    (nextmethod self)
     (register-nickname :application (lambda () self))
-    (register-nickname :toplevel    (lambda () (get-toplevel)))
+    (register-nickname :toplevel    (lambda () (get-toplevel self)))
     (register-nickname :modal       (lambda () (current-modal)))
-    (register-nickname :menubar     (lambda () (find-menubar)))
-    (register-nickname :toolbar     (lambda () (find-toolbar)))
-    (register-nickname :status-bar  (lambda () (find-status-bar)))
+    (register-nickname :menubar     (lambda () (find-menubar self)))
+    (register-nickname :toolbar     (lambda () (find-toolbar self)))
+    (register-nickname :status-bar  (lambda () (find-status-bar self)))
     (register-nickname :stage       (lambda () (current-stage)))
     (register-nickname :frame       (lambda () (current-frame)))
     (register-nickname :document    (lambda () (current-document)))
-    (register-nickname :focus       (lambda () (get-focus)))
+    (register-nickname :focus       (lambda () (active-focus)))
     (register-nickname :focus-host  (lambda () (focused-host)))
     (register-nickname :focus-guest (lambda () (focused-guest)))
-    (register-nickname :images      (lambda () (get-images-portfolio)))
-    (register-nickname :bindings    (lambda () (get-bindings))))
+    (register-nickname :images      (lambda () (get-images-portfolio self)))
+    (register-nickname :bindings    (lambda () (current-bindings))))
   
   
   ;;;
@@ -1433,8 +1441,8 @@
   ;;;
   
   
-  (method public virtual (text-menu text)
-    (new-text-context-menu~ text))
+  (method public virtual (text-menu self text)
+    (new-text-context-menu text))
   
   
   ;;;
@@ -1442,11 +1450,11 @@
   ;;;
   
   
-  (method public virtual (get-logs-manager)
+  (method public virtual (get-logs-manager self)
     #f)
   
   
-  (method public virtual (get-output-log)
+  (method public virtual (get-output-log self)
     #f)
   
   
@@ -1462,23 +1470,23 @@
     #f)
   
   
-  (method public virtual (navigable-results)
+  (method public virtual (navigable-results self)
     (must-implement 'navigable-results "results navigation"))
   
   
-  (method (get-navigable-results)
+  (method (get-navigable-results self)
     (unless All-Results
-      (set! All-Results (navigable-results)))
+      (set! All-Results (navigable-results self)))
     All-Results)
   
   
-  (method public (get-active-results)
+  (method public (get-active-results self)
     (unless Active-Results
-      (set! Active-Results (car (get-navigable-results))))
+      (set! Active-Results (car (get-navigable-results self))))
     Active-Results)
   
   
-  (method public (set-active-results results)
+  (method public (set-active-results self results)
     (set! Active-Results results))
   
   
@@ -1487,35 +1495,35 @@
   ;;;
   
   
-  (method (locale-change loc update?)
-    (select-locale loc)
+  (method (locale-change self loc update?)
+    (select-locale self loc)
     (when update?
-      (locale-update)))
+      (locale-update self)))
 
 
-  (method public (select-locale locale)
-    (let ((status (find-status-bar)))
+  (method public (select-locale self locale)
+    (let ((status (find-status-bar self)))
       (when status
-        (let ((label (locate-component~ status 'locales)))
+        (let ((label (locate-component status 'locales)))
           (when label
-            (set-title~ label (localize (present-locale~ (get-locale-state) locale))))))))
+            (set-title label (localize (present-locale (get-locale-state) locale))))))))
   
   
-  (method public (locale-update)
+  (method public (locale-update self)
     (define (update-menubar)
-      (let ((menubar (find-menubar)))
-        (layout-menu~ menubar)
+      (let ((menubar (find-menubar self)))
+        (layout-menu menubar)
         (for-each (lambda (child)
                     (when (is? child Label-Item)
-                      (let ((content (get-content~ child)))
+                      (let ((content (get-content child)))
                         (when (is? content Menu)
-                          (layout-menu~ content)))))
-                  (get-children~ menubar))))
+                          (layout-menu content)))))
+                  (get-children menubar))))
     
     (define (update-toplevel)
-      (let ((toplevel (get-toplevel)))
-        (invalidate-title~ toplevel)
-        (redraw-window~ toplevel)))
+      (let ((toplevel (get-toplevel self)))
+        (invalidate-title toplevel)
+        (redraw-window toplevel)))
     
     ;; All this should of course be event based but it will do for now...
     (update-menubar)
@@ -1527,107 +1535,107 @@
   ;;;
   
   
-  (method (setup-workspaces)
+  (method (setup-workspaces self)
     (let ((preferences (get-workspaces-preferences)))
-      (case (length (get-children~ preferences))
+      (case (length (get-children preferences))
         ((0) (error "No workspaces found in Preferences.jml"))
         ((1))
         (else
-         (let ((menu (find-menu 'workspace)))
+         (let ((menu (find-menu self 'workspace)))
            (when menu
              (let ((actions (find-actions 'application))
-                   (toolbar (find-toolbar))
-                   (active (get-active~ preferences)))
+                   (toolbar (find-toolbar self))
+                   (active (get-active preferences)))
                (for-each (lambda (workspace)
-                           (when (get-visible?~ workspace)
-                             (let ((name (get-name~ workspace))
-                                   (title (get-title~ workspace))
-                                   (icon (get-icon~ workspace)))
+                           (when (get-visible? workspace)
+                             (let ((name (get-name workspace))
+                                   (title (get-title workspace))
+                                   (icon (get-icon workspace)))
                                (let ((action-name (string->symbol (format "select-{a}-workspace" name)))
                                      (event-handler (new Event-Handler target-name: :application method-name: 'on-select-workspace properties: (list workspace: name)))
                                      (selected? (eq? name active)))
-                                 (new Action-Item parent: actions name: action-name action-handler: event-handler shortcut: (get-shortcut~ workspace))
-                                 (new Radio-Item parent: menu name: (get-name~ workspace) title: title icon: icon before: 'delete group: 'workspace selected?: selected? action-handler: (new Action 'application action-name '()))
+                                 (new Action-Item parent: actions name: action-name action-handler: event-handler shortcut: (get-shortcut workspace))
+                                 (new Radio-Item parent: menu name: (get-name workspace) title: title icon: icon before: 'delete group: 'workspace selected?: selected? action-handler: (new Action 'application action-name '()))
                                  (new Workspace-Button parent: toolbar name: name size: {Dimension 22 22} location: 'tail before: 'tail-separator group: 'workspace resource: icon portfolio: :images selected?: selected? tooltip?: #t tooltip-text: title action-handler: event-handler)
                                  (new Separator parent: toolbar size: {Dimension 1 0} location: 'tail before: 'tail-separator)))))
-                         (get-children~ preferences))
+                         (get-children preferences))
                (new Separator-Item parent: menu before: 'delete)
-               (layout-menu~ menu)
-               (layout~ toolbar))))))))
+               (layout-menu menu)
+               (layout toolbar))))))))
   
   
-  (method (select-default-workspace)
+  (method (select-default-workspace self)
     (define (find-workspace)
       (let ((pref (get-workspaces-preferences error?: #f)))
         (if (not pref)
             (default-workspace)
-          (let ((active (get-active~ pref)))
+          (let ((active (get-active pref)))
             (if (not active)
                 (default-workspace)
-              (child~ pref active))))))
+              (child pref active))))))
     
     (define (default-workspace)
       (new Default-Workspace))
     
-    (apply-preferences~ (find-workspace)))
+    (apply-preferences (find-workspace)))
   
   
-  (method package (on-select-workspace evt)
-    (select-workspace (get-property~ evt workspace:)))
+  (method package (on-select-workspace self evt)
+    (select-named-workspace (get-property evt workspace:)))
   
   
-  (method package (on-next-workspace evt)
+  (method package (on-next-workspace self evt)
     (select-next-workspace))
   
   
-  (method package (on-previous-workspace evt)
+  (method package (on-previous-workspace self evt)
     (select-previous-workspace))
   
   
-  (method package virtual (on-workspace evt)
-    (case (get-kind~ evt)
+  (method package virtual (on-workspace self evt)
+    (case (get-kind evt)
       ((activate)
-       (let ((workspace (get-property~ evt workspace:)))
-         (activate-workspace-item workspace)
-         (activate-workspace-button workspace)))))
+       (let ((workspace (get-property evt workspace:)))
+         (activate-workspace-item self workspace)
+         (activate-workspace-button self workspace)))))
   
   
-  (method public undocumented (activate-workspace-item workspace)
-    (let ((menu (find-menu 'workspace)))
+  (method public undocumented (activate-workspace-item self workspace)
+    (let ((menu (find-menu self 'workspace)))
       (when menu
-        (let ((radio (find-component~ menu (get-name~ workspace))))
+        (let ((radio (find-component menu (get-name workspace))))
           (if (not radio)
-              (unselect-elements~ menu class: Radio-Item group: 'workspace)
-            (set-selected?~ radio #t))))))
+              (unselect-elements menu class: Radio-Item group: 'workspace)
+            (set-selected? radio #t))))))
   
   
-  (method public undocumented (activate-workspace-button workspace)
-    (let ((toolbar (find-toolbar))
-          (name (workspace-button-name workspace)))
+  (method public undocumented (activate-workspace-button self workspace)
+    (let ((toolbar (find-toolbar self))
+          (name (workspace-button-name self workspace)))
       (when (and toolbar name)
-        (let ((radio (find-component~ toolbar name)))
+        (let ((radio (find-component toolbar name)))
           (if (not radio)
-              (unselect-elements~ toolbar class: Radio-Tool group: 'workspace)
-            (set-selected?~ radio #t))))))
+              (unselect-elements toolbar class: Radio-Tool group: 'workspace)
+            (set-selected? radio #t))))))
   
   
-  (method public virtual undocumented (workspace-button-name workspace)
-    (get-name~ workspace))
+  (method public virtual undocumented (workspace-button-name self workspace)
+    (get-name workspace))
   
   
-  (method public virtual (workspace-installed)
+  (method public virtual (workspace-installed self)
     )
   
   
-  (method package (on-zoom-horizontally evt)
-    (zoom-direction 'horz))
+  (method package (on-zoom-horizontally self evt)
+    (zoom-direction self 'horz))
   
   
-  (method package (on-zoom-vertically evt)
-    (zoom-direction 'vert))
+  (method package (on-zoom-vertically self evt)
+    (zoom-direction self 'vert))
   
   
-  (method package (zoom-direction direction)
+  (method package (zoom-direction self direction)
     (with-locked-update
       (lambda ()
         (let ((stage (current-stage)))
@@ -1636,119 +1644,119 @@
               (lambda (return)
                 (for-each-splitter view
                   (lambda (splitter host)
-                    (when (and (eq? (get-orientation~ splitter) direction)
-                               (get-zoomable?~ splitter))
-                      (if (eq? (get-state~ splitter) 'split)
-                          (zoom~ splitter host)
-                        (unzoom~ splitter))
+                    (when (and (eq? (get-orientation splitter) direction)
+                               (get-zoomable? splitter))
+                      (if (eq? (get-state splitter) 'split)
+                          (zoom splitter host)
+                        (unzoom splitter))
                       (continuation-return return)))))))))))
   
   
-  (method package (on-maximize/restore evt)
+  (method package (on-maximize/restore self evt)
     (let ((stage (current-stage)))
-      (if (get-maximized?~ stage)
-          (restore~ stage)
-        (maximize~ stage))))
+      (if (get-maximized? stage)
+          (restore stage)
+        (maximize stage))))
   
   
-  (method package (on-full-stage evt)
+  (method package (on-full-stage self evt)
     (let ((stage (current-stage)))
       (receive (preference view) (find-top-stage stage)
         (if (is-not? preference Splitter-Preferences)
             (bell)
-          (let ((zoom?  (eq? (get-state~ view) 'split)))
+          (let ((zoom?  (eq? (get-state view) 'split)))
             (continuation-capture
               (lambda (return)
-                (for-each-splitter (get-border~ stage)
+                (for-each-splitter (get-border stage)
                   (lambda (splitter host)
                     (if zoom?
-                        (zoom~ splitter host)
-                      (unzoom~ splitter))
+                        (zoom splitter host)
+                      (unzoom splitter))
                     (when (eq? splitter view)
                       (continuation-return return #f)))))))))))
   
   
-  (method package (on-full-screen evt)
-    (let ((pref (get-preferences #f)))
-      (when (not (get-fullscreen-warned?~ pref))
+  (method package (on-full-screen self evt)
+    (let ((pref (current-preferences #f)))
+      (when (not (get-fullscreen-warned? pref))
         (message-box "Warning: There is currently only one way of exiting the fullscreen mode which is by using the Alt-Shift Backspace shortcut for Full Screen toggle")
-        (set-property~ preferences-designer pref 'fullscreen-warned? #t)))
-    (full-screen (not (get-fullscreen?~ (get-toplevel)))))
+        (set-property preferences-designer pref 'fullscreen-warned? #t)))
+    (full-screen self (not (get-fullscreen? (get-toplevel self)))))
   
   
-  (method public (full-screen fullscreen?)
-    (set-fullscreen?~ (selected-workspace) fullscreen?)
-    (full-screen-stage fullscreen?))
+  (method public (full-screen self fullscreen?)
+    (set-fullscreen? (selected-workspace) fullscreen?)
+    (full-screen-stage self fullscreen?))
   
   
-  (method public (full-screen-stage fullscreen?)
+  (method public (full-screen-stage self fullscreen?)
     (let ((stage (current-stage)))
       (when stage
-        (set-fullscreen?~ stage fullscreen?)
+        (set-fullscreen? stage fullscreen?)
         (receive (preference view) (find-top-stage stage)
-          (full-screen-host view fullscreen?)))))
+          (full-screen-host self view fullscreen?)))))
   
   
-  (method public (toggle-full-screen host)
-    (let ((fullscreen? (not (get-fullscreen?~ (get-toplevel)))))
-      (full-screen-host host fullscreen?)))
+  (method public (toggle-full-screen self host)
+    (let ((fullscreen? (not (get-fullscreen? (get-toplevel self)))))
+      (full-screen-host self host fullscreen?)))
   
   
-  (method public (full-screen-host host fullscreen?)
+  (method public (full-screen-host self host fullscreen?)
     (define (fix-top-splitter-insets splitter)
       (if (not fullscreen?)
-          (let ((preserved (get-preserved-insets~ splitter)))
+          (let ((preserved (get-preserved-insets splitter)))
             (when preserved
-              (set-preserved-insets~ splitter #f)
-              (set-insets~ splitter preserved)))
-        (set-preserved-insets~ splitter (get-insets~ splitter))
-        (set-insets~ splitter {Rect 0 0 0 0})))
+              (set-preserved-insets splitter #f)
+              (set-insets splitter preserved)))
+        (set-preserved-insets splitter (get-insets splitter))
+        (set-insets splitter {Rect 0 0 0 0})))
     
-    (let ((toplevel (get-toplevel))
+    (let ((toplevel (get-toplevel self))
           (stage (current-stage)))
-      (when (neq? fullscreen? (get-fullscreen?~ toplevel))
+      (when (neq? fullscreen? (get-fullscreen? toplevel))
         (with-locked-update
           (lambda ()
-            (set-fullscreen?~ toplevel fullscreen?)
+            (set-fullscreen? toplevel fullscreen?)
             (for-each-splitter host
               (lambda (splitter host)
-                (let ((preferences (get-preferences~ splitter)))
-                  (when (and preferences (eq? (get-name~ preferences) 'top))
+                (let ((preferences (get-preferences splitter)))
+                  (when (and preferences (eq? (get-name preferences) 'top))
                     (fix-top-splitter-insets splitter)))
                 (if fullscreen?
-                    (zoom~ splitter host)
-                  (unzoom~ splitter)))))))))
+                    (zoom splitter host)
+                  (unzoom splitter)))))))))
   
   
-  (method public (on-delete-stage evt)
+  (method public (on-delete-stage self evt)
     (delete-stage))
   
   
-  (method public (on-delete-other-stages evt)
+  (method public (on-delete-other-stages self evt)
     (delete-other-stages))
   
   
-  (method public (on-split-vertically evt)
+  (method public (on-split-vertically self evt)
     (split-stage-vertically))
   
   
-  (method public (on-split-horizontally evt)
+  (method public (on-split-horizontally self evt)
     (split-stage-horizontally))
   
   
-  (method public (on-move-frame evt)
+  (method public (on-move-frame self evt)
     (move-frame))
   
   
-  (method public (on-clone-frame evt)
+  (method public (on-clone-frame self evt)
     (clone-frame))
   
   
-  (method public (on-tie-frame-model evt)
+  (method public (on-tie-frame-model self evt)
     (tie-frame-model))
   
   
-  (method public (on-untie-stage evt)
+  (method public (on-untie-stage self evt)
     (untie-stage))
 
 
@@ -1757,17 +1765,17 @@
   ;;;
   
   
-  (method public (find-toolbar)
+  (method public (find-toolbar self)
     (let ((host (get-toolbar :toolbar)))
-      (and (and host (in-player?~ host))
-           (get-guest~ host))))
+      (and (and host (in-player? host))
+           (get-guest host))))
   
   
-  (method public (find-command-toolbar)
+  (method public (find-command-toolbar self)
     (define (try name)
       (let ((host (get-toolbar name)))
-        (and (and host (in-player?~ host))
-             (get-guest~ host))))
+        (and (and host (in-player? host))
+             (get-guest host))))
     
     (or (try :command)
         (try :minibuffer)
@@ -1779,7 +1787,7 @@
   ;;;
   
   
-  (method public virtual (get-text-class)
+  (method public virtual (get-text-class self)
     Plain-Text-View)
   
 
@@ -1788,16 +1796,16 @@
   ;;;
   
   
-  (method public (get-resource type name)
+  (method public (get-resource self type name)
     (case type
-      ((image) (new-file~ (resources-dir) (list "images" (format "{a}.png" name))))
-      ((cursor) (new-file~ (resources-dir) (cond-expand
+      ((image) (new-file (resources-dir self) (list "images" (format "{a}.png" name))))
+      ((cursor) (new-file (resources-dir self) (cond-expand
                                              (cocoa (list "cursors" name "cursor.pdf"))
                                              (windows (list "cursors" (format "{a}.cur" name)))
                                              (else (error "Custom cursors not supported on this platform")))))))
   
   
-  (method protected virtual (resources-dir)
+  (method protected virtual (resources-dir self)
     (if (is-alias? 'Jazz)
         {Directory Jazz "lib" "jazz.resources" "resources"}
       {Directory Build "lib" "jazz.resources" "resources"}))
@@ -1812,7 +1820,7 @@
     #f)
   
   
-  (method public (get-images-portfolio)
+  (method public (get-images-portfolio self)
     (unless Images-Portfolio
       (set! Images-Portfolio (new Portfolio name: :images)))
     Images-Portfolio)
@@ -1823,7 +1831,7 @@
   ;;;
 
 
-  (method protected virtual (setup-cataloguer)
+  (method protected virtual (setup-cataloguer self)
     #f)
 
 
@@ -1832,11 +1840,11 @@
   ;;;
   
   
-  (method public virtual (designer-default-imports)
+  (method public virtual (designer-default-imports self)
     '())
   
   
-  (method public virtual (designer-form-imports form)
+  (method public virtual (designer-form-imports self form)
     '())
 
 
@@ -1845,15 +1853,15 @@
   ;;;
   
 
-  (method override (get-event-consumer)
+  (method override (get-event-consumer self)
     event-consumer)
   
   
-  (method override (set-event-consumer consumer)
+  (method override (set-event-consumer self consumer)
     (set! event-consumer consumer))
 
 
-  (method override (deliver-event handler target proc event)
+  (method override (deliver-event self handler target proc event)
     (proc target event))
 
 
@@ -1862,12 +1870,12 @@
   ;;;
   
   
-  (method override (process-debuggee-loop)
+  (method override (process-debuggee-loop self)
     (if (and (local-proxy? (get-controller-debugger))
              (event-thread?))
         (with-jazz-exception-debugger
           process-events)
-      (nextmethod)))
+      (nextmethod self)))
 
 
   ;;;
@@ -1875,7 +1883,7 @@
   ;;;
   
   
-  (method (exception-reported)
+  (method (exception-reported self)
     ;; so as not to get recursive exceptions
     (catch Exception
       (cleanup-mouse-processing)))
@@ -1883,7 +1891,7 @@
   
   @convert
   (method (present-execution-context exception type prefix?)
-    (present~ (new Exception-Presenter) exception type: type prefix?: prefix?))
+    (present (new Exception-Presenter) exception type: type prefix?: prefix?))
 
   
   ;;;
@@ -1891,21 +1899,21 @@
   ;;;
 
 
-  (method package (on-edit-next evt)
-    (edit-next~ (get-active-results)))
+  (method package (on-edit-next self evt)
+    (edit-next (get-active-results self)))
 
 
-  (method package (on-edit-previous evt)
-    (edit-previous~ (get-active-results)))
+  (method package (on-edit-previous self evt)
+    (edit-previous (get-active-results self)))
 
 
-  (method package (on-edit-current evt)
-    (edit-current~ (get-active-results)))
+  (method package (on-edit-current self evt)
+    (edit-current (get-active-results self)))
   
   
-  (method public (update-source-actions)
-    (let* ((results (get-active-results))
-           (results-count (and results (get-visible-count~ (get-tree~ results)))))
+  (method public (update-source-actions self)
+    (let* ((results (get-active-results self))
+           (results-count (and results (get-visible-count (get-tree results)))))
       (set-action-enabled? {Action application edit-next} (and results (>= results-count 1)))
       (set-action-enabled? {Action application edit-previous} (and results (>= results-count 1)))
       (set-action-enabled? {Action application edit-current} (and results (>= results-count 1)))))
@@ -1916,75 +1924,75 @@
   ;;;
   
   
-  (method package (on-command-extended evt)
-    (select-command-extended))
+  (method package (on-command-extended self evt)
+    (select-command-extended self))
   
   
-  (method package (on-command-execute evt)
-    (select-command-execute))
+  (method package (on-command-execute self evt)
+    (select-command-execute self))
   
   
-  (method public virtual (get-command-shell)
-    (let ((toolbar (find-command-toolbar)))
+  (method public virtual (get-command-shell self)
+    (let ((toolbar (find-command-toolbar self)))
       (and toolbar
-           (locate-component~ toolbar 'command-shell))))
+           (locate-component toolbar 'command-shell))))
   
   
-  (method public virtual (get-command-text)
-    (let ((shell (get-command-shell)))
+  (method public virtual (get-command-text self)
+    (let ((shell (get-command-shell self)))
       (and shell
-           (get-text~ shell))))
+           (get-text shell))))
   
   
-  (method public (require-command-text)
-    (or (get-command-text)
+  (method public (require-command-text self)
+    (or (get-command-text self)
         (begin
           (message-box "This workspace doesn't contain a command text")
           (signal-cancel))))
   
   
-  (method public (require-unzoomed-command-text)
-    (let ((text (require-command-text)))
-      (unzoom-command-text text)
+  (method public (require-unzoomed-command-text self)
+    (let ((text (require-command-text self)))
+      (unzoom-command-text self text)
       text))
   
   
-  (method protected virtual (unzoom-command-text command-text)
-    (let ((host (get-host~ command-text)))
-      (let ((splitter (get-parent~ host)))
+  (method protected virtual (unzoom-command-text self command-text)
+    (let ((host (get-host command-text)))
+      (let ((splitter (get-parent host)))
         (when (is? splitter Splitter-View)
-          (when (eq? (get-state~ splitter) 'zoom)
-            (let ((target (get-target~ splitter)))
+          (when (eq? (get-state splitter) 'zoom)
+            (let ((target (get-target splitter)))
               (when (neq? target host)
-                (unzoom~ splitter)
-                (set-client-restore~ command-text
+                (unzoom splitter)
+                (set-client-restore command-text
                   (lambda ()
-                    (when (in-player?~ splitter)
-                      (zoom~ splitter target)))))))))))
+                    (when (in-player? splitter)
+                      (zoom splitter target)))))))))))
   
   
-  (method protected virtual (rezoom-command-text text command-text)
+  (method package virtual (rezoom-command-text self text command-text)
     )
   
   
-  (method public (select-command-search direction initial)
-    (select-search~ (require-unzoomed-command-text) direction #f initial again?: #t))
+  (method public (select-command-search self direction initial)
+    (select-search (require-unzoomed-command-text self) direction #f initial again?: #t))
   
   
-  (method public (select-command-search-current direction range initial)
-    (select-search~ (require-unzoomed-command-text) direction range initial again?: #f))
+  (method public (select-command-search-current self direction range initial)
+    (select-search (require-unzoomed-command-text self) direction range initial again?: #f))
   
   
-  (method public (select-command-highlight direction range search-result client (highlight?: highlight? #f))
-    (select-search~ (require-unzoomed-command-text) direction range #f search-result: search-result client: client highlight?: highlight? again?: #f))
+  (method public (select-command-highlight self direction range search-result client (highlight?: highlight? #f))
+    (select-search (require-unzoomed-command-text self) direction range #f search-result: search-result client: client highlight?: highlight? again?: #f))
   
   
-  (method public (select-command-extended)
-    (select-extended~ (require-unzoomed-command-text)))
+  (method public (select-command-extended self)
+    (select-extended (require-unzoomed-command-text self)))
   
   
-  (method public (select-command-execute)
-    (select-execute~ (require-unzoomed-command-text)))
+  (method public (select-command-execute self)
+    (select-execute (require-unzoomed-command-text self)))
 
 
   ;;;
@@ -1992,25 +2000,25 @@
   ;;;
 
 
-  (method package virtual (on-new evt)
-    (new-event~ (get-default-frame-class)))
+  (method package virtual (on-new self evt)
+    (new-event (get-default-frame-class self)))
     
 
-  (method package virtual (on-open evt)
-    (open-files))
+  (method package virtual (on-open self evt)
+    (open-files self))
   
   
-  (method public (open-files (directory: directory #f))
-    (let ((files (choose-file directory: directory extensions: (open-extensions) multiple-selection?: #t)))
-      (for-each edit-file
-                (sort string>? files key: get-name~))))
+  (method public (open-files self (directory: directory #f))
+    (let ((files (choose-file directory: directory extensions: (open-extensions self) multiple-selection?: #t)))
+      (for-each (~ edit-file self)
+                (sort string>? files key: get-name))))
   
   
-  (method public virtual (receive-files pos pathnames)
+  (method public virtual (receive-files self pos pathnames)
     (if (and (= (length pathnames) 1) (directory? (car pathnames)))
         (let ((dir (car pathnames)))
-          (set-current-directory dir)
-          (user-message "Current directory set to {a}" (parse~ dir)))
+          (current-directory-set! dir)
+          (user-message "Current directory set to {a}" (parse dir)))
       (let ((class (cond ((alt-down?) jazz.editor.jazz:Jazz-Plain-Text-View)
                          ((shift-down?) jazz.editor.jazz:Jazz-Text-View)
                          (else #f))))
@@ -2024,8 +2032,8 @@
                             (enqueue queue pathname))
                           (lambda ()
                             (if class
-                                (edit-document pathname class: class)
-                              (edit-file pathname))))))
+                                (edit-document self pathname class: class)
+                              (edit-file self pathname))))))
                     pathnames)
           (let ((unreadable (queue-list queue)))
             (when (not-null? unreadable)
@@ -2033,42 +2041,42 @@
                 `(<span>
                    (<paragraph> ,(format "The following file{a} could not be read:" (format-plural (length unreadable))))
                    ,@(map (lambda (pathname)
-                            `(<bulleted> ,(parse~ pathname)))
+                            `(<bulleted> ,(parse pathname)))
                           unreadable))
                 title: "Problems")))))))
   
   
-  (method public virtual (drop-file filename)
+  (method public virtual (drop-file self filename)
     (let ((pathname (new (case (pathname-type filename) ((directory) Directory) (else File)) (tokenise-filename filename))))
       (let ((pos {Point 0 0}) ;; quicky
-            (files (list (anchorize~ pathname))))
+            (files (list (anchorize pathname))))
         ;; delay as this method gets called before the toplevel is fully
         ;; initialized when opening the application by a drag & drop on it
         (delay-event
           (lambda ()
-            (receive-files pos files))))))
+            (receive-files self pos files))))))
   
   
-  (method public virtual (edit-file file . rest)
-    (apply edit-document file rest))
+  (method public virtual (edit-file self file . rest)
+    (apply (~ edit-document self) file rest))
   
   
   ;; a quicky... this should really be up to the current workspace
-  (method public virtual (open-extensions)
+  (method public virtual (open-extensions self)
     #f)
 
 
-  (method public (find-document moniker (class: class #f))
+  (method public (find-document self moniker (class: class #f))
     (find-frame-if-guest
       (lambda (guest)
         (and (is? guest Document)
              (or (not class) (is? guest class))
-             (let ((guest-moniker (get-moniker~ (get-document-controller~ guest))))
+             (let ((guest-moniker (get-moniker (get-document-controller guest))))
                (and guest-moniker
                     (pathname=? guest-moniker moniker)))))))
   
   
-  (method public (edit-document moniker
+  (method public (edit-document self moniker
                                 (class: class #f)
                                 (kind: kind #f)
                                 (workspace: workspace #f)
@@ -2082,17 +2090,17 @@
                                 (activate-focus?: activate-focus? #t)
                                 (return-new?: return-new? #f))
     (and moniker
-         (if (not (exists?~ moniker))
+         (if (not (exists? moniker))
              (error "Unable to locate document: {t}" moniker)
            (let ((file moniker))
-             (let ((frame (if force-new? #f (find-document file class: class))))
+             (let ((frame (if force-new? #f (find-document self file class: class))))
                (define (return frame new?)
                  (if return-new?
                      (values frame new?)
                    frame))
                
                (if (not frame)
-                   (let ((class (or class (file-frame-class file))))
+                   (let ((class (or class (file-frame-class self file))))
                      (with-cursor :wait
                        (lambda ()
                          (let ((frame (new-frame class
@@ -2103,99 +2111,99 @@
                                                  initialize: (lambda (document)
                                                                (let ((text? (is? document Text-View)))
                                                                  (when text?
-                                                                   (set-char-encoding~ (get-model~ document) char-encoding))
-                                                                 (set-moniker~ (get-document-controller~ document) moniker)
+                                                                   (set-char-encoding (get-model document) char-encoding))
+                                                                 (set-moniker (get-document-controller document) moniker)
                                                                  (when (and text? wrap?)
-                                                                   (set-wrap?~ (get-model~ document) #t)))))))
+                                                                   (set-wrap? (get-model document) #t)))))))
                            (when selection
-                             (let ((document (get-guest~ frame)))
+                             (let ((document (get-guest frame)))
                                (when (is? document Text-View)
-                                 (end-completion~ document)
-                                 (set-selection-safe~ document selection reposition: 'vertical ensure-displayed?: 'center-caret force?: force-selection? generate-event?: generate-event?))))
+                                 (end-completion document)
+                                 (set-selection-safe document selection reposition: 'vertical ensure-displayed?: 'center-caret force?: force-selection? generate-event?: generate-event?))))
                            (return frame #t)))))
                  (when selection
-                   (let ((document (get-guest~ frame)))
-                     (end-completion~ document)
-                     (set-selection-safe~ document selection ensure-displayed?: #f force?: force-selection? generate-event?: generate-event?)
-                     (ensure-displayed~ document force-vertical: 'head)))
-                 (when (and workspace (neq? workspace (get-workspace~ frame)))
-                   (set-workspace~ frame workspace)
-                   (apply-preferences~ (get-workspace workspace) restore-focus?: #f))
+                   (let ((document (get-guest frame)))
+                     (end-completion document)
+                     (set-selection-safe document selection ensure-displayed?: #f force?: force-selection? generate-event?: generate-event?)
+                     (ensure-displayed document force-vertical: 'head)))
+                 (when (and workspace (neq? workspace (get-workspace frame)))
+                   (set-workspace frame workspace)
+                   (apply-preferences (require-workspace workspace) restore-focus?: #f))
                  (when (and visible? activate-focus?)
-                   (focus-host~ frame))
-                 (verify-reload~ (get-document-controller~ (get-guest~ frame)))
+                   (focus-host frame))
+                 (verify-reload (get-document-controller (get-guest frame)))
                  (return frame #f)))))))
   
   
-  (method public (edit-help-document moniker)
-    (let* ((frame (edit-document moniker))
-           (text (get-guest~ frame)))
-      (set-editable?~ text #f)))
+  (method public (edit-help-document self moniker)
+    (let* ((frame (edit-document self moniker))
+           (text (get-guest frame)))
+      (set-editable? text #f)))
   
   
-  (method public (edit-filename filename)
-    (let* ((workbench (get-service 'workbench))
-           (project-file (and workbench (find-filename~ workbench filename))))
+  (method public (edit-filename self filename)
+    (let* ((workbench (find-service 'workbench))
+           (project-file (and workbench (find-filename workbench filename))))
       (if (not project-file)
           (error "Unable to locate filename: {t}" filename)
-        (let* ((frame (edit-document (get-source~ project-file)))
-               (text (get-guest~ frame)))
-          (verify-reload~ (get-document-controller~ text))))))
+        (let* ((frame (edit-document self (get-source project-file)))
+               (text (get-guest frame)))
+          (verify-reload (get-document-controller text))))))
   
   
-  (method package virtual (on-close evt)
+  (method package virtual (on-close self evt)
     (let ((frame (front-frame)))
       (when frame
-        (close-host~ frame))))
+        (close-host frame))))
 
   
-  (method package virtual (on-close-all evt)
+  (method package virtual (on-close-all self evt)
     (for-each (lambda (view)
                 (when (is? view Frame-Host)
-                  (let ((guest (get-guest~ view)))
-                    (when (or (is-not? guest Document) (close-on-close-all?~ (get-document-controller~ guest)))
-                      (confirm-close~ view)
-                      (close-host~ view)))))
+                  (let ((guest (get-guest view)))
+                    (when (or (is-not? guest Document) (close-on-close-all? (get-document-controller guest)))
+                      (confirm-close view)
+                      (close-host view)))))
               (all-frames)))
         
     
-  (method package virtual (on-save-all evt)
-    (save-all))
+  (method package virtual (on-save-all self evt)
+    (save-all self))
   
   
-  (method package virtual (on-print evt)
+  (method package virtual (on-print self evt)
     (let ((guest (current-guest)))
-      (print-document~ guest)))
+      (print-document guest)))
 
    
-  (method package virtual (on-print-layout evt)
+  (method package virtual (on-print-layout self evt)
     (let ((guest (current-guest)))
-      (print-layout~ guest)))
+      (print-layout guest)))
 
   
-  (method package virtual (on-print-preview evt)
+  (method package virtual (on-print-preview self evt)
     (let ((guest (current-guest)))
-      (print-preview~ guest)))
+      (print-preview guest)))
   
   
-  (method package virtual (on-quit-application evt)
+  (method package virtual (on-quit-application self evt)
     (delay-event
       (lambda ()
-        (quit-process))))
+        (quit-process self))))
   
   
-  (method public (save-all (class: class Document) (save-unanchored?: save-unanchored? #t))
+  (method public (save-all self (class: class Document) (save-unanchored?: save-unanchored? #t))
     (define (save-documents main-documents?)
       (for-each (lambda (host)
                   (when (is? host Frame-Host)
-                    (let ((guest (get-guest~ host)))
+                    (let ((guest (get-guest host)))
                       (when (is? guest Document)
-                        (let ((controller (get-document-controller~ guest)))
+                        (let ((controller (get-document-controller guest)))
                           (when (and (is? guest class)
-                                     (or save-unanchored? (get-moniker~ guest))
-                                     (xor main-documents? (dependent-document?~ controller))
-                                     (get-modified?~ controller))
-                            (save~ guest)))))))
+                                     (or save-unanchored? (get-moniker guest))
+                                     (xor main-documents? (dependent-document? controller))
+                                     (get-modified? controller))
+                            (save guest)))))))
                 (all-frames include-invisibles?: #t)))
     
     ;; saving dependent documents will make their main document modified
@@ -2208,11 +2216,11 @@
   ;;;
 
   
-  (method public virtual (edit-definitions object . rest)
+  (method public virtual (edit-definitions self object . rest)
     )
 
   
-  (method public virtual (edit-references object . rest)
+  (method public virtual (edit-references self object . rest)
     )
 
 
@@ -2221,21 +2229,22 @@
   ;;;
   
   
-  (method override (context-update)
+  @cant-find-get-profile-class
+  (method override (context-update self)
     (define (modify-profile)
       (when profile
-        (close~ profile))
-      (let ((pref (get-preferences #f error?: #f)))
+        (close profile))
+      (let ((pref (current-preferences #f error?: #f)))
         (when pref
-          (let ((class-unit (or (get-profile-class~ pref) Profile)))
+          (let ((class-unit (or (get-profile-class pref) Profile)))
             (when class-unit
               (set! profile (new (load-profile-class class-unit)))))))
       (when profile
-        (init~ profile))
+        (init profile))
       (when profile
-        (finalize~ profile)))
+        (finalize profile)))
     
-    (nextmethod)
+    (nextmethod self)
     (modify-profile)
     (user-message "Context set to {a}" context))
 
@@ -2245,21 +2254,21 @@
   ;;;
   
   
-  (method override (setup-preferences)
+  (method override (setup-preferences self)
     (with-safe-execution "loading the preferences"
       (lambda ()
-        (setup-preferences/designer))
+        (setup-preferences/designer self))
       continue-handler:
       (lambda (err)
-        (set-preferences/designer (default-preferences)))))
+        (set-preferences/designer self (default-preferences self)))))
   
   
-  (method override (default-preferences)
+  (method override (default-preferences self)
     (new Application-Preferences))
   
   
-  (method protected virtual (toolbox-file toolbox)
-    (new-file~ {Directory Profile "settings"}
+  (method package virtual (toolbox-file self toolbox)
+    (new-file {Directory Profile "settings"}
       (or toolbox "Toolbox.jml")))
 
   
@@ -2282,53 +2291,53 @@
     (set! Default-Page-Setup setup))
   
   
-  (method virtual (get-page-setup-file)
+  (method virtual (get-page-setup-file self)
     (when (is-alias? 'Profile)
       {File Profile "settings" "PageSetup.jml"}))
   
   
-  (method virtual (get-page-setup-form)
+  (method virtual (get-page-setup-form self)
     (<form> (<Page-Setup>)))
   
   
-  (method public (default-page-setup)
+  (method public (default-page-setup self)
     (when (not Default-Page-Setup)
-      (setup-page-setup))
+      (setup-page-setup self))
     Default-Page-Setup)
   
   
-  (method public (default-page-setup-designer)
+  (method public (default-page-setup-designer self)
     (when (not Default-Page-Setup-Designer)
-      (setup-page-setup))
+      (setup-page-setup self))
     Default-Page-Setup-Designer)
   
   
-  (method public (default-page-setup-parcel designer)
+  (method public (default-page-setup-parcel self designer)
     (when (not Default-Page-Setup)
-      (setup-page-setup))
-    (package-component~ designer (default-page-setup)))
+      (setup-page-setup self))
+    (package-component designer (default-page-setup self)))
   
   
-  (method public (default-apply-page-setup designer form page-setup)
+  (method public (default-apply-page-setup self designer form page-setup)
     (when form
-      (apply-form~ designer form (default-page-setup))))
+      (apply-form designer form (default-page-setup self))))
   
   
-  (method virtual (setup-page-setup)
-    (let* ((file (get-page-setup-file))
-           (form (if (and file (exists?~ file)) (read-form file) (get-page-setup-form)))
-           (reference (instantiate~ form)))
+  (method package virtual (setup-page-setup self)
+    (let* ((file (get-page-setup-file self))
+           (form (if (and file (exists? file)) (read-form file) (get-page-setup-form self)))
+           (reference (instantiate form)))
       (set! Default-Page-Setup reference)
       (set! Default-Page-Setup-Form form)
-      (set! Default-Page-Setup-Designer (new (former-class) form: form reference: reference))))
+      (set! Default-Page-Setup-Designer (new (former-class self) form: form reference: reference))))
   
   
-  (method virtual (save-page-setup)
-    (when (and Default-Page-Setup-Designer (file? (get-origin~ (get-form~ Default-Page-Setup-Designer))))
-      (let ((form (get-form~ Default-Page-Setup-Designer)))
-        (when (not (get-origin~ form))
-          (set-origin~ form (get-page-setup-file))))
-      (save~ Default-Page-Setup-Designer)))
+  (method virtual (save-page-setup self)
+    (when (and Default-Page-Setup-Designer (file? (get-origin (get-form Default-Page-Setup-Designer))))
+      (let ((form (get-form Default-Page-Setup-Designer)))
+        (when (not (get-origin form))
+          (set-origin form (get-page-setup-file self))))
+      (save Default-Page-Setup-Designer)))
 
 
   ;;;
@@ -2336,7 +2345,7 @@
   ;;;
   
   
-  (method public virtual (get-documentation-cataloguer)
+  (method public virtual (get-documentation-cataloguer self)
     #f)
 
 
@@ -2345,14 +2354,14 @@
   ;;;
   
   
-  (method public virtual (update-windowing-actions)
+  (method public virtual (update-windowing-actions self)
     (unless (unloading-process?)
-      (update-history-actions)
-      (update-window-actions)
-      (update-menubar-buttons)))
+      (update-history-actions self)
+      (update-window-actions self)
+      (update-menubar-buttons self)))
   
   
-  (method public (update-window-actions)
+  (method public (update-window-actions self)
     (let ((all-frames (length (all-frames)))
           (frames (length (current-stage-frames)))
           (stages (length (get-active-stages)))
@@ -2377,86 +2386,86 @@
       (set-action-enabled? {Action application tile-vertically}   (and (>= frames 2) (not in-modal?)))))
   
   
-  (method package virtual (on-next-frame evt)
+  (method package virtual (on-next-frame self evt)
     (let ((first (first-frame)))
       (send-frame-to-back first)
-      (send-to-back~ first)
-      (focus-host~ (front-frame))))
+      (send-to-back first)
+      (focus-host (front-frame))))
   
   
-  (method package virtual (on-previous-frame evt)
+  (method package virtual (on-previous-frame self evt)
     (let ((last (last-frame)))
       (bring-frame-to-front last)
-      (bring-to-front~ last)
-      (focus-host~ (front-frame))))
+      (bring-to-front last)
+      (focus-host (front-frame))))
   
   
-  (method package virtual (on-current-frame evt)
+  (method package virtual (on-current-frame self evt)
     (let ((first (first-frame)))
-      (focus-host~ first)))
+      (focus-host first)))
   
   
-  (method package (on-next-stage evt)
+  (method package (on-next-stage self evt)
     (or (navigate-next-stage)
         (bell)))
   
   
-  (method package (on-previous-stage evt)
+  (method package (on-previous-stage self evt)
     (or (navigate-previous-stage)
         (bell)))
   
   
-  (method package virtual (on-tile-horizontally evt)
+  (method package virtual (on-tile-horizontally self evt)
     (let* ((two-frames? (shift-down?))
            (stage (current-stage))
-           (frames (get-views~ stage))
+           (frames (get-views stage))
            (count (length frames))
-           (width (get-width~ stage))
-           (height (get-height~ stage))
+           (width (get-width stage))
+           (height (get-height stage))
            (w (quotient width (if two-frames? 2 count)))
            (l 0))
       (with-locked-update
         (lambda ()
-          (restore~ stage)
+          (restore stage)
           (for-each (lambda (frame)
-                      (set-position~ frame (new Point l 0))
-                      (set-size~ frame (new Dimension w height))
+                      (set-position frame (new Point l 0))
+                      (set-size frame (new Dimension w height))
                       (increase! l w))
                     (if (and two-frames? (>= count 2))
                         (subseq frames 0 2)
                       frames))))))
   
   
-  (method package virtual (on-tile-vertically evt)
+  (method package virtual (on-tile-vertically self evt)
     (let* ((two-frames? (shift-down?))
            (stage (current-stage))
-           (frames (get-views~ stage))
+           (frames (get-views stage))
            (count (length frames))
-           (width (get-width~ stage))
-           (height (get-height~ stage))
+           (width (get-width stage))
+           (height (get-height stage))
            (h (quotient height (if two-frames? 2 count)))
            (t 0))
       (with-locked-update
         (lambda ()
-          (restore~ stage)
+          (restore stage)
           (for-each (lambda (frame)
-                      (set-position~ frame (new Point 0 t))
-                      (set-size~ frame (new Dimension width h))
+                      (set-position frame (new Point 0 t))
+                      (set-size frame (new Dimension width h))
                       (increase! t h))
                     (if (and two-frames? (>= count 2))
                         (subseq frames 0 2)
                       frames))))))
   
   
-  (method package (on-select-frame evt)
-    (let ((host (get-property~ evt host:)))
-      (bring-to-front~ host)
-      (focus-host~ host)))
+  (method package (on-select-frame self evt)
+    (let ((host (get-property evt host:)))
+      (bring-to-front host)
+      (focus-host host)))
   
   
-  (method package (on-select-palette evt)
-    (let ((host (get-property~ evt host:)))
-      (bring-to-front~ (get-player~ host))))
+  (method package (on-select-palette self evt)
+    (let ((host (get-property evt host:)))
+      (bring-to-front (get-player host))))
 
 
   ;;;
@@ -2464,8 +2473,8 @@
   ;;;
   
   
-  (method package virtual (update-modal-actions)
-    (update-windowing-actions)))
+  (method package virtual (update-modal-actions self)
+    (update-windowing-actions self)))
 
 
 ;;;
@@ -2482,12 +2491,12 @@
   (slot force?   getter generate)
 
 
-  (method override (initialize kind sender modifiers owner old selected (force?: force? #f) (user-origin: user-origin #f))
-    (nextmethod kind sender modifiers)
-    (set! owner~self owner)
-    (set! old~self old)
-    (set! selected~self selected)
-    (set! force?~self force?)))
+  (method override (initialize self kind sender modifiers owner old selected (force?: force? #f) (user-origin: user-origin #f))
+    (nextmethod self kind sender modifiers)
+    (set! self.owner owner)
+    (set! self.old old)
+    (set! self.selected selected)
+    (set! self.force? force?)))
 
 
 ;;;

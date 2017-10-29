@@ -38,9 +38,12 @@
 (module protected jazz.outline.Outline-View-Old jazz
 
 
-(import (jazz.graphic)
+(import (jazz.application)
+        (jazz.event)
+        (jazz.graphic)
         (jazz.outline)
         (jazz.preferences)
+        (jazz.tree)
         (jazz.view))
 
 
@@ -82,30 +85,30 @@
   ;;;
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    (setup-outline))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (setup-outline self))
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (layout-scrollee))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (layout-scrollee self))
   
   
-  (method override (set-player plr)
+  (method override (set-player self plr)
     (when (neq? player plr)
-      (nextmethod plr)
+      (nextmethod self plr)
       (when root-row
-        (set-player~ root-row plr))))
+        (set-player root-row plr))))
   
   
-  (method (setup-outline)
-    (set! root-row (new (row-class)))
+  (method (setup-outline self)
+    (set! root-row (new (row-class self)))
     (set! outline (new Display-Outline row-spacing root-row))
-    (set-parent~ root-row self)
-    (set-father~ root-row #f)
-    (set-level~ root-row -1)
-    (set-state~ root-row 'expanded))
+    (set-parent root-row self)
+    (set-father root-row #f)
+    (set-level root-row -1)
+    (set-state root-row 'expanded))
 
 
   ;;;
@@ -113,10 +116,10 @@
   ;;;
   
   
-  (method override (size-change size)
-    (nextmethod size)
-    (unless (or update-locked? (not (get-finished?)))
-      (layout-scrollee)))
+  (method override (size-change self size)
+    (nextmethod self size)
+    (unless (or update-locked? (not (get-finished? self)))
+      (layout-scrollee self)))
   
 
   ;;;
@@ -124,51 +127,51 @@
   ;;;
   
   
-  (method public (get-row-spacing)
+  (method public (get-row-spacing self)
     row-spacing)
 
 
-  (method public (set-row-spacing spacing)
+  (method public (set-row-spacing self spacing)
     (set! row-spacing spacing)
     (when outline
-      (set-row-spacing~ outline spacing))
-    (invalidate-view))
+      (set-row-spacing outline spacing))
+    (invalidate-view self))
 
   
-  (method public (get-left-padding)
+  (method public (get-left-padding self)
     left-padding)
   
   
-  (method public (set-left-padding padding)
+  (method public (set-left-padding self padding)
     (set! left-padding padding)
-    (invalidate-view))
+    (invalidate-view self))
   
   
-  (method public (get-top-padding)
+  (method public (get-top-padding self)
     top-padding)
   
   
-  (method public (set-top-padding padding)
+  (method public (set-top-padding self padding)
     (set! top-padding padding)
-    (invalidate-view))
+    (invalidate-view self))
   
 
-  (method public (get-background-filler)
+  (method public (get-background-filler self)
     background-filler)
 
 
-  (method public (set-background-filler value)
+  (method public (set-background-filler self value)
     (set! background-filler value)
-    (invalidate-view))
+    (invalidate-view self))
   
 
-  (method public (get-fit-to-scroller?)
+  (method public (get-fit-to-scroller? self)
     fit-to-scroller?)
 
 
-  (method public (set-fit-to-scroller? value)
+  (method public (set-fit-to-scroller? self value)
     (set! fit-to-scroller? value)
-    (layout-scrollee))
+    (layout-scrollee self))
 
 
   ;;;
@@ -176,47 +179,47 @@
   ;;;
   
   
-  (method public (get-expand-state (include-invisibles?: include-invisibles? #f))
-    (define (get-state row)
-      (let ((title (row-title row))
-            (state (get-state~ row))
-            (sons (get-sons~ row)))
+  (method public (get-expand-state self (include-invisibles?: include-invisibles? #f))
+    (define (state-get row)
+      (let ((title (row-title self row))
+            (state (get-state row))
+            (sons (get-sons row)))
         (and (or (and include-invisibles? (> (cardinality sons) 0)) (eq? state 'expanded))
              (cons title
                    (cons state
-                         (collect get-state sons))))))
+                         (collect state-get sons))))))
       
     (and root-row
-         (collect get-state (get-sons~ root-row) type: List)))
+         (collect state-get (get-sons root-row) type: List)))
   
   
-  (method public (set-expand-state state)
-    (define (set-state row info)
+  (method public (set-expand-state self state)
+    (define (state-set row info)
       (bind (title state . children) info
-        (let ((subrow (find-by-title~ row title)))
+        (let ((subrow (find-by-title row title)))
           (when subrow
-            (let ((actual (get-state~ subrow)))
+            (let ((actual (get-state subrow)))
               (if (eq? state 'expanded)
                   (unless (eq? actual 'expanded)
-                    (expand/collapse subrow))
+                    (expand/collapse self subrow))
                 (when (and (eq? actual 'dynamic) children)
-                  (update-row subrow))))
+                  (update-row self subrow))))
             (iterate children
                      (lambda (info)
-                       (set-state subrow info)))))))
+                       (state-set subrow info)))))))
     
     (when root-row
-      (collapse-all-deep)
+      (collapse-all-deep self)
       (for-each (lambda (info)
-                  (set-state root-row info))
+                  (state-set root-row info))
                 state)))
   
   
-  (method public (with-preserved-expand-state thunk)
-    (let ((saved-state (get-expand-state)))
-      (set-selection '())
+  (method public (with-preserved-expand-state self thunk)
+    (let ((saved-state (get-expand-state self)))
+      (set-selection self '())
       (thunk)
-      (set-expand-state saved-state)))
+      (set-expand-state self saved-state)))
   
   
   ;;;
@@ -224,16 +227,16 @@
   ;;;
   
   
-  (method public (expand-spine spine)
+  (method public (expand-spine self spine)
     (when root-row
       (letrec ((proc
                 (lambda (row spine)
                   (bind (title . subspine) spine
-                    (let ((subrow (find-by-title~ row title)))
+                    (let ((subrow (find-by-title row title)))
                       (when subrow
-                        (let ((actual (get-state~ subrow)))
+                        (let ((actual (get-state subrow)))
                           (unless (or (eq? actual 'expanded) (null? subspine))
-                            (expand/collapse subrow)))
+                            (expand/collapse self subrow)))
                         (if (null? subspine)
                             subrow
                           (proc subrow subspine))))))))
@@ -245,11 +248,11 @@
   ;;;
   
   
-  (method override (find-subdrawing surface <Surface> device-pos <Point> pos <Point> ignore)
-    (let ((line (v->line (get-v~ pos))))
+  (method override (find-subdrawing self surface <Surface> device-pos <Point> pos <Point> ignore)
+    (let ((line (v->line self (get-v pos))))
       (and line
-           (let ((row (cast <Outline-Row> (get-row line))))
-             (find-in-drawing~ row surface device-pos ignore)))))
+           (let ((row (cast <Outline-Row> (get-row self line))))
+             (find-in-drawing row surface device-pos ignore)))))
   
 
   ;;;
@@ -257,18 +260,18 @@
   ;;;
   
   
-  (method override (layout-scrollee-content)
+  (method override (layout-scrollee-content self)
     (define (layout-rows)
-      (let ((width (- (get-width) left-padding))
-            (row (get-next~ root-row))
+      (let ((width (- (get-width self) left-padding))
+            (row (get-next root-row))
             (rt top-padding))
         (while row
-          (let* ((height (effective-row-height~ row))
+          (let* ((height (effective-row-height row))
                  (rb (+ rt height)))
-            (set-position~ row (new Point left-padding rt))
-            (set-size~ row (new Dimension width height))
+            (set-position row (new Point left-padding rt))
+            (set-size row (new Dimension width height))
             (set! rt rb)
-            (set! row (get-next~ row))
+            (set! row (get-next row))
             (increase! rt row-spacing)))))
     
     (layout-rows))
@@ -279,33 +282,33 @@
   ;;;
   
   
-  (method override (scrollee-size)
-    (new Dimension (scrollee-width) (scrollee-height)))
+  (method override (scrollee-size self)
+    (new Dimension (scrollee-width self) (scrollee-height self)))
   
   
-  (method override (scrollee-width)
+  (method override (scrollee-width self)
     (let ((width (+ left-padding visible-width)))
       (if (and scroller fit-to-scroller?)
-          (max (get-display-width) width)
+          (max (get-display-width self) width)
         width)))
   
   
-  (method override (scrollee-height)
+  (method override (scrollee-height self)
     (let ((height (+ top-padding visible-height)))
       (if (and scroller fit-to-scroller?)
-          (max (get-display-height) height)
+          (max (get-display-height self) height)
         height)))
   
   
-  (method (scrollee-content-size)
-    (new Dimension (scrollee-content-width) (scrollee-content-height)))
+  (method package (scrollee-content-size self)
+    (new Dimension (scrollee-content-width self) (scrollee-content-height self)))
   
   
-  (method public virtual (scrollee-content-width)
+  (method public virtual (scrollee-content-width self)
     (+ left-padding visible-width))
   
   
-  (method public virtual (scrollee-content-height)
+  (method public virtual (scrollee-content-height self)
     (+ top-padding visible-height))
   
   
@@ -314,15 +317,15 @@
   ;;;
   
   
-  (method override (invalidate-update)
-    (update-displayed)
-    (update-visible)
-    (layout-scrollee)
-    (invalidate-view)
-    (update-scrollbars))
+  (method override (invalidate-update self)
+    (update-displayed self)
+    (update-visible self)
+    (layout-scrollee self)
+    (invalidate-view self)
+    (update-scrollbars self))
   
   
-  (method public virtual (update-visible)
+  (method public virtual (update-visible self)
     )
 
 
@@ -331,50 +334,50 @@
   ;;;
   
   
-  (method override (draw-background surface context)
+  (method override (draw-background self surface context)
     )
   
   
-  (method override (draw-children surface nodes context)
-    (let ((clipper (get-clipper~ surface)))
+  (method override (draw-children self surface nodes context)
+    (let ((clipper (get-clipper surface)))
       (let ((background (cond ((debug-paint?)
                                (cycle-debug-color!))
-                              ((not (view-enabled?))
+                              ((not (view-enabled? self))
                                {Color Medium})
                               (else
-                               (get-drawing-background context)))))
+                               (get-drawing-background self context)))))
         (when (and background (neq? background 'none))
-          (fill-rect~ surface clipper background)))
-      (draw-outline surface context clipper (get-scrolled-distance-v))))
+          (fill-rect surface clipper background)))
+      (draw-outline self surface context clipper (get-scrolled-distance-v self))))
   
   
-  (method protected virtual (draw-outline surface context clipper scrolled-v)
+  (method package virtual (draw-outline self surface context clipper scrolled-v)
     (define (draw-row row line)
-      (let ((selected? (line-draw-selected? line)))
-        (set-font~ surface (effective-font))
+      (let ((selected? (line-draw-selected? self line)))
+        (set-font surface (effective-font self))
         (let ((new-context (cons selected?: (cons selected? (cons line: (cons line context))))))
-          (paint-content~ row surface #t '() new-context))))
+          (paint-content row surface #t '() new-context))))
     
-    (let ((clipper (get-clipper~ surface)))
-      (let ((top (get-top~ clipper))
-            (bottom (get-bottom~ clipper))
-            (row (get-first-displayed~ outline))
-            (line <fx> (get-first-displayed-line~ outline))
-            (rt <fx> (+ scrolled-v (- top-padding (get-first-displayed-offset~ outline))))
-            (width <fx> (get-width)))
+    (let ((clipper (get-clipper surface)))
+      (let ((top (get-top clipper))
+            (bottom (get-bottom clipper))
+            (row (get-first-displayed outline))
+            (line <fx> (get-first-displayed-line outline))
+            (rt <fx> (+ scrolled-v (- top-padding (get-first-displayed-offset outline))))
+            (width <fx> (get-width self)))
         (while (and row (< rt bottom))
-          (let* ((height <fx> (get-height~ row))
+          (let* ((height <fx> (get-height row))
                  (rb <fx> (+ rt height)))
             (when (>= rb top)
               (draw-row row line))
             (increase! line)
             (set! rt rb)
-            (set! row (get-next~ row))
+            (set! row (get-next row))
             (increase! rt row-spacing)))
-        (draw-empty surface top bottom rt width))))
+        (draw-empty self surface top bottom rt width))))
   
   
-  (method protected virtual (draw-empty surface top bottom rt width)
+  (method protected virtual (draw-empty self surface top bottom rt width)
     )
 
 
@@ -383,30 +386,30 @@
   ;;;
   
   
-  (method package (on-prior evt)
-    (prior-page (get-shift?~ evt)))
+  (method package (on-prior self evt)
+    (prior-page self (get-shift? evt)))
   
   
-  (method protected virtual (prior-page evt)
-    (scroll (new Point 0 (get-page-size 'vert))))
+  (method package virtual (prior-page self evt)
+    (scroll self (new Point 0 (get-page-size self 'vert))))
   
   
-  (method package (on-next evt)
-    (next-page (get-shift?~ evt)))
+  (method package (on-next self evt)
+    (next-page self (get-shift? evt)))
   
   
-  (method protected virtual (next-page evt)
-    (scroll (new Point 0 (- (get-page-size 'vert)))))
+  (method package virtual (next-page self evt)
+    (scroll self (new Point 0 (- (get-page-size self 'vert)))))
   
   
-  (method override (get-line-size orientation)
+  (method override (get-line-size self orientation)
     (case orientation
       ((vert) default-row-height)
       ((horz) 8)))
   
   
-  (method override (scroll-invalidate delta)
-    (follow (- (get-y~ delta))))
+  (method override (scroll-invalidate self delta)
+    (follow self (- (get-y delta))))
 
   
   ;;;
@@ -414,137 +417,137 @@
   ;;;
   
   
-  (method protected virtual (row-class)
+  (method protected virtual (row-class self)
     Outline-Row)
 
   
-  (method public (add-row . rest)
-    (bind-keywords ((class (row-class)) (row #f) (father #f) (position #f) . others) rest
+  (method public (add-row self . rest)
+    (bind-keywords ((class (row-class self)) (row #f) (father #f) (position #f) . others) rest
       (let* ((father (or father root-row))
-             (level (+ (get-level~ father) 1))
+             (level (+ (get-level father) 1))
              (row (or row (apply new class parent: self others))))
-        (set-height-noevent~ row default-row-height)
-        (set-descendants-level~ row level)
-        (add-son~ father row position)
-        (when (row-visible?~ row)
-          (increase! visible-count (+ 1 (count-visible~ row)))
+        (set-height-noevent row default-row-height)
+        (set-descendants-level row level)
+        (add-son father row position)
+        (when (row-visible? row)
+          (increase! visible-count (+ 1 (count-visible row)))
           (when (not update-locked?)
-            (let ((height (node-height~ row)))
+            (let ((height (node-height row)))
               (increase! visible-height height)
-              (update-visible-width-incremental level (get-effective-width~ row))
-              (update-displayed)
-              (update-visible)
-              (let* ((line (row->line row))
-                     (top (row-top line))
-                     (display (get-display))
-                     (display-size (get-size~ display))
-                     (display-width (get-width~ display-size))
-                     (display-height (get-height~ display-size)))
-                (added-update-selection line 1)
-                (layout-scrollee)
+              (update-visible-width-incremental self level (get-effective-width row))
+              (update-displayed self)
+              (update-visible self)
+              (let* ((line (row->line self row))
+                     (top (row-top self line))
+                     (display (get-display self))
+                     (display-size (get-size display))
+                     (display-width (get-width display-size))
+                     (display-height (get-height display-size)))
+                (added-update-selection self line 1)
+                (layout-scrollee self)
                 (when (< top (- display-height height))
-                  (scroll-view~ display (new Distance 0 height) (new Rect 0 top display-width (- display-height height))))))))
-        (update-father-control father)
+                  (scroll-view display (new Distance 0 height) (new Rect 0 top display-width (- display-height height))))))))
+        (update-father-control self father)
         row)))
   
   
   ;; is this really necessary?
-  (method protected virtual (update-visible-width-incremental level width)
+  (method protected virtual (update-visible-width-incremental self level width)
     )
 
   
-  (method public virtual (remove-row row)
-    (when (attached?~ row)
-      (let* ((father (get-father~ row))
-             (visible? (row-visible?~ row))
-             (height (node-height~ row))
-             (line (row->line row))
-             (top (and line (row-top line))))
+  (method public virtual (remove-row self row)
+    (when (attached? row)
+      (let* ((father (get-father row))
+             (visible? (row-visible? row))
+             (height (node-height row))
+             (line (row->line self row))
+             (top (and line (row-top self line))))
         (when visible?
-          (decrease! visible-count (+ 1 (count-visible~ row)))
+          (decrease! visible-count (+ 1 (count-visible row)))
           (decrease! visible-height height))
-        (remove-son~ father row)
+        (remove-son father row)
         @is-this-really-a-good-idea
-        (when (= (cardinality (get-sons~ father)) 0)
-          (set-state~ father 'collapsed))
+        (when (= (cardinality (get-sons father)) 0)
+          (set-state father 'collapsed))
         (when line
-          (removed-update-selection line 1))
+          (removed-update-selection self line 1))
         (when (and (not update-locked?) visible?)
-          (update-displayed)
-          (update-visible)
-          (let* ((display (get-display))
-                 (display-size (get-size~ display))
-                 (display-width (get-width~ display-size))
-                 (display-height (get-height~ display-size)))
-            (layout-scrollee)
+          (update-displayed self)
+          (update-visible self)
+          (let* ((display (get-display self))
+                 (display-size (get-size display))
+                 (display-width (get-width display-size))
+                 (display-height (get-height display-size)))
+            (layout-scrollee self)
             (when (and top (< (+ top height) display-height))
-              (scroll-view~ display (new Distance 0 (- height)) (new Rect 0 (+ top height) display-width display-height)))))
-        (detach-descendants~ row)
-        (update-father-control father))))
+              (scroll-view display (new Distance 0 (- height)) (new Rect 0 (+ top height) display-width display-height)))))
+        (detach-descendants row)
+        (update-father-control self father))))
   
   
-  (method public (move-row row father (position: position #f))
-    (let ((selected? (line-selected? (row->line row))))
-      (remove-row row)
+  (method public (move-row self row father (position: position #f))
+    (let ((selected? (line-selected? self (row->line self row))))
+      (remove-row self row)
       (let ((position (if (procedure? position) (position) position)))
-        (add-row row: row father: father position: position)
+        (add-row self row: row father: father position: position)
         (when selected?
-          (set-selection (cons (row->line row) (get-selection)) generate-event?: #f)))))
+          (set-selection self (cons (row->line self row) (get-selection self)) generate-event?: #f)))))
   
   
-  (method public (find-ordered-position title father)
+  (method public (find-ordered-position self title father)
     (if (not title)
         0
-      (ordered-position title (get-sons~ father) key: row-title test: (sort-predicate 'smaller/equal))))
+      (ordered-position title (get-sons father) key: (~ row-title self) test: (sort-predicate 'smaller/equal))))
   
   
-  (method public virtual (remove-every-row)
-    (setup-outline)
+  (method public virtual (remove-every-row self)
+    (setup-outline self)
     (set! visible-count 0)
     (set! visible-height 0)
     (set! visible-width 0)
     (set! selection '())
     (when scroller
-      (set-position {Point 0 0})
-      (set-size {Dimension 0 0})
-      (set-scroll-pos {Point 0 0}))
+      (set-position self {Point 0 0})
+      (set-size self {Dimension 0 0})
+      (set-scroll-pos self {Point 0 0}))
     (unless update-locked?
-      (update-displayed)
-      (layout-scrollee)
-      (invalidate-view)))
+      (update-displayed self)
+      (layout-scrollee self)
+      (invalidate-view self)))
   
   
-  (method protected virtual (update-father-control father)
+  (method package virtual (update-father-control self father)
     )
   
   
-  (method override (update-displayed)
-    (update-displayed~ outline (get-scrolled-distance-v)))
+  (method override (update-displayed self)
+    (update-displayed outline (get-scrolled-distance-v self)))
   
   
-  (method public (first-row)
-    (first (get-sons~ root-row)))
+  (method public (first-row self)
+    (first (get-sons root-row)))
   
   
-  (method public (get-root-rows)
-    (get-sons~ root-row))
+  (method public (get-root-rows self)
+    (get-sons root-row))
   
   
-  (method public (first-visible-row)
-    (get-next~ root-row))
+  (method public (first-visible-row self)
+    (get-next root-row))
   
   
-  (method public (get-row line <fx>) <Outline-Row+>
+  (method public (get-row self line <fx>) <Outline-Row+>
     ;; this test is necessary because an update lock will stop update-displayed...
     (if update-locked?
-        (get-row-from~ outline root-row (+ line 1))
-      (get-row~ outline line)))
+        (get-row-from outline root-row (+ line 1))
+      (get-row outline line)))
   
   
-  (method public (get-visible-row l)
+  (method public (get-visible-row self l)
     (continuation-capture
       (lambda (return)
-        (for-each-visible-row
+        (for-each-visible-row self
           (lambda (row line)
             (when (= line l)
               (continuation-return return row))))
@@ -552,76 +555,76 @@
   
   
   ;; for debugging...
-  (method (get-row-classic line)
+  (method (get-row-classic self line)
     (let ((row root-row))
       (while (and row (>= line 0))
-        (set! row (get-next~ row))
+        (set! row (get-next row))
         (decrease! line))
       row))
   
   
-  (method public (row->line target)
+  (method public (row->line self target)
     (continuation-capture
       (lambda (return)
-        (for-each-visible-row
+        (for-each-visible-row self
           (lambda (row line)
             (when (eq? row target)
               (continuation-return return line))))
         #f)))
   
   
-  (method public (rows->lines targets)
-    (map row->line targets))
+  (method public (rows->lines self targets)
+    (map (~ row->line self) targets))
   
   
-  (method public (row-title row)
-    (let ((child (first-child~ row)))
+  (method public (row-title self row)
+    (let ((child (first-child row)))
       ;; virtual dispatch problem View vs Tree-Label
       (if (is? child View)
-          (get-title~ child)
-        (get-title~ child))))
+          (get-title child)
+        (get-title child))))
   
   
-  (method (forward row line)
+  (method (forward self row line)
     (while (> line 0)
-      (set! row (get-next~ row))
+      (set! row (get-next row))
       (decrease! line))
     row)
   
   
-  (method (backward row line)
+  (method package (backward self row line)
     (while (> line 0)
-      (set! row (get-previous~ row))
+      (set! row (get-previous row))
       (decrease! line))
     row)
   
   
-  (method public (ensure-row-exists row)
-    (ensure-visible-count (+ row 1)))
+  (method public (ensure-row-exists self row)
+    (ensure-visible-count self (+ row 1)))
   
   
-  (method public (ensure-visible-count line)
+  (method public (ensure-visible-count self line)
     (while (< visible-count line)
-      (add-empty-row)))
+      (add-empty-row self)))
   
   
-  (method public virtual (add-empty-row (father: father #f))
+  (method public virtual (add-empty-row self (father: father #f))
     (let ((father (or father root-row)))
-      (add-row father: father)))
+      (add-row self father: father)))
   
   
-  (method protected virtual (line-selected? line)
+  (method protected virtual (line-selected? self line)
     (= line selection))
   
   
-  (method protected virtual (line-draw-selected? line)
-    (line-selected? line))
+  (method protected virtual (line-draw-selected? self line)
+    (line-selected? self line))
   
 
-  (method public (get-row-count)
+  (method public (get-row-count self)
     (if (not root-row)
         0
-      (cardinality (get-sons~ root-row))))
+      (cardinality (get-sons root-row))))
 
 
   ;;;
@@ -629,16 +632,16 @@
   ;;;
   
   
-  (method override (mouse-down evt)
-    (acquire-focus)
-    (let ((line (v->line (get-v~ (get-position~ evt)))))
-      (set-selection line)))
+  (method override (mouse-down self evt)
+    (acquire-focus self)
+    (let ((line (v->line self (get-v (get-position evt)))))
+      (set-selection self line)))
   
   
-  (method override (double-click evt)
-    (let ((line (v->line (get-v~ (get-position~ evt)))))
+  (method override (double-click self evt)
+    (let ((line (v->line self (get-v (get-position evt)))))
       (when line
-        (expand/collapse (get-row line)))))
+        (expand/collapse self (get-row self line)))))
 
   
   ;;;
@@ -646,15 +649,15 @@
   ;;;
   
   
-  (method protected virtual (empty-selection)
+  (method protected virtual (empty-selection self)
     '())
   
   
-  (method public virtual (get-selection)
+  (method public virtual (get-selection self)
     selection)
   
   
-  (method public virtual (set-selection sel
+  (method public virtual (set-selection self sel
                                         (force?: force? #f)
                                         (ensure-displayed?: ensure-displayed? #t)
                                         (generate-event?: generate-event? #t)
@@ -663,43 +666,43 @@
       (let ((old selection))
         (set! selection sel)
         (when ensure-displayed?
-          (ensure-displayed))
+          (ensure-displayed self))
         (when (not-null? old)
-          (invalidate-selection old))
+          (invalidate-selection self old))
         (when (not-null? selection)
-          (invalidate-selection selection))
+          (invalidate-selection self selection))
         (when generate-event?
-          (call-selection-handler old selection force? user-origin)))))
+          (call-selection-handler self old selection force? user-origin)))))
 
   
-  (method public virtual (invalidate-selection sel)
-    (when (view-visible?)
-      (with-transformation-surface
+  (method public virtual (invalidate-selection self sel)
+    (when (view-visible? self)
+      (with-transformation-surface self
         (lambda (surface)
-          (with ((region (selection-region sel (lambda (rect) (logical->device~ surface rect)))))
-            (invalidate-region~ player region))))))
+          (with ((region (selection-region self sel (lambda (rect) (logical->device surface rect)))))
+            (invalidate-region player region))))))
   
   
-  (method protected virtual (selection-region sel transformer)
-    (selection-row-region sel transformer))
+  (method protected virtual (selection-region self sel transformer)
+    (selection-row-region self sel transformer))
   
   
-  (method protected (selection-row-region line transformer)
-    (new Region rect: (transformer (selection-row-rect line))))
+  (method protected (selection-row-region self line transformer)
+    (new Region rect: (transformer (selection-row-rect self line))))
     
   
-  (method protected virtual (selection-row-rect line)
-    (get-rect~ (get-row line)))
+  (method protected virtual (selection-row-rect self line)
+    (get-rect (get-row self line)))
 
   
   ;; update slots that are line based
-  (method protected virtual (added-update-selection line count)
+  (method protected virtual (added-update-selection self line count)
     (when (and selection (>= selection line))
       (increase! selection count)))
   
   
   ;; update slots that are line based
-  (method protected virtual (removed-update-selection line count)
+  (method protected virtual (removed-update-selection self line count)
     (when (not-null? selection)
       (let ((selected? #f))
         (when (>= selection line)
@@ -715,14 +718,14 @@
   ;;;
   
   
-  (method public (for-each-row proc)
-    (for-each-descendant-row root-row -1 proc include-self?: #f))
+  (method public (for-each-row self proc)
+    (for-each-descendant-row self root-row -1 proc include-self?: #f))
   
   
-  (method public (for-each-descendant-row row line proc (include-self?: include-self? #t) (stop-test: stop-test #f))
+  (method public (for-each-descendant-row self row line proc (include-self?: include-self? #t) (stop-test: stop-test #f))
     (define (recurse row visible?)
-      (let* ((visible? (and visible? (get-visible-flag~ row)))
-             (son-visible? (and visible? (expanded?~ row))))
+      (let* ((visible? (and visible? (get-visible-flag row)))
+             (son-visible? (and visible? (expanded? row))))
         (proc row (and visible? line))
         (when visible?
           (increase! line))
@@ -730,86 +733,86 @@
     
     (define (recurse-sons row son-visible?)
       (unless (and stop-test (stop-test row))
-        (iterate (get-sons~ row)
+        (iterate (get-sons row)
                  (lambda (row)
                    (recurse row son-visible?)))))
     
     (when include-self?
       (proc row line))
     (increase! line)
-    (recurse-sons row (expanded?~ row)))
+    (recurse-sons row (expanded? row)))
   
   
-  (method public (for-each-visible-row proc (start: start #f) (end: end #f) (wrap?: wrap? #f))
-    (let ((row (or start (get-next~ root-row)))
-          (line (if start (row->line start) 0)))
+  (method public (for-each-visible-row self proc (start: start #f) (end: end #f) (wrap?: wrap? #f))
+    (let ((row (or start (get-next root-row)))
+          (line (if start (row->line self start) 0)))
       (when line
         (while (and row (neq? row end))
           (proc row line)
-          (set! row (get-next~ row))
+          (set! row (get-next row))
           (increase! line))
         (when (and wrap? start (not row))
-          (for-each-visible-row proc end: (or end start))))))
+          (for-each-visible-row self proc end: (or end start))))))
   
   
-  (method public (for-each-visible-descendant parent-row proc)
-    (let* ((first-son (first-visible-son~ parent-row))
-           (last-son (last-visible-descendant~ parent-row))
-           (end-row (and last-son (get-next~ last-son))))
+  (method public (for-each-visible-descendant self parent-row proc)
+    (let* ((first-son (first-visible-son parent-row))
+           (last-son (last-visible-descendant parent-row))
+           (end-row (and last-son (get-next last-son))))
       (when first-son
-        (for-each-visible-row proc start: first-son end: end-row))))
+        (for-each-visible-row self proc start: first-son end: end-row))))
   
   
-  (method public (collect-rows)
+  (method public (collect-rows self)
     (let ((queue (new-queue)))
-      (for-each-row
+      (for-each-row self
         (lambda (row line)
           (enqueue queue row)))
       (queue-list queue)))
   
   
-  (method public (collect-visible-rows)
+  (method public (collect-visible-rows self)
     (let ((queue (new-queue)))
-      (for-each-visible-row
+      (for-each-visible-row self
         (lambda (row line)
           (enqueue queue row)))
       (queue-list queue)))
   
   
-  (method public (descendants-first-row row)
-    (let ((sons (get-sons~ row)))
+  (method public (descendants-first-row self row)
+    (let ((sons (get-sons row)))
       (if (empty? sons)
           #f
         (element sons 0))))
   
   
-  (method public (descendants-last-row row)
-    (let ((sons (get-sons~ row)))
+  (method public (descendants-last-row self row)
+    (let ((sons (get-sons row)))
       (if (empty? sons)
           #f
         (let (descend (row row))
-          (let ((sons (get-sons~ row)))
+          (let ((sons (get-sons row)))
             (if (empty? sons)
                 row
               (descend (last sons))))))))
   
   
-  (method public (previous-row row)
-    (let ((previous (previous-sibling~ row)))
+  (method public (previous-row self row)
+    (let ((previous (previous-sibling row)))
       (if previous
-          (or (descendants-last-row previous) previous)
-        (let ((father (get-father~ row)))
+          (or (descendants-last-row self previous) previous)
+        (let ((father (get-father row)))
           (if (eq? father root-row)
               #f
             father)))))
   
   
-  (method public (next-row row)
-    (if (laden? (get-sons~ row))
-        (descendants-first-row row)
+  (method public (next-row self row)
+    (if (laden? (get-sons row))
+        (descendants-first-row self row)
       (let (ascend (row row))
-        (or (next-sibling~ row)
-            (let ((father (get-father~ row)))
+        (or (next-sibling row)
+            (let ((father (get-father row)))
               (and father (ascend father)))))))
 
   
@@ -818,71 +821,71 @@
   ;;;
   
   
-  (method public virtual (get-content)
-    (get-sons~ root-row))
+  (method public virtual (get-content self)
+    (get-sons root-row))
   
   
-  (method public virtual (set-content content)
-    (remove-every-row)
-    (set-sons~ root-row content)
-    (set-next~ root-row (car content))
-    (invalidate-columns)
-    (set! visible-count (count-visible~ root-row))
-    (set! visible-height (sons-height~ root-row))
-    (set-selection (empty-selection))
-    (update-displayed)
-    (update-visible)
-    (layout-scrollee)
-    (invalidate-view)
-    (update-scrollbars))
+  (method public virtual (set-content self content)
+    (remove-every-row self)
+    (set-sons root-row content)
+    (set-next root-row (car content))
+    (invalidate-columns self)
+    (set! visible-count (count-visible root-row))
+    (set! visible-height (sons-height root-row))
+    (set-selection self (empty-selection self))
+    (update-displayed self)
+    (update-visible self)
+    (layout-scrollee self)
+    (invalidate-view self)
+    (update-scrollbars self))
   
   
-  (method public (set-content-model seq proc)
-    (remove-every-row)
-    (set-subrows root-row seq proc)
-    (invalidate-columns)
-    (set! visible-count (count-visible~ root-row))
-    (set! visible-height (sons-height~ root-row))
-    (set-selection (empty-selection))
-    (update-displayed)
-    (update-visible)
-    (layout-scrollee)
-    (invalidate-view)
-    (update-scrollbars))
+  (method public (set-content-model self seq proc)
+    (remove-every-row self)
+    (set-subrows self root-row seq proc)
+    (invalidate-columns self)
+    (set! visible-count (count-visible root-row))
+    (set! visible-height (sons-height root-row))
+    (set-selection self (empty-selection self))
+    (update-displayed self)
+    (update-visible self)
+    (layout-scrollee self)
+    (invalidate-view self)
+    (update-scrollbars self))
   
   
-  (method public (set-subrows row seq proc)
+  (method public (set-subrows self row seq proc)
     (unless (empty? seq)
       (let* ((row (or row root-row))
              (count 0)
              (height 0)
-             (level (+ (get-level~ row) 1))
+             (level (+ (get-level row) 1))
              (previous #f)
              (rows (map (lambda (info)
                           (let ((subrow (proc info)))
-                            (set-father~ subrow row)
-                            (set-level~ subrow level)
-                            (set-height-noevent~ subrow default-row-height)
+                            (set-father subrow row)
+                            (set-level subrow level)
+                            (set-height-noevent subrow default-row-height)
                             (when previous
-                              (set-previous~ subrow previous)
-                              (set-next~ previous subrow))
+                              (set-previous subrow previous)
+                              (set-next previous subrow))
                             (set! previous subrow)
                             (increase! count)
-                            (increase! height (get-height~ subrow))
+                            (increase! height (get-height subrow))
                             subrow))
                         seq)))
-        (set-sons~ row (and rows (coerce rows Axis)))
-        (when (eq? (get-state~ row) 'expanded)
-          (let ((old-next (get-next~ row))
+        (set-sons row (and rows (coerce rows Axis)))
+        (when (eq? (get-state row) 'expanded)
+          (let ((old-next (get-next row))
                 (first-son (first rows)))
             (link-rows row first-son)
-            (let ((last (last-proper-descendant~ row)))
+            (let ((last (last-proper-descendant row)))
               (link-rows last old-next)))
           (increase! visible-count count)
           (increase! visible-height height)))))
   
   
-  (method public virtual (invalidate-columns)
+  (method public virtual (invalidate-columns self)
     )
 
 
@@ -891,109 +894,109 @@
   ;;;
   
   
-  (method public virtual (expand/collapse row)
-    (case (get-state~ row)
-      ((collapsed) (expand row))
-      ((expanded) (collapse row))))
+  (method public virtual (expand/collapse self row)
+    (case (get-state row)
+      ((collapsed) (expand self row))
+      ((expanded) (collapse self row))))
   
   
-  (method protected virtual (update-row row)
+  (method package virtual (update-row self row)
     )
   
   
-  (method public (expand row (dynamic? #f))
-    (when (neq? (get-state~ row) 'expanded)
-      (set-state~ row 'expanded)
-      (let ((first (first-descendant~ row))
-            (last (last-visible-descendant~ row))
+  (method public (expand self row (dynamic? #f))
+    (when (neq? (get-state row) 'expanded)
+      (set-state row 'expanded)
+      (let ((first (first-descendant row))
+            (last (last-visible-descendant row))
             (previous row)
-            (next (get-next~ row))
+            (next (get-next row))
             (in-expand? #t))
         (when first
-          (show-rows first last previous next (row-visible?~ row) in-expand? dynamic?)))))
+          (show-rows self first last previous next (row-visible? row) in-expand? dynamic?)))))
   
   
-  (method protected virtual (invalidate-expand row top dynamic?)
+  (method protected virtual (invalidate-expand self row top dynamic?)
     )
   
   
-  (method public (expand-all row)
-    (with-update-locked
+  (method public (expand-all self row)
+    (with-update-locked self
       (lambda ()
-        (unless (eq? (get-state~ row) 'expanded)
-          (expand/collapse row))
-        (iterate (get-sons~ row) expand-all))))
+        (unless (eq? (get-state row) 'expanded)
+          (expand/collapse self row))
+        (iterate (get-sons row) (~ expand-all self)))))
   
   
-  (method public (collapse row)
-    (when (neq? (get-state~ row) 'collapsed)
-      (let ((first (first-descendant~ row))
+  (method public (collapse self row)
+    (when (neq? (get-state row) 'collapsed)
+      (let ((first (first-descendant row))
             (in-collapse? #t))
         (if (not first)
-            (set-state~ row 'collapsed)
-          (let ((line (row->line row))
-                (top (get-v~ (get-position~ row))))
-            (let ((selected? (line-selected? line)))
-              (invalidate-collapse line row top selected?)))
-          (hide-rows first (last-proper-descendant~ row) (row-visible?~ row) in-collapse?)))))
+            (set-state row 'collapsed)
+          (let ((line (row->line self row))
+                (top (get-v (get-position row))))
+            (let ((selected? (line-selected? self line)))
+              (invalidate-collapse self line row top selected?)))
+          (hide-rows self first (last-proper-descendant row) (row-visible? row) in-collapse?)))))
   
   
-  (method protected virtual (collapse-selection line selected?)
+  (method protected virtual (collapse-selection self line selected?)
     )
   
   
-  (method protected virtual (invalidate-collapse line row top selected?)
+  (method protected virtual (invalidate-collapse self line row top selected?)
     (when selected?
-      (invalidate-rect (line-rect line))))
+      (invalidate-rect self (line-rect self line))))
   
   
-  (method public (collapse-all row)
-    (with-update-locked
+  (method public (collapse-all self row)
+    (with-update-locked self
       (lambda ()
-        (iterate (get-sons~ row) collapse-all)
-        (when (eq? (get-state~ row) 'expanded)
-          (expand/collapse row)))))
+        (iterate (get-sons row) (~ collapse-all self))
+        (when (eq? (get-state row) 'expanded)
+          (expand/collapse self row)))))
   
   
-  (method public (collapse-all-deep)
-    (with-update-locked
+  (method public (collapse-all-deep self)
+    (with-update-locked self
       (lambda ()
         (define (collapse-sons row)
-          (iterate (get-sons~ row) collapse))
+          (iterate (get-sons row) collapse))
         
         (define (collapse row)
-          (when (eq? (get-state~ row) 'expanded)
+          (when (eq? (get-state row) 'expanded)
             (collapse-sons row)
-            (expand/collapse row)))
+            (expand/collapse self row)))
         
         (collapse-sons root-row))))
   
   
   (definition (link-rows before after)
     (when before
-      (set-next~ before after))
+      (set-next before after))
     (when after
-      (set-previous~ after before)))
+      (set-previous after before)))
   
   
   (definition (unlink-rows first last)
-    (let ((previous (get-previous~ first))
-          (next (get-next~ last)))
+    (let ((previous (get-previous first))
+          (next (get-next last)))
       (link-rows previous next)
-      (set-previous~ first #f)
-      (set-next~ last #f)))
+      (set-previous first #f)
+      (set-next last #f)))
   
   
-  (method public (ensure-expanded row)
-    (let ((scan (get-father~ row)))
+  (method public (ensure-expanded self row)
+    (let ((scan (get-father row)))
       (while scan
-        (when (eq? (get-state~ scan) 'collapsed)
-          (expand scan))
-        (set! scan (get-father~ scan)))))
+        (when (eq? (get-state scan) 'collapsed)
+          (expand self scan))
+        (set! scan (get-father scan)))))
   
   
-  (method public (ensure-expanded-rows rows)
-    (for-each ensure-expanded rows))
+  (method public (ensure-expanded-rows self rows)
+    (for-each (~ ensure-expanded self) rows))
 
 
   ;;;
@@ -1002,9 +1005,9 @@
   
   
   ;; this will currently only work with flat outlines
-  (method public (set-visibilities predicate)
+  (method public (set-visibilities self predicate)
     (let ((previous root-row))
-      (iterate (get-sons~ root-row)
+      (iterate (get-sons root-row)
                (lambda (row)
                  (let ((visible? (predicate row)))
                    (when visible?
@@ -1012,78 +1015,78 @@
                      (set! previous row)))))))
   
   
-  (method package (show-rows first last previous next visible? in-expand? dynamic?)
+  (method package (show-rows self first last previous next visible? in-expand? dynamic?)
     (link-rows previous first)
     (link-rows last next)
     (when (and (not update-locked?) visible?)
-      (receive (count height width) (count-visible-size first last #t)
+      (receive (count height width) (count-visible-size self first last #t)
         (increase! visible-count count)
         (increase! visible-height height)
-        (update-visible-width-incremental (get-level~ previous) width)
-        (update-displayed)
-        (update-visible)
-        (let* ((line (or (row->line previous) -1))
-               (top (or (get-v~ (get-position~ previous)) 0))
-               (opens (+ top (get-height~ previous)))
-               (display (get-display))
-               (display-size (get-size~ display))
-               (display-width (get-width~ display-size))
-               (display-height (get-height~ display-size)))
-          (added-update-selection (+ line 1) count)
-          (invalidate-view)
+        (update-visible-width-incremental self (get-level previous) width)
+        (update-displayed self)
+        (update-visible self)
+        (let* ((line (or (row->line self previous) -1))
+               (top (or (get-v (get-position previous)) 0))
+               (opens (+ top (get-height previous)))
+               (display (get-display self))
+               (display-size (get-size display))
+               (display-width (get-width display-size))
+               (display-height (get-height display-size)))
+          (added-update-selection self (+ line 1) count)
+          (invalidate-view self)
           @buggy
           (when (< (+ top (get-scrolled-v)) display-height)
             (when in-expand?
               (invalidate-expand previous top dynamic?))
-            (scroll-view~ display (new Distance 0 height) (new Rect 0 opens display-width display-height)))
-          (layout-scrollee)
+            (scroll-view display (new Distance 0 height) (new Rect 0 opens display-width display-height)))
+          (layout-scrollee self)
           (when (> count 0)
-            (ensure-row-range-displayed (+ line 1) (+ line count)))))))
+            (ensure-row-range-displayed self (+ line 1) (+ line count)))))))
   
   
-  (method package (hide-rows first last visible? in-collapse?)
-    (receive (count height width) (count-visible-size first last visible?)
+  (method package (hide-rows self first last visible? in-collapse?)
+    (receive (count height width) (count-visible-size self first last visible?)
       (when visible?
         (decrease! visible-count count)
         (decrease! visible-height height))
-      (let ((previous (get-previous~ first)))
+      (let ((previous (get-previous first)))
         (unlink-rows first last)
         (when (and previous in-collapse?)
-          (set-state~ previous 'collapsed))
+          (set-state previous 'collapsed))
         (when (and (not update-locked?) visible?)
-          (update-displayed)
-          (update-visible)
-          (let* ((line (or (row->line previous) -1))
-                 (top (or (get-v~ (get-position~ previous)) 0))
-                 (opens (+ top (get-height~ first)))
-                 (removed (removed-update-selection (+ line 1) count))
-                 (display (get-display))
-                 (display-size (get-size~ display))
-                 (display-width (get-width~ display-size))
-                 (display-height (get-height~ display-size)))
+          (update-displayed self)
+          (update-visible self)
+          (let* ((line (or (row->line self previous) -1))
+                 (top (or (get-v (get-position previous)) 0))
+                 (opens (+ top (get-height first)))
+                 (removed (removed-update-selection self (+ line 1) count))
+                 (display (get-display self))
+                 (display-size (get-size display))
+                 (display-width (get-width display-size))
+                 (display-height (get-height display-size)))
             (when (and previous in-collapse?)
-              (collapse-selection line removed))
-            (invalidate-view)
+              (collapse-selection self line removed))
+            (invalidate-view self)
             @buggy
             (when (< top display-height)
               (invalidate-collapse line first top removed)
-              (scroll-view~ display (new Distance 0 (- height)) (new Rect 0 (+ opens height) display-width (+ display-height height)))))
-          (layout-scrollee)))))
+              (scroll-view display (new Distance 0 (- height)) (new Rect 0 (+ opens height) display-width (+ display-height height)))))
+          (layout-scrollee self)))))
   
   
-  (method public (count-visible-size first last visible?)
+  (method public (count-visible-size self first last visible?)
     (let ((scan (and visible? first))
-          (stop (and last (get-next~ last)))
+          (stop (and last (get-next last)))
           (count 0)
           (height 0)
           (width 0))
       (while (and scan (neq? scan stop))
         (increase! count)
-        (increase! height (+ (get-effective-height~ scan) row-spacing))
-        (let ((w (get-effective-width~ scan)))
+        (increase! height (+ (get-effective-height scan) row-spacing))
+        (let ((w (get-effective-width scan)))
           (when (and w (> w width))
             (set! width w)))
-        (set! scan (get-next~ scan)))
+        (set! scan (get-next scan)))
       (values count height width)))
   
   
@@ -1092,33 +1095,33 @@
   ;;;
   
   
-  (method (follow v)
-    (follow~ outline (get-scrolled-distance-v) v))
+  (method package (follow self v)
+    (follow outline (get-scrolled-distance-v self) v))
 
 
-  (method public virtual (ensure-displayed . rest)
+  (method public virtual (ensure-displayed self . rest)
     (when (not-null? selection)
-      (ensure-row-displayed selection)))
+      (ensure-row-displayed self selection)))
   
   
-  (method public (ensure-row-displayed line)
-    (let* ((row (get-row line))
-           (top (get-top~ row))
-           (bottom (get-bottom~ row)))
-      (scroll (scroll-needed (new Point 0 top) (new Point 0 bottom) (get-scroll-context)))))
+  (method public (ensure-row-displayed self line)
+    (let* ((row (get-row self line))
+           (top (get-top row))
+           (bottom (get-bottom row)))
+      (scroll self (scroll-needed self (new Point 0 top) (new Point 0 bottom) (get-scroll-context self)))))
   
   
-  (method public (ensure-row-range-displayed from to)
-    (let ((top (get-top~ (get-row from)))
-          (bottom (get-bottom~ (get-row to))))
-      (scroll (scroll-needed (new Point 0 top) (new Point 0 bottom) (get-scroll-context)))))
+  (method public (ensure-row-range-displayed self from to)
+    (let ((top (get-top (get-row self from)))
+          (bottom (get-bottom (get-row self to))))
+      (scroll self (scroll-needed self (new Point 0 top) (new Point 0 bottom) (get-scroll-context self)))))
   
   
-  (method public (ensure-at-end)
-    (ensure-row-displayed (- visible-count 1)))
+  (method public (ensure-at-end self)
+    (ensure-row-displayed self (- visible-count 1)))
   
   
-  (method protected virtual (get-scroll-context)
+  (method protected virtual (get-scroll-context self)
     (cons 0.15 0.20))
   
 
@@ -1129,41 +1132,41 @@
   
   ;; This method gets called before the row is laid out.
   ;; This is why it cannot simply get the position of the row...
-  (method protected (row-top line)
-    (let ((row (first-visible-row))
+  (method protected (row-top self line)
+    (let ((row (first-visible-row self))
           (v 0))
       (while (> line 0)
         (decrease! line)
-        (increase! v (get-height~ row))
+        (increase! v (get-height row))
         (increase! v row-spacing)
-        (set! row (get-next~ row)))
+        (set! row (get-next row)))
       v))
   
   
-  (method protected virtual (line-rect line)
-    (let ((row   (get-row line))
+  (method protected virtual (line-rect self line)
+    (let ((row   (get-row self line))
           (left  0)
-          (top   (row-top line))
-          (right (get-width)))
-      (new Rect left top right (+ top (get-height~ row)))))
+          (top   (row-top self line))
+          (right (get-width self)))
+      (new Rect left top right (+ top (get-height row)))))
   
   
-  (method (row-region line)
-    (new Region rect: (get-bounds~ (get-row line))))
+  (method (row-region self line)
+    (new Region rect: (get-bounds (get-row self line))))
   
   
-  (method protected (line->v l)
-    (get-top~ (get-row l)))
+  (method protected (line->v self l)
+    (get-top (get-row self l)))
 
 
-  (method protected (v->line v)
-    (call-with-v->line v
+  (method package (v->line self v)
+    (call-with-v->line self v
       (lambda (line v height)
         line)))
 
 
-  (method protected (call-with-v->line v proc)
-    (call-with-v->line~ outline v (get-scrolled-v)
+  (method package (call-with-v->line self v proc)
+    (call-with-v->line outline v (get-scrolled-v self)
       proc))
   
   
@@ -1172,5 +1175,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.outline.descriptors:Outline-View-Old-Descriptor))))

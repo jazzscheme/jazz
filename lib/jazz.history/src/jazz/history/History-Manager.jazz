@@ -38,7 +38,8 @@
 (module protected jazz.history.History-Manager jazz
 
 
-(import (jazz.feedback))
+(import (jazz.feedback)
+        (jazz.history))
 
 
 (class undocumented History-Manager extends Object
@@ -50,11 +51,11 @@
   (slot max-history      initialize #f)
   
   
-  (method override (initialize provider . rest)
+  (method override (initialize self provider . rest)
     (bind-keywords ((max-history #f)) rest
-      (nextmethod)
+      (nextmethod self)
       (set! history-provider provider)
-      (set! max-history~self max-history)))
+      (set! self.max-history max-history)))
 
   
   ;;;
@@ -62,11 +63,11 @@
   ;;;
   
   
-  (method public (get-backward-history)
+  (method public (get-backward-history self)
     (cleanup-history backward-history))
   
   
-  (method public (get-forward-history)
+  (method public (get-forward-history self)
     (cleanup-history forward-history))
 
   
@@ -75,39 +76,39 @@
   ;;;
   
   
-  (method public (add-current)
-    (let ((item (current-history-item~ history-provider)))
+  (method public (add-current self)
+    (let ((item (current-history-item history-provider)))
       (if (not item)
           (bell)
-        (add-history item)
-        (user-message "Added {a} to history" (present~ item)))))
+        (add-history self item)
+        (user-message "Added {a} to history" (present item)))))
   
   
-  (method public (add-history item)
+  (method public (add-history self item)
     (when item
-      (add-backward-history item)
+      (add-backward-history self item)
       (when (and max-history (> (length backward-history) max-history))
         (set-cdr! (tail backward-history (- max-history 1)) '()))
       (set! forward-history '())
-      (update-history-actions~ history-provider)))
+      (update-history-actions history-provider)))
   
   
-  (method (add-backward-history item)
+  (method (add-backward-history self item)
     (when item
       (set! backward-history (cons item backward-history))))
   
   
-  (method (add-forward-history item)
+  (method (add-forward-history self item)
     (when item
       (set! forward-history (cons item forward-history))))
   
   
-  (method (append-forward-history item)
+  (method package (append-forward-history self item)
     (when item
       (set! forward-history (append forward-history (list item)))))
   
   
-  (method public (go-backward-history (rank: rank 0))
+  (method public (go-backward-history self (rank: rank 0))
     (define (cleanup-backward-history)
       (set! backward-history (cleanup-history backward-history)))
     
@@ -116,18 +117,18 @@
         (begin
           (bell)
           #f)
-      (let ((item (current-history-item~ history-provider)))
+      (let ((item (current-history-item history-provider)))
         (while (>= rank 0)
-          (add-forward-history item)
+          (add-forward-history self item)
           (set! item (car backward-history))
           (set! backward-history (cdr backward-history))
           (decrease! rank))
-        (open-item~ item)
-        (update-history-actions~ history-provider)
+        (open-item item)
+        (update-history-actions history-provider)
         item)))
   
   
-  (method public (go-forward-history (rank: rank 0))
+  (method public (go-forward-history self (rank: rank 0))
     (define (cleanup-forward-history)
       (set! forward-history (cleanup-history forward-history)))
     
@@ -136,16 +137,16 @@
         (begin
           (bell)
           #f)
-      (let ((item (current-history-item~ history-provider)))
+      (let ((item (current-history-item history-provider)))
         (while (>= rank 0)
-          (add-backward-history item)
+          (add-backward-history self item)
           (set! item (car forward-history))
           (set! forward-history (cdr forward-history))
           (decrease! rank))
-        (open-item~ item)
-        (update-history-actions~ history-provider)
+        (open-item item)
+        (update-history-actions history-provider)
         item)))
   
   
   (definition (cleanup-history history)
-    (collect-if valid?~ history))))
+    (collect-if valid? history))))

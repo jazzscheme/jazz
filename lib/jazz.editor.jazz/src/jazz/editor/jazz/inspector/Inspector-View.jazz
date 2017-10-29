@@ -39,6 +39,7 @@
 
 
 (import (jazz.application)
+        (jazz.event)
         (jazz.editor.jazz)
         (jazz.graphic)
         (jazz.handler)
@@ -87,14 +88,14 @@
                 (<!>                name: value        width: 261))))))))
   
   
-  (method override (install rest)
+  (method override (install self rest)
     (define (setup-ordering)
-      (let ((ordering (get-ordering~ (get-preferences 'inspector))))
+      (let ((ordering (get-ordering (current-preferences 'inspector))))
         (when ordering
-          (set-selected?~ (locate 'ordering) (eq? ordering 'natural))
-          (update-ordering))))
+          (set-selected? (locate self 'ordering) (eq? ordering 'natural))
+          (update-ordering self))))
     
-    (nextmethod rest)
+    (nextmethod self rest)
     (setup-ordering))
   
   
@@ -103,17 +104,17 @@
   ;;;
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Inspector")
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 446 641})
   
   
-  (method override (install-in-host host)
-    (nextmethod host)
-    (update-title))
+  (method override (install-in-host self host)
+    (nextmethod self host)
+    (update-title self))
   
   
   ;;;
@@ -121,12 +122,12 @@
   ;;;
   
   
-  (method override (filter filter-search)
-    (set-filter~ (get-inspector) filter-search))
+  (method override (filter self filter-search)
+    (set-filter (get-inspector self) filter-search))
   
   
-  (method (get-filter-text)
-    (locate 'filter-text))
+  (method (get-filter-text self)
+    (locate self 'filter-text))
 
   
   ;;;
@@ -134,19 +135,19 @@
   ;;;
   
   
-  (method override (current-history-item)
-    (new History-Inspector-Item (get-client)))
+  (method override (current-history-item self)
+    (new History-Inspector-Item (get-client self)))
   
   
-  (method override (update-history-actions)
+  (method override (update-history-actions self)
     )
   
   
-  (method (add-to-history)
-    (add-history~ history-manager (new History-Inspector-Item (get-client))))
+  (method (add-to-history self)
+    (add-history history-manager (new History-Inspector-Item (get-client self))))
   
   
-  (method (reset-history)
+  (method (reset-history self)
     (set! history-manager (new History-Manager self)))
   
   
@@ -155,31 +156,31 @@
   ;;;
   
   
-  (method public (get-inspector)
-    (locate 'inspector))
+  (method public (get-inspector self)
+    (locate self 'inspector))
   
   
-  (method public (get-process)
-    (get-process~ (get-inspector)))
+  (method public (get-process self)
+    (get-process (get-inspector self)))
   
   
-  (method public (set-process process)
-    (set-process~ (get-inspector) process))
+  (method public (set-process self process)
+    (set-process (get-inspector self) process))
   
   
-  (method public (get-client)
-    (get-client~ (get-inspector)))
+  (method public (get-client self)
+    (get-client (get-inspector self)))
   
   
-  (method public (set-client client)
-    (reset-history)
-    (change-client client))
+  (method public (set-client self client)
+    (reset-history self)
+    (change-client self client))
   
   
-  (method public (change-client client (force?: force? #f))
-    (set-client~ (get-inspector) client force?: force?)
-    (update-title)
-    (update-history))
+  (method public (change-client self client (force?: force? #f))
+    (set-client (get-inspector self) client force?: force?)
+    (update-title self)
+    (update-history self))
   
   
   ;;;
@@ -187,41 +188,41 @@
   ;;;
   
   
-  (method (on-backward evt)
-    (let ((item (go-backward-history~ history-manager)))
+  (method package (on-backward self evt)
+    (let ((item (go-backward-history history-manager)))
       (when item
-        (change-client (get-client~ item)))))
+        (change-client self (get-client item)))))
   
   
-  (method (on-forward evt)
-    (let ((item (go-forward-history~ history-manager)))
+  (method package (on-forward self evt)
+    (let ((item (go-forward-history history-manager)))
       (when item
-        (change-client (get-client~ item)))))
+        (change-client self (get-client item)))))
   
   
-  (method (on-filter-text-change evt)
-    (filter-target~ (get-filter-text)))
+  (method (on-filter-text-change self evt)
+    (filter-target (get-filter-text self)))
   
   
-  (method (on-natural-order evt)
-    (update-ordering)
-    (change-client (get-client) force?: #t))
+  (method (on-natural-order self evt)
+    (update-ordering self)
+    (change-client self (get-client self) force?: #t))
   
   
-  (method (on-drill-down evt)
-    (let ((tree (get-sender~ evt)))
-      (let ((info (get-single-selected-data~ tree)))
+  (method (on-drill-down self evt)
+    (let ((tree (get-sender evt)))
+      (let ((info (get-single-selected-data tree)))
         (cond ((symbol? info)
-               (edit-definitions~ (get-application) info))
+               (edit-definitions (get-application) info))
               ((pair? info)
                (bind (key . value) info
                  (let ((name (second key)))
                    (if (not name)
                        (with-cursor :wait
                          (lambda ()
-                           (retrieve-all~ (get-inspector))))
-                     (add-to-history)
-                     (change-client (cons value :remote))))))
+                           (retrieve-all (get-inspector self))))
+                     (add-to-history self)
+                     (change-client self (cons value :remote))))))
               (else
                (bell))))))
     
@@ -231,9 +232,9 @@
   ;;;
 
   
-  (method (update-ordering)
-    (let ((natural? (get-selected?~ (locate 'ordering))))
-      (set-ordering~ (get-inspector)
+  (method (update-ordering self)
+    (let ((natural? (get-selected? (locate self 'ordering))))
+      (set-ordering (get-inspector self)
         (if natural?
             'natural
           'alphabetic))))
@@ -244,9 +245,9 @@
   ;;;
   
   
-  (method (update-title)
+  (method package (update-title self)
     (define (get-presentation)
-      (let ((client (get-client)))
+      (let ((client (get-client self)))
         (when client
           (bind (data . kind) client
             (if (eq? :remote kind)
@@ -254,17 +255,17 @@
                   (format :string "{a} #{a}" (reference-name class) serial))
               "Frame")))))
     
-    (let ((host (get-host)))
+    (let ((host (get-host self)))
       (when host
         (let ((title (format "Inspector{? - {a}~}" (get-presentation))))
-          (set-title~ host title)))))
+          (set-title host title)))))
   
   
-  (method (update-history)
-    (let ((backward (get-backward-history~ history-manager))
-          (forward (get-forward-history~ history-manager)))
-      (set-enabled?~ (locate 'backward) (not-null? backward))
-      (set-enabled?~ (locate 'forward) (not-null? forward)))))
+  (method (update-history self)
+    (let ((backward (get-backward-history history-manager))
+          (forward (get-forward-history history-manager)))
+      (set-enabled? (locate self 'backward) (not-null? backward))
+      (set-enabled? (locate self 'forward) (not-null? forward)))))
 
 
 ;;;
@@ -278,12 +279,12 @@
   (slot client getter generate)
   
   
-  (method override (initialize client)
-    (nextmethod)
-    (set! client~self client))
+  (method override (initialize self client)
+    (nextmethod self)
+    (set! self.client client))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{s}" client))))))

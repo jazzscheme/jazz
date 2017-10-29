@@ -43,6 +43,7 @@
         (jazz.catalog)
         (jazz.catalog.edit)
         (jazz.editor)
+        (jazz.editor.lisp)
         (jazz.event)
         (jazz.feedback)
         (jazz.handler)
@@ -62,23 +63,23 @@
   (slot matching-highlights initialize '())
   
   
-  (method override (new-model)
+  (method override (new-model self)
     (new Text-Model base-style: {Text-Style Code-Base} left-padding: 12))
   
   
-  (method override (new-syntax)
+  (method override (new-syntax self)
     (new Code-Syntax model))
   
   
-  (method override (preferences)
+  (method override (preferences self)
     (new Code-Text-Preferences))
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    (let ((pref (preferences)))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (let ((pref (preferences self)))
       (when pref
-        (add-style 'Match (get-match-style~ pref)))))
+        (add-style self 'Match (get-match-style pref)))))
 
   
   ;;;
@@ -86,7 +87,7 @@
   ;;;
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(text debugger test reference emacs empty live))
   
   
@@ -95,33 +96,33 @@
   ;;;
   
   
-  (method override (tab-press evt)
-    (if (or (has-completion?)
+  (method override (tab-press self evt)
+    (if (or (has-completion? self)
             (not accepts-returns?))
-        (nextmethod evt)
-      (if (or (empty-selection?) (= (get-line~ (get-start)) (get-line~ (get-end))))
-          (insert-char #\tab)
-        (tabulate))))
+        (nextmethod self evt)
+      (if (or (empty-selection? self) (= (get-line (get-start self)) (get-line (get-end self))))
+          (insert-char self #\tab)
+        (tabulate self))))
 
 
-  (method override (char-press key)
-    (nextmethod key)
+  (method override (char-press self key)
+    (nextmethod self key)
     (when (eqv? key #\space)
-      (show-arguments)))
+      (show-arguments self)))
 
 
-  (method override (context-menu evt)
-    (let ((pos (get-position~ evt)))
-      (receive (shift? control? alt? meta?) (get-down~ evt)
+  (method override (context-menu self evt)
+    (let ((pos (get-position evt)))
+      (receive (shift? control? alt? meta?) (get-down evt)
         (let ((move-caret
                 (cond ((and (not control?) (not shift?) (not alt?)) 'outside-selection)
                       ((and (not control?) shift? (not alt?)) 'never)
                       ((and control? shift? (not alt?)) 'never)
                       (else 'always))))
-          (context-menu-click pos move-caret: move-caret))
-        (cond ((and (not control?) shift? (not alt?)) (edit-definitions pos))
-              ((and control? shift? (not alt?)) (edit-references pos))
-              (else (track-popup-menu (get-context-menu) pos))))))
+          (context-menu-click self pos move-caret: move-caret))
+        (cond ((and (not control?) shift? (not alt?)) (edit-definitions self pos))
+              ((and control? shift? (not alt?)) (edit-references self pos))
+              (else (track-popup-menu self (get-context-menu self) pos))))))
 
   
   ;;;
@@ -129,9 +130,9 @@
   ;;;
   
   
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'code-text)
-          (nextmethod)))
+          (nextmethod self)))
   
   
   ;;;
@@ -139,16 +140,16 @@
   ;;;
   
   
-  (method (on-find-imports evt)
-    (let ((expr (current-expr)))
+  (method (on-find-imports self evt)
+    (let ((expr (current-expr self)))
       (if (symbol? expr)
           (with-cursor :wait
             (lambda ()
-              (find-imports~ (get-syntax) expr)))
+              (find-imports (get-syntax self) expr)))
         (message-box "Please select the symbol that will be searched for imports"))))
   
   
-  (method (on-find-all-imports evt)
+  (method (on-find-all-imports self evt)
     )
 
   
@@ -157,95 +158,95 @@
   ;;;
   
   
-  (method override (backward-compound (extend?: extend? #f))
-    (backward-expr extend?: extend?))
+  (method override (backward-compound self (extend?: extend? #f))
+    (backward-expr self extend?: extend?))
   
   
-  (method override (forward-compound (extend?: extend? #f))
-    (forward-expr extend?: extend?))
+  (method override (forward-compound self (extend?: extend? #f))
+    (forward-expr self extend?: extend?))
   
   
-  (method override (upward-compound)
-    (exit-composite))
+  (method override (upward-compound self)
+    (exit-composite self))
   
   
-  (method override (downward-compound)
-    (enter-composite))
+  (method override (downward-compound self)
+    (enter-composite self))
   
   
-  (method package (on-backward-composite evt)
-    (backward-expr))
+  (method package (on-backward-composite self evt)
+    (backward-expr self))
   
   
-  (method package (on-forward-composite evt)
-    (forward-expr))
+  (method package (on-forward-composite self evt)
+    (forward-expr self))
   
   
-  (method package (on-backward-outline evt)
-    (let ((extend? (get-property~ evt extend?:))
-          (expl <Text-Explorer> (new (explorer-class) model end: (get-start))))
-      (when (backward-expr~ expl)
+  (method package (on-backward-outline self evt)
+    (let ((extend? (get-property evt extend?:))
+          (expl <Text-Explorer> (new (explorer-class self) model end: (get-start self))))
+      (when (backward-expr expl)
         (if extend?
-            (change-selection (get-start~ expl))
-          (set-selection (get-range~ expl))))))
+            (change-selection self (get-start expl))
+          (set-selection self (get-range expl))))))
   
   
-  (method package (on-forward-outline evt)
-    (let ((extend? (get-property~ evt extend?:))
-          (expl <Text-Explorer> (new (explorer-class) model end: (get-end))))
-      (when (forward-expr~ expl)
+  (method package (on-forward-outline self evt)
+    (let ((extend? (get-property evt extend?:))
+          (expl <Text-Explorer> (new (explorer-class self) model end: (get-end self))))
+      (when (forward-expr expl)
         (if extend?
-            (change-selection (get-end~ expl))
-          (set-selection (get-range~ expl))))))
+            (change-selection self (get-end expl))
+          (set-selection self (get-range expl))))))
   
   
-  (method package (on-enter-composite evt)
-    (enter-composite))
+  (method package (on-enter-composite self evt)
+    (enter-composite self))
   
   
-  (method package (on-exit-composite evt)
-    (exit-composite))
+  (method package (on-exit-composite self evt)
+    (exit-composite self))
   
   
-  (method protected virtual (backward-expr (extend?: extend? locked-anchor?))
-    (let ((expl <Text-Explorer> (new (explorer-class) model start: (get-start))))
-      (when (backward-expr~ expl)
+  (method package virtual (backward-expr self (extend?: extend? locked-anchor?))
+    (let ((expl <Text-Explorer> (new (explorer-class self) model start: (get-start self))))
+      (when (backward-expr expl)
         (if extend?
-            (change-selection (get-start~ expl))
-          (set-caret (get-start~ expl))))))
+            (change-selection self (get-start expl))
+          (set-caret self (get-start expl))))))
 
 
-  (method protected virtual (forward-expr (extend?: extend? locked-anchor?))
-    (let ((expl <Text-Explorer> (new (explorer-class) model end: (get-end))))
-      (when (forward-expr~ expl)
+  (method package virtual (forward-expr self (extend?: extend? locked-anchor?))
+    (let ((expl <Text-Explorer> (new (explorer-class self) model end: (get-end self))))
+      (when (forward-expr expl)
         (if extend?
-            (change-selection (get-end~ expl))
-          (set-caret (get-end~ expl))))))
+            (change-selection self (get-end expl))
+          (set-caret self (get-end expl))))))
   
   
-  (method protected virtual (enter-composite)
-    (let ((expl <Text-Explorer> (new (explorer-class) model start: (get-start) end: (get-end))))
-      (when (enter-composite~ expl)
-        (set-caret (get-end~ expl)))))
+  (method package virtual (enter-composite self)
+    (let ((expl <Text-Explorer> (new (explorer-class self) model start: (get-start self) end: (get-end self))))
+      (when (enter-composite expl)
+        (set-caret self (get-end expl)))))
   
   
-  (method protected virtual (exit-composite)
-    (let ((expl <Text-Explorer> (new (explorer-class) model start: (get-end) end: (get-end))))
-      (when (exit-list~ expl)
-        (set-caret (get-end~ expl)))))
+  (method package virtual (exit-composite self)
+    (let ((expl <Text-Explorer> (new (explorer-class self) model start: (get-end self) end: (get-end self))))
+      (when (exit-list expl)
+        (set-caret self (get-end expl)))))
   
   
-  (method override (move-caret pos direction shift?)
-    (nextmethod pos direction shift?)
-    (end-completion))
+  (method override (move-caret self pos direction shift?)
+    (nextmethod self pos direction shift?)
+    (end-completion self))
   
   
-  (method (on-transpose-expr evt)
-    (transpose-expr))
+  (method (on-transpose-expr self evt)
+    (transpose-expr self))
   
   
-  (method public (transpose-expr)
-    (transpose-movements forward-expr~ backward-expr~))
+  (method public (transpose-expr self)
+    (transpose-movements self forward-expr backward-expr))
 
   
   ;;;
@@ -253,43 +254,43 @@
   ;;;
   
   
-  (method protected virtual (get-context)
+  (method package virtual (get-context self)
     #f)
   
   
-  (method protected virtual (edition-workspace)
+  (method protected virtual (edition-workspace self)
     #f)
 
   
-  (method (on-edit-definitions evt)
-    (let ((form (current-expr))
+  (method (on-edit-definitions self evt)
+    (let ((form (current-expr self))
           (appl (get-application)))
       (when form
-        (cond ((and (supports-expr?~ syntax) (string? form))
-               (edit-file~ appl (new File (tokenise-filename form))))
+        (cond ((and (supports-expr? syntax) (string? form))
+               (edit-file appl (new File (tokenise-filename form))))
               ((file? form)
-               (edit-file~ appl form workspace: (edition-workspace)))
+               (edit-file appl form workspace: (edition-workspace self)))
               (else
-               (let ((item (current-history-item)))
-                 (if (and (has-effective-selection?) (composite-reference? form))
+               (let ((item (current-history-item self)))
+                 (if (and (has-effective-selection? self) (composite-reference? form))
                      (edit-composite-reference appl item form)
-                   (let ((target (standardize-form form #t)))
+                   (let ((target (standardize-form self form #t)))
                      (if (not target)
                          (bell)
-                       (edit-definitions~ appl target workspace: (edition-workspace) context: (get-context) history-item: item))))))))))
+                       (edit-definitions appl target workspace: (edition-workspace self) context: (get-context self) history-item: item))))))))))
 
   
-  (method (on-edit-references evt)
-    (let ((form (current-expr))
+  (method (on-edit-references self evt)
+    (let ((form (current-expr self))
           (appl (get-application)))
       (when form
-        (let ((target (standardize-form form (empty-effective-selection?))))
+        (let ((target (standardize-form self form (empty-effective-selection? self))))
           (if (not target)
               (bell)
-            (edit-references~ appl target context: (get-context) history-item: (current-history-item)))))))
+            (edit-references appl target context: (get-context self) history-item: (current-history-item self)))))))
   
   
-  (method protected (standardize-form form extract?)
+  (method package (standardize-form self form extract?)
     (let ((target (cond ((string? form) form)
                         ((symbol? form) (symbol->string form))
                         ((keyword? form) (string-append (keyword->string form) ":"))
@@ -302,54 +303,54 @@
               (else target)))))
     
   
-  (method protected virtual (edit-symbol-class symbol)
+  (method protected virtual (edit-symbol-class self symbol)
     #f)
 
 
-  (method protected (edit-definitions pos)
-    (let ((form (expr-at (view->text pos))))
+  (method package (edit-definitions self pos)
+    (let ((form (expr-at self (view->text self pos))))
       (when form
-        (cond ((and (supports-expr?~ syntax) (string? form))
-               (edit-file~ (get-application) (new File (tokenise-filename form))))
+        (cond ((and (supports-expr? syntax) (string? form))
+               (edit-file (get-application) (new File (tokenise-filename form))))
               ((file? form)
-               (edit-file~ (get-application) form workspace: (edition-workspace)))
+               (edit-file (get-application) form workspace: (edition-workspace self)))
               (else
                (let ((appl (get-application))
                      (cataloguer (get-cataloguer)))
                  (when cataloguer
-                   (let ((item (current-history-item))
-                         (target (standardize-form form #t)))
+                   (let ((item (current-history-item self))
+                         (target (standardize-form self form #t)))
                      (if (not target)
                          (bell)
-                       (let ((definitions (get-coalesced-definitions~ cataloguer target context: (get-context))))
+                       (let ((definitions (get-coalesced-definitions cataloguer target context: (get-context self))))
                          (case (length definitions)
                            ((0) (bell))
-                           ((1) (add-history~ appl item) (edit-entry (car definitions)))
-                           (else (track-popup-menu (new Definitions-Menu definitions: definitions history-item: item) pos)))))))))))))
+                           ((1) (add-history appl item) (edit-entry (car definitions)))
+                           (else (track-popup-menu self (new Definitions-Menu definitions: definitions history-item: item) pos)))))))))))))
 
 
-  (method protected (edit-references pos)
-    (let ((form (expr-at (view->text pos))))
+  (method package (edit-references self pos)
+    (let ((form (expr-at self (view->text self pos))))
       (when form
         (let ((appl (get-application))
               (cataloguer (get-cataloguer)))
           (when cataloguer
-            (let ((item (current-history-item))
-                  (target (standardize-form form #t)))
+            (let ((item (current-history-item self))
+                  (target (standardize-form self form #t)))
               (if (not target)
                   (bell)
-                (let ((references (get-references~ cataloguer target context: (get-context))))
+                (let ((references (get-references cataloguer target context: (get-context self))))
                   (case (length references)
                     ((0) (bell))
-                    ((1) (add-history~ appl item) (edit-textual-reference (car references) target))
-                    (else (track-popup-menu (new References-Menu target: target definitions: references history-item: item) pos)))))))))))
+                    ((1) (add-history appl item) (edit-textual-reference (car references) target))
+                    (else (track-popup-menu self (new References-Menu target: target definitions: references history-item: item) pos)))))))))))
   
   
   (definition (edit-composite-reference appl item form)
     (let ((entry (locator->entry form)))
       (if (not entry)
           (bell)
-        (add-history~ appl item)
+        (add-history appl item)
         (edit-entry entry))))
 
   
@@ -358,11 +359,11 @@
   ;;;
   
   
-  (method override (current-history-item)
-    (let ((selection (get-selection))
-          (moniker (get-moniker)))
+  (method override (current-history-item self)
+    (let ((selection (get-selection self))
+          (moniker (get-moniker self)))
       (if (not moniker)
-          (let ((frame (get-frame)))
+          (let ((frame (get-frame self)))
             (and frame
                  (new History-Document-Item frame selection)))
         (new History-File-Item moniker selection))))
@@ -373,9 +374,9 @@
   ;;;
   
   
-  (method override (save-content moniker)
-    (nextmethod moniker)
-    (update-catalog))
+  (method override (save-content self moniker)
+    (nextmethod self moniker)
+    (update-catalog self))
 
   
   ;;;
@@ -383,24 +384,24 @@
   ;;;
   
   
-  (method (update-catalog)
-    (let ((moniker (get-moniker)))
+  (method (update-catalog self)
+    (let ((moniker (get-moniker self)))
       (when moniker
-        (let ((catalog (find-catalog)))
+        (let ((catalog (find-catalog self)))
           (when catalog
             (post-catalog
               (lambda ()
-                (update-file~ catalog moniker))))))))
+                (update-file catalog moniker))))))))
   
   
-  (method (find-catalog)
-    (let ((moniker (get-moniker)))
+  (method (find-catalog self)
+    (let ((moniker (get-moniker self)))
       (and moniker
            (let ((cataloguer (get-cataloguer)))
              (and cataloguer
                   (let ((file-entry (cache-file-entry moniker)))
                     (and file-entry
-                         (get-catalog~ file-entry))))))))
+                         (get-catalog file-entry))))))))
 
   
   ;;;
@@ -408,23 +409,23 @@
   ;;;
   
   
-  (method (on-analyse evt)
-    (analyse-selection))
+  (method (on-analyse self evt)
+    (analyse-selection self))
   
   
-  (method (on-analyse-buffer evt)
-    (analyse-buffer))
+  (method (on-analyse-buffer self evt)
+    (analyse-buffer self))
   
   
-  (method protected virtual (analyse-selection)
+  (method protected virtual (analyse-selection self)
     )
   
   
-  (method protected virtual (analyse-buffer)
+  (method protected virtual (analyse-buffer self)
     )
   
   
-  (method protected virtual (analyse-range range . rest)
+  (method protected virtual (analyse-range self range . rest)
     )
 
   
@@ -433,28 +434,28 @@
   ;;;
   
   
-  (method (on-evaluate evt)
-    (evaluate-selection))
+  (method (on-evaluate self evt)
+    (evaluate-selection self))
   
   
-  (method (on-evaluate-delayed evt)
+  (method (on-evaluate-delayed self evt)
     (parameterize ((delay-evaluate? #t))
-      (evaluate-selection)))
+      (evaluate-selection self)))
   
   
-  (method (on-evaluate-buffer evt)
-    (evaluate-buffer))
+  (method (on-evaluate-buffer self evt)
+    (evaluate-buffer self))
   
   
-  (method protected virtual (evaluate-selection)
+  (method package virtual (evaluate-selection self)
     )
   
   
-  (method protected virtual (evaluate-buffer)
+  (method package virtual (evaluate-buffer self)
     )
   
   
-  (method protected virtual (evaluate-range range . rest)
+  (method package virtual (evaluate-range self range . rest)
     )
 
   
@@ -463,8 +464,8 @@
   ;;;
 
 
-  (method public virtual (tabulate)
-    (tabulate~ syntax self))
+  (method public virtual (tabulate self)
+    (tabulate syntax self))
 
 
   ;;;
@@ -472,25 +473,25 @@
   ;;;
   
   
-  (method override (auto-complete?)
+  (method override (auto-complete? self)
     #t)
 
 
-  (method override (completion-name pos)
-    (and (not (text-constituent?~ syntax (get-char (if (has-selection?) (get-end) pos))))
-         (let ((prev (previous-cell pos)))
+  (method override (completion-name self pos)
+    (and (not (text-constituent? syntax (get-char self (if (has-selection? self) (get-end self) pos))))
+         (let ((prev (previous-cell self pos)))
            (and prev
-                (let ((c (get-char prev)))
+                (let ((c (get-char self prev)))
                   (and (not (string-delimiter? c))
-                       (and (text-constituent?~ syntax c)
-                            (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
-                              (and (and (backward-expr~ expl) (memq? (get-kind~ expl) '(symbol specifier tag keyword string)))
-                                   (let ((c (char-backward~ expl 0)))
+                       (and (text-constituent? syntax c)
+                            (let ((expl <Text-Explorer> (new (explorer-class self) model start: pos end: pos)))
+                              (and (and (backward-expr expl) (memq? (get-kind expl) '(symbol specifier tag keyword string)))
+                                   (let ((c (char-backward expl 0)))
                                      (and (or (not c) (not (string-delimiter? c)))
-                                          (get-symbol-string~ expl))))))))))))
+                                          (get-symbol-string expl))))))))))))
   
   
-  (method override (symbol-completions name)
+  (method override (symbol-completions self name)
     (if (numeric? name)
         '()
       (let ((cataloguer (get-cataloguer)))
@@ -498,10 +499,10 @@
             '()
           (let ((table (make-table test: equal?))
                 (len (string-length name)))
-            (add-completions~ cataloguer table name context: (get-context))
+            (add-completions cataloguer table name context: (get-context self))
             (for-each-alias (get-root-alias)
               (lambda (alias)
-                (let ((anchor (get-anchor~ alias)))
+                (let ((anchor (get-anchor alias)))
                   (when anchor
                     (let ((anchor-name (symbol->string anchor)))
                       (when (compare-n anchor-name name len)
@@ -514,10 +515,10 @@
   ;;;
 
 
-  (method package (on-recolorize-syntax evt)
+  (method package (on-recolorize-syntax self evt)
     (with-cursor :wait
       (lambda ()
-        (recolorize-syntax~ syntax))))
+        (recolorize-syntax syntax))))
     
   
   ;;;
@@ -525,7 +526,7 @@
   ;;;
   
   
-  (method protected virtual (show-arguments)
+  (method protected virtual (show-arguments self)
     )
   
   
@@ -534,24 +535,24 @@
   ;;;
   
   
-  (method override (left-arrow-move extend? word?)
-    (convert-completion)
-    (nextmethod extend? word?))
+  (method override (left-arrow-move self extend? word?)
+    (convert-completion self)
+    (nextmethod self extend? word?))
   
   
-  (method override (right-arrow-move extend? word?)
-    (convert-completion)
-    (nextmethod extend? word?))
+  (method override (right-arrow-move self extend? word?)
+    (convert-completion self)
+    (nextmethod self extend? word?))
   
   
-  (method override (up-arrow-move extend? scroll?)
-    (convert-completion)
-    (nextmethod extend? scroll?))
+  (method override (up-arrow-move self extend? scroll?)
+    (convert-completion self)
+    (nextmethod self extend? scroll?))
   
   
-  (method override (down-arrow-move extend? scroll?)
-    (convert-completion)
-    (nextmethod extend? scroll?))
+  (method override (down-arrow-move self extend? scroll?)
+    (convert-completion self)
+    (nextmethod self extend? scroll?))
   
   
   ;;;
@@ -559,11 +560,11 @@
   ;;;
   
   
-  (method (on-tabify evt)
-    (tabify))
+  (method (on-tabify self evt)
+    (tabify self))
   
   
-  (method (tabify)
+  (method (tabify self)
     (define (tabify-line line)
       @to-convert-to-outline-text
       (let* ((str (paragraph-string line))
@@ -576,7 +577,7 @@
                           (list (append! (make-string tabs #\tab)
                                          (make-string spaces #\space))))))))
     
-    (for-each tabify-line (naturals (get-line~ (get-start)) (+ (get-line~ (get-end)) 1))))
+    (for-each tabify-line (naturals (get-line (get-start self)) (+ (get-line (get-end self)) 1))))
   
 
   ;;;
@@ -584,128 +585,128 @@
   ;;;
   
   
-  (method protected virtual (match-backwards? char)
+  (method protected virtual (match-backwards? self char)
     #f)
   
   
-  (method protected virtual (match-forwards? char)
+  (method protected virtual (match-forwards? self char)
     #f)
 
 
-  (method (flash-matching-character pref)
+  (method (flash-matching-character self pref)
     (define flash-delay
       (if (eq? (event-type) 'keyboard)
           0
-        (get-flash-delay~ pref)))
+        (get-flash-delay pref)))
     
     (define flash-duration
-      (get-flash-duration~ pref))
+      (get-flash-duration pref))
     
     (define (flash-character highlight)
-      (let ((start (get-start~ (get-range~ highlight)))
-            (add (lambda () (add-matching-highlight highlight)))
-            (remove (lambda () (remove-matching-highlights))))
-        (add-text-action add)
-        (add-text-action remove)
-        (if (cell-displayed? start)
+      (let ((start (get-start (get-range highlight)))
+            (add (lambda () (add-matching-highlight self highlight)))
+            (remove (lambda () (remove-matching-highlights self))))
+        (add-text-action self add)
+        (add-text-action self remove)
+        (if (cell-displayed? self start)
             (thread-start!
               (new-thread
                 (lambda ()
                   (sleep flash-delay)
                   (execute-event
                     (lambda ()
-                      (run-text-action add)))
+                      (run-text-action self add)))
                   (sleep flash-duration)
                   (execute-event
                     (lambda ()
-                      (run-text-action remove))))
+                      (run-text-action self remove))))
                 'flash))
-          (let ((expl <Text-Explorer> (new (explorer-class) model start: (nu+ start 1) end: (nu+ start 1))))
+          (let ((expl <Text-Explorer> (new (explorer-class self) model start: (nu+ start 1) end: (nu+ start 1))))
             (user-message "{l detail: :human}" (map (lambda (mark)
-                                                      (get-string (get-range~ mark)))
-                                                    (collect-forward-exprs~ expl 3)))))))
+                                                      (get-string self (get-range mark)))
+                                                    (collect-forward-exprs expl 3)))))))
     
     (let ((type (event-type))
-          (pref (preferences)))
-      (when (and pref (eq? (get-match-action~ pref) 'flash))
-        (remove-all-text-actions)
-        (remove-matching-highlights)
+          (pref (preferences self)))
+      (when (and pref (eq? (get-match-action pref) 'flash))
+        (remove-all-text-actions self)
+        (remove-matching-highlights self)
         (when type
-          (let ((highlight (find-matching-highlight (neq? type 'keyboard))))
+          (let ((highlight (find-matching-highlight self (neq? type 'keyboard))))
             (when (and highlight (neq? flash-delay 'infinity))
               (flash-character (car highlight))))))))
   
   
-  (method (highlight-matching-character pref)
+  (method (highlight-matching-character self pref)
     (define (highlight-character)
-      (let ((highlight (find-matching-highlight)))
+      (let ((highlight (find-matching-highlight self)))
         (when highlight
-          (add-matching-highlight (car highlight))
-          (when (eq? (get-highlight-mode~ pref) 'both)
-            (add-matching-highlight (cdr highlight))))))
+          (add-matching-highlight self (car highlight))
+          (when (eq? (get-highlight-mode pref) 'both)
+            (add-matching-highlight self (cdr highlight))))))
     
-    (remove-matching-highlights)
+    (remove-matching-highlights self)
     (highlight-character))
   
   
-  (method (find-matching-highlight (forward? #t))
+  (method (find-matching-highlight self (forward? #t))
     (define (find-backward pos)
-      (and (not (at-beginning?))
-           (let ((previous (previous-cell pos)))
-             (and (match-backwards? (get-char previous))
+      (and (not (at-beginning? self))
+           (let ((previous (previous-cell self pos)))
+             (and (match-backwards? self (get-char self previous))
                   (catch (Explore-Error err
                            (bell)
                            #f)
-                    (let ((expl <Text-Explorer> (new (explorer-class) model start: pos)))
-                      (and (backward-expr~ expl)
-                           (let ((start (get-start~ expl)))
-                             (cons (new-highlight start (next-cell start))
+                    (let ((expl <Text-Explorer> (new (explorer-class self) model start: pos)))
+                      (and (backward-expr expl)
+                           (let ((start (get-start expl)))
+                             (cons (new-highlight start (next-cell self start))
                                    (new-highlight previous pos))))))))))
     
     (define (find-forward pos)
-      (and (not (at-end?))
-           (and (match-forwards? (get-char pos))
+      (and (not (at-end? self))
+           (and (match-forwards? self (get-char self pos))
                 (catch (Explore-Error err
                          (bell)
                          #f)
-                  (let ((expl <Text-Explorer> (new (explorer-class) model start: pos)))
-                    (and (forward-expr~ expl)
-                         (let ((end (get-end~ expl)))
-                           (cons (new-highlight (previous-cell end) end)
-                                 (new-highlight pos (next-cell pos))))))))))
+                  (let ((expl <Text-Explorer> (new (explorer-class self) model start: pos)))
+                    (and (forward-expr expl)
+                         (let ((end (get-end expl)))
+                           (cons (new-highlight (previous-cell self end) end)
+                                 (new-highlight pos (next-cell self pos))))))))))
     
     (define (new-highlight start end)
-      (let ((range (new-range start end))
-            (style (locate-style 'Match)))
+      (let ((range (new-range self start end))
+            (style (locate-style self 'Match)))
         (new Text-Highlight self range style show-unfocused?: #f)))
     
-    (and (not (macro-playing?~ (get-application)))
-         (and (empty-selection?)
-              (let ((pos (get-caret)))
+    (and (not (macro-playing? (get-application)))
+         (and (empty-selection? self)
+              (let ((pos (get-caret self)))
                 (or (find-backward pos)
                     (and forward? (find-forward pos)))))))
   
   
-  (method (add-matching-highlight highlight)
-    (add-highlight highlight)
-    (invalidate-highlight highlight)
+  (method (add-matching-highlight self highlight)
+    (add-highlight self highlight)
+    (invalidate-highlight self highlight)
     (set! matching-highlights (cons highlight matching-highlights)))
   
   
-  (method (remove-matching-highlights)
+  (method (remove-matching-highlights self)
     (for-each (lambda (highlight)
-                (remove-highlight highlight)
-                (invalidate-highlight highlight))
+                (remove-highlight self highlight)
+                (invalidate-highlight self highlight))
               matching-highlights)
     (set! matching-highlights '()))
   
   
-  (method override (selection-change)
-    (let ((pref (preferences)))
+  (method override (selection-change self)
+    (let ((pref (preferences self)))
       (when pref
-        (case (get-match-action~ pref)
-          ((flash) (flash-matching-character pref))
-          ((highlight) (highlight-matching-character pref))))))
+        (case (get-match-action pref)
+          ((flash) (flash-matching-character self pref))
+          ((highlight) (highlight-matching-character self pref))))))
   
   
   ;;;
@@ -713,22 +714,22 @@
   ;;;
     
   
-  (method (on-browse-java evt)
-    (browse-java))
+  (method (on-browse-java self evt)
+    (browse-java self))
   
   
-  (method (browse-java)
+  (method (browse-java self)
     @wait
     (let ((expr (current-expr)))
       (if (is-not? expr Symbol)
           (bell)
         (let* ((classname (->string expr))
-               (javaClass (lookupClass~ org.apache.bcel.Repository classname)))
+               (javaClass (lookupClass org.apache.bcel.Repository classname)))
           (if (not javaClass)
               (error "Unable to find java class: {a}" classname)
             (let* ((host (new-frame Java-Manager))
-                   (manager (get-guest~ host)))
-              (browse-classes~ manager (list classname))))))))
+                   (manager (get-guest host)))
+              (browse-classes manager (list classname))))))))
 
 
   ;;;
@@ -736,10 +737,10 @@
   ;;;
   
   
-  (method (on-set-read/write evt)
-    (let ((moniker (get-moniker~ (get-document-controller))))
-      (set-read/write~ moniker)
-      (update-status))))
+  (method (on-set-read/write self evt)
+    (let ((moniker (get-moniker (get-document-controller self))))
+      (set-read/write moniker)
+      (update-status self))))
 
 
 ;;;
@@ -754,23 +755,23 @@
   (property history-item accessors generate)
   
   
-  (method override (finish rest)
-    (nextmethod rest)
+  (method override (finish self rest)
+    (nextmethod self rest)
     (if (< (length definitions) 20)
         (for-each (lambda (definition)
-                    (let ((title (present~ definition)))
+                    (let ((title (present definition)))
                       (new Label-Item parent: self title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list definition: definition)))))
-                  (sort string<? definitions key: present~))
+                  (sort string<? definitions key: present))
       (let* ((menu self)
              (create-item (lambda (user-data title parent)
                             (new Label-Item parent: parent title: title action-handler: (new Event-Handler target: menu method-name: 'on-action properties: (list definition: user-data)))))
-             (get-string present~))
-        (make-condensed-menu definitions create-item key: get-string))))
+             (get-string present))
+        (make-condensed-menu self definitions create-item key: get-string))))
   
   
-  (method (on-action evt)
-    (add-history~ (get-application) history-item)
-    (edit-entry (get-property~ evt definition:))))
+  (method package (on-action self evt)
+    (add-history (get-application) history-item)
+    (edit-entry (get-property evt definition:))))
 
 
 ;;;
@@ -786,20 +787,20 @@
   (property history-item accessors generate)
   
   
-  (method override (finish rest)
-    (nextmethod rest)
+  (method override (finish self rest)
+    (nextmethod self rest)
     (if (< (length definitions) 20)
         (for-each (lambda (definition)
-                    (let ((title (->string (present~ definition))))
+                    (let ((title (->string (present definition))))
                       (new Label-Item parent: self title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list definition: definition)))))
-                  (sort string<? definitions key: present~))
+                  (sort string<? definitions key: present))
       (let* ((menu self)
              (create-item (lambda (user-data title parent)
                             (new Label-Item parent: parent title: title action-handler: (new Event-Handler target: menu method-name: 'on-action properties: (list definition: user-data)))))
-             (get-string present~))
-        (make-condensed-menu definitions create-item key: get-string))))
+             (get-string present))
+        (make-condensed-menu self definitions create-item key: get-string))))
   
   
-  (method (on-action evt)
-    (add-history~ (get-application) history-item)
-    (edit-textual-reference (get-property~ evt definition:) target))))
+  (method package (on-action self evt)
+    (add-history (get-application) history-item)
+    (edit-textual-reference (get-property evt definition:) target))))

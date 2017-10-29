@@ -41,6 +41,8 @@
 (import (jazz.component)
         (jazz.descriptor)
         (jazz.integrity)
+        (jazz.reporter)
+        (jazz.ui)
         (jazz.view)
         (jazz.workspace))
 
@@ -64,48 +66,48 @@
   ;;;
   
   
-  (method (get-integrity-manager)
+  (method (get-integrity-manager self)
     (new Integrity-Manager))
   
   
-  (method public (validate-integrity (context: context #f) (reporter: reporter #f) (report?: report? #t))
+  (method public (validate-integrity self (context: context #f) (reporter: reporter #f) (report?: report? #t))
     (define (update-violations-manager violations)
-      (let ((manager (get-violations-manager)))
-        (update~ manager)))
+      (let ((manager (get-violations-manager self)))
+        (update manager)))
     
-    (let ((integrity-manager (get-integrity-manager)))
-      (reset~ violations-factory)
-      (validate-integrity~ integrity-manager self #f context: context reporter: reporter)
-      (set! violations (get-output~ violations-factory))
+    (let ((integrity-manager (get-integrity-manager self)))
+      (reset violations-factory)
+      (validate-integrity integrity-manager self #f context: context reporter: reporter)
+      (set! violations (get-output violations-factory))
       (when report?
         (when reporter
-          (user-message~ reporter "Displaying violations..."))
+          (report-message reporter "Displaying violations..."))
         (let ((presentation (get-presentation-property self)))
           (update-violations-manager violations)
           (if (null? violations)
               (message-box (format "Found no integrity violations in {a}" presentation))
             (let ((count (length violations)))
               (message-box (format "Found {a} integrity violation{a} in {a}" count (format-plural count) presentation) @convert icon: @convert IDI_ERROR)
-              (select-violations-manager)))))
+              (select-violations-manager self)))))
       violations))
 
 
-  (method (get-violations-manager)
-    (get-guest~ (singleton-docked (violations-manager-class))))
+  (method (get-violations-manager self)
+    (get-guest (singleton-docked (violations-manager-class self))))
   
   
-  (method public (select-violations-manager)
-    (let ((manager (get-violations-manager)))
-      (select-resultset~ manager)
-      (select-first~ manager))
-    (select-docked (violations-manager-class) workspace: (violations-manager-workspace) focus?: #t))
+  (method public (select-violations-manager self)
+    (let ((manager (get-violations-manager self)))
+      (select-resultset manager)
+      (select-first manager))
+    (select-docked (violations-manager-class self) workspace: (violations-manager-workspace self) focus?: #t))
   
   
-  (method protected virtual (violations-manager-class)
+  (method protected virtual (violations-manager-class self)
     Violations-Manager)
   
   
-  (method protected virtual (violations-manager-workspace)
+  (method protected virtual (violations-manager-workspace self)
     #f)
   
   
@@ -114,10 +116,10 @@
   ;;;
   
   
-  (method public (add-violation violation)
-    (put~ violations-factory violation))
+  (method public (add-violation self violation)
+    (put violations-factory violation))
   
   
-  (method public (clear-violations)
-    (reset~ violations-factory)
+  (method public (clear-violations self)
+    (reset violations-factory)
     (set! violations '()))))

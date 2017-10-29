@@ -58,9 +58,9 @@
   ;;;
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'components-viewer)
-          (nextmethod)))
+          (nextmethod self)))
 
 
   ;;;
@@ -68,34 +68,34 @@
   ;;;
   
   
-  (method override (destroy)
-    (set-designer #f)
-    (set-editor #f)
-    (nextmethod))
+  (method override (destroy self)
+    (set-designer self #f)
+    (set-editor self #f)
+    (nextmethod self))
   
   
-  (method override (context-menu evt)
-    (let ((pos (get-position~ evt)))
-      (with-context-click pos
+  (method override (context-menu self evt)
+    (let ((pos (get-position evt)))
+      (with-context-click self pos
         (lambda ()
-          (let ((menu (get-context-menu)))
+          (let ((menu (get-context-menu self)))
             (when menu
-              (track-popup-menu menu pos)))))))
+              (track-popup-menu self menu pos)))))))
   
   
-  (method virtual (context-menu-class)
+  (method virtual (context-menu-class self)
     Component-Menu)
   
   
-  (method override (get-context-menu)
-    (let ((menu (new (context-menu-class) client: self))
-          (categories (categorized-addable-classes (selected-component)))
-          (named-children (missing-named-children (selected-component))))
-      (update-component-menu menu (selected-components) categories add-component-class named-children add-named-child)
+  (method override (get-context-menu self)
+    (let ((menu (new (context-menu-class self) client: self))
+          (categories (categorized-addable-classes self (selected-component self)))
+          (named-children (missing-named-children (selected-component self))))
+      (update-component-menu menu (selected-components self) categories (~ add-component-class self) named-children (~ add-named-child self))
       menu))
   
   
-  (method protected virtual (on-add-component evt)
+  (method protected virtual (on-add-component self evt)
     )
 
   
@@ -104,19 +104,19 @@
   ;;;
   
   
-  (method public virtual (categorized-addable-classes component)
+  (method public virtual (categorized-addable-classes self component)
     '())
   
   
-  (method public virtual (addable-classes component)
-    (jazz:flatten (categorized-addable-classes component)))
+  (method public virtual (addable-classes self component)
+    (flatten-lists (categorized-addable-classes self component)))
   
   
-  (method public virtual (add-component-class class . rest)
+  (method public virtual (add-component-class self class . rest)
     )
   
   
-  (method public virtual (add-named-child name class)
+  (method public virtual (add-named-child self name class)
     )
 
 
@@ -125,28 +125,28 @@
   ;;;
   
   
-  (method public (get-editor)
+  (method public (get-editor self)
     editor)
     
   
-  (method public (set-editor edt)
+  (method public (set-editor self edt)
     (when (neq? edt editor)
       (when editor
-        (remove-editor-listener~ editor self))
+        (remove-editor-listener editor self))
       (set! editor edt)
       (when editor
-        (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))
-      (editor-update)))
+        (add-editor-listener editor (new Event-Handler target: self method-name: 'on-editor)))
+      (editor-update self)))
   
   
-  (method protected virtual (editor-update)
+  (method protected virtual (editor-update self)
     )
     
   
-  (method protected virtual (on-editor evt)
-    (case (get-kind~ evt)
-      ((:client-change) (set-client (get-property~ evt client:) recreate?: (get-property~ evt recreate?:)))
-      ((:designer-change) (set-designer (get-property~ evt designer:)))))
+  (method protected virtual (on-editor self evt)
+    (case (get-kind evt)
+      ((:client-change) (set-client self (get-property evt client:) recreate?: (get-property evt recreate?:)))
+      ((:designer-change) (set-designer self (get-property evt designer:)))))
 
 
   ;;;
@@ -154,23 +154,23 @@
   ;;;
 
 
-  (method public (get-client)
+  (method public (get-client self)
     client)
 
 
-  (method public (set-client clt (recreate?: recreate? #f))
+  (method public (set-client self clt (recreate?: recreate? #f))
     (when (neq? clt client)
       (when recreate?
-        (transfer-state client clt))
+        (transfer-state self client clt))
       (when (and client (not recreate?))
-        (preserve-state client))
+        (preserve-state self client))
       (set! client clt)
-      (client-update)
+      (client-update self)
       (when (and client (not recreate?))
-        (restore-state client))))
+        (restore-state self client))))
   
   
-  (method protected virtual (client-update)
+  (method package virtual (client-update self)
     )
   
 
@@ -179,15 +179,15 @@
   ;;;
   
   
-  (method protected virtual (transfer-state actual client)
+  (method protected virtual (transfer-state self actual client)
     )
   
   
-  (method protected virtual (preserve-state client)
+  (method protected virtual (preserve-state self client)
     )
   
   
-  (method protected virtual (restore-state client)
+  (method package virtual (restore-state self client)
     )
 
   
@@ -196,17 +196,17 @@
   ;;;
   
   
-  (method public (get-designer)
+  (method public (get-designer self)
     designer)
   
   
-  (method public virtual (set-designer dsg)
+  (method public virtual (set-designer self dsg)
     (when (neq? dsg designer)
       (when designer
-        (uninstall-listener designer))
+        (uninstall-listener self designer))
       (set! designer dsg)
       (when designer
-        (install-listener designer))))
+        (install-listener self designer))))
   
   
   ;;;
@@ -214,13 +214,13 @@
   ;;;
   
   
-  (method (install-listener designer)
+  (method (install-listener self designer)
     (let ((listener (new Event-Handler target: self method-name: 'on-designer)))
-      (add-designer-listener~ designer listener)))
+      (add-designer-listener designer listener)))
   
   
-  (method (uninstall-listener designer)
-    (remove-designer-listener~ designer self))
+  (method (uninstall-listener self designer)
+    (remove-designer-listener designer self))
 
   
   ;;;
@@ -228,7 +228,7 @@
   ;;;
   
   
-  (method protected virtual (on-designer evt)
+  (method protected virtual (on-designer self evt)
     )
   
   
@@ -237,31 +237,31 @@
   ;;;
   
   
-  (method (get-selection-component selection)
-    (get-user-data~ 
-      (get-row (case selection-mode
+  (method (get-selection-component self selection)
+    (get-user-data 
+      (get-row self (case selection-mode
                  ((cell)
-                  (get-line~ selection))
+                  (get-line selection))
                  ((row)
                   selection)))))
   
   
-  (method public (selected-component)
-    (let ((selection (get-single-selection)))
+  (method public (selected-component self)
+    (let ((selection (get-single-selection self)))
       (and selection
-           (get-selection-component selection))))
+           (get-selection-component self selection))))
   
   
-  (method public virtual (selected-components)
-    (map get-selection-component (get-ordered-selection)))
+  (method public virtual (selected-components self)
+    (map (~ get-selection-component self) (get-ordered-selection self)))
   
   
-  (method public (component-row component)
-    (user-data-row component include-invisibles?: #t))
+  (method public (component-row self component)
+    (user-data-row self component include-invisibles?: #t))
   
   
-  (method (component-visible-row component)
-    (user-data-index component))
+  (method (component-visible-row self component)
+    (user-data-index self component))
   
   
   ;;;
@@ -269,18 +269,18 @@
   ;;;
   
   
-  (method public (preserving-update)
-    (update expand-state: (get-expand-state) selected-components: (selected-components)))
+  (method public (preserving-update self)
+    (update self expand-state: (get-expand-state self) selected-components: (selected-components self)))
 
 
-  (method public virtual (update . rest)
+  (method public virtual (update self . rest)
     )
   
   
-  (method public virtual (update-selection expand-state selected-components)
+  (method public virtual (update-selection self expand-state selected-components)
     (when expand-state
-      (set-expand-state expand-state))
+      (set-expand-state self expand-state))
     (when selected-components
-      (set-selection (collect component-visible-row selected-components)
+      (set-selection self (collect (~ component-visible-row self) selected-components)
                      force?: #t
                      generate-event?: #f)))))

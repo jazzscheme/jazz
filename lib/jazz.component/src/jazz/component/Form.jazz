@@ -80,7 +80,7 @@
   ;;;
 
 
-  (method override (initialize (textual?: textual? #t)
+  (method override (initialize self (textual?: textual? #t)
                                (data: data #f)
                                (origin: origin #f)
                                (context: context #f)
@@ -97,35 +97,35 @@
         (set-car! lst (keyword->symbol (car lst)))
         (set! lst (cddr lst))))
     
-    (nextmethod #f #f)
-    (set! data~self data)
-    (set! origin~self origin)
-    (set! context~self context)
-    (set! action~self action)
-    (set! model~self model)
-    (set! locator~self locator)
-    (set! name~self name)
-    (set! tag-symbolic?~self tag-symbolic?)
-    (set! tag-reference~self tag-reference)
-    (set! properties~self properties)
-    (set! children~self children)
+    (nextmethod self #f #f)
+    (set! self.data data)
+    (set! self.origin origin)
+    (set! self.context context)
+    (set! self.action action)
+    (set! self.model model)
+    (set! self.locator locator)
+    (set! self.name name)
+    (set! self.tag-symbolic? tag-symbolic?)
+    (set! self.tag-reference tag-reference)
+    (set! self.properties properties)
+    (set! self.children children)
     (when textual?
       (canonicalize-properties properties)))
   
   
-  (method override (copy-object deep?)
+  (method override (copy-object self deep?)
     (let ((properties (copy properties))
           (children (subcopy children deep?)))
       (let ((new-form (new Form textual?: #f data: (and data (copy data)) origin: origin context: context action: action model: model locator: locator name: name tag-symbolic?: tag-symbolic? tag-reference: tag-reference properties: properties children: children)))
         (for-each (lambda (form)
-                    (set-parent-value~ form new-form))
+                    (set-parent-value form new-form))
                   children)
-        (when (and deep? (has-property? 'client-form))
-          (set-property~ new-form 'client-form (copy-object~ (get-property 'client-form) #t)))
+        (when (and deep? (has-property? self 'client-form))
+          (set-property new-form 'client-form (copy-object (get-property self 'client-form) #t)))
         new-form)))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "({a}{a}{a}) {a} {a}"
@@ -141,15 +141,15 @@
   ;;;
 
 
-  (method override (setup-context ctx)
+  (method override (setup-context self ctx)
     (set! context ctx)
-    (setup-context~ tag-reference context)
+    (setup-context tag-reference context)
     (for-each-property
       (lambda (name value)
-        (setup-context~ value context))
+        (setup-context value context))
       properties)
     (for-each (lambda (child)
-                (setup-context~ child context))
+                (setup-context child context))
               children))
   
   
@@ -158,21 +158,21 @@
   ;;;
   
   
-  (method public (resolve-model)
-    (require-reference~ context model))
+  (method public (resolve-model self)
+    (require-reference context model))
   
   
-  (method override (locate-reference symbol)
+  (method override (locate-reference self symbol)
     (let ((reference (locator symbol)))
       (and reference (resolve-runtime-reference reference))))
   
   
-  (method override (require-reference symbol)
-    (or (locate-reference symbol)
+  (method override (require-reference self symbol)
+    (or (locate-reference self symbol)
         (error "Unable to find reference: {s}" symbol)))
   
   
-  (method override (get-reference symbol)
+  (method override (get-reference self symbol)
     (locator symbol))
 
   
@@ -181,59 +181,59 @@
   ;;;
   
   
-  (method public (child name)
-    (or (find-child name)
+  (method public (child self name)
+    (or (find-child self name)
         (error "Could not find child {t}" name)))
 
 
-  (method public (find-child name)
-    (find-by (lambda (child)
-               (equal? (get-name~ child) name))))
+  (method public (find-child self name)
+    (find-by self (lambda (child)
+               (equal? (get-name child) name))))
   
   
-  (method override (find-name name)
-    (find-child name))
+  (method override (find-name self name)
+    (find-child self name))
   
   
-  (method public (find-path path)
+  (method public (find-path self path)
     (if (null? path)
         self
-      (let ((child (find-child (car path))))
-        (and child (find-path~ child (cdr path))))))
+      (let ((child (find-child self (car path))))
+        (and child (find-path child (cdr path))))))
   
   
-  (method public (find-type type)
-    (find-by
+  (method public (find-type self type)
+    (find-by self
       (lambda (child)
-        (eq? (get-model~ child) type))))
+        (eq? (get-model child) type))))
   
   
-  (method public (find-subtype type)
-    (find-by
+  (method public (find-subtype self type)
+    (find-by self
       (lambda (child)
-        (let ((class (and (get-model~ child) (resolve-model~ child))))
+        (let ((class (and (get-model child) (resolve-model child))))
           (and class (subtype? class type))))))
   
   
-  (method override (add-child child)
+  (method override (add-child self child)
     (set! children (cons child children)))
     
   
-  (method public (add-child-at child rank)
+  (method public (add-child-at self child rank)
     (set! children (insert! children rank child)))
   
   
-  (method public (append-child child)
+  (method override (append-child self child)
     (set! children (append! children (list child))))
   
   
-  (method public (send-child-before child target)
+  (method public (send-child-before self child target)
     (let* ((removed (remove! child children))
            (rank (and target (or (find removed target) (error "Unable to find: {t}" target)))))
       (set! children (insert! removed rank child))))
   
   
-  (method public (sort-children test (key: key get-name~))
+  (method public (sort-children self test (key: key get-name))
     (set! children (sort test children key: key)))
 
   
@@ -242,19 +242,19 @@
   ;;;
   
 
-  (method public (remember-creation unused component)
+  (method public (remember-creation self unused component)
     (set! children (cons (new Restore-Form action: 'remove component: component properties: '() children: '()) children)))
 
 
-  (method public (remember-reference unused name)
+  (method public (remember-reference self unused name)
     (let ((form (new Restore-Form action: 'modify model: #f name: name properties: '() children: '())))
       (set! children (cons form children))
       form))
 
 
-  (method public (remember-property component property)
+  (method public (remember-property self component property)
     (let ((actual-value (read-property component property)))
-      (set-property property actual-value)))
+      (set-property self property actual-value)))
 
   
   ;;;
@@ -262,14 +262,14 @@
   ;;;
   
   
-  (method public (instantiate . rest)
+  (method public (instantiate self . rest)
     (bind-keywords ((name #f) . others) rest
-      (let ((model (resolve-model)))
-        (apply new model form: self creator: #t name: (or name name~self) rest))))
+      (let ((model (resolve-model self)))
+        (apply new model form: self creator: #t name: (or name self.name) rest))))
   
   
-  (method public (instantiate-component . rest)
-    (let ((model (resolve-model)))
+  (method public (instantiate-component self . rest)
+    (let ((model (resolve-model self)))
       (apply new model creator: #t name: name rest)))
 
   
@@ -278,13 +278,13 @@
   ;;;
   
   
-  (method public (get-parts)
+  (method public (get-parts self)
     (values
-      (get-action)
-      (get-model)
-      (get-name)
-      (keywordize-properties (get-properties))
-      (get-children)))
+      (get-action self)
+      (get-model self)
+      (get-name self)
+      (keywordize-properties (get-properties self))
+      (get-children self)))
   
   
   ;;;
@@ -292,16 +292,16 @@
   ;;;
   
   
-  (method public (get-base-traits-names)
+  (method public (get-base-traits-names self)
     (let ((names (or (getf properties 'base-traits) (getf properties base-traits:))))
       (and names
            (listify names))))
   
   
-  (method public (get-traits context)
+  (method public (get-traits self context)
     (map (lambda (trait)
            (resolve-trait context trait))
-         (or (get-base-traits-names) '())))
+         (or (get-base-traits-names self) '())))
   
   
   ;;;
@@ -309,10 +309,10 @@
   ;;;
   
   
-  (method override (get-child-location child)
+  (method override (get-child-location self child)
     (list (+ 1
              (if name 2 0)
              (if tag-symbolic? 2 0)
              (if tag-reference 2 0)
              (length properties)
-             (get-rank child children))))))
+             (find-rank child children))))))

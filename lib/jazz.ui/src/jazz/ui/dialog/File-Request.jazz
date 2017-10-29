@@ -40,6 +40,8 @@
 
 (import (jazz.io)
         (jazz.jml)
+        (jazz.outline)
+        (jazz.tree)
         (jazz.ui))
 
 
@@ -52,16 +54,16 @@
         (<!>     name: ok        title: "Open"))))
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Choose File")
   
   
   (property multiple-selection? initialize #f)
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (set-multiple-selection?~ (get-tree) multiple-selection?))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (set-multiple-selection? (get-tree self) multiple-selection?))
   
 
   ;;;
@@ -69,25 +71,25 @@
   ;;;
   
   
-  (method override (update-content)
-    (let ((directories (get-content~ directory nodes?: #t leaves?: #f))
-          (files (get-content~ directory nodes?: #f leaves?: #t)))
-      (let ((tree (get-tree)))
+  (method override (update-content self)
+    (let ((directories (get-content directory nodes?: #t leaves?: #f))
+          (files (get-content directory nodes?: #f leaves?: #t)))
+      (let ((tree (get-tree self)))
         (define (add pathname)
-          (unless (equal? (get-name~ pathname) ".DS_Store")
-            (add-pathname tree pathname)))
+          (unless (equal? (get-name pathname) ".DS_Store")
+            (add-pathname self tree pathname)))
         
-        (remove-every-row~ tree)
-        (with-update-locked~ tree
+        (remove-every-row tree)
+        (with-update-locked tree
           (lambda ()
             (for-each add directories)
             (for-each add files))))))
   
   
-  (method override (update-buttons)
-    (nextmethod)
-    (let ((pathnames (selected-pathnames)))
-      (set-enabled?~ (locate 'ok) (and (not-null? pathnames) (every? file? pathnames)))))
+  (method override (update-buttons self)
+    (nextmethod self)
+    (let ((pathnames (selected-pathnames self)))
+      (set-enabled? (locate self 'ok) (and (not-null? pathnames) (every? file? pathnames)))))
     
 
   ;;;
@@ -95,11 +97,11 @@
   ;;;
   
   
-  (method override (get-modal-result)
-    (set-current-directory directory)
+  (method override (get-modal-result self)
+    (current-directory-set! directory)
     (if multiple-selection?
-        (map anchorize (selected-pathnames))
-      (anchorize (selected-pathname))))
+        (map (~ anchorize self) (selected-pathnames self))
+      (anchorize self (selected-pathname self))))
 
 
   ;;;
@@ -107,12 +109,12 @@
   ;;;
   
   
-  (method override (default-action)
-    (let ((pathnames (selected-pathnames)))
+  (method override (default-action self)
+    (let ((pathnames (selected-pathnames self)))
       (cond ((and (= (length pathnames) 1) (directory? (car pathnames)))
-             (down (car pathnames)))
-            ((ok-enabled?)
-             (end-modal~ (get-host) (get-modal-result))))))
+             (down self (car pathnames)))
+            ((ok-enabled? self)
+             (end-modal (get-host self) (get-modal-result self))))))
   
 
   ;;;
@@ -120,5 +122,5 @@
   ;;;
   
   
-  (method (selected-pathnames)
-    (get-selected-data~ (get-tree)))))
+  (method (selected-pathnames self)
+    (get-selected-data (get-tree self)))))

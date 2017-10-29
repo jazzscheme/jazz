@@ -43,9 +43,11 @@
         (jazz.geometry)
         (jazz.graphic)
         (jazz.jml)
+        (jazz.preferences)
         (jazz.print)
         (jazz.ui)
         (jazz.view)
+        (jazz.window)
         (jazz.workspace))
 
 
@@ -74,7 +76,7 @@
   ;;;
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(preview))
 
   
@@ -83,9 +85,9 @@
   ;;;
   
 
-  (method override (guest-actions)
+  (method override (guest-actions self)
     (cons (find-actions 'preview-pane)
-          (nextmethod)))
+          (nextmethod self)))
 
   
   ;;;
@@ -93,48 +95,48 @@
   ;;;
   
   
-  (method (on-print evt)
-    (print-document~ client))
+  (method (on-print self evt)
+    (print-document client))
   
   
-  (method (on-print-layout evt)
-    (print-layout~ client from-preview?: #t))
+  (method (on-print-layout self evt)
+    (print-layout client from-preview?: #t))
   
   
-  (method (on-home evt)
-    (set-start 0))
+  (method package (on-home self evt)
+    (set-start self 0))
   
   
-  (method (on-end evt)
+  (method package (on-end self evt)
     (let* ((count (length pages))
-           (pages (get-pages~ job))
+           (pages (get-pages job))
            (last (- (length pages) 1)))
-      (set-start (- last (modulo last count)))))
+      (set-start self (- last (modulo last count)))))
   
   
-  (method (on-previous evt)
-    (previous))
+  (method (on-previous self evt)
+    (previous self))
   
   
-  (method (on-next evt)
-    (next))
+  (method (on-next self evt)
+    (next self))
   
   
-  (method (on-close evt)
-    (close-workspace #t))
+  (method package (on-close self evt)
+    (close-workspace self #t))
   
   
-  (method override (escape-press evt)
-    (close-workspace #f))
+  (method override (escape-press self evt)
+    (close-workspace self #f))
   
   
-  (method (close-workspace save?)
-    (let ((frame (get-host))
+  (method (close-workspace self save?)
+    (let ((frame (get-host self))
           (workspace (selected-workspace)))
-      (restore-client)
-      (close~ frame)
-      (apply-preferences~ (get-previous~ workspace))
-      (invalidate-window~ (get-toplevel))))
+      (restore-client self)
+      (close frame)
+      (apply-preferences (get-previous workspace))
+      (invalidate-window (current-toplevel))))
 
   
   ;;;
@@ -142,18 +144,18 @@
   ;;;
 
 
-  (method public (get-client)
+  (method public (get-client self)
     client)
 
 
-  (method public (set-client value)
+  (method public (set-client self value)
     (set! client value)
-    (set! preserved (setup-printing~ client)))
+    (set! preserved (setup-printing client)))
   
   
-  (method protected (restore-client)
-    (wrap-header/footer~ (get-page-setup~ client) '())
-    (restore-printing~ client preserved))
+  (method package (restore-client self)
+    (wrap-header/footer (get-page-setup client) '())
+    (restore-printing client preserved))
   
   
   ;;;
@@ -165,14 +167,14 @@
     0.5)
 
 
-  (method public (get-zoom)
+  (method public (get-zoom self)
     Zoom)
 
 
-  (method public (set-zoom value)
+  (method public (set-zoom self value)
     (set! Zoom value)
-    (scroll-to~ (locate 'scrollee) {Point 0 0})
-    (layout-view))
+    (scroll-to (locate self 'scrollee) {Point 0 0})
+    (layout-view self))
   
   
   ;;;
@@ -180,18 +182,18 @@
   ;;;
   
   
-  (method override (layout)
-    (nextmethod)
-    (let* ((scrollee (locate 'scrollee))
-           (centered (locate 'centered))
-           (print-area (get-print-area~ client '()))
-           (page-setup (get-page-setup~ client))
-           (scaling (scale-content~ page-setup client default-resolution))
+  (method override (layout self)
+    (nextmethod self)
+    (let* ((scrollee (locate self 'scrollee))
+           (centered (locate self 'centered))
+           (print-area (get-print-area client '()))
+           (page-setup (get-page-setup client))
+           (scaling (scale-content page-setup client default-resolution))
            (zoom (/ (cast <fl> Zoom) scaling))
-           (display-size (get-size))
-           (border-size (nu+ (scale (get-size~ page-setup) zoom) {Dimension 4 4}))
-           (separator (scale 50 zoom)))
-      (close-children~ centered)
+           (display-size (get-size self))
+           (border-size (nu+ (scale-shape (get-size page-setup) zoom) {Dimension 4 4}))
+           (separator (scale-shape 50 zoom)))
+      (close-children centered)
       (let ((h 0)
              (v 0)
              (max-h 0)
@@ -203,29 +205,29 @@
           (while (not horz-done?)
             (let* ((border (new Border-View parent: centered position: (new Point h v) size: border-size border-type: 'shadow))
                    (page (new Preview-Page parent: border)))
-              (increase! h (get-width~ border-size))
+              (increase! h (get-width border-size))
               (set! max-h (max max-h h))
-              (put~ fact page)
+              (put fact page)
               (increase! h separator)
-              (when (> (+ h (get-width~ border-size)) (get-width~ display-size))
+              (when (> (+ h (get-width border-size)) (get-width display-size))
                 (set! horz-done? #t))))
           (set! h 0)
           (set! horz-done? #f)
-          (increase! v (get-height~ border-size))
+          (increase! v (get-height border-size))
           (set! max-v (max max-v v))
           (increase! v separator)
-          (when (> (+ v (get-height~ border-size)) (get-height~ display-size))
+          (when (> (+ v (get-height border-size)) (get-height display-size))
             (set! vert-done? #t)))
-        (set! pages (get-output~ fact))
-        (set-size~ centered (new Dimension max-h max-v))
-        (set-size~ scrollee (new Dimension (max (- (get-width~ display-size) 13) max-h) (max (- (get-height~ display-size) 13) max-v)))
-        (layout-view~ scrollee)
-        (update-scrollbars~ scrollee)
+        (set! pages (get-output fact))
+        (set-size centered (new Dimension max-h max-v))
+        (set-size scrollee (new Dimension (max (- (get-width display-size) 13) max-h) (max (- (get-height display-size) 13) max-v)))
+        (layout-view scrollee)
+        (update-scrollbars scrollee)
         (set! job (new Preview-Job #f client page-setup default-resolution zoom: zoom))
         (for-each (lambda (page)
-                    (set-client~ page client))
+                    (set-client page client))
                   pages)
-        (set-start start))))
+        (set-start self start))))
   
   
   ;;;
@@ -233,8 +235,8 @@
   ;;;
   
   
-  (method (get-page-height)
-    (get-height~ size))
+  (method (get-page-height self)
+    (get-height size))
   
   
   ;;;
@@ -242,28 +244,28 @@
   ;;;
   
   
-  (method public (previous)
+  (method public (previous self)
     (let ((count (length pages)))
-      (set-start (max 0 (- start count)))))
+      (set-start self (max 0 (- start count)))))
   
   
-  (method public (next)
+  (method public (next self)
     (let* ((count (length pages))
-           (pages (get-pages~ job))
+           (pages (get-pages job))
            (pg (+ start count)))
       (when (< pg (length pages))
-        (set-start pg))))
+        (set-start self pg))))
   
   
-  (method public (set-start value)
+  (method public (set-start self value)
     (set! start value)
-    (let ((count (length (get-pages~ job))))
+    (let ((count (length (get-pages job))))
       (for-each (lambda (page n)
-                  (let ((border (get-parent~ page))
+                  (let ((border (get-parent page))
                         (pg (+ start n)))
                     (if (>= pg count)
-                        (set-visible?~ border #f)
-                      (set-no~ page pg)
-                      (set-visible?~ border #t))))
+                        (set-visible? border #f)
+                      (set-no page pg)
+                      (set-visible? border #t))))
                 pages
                 (naturals 0 (length pages)))))))

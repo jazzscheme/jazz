@@ -39,7 +39,9 @@
 
 
 (import (jazz.console)
+        (jazz.debuggee)
         (jazz.debugger)
+        (jazz.event)
         (jazz.feedback)
         (jazz.graphic)
         (jazz.handler)
@@ -68,7 +70,7 @@
       (<Pad-View>                name: pad      location: center)))
     
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Consoles)
 
   
@@ -77,11 +79,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Console"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Consoles")
 
   
@@ -90,14 +92,14 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((text (get-text)))
+  (method override (focus-default self)
+    (let ((text (get-text self)))
       (when text
-        (acquire-focus~ text))))
+        (acquire-focus text))))
   
   
   ;;;
@@ -105,13 +107,13 @@
   ;;;
   
   
-  (method (get-pad)
-    (locate 'pad))
+  (method (get-pad self)
+    (locate self 'pad))
 
   
-  (method public (get-text)
-    (let ((console (get-selection~ (get-pad))))
-      (and console (get-text~ console))))
+  (method public (get-text self)
+    (let ((console (get-selection (get-pad self))))
+      (and console (get-text console))))
   
   
   ;;;
@@ -119,66 +121,66 @@
   ;;;
   
   
-  (method (register-console presentation select? (view-class: view-class #f) (console-button?: console-button? #t) (process-title: process-title #f) (process-traits: process-traits #f) (process-thread: process-thread #f))
+  (method package (register-console self presentation select? (view-class: view-class #f) (console-button?: console-button? #t) (process-title: process-title #f) (process-traits: process-traits #f) (process-thread: process-thread #f))
     (let ((tool (and console-button? (new Console-Button title: (console-title process-title process-traits process-thread) process-title: process-title process-traits: process-traits process-thread: process-thread console-manager: self auto-size?: #t location: 'head resource: {Image-Resource "Process"} portfolio: :images tooltip-text: presentation tooltip?: #t))))
       (when tool
-        (add-tool~ (get-host) tool))
-      (let ((pad (get-pad))
+        (add-tool (get-host self) tool))
+      (let ((pad (get-pad self))
             (view (new (or view-class Console-View) button: tool)))
-        (let ((text (get-text~ view))
-              (select? (or select? (not (get-selection~ pad)))))
-          (add-view~ pad view)
+        (let ((text (get-text view))
+              (select? (or select? (not (get-selection pad)))))
+          (add-view pad view)
           (when select?
-            (set-selection~ pad view))
-          (layout-view~ pad)
+            (set-selection pad view))
+          (layout-view pad)
           (when tool
-            (set-console~ tool text)
-            (set-action-handler~ tool
+            (set-console tool text)
+            (set-action-handler tool
               (new Event-Handler
                 execute: (lambda (event)
-                           (set-selection~ pad view)
-                           (acquire-focus~ text))))
+                           (set-selection pad view)
+                           (acquire-focus text))))
             (when select?
-              (set-selected?~ tool #t)))
+              (set-selected? tool #t)))
           text))))
   
   
-  (method (unregister-console console)
-    (let ((host (get-host))
-          (pad (get-pad))
-          (view (get-console~ console)))
-      (let ((focused? (or (eq? console (get-focus)) (eq? console (get-focused~ host))))
-            (next (next-child~ pad view)))
-        (remove-tool~ host (get-button~ view))
-        (remove-view~ pad view)
+  (method package (unregister-console self console)
+    (let ((host (get-host self))
+          (pad (get-pad self))
+          (view (get-console console)))
+      (let ((focused? (or (eq? console (active-focus)) (eq? console (get-focused host))))
+            (next (next-child pad view)))
+        (remove-tool host (get-button view))
+        (remove-view pad view)
         (when (and focused? next)
-          (select-console next))))
-    (invalidate-view))
+          (select-console self next))))
+    (invalidate-view self))
   
   
-  (method package (get-consoles)
-    (get-children~ (get-pad)))
+  (method package (get-consoles self)
+    (get-children (get-pad self)))
   
   
-  (method (select-console console)
-    (let ((host (get-host))
-          (pad (get-pad)))
-      (set-selection~ pad console)
-      (set-selected?~ (get-button~ console) #t)
-      (let ((text (get-text~ console)))
+  (method package (select-console self console)
+    (let ((host (get-host self))
+          (pad (get-pad self)))
+      (set-selection pad console)
+      (set-selected? (get-button console) #t)
+      (let ((text (get-text console)))
         (if (eq? host (get-focused-host))
-            (acquire-focus~ text)
-          (set-focused~ host text)))))
+            (acquire-focus text)
+          (set-focused host text)))))
   
   
-  (method (select-next-console)
-    (let ((host (get-host))
-          (console (select-next~ (get-pad))))
-      (set-selected?~ (get-button~ console) #t)
-      (let ((text (get-text~ console)))
+  (method package (select-next-console self)
+    (let ((host (get-host self))
+          (console (select-next (get-pad self))))
+      (set-selected? (get-button console) #t)
+      (let ((text (get-text console)))
         (if (eq? host (get-focused-host))
-            (acquire-focus~ text)
-          (set-focused~ host text)))))
+            (acquire-focus text)
+          (set-focused host text)))))
   
   
   ;;;
@@ -186,25 +188,25 @@
   ;;;
   
   
-  (method package (update-console-buttons)
+  (method package (update-console-buttons self)
     (let ((manager (get-debugger-manager)))
-      (for-each-process~ manager
+      (for-each-process manager
         (lambda (debugger process live? focused?)
           (for-each (lambda (resource)
-                      (let ((reference (get-reference~ resource)))
+                      (let ((reference (get-reference resource)))
                         (when (is? reference Console-Text-View)
-                          (let ((button (get-button~ (get-console~ reference)))
-                                (process (get-reference~ (get-process~ resource)))
-                                (thread (get-reference~ (get-thread~ resource))))
+                          (let ((button (get-button (get-console reference)))
+                                (process (get-reference (get-process resource)))
+                                (thread (get-reference (get-thread resource))))
                             (bind (title traits thread) (process-information process thread)
-                              (set-process-title~ button title)
-                              (set-process-traits~ button traits)
-                              (set-process-thread~ button thread)
-                              (update-title~ button)
+                              (set-process-title button title)
+                              (set-process-traits button traits)
+                              (set-process-thread button thread)
+                              (update-title button)
                               (let ((presented (present-process-title/traits/thread title traits thread)))
-                                (set-tooltip-text~ button presented)))))))
+                                (set-tooltip-text button presented)))))))
                     (get-debugger-resources process))))
-      (refresh-tools~ (get-host))))
+      (refresh-tools (get-host self))))
   
   
   ;;;
@@ -212,8 +214,8 @@
   ;;;
   
   
-  (method (console-context-menu button pos)
-    (track-popup-menu~ button (new Console-Menu client: self button: button) pos))
+  (method package (console-context-menu self button pos)
+    (track-popup-menu button (new Console-Menu client: self button: button) pos))
   
   
   ;;;
@@ -221,41 +223,41 @@
   ;;;
 
 
-  (method (on-print-detail-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (combo (typecase sender ((Push-Icon) (get-combo~ sender)) ((Combo-Button) (get-combo~ sender))))
-           (pos (new Point 0 (get-height~ (get-size~ sender))))
+  (method (on-print-detail-menu self evt)
+    (let* ((sender (get-sender evt))
+           (combo (typecase sender ((Push-Icon) (get-combo sender)) ((Combo-Button) (get-combo sender))))
+           (pos (new Point 0 (get-height (get-size sender))))
            (menu (new Print-Detail-Menu client: self))
-           (pref (get-preferences '(tools console)))
-           (detail (get-print-detail~ pref)))
-      (set-checked?~ (child~ menu detail) #t)
-      (layout-menu~ menu)
-      (track-popup-menu~ sender menu pos initiator: combo)))
+           (pref (current-preferences '(tools console)))
+           (detail (get-print-detail pref)))
+      (set-checked? (child menu detail) #t)
+      (layout-menu menu)
+      (track-popup-menu sender menu pos initiator: combo)))
 
 
-  (method (on-print-detail evt)
-    (let ((pref (get-preferences '(tools console)))
-          (detail (get-property~ evt detail:)))
+  (method (on-print-detail self evt)
+    (let ((pref (current-preferences '(tools console)))
+          (detail (get-property evt detail:)))
       (set-preference pref 'print-detail detail)
       (user-message "Print detail set to {a}" detail)))
   
   
-  (method (on-clear-console evt)
-    (let ((text (get-text)))
+  (method (on-clear-console self evt)
+    (let ((text (get-text self)))
       (if (not text)
           (bell)
-        (clear-console~ text)
-        (acquire-focus~ text))))
+        (clear-console text)
+        (acquire-focus text))))
   
   
-  (method (on-close-console evt)
-    (let ((console (get-console~ (get-button~ (get-parent~ (get-sender~ evt))))))
+  (method (on-close-console self evt)
+    (let ((console (get-console (get-button (get-parent (get-sender evt))))))
       (let ((resource (find-debugger-resource console)))
         (if (not resource)
             (unregister-debugger-console console)
-          (let ((process (get-reference~ (get-process~ resource)))
-                (thread (get-reference~ (get-thread~ resource))))
-            (console-close~ process thread)))))))
+          (let ((process (get-reference (get-process resource)))
+                (thread (get-reference (get-thread resource))))
+            (console-close process thread)))))))
 
 
 ;;;
@@ -273,21 +275,21 @@
   (property console         initialize #f accessors generate)
   
   
-  (method public (update-title)
-    (set-title (console-title process-title process-traits process-thread)))
+  (method public (update-title self)
+    (set-title self (console-title process-title process-traits process-thread)))
   
   
-  (method override (draw-background surface context)
+  (method override (draw-background self surface context)
     (let ((skin (find-skin 'ui:tool)))
       (let ((background (if selected?
-                            (or (get-active-background~ skin) {Color White})
-                          (or (get-inactive-background~ skin) (get-inactive-background~ (find-skin 'ui:docked))))))
-        (fill-background~ surface (get-bounds) background))))
+                            (or (get-active-background skin) {Color White})
+                          (or (get-inactive-background skin) (get-inactive-background (find-skin 'ui:docked))))))
+        (fill-background surface (get-bounds self) background))))
   
   
-  (method override (context-menu evt)
-    (let ((pos (get-position~ evt)))
-      (console-context-menu~ console-manager self pos))))
+  (method override (context-menu self evt)
+    (let ((pos (get-position evt)))
+      (console-context-menu console-manager self pos))))
 
 
 ;;;

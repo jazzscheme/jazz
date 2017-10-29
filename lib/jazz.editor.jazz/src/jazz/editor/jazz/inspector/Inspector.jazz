@@ -42,11 +42,15 @@
         (jazz.application)
         (jazz.clipboard)
         (jazz.debugger)
+        (jazz.debugger.jazz)
+        (jazz.event)
         (jazz.feedback)
         (jazz.handler)
         (jazz.inspector)
         (jazz.jml)
         (jazz.menu)
+        (jazz.outline)
+        (jazz.process)
         (jazz.resource)
         (jazz.tree)
         (jazz.view))
@@ -76,14 +80,14 @@
   ;;;
   
   
-  (method public (get-client)
+  (method public (get-client self)
     client)
   
   
-  (method public (set-client clt (force?: force? #f))
+  (method public (set-client self clt (force?: force? #f))
     (when (or force? (neq? clt client))
       (set! client clt)
-      (inspect-client client)))
+      (inspect-client self client)))
   
   
   ;;;
@@ -91,18 +95,18 @@
   ;;;
   
   
-  (method public (get-filter)
+  (method public (get-filter self)
     filter)
   
   
-  (method public (set-filter flt)
+  (method public (set-filter self flt)
     (set! filter flt)
-    (filter-update))
+    (filter-update self))
   
   
-  (method protected (filter-update)
+  (method protected (filter-update self)
     (when filter
-      (filter-rows
+      (filter-rows self
         (lambda (title)
           (search title filter)))))
   
@@ -112,9 +116,9 @@
   ;;;
   
   
-  (method override (update-row row)
-    (bind (name serial class presentation more? mutable? kind) (get-user-data~ row)
-      (inspect-content row (safe-inspect-serial serial inspector-max-content) (calculate-forced-ordering class))))
+  (method override (update-row self row)
+    (bind (name serial class presentation more? mutable? kind) (get-user-data row)
+      (inspect-content self row (safe-inspect-serial self serial inspector-max-content) (calculate-forced-ordering self class))))
   
   
   ;;;
@@ -122,39 +126,39 @@
   ;;;
   
   
-  (method protected (safe-calculate-forced-ordering data)
+  (method protected (safe-calculate-forced-ordering self data)
     (and (pair? data)
          (bind (serial class presentation more? mutable? kind) data
-           (calculate-forced-ordering class))))
+           (calculate-forced-ordering self class))))
   
   
-  (method protected (calculate-forced-ordering class-symbol)
+  (method protected (calculate-forced-ordering self class-symbol)
     (and (or (eq? class-symbol (category-identifier Pair))
              (eq? class-symbol (category-identifier Vector))
              (eq? class-symbol (category-identifier Axis)))
          'natural))
   
   
-  (method protected (inspect-client client)
-    (remove-every-row)
-    (with-update-locked
+  (method protected (inspect-client self client)
+    (remove-every-row self)
+    (with-update-locked self
       (lambda ()
         (when client
           (bind (data . kind) client
-            (inspect-content #f (inspect data kind inspector-max-content) (safe-calculate-forced-ordering data)))))))
+            (inspect-content self #f (inspect-object self data kind inspector-max-content) (safe-calculate-forced-ordering self data)))))))
   
   
-  (method (inspect-content row values forced-ordering)
+  (method (inspect-content self row values forced-ordering)
     (define (insert-info father info)
       (bind (key serial class presentation more? mutable? kind) info
         (bind (category name rank) (backward-compatible-key key)
           (let ((title (or name "..."))
                 (state (if more? 'dynamic 'collapsed)))
-            (add-row father: father state: state
+            (add-row self father: father state: state
               children: (list (new Tree-Node title: title image: {Image-Resource "Variable"}) (new Tree-Label title: presentation))
               user-data: info)))))
     
-    (with-update-locked
+    (with-update-locked self
       (lambda ()
         (case (or forced-ordering ordering)
           ((alphabetic)
@@ -170,13 +174,13 @@
                            values)
                (for-each (lambda (partition rank)
                            (bind (key . elements) partition
-                             (let ((father (add-row father: row state: 'expanded children: (list (new Tree-Node title: key image: {Image-Resource "BlueRed"}) (new Tree-Label title: "")) user-data: key)))
+                             (let ((father (add-row self father: row state: 'expanded children: (list (new Tree-Node title: key image: {Image-Resource "BlueRed"}) (new Tree-Label title: "")) user-data: key)))
                                (for-each (lambda (info)
                                            (insert-info father info))
                                          elements))))
                          partition
                          (naturals 0 (length partition)))))))
-        (filter-update))))
+        (filter-update self))))
   
   
   ;;;
@@ -184,9 +188,9 @@
   ;;;
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'inspector)
-          (nextmethod)))
+          (nextmethod self)))
   
   
   ;;;
@@ -194,85 +198,85 @@
   ;;;
   
   
-  (method (on-context-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (pos (get-position~ evt))
-           (cell (view->tree pos))
-           (acquired (acquire sender pos)))
-      (with-context-click~ sender pos
+  (method (on-context-menu self evt)
+    (let* ((sender (get-sender evt))
+           (pos (get-position evt))
+           (cell (view->tree self pos))
+           (acquired (acquire self sender pos)))
+      (with-context-click sender pos
         (lambda ()
           (when cell
-            (let ((info (get-single-selected-data)))
+            (let ((info (get-single-selected-data self)))
               (when (pair? info)
                 (bind (key serial class presentation more? mutable? kind) info
                   (bind (category name rank) (backward-compatible-key key)
                     (if (not name)
                         (let ((menu (new Missing-Menu client: self)))
-                          (track-popup-menu menu acquired))
+                          (track-popup-menu self menu acquired))
                       (let ((menu (new Value-Menu client: self)))
                         (when (and (eq? class 'jazz:Continuation)
                                    (neq? kind :raw))
-                          (set-visible?~ (locate~ menu 'inspect) #t))
+                          (set-visible? (locate menu 'inspect) #t))
                         (when (not more?)
-                          (set-visible?~ (locate~ menu 'refresh) #f))
-                        (layout-menu~ menu)
-                        (track-popup-menu menu acquired))))))))))))
+                          (set-visible? (locate menu 'refresh) #f))
+                        (layout-menu menu)
+                        (track-popup-menu self menu acquired))))))))))))
   
   
-  (method (on-copy-text evt)
-    (let ((row (get-selected-row)))
-      (let ((data (get-child~ row 1)))
-        (set-clipboard-text (get-title~ data))
+  (method (on-copy-text self evt)
+    (let ((row (get-selected-row self)))
+      (let ((data (get-child row 1)))
+        (set-clipboard-text (get-title data))
         (user-message "Text copied to clipboard"))))
   
   
-  (method (on-copy-content evt)
-    (let ((info (get-single-selected-data)))
+  (method (on-copy-content self evt)
+    (let ((info (get-single-selected-data self)))
       (if (not (pair? info))
           (bell)
         (bind (key serial class presentation more? mutable? kind) info
-          (let ((presentation (present-serial~ process serial)))
+          (let ((presentation (present-serial process serial)))
             (set-clipboard-text presentation)))
         (user-message "Content copied to clipboard"))))
   
   
-  (method (on-inspect evt)
-    (let ((info (get-single-selected-data)))
+  (method (on-inspect self evt)
+    (let ((info (get-single-selected-data self)))
       (if (not (pair? info))
           (bell)
         (bind (key serial class presentation more? mutable? kind) info
           (when (eq? class 'jazz:Continuation)
-            (inspect-continuation~ (get-local-debugger~ (get-application)) process serial))))))
+            (inspect-continuation (get-local-debugger (get-application)) process serial))))))
   
   
-  (method (on-open evt)
-    (let ((info (get-single-selected-data)))
+  (method package (on-open self evt)
+    (let ((info (get-single-selected-data self)))
       (if (not (pair? info))
           (bell)
-        (inspect-info~ (get-local-debugger~ (get-application)) process (cdr info)))))
+        (inspect-info (get-local-debugger (get-application)) process (cdr info)))))
   
   
-  (method (on-refresh evt)
-    (let ((row (get-selected-row)))
-      (if (or (not row) (not (pair? (get-user-data~ row))))
+  (method package (on-refresh self evt)
+    (let ((row (get-selected-row self)))
+      (if (or (not row) (not (pair? (get-user-data row))))
           (bell)
-        (let ((actual-state (get-state~ row)))
-          (collapse row)
-          (remove-every-son~ row)
-          (set-state~ row 'dynamic)
+        (let ((actual-state (get-state row)))
+          (collapse self row)
+          (remove-every-son row)
+          (set-state row 'dynamic)
           (when (eq? actual-state 'expanded)
-            (expand/collapse row))))))
+            (expand/collapse self row))))))
   
   
-  (method (on-retrieve-all evt)
+  (method (on-retrieve-all self evt)
     (with-cursor :wait
       (lambda ()
-        (retrieve-all))))
+        (retrieve-all self))))
   
   
-  (method protected (retrieve-all)
+  (method package (retrieve-all self)
     (define (determine-father)
-      (let ((father (get-father~ (get-selected-row))))
+      (let ((father (get-father (get-selected-row self))))
         (if (eq? father root-row)
             #f
           father)))
@@ -280,12 +284,12 @@
     (let ((father (determine-father)))
       (if (not father)
           (begin
-            (remove-every-row)
+            (remove-every-row self)
             (bind (data . kind) client
-              (inspect-content #f (inspect data kind #f) (safe-calculate-forced-ordering data))))
-        (remove-every-son~ father)
-        (bind (name serial class presentation more? mutable? kind) (get-user-data~ father)
-          (inspect-content father (safe-inspect-serial serial #f) (calculate-forced-ordering class))))))
+              (inspect-content self #f (inspect-object self data kind #f) (safe-calculate-forced-ordering self data))))
+        (remove-every-son father)
+        (bind (name serial class presentation more? mutable? kind) (get-user-data father)
+          (inspect-content self father (safe-inspect-serial self serial #f) (calculate-forced-ordering self class))))))
   
   
   ;;;
@@ -293,21 +297,21 @@
   ;;;
   
   
-  (method public virtual (inspect data kind max-content)
+  (method public virtual (inspect-object self data kind max-content)
     (case kind
       ((:value)
        (inspect-value data))
       ((:remote)
        (bind (serial class presentation more? mutable? kind) data
          (if more?
-             (safe-inspect-serial serial max-content)
+             (safe-inspect-serial self serial max-content)
            '())))))
   
   
-  (method (safe-inspect-serial serial max-content)
+  (method (safe-inspect-serial self serial max-content)
     (with-jrm-exception-handler process
       (lambda ()
-        (inspect-serial~ process serial max-content)))))
+        (inspect-serial process serial max-content)))))
 
 
 ;;;

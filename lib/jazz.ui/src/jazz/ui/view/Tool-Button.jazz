@@ -55,11 +55,11 @@
   (slot state initialize 'inactive)
 
   
-  (method override (default-size)
+  (method override (default-size self)
     {Dimension 100 22})
   
   
-  (method override (mouse-activate?)
+  (method override (mouse-activate? self)
     #f)
   
   
@@ -68,13 +68,13 @@
   ;;;
   
   
-  (method public virtual (get-state)
+  (method public virtual (get-state self)
     state)
   
   
-  (method public virtual (set-state value)
+  (method public virtual (set-state self value)
     (set! state value)
-    (invalidate-view))
+    (invalidate-view self))
 
   
   ;;;
@@ -82,10 +82,10 @@
   ;;;
   
   
-  (method override (set-enabled? flag)
+  (method override (set-enabled? self flag)
     (when (not flag)
-      (set-state 'inactive))
-    (nextmethod flag))
+      (set-state self 'inactive))
+    (nextmethod self flag))
   
   
   ;;;
@@ -93,76 +93,76 @@
   ;;;
   
   
-  (method override (draw-background surface context)
-    (when (memq? (get-state) '(highlighted pushed))
-      (let ((skin (get-skin)))
-        (let ((highlight (get-highlight~ skin)))
+  (method override (draw-background self surface context)
+    (when (memq? (get-state self) '(highlighted pushed))
+      (let ((skin (get-skin self)))
+        (let ((highlight (get-highlight skin)))
           (when highlight
-            (let ((rect (expand-rect (get-bounds) 1 1 -1 -1)))
+            (let ((rect (expand-rect (get-bounds self) 1 1 -1 -1)))
               (if (is? highlight Color)
-                  (frame-rect~ surface rect highlight)
-                (fill-background~ surface rect highlight))))))))
+                  (frame-rect surface rect highlight)
+                (fill-background surface rect highlight))))))))
 
 
-  (method override (draw surface context)
-    (draw-frame surface)
-    (draw-tool surface context))
+  (method override (draw self surface context)
+    (draw-frame self surface)
+    (draw-tool self surface context))
 
 
-  (method protected virtual (draw-frame surface)
-    (case (get-state)
-      ((inactive) (draw-inactive surface))
-      ((highlighted) (draw-highlighted surface))
-      ((pushed) (draw-pushed surface))
-      ((out-pushed) (draw-out-pushed surface))))
+  (method protected virtual (draw-frame self surface)
+    (case (get-state self)
+      ((inactive) (draw-inactive self surface))
+      ((highlighted) (draw-highlighted self surface))
+      ((pushed) (draw-pushed self surface))
+      ((out-pushed) (draw-out-pushed self surface))))
   
   
-  (method protected virtual (draw-inactive surface)
+  (method protected virtual (draw-inactive self surface)
     )
 
 
-  (method protected virtual (draw-highlighted surface)
-    (if (is? (get-highlight~ (get-skin)) Color)
-        (draw-inactive surface)
-      (draw-border surface (light-color) (dark-color))))
+  (method protected virtual (draw-highlighted self surface)
+    (if (is? (get-highlight (get-skin self)) Color)
+        (draw-inactive self surface)
+      (draw-border self surface (light-color self) (dark-color self))))
 
 
-  (method protected virtual (draw-pushed surface)
-    (if (is? (get-highlight~ (get-skin)) Color)
-        (draw-inactive surface)
-      (draw-border surface (dark-color) (light-color))))
+  (method protected virtual (draw-pushed self surface)
+    (if (is? (get-highlight (get-skin self)) Color)
+        (draw-inactive self surface)
+      (draw-border self surface (dark-color self) (light-color self))))
   
   
-  (method protected virtual (light-color)
+  (method protected virtual (light-color self)
     {Color Light})
   
   
-  (method protected virtual (dark-color)
+  (method protected virtual (dark-color self)
     {Color Dark})
 
 
-  (method protected virtual (draw-out-pushed surface)
+  (method protected virtual (draw-out-pushed self surface)
     )
 
 
-  (method (draw-border surface upper lower)
-    (let ((rect (get-bounds)))
+  (method (draw-border self surface upper lower)
+    (let ((rect (get-bounds self)))
       (let ((left   0)
             (top    0)
-            (right  (- (get-right~ rect) 1))
-            (bottom (- (get-bottom~ rect) 1)))
-        (set-color~ surface upper)
-        (set-line-width~ surface 1)
-        (move-to~ surface left bottom)
-        (line-to~ surface left top)
-        (line-to~ surface right top)
-        (set-color~ surface lower)
-        (move-to~ surface left bottom)
-        (line-to-no-stroke~ surface right bottom)
-        (line-to~ surface right top))))
+            (right  (- (get-right rect) 1))
+            (bottom (- (get-bottom rect) 1)))
+        (set-color surface upper)
+        (set-line-width surface 1)
+        (move-to surface left bottom)
+        (line-to surface left top)
+        (line-to surface right top)
+        (set-color surface lower)
+        (move-to surface left bottom)
+        (line-to-no-stroke surface right bottom)
+        (line-to surface right top))))
 
 
-  (method protected virtual (draw-tool surface context)
+  (method protected virtual (draw-tool self surface context)
     )
   
   
@@ -171,7 +171,7 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:tool))
   
   
@@ -180,39 +180,39 @@
   ;;;
 
 
-  (method override (mouse-enter)
-    (when (and (view-enabled?) (or (not mouse-down?) (eq? mouse-down-view self)))
-      (case (get-state)
-        ((inactive) (set-state 'highlighted))
-        ((out-pushed) (set-state 'pushed)))))
+  (method override (mouse-enter self)
+    (when (and (view-enabled? self) (or (not (get-mouse-down?)) (eq? (get-mouse-down-view) self)))
+      (case (get-state self)
+        ((inactive) (set-state self 'highlighted))
+        ((out-pushed) (set-state self 'pushed)))))
 
 
-  (method override (mouse-leave)
-    (when (or (not mouse-down?) (eq? mouse-down-view self))
-      (case (get-state)
-        ((highlighted) (set-state 'inactive))
-        ((pushed) (set-state 'out-pushed)))))
+  (method override (mouse-leave self)
+    (when (or (not (get-mouse-down?)) (eq? (get-mouse-down-view) self))
+      (case (get-state self)
+        ((highlighted) (set-state self 'inactive))
+        ((pushed) (set-state self 'out-pushed)))))
 
 
-  (method override (mouse-down evt)
-    (when (view-enabled?)
-      (set-state 'pushed)
-      (down)
-      (invalidate-view)))
+  (method override (mouse-down self evt)
+    (when (view-enabled? self)
+      (set-state self 'pushed)
+      (down self)
+      (invalidate-view self)))
 
 
-  (method public virtual (down)
+  (method public virtual (down self)
     )
 
 
-  (method override (drag-up evt . rest)
-    (when (view-enabled?)
+  (method override (drag-up self evt . rest)
+    (when (view-enabled? self)
       (unwind-protect
-          (up)
-        (case (get-state)
-          ((pushed) (set-state 'highlighted))
-          ((out-pushed) (set-state 'inactive))))))
+          (up self)
+        (case (get-state self)
+          ((pushed) (set-state self 'highlighted))
+          ((out-pushed) (set-state self 'inactive))))))
 
 
-  (method public virtual (up)
+  (method public virtual (up self)
     )))

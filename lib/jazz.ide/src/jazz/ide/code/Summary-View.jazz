@@ -44,16 +44,21 @@
         (jazz.catalog.edit)
         (jazz.catalog.entry)
         (jazz.designer)
+        (jazz.document)
         (jazz.editor)
+        (jazz.editor.jazz)
         (jazz.editor.lisp)
+        (jazz.event)
         (jazz.graphic)
         (jazz.handler)
         (jazz.ide)
         (jazz.io)
         (jazz.jml)
         (jazz.menu)
+        (jazz.outline)
         (jazz.resource)
         (jazz.search)
+        (jazz.text)
         (jazz.tree)
         (jazz.ui)
         (jazz.view)
@@ -88,7 +93,7 @@
                 (<Tree-Node-Column>                title: "Summary" width: 329))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Summary)
 
 
@@ -97,20 +102,20 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "AnalysisManager"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Summary")
   
   
-  (method override (client-activate)
+  (method override (client-activate self)
     (define (client-root guest)
       (and (is? guest Code-Text-View)
-           (let ((moniker (get-moniker~ (get-document-controller~ guest))))
+           (let ((moniker (get-moniker (get-document-controller guest))))
              (and moniker
-                  (let ((ext (get-extension~ moniker)))
+                  (let ((ext (get-extension moniker)))
                     (if (extension=? ext "jml")
                         (safe-read-form moniker)
                       (cache-file-entry moniker)))))))
@@ -119,12 +124,12 @@
       (let ((guest (current-document)))
         (let ((root (client-root guest)))
           (if (not root)
-              (set-client/root #f #f)
-            (set-client/root guest root))))))
+              (set-client/root self #f #f)
+            (set-client/root self guest root))))))
   
   
-  (method override (client-deactivate)
-    (set-client/root #f #f))
+  (method override (client-deactivate self)
+    (set-client/root self #f #f))
  
 
   ;;;
@@ -132,13 +137,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (locate 'summary)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (locate self 'summary)))
+      (acquire-focus tree)))
   
   
   ;;;
@@ -146,9 +151,9 @@
   ;;;
   
 
-  (method override (guest-actions)
+  (method override (guest-actions self)
     (cons (find-actions 'summary-view)
-          (nextmethod)))
+          (nextmethod self)))
  
 
   ;;;
@@ -156,64 +161,64 @@
   ;;;
 
 
-  (method (on-selection-change evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method package (on-selection-change self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((summary)
-         (selection-change sender 'select)))))
+         (selection-change self sender 'select)))))
 
 
-  (method (on-double-click evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method (on-double-click self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((summary)
-         (selection-change sender 'finish)))))
+         (selection-change self sender 'finish)))))
   
   
-  (method override (on-return-press key)
-    (finish-focus))
+  (method override (on-return-press self key)
+    (finish-focus self))
   
   
-  (method override (on-escape-press key)
-    (cancel-focus))
+  (method override (on-escape-press self key)
+    (cancel-focus self))
   
   
-  (method (on-cancel evt)
-    (cancel-focus))
+  (method (on-cancel self evt)
+    (cancel-focus self))
   
   
-  (method (on-context-menu evt)
+  (method (on-context-menu self evt)
     (define (menu-class entry)
-      (case (get-kind~ entry)
+      (case (get-kind entry)
         ((class) Class-Menu)
         ((method) Method-Menu)
         (else #f)))
     
-    (let* ((sender (get-sender~ evt))
-           (pos (get-position~ evt))
-           (acquired (acquire sender pos)))
-      (with-context-click~ sender pos
+    (let* ((sender (get-sender evt))
+           (pos (get-position evt))
+           (acquired (acquire self sender pos)))
+      (with-context-click sender pos
         (lambda ()
-          (let ((row (get-selected-row~ sender)))
+          (let ((row (get-selected-row sender)))
             (when row
-              (let ((entry (get-user-data~ row)))
+              (let ((entry (get-user-data row)))
                 (when (is? entry Lisp-Entry)
                   (let ((menu-class (menu-class entry)))
                     (when menu-class
                       (let ((menu (new menu-class client: self)))
-                        (track-popup-menu menu acquired))))))))))))
+                        (track-popup-menu self menu acquired))))))))))))
   
   
-  (method (finish-focus)
-    (selection-change (locate 'summary) 'finish))
+  (method (finish-focus self)
+    (selection-change self (locate self 'summary) 'finish))
   
   
-  (method (cancel-focus)
+  (method (cancel-focus self)
     (when client
       (when client-selection
-        (set-selection-safe~ client client-selection force?: #t ensure-displayed?: #f generate-event?: #f)
-        (scroll-to~ client client-position))
-      (acquire-focus~ client)))
+        (set-selection-safe client client-selection force?: #t ensure-displayed?: #f generate-event?: #f)
+        (scroll-to client client-position))
+      (acquire-focus client)))
   
   
   ;;;
@@ -221,16 +226,16 @@
   ;;;
 
  
-  (method public (set-client/root clt root)
+  (method public (set-client/root self clt root)
     (when (neq? root client-root)
       (when client
-        (remove-text-listener~ client self))
+        (remove-text-listener client self))
       (set! client clt)
       (set! client-root root)
       (set! client-entry #f)
-      (highlight-selection)
+      (highlight-selection self)
       (when client
-        (add-text-listener~ client (new Event-Handler execute: (lambda (evt) (highlight-selection)))))))
+        (add-text-listener client (new Event-Handler execute: (lambda (evt) (highlight-selection self)))))))
 
   
   ;;;
@@ -238,33 +243,33 @@
   ;;;
   
   
-  (method (highlight-selection)
+  (method (highlight-selection self)
     (define (insert-entry tree entry)
-      (let ((parent (get-parent~ entry)))
+      (let ((parent (get-parent entry)))
         (when (and parent (is-not? parent File-Entry))
           (insert-entry tree parent)
-          (add-row~ tree children: (list (new Tree-Node title: ""))))
+          (add-row tree children: (list (new Tree-Node title: ""))))
         (typecase entry
           ((Lisp-Entry) (insert-lisp-entry tree entry))
-          (else (insert-default-entry tree entry)))))
+          (else (insert-default-entry self tree entry)))))
     
     (define (insert-lisp-entry tree entry)
-      (case (get-kind~ entry)
+      (case (get-kind entry)
         ((block unit) (insert-unit-entry tree entry))
         ((module) (insert-module-entry tree entry))
         ((define definition) (insert-definition-entry tree entry))
         ((class) (insert-class-entry tree entry))
         ((method) (insert-method-entry tree entry))
-        (else (insert-default-entry tree entry))))
+        (else (insert-default-entry self tree entry))))
     
     (define (insert-unit-entry tree entry)
-      (insert-default-entry tree entry image: {Image-Resource "TypeInterface"}))
+      (insert-default-entry self tree entry image: {Image-Resource "TypeInterface"}))
     
     (define (insert-module-entry tree entry)
-      (insert-default-entry tree entry image: {Image-Resource "Class"}))
+      (insert-default-entry self tree entry image: {Image-Resource "Class"}))
     
     (define (insert-definition-entry tree entry)
-      (insert-default-entry tree entry image: {Image-Resource "Slot"}))
+      (insert-default-entry self tree entry image: {Image-Resource "Slot"}))
     
     (define (insert-class-entry tree entry)
       (let ((father (let ((ascendant (class-entry-ascendant entry)))
@@ -272,58 +277,58 @@
                            (insert-class-ascendant tree ascendant))))
             (subdescendants (class-entry-descendants entry)))
         (let ((state (if (null? subdescendants) 'expanded 'dynamic)))
-          (insert-class-node tree entry father: father state: state))))
+          (insert-class-node self tree entry father: father state: state))))
     
     (define (insert-class-ascendant tree entry)
       (let ((father (let ((ascendant (class-entry-ascendant entry)))
                       (and ascendant
                            (insert-class-ascendant tree ascendant)))))
-        (insert-class-node tree entry father: father)))
+        (insert-class-node self tree entry father: father)))
     
     (define (insert-method-entry tree entry)
-      (insert-default-entry tree entry image: {Image-Resource "Link"}))
+      (insert-default-entry self tree entry image: {Image-Resource "Link"}))
     
     (unless (inhibit-summaries?)
-      (let ((tree (locate 'summary)))
+      (let ((tree (locate self 'summary)))
         (if (not client)
-            (remove-every-row~ tree)
-          (let ((start (get-start~ client)))
-            (let ((line (get-line~ start))
-                  (col (get-col~ start)))
+            (remove-every-row tree)
+          (let ((start (get-start client)))
+            (let ((line (get-line start))
+                  (col (get-col start)))
               (when (or (not displayed-line) (/= line displayed-line))
-                (set! client-selection (get-selection~ client))
-                (set! client-position (get-scrolled-position~ client))
+                (set! client-selection (get-selection client))
+                (set! client-position (get-scrolled-position client))
                 (if (is-not? client-root File-Entry)
                     (begin
-                      (remove-every-row~ tree)
+                      (remove-every-row tree)
                       (set! client-entry #f))
-                  (let ((file (get-file~ client-root)))
+                  (let ((file (get-file client-root)))
                     (let ((entry (location->entry (list file line col))))
                       (when (neq? entry client-entry)
                         (set! client-entry entry)
-                        (remove-every-row~ tree)
-                        (with-update-locked~ tree
+                        (remove-every-row tree)
+                        (with-update-locked tree
                           (lambda ()
                             (when entry
                               (insert-entry tree entry))))))))
                 (set! displayed-line line))))))))
   
   
-  (method (insert-class-node tree entry (father: father #f) (state: state #f) (font: font #f) (color: color #f) (image: image #f) (descendant?: descendant? #f))
-    (let ((method-name (and client-entry (eq? (get-kind~ client-entry) 'method) (->string (get-name~ client-entry)))))
+  (method (insert-class-node self tree entry (father: father #f) (state: state #f) (font: font #f) (color: color #f) (image: image #f) (descendant?: descendant? #f))
+    (let ((method-name (and client-entry (eq? (get-kind client-entry) 'method) (->string (get-name client-entry)))))
       (unless (or descendant? (not (class-entry? entry)))
         (let ((interfaces (class-entry-interfaces entry)))
           (for-each (lambda (interface)
-                      (when (and method-name (find-definition~ interface method-name))
-                        (insert-class-node tree interface father: father image: {Image-Resource "Link"})))
+                      (when (and method-name (find-definition interface method-name))
+                        (insert-class-node self tree interface father: father image: {Image-Resource "Link"})))
                     interfaces)))
-      (let ((method (and method-name (find-definition~ entry method-name))))
+      (let ((method (and method-name (find-definition entry method-name))))
         (let ((font (if method {Font Label-Bold} #f))
               (color (if method
-                         (cond ((eq? entry (get-parent~ client-entry))
+                         (cond ((eq? entry (get-parent client-entry))
                                 {Color Dark-Green})
-                               ((or (memq? 'virtual (get-modifiers~ method))
-                                    (memq? 'chained (get-modifiers~ method)))
+                               ((or (memq? 'virtual (get-modifiers method))
+                                    (memq? 'chained (get-modifiers method)))
                                 {Color Dark-Red})
                                (descendant?
                                 {Color Dark-Purple})
@@ -331,15 +336,15 @@
                                 {Color Dark-Blue}))
                        #f))
               (image (or image {Image-Resource "BlueRed"})))
-          (insert-default-entry tree entry father: father state: state font: font color: color image: image user-data: (or method entry))))))
+          (insert-default-entry self tree entry father: father state: state font: font color: color image: image user-data: (or method entry))))))
   
   
-  (method (insert-default-entry tree entry (father: father #f) (state: state #f) (title: title #f) (font: font #f) (color: color #f) (image: image #f) (user-data: user-data #f))
+  (method (insert-default-entry self tree entry (father: father #f) (state: state #f) (title: title #f) (font: font #f) (color: color #f) (image: image #f) (user-data: user-data #f))
     (let* ((state (or state 'expanded))
-           (title (or title (get-name~ entry)))
+           (title (or title (get-name entry)))
            (image (or image {Image-Resource "Slot"}))
            (user-data (or user-data entry)))
-      (add-row~ tree father: father state: state children: (list (new Tree-Node title: title font: font color: color image: image)) user-data: user-data)))
+      (add-row tree father: father state: state children: (list (new Tree-Node title: title font: font color: color image: image)) user-data: user-data)))
 
   
   ;;;
@@ -347,11 +352,11 @@
   ;;;
   
   
-  (method (tree-update-row tree row)
+  (method package (tree-update-row self tree row)
     (define (insert-entry tree father entry)
-      (case (get-kind~ entry)
+      (case (get-kind entry)
         ((method)
-         (insert-entry tree father (get-parent~ entry)))
+         (insert-entry tree father (get-parent entry)))
         ((class)
          (insert-class-descendants tree father entry))))
     
@@ -359,11 +364,11 @@
       (for-each (lambda (subclass)
                   (let ((subdescendants (class-entry-descendants subclass)))
                     (let ((state (if (null? subdescendants) 'expanded 'dynamic))
-                          (title (->string (get-name~ subclass))))
-                      (insert-class-node tree subclass father: father state: state descendant?: #t))))
-                (sort string<? (class-entry-descendants entry) key: get-name~)))
+                          (title (->string (get-name subclass))))
+                      (insert-class-node self tree subclass father: father state: state descendant?: #t))))
+                (sort string<? (class-entry-descendants entry) key: get-name)))
     
-    (let ((entry (get-user-data~ row)))
+    (let ((entry (get-user-data row)))
       (when (is? entry Lisp-Entry)
         (insert-entry tree row entry))))
   
@@ -373,16 +378,16 @@
   ;;;
   
   
-  (method (selection-change tree origin)
+  (method package (selection-change self tree origin)
     (let ((guest (current-document)))
       (when guest
-        (let ((moniker (get-moniker~ (get-document-controller~ guest)))
-              (selection (get-single-selection~ tree)))
+        (let ((moniker (get-moniker (get-document-controller guest)))
+              (selection (get-single-selection tree)))
           (when selection
-            (let ((definition (get-user-data~ (get-row~ tree selection))))
+            (let ((definition (get-user-data (get-row tree selection))))
               (unless (is? definition Exception)
                 (when definition
-                  (edit-definitions definition origin)))))))))
+                  (edit-definitions self definition origin)))))))))
   
   
   ;;;
@@ -390,20 +395,20 @@
   ;;;
   
   
-  (method (edit-definitions definition origin)
+  (method package (edit-definitions self definition origin)
     (define (edit-jml-definition definition)
       (let* ((appl (get-application))
-             (moniker (get-origin~ client-root))
-             (frame (edit-document~ appl moniker visible?: #f))
-             (text (get-guest~ frame))
-             (location (append (get-location~ definition) (list 0)))
-             (range (location-range~ text location)))
-        (set-selection-safe~ text range ensure-displayed?: 'center-caret)
-        (focus-host~ frame)))
+             (moniker (get-origin client-root))
+             (frame (edit-document appl moniker visible?: #f))
+             (text (get-guest frame))
+             (location (append (get-location definition) (list 0)))
+             (range (location-range text location)))
+        (set-selection-safe text range ensure-displayed?: 'center-caret)
+        (focus-host frame)))
     
     (when (eq? origin 'select)
       (let ((appl (get-application)))
-        (add-history~ appl (current-history-item~ appl))))
+        (add-history appl (current-history-item appl))))
     (when (neq? origin 'select)
       (set! client-entry #f))
     (if (is? definition JML-Node)
@@ -412,12 +417,12 @@
         ((select)
          (parameterize ((inhibit-summaries? #t))
            (edit-entry definition)
-           (acquire-focus~ (locate 'summary))))
+           (acquire-focus (locate self 'summary))))
         ((finish)
-         (edit~ definition force-selection?: #t)
-         (client-activate))
+         (edit definition force-selection?: #t)
+         (client-activate self))
         ((cancel)
-         (edit~ definition force-selection?: #t)))))
+         (edit definition force-selection?: #t)))))
   
   
   ;;;
@@ -425,35 +430,35 @@
   ;;;
   
   
-  (method (find-classes)
-    (let ((tree (locate 'summary)))
-      (let ((entry (get-single-selected-data~ tree)))
-        (let ((search (new Projects-Search 'definitions (->string (get-name~ entry)) #f))
-              (classes (sort di<? (class-entry-descendants-recursive entry) key: get-name~))
+  (method package (find-classes self)
+    (let ((tree (locate self 'summary)))
+      (let ((entry (get-single-selected-data tree)))
+        (let ((search (new Projects-Search 'definitions (->string (get-name entry)) #f))
+              (classes (sort di<? (class-entry-descendants-recursive entry) key: get-name))
               (results (get-search-results)))
-          (select-results~ results (make-definition-search-resultset search classes))))))
+          (select-results results (make-definition-search-resultset search classes))))))
   
   
-  (method (find-classes-references)
-    (let ((tree (locate 'summary)))
-      (let ((entry (get-single-selected-data~ tree)))
+  (method package (find-classes-references self)
+    (let ((tree (locate self 'summary)))
+      (let ((entry (get-single-selected-data tree)))
         (let ((classes (class-entry-descendants-recursive entry)))
-          (let ((names (map (lambda (entry) (->string (get-name~ entry))) classes)))
+          (let ((names (map (lambda (entry) (->string (get-name entry))) classes)))
             (let ((search-set (->search-set (map (lambda (name) (make-search-context name whole-words?: #t)) names))))
               (let ((search (new Projects-Search 'references search-set #f))
                     (results (get-search-results))
                     (cataloguer get-cataloguer))
-                (let ((references (search-references~ cataloguer search-set)))
-                  (select-results~ results (make-reference-search-resultset search references))))))))))
+                (let ((references (search-references cataloguer search-set)))
+                  (select-results results (make-reference-search-resultset search references))))))))))
   
   
-  (method (find-methods)
-    (let ((tree (locate 'summary)))
-      (let ((entry (get-single-selected-data~ tree)))
-        (let ((search (new Projects-Search 'references (->string (get-name~ entry)) #f))
-              (methods (sort di<? (method-entry-descendants entry) key: get-name~))
+  (method package (find-methods self)
+    (let ((tree (locate self 'summary)))
+      (let ((entry (get-single-selected-data tree)))
+        (let ((search (new Projects-Search 'references (->string (get-name entry)) #f))
+              (methods (sort di<? (method-entry-descendants entry) key: get-name))
               (results (get-search-results)))
-          (select-results~ results (make-definition-search-resultset search methods)))))))
+          (select-results results (make-definition-search-resultset search methods)))))))
 
 
 ;;;
@@ -464,8 +469,8 @@
 (class Summary-Tree extends Code-Tree
   
   
-  (method override (update-row row)
-    (tree-update-row~ (get-guest) self row)))
+  (method override (update-row self row)
+    (tree-update-row (get-guest self) self row)))
 
 
 ;;;
@@ -482,16 +487,16 @@
       (<Label-Item> name: find-references title: "Find Classes References" action-handler: {Event-Handler :form on-find-classes-references})))
   
   
-  (method (on-find-classes evt)
+  (method (on-find-classes self evt)
     (with-cursor :wait
       (lambda ()
-        (find-classes~ client))))
+        (find-classes client))))
   
   
-  (method (on-find-classes-references evt)
+  (method (on-find-classes-references self evt)
     (with-cursor :wait
       (lambda ()
-        (find-classes-references~ client)))))
+        (find-classes-references client)))))
 
 
 ;;;
@@ -507,7 +512,7 @@
       (<Label-Item> name: find title: "Find Methods" action-handler: {Event-Handler :form on-find-methods})))
   
   
-  (method (on-find-methods evt)
+  (method (on-find-methods self evt)
     (with-cursor :wait
       (lambda ()
-        (find-methods~ client))))))
+        (find-methods client))))))

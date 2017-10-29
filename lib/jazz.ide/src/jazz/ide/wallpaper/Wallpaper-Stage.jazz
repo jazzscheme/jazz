@@ -76,19 +76,19 @@
     (<install> tooltip?: #t))
   
   
-  (method (preferences)
-    (get-preferences 'wallpaper error?: #f))
+  (method (preferences self)
+    (current-preferences 'wallpaper error?: #f))
 
 
-  (method override (install-wallpaper)
-    (let ((pref (preferences)))
+  (method override (install-wallpaper self)
+    (let ((pref (preferences self)))
       (when pref
-        (let ((active (get-active~ pref)))
+        (let ((active (get-active pref)))
           (when active
-            (install-configuration (child~ pref active)))))))
+            (install-configuration self (child pref active)))))))
   
   
-  (method (install-configuration config (brws? #f))
+  (method package (install-configuration self config (brws? #f))
     (when (neq? config configuration)
       (set! browse? brws?)
       (set! configuration config)
@@ -96,158 +96,158 @@
           (begin
             (set! image #f)
             (set! wallpapers '())
-            (invalidate-view))
+            (invalidate-view self))
         (set! image (new Image cache?: #t))
-        (set-mode (get-mode~ config))
-        (set-random? (get-random?~ config))
-        (set-size~ image (get-size))
-        (let ((wallpaper (get-directory~ config)))
+        (set-mode self (get-mode config))
+        (set-random? self (get-random? config))
+        (set-size image (get-size self))
+        (let ((wallpaper (get-directory config)))
           (when wallpaper
             (let ((dir? (is? wallpaper Directory)))
               (when dir?
-                (setup-wallpapers wallpaper (get-recursive?~ config))
-                (setup-favorites wallpaper (get-favorites~ config)))
-              (set-source (startup-file dir? wallpaper (get-startup~ config)))
+                (setup-wallpapers self wallpaper (get-recursive? config))
+                (setup-favorites self wallpaper (get-favorites config)))
+              (set-source self (startup-file self dir? wallpaper (get-startup config)))
               (when (and dir? (not changer))
-                (setup-changer (get-period~ config)))))))))
+                (setup-changer self (get-period config)))))))))
 
 
   @convert ;; problem with Configure-Menu already used by Compare-Menu
   (method (context-menu evt)
     (define (new-stage-menu)
       (let* ((menu (new Stage-Menu))
-             (manage-menu (get-content~ (locate~ menu 'manage)))
+             (manage-menu (get-content (locate menu 'manage)))
              (source (get-source)))
-        (set-visible?~ (locate~ manage-menu 'favorite) source)
-        (set-visible?~ (locate~ manage-menu 'favorite-separator) source)
+        (set-visible?~ (locate manage-menu 'favorite) source)
+        (set-visible?~ (locate manage-menu 'favorite-separator) source)
         (when (and source configuration)
-          (let* ((name (get-name~ source))
-                 (favorites (get-favorites~ configuration))
+          (let* ((name (get-name source))
+                 (favorites (get-favorites configuration))
                  (favorite? (member? name favorites)))
-            (set-title~ (locate~ manage-menu 'favorite) (if favorite? "Remove from Favorites" "Add to Favorites"))))
-        (layout-menu~ manage-menu)
-        (layout-menu~ menu)
+            (set-title (locate manage-menu 'favorite) (if favorite? "Remove from Favorites" "Add to Favorites"))))
+        (layout-menu manage-menu)
+        (layout-menu menu)
         menu))
     
-    (if (null? (get-children~ (preferences)))
+    (if (null? (get-children (preferences)))
         (nextmethod evt)
-      (let ((pos (get-position~ evt)))
+      (let ((pos (get-position evt)))
         (acquire-focus)
         (track-popup-menu (new-stage-menu) pos))))
   
   
-  (method (on-change evt)
-    (change-wallpaper))
+  (method (on-change self evt)
+    (change-wallpaper self))
   
   
-  (method (on-previous evt)
-    (show-previous))
+  (method (on-previous self evt)
+    (show-previous self))
   
   
-  (method (on-add-to-favorite evt)
-    (let ((source (get-source)))
+  (method (on-add-to-favorite self evt)
+    (let ((source (get-source self)))
       (if (or (not source) (not configuration))
           (bell)
-        (let* ((name (get-name~ source))
-               (favorites (get-favorites~ configuration))
+        (let* ((name (get-name source))
+               (favorites (get-favorites configuration))
                (favorite? (member? name favorites))
                (new-favorites (if favorite? (remove! name favorites) (cons name favorites))))
           (set-preference configuration 'favorites new-favorites)
-          (flash-message (format "{a} {a} favorites" name (if favorite? "removed from" "added to")))))))
+          (flash-message self (format "{a} {a} favorites" name (if favorite? "removed from" "added to")))))))
   
   
-  (method (on-delete-file evt)
+  (method (on-delete-file self evt)
     (when image
-      (let ((source (get-source)))
+      (let ((source (get-source self)))
         (when source
-          (delete-file~ source)
-          (flash-message (format "{a} deleted" (get-name~ source)))
+          (delete-file source)
+          (flash-message self (format "{a} deleted" (get-name source)))
           (set! wallpapers (remove! source wallpapers test: =))
           (set! choices (remove! source choices test: =))
-          (change-wallpaper)))))
+          (change-wallpaper self)))))
   
   
-  (method (on-change-mode evt)
-    (set-mode (get-property~ evt mode:)))
+  (method (on-change-mode self evt)
+    (set-mode self (get-property evt mode:)))
 
 
-  (method override (size-change size)
-    (nextmethod size)
+  (method override (size-change self size)
+    (nextmethod self size)
     (when image
-      (set-size~ image size)
-      (invalidate-view)))
+      (set-size image size)
+      (invalidate-view self)))
   
   
-  (method override (get-tooltip-text)
+  (method override (get-tooltip-text self)
     (and (and image (control-down?) (alt-down?))
-         (let ((source (get-source)))
+         (let ((source (get-source self)))
            (and source
-                (let ((image-size (image-size~ image)))
+                (let ((image-size (image-size image)))
                   (list
                     (format "File: {s}" source)
                     (format "Size: {a}x{a}, Mode: {a}"
-                            (get-width~ image-size)
-                            (get-height~ image-size)
-                            (get-mode~ image))))))))
+                            (get-width image-size)
+                            (get-height image-size)
+                            (get-mode image))))))))
   
   
-  (method (get-source)
+  (method package (get-source self)
     (and image
-         (get-source~ image)))
+         (get-source image)))
   
   
-  (method (set-source file)
-    (set! previous (get-source))
+  (method package (set-source self file)
+    (set! previous (get-source self))
     (cond ((not file)
-           (set-source~ image #f))
-          ((exists?~ file)
-           (set-source~ image file))
+           (set-source image #f))
+          ((exists? file)
+           (set-source image file))
           (else
-           (set-source~ image #f)
+           (set-source image #f)
            (message-box (format "Wallpaper file {s} not found" file))))
-    (invalidate-view)
-    (update-view))
+    (invalidate-view self)
+    (update-view self))
   
   
-  (method (set-mode mode)
-    (set! mode~self mode)
+  (method package (set-mode self mode)
+    (set! self.mode mode)
     (when image
-      (set-mode~ image mode)
-      (invalidate-view)))
+      (set-mode image mode)
+      (invalidate-view self)))
   
   
-  (method (set-random? flag)
+  (method (set-random? self flag)
     (set! random? flag))
   
   
-  (method (setup-wallpapers dir recursive?)
+  (method (setup-wallpapers self dir recursive?)
     (let ((files '()))
-      (iterate-directory~ dir
+      (iterate-directory dir
         (lambda (file)
-          (when (image-file? file)
+          (when (image-file? self file)
             (set! files (cons file files))))
         recursive?: recursive?)
-      (set! wallpapers (sort ci<? files key: get-name~))))
+      (set! wallpapers (sort ci<? files key: get-name))))
   
   
-  (method (image-file? file)
-    (member? (get-extension~ file) '("bmp" "jpg" "jpeg" "png")
+  (method (image-file? self file)
+    (member? (get-extension file) '("bmp" "jpg" "jpeg" "png")
              test: extension=?))
   
   
-  (method (setup-favorites dir favorites)
+  (method (setup-favorites self dir favorites)
     (set! choices (map (lambda (favorite)
                          (wallpaper-file dir favorite))
                        favorites)))
   
   
-  (method (startup-file dir? dir startup)
+  (method (startup-file self dir? dir startup)
     (cond ((not dir?) background)
           (startup (if (eq? startup :empty) #f (wallpaper-file dir startup)))
-          (else (next-wallpaper))))
+          (else (next-wallpaper self))))
 
 
-  (method (setup-changer period)
+  (method (setup-changer self period)
     (unimplemented)
     @convert-thread
     (set! changer
@@ -262,39 +262,39 @@
   
   
   (definition (wallpaper-file dir name)
-    (new-file~ dir name))
+    (new-file dir name))
 
 
-  (method public (change-wallpaper)
+  (method public (change-wallpaper self)
     (when configuration
-      (set-source (next-wallpaper))))
+      (set-source self (next-wallpaper self))))
   
   
-  (method (show-first)
+  (method (show-first self)
     (unless random?
       (when wallpapers
-        (set-source (car wallpapers)))))
+        (set-source self (car wallpapers)))))
   
   
-  (method (show-last)
+  (method (show-last self)
     (unless random?
       (when wallpapers
-        (set-source (last wallpapers)))))
+        (set-source self (last wallpapers)))))
   
   
-  (method (show-previous)
-    (let ((wallpaper (previous-wallpaper)))
+  (method (show-previous self)
+    (let ((wallpaper (previous-wallpaper self)))
       (when wallpaper
-        (set-source wallpaper)
+        (set-source self wallpaper)
         (set! previous #f))))
 
 
-  (method (next-wallpaper)
+  (method (next-wallpaper self)
     (if (not random?)
-        (let ((source (get-source)))
+        (let ((source (get-source self)))
           (if (not source)
               (car wallpapers)
-            (element wallpapers (modulo (+ (wallpaper-rank source) 1) (length wallpapers)))))
+            (element wallpapers (modulo (+ (wallpaper-rank self source) 1) (length wallpapers)))))
       (when (null? choices)
         (set! choices (copy wallpapers)))
       (when choices
@@ -303,20 +303,20 @@
           wallpaper))))
   
   
-  (method (previous-wallpaper)
+  (method (previous-wallpaper self)
     (if (not random?)
-        (let ((source (get-source)))
+        (let ((source (get-source self)))
           (if (not source)
               (and wallpapers (last wallpapers))
             (let ((count (length wallpapers))
-                  (rank (wallpaper-rank source)))
+                  (rank (wallpaper-rank self source)))
               (if (= rank 0)
                   (element wallpapers (- count 1))
                 (element wallpapers (- rank 1))))))
       previous))
   
   
-  (method (wallpaper-rank wallpaper)
+  (method (wallpaper-rank self wallpaper)
     (find wallpapers wallpaper test: =))
   
 
@@ -336,51 +336,51 @@
   ;;;
   
   
-  (method (on-empty evt)
-    (install-configuration #f))
+  (method (on-empty self evt)
+    (install-configuration self #f))
   
   
-  (method (on-home evt)
-    (show-first))
+  (method package (on-home self evt)
+    (show-first self))
   
   
-  (method (on-end evt)
-    (show-last))
+  (method package (on-end self evt)
+    (show-last self))
   
   
-  (method (on-prior evt)
-    (show-previous))
+  (method (on-prior self evt)
+    (show-previous self))
   
   
-  (method (on-next evt)
-    (change-wallpaper))
+  (method (on-next self evt)
+    (change-wallpaper self))
   
   
-  (method (on-random evt)
+  (method (on-random self evt)
     (set! random? (not random?))
     (when random?
-      (change-wallpaper))
-    (flash-message (if random? "Random" "Linear")))
+      (change-wallpaper self))
+    (flash-message self (if random? "Random" "Linear")))
   
   
-  (method (on-paused evt)
+  (method (on-paused self evt)
     (set! paused? (not paused?))
-    (flash-message (if paused? "Paused" "Running")))
+    (flash-message self (if paused? "Paused" "Running")))
   
   
-  (method (on-display-info evt)
-    (let ((source (get-source)))
-      (flash-message
+  (method (on-display-info self evt)
+    (let ((source (get-source self)))
+      (flash-message self
         (if (not source)
             {Image-Resource "Empty"}
-          (let* ((name (get-name~ source))
-                 (favorites (get-favorites~ configuration))
+          (let* ((name (get-name source))
+                 (favorites (get-favorites configuration))
                  (favorite? (member? name favorites)))
             (format "{a}{a}" name (if favorite? " (favorite)" ""))))
         delay: 2.)))
   
   
-  (method (flash-message message (delay: delay 1.))
+  (method (flash-message self message (delay: delay 1.))
     (unimplemented)
     @convert-thread
     (thread-start!
@@ -397,10 +397,10 @@
   ;;;
   
   
-  (method override (key-press evt)
-    (let ((key (get-key~ evt)))
+  (method override (key-press self evt)
+    (let ((key (get-key evt)))
       (when (and (alphanumeric? key) wallpapers)
-        (enter~ locator key))))
+        (enter locator key))))
   
   
   ;;;
@@ -408,20 +408,20 @@
   ;;;
   
   
-  (method override (draw-background surface context)
-    (let ((skin (get-skin)))
-      (let ((background (get-background~ skin)))
+  (method override (draw-background self surface context)
+    (let ((skin (get-skin self)))
+      (let ((background (get-background skin)))
         (if (not background)
-            (nextmethod surface context)
-          (let ((bounds (get-bounds)))
-            (fill-background~ surface bounds background))))))
+            (nextmethod self surface context)
+          (let ((bounds (get-bounds self)))
+            (fill-background surface bounds background))))))
 
 
-  (method override (draw surface context)
-    (nextmethod surface context)
-    (let ((size (get-size)))
+  (method override (draw self surface context)
+    (nextmethod self surface context)
+    (let ((size (get-size self)))
       (when image
-        (draw~ image surface context 0 0 size: size))))
+        (draw image surface context 0 0 size: size))))
   
   
   ;;;
@@ -429,7 +429,7 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:stage))
 
   
@@ -438,19 +438,19 @@
   ;;;
   
   
-  (method package (on-configure evt)
+  (method package (on-configure self evt)
     (define (browse-configuration)
-      (install-configuration
+      (install-configuration self
         (new Wallpaper-Configuration
           directory: (choose-directory)
-          period: (and configuration (get-period~ configuration))
-          mode: (and configuration (get-mode~ configuration)))
+          period: (and configuration (get-period configuration))
+          mode: (and configuration (get-mode configuration)))
         #t))
     
-    (let ((configuration (get-property~ evt configuration:)))
+    (let ((configuration (get-property evt configuration:)))
       (if (eq? configuration #t)
           (browse-configuration)
-        (install-configuration configuration)))))
+        (install-configuration self configuration)))))
 
 
 ;;;
@@ -462,16 +462,16 @@
   
   
   @convert
-  (method (iterate proc)
+  (method (iterate-entries proc)
     (for-each (lambda (wallpaper rank)
-                (let ((title (get-name~ wallpaper)))
+                (let ((title (get-name wallpaper)))
                   (proc title rank)))
               wallpapers
               (naturals 0 (length wallpapers))))
   
   
   @convert
-  (method (select rank)
+  (method (select-entry rank)
     (set-source (element wallpapers rank))))
 
 
@@ -522,7 +522,7 @@
         (set-checked?~ (locate 'random) random?)
         (set-checked?~ (locate 'paused) paused?)
         (set-visible?~ (locate 'previous) (or (not random?) previous))
-        (set-title~ (locate 'manage) (get-name~ source))))))
+        (set-title (locate 'manage) (get-name source))))))
 
 
 ;;;
@@ -542,7 +542,7 @@
   @convert
   (method public (update-menu)
     (insert-item "None" {Image-Resource "Empty"} #f #f)
-    (let ((children (get-children~ (preferences))))
+    (let ((children (get-children (preferences))))
       (when children
         (new Separator-Item parent: self)
         (for-each (lambda (config)

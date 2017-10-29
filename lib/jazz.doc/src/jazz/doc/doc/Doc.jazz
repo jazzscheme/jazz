@@ -13,6 +13,7 @@
 
 
 (import (jazz.component)
+        (jazz.catalog)
         (jazz.jml))
 
 
@@ -23,10 +24,10 @@
   (property description initialize #f accessors generate)
   
   
-  (method override (install-child form creator creator-branch restore-form)
-    (case (get-model~ form)
-      ((description) (set-description form))
-      (else (nextmethod form creator creator-branch restore-form))))
+  (method override (install-child self form creator creator-branch restore-form)
+    (case (get-model form)
+      ((description) (set-description self form))
+      (else (nextmethod self form creator creator-branch restore-form))))
 
 
   ;;;
@@ -34,11 +35,11 @@
   ;;;
   
   
-  (method public virtual (get-catalog)
-    (get-catalog~ parent))
+  (method public virtual (get-catalog self)
+    (get-catalog parent))
   
   
-  (method public virtual (set-catalog cat)
+  (method public virtual (set-catalog self cat)
     )
 
 
@@ -47,7 +48,7 @@
   ;;;
   
   
-  (method public (get-effective-title)
+  (method public (get-effective-title self)
     (or title (->string name)))
 
 
@@ -56,12 +57,12 @@
   ;;;
   
   
-  (method public virtual (update-indexes definitions-index references-index)
+  (method public virtual (update-indexes self definitions-index references-index)
     (when (not-null? name)
       (table-add definitions-index name self)))
   
   
-  (method public virtual (print-catalog level output)
+  (method public virtual (print-catalog self level output)
     (format output "{%}{_ :v}~{{s} {s} {s}}"
             (* level 2)
             (category-name (class-of self))
@@ -73,11 +74,11 @@
   ;;;
   
   
-  (method public (get-documentation symbol)
-    (let ((catalog (get-catalog)))
+  (method public (get-documentation self symbol)
+    (let ((catalog (get-catalog self)))
       (find-if (lambda (doc)
-                 (eq? (get-parent~ doc) self))
-               (get-definitions~ catalog symbol))))
+                 (eq? (get-parent doc) self))
+               (get-definitions catalog symbol))))
 
 
   ;;;
@@ -85,20 +86,20 @@
   ;;;
   
   
-  (method public virtual (present)
+  (method public virtual (present self)
     description)
   
   
-  (method public virtual (present-text)
+  (method public virtual (present-text self)
     (when description
-      (bind (tag . paragraphs) (->jml~ (form->node description))
+      (bind (tag . paragraphs) (->jml (form->node description))
         `(<span>
            ,@(if (null? paragraphs)
                  '()
                paragraphs)))))
   
   
-  (method protected (present-parameters parameters)
+  (method protected (present-parameters self parameters)
     (define (present-parameter parameter)
       (if (symbol? parameter)
           (->string parameter)
@@ -131,7 +132,7 @@
                  (join all " ")))))))
   
   
-  (method protected (present-result-type result-type)
+  (method protected (present-result-type self result-type)
     (if result-type
         `(" "
           (<span> class: "parameter" ,(->string result-type)))
@@ -152,5 +153,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.doc.descriptors:Doc-Descriptor))))

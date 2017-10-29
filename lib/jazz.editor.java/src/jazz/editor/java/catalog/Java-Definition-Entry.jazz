@@ -40,7 +40,9 @@
 
 (import (jazz.catalog.edit)
         (jazz.editor.java)
-        (jazz.resource))
+        (jazz.resource)
+        (jazz.search)
+        (jazz.view))
 
 
 (class Java-Definition-Entry extends Java-Entry
@@ -54,17 +56,17 @@
   (slot body-end-column getter generate)
   
   
-  (method override (initialize name kind parameters line column end-line end-column body-line body-column body-end-line body-end-column references)
-    (nextmethod name line column end-line end-column '() references)
-    (set! kind~self kind)
-    (set! parameters~self parameters)
-    (set! body-line~self body-line)
-    (set! body-column~self body-column)
-    (set! body-end-line~self body-end-line)
-    (set! body-end-column~self body-end-column))
+  (method override (initialize self name kind parameters line column end-line end-column body-line body-column body-end-line body-end-column references)
+    (nextmethod self name line column end-line end-column '() references)
+    (set! self.kind kind)
+    (set! self.parameters parameters)
+    (set! self.body-line body-line)
+    (set! self.body-column body-column)
+    (set! self.body-end-line body-end-line)
+    (set! self.body-end-column body-end-column))
   
   
-  (method override (print-catalog level output)
+  (method override (print-catalog self level output)
     (format output "{%}{_ :v}~{{s} {s} {s} {s} {s} {s} {s} {s} {s} {s} {s} {s} {s}}"
             (* level 2)
             (category-name (class-of self))
@@ -79,13 +81,13 @@
   ;;;
   
   
-  (method override (get-image)
+  (method override (get-image self)
     {Image-Resource "Method"})
 
 
-  (method override (present)
+  (method override (present self)
     ;; use the fact that classes are stored in files with same name
-    (let ((class-name (get-base~ (get-file~ file-definition))))
+    (let ((class-name (get-base (get-file file-definition))))
       (if (memq? kind '(class interface))
           class-name
         (format "{a}.{a}" class-name name))))
@@ -96,10 +98,10 @@
   ;;;
   
   
-  (method override (update-indexes definitions-index references-index)
-    (update-index definitions-index name)
+  (method override (update-indexes self definitions-index references-index)
+    (update-index self definitions-index name)
     (for-each (lambda (key)
-                (update-index references-index key))
+                (update-index self references-index key))
               references)))
 
 
@@ -110,12 +112,12 @@
 
 (specific (edit-reference (<Java-Definition-Entry> entry) direction search-result . rest)
   (receive (frame new?) (apply edit-entry entry return-new?: #t rest)
-    (let ((text (get-guest~ frame)))
-      (let ((start (new Cell (get-body-line~ entry) (get-body-column~ entry)))
-            (end (new Cell (get-body-end-line~ entry) (get-body-end-column~ entry))))
+    (let ((text (get-guest frame)))
+      (let ((start (new Cell (get-body-line entry) (get-body-column entry)))
+            (end (new Cell (get-body-end-line entry) (get-body-end-column entry))))
         (let ((range (new Range$Cell$ start end)))
-          (set-beginning~ search-result start)
-          (set-ending~ search-result end)
+          (set-beginning search-result start)
+          (set-ending search-result end)
           (let ((direction (or direction 'forward)))
-            (highlight-reference~ text direction range search-result)))))
+            (highlight-reference text direction range search-result)))))
     (values frame new?))))

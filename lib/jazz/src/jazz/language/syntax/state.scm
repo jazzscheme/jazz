@@ -52,8 +52,8 @@
 ; @expansion
 ; (begin
 ;   (method meta override (marshall-object obj)
-;     (vector (get-width~ obj)
-;             (get-height~ obj)))
+;     (vector (get-width obj)
+;             (get-height obj)))
 ;   (method meta override (unmarshall-object vec)
 ;     (new Dimension
 ;       (vector-ref vec 0)

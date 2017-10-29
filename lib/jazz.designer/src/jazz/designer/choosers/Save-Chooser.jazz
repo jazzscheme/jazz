@@ -43,6 +43,7 @@
         (jazz.handler)
         (jazz.jml)
         (jazz.graphic)
+        (jazz.text)
         (jazz.ui)
         (jazz.view))
 
@@ -87,35 +88,35 @@
           (<!>            name: file-border      visible?: #t)))))
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Save as")
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (setup-modules)
-    (install-branch 'class)
-    (set-selected?~ (locate 'class-button) #t))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (setup-modules self)
+    (install-branch self 'class)
+    (set-selected? (locate self 'class-button) #t))
   
   
-  (method override (focus-default)
-    (focus-branch (get-active-trait-name)))
+  (method override (focus-default self)
+    (focus-branch self (get-active-trait-name self)))
   
   
-  (method (get-module-combo)
-    (locate '(module-combo box)))
+  (method (get-module-combo self)
+    (locate self '(module-combo box)))
   
   
-  (method (get-file-entry)
-    (locate '(file-entry)))
+  (method package (get-file-entry self)
+    (locate self '(file-entry)))
   
   
-  (method (get-class-name-text)
-    (locate '(class-name-entry text)))
+  (method (get-class-name-text self)
+    (locate self '(class-name-entry text)))
   
   
-  (method (setup-modules)
-    (set-choices~ (get-module-combo)
+  (method (setup-modules self)
+    (set-choices (get-module-combo self)
       (zip modules (map symbol->string modules))))
   
   
@@ -124,17 +125,17 @@
   ;;;
   
   
-  (method override (get-modal-result)
-    (case (get-active-trait-name)
+  (method override (get-modal-result self)
+    (case (get-active-trait-name self)
       ((class)
        (let ((module-name (catch (Parse-Error err #f)
-                            (get-value~ (get-module-combo))))
-             (class-string (get-string-content~ (get-class-name-text))))
+                            (get-value (get-module-combo self))))
+             (class-string (get-string-content (get-class-name-text self))))
          (and module-name
               (not (empty-string? class-string))
               (list module-name class-string))))
       ((file)
-       (get-value~ (get-file-entry)))))
+       (get-value (get-file-entry self)))))
   
 
   ;;;
@@ -142,30 +143,30 @@
   ;;;
   
   
-  (method (on-class evt)
-    (install-branch 'class))
+  (method (on-class self evt)
+    (install-branch self 'class))
   
   
-  (method (on-file evt)
-    (install-branch 'file))
+  (method (on-file self evt)
+    (install-branch self 'file))
   
   
-  (method (on-content-change evt)
-    (update-ok))
-  
-  
-  ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (when (get-enabled?~ (locate 'ok))
-      (validate-dialog)
-      (let ((dialog (get-host)))
-        (end-modal~ dialog (get-modal-result~ dialog)))))
+  (method (on-content-change self evt)
+    (update-ok self))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-return-press self evt)
+    (when (get-enabled? (locate self 'ok))
+      (validate-dialog self)
+      (let ((dialog (get-host self)))
+        (end-modal dialog (get-modal-result dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
   
   
   ;;;
@@ -173,16 +174,16 @@
   ;;;
   
   
-  (method (install-branch trait)
-    (set-active-trait (locate trait))
-    (when player (focus-branch trait))
-    (update-ok))
+  (method (install-branch self trait)
+    (set-active-trait self (locate self trait))
+    (when player (focus-branch self trait))
+    (update-ok self))
   
   
-  (method (focus-branch trait)
-    (acquire-focus~ (case trait
-                      ((class) (get-module-combo))
-                      ((file)  (tab-view~ (get-file-entry))))))
+  (method (focus-branch self trait)
+    (acquire-focus (case trait
+                      ((class) (get-module-combo self))
+                      ((file)  (tab-view (get-file-entry self))))))
 
   
   ;;;
@@ -190,5 +191,5 @@
   ;;;
   
   
-  (method (update-ok)
-    (set-enabled?~ (locate 'ok) (and (get-modal-result) #t)))))
+  (method (update-ok self)
+    (set-enabled? (locate self 'ok) (and (get-modal-result self) #t)))))

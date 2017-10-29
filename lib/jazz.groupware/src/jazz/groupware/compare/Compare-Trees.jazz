@@ -42,6 +42,7 @@
 (import (jazz.action)
         (jazz.application)
         (jazz.descriptor)
+        (jazz.event)
         (jazz.feedback)
         (jazz.graphic)
         (jazz.groupware)
@@ -49,6 +50,7 @@
         (jazz.io)
         (jazz.jml)
         (jazz.menu)
+        (jazz.outline)
         (jazz.preferences)
         (jazz.resource)
         (jazz.text)
@@ -141,8 +143,8 @@
   ;;;
   
   
-  (method override (install rest)
-    (nextmethod rest)
+  (method override (install self rest)
+    (nextmethod self rest)
     (load-session))
   
   
@@ -151,12 +153,12 @@
   ;;;
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(groupware))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'results)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'results)))
   
   
   ;;;
@@ -164,9 +166,9 @@
   ;;;
   
 
-  (method override (guest-actions)
+  (method override (guest-actions self)
     (cons (find-actions 'compare-trees)
-          (nextmethod)))
+          (nextmethod self)))
 
   
   ;;;
@@ -174,110 +176,110 @@
   ;;;
 
 
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (size-figure~ (locate 'trees) dh 0)
-    (move-figure~ (locate 'check-algorithm) dh 0)
-    (size-figure~ (locate 'green-border) dh 0)
-    (size-figure~ (locate 'blue-border) dh 0)
-    (move-figure~ (locate 'compare) dh 0)
-    (move-figure~ (locate 'copy-right) dh 0)
-    (move-figure~ (locate 'merge-leaves) dh 0)
-    (move-figure~ (locate 'copy-left) dh 0)
-    (move-figure~ (locate 'no-action) dh 0)
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (size-figure (locate self 'trees) dh 0)
+    (move-figure (locate self 'check-algorithm) dh 0)
+    (size-figure (locate self 'green-border) dh 0)
+    (size-figure (locate self 'blue-border) dh 0)
+    (move-figure (locate self 'compare) dh 0)
+    (move-figure (locate self 'copy-right) dh 0)
+    (move-figure (locate self 'merge-leaves) dh 0)
+    (move-figure (locate self 'copy-left) dh 0)
+    (move-figure (locate self 'no-action) dh 0)
     @wait
-    (move-figure~ (locate 'build-updater) dh 0)
-    (move-figure~ (locate 'transfer) dh 0)
-    (size-figure~ (locate 'results-border) dh dv)
-    (invalidate-header~ (locate 'results)))
+    (move-figure (locate 'build-updater) dh 0)
+    (move-figure (locate self 'transfer) dh 0)
+    (size-figure (locate self 'results-border) dh dv)
+    (invalidate-header (locate self 'results)))
   
   
-  (method (on-copy-right evt)
-    (copy-right)
-    (when (get-property~ evt next?:)
-      (unless (goto-next-comparable)
+  (method (on-copy-right self evt)
+    (copy-right self)
+    (when (get-property evt next?:)
+      (unless (goto-next-comparable self)
         (bell))))
   
   
-  (method protected (copy-right)
-    (let ((tree (locate 'results)))
-      (with-update-locked~ tree
+  (method package (copy-right self)
+    (let ((tree (locate self 'results)))
+      (with-update-locked tree
         (lambda ()
           (for-each (lambda (n)
-                      (let ((entry (get-user-data~ (get-row~ tree n))))
-                        (unless (and (eq? (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
-                          (set-action~ entry 'copy-right)
+                      (let ((entry (get-user-data (get-row tree n))))
+                        (unless (and (eq? (get-kind entry) 'node) (get-left entry) (get-right entry))
+                          (set-action entry 'copy-right)
                           (let ((cell (new Cell n $Action-Column)))
-                            (invalidate-cell~ tree cell)))))
-                    (get-selection~ tree))))))
+                            (invalidate-cell tree cell)))))
+                    (get-selection tree))))))
   
   
-  (method (on-copy-left evt)
-    (copy-left)
-    (when (get-property~ evt next?:)
-      (unless (goto-next-comparable)
+  (method (on-copy-left self evt)
+    (copy-left self)
+    (when (get-property evt next?:)
+      (unless (goto-next-comparable self)
         (bell))))
   
   
-  (method protected (copy-left)
-    (let ((tree (locate 'results)))
-      (with-update-locked~ tree
+  (method package (copy-left self)
+    (let ((tree (locate self 'results)))
+      (with-update-locked tree
         (lambda ()
           (for-each (lambda (n)
-                      (let ((entry (get-user-data~ (get-row~ tree n))))
-                        (unless (and (eq? (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
+                      (let ((entry (get-user-data (get-row tree n))))
+                        (unless (and (eq? (get-kind entry) 'node) (get-left entry) (get-right entry))
                           (let ((cell (new Cell n $Action-Column)))
-                            (set-action~ entry 'copy-left)
-                            (invalidate-cell~ tree cell)))))
-                    (get-selection~ tree))))))
+                            (set-action entry 'copy-left)
+                            (invalidate-cell tree cell)))))
+                    (get-selection tree))))))
   
   
-  (method (on-merge-leaves evt)
-    (merge-leaves))
+  (method (on-merge-leaves self evt)
+    (merge-leaves self))
   
   
-  (method protected (merge-leaves)
-    (let* ((tree (locate 'results))
-           (selection (get-selection~ tree)))
+  (method package (merge-leaves self)
+    (let* ((tree (locate self 'results))
+           (selection (get-selection tree)))
       (when (not-null? selection)
         (if (> (length selection) 1)
             (bell)
-          (let ((entry (get-user-data~ (get-row~ tree (car selection)))))
-            (when (and (eq? (get-kind~ entry) 'leaf) (get-left~ entry) (get-right~ entry))
-              (compare-leaves (get-left~ entry) (get-right~ entry) entry)))))))
+          (let ((entry (get-user-data (get-row tree (car selection)))))
+            (when (and (eq? (get-kind entry) 'leaf) (get-left entry) (get-right entry))
+              (compare-leaves self (get-left entry) (get-right entry) entry)))))))
   
   
-  (method (on-no-action evt)
-    (let ((tree (locate 'results)))
-      (with-update-locked~ tree
+  (method (on-no-action self evt)
+    (let ((tree (locate self 'results)))
+      (with-update-locked tree
         (lambda ()
           (for-each (lambda (n)
-                      (let ((entry (get-user-data~ (get-row~ tree n))))
-                        (unless (and (eq? (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
-                          (set-action~ entry #f)
+                      (let ((entry (get-user-data (get-row tree n))))
+                        (unless (and (eq? (get-kind entry) 'node) (get-left entry) (get-right entry))
+                          (set-action entry #f)
                           (let ((cell (new Cell n $Action-Column)))
-                            (invalidate-cell~ tree cell)))))
-                    (get-selection~ tree))))))
+                            (invalidate-cell tree cell)))))
+                    (get-selection tree))))))
   
   
-  (method (on-compare-next evt)
-    (compare-next))
+  (method (on-compare-next self evt)
+    (compare-next self))
   
   
-  (method (on-compare-previous evt)
-    (compare-previous))
+  (method (on-compare-previous self evt)
+    (compare-previous self))
   
   
-  (method protected (compare-next)
-    (if (not (goto-next-comparable))
+  (method package (compare-next self)
+    (if (not (goto-next-comparable self))
         (bell)
-      (merge-leaves)))
+      (merge-leaves self)))
   
   
-  (method protected (compare-previous)
-    (if (not (goto-previous-comparable))
+  (method package (compare-previous self)
+    (if (not (goto-previous-comparable self))
         (bell)
-      (merge-leaves)))
+      (merge-leaves self)))
   
   
   @old-code
@@ -287,114 +289,114 @@
       (updater-built file)))
   
   
-  (method protected virtual (choose-updater)
+  (method protected virtual (choose-updater self)
     (choose-new-file))
   
   
-  (method (on-transfer evt)
-    (transfer evt))
+  (method (on-transfer self evt)
+    (transfer self evt))
   
   
-  (method protected virtual (transfer evt)
-    (let* ((tree (locate 'results))
-           (count (get-visible-count~ tree))
+  (method protected virtual (transfer self evt)
+    (let* ((tree (locate self 'results))
+           (count (get-visible-count tree))
            (n 0))
-      (with-update-locked~ tree
+      (with-update-locked tree
         (lambda ()
           (while (< n count)
-            (let* ((row (get-row~ tree n))
-                   (entry (get-user-data~ row))
-                   (entry-father (get-user-data~ (get-father~ row)))
-                   (left (get-left~ entry))
-                   (right (get-right~ entry))
-                   (action (get-action~ entry)))
+            (let* ((row (get-row tree n))
+                   (entry (get-user-data row))
+                   (entry-father (get-user-data (get-father row)))
+                   (left (get-left entry))
+                   (right (get-right entry))
+                   (action (get-action entry)))
               (when (memq? action '(copy-right copy-left))
                 (case action
                   ((copy-right)
                    (if right
                        (if left
-                           (copy-item left right)
-                         (delete-item right))
-                     (let ((new-right (make-item left right-root (get-right~ entry-father))))
-                       (set-right~ entry new-right)
-                       (add-item left new-right))))
+                           (copy-item self left right)
+                         (delete-item self right))
+                     (let ((new-right (make-item self left right-root (get-right entry-father))))
+                       (set-right entry new-right)
+                       (add-item self left new-right))))
                   ((copy-left)
                    (if left
                        (if right
-                           (copy-item right left)
-                         (delete-item left))
-                     (let ((new-left (make-item right left-root (get-left~ entry-father))))
-                       (set-left~ entry new-left)
-                       (add-item right new-left)))))
+                           (copy-item self right left)
+                         (delete-item self left))
+                     (let ((new-left (make-item self right left-root (get-left entry-father))))
+                       (set-left entry new-left)
+                       (add-item self right new-left)))))
                 ;; When copying nodes, treatment is a bit different because they stay showed...
-                (if (and (eq? (get-kind~ entry) 'node)
+                (if (and (eq? (get-kind entry) 'node)
                          (or (and (eq? action 'copy-right) left (not right))
                              (and (eq? action 'copy-left) right (not left))))
                     (begin
                       (case action
                         ((copy-right)
                          (let ((cell (new Cell n $Left-Column)))
-                           (invalidate-cell~ tree cell)))
+                           (invalidate-cell tree cell)))
                         ((copy-left)
                          (let ((cell (new Cell n $Right-Column)))
-                           (invalidate-cell~ tree cell))))
-                      (set-action~ entry #f)
+                           (invalidate-cell tree cell))))
+                      (set-action entry #f)
                       (let ((cell (new Cell n $Action-Column)))
-                        (invalidate-cell~ tree cell)))
-                  (remove-row~ tree row)
+                        (invalidate-cell tree cell)))
+                  (remove-row tree row)
                   (decrease! count)
                   (decrease! n))))
             (increase! n))))))
   
   
-  (method (on-double-click evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method (on-double-click self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((results)
-          (on-merge-leaves evt)))))
+          (on-merge-leaves self evt)))))
   
   
-  (method override (on-return-press evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method override (on-return-press self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((results)
-          (on-merge-leaves evt))
+          (on-merge-leaves self evt))
         (else
-          (on-compare evt)))))
+          (on-compare self evt)))))
   
   
-  (method protected virtual (on-compare evt)
+  (method protected virtual (on-compare self evt)
     (with-cursor :wait
       (lambda ()
-        (compare-trees))))
+        (compare-trees self))))
     
   
-  (method (on-context-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (pos (get-position~ evt))
-           (acquired (acquire sender pos)))
-      (with-context-click~ sender pos
+  (method (on-context-menu self evt)
+    (let* ((sender (get-sender evt))
+           (pos (get-position evt))
+           (acquired (acquire self sender pos)))
+      (with-context-click sender pos
         (lambda ()
-          (track-popup-menu (get-compare-menu) acquired)))))
+          (track-popup-menu self (get-compare-menu self) acquired)))))
   
   
-  (method (on-next-comparable evt)
-    (unless (goto-next-comparable)
+  (method (on-next-comparable self evt)
+    (unless (goto-next-comparable self)
       (bell)))
   
   
-  (method (on-previous-comparable evt)
-    (unless (goto-previous-comparable)
+  (method (on-previous-comparable self evt)
+    (unless (goto-previous-comparable self)
       (bell)))
   
   
-  (method (on-next-uncomparable evt)
-    (unless (goto-next-uncomparable)
+  (method (on-next-uncomparable self evt)
+    (unless (goto-next-uncomparable self)
       (bell)))
   
   
-  (method (on-previous-uncomparable evt)
-    (unless (goto-previous-uncomparable)
+  (method (on-previous-uncomparable self evt)
+    (unless (goto-previous-uncomparable self)
       (bell)))
   
 
@@ -403,11 +405,11 @@
   ;;;
   
   
-  (method override (get-tab-stops)
+  (method override (get-tab-stops self)
     (list
-      (locate 'base-date)
-      (locate~ (locate 'green) 'body)
-      (locate~ (locate 'blue) 'body)))
+      (locate self 'base-date)
+      (locate (locate self 'green) 'body)
+      (locate (locate self 'blue) 'body)))
   
 
   ;;;
@@ -416,16 +418,16 @@
   
   
   (definition (load-session)
-    (let ((pref (get-preferences '(tools compare-directories))))
-      (set! Base-Dates (get-base-dates~ pref))))
+    (let ((pref (current-preferences '(tools compare-directories))))
+      (set! Base-Dates (get-base-dates pref))))
   
   
-  (method override (save-guest designer session)
-    (add-guest-preferences designer session
-      mode:          (get-mode)
-      base-date:     (get-base-date)
-      left-moniker:  (get-left-moniker)
-      right-moniker: (get-right-moniker)
+  (method override (save-guest self designer session)
+    (add-guest-preferences self designer session
+      mode:          (get-mode self)
+      base-date:     (get-base-date self)
+      left-moniker:  (get-left-moniker self)
+      right-moniker: (get-right-moniker self)
       base-dates:    Base-Dates))
   
 
@@ -438,11 +440,11 @@
     '())
   
   
-  (method package (on-configure evt)
-    (install-configuration (get-property~ evt configuration:)))
+  (method package (on-configure self evt)
+    (install-configuration self (get-property evt configuration:)))
   
   
-  (method package (on-register-base-date evt)
+  (method package (on-register-base-date self evt)
     (unimplemented)
     @convert-date
     (if (not installed-configuration)
@@ -450,7 +452,7 @@
       (bind (name mode) installed-configuration
         (if (/= mode 'merge)
             (error "Base dates can only be registered in merge mode")
-          (let ((date (present~ (universal-date)))
+          (let ((date (present (universal-date)))
                 (pair (assq name Base-Dates)))
             (if (not pair)
                 (set! Base-Dates (cons (cons name date) Base-Dates))
@@ -458,25 +460,25 @@
             (set-base-date date))))))
   
   
-  (method package (on-reset-actions evt)
-    (reset-actions))
+  (method package (on-reset-actions self evt)
+    (reset-actions self))
   
   
-  (method public (configure name)
-    (install-configuration (child~ (get-preferences '(tools compare-directories)) name)))
+  (method public (configure self name)
+    (install-configuration self (child (current-preferences '(tools compare-directories)) name)))
   
   
-  (method public (install-configuration config)
+  (method public (install-configuration self config)
     (define (find-base-date name)
       (assq-value name Base-Dates #f))
     
     (define (install-monikers)
-      (let ((left (get-left~ config))
-            (right (get-right~ config)))
-        (set-protocol~ (locate 'green) (determine-protocol left))
-        (set-left-moniker left)
-        (set-protocol~ (locate 'blue) (determine-protocol right))
-        (set-right-moniker right)))
+      (let ((left (get-left config))
+            (right (get-right config)))
+        (set-protocol (locate self 'green) (determine-protocol left))
+        (set-left-moniker self left)
+        (set-protocol (locate self 'blue) (determine-protocol right))
+        (set-right-moniker self right)))
     
     (define (determine-protocol moniker)
       (cond ((is? moniker Directory-Group)
@@ -487,36 +489,36 @@
              'dir)))
     
     (set! installed-configuration config)
-    (set-mode (get-mode~ config))
-    (set-base-date (and (eq? (get-mode~ config) 'merge) (find-base-date (get-name~ config))))
+    (set-mode self (get-mode config))
+    (set-base-date self (and (eq? (get-mode config) 'merge) (find-base-date (get-name config))))
     (install-monikers)
-    (set-ignored-nodes (get-ignored-nodes~ config))
-    (set-ignored-leaves (get-ignored-leaves~ config))
-    (set-ignored-extensions (get-ignored-extensions~ config))
-    (set-check-algorithm (get-check-algorithm~ config))
-    (remove-every-row~ (locate 'results)))
+    (set-ignored-nodes self (get-ignored-nodes config))
+    (set-ignored-leaves self (get-ignored-leaves config))
+    (set-ignored-extensions self (get-ignored-extensions config))
+    (set-check-algorithm self (get-check-algorithm config))
+    (remove-every-row (locate self 'results)))
   
   
-  (method (on-open-green evt)
-    (let* ((tree (locate 'results))
-           (selection (get-single-selection~ tree)))
+  (method (on-open-green self evt)
+    (let* ((tree (locate self 'results))
+           (selection (get-single-selection tree)))
       (when selection
-        (let ((entry (get-user-data~ (get-row~ tree selection))))
-          (if (or (eq? (get-kind~ entry) 'node) (not (get-left~ entry)))
+        (let ((entry (get-user-data (get-row tree selection))))
+          (if (or (eq? (get-kind entry) 'node) (not (get-left entry)))
               (bell)
             (let ((appl (get-application)))
-              (edit-document~ appl (get-left~ entry) workspace: 'groupware)))))))
+              (edit-document appl (get-left entry) workspace: 'groupware)))))))
   
   
-  (method (on-open-blue evt)
-    (let* ((tree (locate 'results))
-           (selection (get-single-selection~ tree)))
+  (method (on-open-blue self evt)
+    (let* ((tree (locate self 'results))
+           (selection (get-single-selection tree)))
       (when selection
-        (let ((entry (get-user-data~ (get-row~ tree selection))))
-          (if (or (eq? (get-kind~ entry) 'node) (not (get-right~ entry)))
+        (let ((entry (get-user-data (get-row tree selection))))
+          (if (or (eq? (get-kind entry) 'node) (not (get-right entry)))
               (bell)
             (let ((appl (get-application)))
-              (edit-document~ appl (get-right~ entry) workspace: 'groupware)))))))
+              (edit-document appl (get-right entry) workspace: 'groupware)))))))
   
   
   ;;;
@@ -524,65 +526,65 @@
   ;;;
   
   
-  (method (get-mode)
-    (get-selected-element~ (get-content~ (locate 'mode))))
+  (method package (get-mode self)
+    (get-selected-element (get-content (locate self 'mode))))
   
   
-  (method (set-mode mode)
-    (set-selected-element~ (get-content~ (locate 'mode)) mode))
+  (method package (set-mode self mode)
+    (set-selected-element (get-content (locate self 'mode)) mode))
   
   
-  (method (get-check-algorithm)
-    (get-selected-element~ (get-content~ (locate 'check-algorithm))))
+  (method package (get-check-algorithm self)
+    (get-selected-element (get-content (locate self 'check-algorithm))))
   
   
-  (method (set-check-algorithm algorithm)
-    (set-selected-element~ (get-content~ (locate 'check-algorithm)) (or algorithm 'timestamp)))
+  (method (set-check-algorithm self algorithm)
+    (set-selected-element (get-content (locate self 'check-algorithm)) (or algorithm 'timestamp)))
   
   
-  (method (get-base-date)
+  (method (get-base-date self)
     #f
     @convert-date
-    (let ((text (get-string-content~ (locate 'base-date))))
+    (let ((text (get-string-content (locate 'base-date))))
       (if (empty-string? text)
           #f
-        (parse-string~ Date text))))
+        (parse-string Date text))))
   
   
-  (method (set-base-date date)
+  (method (set-base-date self date)
     @convert-date
-    (let ((text (cond ((not date) "") ((is? date Date) (present~ date)) (else date))))
-      (set-string-content~ (locate 'base-date) text)))
+    (let ((text (cond ((not date) "") ((is? date Date) (present date)) (else date))))
+      (set-string-content (locate 'base-date) text)))
   
   
-  (method protected virtual (get-left-moniker)
-    (let ((browser (locate 'green)))
-      (if (not (get-editable?~ browser))
+  (method protected virtual (get-left-moniker self)
+    (let ((browser (locate self 'green)))
+      (if (not (get-editable? browser))
           left-moniker
-        (set! left-moniker (get-moniker~ browser))
+        (set! left-moniker (get-moniker browser))
         left-moniker)))
   
   
-  (method protected virtual (set-left-moniker moniker)
+  (method protected virtual (set-left-moniker self moniker)
     (set! left-moniker moniker)
-    (set-moniker~ (locate 'green) moniker))
+    (set-moniker (locate self 'green) moniker))
   
   
-  (method protected virtual (get-right-moniker)
-    (let ((browser (locate 'blue)))
-      (if (not (get-editable?~ browser))
+  (method protected virtual (get-right-moniker self)
+    (let ((browser (locate self 'blue)))
+      (if (not (get-editable? browser))
           right-moniker
-        (set! right-moniker (get-moniker~ browser))
+        (set! right-moniker (get-moniker browser))
         right-moniker)))
   
   
-  (method protected virtual (set-right-moniker moniker)
+  (method protected virtual (set-right-moniker self moniker)
     (set! right-moniker moniker)
-    (set-moniker~ (locate 'blue) moniker))
+    (set-moniker (locate self 'blue) moniker))
   
   
-  (method override (select-all . rest)
-    (select-all~ (locate 'results) user-origin: #t))
+  (method override (select-all self . rest)
+    (select-all (locate self 'results) user-origin: #t))
   
   
   ;;;
@@ -590,83 +592,83 @@
   ;;;
   
   
-  (method protected virtual (new-comparer)
+  (method protected virtual (new-comparer self)
     (new Tree-Comparer))
   
   
-  (method protected virtual (get-trees)
+  (method package virtual (get-trees self)
     (define (require-left-moniker)
-      (or (get-left-moniker)
+      (or (get-left-moniker self)
           (error "Unable to get green moniker")))
     
     (define (require-right-moniker)
-      (or (get-right-moniker)
+      (or (get-right-moniker self)
           (error "Unable to get blue moniker")))
     
-    (values (moniker->tree (require-left-moniker))
-            (moniker->tree (require-right-moniker))))
+    (values (moniker->tree self (require-left-moniker))
+            (moniker->tree self (require-right-moniker))))
   
   
-  (method protected virtual (moniker->tree moniker)
+  (method protected virtual (moniker->tree self moniker)
     moniker)
   
   
-  (method public (compare-trees)
+  (method public (compare-trees self)
     (define (display-results entry)
-      (let* ((mode (get-mode))
-             (date (get-merge-date mode))
-             (tree (locate 'results)))
+      (let* ((mode (get-mode self))
+             (date (get-merge-date self mode))
+             (tree (locate self 'results)))
         (set! root-entry entry)
-        (remove-every-row~ tree)
-        (with-update-locked~ tree
+        (remove-every-row tree)
+        (with-update-locked tree
           (lambda ()
             (display-entry mode date tree #f entry 0)
-            (set-selection~ tree '())))))
+            (set-selection tree '())))))
     
     (define (display-entry mode date tree father entry level)
-      (let* ((kind (get-kind~ entry))
-             (left (get-left~ entry))
-             (right (get-right~ entry))
-             (action (get-action~ entry))
+      (let* ((kind (get-kind entry))
+             (left (get-left entry))
+             (right (get-right entry))
+             (action (get-action entry))
              (ref (or left right))
              (lvl? (and (eq? kind 'node) left right))
-             (name (if (< level 2) (present-root left right) (present-item ref)))
-             (image (entry-image entry ref))
+             (name (if (< level 2) (present-root self left right) (present-item self ref)))
+             (image (entry-image self entry ref))
              (c0 (new Tree-Node title: name image: image))
-             (c1 (new Tree-Label title: (present-value kind (get-left-value~ entry))))
-             (c2 (new Tree-Label title: (present-value kind (get-right-value~ entry))))
+             (c1 (new Tree-Label title: (present-value self kind (get-left-value entry))))
+             (c2 (new Tree-Label title: (present-value self kind (get-right-value entry))))
              (c3 entry)
              (c4 entry)
              (c5 entry)
-             (row (add-row~ tree father: father state: (if lvl? 'collapsed 'expanded) children: (list c0 c1 c2 c3 c4 c5) user-data: entry)))
+             (row (add-row tree father: father state: (if lvl? 'collapsed 'expanded) children: (list c0 c1 c2 c3 c4 c5) user-data: entry)))
         (when (not lvl?)
-          (setup-action mode date entry)
-          (ensure-expanded~ tree row))
+          (setup-action self mode date entry)
+          (ensure-expanded tree row))
         (for-each (lambda (child)
                     (display-entry mode date tree row child (+ level 1)))
-                  (get-children~ entry))))
+                  (get-children entry))))
     
-    (receive (left-tree right-tree) (get-trees)
+    (receive (left-tree right-tree) (get-trees self)
       (set! left-root  left-tree)
       (set! right-root right-tree)
-      (set! left-base  (tree-base left-tree))
-      (set! right-base (tree-base right-tree))
-      (let ((comparer (new-comparer)))
+      (set! left-base  (tree-base self left-tree))
+      (set! right-base (tree-base self right-tree))
+      (let ((comparer (new-comparer self)))
         (receive (entry has-differences? scanned-values)
-            (compare-nodes~ comparer #f left-tree right-tree
+            (compare-nodes comparer #f left-tree right-tree
               left-content: left-content
               right-content: right-content
               ignored-nodes: ignored-nodes
               ignored-leaves: ignored-leaves
               ignored-extensions: ignored-extensions
-              check-algorithm: (get-check-algorithm)
-              feedback: (lambda (left right) (scan-feedback left right)))
+              check-algorithm: (get-check-algorithm self)
+              feedback: (lambda (left right) (scan-feedback self left right)))
           (display-results entry)
           (user-feedback "Done")
           (and has-differences? scanned-values)))))
   
   
-  (method protected virtual (scan-feedback left right)
+  (method protected virtual (scan-feedback self left right)
     (user-feedback "Scanning {a}..." left))
   
   
@@ -675,56 +677,58 @@
   ;;;
   
   
-  (method (setup-action mode base-date entry)
+  (method package (setup-action self mode base-date entry)
     (define (setup-backup base-date entry)
-      (let ((left        (get-left~ entry))
-            (left-value  (get-left-value~ entry))
-            (right       (get-right~ entry))
-            (right-value (get-right-value~ entry)))
-        (set-action~ entry (backup-action base-date left left-value right right-value))))
+      (let ((left        (get-left entry))
+            (left-value  (get-left-value entry))
+            (right       (get-right entry))
+            (right-value (get-right-value entry)))
+        (set-action entry (backup-action self base-date left left-value right right-value))))
     
     (define (setup-merge base-date entry)
-      (when (eq? (get-kind~ entry) 'leaf)
-        (let ((left        (get-left~ entry))
-              (left-value  (get-left-value~ entry))
-              (right       (get-right~ entry))
-              (right-value (get-right-value~ entry)))
-          (set-action~ entry (merge-action base-date left left-value right right-value)))))
+      (when (eq? (get-kind entry) 'leaf)
+        (let ((left        (get-left entry))
+              (left-value  (get-left-value entry))
+              (right       (get-right entry))
+              (right-value (get-right-value entry)))
+          (set-action entry (merge-action self base-date left left-value right right-value)))))
     
     (case mode
       ((backup) (setup-backup base-date entry))
       ((merge) (setup-merge base-date entry))))
   
   
-  (method (reset-actions)
-    (let* ((mode (get-mode))
-           (base-date (get-merge-date mode))
-           (tree (locate 'results))
+  (method (reset-actions self)
+    (let* ((mode (get-mode self))
+           (base-date (get-merge-date self mode))
+           (tree (locate self 'results))
            (comparer self)
            (proc (lambda (row)
-                   (let ((entry (get-user-data~ row)))
+                   (let ((entry (get-user-data row)))
                      (when (is? entry Compare-Entry)
-                       (setup-action~ comparer mode base-date entry))))))
+                       (setup-action comparer mode base-date entry))))))
       (for-each (lambda (n)
-                  (let ((row (get-row~ tree n)))
+                  (let ((row (get-row tree n)))
                     (proc row)))
-                (get-selection~ tree))
-      (invalidate-view~ tree)))
+                (get-selection tree))
+      (invalidate-view tree)))
   
   
-  (method protected virtual (backup-action base-date left left-value right right-value)
+  (method protected virtual (backup-action self base-date left left-value right right-value)
     'copy-right)
   
   
-  (method protected virtual (merge-action base-date left left-value right right-value)
+  (method protected virtual (merge-action self base-date left left-value right right-value)
     #f)
   
   
-  (method protected virtual (get-merge-date mode)
+  (method protected virtual (get-merge-date self mode)
+    #f
+    @cant-find-get-time
     (and (eq? mode 'merge)
-         (let ((date (get-base-date)))
+         (let ((date (get-base-date self)))
            (and date
-                (get-time~ date)))))
+                (get-time date)))))
 
   
   ;;;
@@ -732,95 +736,95 @@
   ;;;
   
   
-  (method protected virtual (add-item src dst)
-    (copy-item src dst))
+  (method protected virtual (add-item self src dst)
+    (copy-item self src dst))
   
   
-  (method protected virtual (copy-item src dst)
+  (method protected virtual (copy-item self src dst)
     (error "Unable to copy {t} to {t}" src dst))
 
   
-  (method protected virtual (delete-item item)
+  (method protected virtual (delete-item self item)
     (error "Unable to delete {t}" item))
   
   
-  (method protected virtual (compare-leaves left right user-data)
+  (method protected virtual (compare-leaves self left right user-data)
     )
   
   
-  (method public (merge-done user-data)
-    (let* ((tree (locate 'results))
-           (n (user-data-index~ tree user-data)))
+  (method public (merge-done self user-data)
+    (let* ((tree (locate self 'results))
+           (n (user-data-index tree user-data)))
       (when n
-        (let ((row (get-row~ tree n)))
-          (remove-row~ tree row))
-        (goto-next-comparable n))))
+        (let ((row (get-row tree n)))
+          (remove-row tree row))
+        (goto-next-comparable self n))))
   
   
-  (method protected (goto-next-comparable (rank #f))
-    (goto-next comparable? rank))
+  (method package (goto-next-comparable self (rank #f))
+    (goto-next self comparable? rank))
   
   
-  (method protected (goto-previous-comparable (rank #f))
-    (goto-previous comparable? rank))
+  (method protected (goto-previous-comparable self (rank #f))
+    (goto-previous self comparable? rank))
   
   
-  (method protected (goto-next-uncomparable (rank #f))
-    (goto-next uncomparable? rank))
+  (method protected (goto-next-uncomparable self (rank #f))
+    (goto-next self uncomparable? rank))
   
   
-  (method protected (goto-previous-uncomparable (rank #f))
-    (goto-previous uncomparable? rank))
+  (method protected (goto-previous-uncomparable self (rank #f))
+    (goto-previous self uncomparable? rank))
   
   
-  (method protected (goto-next predicate (rank #f))
+  (method protected (goto-next self predicate (rank #f))
     (define (find-next tree rank predicate)
       (continuation-capture
         (lambda (return)
-          (loop (for n from rank below (get-visible-count~ tree))
-                (do (let* ((row (get-row~ tree n))
-                           (entry (get-user-data~ row)))
+          (loop (for n from rank below (get-visible-count tree))
+                (do (let* ((row (get-row tree n))
+                           (entry (get-user-data row)))
                       (when (predicate entry)
                         (continuation-return return n)))))
           #f)))
     
-    (let* ((tree (locate 'results))
-           (selection (get-selection~ tree))
+    (let* ((tree (locate self 'results))
+           (selection (get-selection tree))
            (rank (or rank (if (null? selection) 0 (+ (apply max selection) 1))))
            (next (find-next tree rank predicate)))
       (and next
            (begin
-             (set-selection~ tree (list next))
+             (set-selection tree (list next))
              next))))
   
   
-  (method protected (goto-previous predicate (rank #f))
+  (method protected (goto-previous self predicate (rank #f))
     (define (find-previous tree rank predicate)
       (continuation-capture
         (lambda (return)
           (loop (for n from rank downto 0)
-                (do (let* ((row (get-row~ tree n))
-                           (entry (get-user-data~ row)))
+                (do (let* ((row (get-row tree n))
+                           (entry (get-user-data row)))
                       (when (predicate entry)
                         (continuation-return return n)))))
           #f)))
     
-    (let* ((tree (locate 'results))
-           (selection (get-selection~ tree))
-           (rank (or rank (if (null? selection) (- (get-visible-count~ tree) 1) (- (apply min selection) 1))))
+    (let* ((tree (locate self 'results))
+           (selection (get-selection tree))
+           (rank (or rank (if (null? selection) (- (get-visible-count tree) 1) (- (apply min selection) 1))))
            (previous (find-previous tree rank predicate)))
       (and previous
            (begin
-             (set-selection~ tree (list previous))
+             (set-selection tree (list previous))
              previous))))
   
   
   (definition (comparable? entry)
-    (and (eq? (get-kind~ entry) 'leaf) (get-left~ entry) (get-right~ entry)))
+    (and (eq? (get-kind entry) 'leaf) (get-left entry) (get-right entry)))
   
   
   (definition (uncomparable? entry)
-    (xor (get-left~ entry) (get-right~ entry)))
+    (xor (get-left entry) (get-right entry)))
   
   
   ;;;
@@ -828,41 +832,41 @@
   ;;;
   
   
-  (method protected virtual (make-item item root father)
+  (method protected virtual (make-item self item root father)
     item)
   
   
-  (method protected virtual (tree-base tree)
+  (method protected virtual (tree-base self tree)
     #f)
   
   
-  (method protected virtual (trim-left item)
+  (method protected virtual (trim-left self item)
     item)
   
   
-  (method protected virtual (trim-right item)
+  (method protected virtual (trim-right self item)
     item)
   
   
-  (method protected virtual (present-root left right)
-    (present-item (or left right)))
+  (method protected virtual (present-root self left right)
+    (present-item self (or left right)))
   
   
-  (method protected virtual (present-item item)
+  (method protected virtual (present-item self item)
     )
   
   
-  (method protected virtual (present-value kind value)
+  (method protected virtual (present-value self kind value)
     )
   
   
-  (method protected virtual (entry-image entry ref)
-    (case (get-kind~ entry)
+  (method protected virtual (entry-image self entry ref)
+    (case (get-kind entry)
       ((node) {Image-Resource "TypeFolder"})
       ((leaf) {Image-Resource "TypeFile"})))
   
   
-  (method protected virtual (action-image action left right)
+  (method package virtual (action-image self action left right)
     (case action
       ((copy-right)
        (cond ((not left) {Image-Resource "DeleteRight"})
@@ -876,7 +880,7 @@
              (else {Image-Resource "CopyLeft"})))))
   
   
-  (method protected virtual (get-compare-menu)
+  (method protected virtual (get-compare-menu self)
     (new Compare-Menu)))
 
 
@@ -888,19 +892,19 @@
 (class Item-Column extends Tree-Column
   
   
-  (method override (draw-data surface context row data width height)
-    (draw-background surface context row data width height)
-    (let ((lvl? (and (eq? (get-kind~ data) 'node) (get-left~ data) (get-right~ data))))
-      (when (and (not lvl?) (present? data))
-        (let ((image (present-image data)))
-          (draw-image~ (get-images-portfolio~ (get-application)) surface context image (quotient (- width 16) 2) 0)))))
+  (method override (draw-data self surface context row data width height)
+    (draw-background self surface context row data width height)
+    (let ((lvl? (and (eq? (get-kind data) 'node) (get-left data) (get-right data))))
+      (when (and (not lvl?) (present? self data))
+        (let ((image (present-image self data)))
+          (draw-image (get-images-portfolio (get-application)) surface context image (quotient (- width 16) 2) 0)))))
   
   
-  (method abstract protected virtual (present? data)
+  (method abstract protected virtual (present? self data)
     )
   
   
-  (method abstract protected virtual (present-image data)
+  (method abstract protected virtual (present-image self data)
     ))
 
 
@@ -912,11 +916,11 @@
 (class Left-Column extends Item-Column
   
   
-  (method override (present? data)
-    (get-left~ data))
+  (method override (present? self data)
+    (get-left data))
   
   
-  (method override (present-image data)
+  (method override (present-image self data)
     {Image-Resource "Green"}))
 
 
@@ -928,13 +932,13 @@
 (class Action-Column extends Tree-Column
   
   
-  (method override (draw-data surface context row data width height)
-    (draw-background surface context row data width height)
-    (let ((action (get-action~ data)))
+  (method override (draw-data self surface context row data width height)
+    (draw-background self surface context row data width height)
+    (let ((action (get-action data)))
       (when action
         (let ((appl (get-application))
-              (image (action-image~ creator action (get-left~ data) (get-right~ data))))
-          (draw-image~ (get-images-portfolio~ appl) surface context image (+ (quotient (- width 16) 2) 1) 0))))))
+              (image (action-image creator action (get-left data) (get-right data))))
+          (draw-image (get-images-portfolio appl) surface context image (+ (quotient (- width 16) 2) 1) 0))))))
 
 
 ;;;
@@ -945,11 +949,11 @@
 (class Right-Column extends Item-Column
   
   
-  (method override (present? data)
-    (get-right~ data))
+  (method override (present? self data)
+    (get-right data))
   
   
-  (method override (present-image data)
+  (method override (present-image self data)
     {Image-Resource "Blue"}))
 
 
@@ -982,13 +986,13 @@
 (class Configure-Menu extends Context-Menu
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (update-menu))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (update-menu self))
   
   
-  (method public (update-menu)
+  (method public (update-menu self)
     (for-each (lambda (config)
                 (let ((title (get-presentation-property config)))
                   (new Label-Item parent: self title: title action-handler: (new Event-Handler target-name: :document method-name: 'on-configure properties: (list configuration: config)))))
-              (get-children~ (get-preferences '(tools compare-directories)))))))
+              (get-children (current-preferences '(tools compare-directories)))))))

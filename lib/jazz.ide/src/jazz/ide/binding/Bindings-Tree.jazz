@@ -63,40 +63,40 @@
     {Image-Resource "Link"})
   
   
-  (method protected (view-bindings designer bindings what kind)
+  (method package (view-bindings self designer bindings what kind)
     (define (view-actions-list)
       (for-each (lambda (action)
-                  (when (get-visible?~ action)
-                    (let ((shortcut (get-shortcut~ action))
-                          (alternate-shortcut (first-alternate-shortcut~ action))
-                          (owner (new Tree-Image image: (shortcut-owner-image designer action))))
-                      (add-row children: (list (new Tree-Node title: (format "{a}:{a}" (get-name~ (get-parent~ action)) (get-name~ action)) image: action-icon) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate-shortcut)) owner) user-data: action))))
+                  (when (get-visible? action)
+                    (let ((shortcut (get-shortcut action))
+                          (alternate-shortcut (first-alternate-shortcut action))
+                          (owner (new Tree-Image image: (shortcut-owner-image self designer action))))
+                      (add-row self children: (list (new Tree-Node title: (format "{a}:{a}" (get-name (get-parent action)) (get-name action)) image: action-icon) (new Tree-Label title: (present-shortcut self shortcut)) (new Tree-Label title: (present-shortcut self alternate-shortcut)) owner) user-data: action))))
                 bindings))
     
     (define (view-actions-flat)
       (for-each (lambda (actions)
-                  (when (and (is? actions Actions) (get-visible?~ actions))
+                  (when (and (is? actions Actions) (get-visible? actions))
                     (for-each (lambda (action)
-                                (when (get-visible?~ action)
-                                  (let ((shortcut (get-shortcut~ action))
-                                        (alternate-shortcut (first-alternate-shortcut~ action))
-                                        (owner (new Tree-Image image: (shortcut-owner-image designer action))))
-                                    (add-row children: (list (new Tree-Node title: (format "{a}:{a}" (get-name~ actions) (get-name~ action)) image: action-icon) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate-shortcut)) owner) user-data: action))))
-                              (get-children~ actions))))
-                (get-children~ bindings)))
+                                (when (get-visible? action)
+                                  (let ((shortcut (get-shortcut action))
+                                        (alternate-shortcut (first-alternate-shortcut action))
+                                        (owner (new Tree-Image image: (shortcut-owner-image self designer action))))
+                                    (add-row self children: (list (new Tree-Node title: (format "{a}:{a}" (get-name actions) (get-name action)) image: action-icon) (new Tree-Label title: (present-shortcut self shortcut)) (new Tree-Label title: (present-shortcut self alternate-shortcut)) owner) user-data: action))))
+                              (get-children actions))))
+                (get-children bindings)))
     
     (define (view-actions-categorized)
       (for-each (lambda (actions)
-                  (when (and (is? actions Actions) (get-visible?~ actions))
-                    (let ((row (add-row children: (list (new Tree-Node title: (->string (get-name~ actions)) image: category-icon) (new Tree-Label title: "") (new Tree-Label title: "") (new Tree-Image)) user-data: actions)))
+                  (when (and (is? actions Actions) (get-visible? actions))
+                    (let ((row (add-row self children: (list (new Tree-Node title: (->string (get-name actions)) image: category-icon) (new Tree-Label title: "") (new Tree-Label title: "") (new Tree-Image)) user-data: actions)))
                       (for-each (lambda (action)
-                                  (when (get-visible?~ action)
-                                    (let ((shortcut (get-shortcut~ action))
-                                          (alternate-shortcut (first-alternate-shortcut~ action))
-                                          (owner (new Tree-Image image: (shortcut-owner-image designer action))))
-                                      (add-row father: row children: (list (new Tree-Node title: (->string (get-name~ action)) image: action-icon) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate-shortcut)) owner) user-data: action))))
-                                (get-children~ actions)))))
-                (get-children~ bindings)))
+                                  (when (get-visible? action)
+                                    (let ((shortcut (get-shortcut action))
+                                          (alternate-shortcut (first-alternate-shortcut action))
+                                          (owner (new Tree-Image image: (shortcut-owner-image self designer action))))
+                                      (add-row self father: row children: (list (new Tree-Node title: (->string (get-name action)) image: action-icon) (new Tree-Label title: (present-shortcut self shortcut)) (new Tree-Label title: (present-shortcut self alternate-shortcut)) owner) user-data: action))))
+                                (get-children actions)))))
+                (get-children bindings)))
     
     (define (view-shortcuts-flat)
       (for-each (lambda (partition)
@@ -104,23 +104,23 @@
                     (for-each (lambda (binding)
                                 (bind (shortcut action conflict) binding
                                   (let ((conflict (new Tree-Image image: (case conflict ((warning) {Image-Resource "Gray"}) ((conflict) {Image-Resource "Red"}) (else #f))))
-                                        (owner (new Tree-Image image: (shortcut-owner-image designer action))))
-                                    (add-row children: (list (new Tree-Node title: (present-modifiers shortcut) image: shortcut-icon) (new Tree-Label title: (present-key shortcut)) (new Tree-Label title: (format "{a}:{a}" (get-name~ (get-parent~ action)) (get-name~ action))) conflict owner) user-data: action))))
+                                        (owner (new Tree-Image image: (shortcut-owner-image self designer action))))
+                                    (add-row self children: (list (new Tree-Node title: (present-modifiers shortcut) image: shortcut-icon) (new Tree-Label title: (present-key shortcut)) (new Tree-Label title: (format "{a}:{a}" (get-name (get-parent action)) (get-name action))) conflict owner) user-data: action))))
                               (sort nu<? bindings key: (lambda (binding)
-                                                         (present-shortcut (car binding)))))))
+                                                         (present-shortcut self (car binding)))))))
                 (partition-bindings (gather-bindings))))
     
     (define (view-shortcuts-categorized)
       (for-each (lambda (partition)
                   (bind (modifiers . bindings) partition
-                    (let ((row (add-row children: (list (new Tree-Node title: (format "{l}" modifiers) image: category-icon) (new Tree-Label title: "") (new Tree-Label title: "") (new Tree-Image) (new Tree-Image)))))
+                    (let ((row (add-row self children: (list (new Tree-Node title: (format "{l}" modifiers) image: category-icon) (new Tree-Label title: "") (new Tree-Label title: "") (new Tree-Image) (new Tree-Image)))))
                       (for-each (lambda (binding)
                                   (bind (shortcut action conflict) binding
                                     (let ((conflict (new Tree-Image image: (case conflict ((warning) {Image-Resource "Gray"}) ((conflict) {Image-Resource "Red"}) (else #f))))
-                                          (owner (new Tree-Image image: (shortcut-owner-image designer action))))
-                                      (add-row father: row children: (list (new Tree-Node title: (present-modifiers shortcut) image: shortcut-icon) (new Tree-Label title: (present-key shortcut)) (new Tree-Label title: (format "{a}:{a}" (get-name~ (get-parent~ action)) (get-name~ action))) conflict owner) user-data: action))))
+                                          (owner (new Tree-Image image: (shortcut-owner-image self designer action))))
+                                      (add-row self father: row children: (list (new Tree-Node title: (present-modifiers shortcut) image: shortcut-icon) (new Tree-Label title: (present-key shortcut)) (new Tree-Label title: (format "{a}:{a}" (get-name (get-parent action)) (get-name action))) conflict owner) user-data: action))))
                                 (sort nu<? bindings key: (lambda (binding)
-                                                           (present-shortcut (car binding))))))))
+                                                           (present-shortcut self (car binding))))))))
                 (partition-bindings (gather-bindings))))
     
     (define (gather-bindings)
@@ -136,8 +136,8 @@
                         (let ((actions (table-ref table shortcut #f)))
                           (let ((conflicts (collect (lambda (act)
                                                       (and (neq? act action)
-                                                           (if (eq? (get-parent~ act)
-                                                                    (get-parent~ action))
+                                                           (if (eq? (get-parent act)
+                                                                    (get-parent action))
                                                                'conflict
                                                              'warning)))
                                                     actions)))
@@ -148,17 +148,17 @@
                     bindings))
         
         (for-each (lambda (actions)
-                    (when (and (is? actions Actions) (get-visible?~ actions))
+                    (when (and (is? actions Actions) (get-visible? actions))
                       (for-each (lambda (action)
-                                  (when (get-visible?~ action)
-                                    (let ((shortcut (get-shortcut~ action))
-                                          (alternate-shortcut (first-alternate-shortcut~ action)))
+                                  (when (get-visible? action)
+                                    (let ((shortcut (get-shortcut action))
+                                          (alternate-shortcut (first-alternate-shortcut action)))
                                       (when shortcut
                                         (add-binding shortcut action))
                                       (when alternate-shortcut
                                         (add-binding alternate-shortcut action)))))
-                                (get-children~ actions))))
-                  (get-children~ bindings))
+                                (get-children actions))))
+                  (get-children bindings))
         
         (let ((bindings (queue-list queue)))
           (flag-conflicts! bindings)
@@ -166,19 +166,19 @@
     
     (define (partition-bindings bindings)
       (sort nu<? (partition bindings key: (lambda (binding)
-                                            (get-modifiers~ (car binding)))
+                                            (get-modifiers (car binding)))
                    test: equal?)
         key: (lambda (partition)
                (format "{l}" (car partition)))))
     
     (define (present-modifiers shortcut)
-      (format "{l}" (get-modifiers~ shortcut)))
+      (format "{l}" (get-modifiers shortcut)))
     
     (define (present-key shortcut)
-      (format "{a}" (get-key~ shortcut)))
+      (format "{a}" (get-key shortcut)))
     
-    (remove-every-row)
-    (with-update-locked
+    (remove-every-row self)
+    (with-update-locked self
       (lambda ()
         (case what
           ((actions)
@@ -192,32 +192,32 @@
              ((categorized) (view-shortcuts-categorized))))))))
   
   
-  (method protected (present-shortcut shortcut)
+  (method package (present-shortcut self shortcut)
     (cond ((not shortcut)
            "")
           ((pair? shortcut)
-           (present~ (car shortcut)))
+           (present (car shortcut)))
           (else
-           (present~ shortcut))))
+           (present shortcut))))
   
   
-  (method protected (shortcut-owner-image designer component)
-    (let ((shortcut-owner (find-owner~ designer component 'shortcut))
-          (alternate-owner (find-owner~ designer component 'alternate-shortcut)))
-      (cond ((or (is? shortcut-owner Trait) (is? alternate-owner Trait)) (trait-owner-image))
-            ((or (eq? shortcut-owner (get-reference~ designer)) (eq? alternate-owner (get-reference~ designer))) (root-owner-image))
-            (else (default-owner-image)))))
+  (method protected (shortcut-owner-image self designer component)
+    (let ((shortcut-owner (find-owner designer component 'shortcut))
+          (alternate-owner (find-owner designer component 'alternate-shortcut)))
+      (cond ((or (is? shortcut-owner Trait) (is? alternate-owner Trait)) (trait-owner-image self))
+            ((or (eq? shortcut-owner (get-reference designer)) (eq? alternate-owner (get-reference designer))) (root-owner-image self))
+            (else (default-owner-image self)))))
   
   
-  (method (default-owner-image)
+  (method (default-owner-image self)
     #f)
   
   
-  (method (root-owner-image)
+  (method (root-owner-image self)
     {Image-Resource "OwnerRoot"})
   
   
-  (method (trait-owner-image)
+  (method (trait-owner-image self)
     {Image-Resource "OwnerTrait"}))
 
 

@@ -48,7 +48,9 @@
         (jazz.io)
         (jazz.jml)
         (jazz.layout)
+        (jazz.outline)
         (jazz.process)
+        (jazz.reference)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -62,15 +64,15 @@
 
 (definition (read-toolbox toolbox)
   (define (load-toolbox file)
-    (if (exists?~ file)
-        (instantiate~ (read-form file))
+    (if (exists? file)
+        (instantiate (read-form file))
       (new Toolbox)))
   
   (with-safe-execution "loading the toolbox"
     (lambda ()
       (let ((appl (get-application)))
-        (let ((toolbox (load-toolbox (toolbox-file~ appl toolbox))))
-          (install-context~ appl toolbox)
+        (let ((toolbox (load-toolbox (toolbox-file appl toolbox))))
+          (install-context appl toolbox)
           toolbox)))
     continue-handler:
     (lambda (err)
@@ -102,15 +104,15 @@
                     (<!> name: descendant  title: "Model" width: 291))))))))))
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (set-application-select?~ (locate '(descendants tree)) application-select?)
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (set-application-select? (locate self '(descendants tree)) application-select?)
     (catch (Cancel-Signal signal
              #f)
-      (on-synchronize #f)))
+      (on-synchronize self #f)))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'toolbox-manager)
   
   
@@ -119,10 +121,10 @@
   ;;;
   
   
-  (method override (component-alias name)
+  (method override (component-alias self name)
     (case name
-      ((tree) (get-tree))
-      (else (nextmethod name))))
+      ((tree) (get-tree self))
+      (else (nextmethod self name))))
   
   
   ;;;
@@ -130,11 +132,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Toolbox"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Toolbox")
   
   
@@ -143,13 +145,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (locate '(descendants tree))))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (locate self '(descendants tree))))
+      (acquire-focus tree)))
   
   
   ;;;
@@ -157,7 +159,7 @@
   ;;;
   
   
-  (method override (new-document-controller)
+  (method override (new-document-controller self)
     (new Toolbox-Manager-Controller self))
   
   
@@ -166,16 +168,16 @@
   ;;;
   
   
-  (method public (get-toolbox)
+  (method public (get-toolbox self)
     toolbox)
   
   
-  (method public (set-toolbox tlb)
+  (method public (set-toolbox self tlb)
     (set! toolbox tlb)
     (when toolbox
       (if (is? toolbox Toolbox)
-          (set-client toolbox)
-        (set-client (read-toolbox toolbox)))))
+          (set-client self toolbox)
+        (set-client self (read-toolbox toolbox)))))
   
   
   ;;;
@@ -183,16 +185,16 @@
   ;;;
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set-shown?~ (locate-component '(descendants header)) #f)
-    (set-editor~ (locate 'descendants) self)
-    (add-quit-listener~ (get-application) self))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (set-shown? (locate-component self '(descendants header)) #f)
+    (set-editor (locate self 'descendants) self)
+    (add-quit-listener (get-application) self))
   
   
-  (method override (prepare-quit)
-    (when (and designer (file? (get-origin~ (get-form~ designer))))
-      (save~ designer)))
+  (method override (prepare-quit self)
+    (when (and designer (file? (get-origin (get-form designer))))
+      (save designer)))
   
   
   ;;;
@@ -200,8 +202,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate '(descendants tree)))
+  (method package (get-tree self)
+    (locate self '(descendants tree)))
   
   
   ;;;
@@ -209,7 +211,7 @@
   ;;;
   
   
-  (method (document-status)
+  (method (document-status self)
     "Toolbox")
   
   
@@ -218,24 +220,24 @@
   ;;;
   
   
-  (method public (get-module-names)
-    (map get-module-name~ (get-toolbox-modules)))
+  (method public (get-module-names self)
+    (map get-module-name (collect-toolbox-modules self)))
   
   
-  (method public (get-toolbox-modules)
-    (collect-descendants~ (get-client) Toolbox-Module))
+  (method public (collect-toolbox-modules self)
+    (collect-descendants (get-client self) Toolbox-Module))
   
   
-  (method public (get-toolbox-models)
-    (collect-descendants~ (get-client) Toolbox-Model))
+  (method public (collect-toolbox-models self)
+    (collect-descendants (get-client self) Toolbox-Model))
   
   
-  (method public (get-addable-models-refs component)
+  (method public (get-addable-models-refs self component)
     (let ((tools (collect-if (lambda (tool)
-                               (let ((class (get-class~ tool)))
+                               (let ((class (get-class tool)))
                                  (and (class? class) (addable-class? component class))))
-                             (get-toolbox-models))))
-      (map get-reference~ tools)))
+                             (collect-toolbox-models self))))
+      (map get-reference tools)))
   
   
   ;;;
@@ -243,30 +245,30 @@
   ;;;
   
   
-  (method (on-synchronize evt)
-    (let ((tree (get-tree)))
+  (method (on-synchronize self evt)
+    (let ((tree (get-tree self)))
       (with-cursor :wait
         (lambda ()
-          (with-preserved-selection~ tree
+          (with-preserved-selection tree
             (lambda ()
-              (with-preserved-expand-state~ tree
+              (with-preserved-expand-state tree
                 (lambda ()
                   (with-safe-design
                     (lambda ()
-                      (with-update-locked
+                      (with-update-locked self
                         (lambda ()
                           (with-design-locked client
                             (lambda ()
                               (for-each (lambda (module)
                                           (for-each (lambda (child)
-                                                      (remove-child~ designer child))
-                                                    (get-children~ module))
-                                          (add-module-elements~ module (lambda (class properties)
-                                                                         (install-new-component~ tree designer (new class) module #f '() properties descendant?: #t))))
-                                        (get-toolbox-modules)))))))))))
+                                                      (remove-child designer child))
+                                                    (get-children module))
+                                          (add-module-elements module (lambda (class properties)
+                                                                         (install-new-component tree designer (new class) module #f '() properties descendant?: #t))))
+                                        (collect-toolbox-modules self)))))))))))
             use: 'text
             ensure-expanded?: #t)
-          (set-selection (get-selected-data~ tree)))))))
+          (set-selection self (get-selected-data tree)))))))
 
 
 ;;;
@@ -300,56 +302,56 @@
           (<Separator>                                  size: {Dimension 5 0} location: tail)))))
   
   
-  (method public virtual (filter-model model)
+  (method public virtual (filter-model self model)
     #t)
   
   
-  (method (get-tree)
-    (locate 'tree))
+  (method package (get-tree self)
+    (locate self 'tree))
   
   
-  (method (insert-component row component)
+  (method (insert-component self row component)
     (let* ((components (get-components component))
            (title      (get-presentation-property component))
            (image      (get-component-image component))
            (state      (if (null? components) 'collapsed 'expanded))
-           (subrow     (add-row~ (locate 'tree) father: row state: state children: (list (new Tree-Node title: title image: image)) user-data: component)))
-      (for-each (lambda (component) (insert-component subrow component)) components)
+           (subrow     (add-row (locate self 'tree) father: row state: state children: (list (new Tree-Node title: title image: image)) user-data: component)))
+      (for-each (lambda (component) (insert-component self subrow component)) components)
       subrow))
   
   
-  (method (build-toolbox-element element)
-    (let ((children (collect build-toolbox-element (get-children~ element))))
+  (method (build-toolbox-element self element)
+    (let ((children (collect (~ build-toolbox-element self) (get-children element))))
       (and (typecase element
-             ((Toolbox-Model) (filter-model element))
+             ((Toolbox-Model) (filter-model self element))
              (else (not-null? children)))
-           (let ((new-element (copy-object~ element #f)))
-             (set-children~ new-element children)
+           (let ((new-element (copy-object element #f)))
+             (set-children new-element children)
              new-element))))
 
 
-  (method (build-toolboxes)
+  (method (build-toolboxes self)
     (map (lambda (toolbox)
-           (let ((new-toolbox (new Toolbox title: (get-title~ toolbox) icon: (get-icon~ toolbox))))
-             (set-children~ new-toolbox (collect build-toolbox-element (get-children~ toolbox)))
+           (let ((new-toolbox (new Toolbox title: (get-title toolbox) icon: (get-icon toolbox))))
+             (set-children new-toolbox (collect (~ build-toolbox-element self) (get-children toolbox)))
              new-toolbox))
-         (map get-client~ (get-toolbox-managers))))
+         (map get-client (get-toolbox-managers))))
   
   
-  (method (setup-toolboxes)
-    (let ((toolboxes (build-toolboxes)))
-      (set! toolboxes~self toolboxes)
-      (with-update-locked~ (get-tree)
+  (method (setup-toolboxes self)
+    (let ((toolboxes (build-toolboxes self)))
+      (set! self.toolboxes toolboxes)
+      (with-update-locked (get-tree self)
         (lambda ()
-          (remove-every-row~ (get-tree))
+          (remove-every-row (get-tree self))
           (for-each (lambda (toolbox)
-                      (insert-component #f toolbox))
+                      (insert-component self #f toolbox))
                     toolboxes)))))
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (setup-toolboxes))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (setup-toolboxes self))
   
   
   ;;;
@@ -357,17 +359,17 @@
   ;;;
   
   
-  (method (select-tool import symbol)
+  (method (select-tool self import symbol)
     (let (loop (toolboxes toolboxes))
       (when (not-null? toolboxes)
-        (let ((model (find-model~ (car toolboxes) symbol import)))
+        (let ((model (find-model (car toolboxes) symbol import)))
           (if model
-              (select-user-data-row~ (locate 'tree) model)
+              (select-user-data-row (locate self 'tree) model)
             (loop (cdr toolboxes)))))))
   
   
-  (method virtual public (setup import symbol . rest)
-    (select-tool import symbol))
+  (method virtual public (setup self import symbol . rest)
+    (select-tool self import symbol))
   
   
   ;;;
@@ -376,20 +378,20 @@
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (let ((dialog (get-host)))
-      (end-modal~ dialog (get-modal-result~ dialog))))
+  (method override (on-return-press self evt)
+    (let ((dialog (get-host self)))
+      (end-modal dialog (get-modal-result dialog))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
   
   
-  (method (on-double-click evt)
-    (let ((dialog (get-host)))
-      (end-modal~ dialog (get-modal-result~ dialog))))
+  (method (on-double-click self evt)
+    (let ((dialog (get-host self)))
+      (end-modal dialog (get-modal-result dialog))))
   
   
   ;;;
@@ -397,15 +399,15 @@
   ;;;
   
   
-  (method (selected-model)
-    (let ((obj (get-single-selected-data~ (get-tree))))
+  (method (selected-model self)
+    (let ((obj (get-single-selected-data (get-tree self))))
       (and (is? obj Toolbox-Model) obj)))
   
   
-  (method override (get-modal-result)
-    (let ((obj (selected-model)))
+  (method override (get-modal-result self)
+    (let ((obj (selected-model self)))
       (if obj
-          (list (get-model~ obj) (get-unit~ obj))
+          (list (get-model obj) (get-unit obj))
         (designer-error "Select a valid model"))))
   
   
@@ -414,7 +416,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new Dialog-Toolbox-Manager-Descriptor)))
 
 
@@ -427,10 +429,10 @@
   (property references initialize #f accessors generate)
   
   
-  (method override (filter-model model)
+  (method override (filter-model self model)
     (if references
-        (let ((classes (map resolve-reference~ references))
-              (class (get-class~ model)))
+        (let ((classes (map reference-resolve references))
+              (class (get-class model)))
           (and (class? class)
                (member? class classes test: subclass?)))
       (error "No class references in toolbox dialog"))))
@@ -444,11 +446,11 @@
 (class Toolbox-Manager-Controller extends Component-Editor-Controller
   
   
-  (method override (update-caption)
+  (method override (update-caption self)
     )
   
   
-  (method override (document-status)
+  (method override (document-status self)
     "Toolbox"))
 
 

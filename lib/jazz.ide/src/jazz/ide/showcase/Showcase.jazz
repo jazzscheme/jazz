@@ -40,12 +40,14 @@
 
 (import (jazz.component)
         (jazz.editor.jazz)
+        (jazz.event)
         (jazz.effect)
         (jazz.graphic)
         (jazz.handler)
         (jazz.ide)
         (jazz.jml)
         (jazz.resource)
+        (jazz.outline)
         (jazz.tree)
         (jazz.ui)
         (jazz.view))
@@ -189,9 +191,9 @@
             (<Tree-Showcase>))))))
 
 
-  (method override (install rest)
-    (nextmethod rest)
-    (install-views))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (install-views self))
   
   
   ;;;
@@ -199,23 +201,23 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "ProjectsManager"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Showcase")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 50 30})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 900 650})
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(home))
   
   
@@ -224,16 +226,16 @@
   ;;;
 
 
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (size-figure~ (locate 'tab) dh dv))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (size-figure (locate self 'tab) dh dv))
   
   
-  (method (on-set-active-trait evt)
-    (let* ((creator (get-creator~ (get-sender~ evt)))
-           (view (locate~ creator 'ss))
-           (trait (get-property~ evt trait:)))
-      (set-active-trait~ view (if trait (list (locate~ creator trait)) '()))))
+  (method (on-set-active-trait self evt)
+    (let* ((creator (get-creator (get-sender evt)))
+           (view (locate creator 'ss))
+           (trait (get-property evt trait:)))
+      (set-active-trait view (if trait (list (locate creator trait)) '()))))
   
   
   ;;;
@@ -241,8 +243,8 @@
   ;;;
   
   
-  (method (get-stage name)
-    (get-content~ (locate name)))
+  (method package (get-stage self name)
+    (get-content (locate self name)))
 
 
   ;;;
@@ -250,27 +252,27 @@
   ;;;
 
   
-  (method (install-views)
+  (method (install-views self)
     (define (install-text)
       @convert
       (let ((file {File Jedi-Project "Development" "Categories" "Application" "Jedi-User.jazz"}))
         (when (exists?~ file)
-          (set-moniker~ (get-document-controller~ (locate 'jt)) file))))
+          (set-moniker (get-document-controller (locate 'jt)) file))))
     
     (define (install-tree-view)
-      (let ((tree (locate 'tv)))
-        (add-row~ tree children: (list (new Tree-Node title: "Hello" image: {Image-Resource "Document"}) (new Tree-Label title: "There") (new Tree-Label title: "How do you do?")))
-        (add-row~ tree children: (list (new Tree-Node title: "Hello" image: {Image-Resource "OpenedFolder"}) (new Tree-Label title: "There") (new Tree-Label title: "How do you do?")))
-        (let ((node (add-row~ tree children: (list (new Tree-Node title: "Hello" image: {Image-Resource "OpenedFolder"}) (new Tree-Label title: "There") (new Tree-Label title: "How do you do?")))))
+      (let ((tree (locate self 'tv)))
+        (add-row tree children: (list (new Tree-Node title: "Hello" image: {Image-Resource "Document"}) (new Tree-Label title: "There") (new Tree-Label title: "How do you do?")))
+        (add-row tree children: (list (new Tree-Node title: "Hello" image: {Image-Resource "OpenedFolder"}) (new Tree-Label title: "There") (new Tree-Label title: "How do you do?")))
+        (let ((node (add-row tree children: (list (new Tree-Node title: "Hello" image: {Image-Resource "OpenedFolder"}) (new Tree-Label title: "There") (new Tree-Label title: "How do you do?")))))
           (for-each (lambda (n)
                       (let* ((title (format "Foo{a}" n))
                              (cell (format "How do you {a}?" title))
-                             (node (add-row~ tree father: node children: (list (new Tree-Node title: title image: {Image-Resource "OpenedFolder"}) (new Tree-Label title: "There") (new Tree-Label title: cell)))))
+                             (node (add-row tree father: node children: (list (new Tree-Node title: title image: {Image-Resource "OpenedFolder"}) (new Tree-Label title: "There") (new Tree-Label title: cell)))))
                         (when (= n 5)
                           (for-each (lambda (n)
                                       (let* ((title (format "Bar{a}" n))
                                              (cell (format "How do you {a}?" title)))
-                                        (add-row~ tree father: node children: (list (new Tree-Node title: title image: {Image-Resource "OpenedFolder"}) (new Tree-Label title: "There") (new Tree-Label title: cell)))))
+                                        (add-row tree father: node children: (list (new Tree-Node title: title image: {Image-Resource "OpenedFolder"}) (new Tree-Label title: "There") (new Tree-Label title: cell)))))
                                     (naturals 0 5)))))
                     (naturals 0 25)))))
     
@@ -283,10 +285,10 @@
   ;;;
   
   
-  (method (on-wipe evt)
-    (let ((canvas (locate 'wiped)))
-      (set-effect~ (get-root~ canvas) (new Wipe-Effect direction: 'right delay: 0.005))
-      (set-background~ canvas (if (eq? (get-background~ canvas) {Color Red}) {Color Blue} {Color Red})))))
+  (method (on-wipe self evt)
+    (let ((canvas (locate self 'wiped)))
+      (set-effect (get-root canvas) (new Wipe-Effect direction: 'right delay: 0.005))
+      (set-background canvas (if (eq? (get-background canvas) {Color Red}) {Color Blue} {Color Red})))))
 
 
 ;;;
@@ -299,16 +301,16 @@
   
   @convert
   (method (draw surface context)
-    (set-bk-mode~ surface :transparent)
-    (set-font~ surface {Font Caption})
-    (draw-text~ surface 10 10 "Hello world!" {Color Black})
+    (set-bk-mode surface :transparent)
+    (set-font surface {Font Caption})
+    (draw-text surface 10 10 "Hello world!" {Color Black})
     (with ((rgn (new Cairo-Region))
            (frs (new Cairo-Region rect: {Rect 10  50 145 100}))
            (sec (new Cairo-Region rect: {Rect 30  70 180 120})))
       (combine-or!~ rgn frs)
       (combine-or!~ rgn sec)
-      (fill-region~ surface rgn {Color Red}))
-    (draw-image~ (get-images-portfolio~ (get-application)) surface context {Image-Resource "Handler"} 160 8)))
+      (fill-region surface rgn {Color Red}))
+    (draw-image (get-images-portfolio (get-application)) surface context {Image-Resource "Handler"} 160 8)))
 
 
 ;;;
@@ -323,8 +325,8 @@
   (method (draw surface context)
     (let ((size {Dimension 32 32}))
       (with ((memory-dc (new Memory-Surface surface size)))
-        (fill-rect~ memory-dc {Rect 0 0 32 32} {Color Green})
-        (bit-blit~ memory-dc surface destination: {Point 10 10})))))
+        (fill-rect memory-dc {Rect 0 0 32 32} {Color Green})
+        (bit-blit memory-dc surface destination: {Point 10 10})))))
 
 
 ;;;
@@ -335,18 +337,18 @@
 (class Draw-Showcase extends View
   
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (define (draw-gradient rect)
-      (gradient-fill-rect~ surface rect (list (list 0 {Color Red}) (list 1 {Color Blue}))))
+      (gradient-fill-rect surface rect (list (list 0 {Color Red}) (list 1 {Color Blue}))))
     
     (draw-gradient (new Rect 450 10 650 30))
-    (fill-rect~ surface (new Rect  0   0 118 214) {Color Green})
-    (fill-rect~ surface (new Rect 200 300 400 360) {Color White})
-    (fill-rect~ surface (new Rect 200 300 400 320) {Color Light})
-    (fill-rect~ surface (new Rect 200 320 400 340) {Color Medium})
-    (fill-rect~ surface (new Rect 200 340 400 360) {Color Dark})
-    (frame-rect~ surface (new Rect 200 300 400 360) {Color Black})
-    (draw-text~ surface 200 250 "Disabled text" {Color Black} enabled?: #f)))
+    (fill-rect surface (new Rect  0   0 118 214) {Color Green})
+    (fill-rect surface (new Rect 200 300 400 360) {Color White})
+    (fill-rect surface (new Rect 200 300 400 320) {Color Light})
+    (fill-rect surface (new Rect 200 320 400 340) {Color Medium})
+    (fill-rect surface (new Rect 200 340 400 360) {Color Dark})
+    (frame-rect surface (new Rect 200 300 400 360) {Color Black})
+    (draw-text surface 200 250 "Disabled text" {Color Black} enabled?: #f)))
 
 
 ;;;

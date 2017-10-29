@@ -43,25 +43,27 @@
         (jazz.debuggee)
         (jazz.debuggee.view)
         (jazz.handler)
+        (jazz.ide)
         (jazz.jml)
         (jazz.menu)
         (jazz.picker)
         (jazz.resource)
         (jazz.tree)
-        (jazz.ui.development))
+        (jazz.ui.development)
+        (jazz.view))
 
 
 (class View-Debugger extends Object
   
   
-  (method public (debug-views)
+  (method public (debug-views self)
     (pick-figure click: debug-view-action
                  menu: debug-view-menu
                  highlight: #t
                  obscure-unhighlighted?: #f))
   
   
-  (method public (explore-views)
+  (method public (explore-views self)
     (pick-figure click: debug-view-action
                  menu: debug-view-menu
                  highlight: #t
@@ -72,21 +74,21 @@
     (view-debug view pos))
   
   
-  (method package (on-debug-action evt)
+  (method package (on-debug-action self evt)
     (define (describe-view-action view pos)
       (let ((appl (get-application)))
-        (show-console~ appl focus?: #f)
+        (show-console appl focus?: #f)
         (display-description (view-describe view pos))
-        (fresh-prompt~ appl)))
+        (fresh-prompt appl)))
     
     (define (describe-state-action view pos)
       (let ((appl (get-application))
-            (host (get-host~ view)))
+            (host (get-host view)))
         (when host
-          (let ((guest (get-guest~ host)))
-            (show-console~ appl focus?: #f)
+          (let ((guest (get-guest host)))
+            (show-console appl focus?: #f)
             (view-describe-state guest pos)
-            (fresh-prompt~ appl)))))
+            (fresh-prompt appl)))))
     
     (define (display-description description)
       (let ((max (apply max (map cardinality (map car description)))))
@@ -100,28 +102,28 @@
                   description)))
     
     (let ((appl (get-application))
-          (action (get-property~ evt action:))
-          (view (get-property~ evt view:))
-          (pos (get-property~ evt pos:)))
+          (action (get-property evt action:))
+          (view (get-property evt view:))
+          (pos (get-property evt pos:)))
       (case action
         ((debug)          (debug-view-action view pos))
         ((describe)       (describe-view-action view pos))
         ((describe-state) (describe-state-action view pos))
-        ((edit)           (let ((object (get-property~ evt object:)))
-                            (edit-definitions~ appl (category-name (class-of object)))))
-        ((edit-handler)   (let ((handler (get-property~ evt handler:)))
+        ((edit)           (let ((object (get-property evt object:)))
+                            (edit-definitions appl (category-name (class-of object)))))
+        ((edit-handler)   (let ((handler (get-property evt handler:)))
                             (typecase handler
                               ((Action)
-                               (let ((action-handler (get-action-handler~ (require-action-item handler))))
-                                 (edit-definitions~ appl (get-method-name~ action-handler))))
+                               (let ((action-handler (get-action-handler (require-action-item handler))))
+                                 (edit-definitions appl (get-method-name action-handler))))
                               ((Handler)
-                               (edit-definitions~ appl (get-method-name~ handler)))
+                               (edit-definitions appl (get-method-name handler)))
                               ((Symbol)
-                               (edit-definitions~ appl handler)))))
+                               (edit-definitions appl handler)))))
         ((inspect)        (inspect view))
         @convert
-        ((design)         (let ((guest (get-guest~ view)))
-                            (if (get-property~ evt in-place?:)
+        ((design)         (let ((guest (get-guest view)))
+                            (if (get-property evt in-place?:)
                                 (design-in-place guest)
                               (design guest))))))))
 
@@ -132,19 +134,19 @@
 
 
 (definition (get-tree-user-data tree pos)
-  (let ((cell (view->tree~ tree pos)))
+  (let ((cell (view->tree tree pos)))
     (when cell
-      (let* ((row (get-row~ tree (get-line~ cell)))
-             (user-data (get-user-data~ row)))
+      (let* ((row (get-row tree (get-line cell)))
+             (user-data (get-user-data row)))
         user-data))))
 
 
 (definition (debug-view-menu view pos)
   (let* ((menu (new Debug-View-Menu))
-         (host (get-host~ view))
-         (guest (and host (get-guest~ host)))
+         (host (get-host view))
+         (guest (and host (get-guest host)))
          (user-data (and (is? view Tree-View) (get-tree-user-data view pos)))
-         (action-handler (get-action-handler~ view)))
+         (action-handler (get-action-handler view)))
     (new Separator-Item parent: menu)
     (new Label-Item parent: menu title: "Edit Host" action-handler: (new Event-Handler target: (current-view-debugger) method-name: 'on-debug-action properties: (list action: 'edit object: host)))
     (when guest
@@ -159,7 +161,7 @@
     (new Separator-Item parent: menu)
     (new Label-Item parent: menu title: "Design Guest" action-handler: (new Event-Handler target: (current-view-debugger) method-name: 'on-debug-action properties: (list action: 'design object: view)))
     @wait (new Label-Item parent: menu title: "Design Guest In-Place" action-handler: (new Event-Handler target: (current-view-debugger) method-name: 'on-debug-action properties: (list action: 'design object: view in-place?: #t)))
-    (layout-menu~ menu)
+    (layout-menu menu)
     menu))
 
 

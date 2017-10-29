@@ -39,6 +39,7 @@
 
 
 (import (jazz.debuggee.view)
+        (jazz.designer)
         (jazz.designer.view)
         (jazz.io)
         (jazz.resource)
@@ -48,12 +49,12 @@
 (class undocumented Integrity-Log-Node extends Log-Node
   
   
-  (method override (node-image)
+  (method override (node-image self)
     {Image-Resource "IntegrityError"})
   
   
-  (method override (node-location)
-    (let ((component (get-property~ node 'component)))
+  (method override (node-location self)
+    (let ((component (get-property node 'component)))
       (if (and component
                (pair? component)
                (eq? (car component) 'module-public))
@@ -61,15 +62,15 @@
         "")))
   
   
-  (method override (edit-location tree)
-    (let ((editor (open-class (resolve-runtime-reference (deserialize-runtime-reference (get-property~ node 'component)))))
-          (path (get-property~ node 'path))
-          (property (get-property~ node 'property)))
-      (let ((client (get-client~ editor)))
-        (let ((component (follow-component~ (new Path (or path '())) client)))
+  (method override (edit-location self tree)
+    (let ((editor (open-class (resolve-runtime-reference (deserialize-runtime-reference (get-property node 'component)))))
+          (path (get-property node 'path))
+          (property (get-property node 'property)))
+      (let ((client (get-client editor)))
+        (let ((component (follow-component (new Path (or path '())) client)))
           (if (not component)
               (begin
                 (message-box (format "Unable to find component: {l}" path))
                 (signal-cancel))
-            (set-selection~ editor (list component) origin: self)
-            (select-property~ editor property))))))))
+            (set-selection editor (list component) origin: self)
+            (select-property editor property))))))))

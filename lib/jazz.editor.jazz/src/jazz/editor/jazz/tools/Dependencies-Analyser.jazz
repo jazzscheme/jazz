@@ -40,6 +40,7 @@
 
 (import (jazz.application)
         (jazz.clipboard)
+        (jazz.debugger.jazz)
         (jazz.event)
         (jazz.feedback)
         (jazz.graphic)
@@ -48,7 +49,10 @@
         (jazz.io)
         (jazz.jml)
         (jazz.menu)
+        (jazz.outline)
+        (jazz.project)
         (jazz.resource)
+        (jazz.text)
         (jazz.tree)
         (jazz.ui)
         (jazz.view))
@@ -76,7 +80,7 @@
                 (<Tree-Node-Column>  name: declaration    title: "Name"))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Dependencies)
 
   
@@ -85,24 +89,24 @@
   ;;;
     
 
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Info"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Dependencies")
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 495 600})
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
 
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'package)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'package)))
 
   
   ;;;
@@ -110,62 +114,62 @@
   ;;;
   
   
-  (method (on-context-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (pos (get-position~ evt))
-           (acquired (acquire sender pos))
-           (menu (get-context-menu)))
+  (method (on-context-menu self evt)
+    (let* ((sender (get-sender evt))
+           (pos (get-position evt))
+           (acquired (acquire self sender pos))
+           (menu (get-context-menu self)))
       (when menu
-        (with-context-click~ sender pos
+        (with-context-click sender pos
           (lambda ()
-            (track-popup-menu menu acquired))))))
+            (track-popup-menu self menu acquired))))))
   
   
-  (method override (get-context-menu)
+  (method override (get-context-menu self)
     (new Dependencies-Menu))
   
   
-  (method (on-dependencies evt)
-    (let ((tree (get-tree))
-          (text (locate 'package)))
-      (let ((info (get-single-selected-data~ tree)))
+  (method (on-dependencies self evt)
+    (let ((tree (get-tree self))
+          (text (locate self 'package)))
+      (let ((info (get-single-selected-data tree)))
         (when (symbol? info)
-          (set-string-content~ text (->string info))
-          (analyse)))))
+          (set-string-content text (->string info))
+          (analyse self)))))
   
   
-  (method (on-analyse evt)
+  (method (on-analyse self evt)
     (with-cursor :wait
       (lambda ()
-        (analyse))))
+        (analyse self))))
   
   
-  (method override (edit-selection select)
-    (let ((tree (get-tree)))
-      (let ((info (get-single-selected-data~ tree)))
+  (method override (edit-selection self select)
+    (let ((tree (get-tree self)))
+      (let ((info (get-single-selected-data tree)))
         (when (pair? info)
           (bind (name . locat) info
             (bind (filename line col) locat
               (let ((file (new File (tokenise-filename filename)))
                     (start (new Cell line col))
                     (end (new Cell line (+ col (cardinality (symbol->string name))))))
-                (edit-document~ (get-application) file selection: (new Range$Cell$ start end)))))))))
+                (edit-document (get-application) file selection: (new Range$Cell$ start end)))))))))
   
   
-  (method override (next-editable current)
-    (let ((tree (get-tree)))
+  (method override (next-editable self current)
+    (let ((tree (get-tree self)))
       (define (target-row)
-        (let ((current (get-selected-row~ tree)))
+        (let ((current (get-selected-row tree)))
           (or current
-              (let ((count (get-visible-count~ tree)))
+              (let ((count (get-visible-count tree)))
                 (and (> count 0)
-                     (get-row~ tree 0))))))
+                     (get-row tree 0))))))
         
       (define (find-editable row)
-        (let ((next (next-row~ tree row)))
+        (let ((next (next-row tree row)))
           (cond ((not next)
                  #f)
-                ((editable-row? (get-user-data~ next))
+                ((editable-row? self (get-user-data next))
                  next)
                 (else
                  (find-editable next)))))
@@ -174,24 +178,24 @@
         (when target
           (let ((row (find-editable target)))
             (when row
-              (ensure-expanded~ tree row)
-              (row->line~ tree row)))))))
+              (ensure-expanded tree row)
+              (row->line tree row)))))))
   
   
-  (method override (previous-editable current)
-    (let ((tree (get-tree)))
+  (method override (previous-editable self current)
+    (let ((tree (get-tree self)))
       (define (target-row)
-        (let ((current (get-selected-row~ tree)))
+        (let ((current (get-selected-row tree)))
           (or current
-              (let ((count (get-visible-count~ tree)))
+              (let ((count (get-visible-count tree)))
                 (and (> count 0)
-                     (get-row~ tree (- count 1)))))))
+                     (get-row tree (- count 1)))))))
         
       (define (find-editable row)
-        (let ((previous (previous-row~ tree row)))
+        (let ((previous (previous-row tree row)))
           (cond ((not previous)
                  #f)
-                ((editable-row? (get-user-data~ previous))
+                ((editable-row? self (get-user-data previous))
                  previous)
                 (else
                  (find-editable previous)))))
@@ -200,8 +204,8 @@
         (when target
           (let ((row (find-editable target)))
             (when row
-              (ensure-expanded~ tree row)
-              (row->line~ tree row)))))))
+              (ensure-expanded tree row)
+              (row->line tree row)))))))
 
   
   ;;;
@@ -213,7 +217,7 @@
     #f)
   
   
-  (method (analyse)
+  (method package (analyse self)
     (define (feedback . rest)
       (execute-event
         (lambda ()
@@ -225,16 +229,16 @@
         lst))
     
     (define (determine-kernel)
-      (or kernel (project-kernel~ (current-project~ (get-workbench-manager~ (get-application))))))
+      (or kernel (project-kernel (current-project (get-workbench-manager (get-application))))))
     
     (define (present-all explicit implicit)
       (execute-event
         (lambda ()
           (let ((e (jazz=>scheme explicit))
                 (i (jazz=>scheme (table-keys implicit)))
-                (tree (get-tree)))
-            (remove-every-row~ tree)
-            (with-update-locked~ tree
+                (tree (get-tree self)))
+            (remove-every-row tree)
+            (with-update-locked tree
               (lambda ()
                 (present tree implicit (intersection e i) {Image-Resource "Green"})
                 (present tree implicit (difference i e) {Image-Resource "Red"})
@@ -244,21 +248,21 @@
       (let ((package-names (sort ci<? keys)))
         (for-each (lambda (package-name)
                     (let ((declarations (table-ref implicit package-name #f)))
-                      (let ((father (add-row~ tree children: (list (new Tree-Node title: (format "{a}" package-name) image: image)) user-data: package-name)))
+                      (let ((father (add-row tree children: (list (new Tree-Node title: (format "{a}" package-name) image: image)) user-data: package-name)))
                         (when declarations
                           (let ((locators (sort ci<? (table-keys declarations) key: present-reference)))
                             (for-each (lambda (locator)
                                         (let ((name (last (split-reference locator)))
                                               (references (table-ref declarations locator)))
-                                          (let ((father (add-row~ tree father: father children: (list (new Tree-Node title: (present-reference locator) image: {Image-Resource "Info"})))))
+                                          (let ((father (add-row tree father: father children: (list (new Tree-Node title: (present-reference locator) image: {Image-Resource "Info"})))))
                                             (for-each (lambda (references)
                                                         (bind (unit . locations) references
-                                                          (let ((father (add-row~ tree father: father children: (list (new Tree-Node title: (->string unit) image: {Image-Resource "Document"})))))
+                                                          (let ((father (add-row tree father: father children: (list (new Tree-Node title: (->string unit) image: {Image-Resource "Document"})))))
                                                             (for-each (lambda (locat)
                                                                         (if (pair? locat)
                                                                             (bind (filename line col) locat
-                                                                              (add-row~ tree father: father children: (list (new Tree-Node title: (format "{a}.{a}" line col) image: {Image-Resource "Link"})) user-data: (cons name locat)))
-                                                                          (add-row~ tree father: father children: (list (new Tree-Node title: (->string locat) image: {Image-Resource "Execute"})))))
+                                                                              (add-row tree father: father children: (list (new Tree-Node title: (format "{a}.{a}" line col) image: {Image-Resource "Link"})) user-data: (cons name locat)))
+                                                                          (add-row tree father: father children: (list (new Tree-Node title: (->string locat) image: {Image-Resource "Execute"})))))
                                                                       (sort < locations key: (lambda (info) (if (pair? info) (second info) -1)))))))
                                                       references))))
                                       locators))))))
@@ -269,16 +273,16 @@
         (lambda ()
           (let ((server-port (open-tcp-server 0)))
             (let ((port-args (list "-port" (number->string (socket-info-port-number (tcp-server-socket-info server-port)))))
-                  (package-arg (get-string-content~ (locate 'package))))
+                  (package-arg (get-string-content (locate self 'package))))
               (if debug-analysis?
                   (let ((command (format "{s} {l}"
-                                         (parse~ (determine-kernel))
+                                         (parse (determine-kernel))
                                          `("-run" "jam" "dependencies" "-analysis" ,@port-args ,package-arg))))
                     (set-clipboard-text command)
                     (user-message "Clipboard set to shell command"))
                 (open-process
                   (list
-                    path: (parse~ (determine-kernel))
+                    path: (parse (determine-kernel))
                     arguments: `("-:daqQ-" "-run" "jam" "dependencies" "-analysis" ,@port-args ,package-arg)
                     stdin-redirection: #f
                     stdout-redirection: #f
@@ -296,11 +300,11 @@
   ;;;
   
   
-  (method (selected-declarations)
-    (let* ((tree (get-tree))
-           (selection (get-selection~ tree)))
+  (method (selected-declarations self)
+    (let* ((tree (get-tree self))
+           (selection (get-selection tree)))
       (map (lambda (rank)
-             (get-user-data~ (get-row~ tree rank)))
+             (get-user-data (get-row tree rank)))
            selection))))
 
 

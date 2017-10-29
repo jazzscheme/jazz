@@ -47,10 +47,10 @@
   (slot code getter generate)
   
   
-  (method override (initialize (code: code #f) (content: content #f))
-    (nextmethod)
-    (set! code~self (or code 'ok))
-    (set! content~self content))
+  (method override (initialize self (code: code #f) (content: content #f))
+    (nextmethod self)
+    (set! self.code (or code 'ok))
+    (set! self.content content))
   
   
   ;;;
@@ -82,7 +82,7 @@
    ..."
   
 
-  (method override (parse port)
+  (method override (parse self port)
     (define (parse-control)
       (let ((line (read-line port)))
         (set! protocol (substring line 0 8))
@@ -92,11 +92,11 @@
       (let (loop (line (read-line port)))
         (unless (string=? "" line)
           (let ((header (split-header-line line)))
-            (set-header! (car header) (cdr header))
+            (set-header! self (car header) (cdr header))
             (loop (read-line port))))))
     
     (define (parse-regular-content)
-      (let ((header-length (get-header "Content-Length")))
+      (let ((header-length (get-header self "Content-Length")))
         (let ((numeric-header-length (if (and header-length
                                               (numeric? header-length)
                                               (>= (string->number header-length)))
@@ -146,7 +146,7 @@
             content))))
     
     (define (parse-content)
-      (let ((transfer-encoding (get-header "Transfer-Encoding")))
+      (let ((transfer-encoding (get-header self "Transfer-Encoding")))
         (if (and transfer-encoding
                  (string=? transfer-encoding "chunked"))
             (set! content (parse-chunked-content))
@@ -164,10 +164,10 @@
       (set! code (parse-code (substring line 9 12))))
     (receive (line headers) (read-line/headers port)
       (bind (version code code-text) (split line " ")
-        (set! code~self (parse-code code))
+        (set! self.code (parse-code code))
         (parse-headers headers)
-        (parse-cookies Cookie-Header)
-        ;;(set! body~self (read-body port))
+        self.(parse-cookies Cookie-Header)
+        ;;(set! body (read-body port))
         )))
   
   
@@ -176,15 +176,15 @@
   ;;;
   
   
-  (method override (send port)
+  (method override (send self port)
     (bind (code number text) (response-code-info code)
       (format port "HTTP/1.1 {a} {a}" number text))
-    (crlf! port)
-    (print-headers port)
+    (crlf! self port)
+    (print-headers self port)
     (iterate-table cookies (lambda (name cookie)
-                             (format port "Set-Cookie: {a}={s};" name (get-value~ cookie))
-                             (crlf! port)))
-    (crlf! port)
+                             (format port "Set-Cookie: {a}={s};" name (get-value cookie))
+                             (crlf! self port)))
+    (crlf! self port)
     (when content
       (if (list? content)
           (write-u8-content content port)

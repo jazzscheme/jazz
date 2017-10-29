@@ -47,7 +47,7 @@
 
 
 (define-emit (definition (describe backend) declaration environment expression unsafe-expression)
-  (let ((name (get-name~ declaration)))
+  (let ((name (get-name declaration)))
     `(definition ,name
        ,expression)))
 
@@ -87,10 +87,10 @@
 
 
 (define-emit (class (describe backend) declaration environment)
-  (let ((name (get-name~ declaration))
-        (ascendant (get-name~ (get-ascendant~ declaration)))
-        (interfaces (map get-name~ (get-interfaces~ declaration)))
-        (body (get-body~ declaration)))
+  (let ((name (get-name declaration))
+        (ascendant (get-name (get-ascendant declaration)))
+        (interfaces (map get-name~ (get-interfaces declaration)))
+        (body (get-body declaration)))
     (let ((body-emit (emit-namespace-statements body declaration environment backend)))
       `(class ,name ,ascendant ,interfaces
          ,@body-emit))))
@@ -102,8 +102,8 @@
 
 
 (define-emit (interface (describe backend) declaration environment)
-  (let ((name (get-name~ declaration))
-        (body (get-body~ declaration)))
+  (let ((name (get-name declaration))
+        (body (get-body declaration)))
     (let ((body-emit (emit-namespace-statements body declaration environment backend)))
       `(interface ,name
          ,@body-emit))))
@@ -115,7 +115,7 @@
 
 
 (define-emit (slot (describe backend) declaration environment initialize-emit)
-  (let ((name (get-name~ declaration)))
+  (let ((name (get-name declaration)))
     `(slot ,name)))
 
 
@@ -125,7 +125,7 @@
 
 
 (define-emit (property (describe backend) declaration environment initialize-emit)
-  (let ((name (get-name~ declaration)))
+  (let ((name (get-name declaration)))
     `(property ,name)))
 
 
@@ -135,7 +135,7 @@
 
 
 (define-emit (method (describe backend) declaration environment signature-emit signature-casts body-emit unsafe-signature)
-  (let ((name (get-name~ declaration)))
+  (let ((name (get-name declaration)))
     `(method (,name)
        ,body-emit)))
 
@@ -235,7 +235,7 @@
 
 
 (define-emit (definition-reference (describe backend) declaration)
-  `(definition-reference ,(get-name~ declaration)))
+  `(definition-reference ,(get-name declaration)))
 
 
 (define-emit (dynamic-self-reference (describe backend) declaration)
@@ -244,10 +244,6 @@
 
 (define-emit (generic-reference (describe backend) declaration)
   `(generic-reference))
-
-
-(define-emit (method-reference (describe backend) declaration source-declaration environment self dispatch-code)
-  `(method-reference))
 
 
 (define-emit (nextmethod-variable-reference (describe backend) binding)
@@ -267,20 +263,10 @@
 ;;;
 
 
-(define-emit (method-call (describe backend) binding binding-src dispatch-code self arguments)
-  `(method-call
-    ,(jazz:sourcified-form self)
-    ,@arguments))
-
-
-(define-emit (nextmethod-call (describe backend) binding binding-src self arguments)
-  (let ((name (get-name~ binding)))
-    (if self
-        `(,name
-           ,(jazz:sourcified-form self)
-           ,@(jazz:codes-forms arguments))
-      `(,name
-         ,@(jazz:codes-forms arguments)))))
+(define-emit (nextmethod-call (describe backend) binding binding-src arguments)
+  (let ((name (get-name binding)))
+    `(,name
+       ,@(jazz:codes-forms arguments))))
 
 
 ;;;

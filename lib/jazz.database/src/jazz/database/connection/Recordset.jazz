@@ -38,30 +38,31 @@
 (module protected jazz.database.connection.Recordset jazz
 
 
-(import (jazz.schema))
+(import (jazz.database)
+        (jazz.schema))
 
 
 (class Recordset extends Object
   
   
-  (method override (initialize command . rest)
-    (nextmethod)
-    (setup-recordset rest)
+  (method override (initialize self command . rest)
+    (nextmethod self)
+    (setup-recordset self rest)
     (when command
-      (apply open command rest))
-    (destroy-mandatory))
+      (apply (~ open self) command rest))
+    (destroy-mandatory self))
   
   
-  (method virtual (setup-recordset initargs)
+  (method virtual (setup-recordset self initargs)
     )
   
   
-  (method override (destroy)
-    (destroy-recordset)
-    (nextmethod))
+  (method override (destroy self)
+    (destroy-recordset self)
+    (nextmethod self))
   
   
-  (method virtual (destroy-recordset)
+  (method virtual (destroy-recordset self)
     )
   
   
@@ -70,11 +71,11 @@
   ;;;
   
   
-  (method public virtual (opened?)
+  (method public virtual (opened? self)
     )
   
   
-  (method virtual (open command . rest)
+  (method package virtual (open self command . rest)
     )
   
   
@@ -83,7 +84,7 @@
   ;;;
   
   
-  (method public virtual (get-state)
+  (method public virtual (get-state self)
     )
   
   
@@ -92,20 +93,20 @@
   ;;;
   
   
-  (method public virtual (new-recordset-metadata)
+  (method public virtual (new-recordset-metadata self)
     )
   
   
-  (method public virtual (get-field-type metadata field)
+  (method public virtual (get-field-type self metadata field)
     )
   
   
-  (method public virtual (get-field-value metadata field)
+  (method public virtual (get-field-value self metadata field)
     )
   
   
-  (method public virtual (safe-field-value metadata field)
-    (get-field-value metadata field))
+  (method public virtual (safe-field-value self metadata field)
+    (get-field-value self metadata field))
   
   
   ;;;
@@ -113,7 +114,7 @@
   ;;;
   
   
-  (method public virtual (next-recordset!)
+  (method public virtual (next-recordset! self)
     )
   
   
@@ -122,21 +123,21 @@
   ;;;
   
   
-  (method public virtual (get-columns)
-    (with ((metadata (new-recordset-metadata)))
-      (let ((count (get-count~ metadata)))
+  (method public virtual (get-columns self)
+    (with ((metadata (new-recordset-metadata self)))
+      (let ((count (get-count metadata)))
         (map (lambda (n)
-               (get-column~ metadata n))
+               (get-column metadata n))
              (naturals 0 count)))))
   
   
-  (method public virtual (get-rows table (max-load: max-load #t) (data-class: data-class #f))
-    (with ((metadata (new-recordset-metadata))
-           (fields (get-fields~ metadata)))
+  (method public virtual (get-rows self table (max-load: max-load #t) (data-class: data-class #f))
+    (with ((metadata (new-recordset-metadata self))
+           (fields (get-fields metadata)))
       (let ((fact (new List-Factory))
             (count 0)
             (has-more? #f))
-        (iterate-records
+        (iterate-records self
           (lambda ()
             (when (or (eq? max-load #t) (<= count max-load))
               (if (and (neq? max-load #t) (= count max-load))
@@ -144,14 +145,14 @@
                     (set! has-more? #t)
                     #f)
                 (let ((values (map (lambda (field)
-                                     (safe-field-value metadata field))
+                                     (safe-field-value self metadata field))
                                    fields)))
-                  (put~ fact (if (not data-class)
+                  (put fact (if (not data-class)
                                  (new Data-Row table #f values)
                                (new data-class table #f values)))
                   (increase! count)
                   #t)))))
-        (let ((rows (get-output~ fact))
+        (let ((rows (get-output fact))
               (missing? has-more?))
           (values rows missing?)))))
   
@@ -161,36 +162,36 @@
   ;;;
   
   
-  (method public virtual (move-first)
+  (method public virtual (move-first self)
     )
   
   
-  (method public virtual (move-last)
+  (method public virtual (move-last self)
     )
   
   
-  (method public virtual (move-next)
+  (method public virtual (move-next self)
     )
   
   
-  (method public virtual (move-previous)
+  (method public virtual (move-previous self)
     )
   
   
-  (method public virtual (at-bof?)
+  (method public virtual (at-bof? self)
     )
   
   
-  (method public virtual (at-eof?)
+  (method public virtual (at-eof? self)
     )
   
   
-  (method public virtual (iterate-records proc)
+  (method public virtual (iterate-records self proc)
     )
   
   
-  (method public virtual (for-each-record proc)
-    (iterate-records
+  (method public virtual (for-each-record self proc)
+    (iterate-records self
       (lambda ()
         (proc)
         #t)))
@@ -201,15 +202,15 @@
   ;;;
   
   
-  (method public (create-table (name: name #f) (max-load: max-load #t))
+  (method public (create-table self (name: name #f) (max-load: max-load #t))
     (let ((table (new Data-Table name: name)))
-      (load-table table max-load: max-load)
+      (load-table self table max-load: max-load)
       table))
   
   
-  (method protected (load-table table (max-load: max-load #t) (data-class: data-class #f))
-    (let ((columns (get-columns)))
-      (receive (rows missing?) (get-rows table max-load: max-load data-class: data-class)
-        (set-columns~ table columns)
-        (set-rows~ table rows)
-        (set-missing?~ table missing?))))))
+  (method package (load-table self table (max-load: max-load #t) (data-class: data-class #f))
+    (let ((columns (get-columns self)))
+      (receive (rows missing?) (get-rows self table max-load: max-load data-class: data-class)
+        (set-columns table columns)
+        (set-rows table rows)
+        (set-missing? table missing?))))))

@@ -331,10 +331,10 @@
   #f)
 
 
-(define (jazz:get-repositories)
+(define (jazz:repositories-get)
   jazz:Repositories)
 
-(define (jazz:get-build-repository)
+(define (jazz:build-repository-get)
   jazz:Build-Repository)
 
 
@@ -1127,6 +1127,9 @@
         (display "obj-uptodate? ") (display obj-uptodate?) (newline)
         (display "bin-uptodate? ") (display bin-uptodate?) (newline)
         (display "lib-uptodate? ") (display lib-uptodate?) (newline)
+        (if (and bin jazz:manifest-valid?)
+            (begin
+              (display "manifest-valid? ") (display (jazz:manifest-valid? bin)) (newline)))
         (display "loaded? ") (display loaded?) (newline)))))
 
 
@@ -2290,7 +2293,7 @@
   (%%make-table test: eq?))
 
 
-(define (jazz:get-environment)
+(define (jazz:get-environment-table)
   jazz:Environment)
 
 
@@ -2517,7 +2520,7 @@
   (%%table-set! jazz:Services name thunk))
 
 
-(define (jazz:get-service name)
+(define (jazz:find-service name)
   (let ((symbol/proc (%%table-ref jazz:Services name #f)))
     (if (%%symbol? symbol/proc)
         (begin
@@ -2529,7 +2532,7 @@
 
 
 (define (jazz:require-service name)
-  (or (jazz:get-service name)
+  (or (jazz:find-service name)
       (error "Unknown service: {s}" name)))
 
 

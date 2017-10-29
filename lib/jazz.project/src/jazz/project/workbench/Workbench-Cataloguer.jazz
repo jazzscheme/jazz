@@ -45,7 +45,7 @@
 (class Workbench-Cataloguer extends Cataloguer
   
   
-  (slot catalog-table initialize (make-table) getter generate)
+  (slot catalog-table initialize (make-table))
   
   
   ;;;
@@ -58,15 +58,15 @@
     #f)
   
   
-  (method package (reset-workbench-active-catalogs)
+  (method package (reset-workbench-active-catalogs self)
     (set! *workbench-active-catalogs* #f))
   
   
-  (method package (get-workbench-active-catalogs)
+  (method package (get-workbench-active-catalogs self)
     (or *workbench-active-catalogs*
         (let ((queue (new-queue)))
           (let ((project (get-workbench)))
-            (for-each-active-catalog~ project
+            (for-each-active-catalog project
               (lambda (catalog)
                 (enqueue queue catalog))))
           (let ((catalogs (queue-list queue)))
@@ -74,23 +74,23 @@
             catalogs))))
   
   
-  (method override (for-each-active-catalog context proc)
+  (method override (for-each-active-catalog self context proc)
     (if (not context)
-        (for-each proc (get-workbench-active-catalogs))
+        (for-each proc (get-workbench-active-catalogs self))
       (let ((project context))
-        (for-each-active-catalog~ project
+        (for-each-active-catalog project
           proc))))
   
   
-  (method override (add-catalog catalog)
-    (let ((key (get-name~ catalog)))
-      (table-set! catalog-table key (cons catalog (find-catalogs key)))))
+  (method override (add-catalog self catalog)
+    (let ((key (get-name catalog)))
+      (table-set! catalog-table key (cons catalog (find-catalogs self key)))))
   
   
-  (method override (remove-catalog catalog)
-    (let ((key (get-name~ catalog)))
-      (table-set! catalog-table key (remove catalog (find-catalogs key)))))
+  (method override (remove-catalog self catalog)
+    (let ((key (get-name catalog)))
+      (table-set! catalog-table key (remove catalog (find-catalogs self key)))))
   
   
-  (method override (find-catalogs key)
+  (method override (find-catalogs self key)
     (table-ref catalog-table key '()))))

@@ -71,9 +71,9 @@
   ;;;
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'traits-tree)
-          (nextmethod)))
+          (nextmethod self)))
   
 
   ;;;
@@ -81,30 +81,30 @@
   ;;;
   
   
-  (method override (context-menu evt)
-    (let ((pos (get-position~ evt)))
-      (with-context-click pos
+  (method override (context-menu self evt)
+    (let ((pos (get-position evt)))
+      (with-context-click self pos
         (lambda ()
           (let* ((menu (new Trait-Menu))
-                 (item (locate~ menu 'add))
+                 (item (locate menu 'add))
                  (classes (and client (get-addable-traits client)))
-                 (trait (selected-trait)))
+                 (trait (selected-trait self)))
             (when trait
-              (with-update-locked~ menu
+              (with-update-locked menu
                 (lambda ()
                   (when (null? classes)
-                    (set-visible?~ (locate~ menu 'add) #f)
-                    (set-visible?~ (locate~ menu 'separator) #f))
+                    (set-visible? (locate menu 'add) #f)
+                    (set-visible? (locate menu 'separator) #f))
                   (when (is-not? trait Trait)
-                    (set-visible?~ (locate~ menu 'separator) #f)
-                    (set-visible?~ (locate~ menu 'close) #f)
-                    (set-visible?~ (locate~ menu 'rename) #f))))
+                    (set-visible? (locate menu 'separator) #f)
+                    (set-visible? (locate menu 'close) #f)
+                    (set-visible? (locate menu 'rename) #f))))
               (if (eqv? classes #t)
                   (let ((default (get-addable-default-trait client)))
-                    (set-title~ item (format "Add {a}..." (get-class-presentation default))))
-                (set-title~ item "Add")
+                    (set-title item (format "Add {a}..." (get-class-presentation default))))
+                (set-title item "Add")
                 (let ((submenu (new Context-Menu parent: item)))
-                  (with-update-locked~ submenu
+                  (with-update-locked submenu
                     (lambda ()
                       (for-each (lambda (class)
                                   (if (not class)
@@ -114,71 +114,71 @@
                                           (handler (new Event-Handler target: self method-name: 'on-add-trait properties: (list class: class))))
                                       (new Label-Item parent: submenu icon: icon title: title action-handler: handler))))
                                 classes)))))
-              (layout-menu~ menu)
-              (track-popup-menu menu pos)))))))
+              (layout-menu menu)
+              (track-popup-menu self menu pos)))))))
   
   
-  (method (on-add-trait evt)
-    (let ((class (or (get-property~ evt class:) (get-addable-default-trait client)))
-          (parent (selected-trait)))
-      (add-trait class parent)))
+  (method (on-add-trait self evt)
+    (let ((class (or (get-property evt class:) (get-addable-default-trait client)))
+          (parent (selected-trait self)))
+      (add-trait self class parent)))
   
   
-  (method public (new-default-trait)
+  (method public (new-default-trait self)
     (when client
       (let* ((class (get-addable-default-trait client))
              (add-here? (get-addable-traits client))
-             (parent (or (when add-here? (selected-trait))
+             (parent (or (when add-here? (selected-trait self))
                          client)))
-        (add-trait class parent))))
+        (add-trait self class parent))))
   
   
-  (method public (add-trait class parent)
-    (let ((presentation (trait-presentation-request class (child-traits~ parent)))
+  (method public (add-trait self class parent)
+    (let ((presentation (trait-presentation-request self class (child-traits parent)))
           (trait (new class parent: parent))
-          (designer (get-designer~ editor)))
-      (add-child~ designer trait parent trait: #f)
-      (set-property~ designer trait client-form: (new Form textual?: #f action: 'install context: (get-form~ designer)) trait: #f)
+          (designer (get-designer editor)))
+      (add-child designer trait parent trait: #f)
+      (set-property designer trait client-form: (new Form textual?: #f action: 'install context: (get-form designer)) trait: #f)
       ;; Problem: at that point this update causes some node titles to be #f
       ;; because the trait doesn't yet have a name...
-      (update-tree)
-      (set-single-selection (trait-index trait))
-      (rename-trait trait presentation)))
+      (update-tree self)
+      (set-single-selection self (trait-index self trait))
+      (rename-trait self trait presentation)))
   
   
-  (method protected virtual (trait-presentation-request class brothers (initial-value: initial-value #f))
+  (method protected virtual (trait-presentation-request self class brothers (initial-value: initial-value #f))
     (let* ((name-mandatory? (get-class-name-mandatory? class))
            (name-unicity? (get-class-name-unicity? class))
            (unicity-domain (and name-unicity? (map get-presentation-property brothers)))
-           (name-validator (trait-name-validator))
+           (name-validator (trait-name-validator self))
            (presentation (request-string title: (format "Enter {a} Name" (get-class-presentation class)) initial-value: initial-value accepts-empty?: (not name-mandatory?) unicity-domain: unicity-domain validator: name-validator)))
       presentation))
   
   
-  (method protected virtual (trait-name-validator)
+  (method protected virtual (trait-name-validator self)
     #f)
   
   
-  (method (on-close-trait evt)
-    (delete-selection))
+  (method (on-close-trait self evt)
+    (delete-selection self))
   
   
-  (method override (delete-selection)
-    (let ((trait (selected-trait)))
+  (method override (delete-selection self)
+    (let ((trait (selected-trait self)))
       (if (is-not? trait Trait)
           (bell)
-        (when (confirm-close)
-          (with-deleted-selection selection
+        (when (confirm-close self)
+          (with-deleted-selection self selection
             (lambda ()
-              (remove-trait trait))
+              (remove-trait self trait))
               can-survive?: #t)))))
   
   
-  (method override (confirm-close)
-    (confirm-action "Delete selected trait?"))
+  (method override (confirm-close self)
+    (confirm-action self "Delete selected trait?"))
   
   
-  (method protected (confirm-action text)
+  (method protected (confirm-action self text)
     (let ((code (message-box (localize text) type: 'confirmation)))
       (case code
         ((yes) #t)
@@ -186,51 +186,51 @@
         ((cancel) (signal-cancel)))))
   
   
-  (method protected virtual (remove-trait trait)
-    (let ((designer (get-designer~ editor)))
-      (select-trait #f)
-      (remove-child~ designer trait)
-      (update-tree)))
+  (method protected virtual (remove-trait self trait)
+    (let ((designer (get-designer editor)))
+      (select-trait self #f)
+      (remove-child designer trait)
+      (update-tree self)))
   
   
-  (method (on-rename-trait evt)
-    (rename-selected-trait))
+  (method (on-rename-trait self evt)
+    (rename-selected-trait self))
   
   
-  (method (rename-selected-trait)
-    (let* ((trait (selected-trait))
-           (presentation (trait-presentation-request (class-of trait) (get-brothers~ trait) initial-value: (get-presentation-property trait))))
-      (rename-trait trait presentation)))
+  (method (rename-selected-trait self)
+    (let* ((trait (selected-trait self))
+           (presentation (trait-presentation-request self (class-of trait) (get-brothers trait) initial-value: (get-presentation-property trait))))
+      (rename-trait self trait presentation)))
   
   
-  (method (rename-trait trait presentation)
-    (let ((designer (get-designer~ editor)))
+  (method (rename-trait self trait presentation)
+    (let ((designer (get-designer editor)))
       (set-presentation-property trait designer presentation)
-      (update-tree)
-      (set-single-selection (trait-index trait))))
+      (update-tree self)
+      (set-single-selection self (trait-index self trait))))
   
   
-  (method (on-trait-properties evt)
-    (show-properties select-palette?: #t))
+  (method (on-trait-properties self evt)
+    (show-properties self select-palette?: #t))
   
   
-  (method (show-properties (select-palette?: select-palette? #f))
-    (let ((trait (selected-trait)))
-      (set-selection~ editor (if trait (list trait) '()) origin: self force?: #t focus?: #f)
+  (method package (show-properties self (select-palette?: select-palette? #f))
+    (let ((trait (selected-trait self)))
+      (set-selection editor (if trait (list trait) '()) origin: self force?: #t focus?: #f)
       (when select-palette?
         (select-docked Properties-Manager workspace: #f focus?: #t))))
   
   
-  (method (maybe-show-properties)
+  (method (maybe-show-properties self)
     (when editor
-      (let ((trait (selected-trait))
-            (selection (get-selection~ editor)))
+      (let ((trait (selected-trait self))
+            (selection (get-selection editor)))
         (when (or (null? selection)
                   (and (= (length selection) 1)
                        (let ((selection (car selection)))
-                         (or (eq? selection (get-client~ editor))
+                         (or (eq? selection (get-client editor))
                              (is? selection Trait)))))
-          (show-properties)))))
+          (show-properties self)))))
   
   
   ;;;
@@ -238,28 +238,28 @@
   ;;;
   
   
-  (method public (get-editor)
+  (method public (get-editor self)
     editor)
   
   
-  (method public (set-editor edt)
+  (method public (set-editor self edt)
     (when (neq? edt editor)
       (when editor
-        (remove-editor-listener~ editor self))
+        (remove-editor-listener editor self))
       (set! editor edt)
       (when editor
-        (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))))
+        (add-editor-listener editor (new Event-Handler target: self method-name: 'on-editor)))))
     
   
-  (method (on-editor evt)
-    (case (get-kind~ evt)
-      ((:client-change) (set-client (get-property~ evt client:)))
-      ((:designer-change) (set-designer (get-property~ evt designer:)))
-      ((:branch-changed) (branch-changed (get-property~ evt trait:)))))
+  (method (on-editor self evt)
+    (case (get-kind evt)
+      ((:client-change) (set-client self (get-property evt client:)))
+      ((:designer-change) (set-designer self (get-property evt designer:)))
+      ((:branch-changed) (branch-changed self (get-property evt trait:)))))
   
   
-  (method (branch-changed trait)
-    (set-single-selection (trait-index trait)))
+  (method (branch-changed self trait)
+    (set-single-selection self (trait-index self trait)))
 
   
   ;;;
@@ -267,38 +267,38 @@
   ;;;
   
   
-  (method public (get-designer)
+  (method public (get-designer self)
     designer)
   
   
-  (method public virtual (set-designer dsg)
+  (method public virtual (set-designer self dsg)
     (when (neq? dsg designer)
       (when designer
-        (uninstall-listener designer))
+        (uninstall-listener self designer))
       (set! designer dsg)
       (when designer
-        (install-listener designer))))
+        (install-listener self designer))))
   
   
-  (method (install-listener designer)
+  (method (install-listener self designer)
     (let ((listener (new Event-Handler target: self method-name: 'on-designer)))
-      (add-designer-listener~ designer listener)))
+      (add-designer-listener designer listener)))
   
   
-  (method (uninstall-listener designer)
-    (remove-designer-listener~ designer self))
+  (method (uninstall-listener self designer)
+    (remove-designer-listener designer self))
   
   
-  (method (on-designer evt)
-    (case (get-kind~ evt)
-      ((:presentation-change) (presentation-change (get-property~ evt component:) (get-property~ evt presentation:)))))
+  (method (on-designer self evt)
+    (case (get-kind evt)
+      ((:presentation-change) (presentation-change self (get-property evt component:) (get-property evt presentation:)))))
   
   
-  (method (presentation-change component presentation)
+  (method (presentation-change self component presentation)
     (when (eq? component client)
       (let ((cell {Cell 0 0}))
-        (set-title~ (get-cell-data cell) presentation)
-        (invalidate-cell cell))))
+        (set-title (get-cell-data self cell) presentation)
+        (invalidate-cell self cell))))
   
 
   ;;;
@@ -306,15 +306,15 @@
   ;;;
 
 
-  (method public (get-client)
+  (method public (get-client self)
     client)
 
 
-  (method public (set-client clt)
+  (method public (set-client self clt)
     (when (neq? clt client)
       (set! client clt)
-      (update-tree))
-    (update-selection))
+      (update-tree self))
+    (update-selection self))
   
 
   ;;;
@@ -322,55 +322,55 @@
   ;;;
   
   
-  (method (update)
-    (update-tree)
-    (update-selection))
+  (method package (update self)
+    (update-tree self)
+    (update-selection self))
 
 
-  (method (update-tree)
-    (remove-every-row)
+  (method (update-tree self)
+    (remove-every-row self)
     (when client
-      (let ((node (insert-client client)))
+      (let ((node (insert-client self client)))
         (for-each (lambda (trait)
-                    (insert-trait node trait))
-                  (sort-traits (child-traits~ client))))))
+                    (insert-trait self node trait))
+                  (sort-traits self (child-traits client))))))
   
   
-  (method protected virtual (sort-traits traits)
+  (method protected virtual (sort-traits self traits)
     traits)
   
   
-  (method (update-selection)
+  (method package (update-selection self)
     (if (not client)
-        (set-selection '() generate-event?: #f)
-      (let* ((trait (get-active-trait~ client))
-             (index (user-data-index (or trait client))))
+        (set-selection self '() generate-event?: #f)
+      (let* ((trait (get-active-trait client))
+             (index (user-data-index self (or trait client))))
         (if (not index)
-            (set-selection '() generate-event?: #f)
-          (set-single-selection index generate-event?: #f)))))
+            (set-selection self '() generate-event?: #f)
+          (set-single-selection self index generate-event?: #f)))))
   
   
-  (method (insert-client client)
+  (method (insert-client self client)
     (let ((title (get-presentation-property client))
-          (image (component-image client)))
-      (add-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: (and (is? client Trait) client))))
+          (image (component-image self client)))
+      (add-row self state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: (and (is? client Trait) client))))
   
   
-  (method (insert-trait node trait)
-    (let ((children (get-children~ trait))
-          (title    (component-presentation trait))
-          (image    (component-image trait)))
-      (let ((handle (add-row father: node state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: trait)))
+  (method (insert-trait self node trait)
+    (let ((children (get-children trait))
+          (title    (component-presentation self trait))
+          (image    (component-image self trait)))
+      (let ((handle (add-row self father: node state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: trait)))
         (for-each (lambda (child)
-                    (insert-trait handle child))
-                  (sort-traits children)))))
+                    (insert-trait self handle child))
+                  (sort-traits self children)))))
   
   
-  (method protected virtual (component-presentation component)
+  (method protected virtual (component-presentation self component)
     (get-presentation-property component))
   
   
-  (method protected virtual (component-image component)
+  (method package virtual (component-image self component)
     (get-component-image component))
   
   
@@ -379,16 +379,16 @@
   ;;;
   
   
-  (method override (can-undo?)
+  (method override (can-undo? self)
     #f)
   
   
-  (method override (can-redo?)
+  (method override (can-redo? self)
     #f)
   
   
-  (method override (can-delete?)
-    (let ((trait (selected-trait)))
+  (method override (can-delete? self)
+    (let ((trait (selected-trait self)))
       (is? trait Trait)))
   
   
@@ -397,25 +397,25 @@
   ;;;
   
   
-  (method (on-selection-change evt)
-    (select-trait (selected-trait))
-    (maybe-show-properties)
-    (update-focus-actions~ (get-application)))
+  (method package (on-selection-change self evt)
+    (select-trait self (selected-trait self))
+    (maybe-show-properties self)
+    (update-focus-actions (get-application)))
   
   
-  (method public (selected-trait)
-    (let ((selection (get-single-selection)))
+  (method public (selected-trait self)
+    (let ((selection (get-single-selection self)))
       (when selection
-        (get-user-data~ (get-row selection)))))
+        (get-user-data (get-row self selection)))))
   
   
-  (method (select-trait trait)
-    (when (neq? trait (get-active-trait~ client))
-      (process-branch-changing~ editor trait)))
+  (method package (select-trait self trait)
+    (when (neq? trait (get-active-trait client))
+      (process-branch-changing editor trait)))
   
   
-  (method (trait-index trait)
-    (user-data-index trait)))
+  (method (trait-index self trait)
+    (user-data-index self trait)))
 
 
 ;;;

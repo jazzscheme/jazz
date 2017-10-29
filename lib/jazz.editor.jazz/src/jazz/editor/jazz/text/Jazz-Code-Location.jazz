@@ -40,8 +40,12 @@
 
 (import (jazz.application)
         (jazz.catalog)
+        (jazz.component)
         (jazz.editor.jazz)
-        (jazz.runtime))
+        (jazz.runtime)
+        (jazz.text)
+        (jazz.ui)
+        (jazz.view))
 
 
 (class Jazz-Code-Location extends Code-Location
@@ -51,7 +55,7 @@
   (slot sublocation initialize #f) ;; temp code until an initialized? flag in the Object class
 
 
-  (method override (initialize location)
+  (method override (initialize self location)
     (define (setup-location)
       (let (iterate (path (split-reference (car location)))
                     (sub (cdr location)))
@@ -65,11 +69,11 @@
               (iterate (butlast path)
                        (cons (last path) sub)))))))
     
-    (nextmethod)
+    (nextmethod self)
     (setup-location))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         ;; temp code until an initialized? flag in the Object class
@@ -82,34 +86,34 @@
   ;;;
 
 
-  (method override (edit (workspace: workspace #f) (activate-focus?: activate-focus? #t) (error?: error? #t))
-    (let ((location (find-location workspace: workspace error?: error?)))
+  (method override (edit self (workspace: workspace #f) (activate-focus?: activate-focus? #t) (error?: error? #t))
+    (let ((location (find-location self workspace: workspace error?: error?)))
       (when location
         (receive (frame text range) location
-          (set-selection-safe~ text range ensure-displayed?: #f)
-          (ensure-displayed~ text force-vertical: 'head)
-          (bring-to-front~ frame)
-          (set-visible?~ frame #t)
+          (set-selection-safe text range ensure-displayed?: #f)
+          (ensure-displayed text force-vertical: 'head)
+          (bring-to-front frame)
+          (set-visible? frame #t)
           (when activate-focus?
-            (focus-host~ frame))
+            (focus-host frame))
           frame))))
   
   
-  (method public (find-source)
+  (method public (find-source self)
     (find-unit-source unit-name))
   
   
-  (method public (find-location (workspace: workspace #f) (error?: error? #t))
+  (method public (find-location self (workspace: workspace #f) (error?: error? #t))
     (define (find-unit unit-name)
       (let ((appl (get-application))
             (source (find-unit-source unit-name)))
-        (or (edit-document~ appl source class: Jazz-Text-View workspace: workspace visible?: #f)
+        (or (edit-document appl source class: Jazz-Text-View workspace: workspace visible?: #f)
             (and error? (signal (new Location-Error kind: 'unknown location: unit-name))))))
     
     (let ((frame (find-unit unit-name)))
       (when frame
-        (let ((text  (get-guest~ frame)))
+        (let ((text  (get-guest frame)))
           ;; quicky to be well thought out
           (when (is? text Jazz-Text-View)
-            (let ((range (location-range~ text sublocation toplevel-location: (cons unit-name sublocation))))
+            (let ((range (location-range text sublocation toplevel-location: (cons unit-name sublocation))))
               (values frame text range)))))))))

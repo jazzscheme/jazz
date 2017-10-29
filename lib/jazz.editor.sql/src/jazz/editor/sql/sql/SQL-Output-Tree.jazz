@@ -43,6 +43,7 @@
         (jazz.geometry)
         (jazz.graphic)
         (jazz.jml)
+        (jazz.schema)
         (jazz.tree))
 
 
@@ -53,12 +54,12 @@
     (<install> background-filler: {Color White}))
   
   
-  (method override (double-click evt)
-    (nextmethod evt)
+  (method override (double-click self evt)
+    (nextmethod self evt)
     @wait
-    (let ((profile (get-profile~ (get-application)))
-          (cell (view->tree (get-position~ evt))))
-      (sql-output-action~ profile self cell)))
+    (let ((profile (get-profile (get-application)))
+          (cell (view->tree (get-position evt))))
+      (sql-output-action profile self cell)))
 
   
   @wait
@@ -66,27 +67,27 @@
     (define (default-sql-menu cell)
       (let ((menu (new Context-Menu)))
         (new Label-Item parent: menu title: "Copy" icon: {Image-Resource "Copy"} action-handler: (new Event-Handler target: self method-name: 'on-copy-data))
-        (layout-menu~ menu)
+        (layout-menu menu)
         menu))
     
-    (let ((pos (get-position~ evt)))
+    (let ((pos (get-position evt)))
       (with-context-click pos
         (lambda ()
-          (let ((profile (get-profile~ (get-application)))
+          (let ((profile (get-profile (get-application)))
                 (cell (view->tree pos)))
             (when cell
-              (let ((menu (or (sql-output-menu~ profile self cell) (default-sql-menu cell))))
+              (let ((menu (or (sql-output-menu profile self cell) (default-sql-menu cell))))
                 (track-popup-menu menu pos))))))))
   
   
-  (method (on-copy-data evt)
+  (method (on-copy-data self evt)
     (let ((cell-title
            (lambda (cell)
-             (get-title~ (get-cell-data cell))))
+             (get-title (get-cell-data self cell))))
           (copy
            (lambda (string)
              (set-clipboard-text string)
-             (add-clipboard~ (get-application)))))
+             (add-clipboard (get-application)))))
       (case (length selection)
         ((0))
         ((1) (copy (cell-title (car selection))))
@@ -99,24 +100,24 @@
   ;;;
   
   
-  (method override (cell-tooltips? cell)
+  (method override (cell-tooltips? self cell)
     #f)
   
   
-  (method override (get-cell-tooltip cell)
+  (method override (get-cell-tooltip self cell)
     #f
     @wait
     (let* ((appl (get-application))
-           (profile (get-profile~ appl))
-           (column (get-column (get-col~ cell)))
+           (profile (get-profile appl))
+           (column (get-column (get-col cell)))
            (data (get-cell-data cell)))
-      (and (> (get-line~ cell) 0)
-           (sql-output-tooltip~ profile self cell data))))
+      (and (> (get-line cell) 0)
+           (sql-output-tooltip profile self cell data))))
   
   
-  (method override (get-tooltip-position text rect h v)
+  (method override (get-tooltip-position self text rect h v)
     (nu+ (rect-position rect)
-         (center (new Dimension (+ (text-width~ (effective-font) text) 6) 16) (rect-size rect))))
+         (center (new Dimension (+ (text-width (effective-font self) text) 6) 16) (rect-size rect))))
   
 
   ;;;
@@ -128,23 +129,23 @@
     {Font Code})
   
   
-  (method (display-table table)
+  (method (display-table self table)
     (define (compute-widths columns font max-char)
       (map (lambda (column)
-             (min 250 (+ (max (text-width~ font (get-name~ column)) (* (get-prefered-width~ column) max-char)) 24)))
+             (min 250 (+ (max (text-width font (get-name column)) (* (get-prefered-width column) max-char)) 24)))
            columns))
     
-    (let* ((columns (get-columns~ table))
-           (rows (get-rows~ table))
+    (let* ((columns (get-columns table))
+           (rows (get-rows table))
            (affected (length rows))
-           (text-max-char (get-max-char-width~ (get-metrics~ {Font Code})))
+           (text-max-char (get-max-char-width (get-metrics {Font Code})))
            (text-widths (compute-widths columns Header-Font text-max-char))
-           (tree-font (effective-font))
-           (tree-max-char (get-max-char-width~ (get-metrics~ tree-font)))
+           (tree-font (effective-font self))
+           (tree-max-char (get-max-char-width (get-metrics tree-font)))
            (tree-widths (compute-widths columns tree-font tree-max-char))
            (max-display 100)
            (not-displayed 0))
-      (display-tree columns rows affected max-display not-displayed tree-widths)))
+      (display-tree self columns rows affected max-display not-displayed tree-widths)))
   
   
   (definition (present-value value)
@@ -153,23 +154,23 @@
       (->string value)))
   
   
-  (method (display-tree columns rows affected max-display not-displayed widths)
-    (with-update-locked
+  (method (display-tree self columns rows affected max-display not-displayed widths)
+    (with-update-locked self
       (lambda ()
-        (remove-columns)
+        (remove-columns self)
         (let ((first-column (car columns)))
           (for-each (lambda (column width)
                       (let* ((node? (eq? column first-column))
                              (column (if node?
-                                         (add-column class: Tree-Node-Column toplevel-controls?: #f title: (get-name~ column) width: width)
-                                       (add-column class: Tree-Label-Column title: (get-name~ column) width: width))))
+                                         (add-column self class: Tree-Node-Column toplevel-controls?: #f title: (get-name column) width: width)
+                                       (add-column self class: Tree-Label-Column title: (get-name column) width: width))))
                         (when node?
-                          (set-display-images?~ column #f))))
+                          (set-display-images? column #f))))
                     columns
                     widths))
         (for-each (lambda (row)
-                    (let* ((values (get-values~ row))
+                    (let* ((values (get-values row))
                            (first (car values))
                            (rest (cdr values)))
-                      (add-row children: (cons (new Tree-Node title: (present-value first)) (map (lambda (value) (new Tree-Label title: (present-value value))) rest)))))
+                      (add-row self children: (cons (new Tree-Node title: (present-value first)) (map (lambda (value) (new Tree-Label title: (present-value value))) rest)))))
                   (if (> affected max-display) (subseq rows 0 max-display) rows)))))))

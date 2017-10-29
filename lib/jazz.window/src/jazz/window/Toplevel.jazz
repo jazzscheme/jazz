@@ -68,7 +68,7 @@
   ;;;
   
   
-  (method override (prepare-root)
+  (method override (prepare-root self)
     )
   
   
@@ -77,70 +77,70 @@
   ;;;
   
   
-  (method override (mouse-activate?)
+  (method override (mouse-activate? self)
     #t)
 
 
-  (method override (activate kind)
+  (method override (activate self kind)
     (when (eq? kind 'inactive)
       (toplevel-deactivate))
-    (nextmethod kind))
+    (nextmethod self kind))
   
   
-  (method override (activate-application)
+  (method override (activate-application self)
     (let ((appl (get-application)))
       (when appl
         (catch Cancel-Signal
-          (activate~ appl))))
+          (activate appl))))
     processed)
   
   
-  (method override (deactivate-application)
+  (method override (deactivate-application self)
     (let ((appl (get-application)))
       (when appl
         (catch Cancel-Signal
-          (deactivate~ appl))))
+          (deactivate appl))))
     processed)
   
   
-  (method override (position-change position)
-    (let ((pref (get-workspace-preferences)))
-      (when (and pref (or (not (get-position~ pref)) (not (get-size~ pref))))
-        (set! previous-position (get-position))))
-    (nextmethod position))
+  (method override (position-change self position)
+    (let ((pref (get-workspace-preferences self)))
+      (when (and pref (or (not (get-position pref)) (not (get-size pref))))
+        (set! previous-position (get-position self))))
+    (nextmethod self position))
   
   
-  (method override (size-change state size)
-    (let ((pref (get-workspace-preferences)))
-      (when (and pref (or (not (get-position~ pref)) (not (get-size~ pref))))
+  (method override (size-change self state size)
+    (let ((pref (get-workspace-preferences self)))
+      (when (and pref (or (not (get-position pref)) (not (get-size pref))))
         (set! previous-state state)
         (when (eq? state 'restored)
-          (set! previous-size (get-frame-size)))))
-    (nextmethod state size))
+          (set! previous-size (get-frame-size self)))))
+    (nextmethod self state size))
 
 
-  (method override (show)
-    (set-visible-flag #t)
-    (let ((pref (get-preferences #f error?: #f)))
+  (method override (show self)
+    (set-visible-flag self #t)
+    (let ((pref (current-preferences #f error?: #f)))
       (assert handle)
-      (let ((state (symbol-parameter "toplevel-state" 'jazz.ui.toplevel-state (or (get-toplevel-state~ pref) 'restored)))
-            (monitor (symbol-parameter "toplevel-monitor" 'jazz.ui.toplevel-monitor (get-toplevel-monitor~ pref)))
-            (position (point-parameter "toplevel-position" 'jazz.ui.toplevel-position (get-toplevel-position~ pref)))
-            (size (dimension-parameter "toplevel-size" 'jazz.ui.toplevel-size (get-toplevel-size~ pref))))
+      (let ((state (symbol-parameter "toplevel-state" 'jazz.ui.toplevel-state (or (get-toplevel-state pref) 'restored)))
+            (monitor (symbol-parameter "toplevel-monitor" 'jazz.ui.toplevel-monitor (get-toplevel-monitor pref)))
+            (position (point-parameter "toplevel-position" 'jazz.ui.toplevel-position (get-toplevel-position pref)))
+            (size (dimension-parameter "toplevel-size" 'jazz.ui.toplevel-size (get-toplevel-size pref))))
         (define (position-toplevel)
           (if monitor
               (let ((monitor (find-monitor monitor)))
-                (let ((monitor-position (rect-position (get-work-area~ monitor))))
+                (let ((monitor-position (rect-position (get-work-area monitor))))
                   (if position
-                      (set-position (nu+ monitor-position position))
-                    (unless (get-primary?~ monitor)
-                      (set-position monitor-position)))))
+                      (set-position self (nu+ monitor-position position))
+                    (unless (get-primary? monitor)
+                      (set-position self monitor-position)))))
             (when position
-              (set-position position))))
+              (set-position self position))))
         
         (define (size-toplevel)
           (when size
-            (set-frame-size size)))
+            (set-frame-size self size)))
         
         (case (if pref state 'restored)
           ((maximized)
@@ -153,16 +153,16 @@
            (position-toplevel)
            (size-toplevel)
            (set! previous-state 'restored)
-           (set! previous-position (get-position))
-           (set! previous-size (get-frame-size))))))
+           (set! previous-position (get-position self))
+           (set! previous-size (get-frame-size self))))))
     (let ((appl (get-application)))
-      (show-undisplayed-message~ appl)
-      (workspace-installed~ appl))
-    (update-window)
-    (simulate-mouse-move))
+      (show-undisplayed-message appl)
+      (workspace-installed appl))
+    (update-window self)
+    (simulate-mouse-move self))
   
   
-  (method override (close-window)
+  (method override (close-window self)
     (close-requested))
     
   
@@ -171,10 +171,10 @@
   ;;;
   
   
-  (method package (restore-state)
+  (method package (restore-state self)
     (case previous-state
-      ((maximized) (maximize))
-      ((restored) (set-placement (list previous-state previous-position previous-size)))))
+      ((maximized) (maximize self))
+      ((restored) (set-placement self (list previous-state previous-position previous-size)))))
     
   
   ;;;
@@ -182,11 +182,11 @@
   ;;;
 
 
-  (method public (get-fullscreen?)
+  (method public (get-fullscreen? self)
     fullscreen?)
 
 
-  (method public (set-fullscreen? value)
+  (method public (set-fullscreen? self value)
     (when (neq? value fullscreen?)
       (set! fullscreen? value)))
   
@@ -196,8 +196,8 @@
   ;;;
   
   
-  (method public (get-palettes)
+  (method public (get-palettes self)
     (collect-if (lambda (window)
                   (and (is? window Palette)
-                       (get-visible?~ window)))
+                       (get-visible? window)))
                 children))))

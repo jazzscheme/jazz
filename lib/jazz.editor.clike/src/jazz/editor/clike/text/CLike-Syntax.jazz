@@ -41,9 +41,12 @@
 (import (jazz.application)
         (jazz.automata)
         (jazz.catalog)
+        (jazz.digest)
+        (jazz.document)
         (jazz.editor)
         (jazz.editor.c)
-        (jazz.io))
+        (jazz.io)
+        (jazz.outline))
 
 
 (class CLike-Syntax extends Code-Syntax
@@ -54,7 +57,7 @@
   ;;;
   
   
-  (method protected virtual (get-keywords)
+  (method package virtual (get-keywords self)
     )
       
   
@@ -63,15 +66,15 @@
   ;;;
 
   
-  (method protected virtual (get-profile-macros profile)
+  (method protected virtual (get-profile-macros self profile)
     )
   
   
-  (method protected virtual (get-profile-keywords profile)
+  (method protected virtual (get-profile-keywords self profile)
     )
   
   
-  (method protected virtual (get-profile-types profile)
+  (method protected virtual (get-profile-types self profile)
     )
 
   
@@ -80,9 +83,9 @@
   ;;;
   
   
-  (method override (name-at range)
+  (method override (name-at self range)
     (when range
-      (let ((name (get-string~ model range)))
+      (let ((name (get-string model range)))
         (if (eqv? (element name 0) #\open-brace)
             (read-string-element name)
           name))))
@@ -93,41 +96,41 @@
   ;;;
   
   
-  (method override (compute-syntax-targets)
-    (let ((profile (get-profile~ (get-application))))
+  (method override (compute-syntax-targets self)
+    (let ((profile (get-profile (get-application))))
       (append (list (list "/*" 'balanced-comment #f))
               (list (list "*/" 'balanced-comment-backward #f))
               (list (list "//" 'line-comment #f))
-              (map (lambda (str) (list str 'keyword)) (get-keywords))
-              (map (lambda (str) (list str 'profile-macro)) (get-profile-macros profile))
-              (map (lambda (str) (list str 'profile-keyword)) (get-profile-keywords profile))
-              (map (lambda (str) (list str 'profile-type)) (get-profile-types profile)))))
+              (map (lambda (str) (list str 'keyword)) (get-keywords self))
+              (map (lambda (str) (list str 'profile-macro)) (get-profile-macros self profile))
+              (map (lambda (str) (list str 'profile-keyword)) (get-profile-keywords self profile))
+              (map (lambda (str) (list str 'profile-type)) (get-profile-types self profile)))))
   
   
-  (method override (compute-syntax-automata)
-    (build-search-automata (syntax-targets) #t #f c-constituent?))
+  (method override (compute-syntax-automata self)
+    (build-search-automata (syntax-targets self) #t #f c-constituent?))
 
   
-  (method override (colorize-type found type start end colorizer recolorize?)
+  (method override (colorize-type self found type start end colorizer recolorize?)
     (case type
-      ((balanced-comment)          (colorize-balanced-comment          found start end colorizer 'Balanced-Comment))
-      ((balanced-comment-backward) (colorize-balanced-comment-backward found start end colorizer 'Balanced-Comment recolorize?))
-      ((line-comment)              (colorize-line-comment              found start end colorizer 'Line-Comment 'Title #\slash))
-      ((keyword)                   (colorize-keyword                   found start end colorizer 'Keyword))
-      ((profile-macro)             (colorize-keyword                   found start end colorizer 'Profile-Macro))
-      ((profile-keyword)           (colorize-keyword                   found start end colorizer 'Profile-Keyword))
-      ((profile-type)              (colorize-keyword                   found start end colorizer 'Profile-Type))
-      (else (nextmethod found type start end colorizer recolorize?))))
+      ((balanced-comment)          (colorize-balanced-comment self          found start end colorizer 'Balanced-Comment))
+      ((balanced-comment-backward) (colorize-balanced-comment-backward self found start end colorizer 'Balanced-Comment recolorize?))
+      ((line-comment)              (colorize-line-comment self              found start end colorizer 'Line-Comment 'Title #\slash))
+      ((keyword)                   (colorize-keyword self                   found start end colorizer 'Keyword))
+      ((profile-macro)             (colorize-keyword self                   found start end colorizer 'Profile-Macro))
+      ((profile-keyword)           (colorize-keyword self                   found start end colorizer 'Profile-Keyword))
+      ((profile-type)              (colorize-keyword self                   found start end colorizer 'Profile-Type))
+      (else (nextmethod self found type start end colorizer recolorize?))))
   
   
-  (method override (get-parsed-entries)
-    (let ((text (single-client~ model)))
+  (method override (get-parsed-entries self)
+    (let ((text (single-client model)))
       (when text
-        (let ((moniker (get-moniker~ text)))
-          (when (and moniker (file? moniker) (not (get-modified?~ text)))
+        (let ((moniker (get-moniker text)))
+          (when (and moniker (file? moniker) (not (get-modified? text)))
             (let ((cataloguer (get-cataloguer)))
               (when cataloguer
                 (let ((file-entry (cache-file-entry moniker)))
                   (when file-entry
-                    (when (string=? (get-hash~ (get-digest~ file-entry)) (get-moniker-digest~ (get-document-controller~ text)))
-                      (collect-type C-Definition-Entry (get-definitions~ file-entry))))))))))))))
+                    (when (string=? (get-hash (get-digest file-entry)) (get-moniker-digest (get-document-controller text)))
+                      (collect-type C-Definition-Entry (get-definitions file-entry))))))))))))))

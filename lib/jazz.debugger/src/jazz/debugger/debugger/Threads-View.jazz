@@ -46,7 +46,9 @@
         (jazz.jml)
         (jazz.layout)
         (jazz.menu)
+        (jazz.outline)
         (jazz.platform)
+        (jazz.process)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -76,7 +78,7 @@
               (<Threads-Tree> name: threads    multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-thread} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
 
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Threads)
 
   
@@ -85,18 +87,18 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Threads"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Threads")
   
   
-  (method override (client-activate)
-    (let ((selected-thread (selected-thread)))
+  (method override (client-activate self)
+    (let ((selected-thread (selected-thread self)))
       (when selected-thread
-        (update-highlight selected-thread))))
+        (update-highlight self selected-thread))))
   
   
   ;;;
@@ -104,13 +106,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (locate 'threads)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (locate self 'threads)))
+      (acquire-focus tree)))
 
   
   ;;;
@@ -118,9 +120,9 @@
   ;;;
 
 
-  (method override (install rest)
-    (nextmethod rest)
-    (update))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (update self))
 
   
   ;;;
@@ -128,22 +130,22 @@
   ;;;
 
 
-  (method public (get-process)
+  (method public (get-process self)
     process)
 
 
-  (method public (set-process value)
+  (method public (set-process self value)
     (set! process value)
-    (update))
+    (update self))
   
   
-  (method (show-detailed?)
-    (get-selected?~ (locate 'detailed)))
+  (method (show-detailed? self)
+    (get-selected? (locate self 'detailed)))
   
   
-  (method public (process-changed new-process)
+  (method public (process-changed self new-process)
     (set! process new-process)
-    (update))
+    (update self))
 
   
   ;;;
@@ -151,148 +153,148 @@
   ;;;
 
 
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (size-figure~ (locate 'scroller) dh dv))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (size-figure (locate self 'scroller) dh dv))
   
   
-  (method (on-context-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (pos (get-position~ evt))
-           (acquired (acquire sender pos)))
-      (with-context-click~ sender pos
+  (method (on-context-menu self evt)
+    (let* ((sender (get-sender evt))
+           (pos (get-position evt))
+           (acquired (acquire self sender pos)))
+      (with-context-click sender pos
         (lambda ()
-          (let ((menu (new-context-menu (selected-thread))))
+          (let ((menu (new-context-menu self (selected-thread self))))
             (when menu
-              (track-popup-menu menu acquired)))))))
+              (track-popup-menu self menu acquired)))))))
   
   
-  (method (on-double-click evt)
+  (method (on-double-click self evt)
     )
   
   
-  (method (on-toggle-detailed evt)
-    (update))
+  (method (on-toggle-detailed self evt)
+    (update self))
 
 
-  (method (on-select-thread evt)
-    (let ((user-origin (get-user-origin~ evt)))
-      (update-tools)
-      (thread-changed~ (get-debugger-manager) (selected-thread) user-origin: user-origin)))
+  (method (on-select-thread self evt)
+    (let ((user-origin (get-user-origin evt)))
+      (update-tools self)
+      (thread-changed (get-debugger-manager) (selected-thread self) user-origin: user-origin)))
   
   
-  (method (on-restart evt)
-    (let ((restart (car (get-restarts~ (get-active-stop~ (selected-thread))))))
-      (restart-stop restart)))
+  (method (on-restart self evt)
+    (let ((restart (car (get-restarts (get-active-stop (selected-thread self))))))
+      (restart-stop self restart)))
   
   
-  (method (on-break evt)
-    (break-thread))
+  (method (on-break self evt)
+    (break-thread self))
   
   
-  (method (on-continue evt)
-    (continue-stop))
+  (method (on-continue self evt)
+    (continue-stop self))
   
   
-  (method (on-terminate evt)
-    (terminate-thread))
+  (method (on-terminate self evt)
+    (terminate-thread self))
   
   
-  (method (on-update evt)
-    (update user-origin: #t))
+  (method (on-update self evt)
+    (update self user-origin: #t))
   
   
-  (method (with-thread-refresh thread thunk)
+  (method (with-thread-refresh self thread thunk)
     (thread-start!
       (new-thread
         (lambda ()
           (sleep .1)
           (execute-event
             (lambda ()
-              (update))))))
+              (update self))))))
     (thunk))
   
   
   ;; not used for the moment
   (definition (event-thread-local-proxy? thread)
-    (and (eq? (get-debugger~ thread) (get-local-debugger~ (get-application)))
-         (let ((thread-proxy (get-reference~ thread)))
+    (and (eq? (get-debugger thread) (get-local-debugger (get-application)))
+         (let ((thread-proxy (get-reference thread)))
            (and (is? thread-proxy Debuggee-Thread-Local-Proxy)
-                (eq? (get-thread~ (get-object~ thread-proxy)) (event-thread))))))
+                (eq? (get-thread (get-object thread-proxy)) (event-thread))))))
   
   
-  (method (restart-stop restart)
-    (let ((thread (selected-thread)))
-      (with-thread-refresh thread
+  (method package (restart-stop self restart)
+    (let ((thread (selected-thread self)))
+      (with-thread-refresh self thread
         (lambda ()
           (with-jrm-exception-handler process
             (lambda ()
-              (restart-stop~ process restart)))))))
+              (restart-stop process restart)))))))
   
   
-  (method (break-thread)
-    (let ((thread (selected-thread)))
-      (with-thread-refresh thread
+  (method package (break-thread self)
+    (let ((thread (selected-thread self)))
+      (with-thread-refresh self thread
         (lambda ()
           (with-jrm-exception-handler process
             (lambda ()
-              (break-thread~ process thread)))))))
+              (break-thread process thread)))))))
   
   
-  (method (continue-stop)
-    (let ((thread (selected-thread)))
-      (let ((stop (get-active-stop~ thread)))
-        (with-thread-refresh thread
+  (method package (continue-stop self)
+    (let ((thread (selected-thread self)))
+      (let ((stop (get-active-stop thread)))
+        (with-thread-refresh self thread
           (lambda ()
             (with-jrm-exception-handler process
               (lambda ()
-                (continue-stop~ process stop))))))))
+                (continue-stop process stop))))))))
   
   
-  (method package (step-stop command)
-    (let ((thread (selected-thread)))
-      (let ((stop (get-active-stop~ thread)))
-        (with-thread-refresh thread
+  (method package (step-stop self command)
+    (let ((thread (selected-thread self)))
+      (let ((stop (get-active-stop thread)))
+        (with-thread-refresh self thread
           (lambda ()
             (with-jrm-exception-handler process
               (lambda ()
-                (step-stop~ process stop command))))))))
+                (step-stop process stop command))))))))
   
   
-  (method (terminate-thread)
-    (let ((thread (selected-thread))
+  (method package (terminate-thread self)
+    (let ((thread (selected-thread self))
           (preserve-console? (shift-down?)))
-      (with-thread-refresh thread
+      (with-thread-refresh self thread
         (lambda ()
           (with-jrm-exception-handler process
             (lambda ()
-              (terminate-thread~ process thread preserve-console?)))))))
+              (terminate-thread process thread preserve-console?)))))))
   
   
-  (method (kill-thread)
-    (let ((thread (selected-thread)))
-      (with-thread-refresh thread
+  (method package (kill-thread self)
+    (let ((thread (selected-thread self)))
+      (with-thread-refresh self thread
         (lambda ()
           (with-jrm-exception-handler process
             (lambda ()
-              (kill-thread~ process thread)))))))
+              (kill-thread process thread)))))))
   
   
-  (method (update-tools)
-    (receive (restarts break? continue?) (selected-state)
-      (set-enabled?~ (locate 'restart) (not-null? restarts))
-      (set-enabled?~ (locate 'break) break?)
-      (set-enabled?~ (locate 'continue) continue?)))
+  (method (update-tools self)
+    (receive (restarts break? continue?) (selected-state self)
+      (set-enabled? (locate self 'restart) (not-null? restarts))
+      (set-enabled? (locate self 'break) break?)
+      (set-enabled? (locate self 'continue) continue?)))
   
   
-  (method (selected-state)
-    (let ((thread (selected-thread)))
+  (method (selected-state self)
+    (let ((thread (selected-thread self)))
       (if (not thread)
           (values '() #f #f)
-        (let ((stop (get-active-stop~ thread)))
+        (let ((stop (get-active-stop thread)))
           (if (not stop)
               (values '() #t #f)
-            (values (get-restarts~ stop) #f  (and (eq? (get-kind~ stop) 'break)
+            (values (get-restarts stop) #f  (and (eq? (get-kind stop) 'break)
                                                   (not (is? thread Debugged-Continuation)))))))))
   
   ;;;
@@ -300,30 +302,30 @@
   ;;;
   
   
-  (method protected (update (user-origin: user-origin #f))
-    (update-threads user-origin: user-origin)
-    (update-tools))
+  (method package (update self (user-origin: user-origin #f))
+    (update-threads self user-origin: user-origin)
+    (update-tools self))
   
   
-  (method protected (update-threads (user-origin: user-origin #f))
+  (method protected (update-threads self (user-origin: user-origin #f))
     (define (thread-title thread stop detailed?)
       (define (stop-title stop default)
-        (let ((reason (get-reason~ stop)))
+        (let ((reason (get-reason stop)))
           (if reason
               (car (split reason "\n"))
             default)))
       
-      (let ((name (present-thread-name (get-name~ thread)))
-            (id (get-id~ thread)))
-        (case (if stop (get-kind~ stop) 'run)
+      (let ((name (present-thread-name (get-name thread)))
+            (id (get-id thread)))
+        (case (if stop (get-kind stop) 'run)
           ((exception) (format "{a}{? #{a}~} - {a}" name (and detailed? id) (stop-title stop "Exception")))
           ((break)     (format "{a}{? #{a}~} - {a}" name (and detailed? id) (stop-title stop "Break")))
           (else        (if detailed?
-                           (format "{a}{? #{a}~} - {a}" name id (get-state~ thread))
+                           (format "{a}{? #{a}~} - {a}" name id (get-state thread))
                          (->string name))))))
     
     (define (thread-image thread stop)
-      (case (if stop (get-kind~ stop) 'run)
+      (case (if stop (get-kind stop) 'run)
         ((exception) {Image-Resource "ThreadError"})
         ((break)     {Image-Resource "ThreadBreak"})
         (else        {Image-Resource "ThreadRun"})))
@@ -331,49 +333,49 @@
     (let ((manager (get-debugger-manager)))
       (with-system-exception-debugger
         (lambda ()
-          (let ((tree (locate 'threads)))
-            (with-preserved-selection~ tree
+          (let ((tree (locate self 'threads)))
+            (with-preserved-selection tree
               (lambda ()
-                (remove-every-row~ tree)
-                (with-update-locked~ tree
+                (remove-every-row tree)
+                (with-update-locked tree
                   (lambda ()
-                    (for-each-thread~ manager
+                    (for-each-thread manager
                       (lambda (thread stop detailed?)
                         (let ((title (thread-title thread stop detailed?))
                               (image (thread-image thread stop))
-                              (frame-color (get-stopped-frame-color~ manager thread))
-                              (background (get-visited-highlight-color~ manager thread)))
-                          (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))
-                      detailed?: (show-detailed?)))))
+                              (frame-color (get-stopped-frame-color manager thread))
+                              (background (get-visited-highlight-color manager thread)))
+                          (add-row tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))
+                      detailed?: (show-detailed? self)))))
               use: 'data
               test: debugged=?
               generate-event?: user-origin)
-            (unless (selected-thread)
-              (when (get-installed?)
+            (unless (selected-thread self)
+              (when (get-installed? self)
                 (continuation-capture
                   (lambda (return)
-                    (for-each-thread~ manager
+                    (for-each-thread manager
                       (lambda (thread stop detailed?)
-                        (unless (debugged-visited?~ manager thread)
+                        (unless (debugged-visited? manager thread)
                           ;; this will recursively call (get-threads-view) when called from (install)
-                          (set-selected-thread thread)
-                          (thread-changed~ (get-debugger-manager) (selected-thread)))
+                          (set-selected-thread self thread)
+                          (thread-changed (get-debugger-manager) (selected-thread self)))
                         (continuation-return return))))))))))))
   
   
-  (method public (update-highlight thread)
-    (let ((selected-thread (selected-thread)))
+  (method public (update-highlight self thread)
+    (let ((selected-thread (selected-thread self)))
       (when (debugged=? thread selected-thread)
-        (visit-debugged~ (get-debugger-manager) thread)))
-    (let ((tree (locate 'threads)))
+        (visit-debugged (get-debugger-manager) thread)))
+    (let ((tree (locate self 'threads)))
       (let ((row (thread-row tree thread)))
         (when row
-          (let ((cell (new Cell (row->line~ tree row) 0)))
-            (let ((data (get-cell-data~ tree cell))
+          (let ((cell (new Cell (row->line tree row) 0)))
+            (let ((data (get-cell-data tree cell))
                   (manager (get-debugger-manager)))
-              (set-frame-color~ data (get-stopped-frame-color~ manager thread))
-              (set-background~ data (get-visited-highlight-color~ manager thread)))
-            (invalidate-cell~ tree cell))))))
+              (set-frame-color data (get-stopped-frame-color manager thread))
+              (set-background data (get-visited-highlight-color manager thread)))
+            (invalidate-cell tree cell))))))
   
   
   ;;;
@@ -381,30 +383,30 @@
   ;;;
   
   
-  (method public (selected-thread)
-    (let ((row (selected-row)))
+  (method public (selected-thread self)
+    (let ((row (selected-row self)))
       (and row
-           (get-user-data~ row))))
+           (get-user-data row))))
   
   
-  (method (selected-row)
-    (get-selected-row~ (locate 'threads)))
+  (method (selected-row self)
+    (get-selected-row (locate self 'threads)))
   
   
-  (method public (set-selected-thread thread)
-    (let ((tree (locate 'threads)))
+  (method public (set-selected-thread self thread)
+    (let ((tree (locate self 'threads)))
       (let ((row (thread-row tree thread)))
         (when row
-          (set-single-selection~ tree (row->line~ tree row))))))
+          (set-single-selection tree (row->line tree row))))))
   
   
   (definition (thread-row tree thread)
     (assert thread)
     (continuation-capture
       (lambda (return)
-        (for-each-row~ tree
+        (for-each-row tree
           (lambda (row rank)
-            (when (debugged=? (get-user-data~ row) thread)
+            (when (debugged=? (get-user-data row) thread)
               (continuation-return return row))))
         #f)))
   
@@ -414,7 +416,7 @@
   ;;;
   
   
-  (method (new-context-menu object)
+  (method (new-context-menu self object)
     (define (make-handler proc)
       (new Event-Handler
         execute: (lambda (event)
@@ -422,25 +424,25 @@
                      proc))))
     
     (define (new-thread-menu thread)
-      (receive (restarts break? continue?) (selected-state)
+      (receive (restarts break? continue?) (selected-state self)
         (let ((menu (new Thread-Menu))
-              (stop (get-active-stop~ thread)))
+              (stop (get-active-stop thread)))
           (if break?
-              (new Label-Item parent: menu title: "Break" icon: {Image-Resource "Break"} action-handler: (make-handler (lambda () (break-thread))))
+              (new Label-Item parent: menu title: "Break" icon: {Image-Resource "Break"} action-handler: (make-handler (lambda () (break-thread self))))
             (for-each (lambda (restart)
-                        (let ((title (get-message~ restart))
+                        (let ((title (get-message restart))
                               (icon {Image-Resource "Restart"}))
-                          (new Label-Item parent: menu title: title icon: icon action-handler: (make-handler (lambda () (restart-stop restart))))))
+                          (new Label-Item parent: menu title: title icon: icon action-handler: (make-handler (lambda () (restart-stop self restart))))))
                       restarts))
           (new Separator-Item parent: menu)
-          (new Label-Item parent: menu title: "Terminate" action-handler: (make-handler (lambda () (terminate-thread))))
-          (layout-menu~ menu)
+          (new Label-Item parent: menu title: "Terminate" action-handler: (make-handler (lambda () (terminate-thread self))))
+          (layout-menu menu)
           menu)))
     
     (define (new-continuation-menu thread)
       (let ((menu (new Thread-Menu)))
-        (new Label-Item parent: menu title: "Close" action-handler: (make-handler (lambda () (kill-thread))))
-        (layout-menu~ menu)
+        (new Label-Item parent: menu title: "Close" action-handler: (make-handler (lambda () (kill-thread self))))
+        (layout-menu menu)
         menu))
     
     (typecase object

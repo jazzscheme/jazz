@@ -39,7 +39,9 @@
 
 
 (import (jazz.descriptor)
-        (jazz.designer))
+        (jazz.designer)
+        (jazz.text)
+        (jazz.ui))
 
 
 (class undocumented Custom-Card extends Card
@@ -53,37 +55,38 @@
   ;;;
   
   
-  (method (setup-properties)
+  (method (setup-properties self)
     (unless setup?
-      (for-each-property-view
+      (for-each-property-view self
         (lambda (view property domain)
-          (setup-entry~ domain view client)
-          (layout-view~ view)))
+          (setup-entry domain view client)
+          (layout-view view)))
       (set! setup? #t)))
   
   
-  (method (update-properties)
-    (for-each-property-view
+  (method (update-properties self)
+    @cant-find-set-property-value
+    (for-each-property-view self
       (lambda (view property domain)
         (let ((value (read-property client property)))
-          (set-property-value~ domain view value)))))
+          (set-property-value domain view value)))))
   
   
-  (method (for-each-property-view proc)
-    (for-each-descendant
+  (method (for-each-property-view self proc)
+    (for-each-descendant self
       (lambda (view level)
         (when (is? view Property-View)
-          (let* ((property (category-field (class-of client) (get-property~ view)))
+          (let* ((property (category-field (class-of client) (get-property view)))
                  (domain (property-domain client property)))
             (proc view property domain))))))
   
   
-  (method public (find-property-view property)
+  (method public (find-property-view self property)
     (continuation-capture
       (lambda (return)
-        (for-each-descendant
+        (for-each-descendant self
           (lambda (component level)
-            (when (and (is? component Property-View) (eq? (get-property~ component) property))
+            (when (and (is? component Property-View) (eq? (get-property component) property))
               (continuation-return return component))))
         #f)))
   
@@ -93,89 +96,90 @@
   ;;;
   
   
-  (method override (client-update)
+  (method override (client-update self)
     (when client
-      (setup-properties)
-      (update-properties)
+      (setup-properties self)
+      (update-properties self)
       (for-each (lambda (mapping)
                   (bind (property name type) mapping
-                    (let ((view (locate name))
+                    (let ((view (locate self name))
                           (value (read-property client property)))
-                      (property-update view value type))))
-                (get-properties-mapping))))
+                      (property-update self view value type))))
+                (get-properties-mapping self))))
   
   
-  (method protected virtual (property-update view value type)
+  (method protected virtual (property-update self view value type)
     (case type
-      ((string)  (set-string-content~ view (or value "")))
-      ((text)    (set-content~ view value))
-      ((boolean) (set-checked?~ view value))
-      ((date)    (set-string-content~ view (if (not value) "" (present~ value seconds?: #f))))
-      ((color)   (set-color~ view value))
+      ((string)  (set-string-content view (or value "")))
+      ((text)    (set-content view value))
+      ((boolean) (set-checked? view value))
+      ((date)    (set-string-content view (if (not value) "" (present value seconds?: #f))))
+      ((color)   (set-color view value))
       (else      (error "Unknown property type: {t}" type))))
   
   
-  (method public virtual (save-client)
+  (method public virtual (save-client self)
     (define (save-properties-new)
       (when client
-        (for-each-property-view
+        (for-each-property-view self
           (lambda (view property domain)
-            (when (get-property-modified?~ domain view)
-              (let ((value (get-property-value~ domain view)))
+            @cant-find-get-property-modified?
+            (when (get-property-modified? domain view)
+              (let ((value (get-property-value domain view)))
                 (if (eq? (field-name property) 'name-info)
-                    (set-name~ designer client value)
-                  (set-property~ designer client property value)))
-              (set-property-modified?~ domain view #f))))))
+                    (set-name designer client value)
+                  (set-property designer client property value)))
+              (set-property-modified? domain view #f))))))
     
     (define (save-properties)
       (let ((modified? #f))
         (for-each (lambda (mapping)
                     (bind (property name type) mapping
-                      (let ((view (locate name)))
-                        (when (save-property view property type)
+                      (let ((view (locate self name)))
+                        (when (save-property self view property type)
                           (set! modified? #t)))))
-                  (get-properties-mapping))
+                  (get-properties-mapping self))
         modified?))
     
     (save-properties-new)
     (save-properties))
   
   
-  (method protected virtual (save-property view property type)
+  (method protected virtual (save-property self view property type)
     (case type
       ((string)
-        (when (get-modified?~ view)
-          (set-property~ designer client property (get-string-content~ view) design-events?: #f)
-          (set-modified?~ view #f)
+        (when (get-modified? view)
+          (set-property designer client property (get-string-content view) design-events?: #f)
+          (set-modified? view #f)
           #t))
       ((text)
-        (when (get-modified?~ view)
-          (set-property~ designer client property (get-content~ view) design-events?: #f)
-          (set-modified?~ view #f)
+        (when (get-modified? view)
+          (set-property designer client property (get-content view) design-events?: #f)
+          (set-modified? view #f)
           #t))
       ((boolean)
-        (when (get-modified?~ view)
-          (set-property~ designer client property (get-checked?~ view) design-events?: #f)
-          (set-modified?~ view #f)
+        (when (get-modified? view)
+          (set-property designer client property (get-checked? view) design-events?: #f)
+          (set-modified? view #f)
           #t))
       @convert-date
       ((date)
         (when (get-modified?~ view)
-          (let ((content (get-string-content~ view)))
-            (set-property~ designer client property (if (empty-string? content) #f (parse-string~ Date content)) design-events?: #f)
+          (let ((content (get-string-content view)))
+            (set-property designer client property (if (empty-string? content) #f (parse-string Date content)) design-events?: #f)
             (set-modified?~ view #f)
             #t)))
       ((color)
-        (when (get-modified?~ view)
-          (let ((color (get-color~ view)))
-            (set-property~ designer client property color design-events?: #f)
-            (set-modified?~ view #f)
+        (when (get-modified? view)
+          (let ((color (get-color view)))
+            (set-property designer client property color design-events?: #f)
+            (set-modified? view #f)
             #t)))
       (else
         (error "Unknown property type: {t}" type))))
   
   
-  (method protected virtual (get-properties-mapping)
+  (method protected virtual (get-properties-mapping self)
     #f)
 
   
@@ -184,7 +188,7 @@
   ;;;
     
   
-  (method override (property-change component property value)
+  (method override (property-change self component property value)
     ;; quick and dirty for now...
     @this-had-many-bugs---a-better-approach-will-use-the-properties-mapping
     (client-update))))

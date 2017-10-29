@@ -48,10 +48,10 @@
   (slot colorize? accessors generate)
   
   
-  (method override (initialize model (colorize?: colorize? #t))
-    (nextmethod)
-    (set! model~self model)
-    (set! colorize?~self colorize?))
+  (method override (initialize self model (colorize?: colorize? #t))
+    (nextmethod self)
+    (set! self.model model)
+    (set! self.colorize? colorize?))
   
   
   ;;;
@@ -59,7 +59,7 @@
   ;;;
   
   
-  (method protected virtual (preferences)
+  (method protected virtual (preferences self)
     (new jazz.text.preferences:Text-Preferences))
   
   
@@ -68,15 +68,15 @@
   ;;;
   
   
-  (method public virtual (comment-style? style)
+  (method public virtual (comment-style? self style)
     #f)
   
   
-  (method public virtual (string-style? style)
+  (method public virtual (string-style? self style)
     #f)
   
   
-  (method public virtual (textual-style? style)
+  (method public virtual (textual-style? self style)
     #f)
    
 
@@ -85,11 +85,11 @@
   ;;;
   
   
-  (method protected virtual (default-extension)
+  (method package virtual (default-extension self)
     "txt")
   
   
-  (method protected virtual (extensions)
+  (method package virtual (extensions self)
     '(("Texts" . "txt")))
   
   
@@ -98,11 +98,11 @@
   ;;;
   
   
-  (method public virtual (comment-string)
+  (method public virtual (comment-string self)
     #f)
   
   
-  (method public virtual (title-comment-string)
+  (method public virtual (title-comment-string self)
     #f)
   
   
@@ -111,54 +111,54 @@
   ;;;
   
   
-  (method public virtual (get-headers) <list+>
+  (method public virtual (get-headers self) <list+>
     #f)
   
   
-  (method public virtual (get-chapters) <list>
-    (let ((headers (get-headers)))
+  (method public virtual (get-chapters self) <list>
+    (let ((headers (get-headers self)))
       (if (not headers)
           '()
-        (let ((occurences (text-regular-search-all~ model (map make-search-context headers)))
+        (let ((occurences (text-regular-search-all model (map make-search-context headers)))
               (chapters (new List-Factory)))
           (for-each (lambda (info)
                       (bind (from . to) info
-                        (let ((line (get-line~ from))
-                              (col (get-col~ from)))
-                          (when (= col (get-column~ model line))
-                            (let ((string (paragraph-string~ model line)))
-                              (let ((header (subseq string col (get-col~ to)))
+                        (let ((line (get-line from))
+                              (col (get-col from)))
+                          (when (= col (get-column model line))
+                            (let ((string (paragraph-string model line)))
+                              (let ((header (subseq string col (get-col to)))
                                     (level (if (= col 0) 1 2))
-                                    (label (get-chapter-label string col from to)))
-                                (put~ chapters (list level from header label))))))))
+                                    (label (get-chapter-label self string col from to)))
+                                (put chapters (list level from header label))))))))
                     occurences)
-          (get-output~ chapters)))))
+          (get-output chapters)))))
   
   
-  (method public virtual (get-chapter-label string col from to)
-    (subseq string (+ col (- (get-col~ to) (get-col~ from))))
+  (method public virtual (get-chapter-label self string col from to)
+    (subseq string (+ col (- (get-col to) (get-col from))))
     @fixme-slow
-    (subseq string (+ col (- (position-offset~ model to) (position-offset~ model from)))))
+    (subseq string (+ col (- (position-offset model to) (position-offset model from)))))
   
   
-  (method public virtual (get-first-special?) <bool>
+  (method public virtual (get-first-special? self) <bool>
     #t)
   
   
-  (method public virtual (get-first-chapter lst)
-    (if (get-first-special?)
+  (method public virtual (get-first-chapter self lst)
+    (if (get-first-special? self)
         (if (null? lst) #f (car lst))
-      (let ((file (get-moniker~ model)))
+      (let ((file (get-moniker model)))
         (list 0
-              (text-beginning~ model)
+              (text-beginning model)
               ""
               (if (not file)
                   "<Top>"
-                (get-name~ file))))))
+                (get-name file))))))
   
   
-  (method public virtual (get-remaining-chapters lst)
-    (if (get-first-special?)
+  (method public virtual (get-remaining-chapters self lst)
+    (if (get-first-special? self)
         (if (null? lst) '() (cdr lst))
       lst))
   
@@ -168,16 +168,16 @@
   ;;;
   
   
-  (method public virtual (get-match-test)
+  (method public virtual (get-match-test self)
     #f)
   
   
-  (method public virtual (get-constituent-test)
+  (method public virtual (get-constituent-test self)
     word-constituent?)
   
   
-  (method public (text-constituent? char)
-    (let ((proc (get-constituent-test)))
+  (method public (text-constituent? self char)
+    (let ((proc (get-constituent-test self)))
       (proc char)))
 
   
@@ -186,7 +186,7 @@
   ;;;
   
   
-  (method public virtual (parser-class)
+  (method public virtual (parser-class self)
     jazz.catalog:File-Parser)
 
   
@@ -195,7 +195,7 @@
   ;;;
   
   
-  (method public virtual (translate-key key)
+  (method public virtual (translate-key self key)
     key)
   
   
@@ -204,20 +204,20 @@
   ;;;
   
   
-  (method public virtual (auto-complete-characters)
+  (method public virtual (auto-complete-characters self)
     '())
   
   
-  (method public virtual (auto-complete-char? key last)
-    (or (memq? key (auto-complete-characters))
-        (not (text-constituent? key))))
+  (method public virtual (auto-complete-char? self key last)
+    (or (memq? key (auto-complete-characters self))
+        (not (text-constituent? self key))))
   
   
-  (method public virtual (favorite-completions)
+  (method public virtual (favorite-completions self)
     '())
   
   
-  (method public virtual (symbol-completions name)
+  (method public virtual (symbol-completions self name)
     '())
   
   
@@ -226,7 +226,7 @@
   ;;;
   
   
-  (method public virtual (explorer-class)
+  (method public virtual (explorer-class self)
     Text-Explorer)
   
   
@@ -235,32 +235,32 @@
   ;;;
   
   
-  (method public virtual (name-at range)
-    (range-expr range))
+  (method public virtual (name-at self range)
+    (range-expr self range))
   
   
-  (method public virtual (expr-at pos)
-    (name-at (expr-range pos)))
+  (method public virtual (expr-at self pos)
+    (name-at self (expr-range self pos)))
   
   
-  (method public virtual (supports-expr?)
+  (method public virtual (supports-expr? self)
     #f)
   
   
-  (method public virtual (range-expr range)
-    (get-string~ model range))
+  (method public virtual (range-expr self range)
+    (get-string model range))
   
   
-  (method public virtual (expr-range pos)
-    (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
-      (and (outer-expr~ expl explore-whitespace?: #f)
-           (get-range~ expl))))
+  (method public virtual (expr-range self pos)
+    (let ((expl <Text-Explorer> (new (explorer-class self) model start: pos end: pos)))
+      (and (outer-expr expl explore-whitespace?: #f)
+           (get-range expl))))
   
   
-  (method public (outer-range range)
-    (let ((expl <Text-Explorer> (new (explorer-class) model range: range)))
-      (and (outer-expr~ expl)
-           (get-range~ expl))))
+  (method public (outer-range self range)
+    (let ((expl <Text-Explorer> (new (explorer-class self) model range: range)))
+      (and (outer-expr expl)
+           (get-range expl))))
 
   
   ;;;
@@ -268,15 +268,15 @@
   ;;;
 
 
-  (method public virtual (tabulate text range)
+  (method public virtual (tabulate self text range)
     )
   
   
-  (method protected virtual (tabulate-line text line)
+  (method protected virtual (tabulate-line self text line)
     )
   
   
-  (method protected virtual (untabulate-line text line)
+  (method protected virtual (untabulate-line self text line)
     )
   
   
@@ -285,54 +285,54 @@
   ;;;
   
   
-  (method protected (colorize)
+  (method package (colorize self)
     (when colorize?
-      (colorize-syntax)))
+      (colorize-syntax self)))
   
   
-  (method protected virtual (colorize-syntax . rest)
+  (method protected virtual (colorize-syntax self . rest)
     )
   
   
-  (method protected virtual (colorize-comments . rest)
+  (method protected virtual (colorize-comments self . rest)
     )
   
   
-  (method protected virtual (colorize-declarations . rest)
+  (method protected virtual (colorize-declarations self . rest)
     )
 
   
-  (method protected virtual (colorize-range start end)
+  (method package virtual (colorize-range self start end)
     )
   
   
-  (method protected virtual (syntax-at pos)
+  (method package virtual (syntax-at self pos)
     self)
   
   
-  (method protected virtual (syntax-at-range range)
+  (method package virtual (syntax-at-range self range)
     self)
   
   
-  (method protected virtual (replace-syntax range)
+  (method package virtual (replace-syntax self range)
     (values self #f))
   
   
-  (method protected virtual (recolorize syntax-style start end-line)
+  (method package virtual (recolorize self syntax-style start end-line)
     (when colorize?
-      (recolorize-text syntax-style start end-line)))
+      (recolorize-text self syntax-style start end-line)))
   
   
-  (method protected virtual (recolorize-range syntax-style start end)
+  (method protected virtual (recolorize-range self syntax-style start end)
     )
   
   
-  (method protected virtual (recolorize-text syntax-style start end-line)
+  (method protected virtual (recolorize-text self syntax-style start end-line)
     )
   
   
-  (method public (uncolorize-row line <fx>) <void>
-    (uncolorize-row~ model line))
+  (method public (uncolorize-row self line <fx>) <void>
+    (uncolorize-row model line))
 
 
   ;;;
@@ -340,5 +340,5 @@
   ;;;
   
   
-  (method public virtual (find-imports symbol)
+  (method public virtual (find-imports self symbol)
     )))

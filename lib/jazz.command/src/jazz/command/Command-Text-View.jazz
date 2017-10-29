@@ -40,7 +40,12 @@
 
 (import (jazz.action)
         (jazz.application)
+        (jazz.command)
+        (jazz.component)
         (jazz.document)
+        (jazz.editor.lisp)
+        (jazz.event)
+        (jazz.exemplar)
         (jazz.feedback)
         (jazz.graphic)
         (jazz.io)
@@ -50,6 +55,7 @@
         (jazz.search)
         (jazz.text)
         (jazz.ui)
+        (jazz.undoer)
         (jazz.view)
         (jazz.window)
         (jazz.workspace))
@@ -61,11 +67,11 @@
 (class Copy-of-IDE-Text-View-quick-hack extends Code-Text-View
   
   
-  (method override (new-model)
+  (method override (new-model self)
     (new Text-Model base-style: {Text-Style Text-User}))
 
   
-  (method override (new-syntax)
+  (method override (new-syntax self)
     (new Jazz-Syntax model colorize?: #f))
    
   
@@ -74,7 +80,7 @@
   ;;;
   
   
-  (method override (current-history-item)
+  (method override (current-history-item self)
     #f)
 
 
@@ -83,16 +89,16 @@
   ;;;
   
   
-  (method override (match-backwards? char)
+  (method override (match-backwards? self char)
     (typecase syntax
       ((Jazz-Syntax) (memq? char '(#\close-parenthesis #\close-bracket #\close-brace)))
-      (else (nextmethod char))))
+      (else (nextmethod self char))))
   
   
-  (method override (match-forwards? char)
+  (method override (match-forwards? self char)
     (typecase syntax
       ((Jazz-Syntax) (memq? char '(#\open-parenthesis #\open-bracket #\open-brace)))
-      (else (nextmethod char))))
+      (else (nextmethod self char))))
 
   
   ;;;
@@ -100,21 +106,21 @@
   ;;;
 
 
-  (method override (context-menu evt)
-    (when (and (view-enabled?) editable?)
-      (let ((pos (get-position~ evt)))
-        (receive (shift? control? alt? meta?) (get-down~ evt)
+  (method override (context-menu self evt)
+    (when (and (view-enabled? self) editable?)
+      (let ((pos (get-position evt)))
+        (receive (shift? control? alt? meta?) (get-down evt)
           (let ((definition? (and (not control?) shift? (not alt?)))
                 (references? (and control? shift? (not alt?))))
             (when (or definition? references?)
-              (context-menu-click pos))
-            (cond (definition? (edit-definitions pos))
-                  (references? (edit-references pos))
-                  (else (nextmethod evt))))))))
+              (context-menu-click self pos))
+            (cond (definition? (edit-definitions self pos))
+                  (references? (edit-references self pos))
+                  (else (nextmethod self evt))))))))
   
   
-  (method override (get-context-menu)
-    (new-text-context-menu)))
+  (method override (get-context-menu self)
+    (new-text-context-menu self)))
 
 
 (class Command-Text-View extends Copy-of-IDE-Text-View-quick-hack
@@ -139,38 +145,38 @@
       tooltip-text: "Command Shell"))
   
   
-  (method override (preferences)
-    (get-preferences '(documents command-text)))
+  (method override (preferences self)
+    (current-preferences '(documents command-text)))
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set-propagate-styles?~ model #f)
-    (let ((pref (preferences)))
-      (add-style 'Separator (get-separator-style~ pref))))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (set-propagate-styles? model #f)
+    (let ((pref (preferences self)))
+      (add-style self 'Separator (get-separator-style pref))))
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (set! mode (default-mode)))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (set! mode (default-mode self)))
   
   
-  (method override (component-alias name)
+  (method override (component-alias self name)
     (case name
       ((:mode) mode)
-      (else (nextmethod name))))
+      (else (nextmethod self name))))
   
   
-  (method (status-label)
-    (child~ creator 'status))
+  (method (status-label self)
+    (child creator 'status))
   
   
-  (method (set-status title)
-    (set-title~ (status-label) title))
+  (method package (set-status self title)
+    (set-title (status-label self) title))
   
   
-  (method (clear-status)
-    (set-status ""))
+  (method package (clear-status self)
+    (set-status self ""))
   
   
   ;;;
@@ -178,34 +184,34 @@
   ;;;
   
   
-  (method (setup-client)
-    (set! client (get-focus))
+  (method (setup-client self)
+    (set! client (active-focus))
     (set! client-selection #f))
   
   
-  (method (setup-search-client explicit-client)
+  (method (setup-search-client self explicit-client)
     (define (determine-client)
-      (let ((focus (get-focus)))
+      (let ((focus (active-focus)))
         (and (and (is? focus Text-View) (not (in-cell-edit? focus)))
              focus)))
     
     (set! client (or explicit-client (determine-client)))
-    (set! client-selection (and client (get-selection~ client)))
-    (set! client-position (and client (get-scrolled-position~ client))))
+    (set! client-selection (and client (get-selection client)))
+    (set! client-position (and client (get-scrolled-position client))))
   
   
-  (method (cleanup-client)
+  (method (cleanup-client self)
     (set! client #f)
     (set! client-selection #f))
   
   
-  (method (restore-client)
+  (method package (restore-client self)
     (when client-restore
       (client-restore)
       (set! client-restore #f)))
   
   
-  (method (preserve-mode)
+  (method package (preserve-mode self)
     (set! previous-mode mode))
   
   
@@ -214,29 +220,29 @@
   ;;;
   
   
-  (method override (focus-lose)
-    (nextmethod)
+  (method override (focus-lose self)
+    (nextmethod self)
     (let ((client client))
-      (cleanup~ mode #t)
-      (cleanup-client)
-      (set-mode-default)
+      (cleanup mode #t)
+      (cleanup-client self)
+      (set-mode-default self)
       (clear-user-message)
-      (clear-status)
-      (focus-empty)
-      (focus-rezoom client)))
+      (clear-status self)
+      (focus-empty self)
+      (focus-rezoom self client)))
   
   
-  (method override (focus-actions)
-    (cons (mode-actions~ mode)
-          (nextmethod)))
+  (method override (focus-actions self)
+    (cons (mode-actions mode)
+          (nextmethod self)))
   
   
-  (method protected virtual (focus-empty)
-    (empty-text~ model))
+  (method protected virtual (focus-empty self)
+    (empty-text model))
   
   
-  (method protected virtual (focus-rezoom client)
-    (rezoom-command-text~ (get-application) client self))
+  (method protected virtual (focus-rezoom self client)
+    (rezoom-command-text (get-application) client self))
   
   
   ;;;
@@ -244,66 +250,66 @@
   ;;;
   
   
-  (method override (key-press evt)
-    (nextmethod evt)
-    (key-press~ mode (get-key~ evt)))
+  (method override (key-press self evt)
+    (nextmethod self evt)
+    (key-press mode (get-key evt)))
   
   
-  (method override (backspace-press evt (word?: word? #f))
-    (nextmethod evt word?: word?)
-    (backspace-press~ mode evt word?: word?))
+  (method override (backspace-press self evt (word?: word? #f))
+    (nextmethod self evt word?: word?)
+    (backspace-press mode evt word?: word?))
   
   
-  (method override (tab-press evt)
-    (navigate-field (get-shift?~ evt)))
+  (method override (tab-press self evt)
+    (navigate-field self (get-shift? evt)))
   
   
-  (method override (next-page evt)
-    (next-page~ mode))
+  (method override (next-page self evt)
+    (next-page mode))
   
   
-  (method override (prior-page evt)
-    (prior-page~ mode))
+  (method override (prior-page self evt)
+    (prior-page mode))
   
   
-  (method override (get-constituent-test)
-    (or (get-constituent-test~ mode)
-        (nextmethod)))
+  (method override (get-constituent-test self)
+    (or (get-constituent-test mode)
+        (nextmethod self)))
   
   
-  (method override (auto-complete?)
-    (auto-complete?~ mode))
+  (method override (auto-complete? self)
+    (auto-complete? mode))
   
   
-  (method override (auto-complete-char? key last)
-    (let ((value (auto-complete-char?~ mode key last)))
+  (method override (auto-complete-char? self key last)
+    (let ((value (auto-complete-char? mode key last)))
       (if (eq? value 'default)
-          (nextmethod key last)
+          (nextmethod self key last)
         value)))
 
 
-  (method override (favorite-completions?)
-    (let ((value (favorite-completions?~ mode)))
+  (method override (favorite-completions? self)
+    (let ((value (favorite-completions? mode)))
       (if (eq? value 'default)
-          (nextmethod)
+          (nextmethod self)
         value)))
   
   
-  (method override (complete-name? size)
-    (let ((value (complete-name?~ mode size)))
+  (method override (complete-name? self size)
+    (let ((value (complete-name? mode size)))
       (if (eq? value 'default)
-          (nextmethod size)
+          (nextmethod self size)
         value)))
 
 
-  (method override (completion-name pos)
-    (or (completion-name~ mode pos)
-        (nextmethod pos)))
+  (method override (completion-name self pos)
+    (or (completion-name mode pos)
+        (nextmethod self pos)))
     
   
-  (method override (symbol-completions name)
-    (or (symbol-completions~ mode name)
-        (nextmethod name)))
+  (method override (symbol-completions self name)
+    (or (symbol-completions mode name)
+        (nextmethod self name)))
 
   
   ;;;
@@ -311,80 +317,80 @@
   ;;;
   
   
-  (method (navigate-field backward?)
-    (let ((fields (collect-fields)))
-      (let ((rank (caret-rank fields)))
+  (method (navigate-field self backward?)
+    (let ((fields (collect-fields self)))
+      (let ((rank (caret-rank self fields)))
         (let ((next (modulo ((if backward? - +) rank 1) (length fields))))
-          (goto-field (element fields next))))))
+          (goto-field self (element fields next))))))
   
   
-  (method (first-field)
-    (first (collect-fields)))
+  (method (first-field self)
+    (first (collect-fields self)))
   
   
-  (method (second-field)
-    (let ((fields (collect-fields)))
+  (method (second-field self)
+    (let ((fields (collect-fields self)))
       (and (>= (length fields) 2)
            (second fields))))
   
   
-  (method (last-field)
-    (last (collect-fields)))
+  (method (last-field self)
+    (last (collect-fields self)))
   
   
-  (method (first-content)
-    (field-content (first-field)))
+  (method package (first-content self)
+    (field-content self (first-field self)))
   
   
-  (method (second-content)
-    (let ((field (second-field)))
+  (method package (second-content self)
+    (let ((field (second-field self)))
       (and field
-           (field-content field))))
+           (field-content self field))))
   
   
-  (method (last-content)
-    (field-content (last-field)))
+  (method (last-content self)
+    (field-content self (last-field self)))
   
   
-  (method (field-content field)
-    (substring (get-string~ (first-paragraph))
-               (get-start~ field)
-               (get-end~ field)))
+  (method (field-content self field)
+    (substring (get-string (first-paragraph self))
+               (get-start field)
+               (get-end field)))
   
   
-  (method (field-range field)
+  (method (field-range self field)
     (new Range$Cell$
-      (new Cell 0 (get-start~ field))
-      (new Cell 0 (get-end~ field))))
+      (new Cell 0 (get-start field))
+      (new Cell 0 (get-end field))))
   
   
-  (method (goto-field field)
-    (set-selection (field-range field)))
+  (method (goto-field self field)
+    (set-selection self (field-range self field)))
   
   
-  (method (goto-first-field)
-    (goto-field (first-field)))
+  (method package (goto-first-field self)
+    (goto-field self (first-field self)))
   
   
-  (method (goto-second-field)
-    (let ((field (second-field)))
+  (method package (goto-second-field self)
+    (let ((field (second-field self)))
       (if field
-          (goto-field field)
-        (set-caret (text-ending))
-        (insert-separator))))
+          (goto-field self field)
+        (set-caret self (text-ending self))
+        (insert-separator self))))
   
   
-  (method (collect-fields)
-    (let ((paragraph (first-paragraph))
+  (method package (collect-fields self)
+    (let ((paragraph (first-paragraph self))
           (fields (new-queue)))
       (define (forward-style pos predicate)
-        (let ((card (get-length~ paragraph)))
+        (let ((card (get-length paragraph)))
           (let (iterate (pos pos))
             (if (>= pos card)
                 pos
               (let ((next (+ pos 1)))
-                (let ((run (get-run~ paragraph next)))
-                  (if (or (not run) (predicate (get-style~ run)))
+                (let ((run (get-run paragraph next)))
+                  (if (or (not run) (predicate (get-style run)))
                       (iterate next)
                     pos)))))))
       
@@ -392,7 +398,7 @@
         (not (separator-style? style)))
       
       (define (separator-style? style)
-        (inherits?~ style 'Separator))
+        (inherits? style 'Separator))
       
       (define (new-field start end)
         (new Range start end))
@@ -406,21 +412,21 @@
       (queue-list fields)))
   
   
-  (method (field-rank fields pos)
+  (method (field-rank self fields pos)
     (let (iter (fields fields) (rank 0))
       (let ((field (car fields)))
-        (if (between? pos (get-start~ field) (get-end~ field))
+        (if (between? pos (get-start field) (get-end field))
             rank
           (iter (cdr fields) (+ rank 1))))))
   
   
-  (method (caret-rank fields)
-    (let ((pos (get-col~ (get-caret))))
-      (field-rank fields pos)))
+  (method package (caret-rank self fields)
+    (let ((pos (get-col (get-caret self))))
+      (field-rank self fields pos)))
   
   
-  (method (insert-separator)
-    (insert-styled "/" 'Separator))
+  (method (insert-separator self)
+    (insert-styled self "/" 'Separator))
 
   
   ;;;
@@ -428,56 +434,56 @@
   ;;;
   
   
-  (method public (select-search direction range initial (search-result: search-result #f) (client: client #f) (highlight?: highlight? #f) (again?: again? #f))
-    (set-mode-search (if highlight? Highlight-Mode Search-Mode) direction)
-    (setup-search-client client)
+  (method public (select-search self direction range initial (search-result: search-result #f) (client: client #f) (highlight?: highlight? #f) (again?: again? #f))
+    (set-mode-search self (if highlight? Highlight-Mode Search-Mode) direction)
+    (setup-search-client self client)
     (push-focus self)
-    (prepare-search~ mode range)
-    (let ((search-result (or search-result (make-text-search-result initial (get-client) #f #f))))
-      (set-search-result~ mode search-result)
-      (set-text~ model (get-target~ (search-context~ model (get-find~ (get-search~ search-result))))))
-    (select-all)
-    (search-client~ mode direction initial?: #t again?: again?))
+    (prepare-search mode range)
+    (let ((search-result (or search-result (make-text-search-result initial (get-client self) #f #f))))
+      (set-search-result mode search-result)
+      (set-text model (get-target (search-context model (get-find (get-search search-result))))))
+    (select-all self)
+    (search-client mode direction initial?: #t again?: again?))
   
   
-  (method (set-mode-search class direction)
+  (method (set-mode-search self class direction)
     (set! mode (new class self direction))
     (user-message "Search..."))
   
   
-  (method public (select-extended)
-    (set-mode-extended)
-    (setup-client)
+  (method public (select-extended self)
+    (set-mode-extended self)
+    (setup-client self)
     (push-focus self))
   
   
-  (method (set-mode-extended)
+  (method (set-mode-extended self)
     (set! mode (new Extended-Mode self))
     (user-message "Extended..."))
   
   
-  (method public (select-execute)
-    (set-mode-execute)
-    (setup-client)
+  (method public (select-execute self)
+    (set-mode-execute self)
+    (setup-client self)
     (push-focus self))
   
   
-  (method (set-mode-execute)
+  (method (set-mode-execute self)
     (set! mode (new Execute-Mode self))
     (user-message "Execute..."))
   
   
-  (method public (select-mode md)
+  (method public (select-mode self md)
     (set! mode md)
-    (setup-client)
+    (setup-client self)
     (push-focus self))
   
   
-  (method (set-mode-default)
-    (set! mode (default-mode)))
+  (method (set-mode-default self)
+    (set! mode (default-mode self)))
   
   
-  (method protected virtual (default-mode)
+  (method protected virtual (default-mode self)
     (new Execute-Mode self)))
 
 
@@ -492,82 +498,82 @@
   (slot text)
   
   
-  (method override (initialize text)
-    (nextmethod)
-    (set! text~self text))
+  (method override (initialize self text)
+    (nextmethod self)
+    (set! self.text text))
   
   
-  (method (get-client)
-    (get-client~ text))
+  (method package (get-client self)
+    (get-client text))
   
   
-  (method (get-client-selection)
-    (get-client-selection~ text))
+  (method package (get-client-selection self)
+    (get-client-selection text))
   
   
-  (method (get-client-position)
-    (get-client-position~ text))
+  (method package (get-client-position self)
+    (get-client-position text))
   
   
-  (method virtual (mode-actions)
+  (method package virtual (mode-actions self)
     )
     
   
-  (method virtual (key-press evt)
+  (method package virtual (key-press self evt)
     )
   
   
-  (method virtual (backspace-press evt (word?: word? #f))
+  (method package virtual (backspace-press self evt (word?: word? #f))
     )
   
   
-  (method virtual (next-page)
+  (method package virtual (next-page self)
     )
   
   
-  (method virtual (prior-page)
+  (method package virtual (prior-page self)
     )
   
   
-  (method virtual (get-constituent-test)
+  (method package virtual (get-constituent-test self)
     #f)
 
   
-  (method virtual (auto-complete?)
+  (method package virtual (auto-complete? self)
     #f)
   
   
-  (method virtual (auto-complete-char? key last)
+  (method package virtual (auto-complete-char? self key last)
     'default)
   
   
-  (method virtual (favorite-completions?)
+  (method package virtual (favorite-completions? self)
     'default)
   
   
-  (method virtual (complete-name? size)
+  (method package virtual (complete-name? self size)
     'default)
 
 
-  (method virtual (completion-name pos)
+  (method package virtual (completion-name self pos)
     #f)
   
   
-  (method virtual (symbol-completions name)
+  (method package virtual (symbol-completions self name)
     #f)
   
   
-  (method virtual (finish)
-    (cleanup))
+  (method virtual (finish self)
+    (cleanup self))
   
   
-  (method virtual (cancel)
-    (cleanup))
+  (method virtual (cancel self)
+    (cleanup self))
   
   
-  (method virtual (cleanup (lose-focus? #f))
-    (restore-client~ text)
-    (let ((client (get-client)))
+  (method package virtual (cleanup self (lose-focus? #f))
+    (restore-client text)
+    (let ((client (get-client self)))
       (when client
         (unless lose-focus?
           (pop-focus))))
@@ -593,318 +599,318 @@
   (slot boundary-style  initialize #f)
   
   
-  (method override (initialize text direction)
-    (nextmethod text)
-    (set! direction~self direction))
+  (method override (initialize self text direction)
+    (nextmethod self text)
+    (set! self.direction direction))
   
   
-  (method (prepare-search range)
-    (let ((client (get-client))
-          (client-selection (get-client-selection)))
-      (let ((model (and (is? client Text-View) (get-model~ client))))
+  (method package (prepare-search self range)
+    (let ((client (get-client self))
+          (client-selection (get-client-selection self)))
+      (let ((model (and (is? client Text-View) (get-model client))))
         (set! last-range (if model (or range client-selection) #f))
-        (set! found-style (if model (add-style~ model 'Found (new Text-Style base: 'Base domain: (get-styles-domain~ model) highlight: {Color Found})) #f))
-        (set! highlight-style (if model (add-style~ model 'Highlight (new Text-Style base: 'Base domain: (get-styles-domain~ model) highlight: {Color Highlight})) #f))
-        (set! replace-style (if model (add-style~ model 'Replace (new Text-Style base: 'Base domain: (get-styles-domain~ model) highlight: {Color Light-Red} frame: {Color Replace})) #f))
-        (set! boundary-style (if model (add-style~ model 'Boundary (new Text-Style base: 'Base domain: (get-styles-domain~ model) highlight: {Color Boundary})) #f)))))
+        (set! found-style (if model (add-style model 'Found (new Text-Style base: 'Base domain: (get-styles-domain model) highlight: {Color Found})) #f))
+        (set! highlight-style (if model (add-style model 'Highlight (new Text-Style base: 'Base domain: (get-styles-domain model) highlight: {Color Highlight})) #f))
+        (set! replace-style (if model (add-style model 'Replace (new Text-Style base: 'Base domain: (get-styles-domain model) highlight: {Color Light-Red} frame: {Color Replace})) #f))
+        (set! boundary-style (if model (add-style model 'Boundary (new Text-Style base: 'Base domain: (get-styles-domain model) highlight: {Color Boundary})) #f)))))
   
   
-  (method override (mode-actions)
+  (method override (mode-actions self)
     (find-actions 'search-mode))
   
   
-  (method override (key-press evt)
-    (search-client direction))
+  (method override (key-press self evt)
+    (search-client self direction))
   
   
-  (method override (backspace-press evt (word?: word? #f))
-    (search-client direction prefix?: #t))
+  (method override (backspace-press self evt (word?: word? #f))
+    (search-client self direction prefix?: #t))
   
   
-  (method override (next-page)
-    (search-client 'forward again?: #t))
+  (method override (next-page self)
+    (search-client self 'forward again?: #t))
   
   
-  (method override (prior-page)
-    (search-client 'backward again?: #t))
+  (method override (prior-page self)
+    (search-client self 'backward again?: #t))
   
   
-  (method (set-search-result result)
+  (method package (set-search-result self result)
     (set! search-result result))
   
   
-  (method (set-boundaries range)
-    (set-beginning~ search-result (and range (get-start~ range)))
-    (set-ending~ search-result (and range (get-end~ range)))
-    (rehighlight-search))
+  (method (set-boundaries self range)
+    (set-beginning search-result (and range (get-start range)))
+    (set-ending search-result (and range (get-end range)))
+    (rehighlight-search self))
   
   
-  (method (get-search)
-    (get-search~ search-result))
+  (method package (get-search self)
+    (get-search search-result))
   
   
-  (method (get-context)
+  (method package (get-context self)
     ;; fow now get first one
-    (car (get-contexts~ (get-find~ (get-search)))))
+    (car (get-contexts (get-find (get-search self)))))
   
   
-  (method (set-context context)
-    (set-find~ (get-search) context))
+  (method package (set-context self context)
+    (set-find (get-search self) context))
   
   
-  (method (get-whole-words?)
-    (get-whole-words?~ (get-context)))
+  (method package (get-whole-words? self)
+    (get-whole-words? (get-context self)))
   
   
-  (method (select-whole-words? whole-words?)
-    (set-whole-words?~ (get-context) whole-words?))
+  (method (select-whole-words? self whole-words?)
+    (set-whole-words? (get-context self) whole-words?))
   
   
-  (method (get-ignore-case?)
-    (get-ignore-case?~ (get-context)))
+  (method package (get-ignore-case? self)
+    (get-ignore-case? (get-context self)))
   
   
-  (method (select-ignore-case? ignore-case?)
-    (set-ignore-case?~ (get-context) ignore-case?))
+  (method (select-ignore-case? self ignore-case?)
+    (set-ignore-case? (get-context self) ignore-case?))
   
   
-  (method (get-regexp?)
-    (get-regexp?~ (get-context)))
+  (method package (get-regexp? self)
+    (get-regexp? (get-context self)))
   
   
-  (method (select-regexp? regexp?)
-    (set-regexp?~ (get-context) regexp?))
+  (method (select-regexp? self regexp?)
+    (set-regexp? (get-context self) regexp?))
   
   
-  (method (on-whole-words evt)
-    (select-whole-words? (not (get-whole-words?)))
-    (user-message "Search whole-words {a}" (if (get-whole-words?) "on" "off"))
-    (rehighlight-search))
+  (method (on-whole-words self evt)
+    (select-whole-words? self (not (get-whole-words? self)))
+    (user-message "Search whole-words {a}" (if (get-whole-words? self) "on" "off"))
+    (rehighlight-search self))
   
   
-  (method (on-ignore-case evt)
-    (select-ignore-case? (not (get-ignore-case?)))
-    (user-message "Search ignore-case {a}" (if (get-ignore-case?) "on" "off"))
-    (rehighlight-search))
+  (method (on-ignore-case self evt)
+    (select-ignore-case? self (not (get-ignore-case? self)))
+    (user-message "Search ignore-case {a}" (if (get-ignore-case? self) "on" "off"))
+    (rehighlight-search self))
   
   
-  (method (on-regexp evt)
-    (select-regexp? (not (get-regexp?)))
-    (user-message "Search regexp {a}" (if (get-regexp?) "on" "off"))
-    (rehighlight-search))
+  (method (on-regexp self evt)
+    (select-regexp? self (not (get-regexp? self)))
+    (user-message "Search regexp {a}" (if (get-regexp? self) "on" "off"))
+    (rehighlight-search self))
   
   
-  (method (on-forward evt)
-    (let ((again? (not (select-empty-search))))
-      (search-client 'forward again?: again?)))
+  (method package (on-forward self evt)
+    (let ((again? (not (select-empty-search self))))
+      (search-client self 'forward again?: again?)))
   
   
-  (method (on-backward evt)
-    (let ((again? (not (select-empty-search))))
-      (search-client 'backward again?: again?)))
+  (method package (on-backward self evt)
+    (let ((again? (not (select-empty-search self))))
+      (search-client self 'backward again?: again?)))
   
   
-  (method (select-empty-search)
-    (let ((context (get-context)))
-      (and (empty-string? (get-target~ context))
-           (let ((previous (get-previous-mode~ text)))
+  (method (select-empty-search self)
+    (let ((context (get-context self)))
+      (and (empty-string? (get-target context))
+           (let ((previous (get-previous-mode text)))
              (and (is? previous Search-Mode)
                   (begin
-                    (let ((previous-context (get-context~ previous)))
-                      (set-previous-mode~ text #f)
-                      (set-context previous-context)
-                      (set-string-content~ text (get-target~ previous-context))
-                      (set-caret~ text (text-ending~ text)))
+                    (let ((previous-context (get-context previous)))
+                      (set-previous-mode text #f)
+                      (set-context self previous-context)
+                      (set-string-content text (get-target previous-context))
+                      (set-caret text (text-ending text)))
                     #t))))))
   
   
-  (method (on-current evt)
-    (cancel))
+  (method (on-current self evt)
+    (cancel self))
   
   
-  (method (on-widen evt)
-    (let ((client (get-client)))
-      (let ((model (get-model~ client))
-            (selection (get-selection~ client)))
-        (let ((end (get-end~ selection)))
-          (let ((extend (next-word~ model end)))
-            (let ((add (range-first-string~ client (new Range$Cell$ end extend))))
+  (method (on-widen self evt)
+    (let ((client (get-client self)))
+      (let ((model (get-model client))
+            (selection (get-selection client)))
+        (let ((end (get-end selection)))
+          (let ((extend (next-word model end)))
+            (let ((add (range-first-string client (new Range$Cell$ end extend))))
               (if (empty-string? add)
                   (bell)
-                (insert-string~ text add)
-                (search-client direction))))))))
+                (insert-string text add)
+                (search-client self direction))))))))
   
   
-  (method (on-outer-boundaries evt)
-    (let ((client (get-client)))
-      (let ((range (or (get-boundaries~ search-result)
-                       (get-selection~ client))))
-        (let ((outer (outer-range~ client range)))
+  (method (on-outer-boundaries self evt)
+    (let ((client (get-client self)))
+      (let ((range (or (get-boundaries search-result)
+                       (get-selection client))))
+        (let ((outer (outer-range client range)))
           (if (not outer)
               (bell)
-            (set-boundaries outer)
+            (set-boundaries self outer)
             (user-message "Boundaries set to range"))))))
   
   
-  (method (on-declaration-boundaries evt)
-    (let ((client (get-client)))
-      (let ((range (or (get-boundaries~ search-result)
-                       (get-selection~ client))))
-        (let ((outer (outer-declaration-range~ client range)))
+  (method (on-declaration-boundaries self evt)
+    (let ((client (get-client self)))
+      (let ((range (or (get-boundaries search-result)
+                       (get-selection client))))
+        (let ((outer (outer-declaration-range client range)))
           (if (not outer)
               (bell)
             (receive (range name declaration-name) outer
-              (set-boundaries range)
+              (set-boundaries self range)
               (user-message "Boundaries set to ({a} {a})" name declaration-name)))))))
   
   
-  (method (on-buffer-boundaries evt)
-    (set-boundaries #f)
+  (method (on-buffer-boundaries self evt)
+    (set-boundaries self #f)
     (user-message "Boundaries set to buffer"))
   
   
-  (method (on-center-caret evt)
-    (center-caret~ (get-client)))
+  (method (on-center-caret self evt)
+    (center-caret (get-client self)))
   
   
-  (method (on-prior evt)
-    (prior-page~ (get-client) #f))
+  (method (on-prior self evt)
+    (prior-page (get-client self) #f))
   
   
-  (method (on-next evt)
-    (next-page~ (get-client) #f))
+  (method (on-next self evt)
+    (next-page (get-client self) #f))
   
   
-  (method (on-home evt)
-    (on-home~ (get-client) evt)
-    (finish))
+  (method package (on-home self evt)
+    (on-home (get-client self) evt)
+    (finish self))
   
   
-  (method (on-end evt)
-    (on-end~ (get-client) evt)
-    (finish))
+  (method package (on-end self evt)
+    (on-end (get-client self) evt)
+    (finish self))
   
   
-  (method (on-highlight evt)
-    (highlight-current))
+  (method (on-highlight self evt)
+    (highlight-current self))
   
   
-  (method (on-persist-highlights evt)
-    (persist-highlights))
+  (method (on-persist-highlights self evt)
+    (persist-highlights self))
   
   
-  (method protected virtual (highlight-current)
-    (persist-highlights)
-    (cancel))
+  (method protected virtual (highlight-current self)
+    (persist-highlights self)
+    (cancel self))
   
   
-  (method protected virtual (persist-highlights)
-    (let ((client (get-client)))
-      (let ((model (get-model~ client)))
-        (let ((reference-style (locate-style~ model 'Reference)))
+  (method protected virtual (persist-highlights self)
+    (let ((client (get-client self)))
+      (let ((model (get-model client)))
+        (let ((reference-style (locate-style model 'Reference)))
           (for-each (lambda (highlight)
-                      (when (or (inherits?~ (get-style~ highlight) found-style)
-                                (inherits?~ (get-style~ highlight) highlight-style))
-                        (push-style~ model (get-range~ highlight) 'Reference)))
-                    (get-highlights~ client))))))
+                      (when (or (inherits? (get-style highlight) found-style)
+                                (inherits? (get-style highlight) highlight-style))
+                        (push-style model (get-range highlight) 'Reference)))
+                    (get-highlights client))))))
   
   
-  (method (on-goto-find evt)
-    (goto-first-field~ text))
+  (method (on-goto-find self evt)
+    (goto-first-field text))
   
   
-  (method (on-goto-replace evt)
-    (goto-second-field~ text))
+  (method (on-goto-replace self evt)
+    (goto-second-field text))
   
   
-  (method (reset-search range)
+  (method (reset-search self range)
     (set! last-range range)
     (set! last-found? #t)
     (set! prefixes (make-table test: equal?)))
 
 
-  (method (on-find-forward evt)
-    (let ((client (get-client)))
-      (if (find-forward~ search-result client: client follow?: #f)
+  (method (on-find-forward self evt)
+    (let ((client (get-client self)))
+      (if (find-forward search-result client: client follow?: #f)
           (begin
-            (reset-search (get-selection~ client))
-            (rehighlight-search))
-        (unless (follow-forward~ search-result)
+            (reset-search self (get-selection client))
+            (rehighlight-search self))
+        (unless (follow-forward search-result)
           (bell)))))
 
 
-  (method (on-find-backward evt)
-    (let ((client (get-client)))
-      (if (find-backward~ search-result client: client follow?: #f)
+  (method (on-find-backward self evt)
+    (let ((client (get-client self)))
+      (if (find-backward search-result client: client follow?: #f)
           (begin
-            (reset-search (get-selection~ client))
-            (rehighlight-search))
-        (unless (follow-backward~ search-result)
+            (reset-search self (get-selection client))
+            (rehighlight-search self))
+        (unless (follow-backward search-result)
           (bell)))))
   
   
-  (method (on-replace evt)
-    (unimplemented-replace)
-    (select-replace)
-    (with-rehighlight-search
+  (method (on-replace self evt)
+    (unimplemented-replace self)
+    (select-replace self)
+    (with-rehighlight-search self
       (lambda ()
-        (unless (replace-selection~ search-result client: (get-client))
+        (unless (replace-selection search-result client: (get-client self))
           (bell)))))
   
   
-  (method (on-replace&find-forward evt)
-    (unimplemented-replace)
-    (select-replace)
-    (with-rehighlight-search
+  (method (on-replace&find-forward self evt)
+    (unimplemented-replace self)
+    (select-replace self)
+    (with-rehighlight-search self
       (lambda ()
-        (unless (replace-selection&find-forward~ search-result client: (get-client))
+        (unless (replace-selection&find-forward search-result client: (get-client self))
           (bell)))))
   
   
-  (method (on-replace-all evt)
-    (unimplemented-replace)
-    (select-replace)
-    (with-rehighlight-search
+  (method (on-replace-all self evt)
+    (unimplemented-replace self)
+    (select-replace self)
+    (with-rehighlight-search self
       (lambda ()
-        (replace-all~ search-result client: (get-client)))))
+        (replace-all search-result client: (get-client self)))))
   
   
-  (method (unimplemented-replace)
+  (method (unimplemented-replace self)
     (message-box "Unimplemented functionality")
     (signal-cancel))
   
   
-  (method (select-replace)
-    (let ((replace (second-content~ text)))
+  (method (select-replace self)
+    (let ((replace (second-content text)))
       (when replace
-        (set-replace~ (get-search) (new Replace (list replace))))))
+        (set-replace (get-search self) (new Replace (list replace))))))
   
   
-  (method (on-finish evt)
-    (let ((fields (collect-fields~ text)))
-      (when (= (caret-rank~ text fields) 1)
-        (replace-all (second-content~ text))))
-    (finish))
+  (method (on-finish self evt)
+    (let ((fields (collect-fields text)))
+      (when (= (caret-rank text fields) 1)
+        (replace-all self (second-content text))))
+    (finish self))
   
   
-  (method (on-cancel evt)
-    (cancel))
+  (method (on-cancel self evt)
+    (cancel self))
 
   
-  (method (search-client direction (initial?: initial? #f) (prefix?: prefix? #t) (again?: again? #f))
+  (method package (search-client self direction (initial?: initial? #f) (prefix?: prefix? #t) (again?: again? #f))
     (define (setup-context target)
-      (let ((context (get-context)))
-        (set-target~ context target)
-        (set-regexp~ context #f)))
+      (let ((context (get-context self)))
+        (set-target context target)
+        (set-regexp context #f)))
     
     (define (search-target model beginning ending target again?)
-      (let ((context (get-context))
+      (let ((context (get-context self))
             (range (or (and prefix? (table-ref prefixes target #f)) last-range)))
         (let ((pos (case direction
-                     ((forward) (if again? (get-end~ range) (get-start~ range)))
-                     ((backward) (if again? (get-start~ range) (nu+ (get-start~ range) (cardinality target))))))
+                     ((forward) (if again? (get-end range) (get-start range)))
+                     ((backward) (if again? (get-start range) (nu+ (get-start range) (cardinality target))))))
               (reversed? (eq? direction 'backward)))
-          (let ((found (text-regular-search~ model context start: pos end: (if reversed? beginning ending) reversed?: reversed?)))
+          (let ((found (text-regular-search model context start: pos end: (if reversed? beginning ending) reversed?: reversed?)))
             (define (add-prefix range)
               (reset-prefixes)
               (table-set! prefixes target range))
@@ -926,12 +932,12 @@
     
     (define (highlight-boundary client beginning ending)
       (define (add-boundary-highlight range)
-        (add-highlight~ client (new Text-Highlight client range boundary-style)))
+        (add-highlight client (new Text-Highlight client range boundary-style)))
       
       (when beginning
-        (add-boundary-highlight (new Range$Cell$ beginning (next-cell~ client beginning))))
+        (add-boundary-highlight (new Range$Cell$ beginning (next-cell client beginning))))
       (when ending
-        (add-boundary-highlight (new Range$Cell$ (previous-cell~ client ending) ending))))
+        (add-boundary-highlight (new Range$Cell$ (previous-cell client ending) ending))))
     
     (define (highlight-find client all)
       (when all
@@ -939,10 +945,10 @@
                     (bind (start . end) found
                       (let ((range (new Range$Cell$ start end)))
                         (unless (nu=? range last-range)
-                          (add-highlight~ client (new Text-Highlight client range highlight-style))))))
+                          (add-highlight client (new Text-Highlight client range highlight-style))))))
                   all))
-      (add-highlight~ client (new Text-Highlight client last-range found-style))
-      (set-selection~ client last-range))
+      (add-highlight client (new Text-Highlight client last-range found-style))
+      (set-selection client last-range))
     
     (define (highlight-replace client model beginning ending repl)
       (unless (empty-string? repl)
@@ -950,19 +956,19 @@
           (for-each (lambda (found)
                       (bind (start . end) found
                         (let ((range (new Range$Cell$ start end)))
-                          (add-highlight~ client (new Text-Highlight client range replace-style)))))
-                    (text-regular-search-all~ model target start: beginning end: ending)))))
+                          (add-highlight client (new Text-Highlight client range replace-style)))))
+                    (text-regular-search-all model target start: beginning end: ending)))))
     
-    (let ((client (get-client)))
+    (let ((client (get-client self)))
       (and (is? client Text-View)
-           (let ((model (get-model~ client))
-                 (content (first-content~ text))
-                 (repl (second-content~ text))
-                 (context (get-context))
-                 (beginning (get-beginning~ search-result))
-                 (ending (get-ending~ search-result)))
+           (let ((model (get-model client))
+                 (content (first-content text))
+                 (repl (second-content text))
+                 (context (get-context self))
+                 (beginning (get-beginning search-result))
+                 (ending (get-ending search-result)))
              (setup-context content)
-             (let ((all (and (not (empty-string? (get-target~ context))) (text-regular-search-all~ model context start: beginning end: ending))))
+             (let ((all (and (not (empty-string? (get-target context))) (text-regular-search-all model context start: beginning end: ending))))
                (let ((found #f))
                  (set! found (search-target model beginning ending content #f))
                  (when again?
@@ -973,17 +979,17 @@
                      (set! last-found? #f)
                      (bell)))
                  (if (not all)
-                     (clear-status~ text)
-                   (let ((rank (and last-range (find all (cons (get-start~ last-range)
-                                                               (get-end~ last-range))
+                     (clear-status text)
+                   (let ((rank (and last-range (find all (cons (get-start last-range)
+                                                               (get-end last-range))
                                                  test: (lambda (x y)
                                                          (and (cell=? (car x) (car y))
                                                               (cell=? (cdr x) (cdr y)))))))
                          (total (length all)))
-                     (set-status~ text (if rank
+                     (set-status text (if rank
                                            (format "{a} of {a}" (+ rank 1) total)
                                          (format "{a}" total)))))
-                 (remove-highlights)
+                 (remove-highlights self)
                  (highlight-boundary client beginning ending)
                  (highlight-find client all)
                  (when repl
@@ -991,57 +997,57 @@
                  found))))))
   
   
-  (method (replace-all repl)
-    (let ((context (get-context))
-          (client (get-client))
-          (beginning (get-beginning~ search-result))
-          (ending (get-ending~ search-result)))
-      (let ((model (get-model~ client)))
-        (with-atomic-undo~ (get-undoer~ model)
+  (method package (replace-all self repl)
+    (let ((context (get-context self))
+          (client (get-client self))
+          (beginning (get-beginning search-result))
+          (ending (get-ending search-result)))
+      (let ((model (get-model client)))
+        (with-atomic-undo (get-undoer model)
           (lambda ()
             (for-each-reversed (lambda (found)
                                  (bind (start . end) found
                                    (let ((range (new Range$Cell$ start end)))
-                                     (replace~ client range (list repl)))))
-                               (text-regular-search-all~ model context start: beginning end: ending)))))))
+                                     (replace client range (list repl)))))
+                               (text-regular-search-all model context start: beginning end: ending)))))))
   
   
-  (method (rehighlight-search)
-    (search-client direction))
+  (method (rehighlight-search self)
+    (search-client self direction))
   
   
-  (method (with-rehighlight-search proc)
-    (remove-highlights)
+  (method (with-rehighlight-search self proc)
+    (remove-highlights self)
     (proc)
-    (reset-search (get-selection~ (get-client)))
-    (rehighlight-search))
+    (reset-search self (get-selection (get-client self)))
+    (rehighlight-search self))
   
   
-  (method (remove-highlights)
-    (let ((client (get-client)))
+  (method (remove-highlights self)
+    (let ((client (get-client self)))
       (when (is? client Text-View)
-        (remove-all-highlights~ client))))
+        (remove-all-highlights client))))
   
   
-  (method override (finish)
-    (cleanup))
+  (method override (finish self)
+    (cleanup self))
   
   
-  (method override (cancel)
-    (let ((client (get-client))
-          (client-selection (get-client-selection)))
+  (method override (cancel self)
+    (let ((client (get-client self))
+          (client-selection (get-client-selection self)))
       (when client-selection
-        (set-selection~ client client-selection ensure-displayed?: #f)
-        (scroll-to~ client (get-client-position))))
-    (cleanup))
+        (set-selection client client-selection ensure-displayed?: #f)
+        (scroll-to client (get-client-position self))))
+    (cleanup self))
   
   
-  (method override (cleanup (lose-focus? #f))
-    (restore-client~ text)
-    (preserve-mode~ text)
-    (let ((client (get-client)))
+  (method override (cleanup self (lose-focus? #f))
+    (restore-client text)
+    (preserve-mode text)
+    (let ((client (get-client self)))
       (when client
-        (remove-highlights)
+        (remove-highlights self)
         (unless lose-focus?
           (pop-focus))))
     (clear-user-message)))
@@ -1055,17 +1061,17 @@
 (class Highlight-Mode extends Search-Mode
   
   
-  (method override (mode-actions)
+  (method override (mode-actions self)
     (find-actions 'highlight-mode))
   
   
-  (method override (highlight-current)
-    (cancel))
+  (method override (highlight-current self)
+    (cancel self))
   
   
-  (method override (finish)
-    (persist-highlights)
-    (cleanup)))
+  (method override (finish self)
+    (persist-highlights self)
+    (cleanup self)))
 
 
 ;;;
@@ -1076,141 +1082,141 @@
 (class Extended-Mode extends Command-Mode
   
   
-  (method override (mode-actions)
+  (method override (mode-actions self)
     (find-actions 'extended-mode))
   
   
-  (method (on-find-file evt)
-    (let ((model (get-model~ text)))
-      (set-mode~ text (new Find-File-Mode text))
-      (set-text~ model (standardize-filename (current-directory)))
-      (set-caret~ text (text-ending~ text))
+  (method (on-find-file self evt)
+    (let ((model (get-model text)))
+      (set-mode text (new Find-File-Mode text))
+      (set-text model (standardize-filename (current-directory)))
+      (set-caret text (text-ending text))
       (refresh-focus-actions text)
       (user-message "Find file...")))
   
   
-  (method (on-find-filename evt)
-    (let ((model (get-model~ text)))
-      (set-mode~ text (new Find-Filename-Mode text))
-      (set-text~ model "")
+  (method (on-find-filename self evt)
+    (let ((model (get-model text)))
+      (set-mode text (new Find-Filename-Mode text))
+      (set-text model "")
       (refresh-focus-actions text)
       (user-message "Find filename...")))
   
   
-  (method (on-find-buffer evt)
-    (set-mode~ text (new Find-Buffer-Mode text))
+  (method (on-find-buffer self evt)
+    (set-mode text (new Find-Buffer-Mode text))
     (refresh-focus-actions text)
     (user-message "Find buffer..."))
   
   
-  (method (on-save-buffer evt)
-    (finish)
+  (method (on-save-buffer self evt)
+    (finish self)
     (let ((guest (current-document)))
       (if (not guest)
           (bell)
-        (on-save~ guest evt))))
+        (on-save guest evt))))
   
   
-  (method (on-save-buffer-as evt)
-    (finish)
+  (method (on-save-buffer-as self evt)
+    (finish self)
     (let ((guest (current-document)))
       (if (not guest)
           (bell)
-        (on-save-as~ guest evt))))
+        (on-save-as guest evt))))
   
   
-  (method (on-save-all evt)
-    (finish)
+  (method package (on-save-all self evt)
+    (finish self)
     (let ((appl (get-application)))
-      (on-save-all~ appl evt)))
+      (on-save-all appl evt)))
   
   
-  (method (on-revert-buffer evt)
-    (finish)
+  (method (on-revert-buffer self evt)
+    (finish self)
     (let ((guest (current-document)))
       (if (not guest)
           (bell)
-        (on-revert-saved~ guest evt))))
+        (on-revert-saved guest evt))))
   
   
-  (method (on-kill-buffer evt)
+  (method (on-kill-buffer self evt)
     (let ((appl (get-application)))
-      (on-close~ appl evt)))
+      (on-close appl evt)))
   
   
-  (method (on-delete-stage evt)
+  (method (on-delete-stage self evt)
     (delete-stage)
-    (finish))
+    (finish self))
   
   
-  (method (on-delete-other-stages evt)
+  (method (on-delete-other-stages self evt)
     (delete-other-stages)
-    (finish))
+    (finish self))
   
   
-  (method (on-split-stage-vertically evt)
+  (method (on-split-stage-vertically self evt)
     (split-stage-vertically)
-    (finish))
+    (finish self))
   
   
-  (method (on-split-stage-horizontally evt)
+  (method (on-split-stage-horizontally self evt)
     (split-stage-horizontally)
-    (finish))
+    (finish self))
   
   
-  (method (on-quit evt)
+  (method (on-quit self evt)
     (let ((appl (get-application)))
-      (on-quit-application~ appl evt)))
+      (on-quit-application appl evt)))
   
   
-  (method (on-start-recording evt)
-    (finish)
-    (let ((recorder (get-recorder~ (get-application))))
-      (on-start-recording~ recorder evt)))
+  (method package (on-start-recording self evt)
+    (finish self)
+    (let ((recorder (get-recorder (get-application))))
+      (on-start-recording recorder evt)))
   
   
-  (method (on-stop-recording evt)
-    (finish)
-    (let ((recorder (get-recorder~ (get-application))))
-      (on-stop-recording~ recorder evt)))
+  (method package (on-stop-recording self evt)
+    (finish self)
+    (let ((recorder (get-recorder (get-application))))
+      (on-stop-recording recorder evt)))
   
   
-  (method (on-play-recording evt)
-    (finish)
-    (let ((recorder (get-recorder~ (get-application))))
-      (on-play-recording~ recorder evt)))
+  (method package (on-play-recording self evt)
+    (finish self)
+    (let ((recorder (get-recorder (get-application))))
+      (on-play-recording recorder evt)))
   
   
-  (method (on-downcase-selection evt)
-    (finish)
+  (method package (on-downcase-selection self evt)
+    (finish self)
     (let ((text (current-document)))
       (if (is-not? text Text-View)
           (bell)
-        (on-downcase-selection~ text evt))))
+        (on-downcase-selection text evt))))
   
   
-  (method (on-upcase-selection evt)
-    (finish)
+  (method package (on-upcase-selection self evt)
+    (finish self)
     (let ((text (current-document)))
       (if (is-not? text Text-View)
           (bell)
-        (on-upcase-selection~ text evt))))
+        (on-upcase-selection text evt))))
   
   
-  (method (on-select-all evt)
-    (finish)
+  (method package (on-select-all self evt)
+    (finish self)
     (let ((view (current-document)))
       (if (not view)
           (bell)
-        (on-select-all~ view evt))))
+        (on-select-all view evt))))
   
   
-  (method (on-finish evt)
-    (finish))
+  (method (on-finish self evt)
+    (finish self))
   
   
-  (method (on-cancel evt)
-    (cancel)))
+  (method (on-cancel self evt)
+    (cancel self)))
 
 
 ;;;
@@ -1221,50 +1227,50 @@
 (class Find-Mode extends Command-Mode
   
   
-  (method override (mode-actions)
+  (method override (mode-actions self)
     (find-actions 'find-mode))
   
   
-  (method override (get-constituent-test)
+  (method override (get-constituent-test self)
     alphanumeric?)
   
   
-  (method override (auto-complete?)
+  (method override (auto-complete? self)
     #t)
   
   
-  (method override (auto-complete-char? key last)
+  (method override (auto-complete-char? self key last)
     (memv? key '(#\/ #\- #\_ #\.)))
 
   
-  (method override (favorite-completions?)
+  (method override (favorite-completions? self)
     #f)
   
   
-  (method override (complete-name? size)
+  (method override (complete-name? self size)
     (>= size 1))
 
 
-  (method override (completion-name pos)
-    (get-string~ text (new Range$Cell$ {Cell 0 0} pos)))
+  (method override (completion-name self pos)
+    (get-string text (new Range$Cell$ {Cell 0 0} pos)))
   
   
-  (method (on-finish evt)
-    (finish))
+  (method (on-finish self evt)
+    (finish self))
   
   
-  (method (on-cancel evt)
-    (cancel))
+  (method (on-cancel self evt)
+    (cancel self))
   
   
-  (method override (cancel)
-    (cleanup))
+  (method override (cancel self)
+    (cleanup self))
   
   
-  (method override (cleanup (lose-focus? #f))
-    (set-string-content~ text "")
-    (restore-client~ text)
-    (let ((client (get-client)))
+  (method override (cleanup self (lose-focus? #f))
+    (set-string-content text "")
+    (restore-client text)
+    (let ((client (get-client self)))
       (when client
         (unless lose-focus?
           (pop-focus))))
@@ -1279,7 +1285,7 @@
 (class Find-File-Mode extends Find-Mode
   
   
-  (method override (symbol-completions name)
+  (method override (symbol-completions self name)
     (define (split-filename filename)
       (let ((pos (find filename #\/ reversed?: #t)))
         (if (not pos)
@@ -1301,14 +1307,14 @@
                     (directory-content (list path: (or dir (current-directory)) ignore-hidden: 'dot-and-dot-dot))))))
   
   
-  (method override (finish)
-    (let ((filename (first-content~ text)))
+  (method override (finish self)
+    (let ((filename (first-content text)))
       (if (and (file-exists? filename)
                (eq? (pathname-type filename) 'file))
-          (let ((file (anchorize~ (new File (tokenise-filename (pathname-normalize filename))))))
-            (set-current-directory (get-parent~ file))
-            (edit-document~ (get-application) file)
-            (cleanup))
+          (let ((file (anchorize (new File (tokenise-filename (pathname-normalize filename))))))
+            (current-directory-set! (get-parent file))
+            (edit-document (get-application) file)
+            (cleanup self))
         (bell)))))
 
 
@@ -1323,23 +1329,23 @@
   (slot filenames)
   
   
-  (method override (initialize text)
+  (method override (initialize self text)
     (define (collect-filenames)
       (let ((workbench (get-workbench))
             (table (make-table test: equal?)))
-        (for-each-project-file~ workbench
+        (for-each-project-file workbench
           (lambda (file)
-            (let ((source (get-source~ file)))
+            (let ((source (get-source file)))
               (when source
-                (let ((name (downcase (get-name~ source))))
+                (let ((name (downcase (get-name source))))
                   (table-set! table name source))))))
         table))
     
-    (nextmethod text)
+    (nextmethod self text)
     (set! filenames (collect-filenames)))
   
   
-  (method override (symbol-completions name)
+  (method override (symbol-completions self name)
     (let ((queue (new-queue)))
       (iterate-table filenames
                      (lambda (filename file)
@@ -1348,7 +1354,7 @@
       (queue-list queue)))
   
   
-  (method override (finish)
+  (method override (finish self)
     (define (find-file name)
       (continuation-capture
         (lambda (return)
@@ -1363,10 +1369,10 @@
                                    (continuation-return return file)))))))
           #f)))
     
-    (let ((filename (first-content~ text)))
+    (let ((filename (first-content text)))
       (let ((file (find-file filename)))
         (if file
-            (edit-document~ (get-application) file)
+            (edit-document (get-application) file)
           (bell))))))
 
 
@@ -1378,7 +1384,7 @@
 (class Find-Buffer-Mode extends Find-Mode
   
   
-  (method override (symbol-completions name)
+  (method override (symbol-completions self name)
     (collect (lambda (view)
                (let ((presentation (present-title view)))
                  (and (compare-n name presentation (string-length name) test: char-ci=?)
@@ -1386,39 +1392,39 @@
              (all-views)))
   
   
-  (method override (finish)
+  (method override (finish self)
     (define (find-view name)
       (find-if (lambda (view)
                  (string-ci=? (present-title view) name))
                (all-views)))
     
-    (let ((name (first-content~ text)))
+    (let ((name (first-content text)))
       (if (empty-string? name)
           (let ((views (all-frames)))
             (if (>= (length views) 2)
                 (begin
-                  (send-to-back~ (first views))
-                  (focus-host~ (current-frame)))
+                  (send-to-back (first views))
+                  (focus-host (current-frame)))
               (bell)))
         (let ((view (find-view name)))
           (if view
               (begin
-                (focus-host~ view)
-                (cleanup))
+                (focus-host view)
+                (cleanup self))
             (bell))))))
   
   
   (definition (present-title window/view)
     (let ((title (typecase window/view
                    ((Window)
-                    (get-title~ window/view))
+                    (get-title window/view))
                    ((View)
                     (if (is? window/view Host-View)
-                        (let ((guest (get-guest~ window/view)))
+                        (let ((guest (get-guest window/view)))
                           (if (is? guest Document)
-                              (name-status~ (get-document-controller~ guest))
-                            (get-title~ window/view)))
-                      (get-title~ window/view))))))
+                              (name-status (get-document-controller guest))
+                            (get-title window/view)))
+                      (get-title window/view))))))
       (if (or (null? title) (empty-string? title))
           "<Untitled>"
         title)))
@@ -1437,20 +1443,20 @@
 (class Execute-Mode extends Command-Mode
   
   
-  (method override (mode-actions)
+  (method override (mode-actions self)
     (find-actions 'execute-mode))
   
   
-  (method override (auto-complete?)
+  (method override (auto-complete? self)
     #t)
   
   
-  (method (on-finish evt)
-    (finish))
+  (method (on-finish self evt)
+    (finish self))
   
   
-  (method (on-cancel evt)
-    (cancel)))
+  (method (on-cancel self evt)
+    (cancel self)))
 
 
 ;;;

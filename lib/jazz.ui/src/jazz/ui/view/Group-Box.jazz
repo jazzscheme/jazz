@@ -57,27 +57,27 @@
   ;;;
   
   
-  (method public (get-flat?)
+  (method public (get-flat? self)
     flat?)
 
 
-  (method public (set-flat? value)
+  (method public (set-flat? self value)
     (set! flat? value)
-    (invalidate-view))
+    (invalidate-view self))
   
   
-  (method public (get-border-color)
+  (method public (get-border-color self)
     border-color)
 
 
-  (method public (set-border-color value)
+  (method public (set-border-color self value)
     (set! border-color value)
-    (invalidate-view))
+    (invalidate-view self))
   
   
-  (method override (set-title value)
-    (nextmethod value)
-    (layout-view))
+  (method override (set-title self value)
+    (nextmethod self value)
+    (layout-view self))
 
   
   ;;;
@@ -85,20 +85,20 @@
   ;;;
   
   
-  (method override (layout)
-    (let* ((size (get-size))
-           (box-width (get-width~ size))
-           (box-height (get-height~ size))
-           (metrics (get-metrics~ (effective-font)))
-           (ascent (get-ascent~ metrics))
-           (flat? (flat-look? (get-skin)))
+  (method override (layout self)
+    (let* ((size (get-size self))
+           (box-width (get-width size))
+           (box-height (get-height size))
+           (metrics (get-metrics (effective-font self)))
+           (ascent (get-ascent metrics))
+           (flat? (flat-look? self (get-skin self)))
            (left (if flat? 1 2))
            (top (cond (title (+ ascent 1)) (flat? 1) (else 2)))
            (width (- box-width (if flat? 2 4)))
            (height (- box-height (if title (+ ascent 1) (if flat? 1 2)) (if flat? 1 2)))
-           (content (get-content)))
-      (set-position~ content (new Point left top))
-      (set-size~ content (new Dimension width height))))
+           (content (get-content self)))
+      (set-position content (new Point left top))
+      (set-size content (new Dimension width height))))
       
   
   ;;;
@@ -106,36 +106,36 @@
   ;;;
 
   
-  (method override (draw surface context)
-    (let* ((title (localize (get-title)))
-           (skin (get-skin))
-           (size (get-size))
-           (width (get-width~ size))
-           (height (get-height~ size))
+  (method override (draw self surface context)
+    (let* ((title (localize (get-title self)))
+           (skin (get-skin self))
+           (size (get-size self))
+           (width (get-width size))
+           (height (get-height size))
            (offset 9)
-           (color (or (get-background~ skin) {Color Medium}))
-           (flat? (flat-look? skin))
+           (color (or (get-background skin) {Color Medium}))
+           (flat? (flat-look? self skin))
            (border-color (or border-color {Color Entry-Border}))
-           (rect (get-bounds)))
-      (let* ((metrics (get-text-metrics~ surface))
-             (extent (and title (get-text-extent~ surface title)))
+           (rect (get-bounds self)))
+      (let* ((metrics (get-text-metrics surface))
+             (extent (and title (get-text-extent surface title)))
              (top (if title (fxceiling (/ (cairo_font_extents_t-ascent-ref metrics) 2)) 0)))
         (cairo_font_extents_t-free metrics)
-        (let ((title-rect (and title (new Rect (- offset 2) 0 (+ offset (get-width~ extent) 2) (get-height~ extent)))))
+        (let ((title-rect (and title (new Rect (- offset 2) 0 (+ offset (get-width extent) 2) (get-height extent)))))
           (define (draw-border)
             (if flat?
-                (frame-rect~ surface (new Rect 0 top width height) border-color)
-              (draw-edge~ surface (new Rect 0 top width height) inner: 'raised outer: 'sunken edges: 'rectangle)))
+                (frame-rect surface (new Rect 0 top width height) border-color)
+              (draw-edge surface (new Rect 0 top width height) inner: 'raised outer: 'sunken edges: 'rectangle)))
           
           (when title
             (unless (eq? color 'none)
-              (fill-rect~ surface rect color))
+              (fill-rect surface rect color))
             (if (not title)
                 (draw-border)
-              (with-clipout~ surface rect title-rect
+              (with-clipout surface rect title-rect
                 (lambda ()
                   (draw-border))))
-            (draw-text~ surface offset 0 title (text-color skin)))))))
+            (draw-text surface offset 0 title (text-color self skin)))))))
 
   
   ;;;
@@ -143,17 +143,17 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:group))
   
   
-  (method (text-color skin)
-    (or (get-text-color~ skin)
+  (method (text-color self skin)
+    (or (get-text-color skin)
         {Color Black}))
   
   
-  (method (flat-look? skin)
-    (let ((border-flat? (get-border-flat?~ skin)))
+  (method (flat-look? self skin)
+    (let ((border-flat? (get-border-flat? skin)))
       (if (specified? border-flat?)
           border-flat?
         flat?)))
@@ -164,5 +164,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Group-Box-Descriptor))))

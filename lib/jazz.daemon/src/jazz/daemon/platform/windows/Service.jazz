@@ -60,7 +60,7 @@
     (nextmethod)
     (let ((action (command-action)))
       (cond ((or (null? action) (ci=? action "?") (ci=? action "help"))
-             (command-help~ Command-Line (process-name) (process-version) (process-actions))
+             (command-help Command-Line (process-name) (process-version) (process-actions))
              (exit-process EXIT_SUCCESS))
             ((ci=? action "register")
              (register-service)
@@ -131,31 +131,31 @@
         (when description
           (let ((local-machine-key [Local-Machine Registry])
                 (service-path (format "SYSTEM/CurrentControlSet/Services/{a}" name)))
-            (with ((service-key (create-key~ local-machine-key service-path)))
-              (set-value~ service-key "Description" description)))))
+            (with ((service-key (create-key local-machine-key service-path)))
+              (set-value service-key "Description" description)))))
       ;; event log message file
       (let ((messages (service-messages)))
         (when messages
           (let* ((presentation (service-presentation))
                  (local-machine-key [Local-Machine Registry])
                  (application-path (format "SYSTEM/CurrentControlSet/Services/Eventlog/Application/{a}" presentation))
-                 (message-file (new-file~ {Directory Build} messages)))
-            (with ((application-key (create-key~ local-machine-key application-path)))
-              (set-value~ application-key "EventMessageFile" (parse~ message-file))))))
+                 (message-file (new-file {Directory Build} messages)))
+            (with ((application-key (create-key local-machine-key application-path)))
+              (set-value application-key "EventMessageFile" (parse message-file))))))
       ;; create service - must come last because the windows service manager is not releasing registry keys
       (with ((manager (new Service-Manager)))
         (let* ((presentation (service-presentation))
                (executable (service-executable))
-               (command (format "{a} run" (parse~ executable))))
-          (with ((handle (create-service~ manager name command presentation: presentation)))
+               (command (format "{a} run" (parse executable))))
+          (with ((handle (create-service manager name command presentation: presentation)))
             )))))
   
   
   (method (unregister-service)
     (with ((manager (new Service-Manager)))
       (let ((name (service-name)))
-        (with ((handle (open-service~ manager name)))
-          (delete-service~ handle)))))
+        (with ((handle (open-service manager name)))
+          (delete-service handle)))))
 
 
   ;;;
@@ -436,7 +436,7 @@
             (let* ((config (element config (- id 1)))
                    (action-handler (getf config action-handler:))
                    (sender self)
-                   (properties (get-properties~ action-handler))
+                   (properties (get-properties action-handler))
                    (evt (apply make-event Event :action sender properties)))
               (invoke-handler self action-handler evt))))
         (DestroyMenu menu))))

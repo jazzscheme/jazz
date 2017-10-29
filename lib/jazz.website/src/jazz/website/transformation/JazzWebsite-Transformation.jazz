@@ -45,6 +45,7 @@
         (jazz.feedback)
         (jazz.io)
         (jazz.jml)
+        (jazz.project)
         (jazz.website))
 
 
@@ -60,9 +61,9 @@
   (slot next-section)
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((title #f) (copyright #f) (reference-dir #f) . others) rest
-      (apply nextmethod others)
+      (apply nextmethod self others)
       (set! website-title title)
       (set! website-copyright copyright)
       (set! docs-reference-dir reference-dir)))
@@ -73,14 +74,14 @@
   ;;;
   
   
-  (pattern (website node)
+  (pattern (website self node)
     (user-feedback "Generating website...")
-    (process-website node))
+    (process-website self node))
   
   
-  (pattern (division node)
-    (let ((name (get-property~ node 'name))
-          (title (get-property~ node 'title)))
+  (pattern (division self node)
+    (let ((name (get-property node 'name))
+          (title (get-property node 'title)))
       `(<span>
          ,@(if (not name)
                '()
@@ -88,13 +89,13 @@
          (<p>)
          (<b> ,title)
          (<p>)
-         ,@(children->jml~ node))))
+         ,@(children->jml node))))
   
   
-  (pattern (screenshot node)
-    (let ((label (get-property~ node 'label))
-          (preview (get-property~ node 'preview))
-          (image (get-property~ node 'image)))
+  (pattern (screenshot self node)
+    (let ((label (get-property node 'label))
+          (preview (get-property node 'preview))
+          (image (get-property node 'image)))
       `(<div>
          (<a> href: ,image
            (<img> src: ,preview))
@@ -106,13 +107,13 @@
   ;;;
   
   
-  (method (process-website website)
+  (method (process-website self website)
     (define (collect-sections website)
       (map (lambda (section)
              (cons section (collect-if (lambda (node)
-                                         (eq? (get-tag~ node) 'section))
-                                       (get-children~ section))))
-           (get-children~ website)))
+                                         (eq? (get-tag node) 'section))
+                                       (get-children section))))
+           (get-children website)))
     
     (define (process-sections sections pages)
       (define (process-section section sections pages)
@@ -122,8 +123,8 @@
             (iterate-table anchor-names
               (lambda (name lst)
                 (when (> (length lst) 1)
-                  (put~ fact name))))
-            (let ((ambiguities (get-output~ fact)))
+                  (put fact name))))
+            (let ((ambiguities (get-output fact)))
               (when (not-null? ambiguities)
                 (let ((message
                         `(<span>
@@ -138,12 +139,12 @@
           (set! anchor-names  (make-table test: eq?))
           (set! next-section  1))
         
-        (user-feedback "Generating {a}..." (get-property~ section 'name))
+        (user-feedback "Generating {a}..." (get-property section 'name))
         (reset-section)
         (let ((html (section-output section sections)))
-          (when (and (or (generate-manual?) (not (get-property~ section 'manual? #f)))
-                     (or (generate-reference?) (not (equal? (get-property~ section 'projects) '(:reference)))))
-            (put~ pages `(<page> path: ,(format "{a}" (section-path section))
+          (when (and (or (generate-manual?) (not (get-property section 'manual? #f)))
+                     (or (generate-reference?) (not (equal? (get-property section 'projects) '(:reference)))))
+            (put pages `(<page> path: ,(format "{a}" (section-path section))
                            ,html))))
         (validate-anchor-names))
       
@@ -152,15 +153,15 @@
           (let ((output (new List-Factory)))
             (for-each (lambda (node)
                         (if (is? node JML-Element)
-                            (case (get-tag~ node)
+                            (case (get-tag node)
                               ((section)) ;; section will get its own page
-                              ((article) (output-article node 1 output))
+                              ((article) (output-article self node 1 output))
                               (else (error "Ill-formed section")))
                           (error "Ill-formed section")))
-                      (get-children~ section))
-            (get-output~ output)))
+                      (get-children section))
+            (get-output output)))
         
-        (let ((title (get-property~ section 'title)))
+        (let ((title (get-property section 'title)))
           `(<html>
              (<head>
                (<link> href: "css/master.css" rel: "stylesheet" type: "text/css")
@@ -170,8 +171,8 @@
                  (<h1> id: "title" ,(or website-title "JazzScheme"))
                  (<div> id: "sectionnav" ,@(navigation-output section sections))
                  (<div> id: "content"
-                   ,@(if (get-property~ section 'manual? #f)
-                         (manual-output section)
+                   ,@(if (get-property section 'manual? #f)
+                         (manual-output self section)
                        (section-content-output section))
                    (<div> id: "footer"
                      (<p> ,(or website-copyright "Copyright &copy; 1996-2015 Guillaume Cartier")))))))))
@@ -180,21 +181,21 @@
         (let ((output (new List-Factory)))
           (for-each (lambda (info)
                       (bind (sec . subsecs) info
-                        (let ((name (get-property~ sec 'name))
+                        (let ((name (get-property sec 'name))
                               (path (format "{a}.htm" (section-path sec)))
-                              (title (get-property~ sec 'title))
+                              (title (get-property sec 'title))
                               (selected? (eq? sec section)))
-                          (put~ output `(<a> class: "section" href: ,path ,(if selected? `(<b> ,title) title)))
+                          (put output `(<a> class: "section" href: ,path ,(if selected? `(<b> ,title) title)))
                           (when (or (eq? sec section) (memq? section subsecs))
                             (for-each (lambda (subsec)
-                                        (let ((name (get-property~ subsec 'name))
+                                        (let ((name (get-property subsec 'name))
                                               (path (format "{a}.htm" (section-path subsec)))
-                                              (title (get-property~ subsec 'title))
+                                              (title (get-property subsec 'title))
                                               (selected? (eq? subsec section)))
-                                          (put~ output `(<a> class: "subsection" href: ,path ,(if selected? `(<b> ,title) title)))))
+                                          (put output `(<a> class: "subsection" href: ,path ,(if selected? `(<b> ,title) title)))))
                                       subsecs)))))
                     sections)
-          (get-output~ output)))
+          (get-output output)))
       
       (for-each (lambda (info)
                   (bind (section . subsections) info
@@ -209,7 +210,7 @@
       (process-sections sections pages)
       (user-feedback "Parsing website...")
       `(<website>
-         ,@(get-output~ pages))))
+         ,@(get-output pages))))
   
   
   ;;;
@@ -218,7 +219,7 @@
   
   
   (definition (section-path section)
-    (let ((name (get-property~ section 'name)))
+    (let ((name (get-property section 'name)))
       (if (eq? name 'home)
           'index
         name)))
@@ -229,40 +230,40 @@
   ;;;
   
   
-  (method (manual-output section)
-    (let* ((title (get-property~ section 'title))
-           (project-paths (get-property~ section 'projects '()))
-           (projects (sort string<? (apply append (map find-docs project-paths)) key: present-doc-title))
-           (cataloguer (new-manual-cataloguer projects))
-           (content (manual-content-output cataloguer projects))
-           (index (if (get-property~ section 'index? #t) (index-output) '()))
-           (toc (toc-output projects))
-           (summary (summary-output title section projects)))
+  (method (manual-output self section)
+    (let* ((title (get-property section 'title))
+           (project-paths (get-property section 'projects '()))
+           (projects (sort string<? (apply append (map (~ find-docs self) project-paths)) key: present-doc-title))
+           (cataloguer (new-manual-cataloguer self projects))
+           (content (manual-content-output self cataloguer projects))
+           (index (if (get-property section 'index? #t) (index-output self) '()))
+           (toc (toc-output self projects))
+           (summary (summary-output self title section projects)))
       (append summary
               content
               toc
               index)))
   
   
-  (method (standalone-manual-output projects)
+  (method (standalone-manual-output self projects)
     (set! anchors       (make-table test: eq?))
     (set! anchor-names  (make-table test: eq?))
     (set! next-section  1)
-    (let ((cataloguer (new-manual-cataloguer projects)))
-      (manual-content-output cataloguer projects)))
+    (let ((cataloguer (new-manual-cataloguer self projects)))
+      (manual-content-output self cataloguer projects)))
   
   
-  (method (new-manual-cataloguer projects)
+  (method (new-manual-cataloguer self projects)
     (let ((cataloguer (new Cataloguer)))
       (for-each (lambda (project)
-                  (let ((name (get-name~ project)))
+                  (let ((name (get-name project)))
                     (let ((catalog (new Component-Catalog name project)))
-                      (add-catalog~ cataloguer catalog))))
+                      (add-catalog cataloguer catalog))))
                 projects)
       cataloguer))
   
   
-  (method (manual-content-output cataloguer projects)
+  (method (manual-content-output self cataloguer projects)
     (define (output-manual-doc cataloguer doc level path output)
       (typecase doc
         ((Project-Doc)    (output-manual-project    cataloguer doc level path output))
@@ -286,36 +287,36 @@
         (else             (error "Unable to output doc for: {s}" doc))))
     
     (define (output-manual-project cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
+      (output-anchor self doc output)
+      (put output `(<h3> class: "section1" ,(get-effective-title doc)))
       (output-doc-description doc output)
       (output-manual-doc-children cataloguer doc level path output))
     
     (define (output-manual-section cataloguer doc level path output)
-      (output-anchor doc output)
-      (let ((title (format "{a}. {a}" (present-toc-path path) (get-effective-title~ doc))))
+      (output-anchor self doc output)
+      (let ((title (format "{a}. {a}" (present-toc-path path) (get-effective-title doc))))
         (case level
-          ((1) (put~ output `(<h3> class: "section1" ,title)))
-          ((2) (put~ output `(<h4> class: "section2" ,title)))
-          (else (put~ output `(<h4> class: "section3" ,title)))))
+          ((1) (put output `(<h3> class: "section1" ,title)))
+          ((2) (put output `(<h4> class: "section2" ,title)))
+          (else (put output `(<h4> class: "section3" ,title)))))
       (output-doc-description doc output)
       (output-manual-doc-children cataloguer doc level path output))
     
     (define (output-manual-package cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
+      (output-anchor self doc output)
+      (put output `(<h3> class: "section1" ,(get-effective-title doc)))
       (output-doc-description doc output)
       (output-manual-doc-children cataloguer doc level path output))
     
     (define (output-manual-unit cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
+      (output-anchor self doc output)
+      (put output `(<h3> class: "section1" ,(get-effective-title doc)))
       (output-doc-description doc output)
       (output-manual-doc-children cataloguer doc level path output))
     
     (define (output-manual-module cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
+      (output-anchor self doc output)
+      (put output `(<h3> class: "section1" ,(get-effective-title doc)))
       (output-doc-description doc output)
       (output-manual-doc-children cataloguer doc level path output
         sort?: #t
@@ -323,140 +324,140 @@
                (cons (if (is? child Category-Doc)
                          2
                        1)
-                     (get-effective-title~ child)))))
+                     (get-effective-title child)))))
     
     (define (output-manual-export cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<docterm> "native" (<span> class: "definition" ,(get-effective-title~ doc))))
+      (output-anchor self doc output)
+      (put output `(<docterm> "native" (<span> class: "definition" ,(get-effective-title doc))))
       (output-doc-description doc output)
       (output-doc-examples doc output))
     
     (define (output-manual-definition cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<docterm> "definition" ,(present-text~ doc)))
+      (output-anchor self doc output)
+      (put output `(<docterm> "definition" ,(present-text doc)))
       (output-doc-description doc output)
       (output-doc-examples doc output))
     
     (define (output-manual-generic cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<docterm> "generic" ,(present-text~ doc)))
+      (output-anchor self doc output)
+      (put output `(<docterm> "generic" ,(present-text doc)))
       (output-doc-description doc output)
       (output-doc-examples doc output))
     
     (define (output-manual-interface cataloguer doc level path output)
-      (define (get-definition doc)
-        (get-definition~ cataloguer doc))
+      (define (get-cataloguer-definition doc)
+        (get-definition cataloguer doc))
       
-      (output-anchor doc output)
-      (put~ output `(<h4> class: "interface" ,(get-effective-title~ doc)))
-      (let ((ascendants (collect get-definition (get-ascendants~ doc))))
+      (output-anchor self doc output)
+      (put output `(<h4> class: "interface" ,(get-effective-title doc)))
+      (let ((ascendants (collect get-cataloguer-definition (get-ascendants doc))))
         (when (not-null? ascendants)
-          (put~ output `(<p>))
-          (put~ output "extends")
+          (put output `(<p>))
+          (put output "extends")
           (let ((first? #t))
             (for-each (lambda (ascendant-doc)
                         (if first?
                             (set! first? #f)
-                          (put~ output ", "))
-                        (put~ output `(<a> href: ,(format "#{a}" (get-name~ ascendant-doc)) ,(get-effective-title~ ascendant-doc))))
+                          (put output ", "))
+                        (put output `(<a> href: ,(format "#{a}" (get-name ascendant-doc)) ,(get-effective-title ascendant-doc))))
                       ascendants))
-          (put~ output `(<p>))))
+          (put output `(<p>))))
       (output-doc-description doc output)
       (output-manual-doc-children cataloguer doc level path output sort?: #f))
     
     (define (output-manual-class cataloguer doc level path output)
-      (define (get-definition doc)
-        (get-definition~ cataloguer doc))
+      (define (get-cataloguer-definition doc)
+        (get-definition cataloguer doc))
       
-      (output-anchor doc output)
-      (put~ output `(<h4> class: "class" ,(get-effective-title~ doc)))
-      (let ((ascendant (get-ascendant~ doc)))
+      (output-anchor self doc output)
+      (put output `(<h4> class: "class" ,(get-effective-title doc)))
+      (let ((ascendant (get-ascendant doc)))
         (when ascendant
-          (let ((ascendant-doc (get-definition ascendant)))
+          (let ((ascendant-doc (get-cataloguer-definition ascendant)))
             (when ascendant-doc
-              (put~ output `(<p>))
-              (put~ output "extends")
-              (put~ output `(<a> href: ,(format "#{a}" ascendant) ,(get-effective-title~ ascendant-doc)))
-              (put~ output `(<p>))))))
-      (let ((interfaces (collect get-definition (get-interfaces~ doc))))
+              (put output `(<p>))
+              (put output "extends")
+              (put output `(<a> href: ,(format "#{a}" ascendant) ,(get-effective-title ascendant-doc)))
+              (put output `(<p>))))))
+      (let ((interfaces (collect get-cataloguer-definition (get-interfaces doc))))
         (when (not-null? interfaces)
-          (put~ output `(<p>))
-          (put~ output "implements")
+          (put output `(<p>))
+          (put output "implements")
           (let ((first? #t))
             (for-each (lambda (interface-doc)
                         (if first?
                             (set! first? #f)
-                          (put~ output ", "))
-                        (put~ output `(<a> href: ,(format "#{a}" (get-name~ interface-doc)) ,(get-effective-title~ interface-doc))))
+                          (put output ", "))
+                        (put output `(<a> href: ,(format "#{a}" (get-name interface-doc)) ,(get-effective-title interface-doc))))
                       interfaces))
-          (put~ output `(<p>))))
+          (put output `(<p>))))
       (output-doc-description doc output)
       (output-manual-doc-children cataloguer doc level path output sort?: #f))
     
     (define (output-manual-form cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<p> class: "form-definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(or (get-parameters~ doc) ""))))
+      (output-anchor self doc output)
+      (put output `(<p> class: "form-definition" (<b> ,(get-effective-title doc)) " " (<i> ,(or (get-parameters doc) ""))))
       (output-doc-description doc output))
     
     (define (output-manual-concept cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
+      (output-anchor self doc output)
+      (put output `(<p> class: "definition" (<b> ,(get-effective-title doc))))
       (output-doc-description doc output))
     
     (define (output-manual-syntax cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<docterm> "syntax" ,(present-text~ doc)))
+      (output-anchor self doc output)
+      (put output `(<docterm> "syntax" ,(present-text doc)))
       (output-doc-description doc output))
     
     (define (output-manual-primitive cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
+      (output-anchor self doc output)
+      (put output `(<p> class: "definition" (<b> ,(get-effective-title doc))))
       (output-doc-description doc output))
     
     (define (output-manual-constant cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
+      (output-anchor self doc output)
+      (put output `(<p> class: "definition" (<b> ,(get-effective-title doc))))
       (output-doc-description doc output))
     
     (define (output-manual-slot cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<docterm> "slot" ,(present-text~ doc)))
+      (output-anchor self doc output)
+      (put output `(<docterm> "slot" ,(present-text doc)))
       (output-doc-description doc output))
     
     (define (output-manual-property cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<docterm> "property" ,(present-text~ doc)))
+      (output-anchor self doc output)
+      (put output `(<docterm> "property" ,(present-text doc)))
       (output-doc-description doc output))
     
     (define (output-manual-method cataloguer doc level path output)
-      (output-anchor doc output)
-      (put~ output `(<docterm> ,(if (eq? (get-propagation~ doc) 'virtual)
+      (output-anchor self doc output)
+      (put output `(<docterm> ,(if (eq? (get-propagation doc) 'virtual)
                                     "virtual method"
                                   "method")
-                      ,(present-text~ doc)))
+                      ,(present-text doc)))
       (output-doc-description doc output)
       (output-doc-examples doc output))
     
     (define (output-doc-description doc output)
-      (let ((description (get-description~ doc)))
+      (let ((description (get-description doc)))
         (when description
-          (bind (tag . paragraphs) (->jml~ (form->node description))
-            (put-sequence~ output paragraphs)))))
+          (bind (tag . paragraphs) (->jml (form->node description))
+            (put-sequence output paragraphs)))))
     
     (define (output-doc-examples doc output)
-      (let ((examples (get-examples~ doc)))
+      (let ((examples (get-examples doc)))
         (when (not-null? examples)
-          (put~ output `(<p>))
-          (put~ output `(<p> "Examples"))
-          (put~ output `(<node>
+          (put output `(<p>))
+          (put output `(<p> "Examples"))
+          (put output `(<node>
                           ,@(map (lambda (example)
-                                   (bind (tag . rest) (->jml~ (form->node example))
+                                   (bind (tag . rest) (->jml (form->node example))
                                      `(<span> ,@rest)))
-                                 (get-children~ examples)))))))
+                                 (get-children examples)))))))
     
     (define (output-manual-doc-children cataloguer doc level path output (sort?: sort? #f) (key: key #f))
-      (let* ((sort? (or sort? (and (is? doc Section-Doc) (get-sort?~ doc))))
-             (children (effective-manual-doc-children doc))
+      (let* ((sort? (or sort? (and (is? doc Section-Doc) (get-sort? doc))))
+             (children (effective-manual-doc-children self doc))
              (sorted (if sort?
                          (sort nu<? children key: (or key present-doc-title))
                        children)))
@@ -473,64 +474,64 @@
                       (output-manual-doc cataloguer project 0 '() output)
                     (output-manual-doc-children cataloguer project 0 '() output)))
                 projects)
-      (get-output~ output)))
+      (get-output output)))
   
   
-  (method (effective-manual-doc-children doc)
+  (method (effective-manual-doc-children self doc)
     (let ((fact (new List-Factory)))
       (for-each (lambda (child)
                   (if (is? child Doc-Insert)
-                      (let* ((path (get-path~ child))
-                             (docs (find-docs path)))
-                        (put-sequence~ fact docs))
-                    (put~ fact child)))
-                (get-children~ doc))
-      (get-output~ fact)))
+                      (let* ((path (get-path child))
+                             (docs (find-docs self path)))
+                        (put-sequence fact docs))
+                    (put fact child)))
+                (get-children doc))
+      (get-output fact)))
   
   
-  (method (find-docs path)
+  (method (find-docs self path)
     (let* ((appl (get-application))
-           (cataloguer (get-documentation-cataloguer~ appl))
+           (cataloguer (get-documentation-cataloguer appl))
            (docs (new List-Factory)))
       (bind (name . rest) (if (symbol? path) (list path) path)
         (if (eq? name :reference)
             (let ((reference-dir (or docs-reference-dir {Directory Jazz "lib" "jazz.website" "reference"})))
-              (when (exists?~ reference-dir)
-                (iterate-directory~ reference-dir
+              (when (exists? reference-dir)
+                (iterate-directory reference-dir
                   (lambda (file)
-                    (when (extension=? (get-extension~ file) "jml")
-                      (put~ docs (instantiate~ (read-form file))))))))
-          (let ((catalog (find-active-catalog~ cataloguer name)))
+                    (when (extension=? (get-extension file) "jml")
+                      (put docs (instantiate (read-form file))))))))
+          (let ((catalog (find-active-catalog cataloguer name)))
             (assert catalog)
             (cond ((null? rest)
-                   (put~ docs (get-client~ catalog)))
+                   (put docs (get-client catalog)))
                   ((equal? rest '(*))
-                   (let ((parent (get-project~ catalog)))
+                   (let ((parent (get-project catalog)))
                      (for-each (lambda (catalog)
-                                 (when (eq? (get-parent-project~ (get-project~ catalog)) parent)
-                                   (put~ docs (get-client~ catalog))))
-                               (get-catalogs~ cataloguer))))
+                                 (when (eq? (get-parent-project (get-project catalog)) parent)
+                                   (put docs (get-client catalog))))
+                               (get-catalogs cataloguer))))
                   (else
                    (unimplemented 'find-docs))))))
-      (get-output~ docs)))
+      (get-output docs)))
   
   
-  (method (output-anchor doc output)
-    (let ((name (get-name~ doc))
-          (anchor (register-anchor doc (get-name~ doc) anchors)))
-      (put~ output `(<a> name: ,anchor))
+  (method (output-anchor self doc output)
+    (let ((name (get-name doc))
+          (anchor (register-anchor self doc (get-name doc) anchors)))
+      (put output `(<a> name: ,anchor))
       (when name
         (table-add anchor-names name doc))))
   
   
-  (method (register-anchor object name anchors)
+  (method (register-anchor self object name anchors)
     (let ((anchor (if name (->string name) (prog1 (format "SEC{a}" next-section) (increase! next-section)))))
       (table-set! anchors object anchor)
       anchor))
   
   
-  (pattern (docterm node)
-    (let ((children (get-children~ node)))
+  (pattern (docterm self node)
+    (let ((children (get-children node)))
       (let ((term (first children))
             (body (second children)))
         `(<table> width: "100%"
@@ -544,7 +545,7 @@
   ;;;
   
   
-  (method (summary-output title section projects)
+  (method (summary-output self title section projects)
     (define (doc-summary-output doc level path)
       (let* ((title (present-doc-title doc))
              (text (format "{a}. {a}" (present-toc-path path) title))
@@ -561,7 +562,7 @@
                           (naturals 0 (length children)))))))))
     
     (define (collect-summary-children doc)
-      (let ((children (effective-manual-doc-children doc)))
+      (let ((children (effective-manual-doc-children self doc)))
         (collect-if has-project-descendant?
                     (sort string<? children key: present-doc-title))))
     
@@ -570,7 +571,7 @@
         (define (iter doc)
           (typecase doc
             ((Project-Doc) (set! has? #t))
-            ((Section-Doc) (for-each iter (effective-manual-doc-children doc)))))
+            ((Section-Doc) (for-each iter (effective-manual-doc-children self doc)))))
         
         (iter doc)
         has?))
@@ -579,10 +580,10 @@
     `((<div> style: "margin-top: 22;")
       (<h3> class: "summary" ,title)
       (<div> class: "summary_toc" (<a> href: "#TOC" "Table of Contents"))
-      ,@(if (get-property~ section 'index? #t)
+      ,@(if (get-property section 'index? #t)
             `((<div> class: "summary_index" (<a> href: "#INDEX" "Index")))
           `((<p>)))
-      ,@(let ((docs (if (= (length projects) 1) (get-children~ (car projects)) projects)))
+      ,@(let ((docs (if (= (length projects) 1) (get-children (car projects)) projects)))
           (map (lambda (doc rank)
                  (doc-summary-output doc 1 (list (+ rank 1))))
                docs
@@ -594,7 +595,7 @@
   ;;;
   
   
-  (method (toc-output projects)
+  (method (toc-output self projects)
     (define (doc-toc-output doc level path)
       (let* ((title (present-doc-title doc))
              (text (format "{a}. {a}" (present-toc-path path) title))
@@ -613,7 +614,7 @@
                           (naturals 0 (length children)))))))))
     
     (define (collect-toc-children doc)
-      (let ((children (effective-manual-doc-children doc)))
+      (let ((children (effective-manual-doc-children self doc)))
         (collect-if (lambda (child)
                       (or (is? child Project-Doc)
                           (is? child Section-Doc)
@@ -625,7 +626,7 @@
     
     (user-feedback "Generating Table of Contents...")
     `((<a> name: "TOC" (<h3> class: "toc" "Table of Contents"))
-      ,@(let ((docs (if (= (length projects) 1) (get-children~ (car projects)) projects)))
+      ,@(let ((docs (if (= (length projects) 1) (get-children (car projects)) projects)))
           (map (lambda (doc rank)
                  (doc-toc-output doc 1 (list (+ rank 1))))
                docs
@@ -633,7 +634,7 @@
   
   
   (definition (present-doc-title doc)
-    (get-effective-title~ doc))
+    (get-effective-title doc))
   
   
   (definition (present-toc-path path)
@@ -645,15 +646,15 @@
   ;;;
   
   
-  (method (index-output)
+  (method (index-output self)
     (define (output-letter letter letter-anchors output)
       (bind (char . infos) letter
-        (let ((anchor (register-anchor letter #f letter-anchors)))
-          (put~ output `(<tr> (<td> colspan: "2" (<div> class: "index-letter" (<a> name: ,anchor ,(string char)))))))
+        (let ((anchor (register-anchor self letter #f letter-anchors)))
+          (put output `(<tr> (<td> colspan: "2" (<div> class: "index-letter" (<a> name: ,anchor ,(string char)))))))
         (for-each (lambda (info)
                     (bind (doc anchor title) info
                       (let ((anchor (format "#{a}" anchor)))
-                        (put~ output `(<tr>
+                        (put output `(<tr>
                                         (<td>)
                                         (<td> (<a> href: ,anchor (<code> ,title))))))))
                   infos)))
@@ -665,8 +666,8 @@
       (let ((lst '()))
         (iterate-table anchors
           (lambda (doc anchor)
-            (when (get-name~ doc)
-              (let ((title (get-effective-title~ doc)))
+            (when (get-name doc)
+              (let ((title (get-effective-title doc)))
                 (set! lst (cons (list doc anchor title) lst))))))
         (sort nu<? lst key: third)))
     
@@ -680,15 +681,15 @@
                  (for-each (lambda (letter)
                              (let ((char (car letter))
                                    (anchor (format "#{a}" (table-ref letter-anchors letter #f))))
-                               (put~ output `(<a> class: "letter-navigator" href: ,anchor (<b> ,(string char))))
-                               (put~ output "&nbsp;")))
+                               (put output `(<a> class: "letter-navigator" href: ,anchor (<b> ,(string char))))
+                               (put output "&nbsp;")))
                            letter-set))))
         (when (not-null? non-alpha)
           (process-letter-set non-alpha)
-          (put~ output `(<br>)))
+          (put output `(<br>)))
         (when (not-null? alpha)
           (process-letter-set alpha))
-        (get-output~ output)))
+        (get-output output)))
     
     (define (alphabetic-partition letters)
       (partition letters key: (lambda (letter)
@@ -705,7 +706,7 @@
       `((<a> name: "INDEX" (<h3> class: "index" "Index"))
         ,@(index-navigator letters letter-anchors)
         (<table> width: "100%"
-          ,@(get-output~ output)))))
+          ,@(get-output output)))))
   
   
   ;;;
@@ -713,26 +714,26 @@
   ;;;
   
   
-  (method (output-article article level output)
+  (method (output-article self article level output)
     (define (output-article-description article description level output)
-      (put~ output
+      (put output
         `(<div>
-           ,@(let ((name (get-property~ article 'name)))
+           ,@(let ((name (get-property article 'name)))
                (if (not name)
                    '()
                  `((<a> name: ,(->string name)))))
-           ,(let ((title (get-property~ article 'title)))
+           ,(let ((title (get-property article 'title)))
               (case level
                 ((1) `(<h3> ,title))
                 ((2) `(<h4> class: "section2" ,title))
                 (else `(<h4> class: "section3" ,title))))
-           ,@(children->jml~ description))))
+           ,@(children->jml description))))
     
     (for-each (lambda (node)
                 (if (is? node JML-Element)
-                    (case (get-tag~ node)
+                    (case (get-tag node)
                       ((description) (output-article-description article node level output))
-                      ((article) (output-article node (+ level 1) output))
+                      ((article) (output-article self node (+ level 1) output))
                       (else (error "Ill-formed article")))
                   (error "Ill-formed article")))
-              (get-children~ article)))))
+              (get-children article)))))

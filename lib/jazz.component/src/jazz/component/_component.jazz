@@ -39,11 +39,14 @@
 
 
 (export (jazz.component.autoload)
+        (jazz.component.hubs)
         (jazz.component.syntax))
 
 (import (jazz.component.autoload)
+        (jazz.component.hubs)
         (jazz.io)
         (jazz.jml)
+        (jazz.reference)
         (jazz.version))
 
 
@@ -80,7 +83,7 @@
   (let ((form (let ((form (read-form file)))
                 (register-file-form file form)
                 form)))
-    (apply instantiate~ form rest)))
+    (apply instantiate form rest)))
 
 
 ;;;
@@ -116,18 +119,18 @@
   (parameterize ((walk-for #f))
     (let ((expr (read input)))
       (if (eof-object? expr)
-          (error "No expression found in form{?~: {a}~}" (and file (parse~ file)))
+          (error "No expression found in form{?~: {a}~}" (and file (parse file)))
         (let ((form (parse-form expr file)))
-          (set-origin~ form file)
+          (set-origin form file)
           form)))))
 
 
 (definition public (parse-form expr (file #f))
-  (define (parse expr proc)
+  (define (parse-expr expr proc)
     (if (and (pair? expr)
              (eq? (car expr) 'data))
         (parse-data expr proc)
-      (error "Ill-formed data{? in: {a}~}" (and file (parse~ file)))))
+      (error "Ill-formed data{? in: {a}~}" (and file (parse file)))))
   
   (define (parse-data expr proc)
     (bind (data dialect . info) expr
@@ -139,12 +142,12 @@
                 (if version (apply new Version (cdr version)) #f)
                 dialect
                 (if import (cdr import) #f)
-                (if file (new Alias (get-list~ (get-parent~ file))) #f))
+                (if file (new Alias (get-list (get-parent file))) #f))
               (cadr form)))))
   
-  (parse expr
-         (lambda (data form)
-           (construct-form form (imports-locator (effective-imports~ data)) data))))
+  (parse-expr expr
+    (lambda (data form)
+      (construct-form form (imports-locator (effective-imports data)) data))))
 
 
 (definition public (imports-locator imports)
@@ -190,13 +193,13 @@
         ((= 1 (length components))
          (first components))
         (else
-         (common-ancestor (remove-false (remove-duplicates (map get-parent~ components)))))))
+         (common-ancestor (remove-false (remove-duplicates (map get-parent components)))))))
 
 
 (definition public (collect-oldest-ancestors components common-ancestor)
   (collect-if (lambda (component)
                 (or (eq? component common-ancestor)
-                    (let ((ancestry (component-ancestry (get-parent~ component) common-ancestor)))
+                    (let ((ancestry (component-ancestry (get-parent component) common-ancestor)))
                       (every? (lambda (ancestor)
                                 (not (memq? ancestor components)))
                               ancestry))))
@@ -205,7 +208,7 @@
 
 (definition public (component-owned? component form ancestor)
   (let ((form (component-owned-form component form ancestor)))
-    (and form (eq? (get-action~ form) 'new))))
+    (and form (eq? (get-action form) 'new))))
 
 
 (definition public (component-ancestry component ancestor)
@@ -214,7 +217,7 @@
         (eq? scan ancestor)
       (error "{t} is not a descendant of the reference component {t}" component ancestor)))
   
-  (unfold-right end? identity get-parent~ component))
+  (unfold-right end? identity get-parent component))
 
 
 (definition public (component-in-reference-descendants? component ancestor)
@@ -225,7 +228,7 @@
             (eq? scan ancestor)
           (continuation-return exit #f)))
       
-      (unfold-right end? identity get-parent~ component))))
+      (unfold-right end? identity get-parent component))))
 
 
 (definition public (component-owned-form component form ancestor)
@@ -236,9 +239,9 @@
   (if (null? ancestry)
       form
     (let ((cpn (car ancestry)))
-      (let ((subforms (get-children~ form))
-            (cpn-form (get-form~ cpn))
-            (name (get-name~ cpn)))
+      (let ((subforms (get-children form))
+            (cpn-form (get-form cpn))
+            (name (get-name cpn)))
         (cond ((not cpn-form)
                #f)
               ((memq? cpn-form subforms)
@@ -246,15 +249,15 @@
               ((not name)
                #f)
               (else
-               (let ((subform (find-in subforms name key: get-name~ test: equal?)))
+               (let ((subform (find-in subforms name key: get-name test: equal?)))
                  (and subform (owned-form subform (cdr ancestry))))))))))
 
 
 (definition public (ownership-level owned-form)
   (and owned-form
-       (case (get-action~ owned-form)
+       (case (get-action owned-form)
           ((new install) 'create)
-          (else (if (null? (get-properties~ owned-form))
+          (else (if (null? (get-properties owned-form))
                     'traverse
                   'modify)))))
 
@@ -264,18 +267,18 @@
     (if (eq? component ascendant)
         form
       (let ((owned-form (owned-form form (component-ancestry cur ascendant))))
-        (or owned-form (loop (get-parent~ cur)))))))
+        (or owned-form (loop (get-parent cur)))))))
 
 
 (definition public (ancestry-traits-owned-forms component ascendant form)
-  (let (loop (current-form (first-ancestry-owned-form (get-parent~ component) ascendant form))
+  (let (loop (current-form (first-ancestry-owned-form (get-parent component) ascendant form))
              (traits-owned-forms '()))
     (if current-form
-        (let ((traits (get-traits~ current-form component)))
-          (loop (get-parent~ current-form)
+        (let ((traits (get-traits current-form component)))
+          (loop (get-parent current-form)
                 (append traits-owned-forms
                         (collect (lambda (trait)
-                                   (let ((trait-form (get-client-form~ trait)))
+                                   (let ((trait-form (get-client-form trait)))
                                      (owned-form trait-form (component-ancestry component ascendant))))
                                  traits))))
       traits-owned-forms)))
@@ -283,39 +286,39 @@
 
 (definition public (component-ascendant-owned-forms component ascendant)
   (let* ((ancestry (component-ancestry component ascendant))
-         (class-forms (reverse (get-class-forms~ ascendant))))
+         (class-forms (reverse (get-class-forms ascendant))))
     (append-map (lambda (class-form)
                   (let ((owned-form (owned-form class-form ancestry)))
                     (append (ancestry-traits-owned-forms component ascendant class-form)
                             (if owned-form
-                                (append (map get-client-form~ (get-traits~ owned-form component))
+                                (append (map get-client-form (get-traits owned-form component))
                                         (list owned-form))
                               '()))))
                 class-forms)))
 
 
 (definition public (component-forms component)
-  (let (loop (ascendant (get-parent~ component))
+  (let (loop (ascendant (get-parent component))
              (forms '()))
     (if ascendant
-        (loop (get-parent~ ascendant)
+        (loop (get-parent ascendant)
               (append forms (component-ascendant-owned-forms component ascendant)))
         forms)))
 
 
 
 (definition public (common-root-component component-list)
-  (let ((roots (remove-duplicates (map get-root-parent~ component-list))))
+  (let ((roots (remove-duplicates (map get-root-parent component-list))))
     (when (pair? roots)
       (car roots))))
 
 
-(definition public (component-descendant-value-list component (filter-proc: filter-proc identity) (map-proc: map-proc get-name~)) 
-  (remove-duplicates (map map-proc (collect-if filter-proc (collect-descendants~ component)))))
+(definition public (component-descendant-value-list component (filter-proc: filter-proc identity) (map-proc: map-proc get-name)) 
+  (remove-duplicates (map map-proc (collect-if filter-proc (collect-descendants component)))))
 
 
 (definition public (root-creator component)
-  (let ((creator (get-creator~ component)))
+  (let ((creator (get-creator component)))
     (if (and creator (not (eq? creator component)))
         (root-creator creator)
       component)))
@@ -327,8 +330,8 @@
 
 
 (definition public (instantiate-trait type form)
-  (let ((trait (instantiate~ form)))
-    (setup-client-type~ trait type)
+  (let ((trait (instantiate form)))
+    (setup-client-type trait type)
     trait))
 
 
@@ -339,7 +342,7 @@
         ((is? obj Trait)
          obj)
         ((is? obj Trait-Reference)
-         (resolve-parameters~ obj))
+         (parameters-resolve obj))
         (else
          (error "Unable to resolve trait: {s}" obj))))
 
@@ -350,10 +353,10 @@
 
 
 (definition public (find-local-trait context obj)
-  (let ((creator (or (get-creator~ context) context))
+  (let ((creator (or (get-creator context) context))
         (path (split-identifier obj)))
-    (or (locate-component~ creator path)
-        (find-component~ creator path))))
+    (or (locate-component creator path)
+        (find-component creator path))))
 
 
 ;;;

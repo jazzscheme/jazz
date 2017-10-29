@@ -55,29 +55,29 @@
   (slot mutex  initialize (make-mutex))
   
   
-  (method override (initialize name period execute . rest)
+  (method override (initialize self name period execute . rest)
     (bind-keywords ((delay #f) (repeat? #t)) rest
-      (nextmethod)
-      (set! name~self name)
-      (set! period~self period)
-      (set! delay~self delay)
-      (set! repeat?~self repeat?)
-      (set! execute~self execute)
-      (set! thread~self (start-loop))))
+      (nextmethod self)
+      (set! self.name name)
+      (set! self.period period)
+      (set! self.delay delay)
+      (set! self.repeat? repeat?)
+      (set! self.execute execute)
+      (set! self.thread (start-loop self))))
   
   
-  (method override (destroy)
+  (method override (destroy self)
     (mutex-lock! mutex)
     (when thread
-      (let ((thread thread~self))
-        (set! thread~self #f)
+      (let ((thread self.thread))
+        (set! self.thread #f)
         (mutex-unlock! mutex)
         (exit-thread thread)))
     (mutex-unlock! mutex)
-    (nextmethod))
+    (nextmethod self))
   
   
-  (method (terminated?)
+  (method (terminated? self)
     (not thread))
   
   
@@ -86,14 +86,14 @@
   ;;;
   
   
-  (method (start-loop)
+  (method (start-loop self)
     (thread-start!
       (new-thread
         (lambda ()
           (declare (proper-tail-calls))
           (let (loop (timeout (or delay period)))
             (sleep timeout)
-            (unless (terminated?)
+            (unless (terminated? self)
               (execute))
             (when repeat?
               (loop period))))

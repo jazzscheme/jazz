@@ -40,7 +40,9 @@
 
 (import (jazz.graphic)
         (jazz.handler)
+        (jazz.io)
         (jazz.jml)
+        (jazz.outline)
         (jazz.tree)
         (jazz.ui)
         (jazz.ui.dialog)
@@ -73,12 +75,12 @@
       (<Push-Button>              name: cancel             title: "Cancel" position: {Point 694 315} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
 
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (let ((tree (get-tree)))
-      (setup-directories tree)
-      (setup-selection tree)
-      (update-buttons)))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (let ((tree (get-tree self)))
+      (setup-directories self tree)
+      (setup-selection self tree)
+      (update-buttons self)))
 
   
   ;;;
@@ -86,8 +88,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'directories-tree))
+  (method package (get-tree self)
+    (locate self 'directories-tree))
 
   
   ;;;
@@ -95,20 +97,20 @@
   ;;;
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Choose Directories")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 450 300})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 782 350})
   
   
-  (method override (focus-default)
-    (acquire-focus~ (get-tree)))
+  (method override (focus-default self)
+    (acquire-focus (get-tree self)))
   
   
   ;;;
@@ -116,53 +118,53 @@
   ;;;
   
   
-  (method (on-action evt)
-    (update-buttons))
+  (method package (on-action self evt)
+    (update-buttons self))
   
   
-  (method (on-selection-change evt)
-    (update-buttons))
+  (method package (on-selection-change self evt)
+    (update-buttons self))
   
   
-  (method (on-add-directory evt)
-    (let ((tree (get-tree))
+  (method (on-add-directory self evt)
+    (let ((tree (get-tree self))
           (directory (choose-directory)))
       (set! directories (append directories (list directory)))
-      (update)
-      (select-user-data-row~ tree directory)))
+      (update self)
+      (select-user-data-row tree directory)))
   
   
-  (method (on-remove-directory evt)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree))
+  (method (on-remove-directory self evt)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree))
            (directory (element directories selection)))
       (set! directories (remove directory directories))
-      (update)
-      (when (< selection (get-visible-count~ tree))
-        (set-single-selection~ tree selection))
-      (update-buttons)))
+      (update self)
+      (when (< selection (get-visible-count tree))
+        (set-single-selection tree selection))
+      (update-buttons self)))
   
   
-  (method (on-move-up evt)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree))
+  (method (on-move-up self evt)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree))
            (directory (element directories selection)))
       (set! directories (remove! directory directories))
       (set! directories (insert! directories (- selection 1) directory))
-      (setup-directories tree)
-      (acquire-focus~ tree)
-      (set-single-selection~ tree (- selection 1))))
+      (setup-directories self tree)
+      (acquire-focus tree)
+      (set-single-selection tree (- selection 1))))
   
   
-  (method (on-move-down evt)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree))
+  (method (on-move-down self evt)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree))
            (directory (element directories selection)))
       (set! directories (remove! directory directories))
       (set! directories (insert! directories (+ selection 1) directory))
-      (setup-directories tree)
-      (acquire-focus~ tree)
-      (set-single-selection~ tree (+ selection 1))))
+      (setup-directories self tree)
+      (acquire-focus tree)
+      (set-single-selection tree (+ selection 1))))
   
   
   @wait
@@ -171,15 +173,15 @@
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (let ((dialog (get-host)))
-      (end-modal~ dialog (get-modal-result~ dialog))))
+  (method override (on-return-press self evt)
+    (let ((dialog (get-host self)))
+      (end-modal dialog (get-modal-result dialog))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
 
   
   ;;;
@@ -187,22 +189,22 @@
   ;;;
   
   
-  (method (update)
-    (setup-directories (get-tree)))
+  (method package (update self)
+    (setup-directories self (get-tree self)))
 
   
-  (method (setup-directories tree)
-    (remove-every-row~ tree)
-    (with-update-locked~ tree
+  (method (setup-directories self tree)
+    (remove-every-row tree)
+    (with-update-locked tree
       (lambda ()
         (for-each (lambda (directory)
-                    (add-row~ tree children: (list (new Tree-Node title: (present~ directory))) user-data: directory))
+                    (add-row tree children: (list (new Tree-Node title: (present directory))) user-data: directory))
                   directories))))
   
   
-  (method (setup-selection tree)
+  (method (setup-selection self tree)
     (when (not-null? directories)
-      (set-selection~ tree (list 0))))
+      (set-selection tree (list 0))))
   
   
   ;;;
@@ -210,21 +212,21 @@
   ;;;
   
   
-  (method (update-buttons)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree))
-           (count (get-visible-count~ tree)))
+  (method package (update-buttons self)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree))
+           (count (get-visible-count tree)))
       (if (not selection)
           (begin
-            (set-enabled?~ (locate 'move-up) #f)
-            (set-enabled?~ (locate 'move-down) #f)
-            (set-enabled?~ (locate 'add-directory) #t)
-            (set-enabled?~ (locate 'remove-directory) #f))
+            (set-enabled? (locate self 'move-up) #f)
+            (set-enabled? (locate self 'move-down) #f)
+            (set-enabled? (locate self 'add-directory) #t)
+            (set-enabled? (locate self 'remove-directory) #f))
         (let ((directory (element directories selection)))
-            (set-enabled?~ (locate 'move-up) (> selection 0))
-            (set-enabled?~ (locate 'move-down) (< selection (- count 1)))
-            (set-enabled?~ (locate 'add-directory) #t)
-            (set-enabled?~ (locate 'remove-directory) #t))))
+            (set-enabled? (locate self 'move-up) (> selection 0))
+            (set-enabled? (locate self 'move-down) (< selection (- count 1)))
+            (set-enabled? (locate self 'add-directory) #t)
+            (set-enabled? (locate self 'remove-directory) #t))))
     @wait
     (set-enabled?~ (locate 'reset) defaults))
   
@@ -234,11 +236,11 @@
   ;;;
   
   
-  (method (edit-directory selection)
-    (enter-directory))
+  (method (edit-directory self selection)
+    (enter-directory self))
   
   
-  (method (enter-directory)
+  (method (enter-directory self)
     )
   
   
@@ -247,12 +249,12 @@
   ;;;
   
   
-  (method override (get-modal-result)
-    (enter-directory)
-    (let ((tree (get-tree))
+  (method override (get-modal-result self)
+    (enter-directory self)
+    (let ((tree (get-tree self))
           (directories (new List-Factory)))
-      (for-each-visible-row~ tree
+      (for-each-visible-row tree
         (lambda (row rank)
-          (let ((directory (get-user-data~ row)))
-            (put~ directories directory))))
-      (get-output~ directories)))))
+          (let ((directory (get-user-data row)))
+            (put directories directory))))
+      (get-output directories)))))

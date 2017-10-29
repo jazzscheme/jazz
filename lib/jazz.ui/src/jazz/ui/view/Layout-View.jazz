@@ -67,56 +67,56 @@
   ;;;
   
   
-  (method public (get-layout-type)
+  (method public (get-layout-type self)
     layout-type)
   
   
-  (method public (set-layout-type type)
+  (method public (set-layout-type self type)
     (when (neq? type layout-type)
       (set! layout-type type)
       (when layout-type
-        (layout-view))))
+        (layout-view self))))
   
   
-  (method public (get-layout-insets)
+  (method public (get-layout-insets self)
     layout-insets)
   
   
-  (method public (set-layout-insets insets)
+  (method public (set-layout-insets self insets)
     (set! layout-insets insets)
     (when layout-type
-      (layout-view)))
+      (layout-view self)))
   
   
-  (method public (get-layout-justification)
+  (method public (get-layout-justification self)
     layout-justification)
   
   
-  (method public (set-layout-justification just)
+  (method public (set-layout-justification self just)
     (set! layout-justification just)
     (when layout-type
-      (layout-view)))
+      (layout-view self)))
   
   
-  (method public (get-layout-padding)
+  (method public (get-layout-padding self)
     layout-padding)
   
   
-  (method public (set-layout-padding pad)
+  (method public (set-layout-padding self pad)
     (set! layout-padding pad)
     (when layout-type
-      (layout-view)))
+      (layout-view self)))
   
   
-  (method public (get-layout-fit)
+  (method public (get-layout-fit self)
     layout-fit)
   
   
-  (method public (set-layout-fit fit)
+  (method public (set-layout-fit self fit)
     (when (neq? fit layout-fit)
       (set! layout-fit fit)
       (when layout-fit
-        (layout-view))))
+        (layout-view self))))
 
   
   ;;;
@@ -124,7 +124,7 @@
   ;;;
   
   
-  (method override (inner? view)
+  (method override (inner? self view)
     #f
     @old-inner
     (and layout-type (memq? view children)))
@@ -135,60 +135,60 @@
   ;;;
   
   
-  (method (fill-layout)
+  (method (fill-layout self)
     (let ((op (case layout-justification
                 ((horizontal) layout-fill-horizontal)
                 ((vertical) layout-fill-vertical)
                 (else layout-fill))))
-      (op (get-views) (fill-position) (fill-size))))
+      (op (get-views self) (fill-position self) (fill-size self))))
   
   
-  (method override (layout)
+  (method override (layout self)
     (case layout-type
       ((#f))
       ((gravity)) ;; done in resize
       ((fill)
-       (fill-layout))
+       (fill-layout self))
       ((fit)
        (let ((ly (new Fit-Layout insets: layout-insets)))
-         (layout~ ly self)))
+         (layout ly self)))
       ((center)
-       (let ((size (get-size)))
+       (let ((size (get-size self)))
          (for-each (lambda (child)
                      (when (is? child View)
-                       (let ((pos (center (get-size~ child) size)))
-                         (set-position~ child pos))))
+                       (let ((pos (center (get-size child) size)))
+                         (set-position child pos))))
                    children)))
       ((justify)
-       (let* ((bounds (get-bounds))
-              (rect (expand-rect bounds (get-left~ layout-insets) (get-top~ layout-insets) (- (get-right~ layout-insets)) (- (get-bottom~ layout-insets))))
+       (let* ((bounds (get-bounds self))
+              (rect (expand-rect bounds (get-left layout-insets) (get-top layout-insets) (- (get-right layout-insets)) (- (get-bottom layout-insets))))
               (topleft (rect-position rect))
               (size (rect-size rect)))
          (for-each (lambda (child)
                      (when (is? child View)
-                       (let ((justification (or (get-location~ child) layout-justification)))
+                       (let ((justification (or (get-location child) layout-justification)))
                          (unless (eq? justification 'none)
-                           (let ((pos (nu+ topleft (justify (get-size~ child) size justification))))
-                             (set-position~ child pos))))))
+                           (let ((pos (nu+ topleft (justify (get-size child) size justification))))
+                             (set-position child pos))))))
                    children)))
       ((border)
        (let ((ly (new Border-Layout insets: layout-insets padding: layout-padding fit: layout-fit justification: layout-justification)))
-         (layout~ ly children (get-width) (get-height))))
+         (layout ly children (get-width self) (get-height self))))
       ((snap)
        (let ((ly (new Snap-Layout insets: layout-insets justification: layout-justification padding: layout-padding)))
-         (layout~ ly self children (get-width) (get-height))))
+         (layout ly self children (get-width self) (get-height self))))
       ((flow)
        (let ((ly (new Flow-Layout insets: layout-insets justification: layout-justification padding: layout-padding)))
-         (layout~ ly children (get-width) (get-height))))
+         (layout ly children (get-width self) (get-height self))))
       ((box)
        (let ((ly (new Flow-Layout insets: layout-insets justification: layout-justification padding: layout-padding fill?: #t)))
-         (layout~ ly children (get-width) (get-height))))
+         (layout ly children (get-width self) (get-height self))))
       (else
        (error "Unknown layout type: {s}" layout-type)))
-    (adjust))
+    (adjust self))
   
   
-  (method override (resize dh dv)
+  (method override (resize self dh dv)
     (define (expand-location location)
       (define (invalid)
         (error "Ill-formed location property: {s}" location))
@@ -221,36 +221,36 @@
     
     (define (resize-child view location)
       (receive (h-location v-location) (expand-location location)
-        (move-figure~ view
+        (move-figure view
           (if (eq? h-location 'move) dh 0)
           (if (eq? v-location 'move) dv 0))
-        (size-figure~ view
+        (size-figure view
           (if (eq? h-location 'fill) dh 0)
           (if (eq? v-location 'fill) dv 0))))
     
-    (nextmethod dh dv)
+    (nextmethod self dh dv)
     (when (eq? layout-type 'gravity)
       (for-each (lambda (child)
                   (when (is? child View)
-                    (let ((location (get-location~ child)))
+                    (let ((location (get-location child)))
                       (when location
                         (resize-child child location)))))
-                (get-children))))
+                (get-children self))))
   
   
-  (method override (adjust?)
+  (method override (adjust? self)
     (boolean layout-fit))
   
   
-  (method override (adjust-fit)
+  (method override (adjust-fit self)
     (when layout-fit
-      (layout-view)
-      (let ((scroller (get-scroller)))
+      (layout-view self)
+      (let ((scroller (get-scroller self)))
         (when scroller
-          (update-scrollbars)))))
+          (update-scrollbars self)))))
   
   
-  (method override (adjust)
+  (method override (adjust self)
     (case layout-fit
       ((#f))
       ((around)
@@ -259,35 +259,35 @@
              (right 0)
              (bottom 0))
          (for-each (lambda (child)
-                     (when (and (is? child View) (get-visible?~ child))
-                       (let ((rect (get-rect~ child)))
-                         (set! left (if (not left) (get-left~ rect) (min left (get-left~ rect))))
-                         (set! top (if (not top) (get-top~ rect) (min top (get-top~ rect))))
-                         (set! right (max right (get-right~ rect)))
-                         (set! bottom (max bottom (get-bottom~ rect))))))
+                     (when (and (is? child View) (get-visible? child))
+                       (let ((rect (get-rect child)))
+                         (set! left (if (not left) (get-left rect) (min left (get-left rect))))
+                         (set! top (if (not top) (get-top rect) (min top (get-top rect))))
+                         (set! right (max right (get-right rect)))
+                         (set! bottom (max bottom (get-bottom rect))))))
                    children)
          (if (not left)
-             (set-size (new Dimension
-                         (+ (get-left~ layout-insets) (get-right~ layout-insets))
-                         (+ (get-top~ layout-insets) (get-bottom~ layout-insets))))
-           (let ((dh (- (get-left~ layout-insets) left))
-                 (dv (- (get-top~ layout-insets) top)))
+             (set-size self (new Dimension
+                         (+ (get-left layout-insets) (get-right layout-insets))
+                         (+ (get-top layout-insets) (get-bottom layout-insets))))
+           (let ((dh (- (get-left layout-insets) left))
+                 (dv (- (get-top layout-insets) top)))
              (for-each (lambda (child)
-                         (when (and (is? child View) (get-visible?~ child))
-                           (move-figure~ child dh dv)))
+                         (when (and (is? child View) (get-visible? child))
+                           (move-figure child dh dv)))
                        children))
            (let ((size (new Dimension
-                         (+ (get-left~ layout-insets) (- right left) (get-right~ layout-insets))
-                         (+ (get-top~ layout-insets) (- bottom top) (get-bottom~ layout-insets)))))
-             (set-size size)))))))
+                         (+ (get-left layout-insets) (- right left) (get-right layout-insets))
+                         (+ (get-top layout-insets) (- bottom top) (get-bottom layout-insets)))))
+             (set-size self size)))))))
   
   
-  (method protected virtual (fill-position) <Point>
-    (new Point (get-left~ layout-insets) (get-top~ layout-insets)))
+  (method protected virtual (fill-position self) <Point>
+    (new Point (get-left layout-insets) (get-top layout-insets)))
   
   
-  (method protected virtual (fill-size) <Dimension>
-    (- (get-size) (new Dimension (+ (get-left~ layout-insets) (get-right~ layout-insets)) (+ (get-top~ layout-insets) (get-bottom~ layout-insets)))))
+  (method protected virtual (fill-size self) <Dimension>
+    (- (get-size self) (new Dimension (+ (get-left layout-insets) (get-right layout-insets)) (+ (get-top layout-insets) (get-bottom layout-insets)))))
   
   
   ;;;
@@ -295,7 +295,7 @@
   ;;;
   
   
-  (method override (get-location-choices)
+  (method override (get-location-choices self)
     (case layout-type
       ((gravity) '(move h-move v-move fill h-fill v-fill (move fill) (fill move)))
       ((justify) '(<offset> (<width-offset> <height-offset>)))
@@ -304,5 +304,5 @@
       (else #f)))
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Layout-View-Descriptor))))

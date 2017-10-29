@@ -38,7 +38,9 @@
 (module protected jazz.ide.ui.UI-Debugger-View jazz
 
 
-(import (jazz.debugger)
+(import (jazz.debuggee.ui)
+        (jazz.debugger)
+        (jazz.event)
         (jazz.feedback)
         (jazz.geometry)
         (jazz.graphic)
@@ -46,6 +48,7 @@
         (jazz.jml)
         (jazz.jrm)
         (jazz.layout)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -94,18 +97,18 @@
           (<UI-Debugger-Render>            name: render        background: {Color Light-Gray})))))
 
 
-  (method override (conclude initargs)
-    (nextmethod initargs)
+  (method override (conclude self initargs)
+    (nextmethod self initargs)
     (set! events (new-queue))
     (set! layer-regions (make-table test: eq?))
     (set! layer-order '(offscreen invalidate paint mouse))
-    (update-layers))
+    (update-layers self))
   
   
-  (method override (destroy)
-    (let ((debugger (load-object 'jazz.ide.ui 'ui-debugger)))
-      (set-view~ (get-object~ debugger) #f))
-    (nextmethod))
+  (method override (destroy self)
+    (let ((debugger (load-object (get-local-register) 'jazz.ide.ui 'ui-debugger)))
+      (set-view (get-object debugger) #f))
+    (nextmethod self))
   
   
   ;;;
@@ -113,28 +116,28 @@
   ;;;
     
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "EditLink"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "UI Spy")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 28 14})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 800 500})
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(home))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'events)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'events)))
   
   
   ;;;
@@ -142,8 +145,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'events))
+  (method package (get-tree self)
+    (locate self 'events))
   
   
   ;;;
@@ -151,68 +154,68 @@
   ;;;
   
   
-  (method (on-spy evt)
+  (method (on-spy self evt)
     (define (find-remote)
       (continuation-capture
         (lambda (return)
-          (for-each-process~ (get-debugger-manager)
+          (for-each-process (get-debugger-manager)
             (lambda (debugger debugged-process live? focused?)
-              (let ((process (get-reference~ debugged-process)))
+              (let ((process (get-reference debugged-process)))
                 (when (remote-proxy? process)
                   (continuation-return return process)))))
           #f)))
     
     (set! spy? (not spy?))
-    (let ((debugger (load-object 'jazz.ide.ui 'ui-debugger)))
-      (let ((implementation (get-object~ debugger)))
-        (set-view~ implementation (and spy? self)))
+    (let ((debugger (load-object (get-local-register) 'jazz.ide.ui 'ui-debugger)))
+      (let ((implementation (get-object debugger)))
+        (set-view implementation (and spy? self)))
       (let ((process (find-remote)))
         (if (not process)
             (user-message "Unable to find a remote process")
-          (let ((debuggee (load-object~ (get-remote-register process) 'jazz.debuggee.ui 'ui-debuggee))
-                (title (get-title~ process)))
+          (let ((debuggee (load-object (get-remote-register process) 'jazz.debuggee.ui 'ui-debuggee))
+                (title (get-title process)))
             (cond ((not spy?)
-                   (stop-spy~ debuggee)
+                   (stop-spy debuggee)
                    (user-message "Disconnected from {a}" title))
                   (else
-                   (start-spy~ debuggee debugger)
+                   (start-spy debuggee debugger)
                    (user-message "Connected to {a}" title))))))))
   
   
-  (method (on-refresh evt)
-    (update-layers)
-    (update-events)
-    (update-render))
+  (method package (on-refresh self evt)
+    (update-layers self)
+    (update-events self)
+    (update-render self))
   
   
-  (method (on-clear evt)
+  (method package (on-clear self evt)
     (set! events (new-queue))
     (set! layers #f)
     (set! layer-regions (make-table test: eq?))
-    (update-layers)
-    (update-events)
-    (update-render))
+    (update-layers self)
+    (update-events self)
+    (update-render self))
   
   
-  (method (on-slowdown evt)
+  (method (on-slowdown self evt)
     )
   
   
-  (method (on-layer-change evt)
-    (let ((tree (get-sender~ evt)))
-      (let ((selected (get-selected-data~ tree)))
+  (method (on-layer-change self evt)
+    (let ((tree (get-sender evt)))
+      (let ((selected (get-selected-data tree)))
         (set! layers (if (null? selected) #f selected))
-        (update-render))))
+        (update-render self))))
   
   
-  (method (on-event-change evt)
-    (let ((tree (get-sender~ evt)))
-      (let ((event (get-single-selected-data~ tree)))
+  (method (on-event-change self evt)
+    (let ((tree (get-sender evt)))
+      (let ((event (get-single-selected-data tree)))
         (if (not event)
             (bell)
-          (when (neq? (get-action~ event) 'clear)
+          (when (neq? (get-action event) 'clear)
             (set! selection event)
-            (update-render))))))
+            (update-render self))))))
   
   
   ;;;
@@ -220,27 +223,27 @@
   ;;;
   
   
-  (method (update-layers)
-    (let ((tree (locate 'layers)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+  (method (update-layers self)
+    (let ((tree (locate self 'layers)))
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (for-each (lambda (layer)
-                      (add-row~ tree children: (list (new Tree-Node title: (->string layer))) user-data: layer))
+                      (add-row tree children: (list (new Tree-Node title: (->string layer))) user-data: layer))
                     layer-order)))))
   
   
-  (method (update-events)
-    (let ((tree (locate 'events)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+  (method (update-events self)
+    (let ((tree (locate self 'events)))
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (for-each (lambda (event)
-                      (add-event tree event))
+                      (add-event self tree event))
                     (queue-list events))))))
   
   
-  (method (add-event tree event)
+  (method (add-event self tree event)
     (define (present-arguments action arguments)
       (case action
         ((clear)
@@ -248,33 +251,33 @@
         ((rect)
          (let ((rect arguments))
            (format "{a} {a} {a} {a}"
-                   (get-left~ rect)
-                   (get-top~ rect)
+                   (get-left rect)
+                   (get-top rect)
                    (rect-width rect)
                    (rect-height rect))))
         ((region)
          (let ((rect arguments))
            (format "{a} {a} {a} {a}"
-                   (get-left~ rect)
-                   (get-top~ rect)
+                   (get-left rect)
+                   (get-top rect)
                    (rect-width rect)
                    (rect-height rect))))
         ((move)
          (let ((point arguments))
            (format "{a} {a}"
-                   (get-h~ point)
-                   (get-v~ point))))
+                   (get-h point)
+                   (get-v point))))
         (else
          "")))
     
-    (let ((layer (get-layer~ event))
-          (action (get-action~ event))
-          (arguments (get-arguments~ event)))
-      (add-row~ tree children: (list (new Tree-Node title: (->string layer)) (new Tree-Label title: (->string action)) (new Tree-Label title: (present-arguments action arguments))) user-data: event)))
+    (let ((layer (get-layer event))
+          (action (get-action event))
+          (arguments (get-arguments event)))
+      (add-row tree children: (list (new Tree-Node title: (->string layer)) (new Tree-Label title: (->string action)) (new Tree-Label title: (present-arguments action arguments))) user-data: event)))
   
   
-  (method (update-render)
-    (invalidate-view~ (locate 'render)))
+  (method (update-render self)
+    (invalidate-view (locate self 'render)))
   
   
   ;;;
@@ -282,23 +285,23 @@
   ;;;
   
   
-  (method (layer-region layer)
+  (method (layer-region self layer)
     (or (table-ref layer-regions layer #f)
         (let ((region (new Cairo-Region)))
           (table-set! layer-regions layer region)
           region)))
   
   
-  (method (layer-clear layer)
+  (method (layer-clear self layer)
     (table-set! layer-regions layer #f))
   
   
-  (method (add-rect layer rect)
-    (let ((region (layer-region layer)))
-      (combine-or!~ region (new Cairo-Region rect: rect))))
+  (method (add-rect self layer rect)
+    (let ((region (layer-region self layer)))
+      (combine-or! region (new Cairo-Region rect: rect))))
   
   
-  (method (effective-layers)
+  (method (effective-layers self)
     (or layers layer-order))
   
   
@@ -307,14 +310,14 @@
   ;;;
   
   
-  (method public (spy-hook layer action arguments)
+  (method public (spy-hook self layer action arguments)
     (let ((event (new Spy-Event layer action arguments)))
       (enqueue events event)
-      (add-event (locate 'events) event)
-      (when (and player (memq? layer (effective-layers)) (memq? action '(rect move)))
-        (with-view-surface~ (locate 'render)
+      (add-event self (locate self 'events) event)
+      (when (and player (memq? layer (effective-layers self)) (memq? action '(rect move)))
+        (with-view-surface (locate self 'render)
           (lambda (surface)
-            (play-event surface event))))))
+            (play-event self surface event))))))
     
   
   ;;;
@@ -322,46 +325,46 @@
   ;;;
   
   
-  (method (play-events surface)
+  (method package (play-events self surface)
     (loop (for event in (queue-list events) remainder r)
-          (play-event surface event))
+          (play-event self surface event))
     (when selection
-      (play-event surface selection #t)))
+      (play-event self surface selection #t)))
 
   
-  (method (play-event surface event (highlight? #f))
-    (let ((layer (get-layer~ event))
-          (action (get-action~ event))
-          (arguments (get-arguments~ event)))
+  (method (play-event self surface event (highlight? #f))
+    (let ((layer (get-layer event))
+          (action (get-action event))
+          (arguments (get-arguments event)))
       (case action
         ((clear)
-         (layer-clear layer))
+         (layer-clear self layer))
         ((rect)
-         (play-rect surface layer arguments highlight?))
+         (play-rect self surface layer arguments highlight?))
         ((region)
-         (play-rect surface layer arguments highlight?))
+         (play-rect self surface layer arguments highlight?))
         ((move)
-         (play-move surface layer arguments highlight?)))))
+         (play-move self surface layer arguments highlight?)))))
 
   
-  (method (play-rect surface layer rect highlight?)
-    (receive (outer inner) (outer/inner-colors (layer-color layer))
-      (set-line-width~ surface 1)
-      (frame-rect~ surface rect outer)
+  (method (play-rect self surface layer rect highlight?)
+    (receive (outer inner) (outer/inner-colors self (layer-color self layer))
+      (set-line-width surface 1)
+      (frame-rect surface rect outer)
       (when highlight?
-        (fill-rect~ surface (inflate-rect rect -1 -1) inner))))
+        (fill-rect surface (inflate-rect rect -1 -1) inner))))
   
   
-  (method (play-move surface layer position highlight?)
-    (receive (outer inner) (outer/inner-colors (layer-color layer))
-      (let ((h (get-h~ position))
-            (v (get-v~ position))
+  (method package (play-move self surface layer position highlight?)
+    (receive (outer inner) (outer/inner-colors self (layer-color self layer))
+      (let ((h (get-h position))
+            (v (get-v position))
             (radius 7))
-        (set-line-width~ surface 1)
-        (ellipse~ surface (new Rect (- h radius) (- v radius) (+ h radius) (+ v radius)) outer (and highlight? inner)))))
+        (set-line-width surface 1)
+        (ellipse surface (new Rect (- h radius) (- v radius) (+ h radius) (+ v radius)) outer (and highlight? inner)))))
 
 
-  (method (layer-color layer)
+  (method (layer-color self layer)
     (case layer
       ((invalidate) {Color Red})
       ((paint) {Color Blue})
@@ -369,7 +372,7 @@
       (else {Color Red})))
   
   
-  (method (outer/inner-colors outer)
+  (method (outer/inner-colors self outer)
     (receive (h s v) (color->hsv outer)
       (let ((color (hsv->color h (/ s 2) v)))
         (receive (r g b) (color->rgb color)
@@ -390,8 +393,8 @@
   ;;;
 
   
-  (method override (draw surface context)
-    (play-events~ (find-ascendant UI-Debugger-View) surface)))
+  (method override (draw self surface context)
+    (play-events (find-ascendant self UI-Debugger-View) surface)))
 
 
 ;;;
@@ -402,11 +405,11 @@
 (class Spy-Event extends Object
   
   
-  (method override (initialize layer action arguments)
-    (nextmethod)
-    (set! layer~self layer)
-    (set! action~self action)
-    (set! arguments~self arguments))
+  (method override (initialize self layer action arguments)
+    (nextmethod self)
+    (set! self.layer layer)
+    (set! self.action action)
+    (set! self.arguments arguments))
   
   
   (slot layer     getter generate)

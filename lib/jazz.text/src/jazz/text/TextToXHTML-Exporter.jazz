@@ -38,7 +38,9 @@
 (module protected jazz.text.TextToXHTML-Exporter jazz
 
 
-(import (jazz.text))
+(import (jazz.exemplar)
+        (jazz.graphic)
+        (jazz.text))
 
 
 (class undocumented TextToXHTML-Exporter extends Object
@@ -47,9 +49,9 @@
   (slot text)
   
   
-  (method override (initialize text)
-    (nextmethod)
-    (set! text~self text))
+  (method override (initialize self text)
+    (nextmethod self)
+    (set! self.text text))
   
   
   ;;;
@@ -57,10 +59,10 @@
   ;;;
   
   
-  (method public (export-html)
+  (method public (export-html self)
     `(<html>
-       ,(export-head)
-       ,(export-body)))
+       ,(export-head self)
+       ,(export-body self)))
   
   
   ;;;
@@ -68,7 +70,7 @@
   ;;;
   
   
-  (method (export-head)
+  (method (export-head self)
     `(<head>))
   
   
@@ -77,9 +79,9 @@
   ;;;
   
   
-  (method (export-body)
+  (method (export-body self)
     `(<body>
-       ,@(export-element text #f)))
+       ,@(export-element self text #f)))
   
   
   ;;;
@@ -87,10 +89,10 @@
   ;;;
   
   
-  (method (export-element element in-table?)
+  (method (export-element self element in-table?)
     (typecase element
-      ((Text-View) (export-text element in-table?))
-      ((Paragraph) (export-paragraph element in-table?))
+      ((Text-View) (export-text self element in-table?))
+      ((Paragraph) (export-paragraph self element in-table?))
       (else (error "Unsupported element: {t}" element))))
   
   
@@ -99,32 +101,32 @@
   ;;;
   
   
-  (method (export-text element in-table?)
-    (accumulate (get-paragraphs~ element)
+  (method package (export-text self element in-table?)
+    (accumulate (get-paragraphs element)
                 (lambda (paragraph)
-                  (export-paragraph paragraph in-table?))))
+                  (export-paragraph self paragraph in-table?))))
   
   
-  (method (export-paragraph paragraph in-table?)
-    (let ((fmt (get-format~ paragraph)))
+  (method (export-paragraph self paragraph in-table?)
+    (let ((fmt (get-format paragraph)))
       (define (paragraph-style)
-        (case (get-justification~ fmt)
+        (case (get-justification fmt)
           ((center) `(style: "text-align: center"))
           ((right) `(style: "text-align: right"))
           (else '())))
           
       (let ((style (paragraph-style))
-            (runs (export-runs paragraph in-table?)))
+            (runs (export-runs self paragraph in-table?)))
         `(<p> ,@style ,@runs))))
   
   
-  (method (export-runs paragraph in-table?)
+  (method (export-runs self paragraph in-table?)
     (map (lambda (run)
-           (export-run run in-table?))
-         (get-runs~ paragraph)))
+           (export-run self run in-table?))
+         (get-runs paragraph)))
   
   
-  (method (export-run run in-table?)
+  (method (export-run self run in-table?)
     (define (add tag flag element)
       (if flag
           `(,tag ,element)
@@ -132,32 +134,32 @@
     
     (define (add-color color element)
       (if color
-          `(<span> style: ,(format "color: {a}" (->rbg~ color)) ,element)
+          `(<span> style: ,(format "color: {a}" (->rgb color)) ,element)
         element))
     
     (define (add-heading style element)
-      (cond ((inherits?~ style 'Heading1) `(<h1> ,element))
-            ((inherits?~ style 'Heading2) `(<h2> ,element))
-            ((inherits?~ style 'Heading3) `(<h3> ,element))
-            ((inherits?~ style 'Heading4) `(<h4> ,element))
-            ((inherits?~ style 'Heading5) `(<h5> ,element))
+      (cond ((inherits? style 'Heading1) `(<h1> ,element))
+            ((inherits? style 'Heading2) `(<h2> ,element))
+            ((inherits? style 'Heading3) `(<h3> ,element))
+            ((inherits? style 'Heading4) `(<h4> ,element))
+            ((inherits? style 'Heading5) `(<h5> ,element))
             (else #f)))
     
-    (let ((str (export-string~ run))
-          (style (get-style~ run)))
+    (let ((str (export-string run))
+          (style (get-style run)))
       (typecase style
         ((View-Style)
-         (export-element (get-view~ style) in-table?))
+         (export-element self (get-view style) in-table?))
         ((Link-Style)
          `(<a> href: ,(format "#{a}" str) ,str))
         ((Image-Style)
          `(<a> href: "d:\\jazz\\large.png" (<img> title: "dark" src: "d:\\jazz\\small.png" alt: "" width: "150" height: "90")))
         ((Text-Style)
-         (let ((font (get-font~ style))
-               (color (get-color~ style)))
-           (let ((bold? (get-bold?~ font))
-                 (italic? (get-italic?~ font))
-                 (underline? (get-underline?~ font)))
+         (let ((font (get-font style))
+               (color (get-color style)))
+           (let ((bold? (get-bold? font))
+                 (italic? (get-italic? font))
+                 (underline? (get-underline? font)))
              (or (add-heading style str)
                  (add '<b> bold? (add '<i> italic? (add '<u> underline? (add-color color str)))))))))))
   
@@ -174,9 +176,9 @@
       ((Tree-Row) (export-row element))
       ((Tree-Label) (export-tree-label element))
       ((Tree-Label-Column) (export-tree-column element))
-      ((Table-Border) (export-tree (locate~ element 'tree)
-                                   (get-shown?~ (locate~ element 'header))))
-      ((Table-Cell) (export-element (locate~ element 'text) in-table?))
+      ((Table-Border) (export-tree (locate element 'tree)
+                                   (get-shown?~ (locate element 'header))))
+      ((Table-Cell) (export-element (locate element 'text) in-table?))
       (else (error "Unsupported element: {t}" element))))
   
   
@@ -191,9 +193,9 @@
                   (format output "<TH>")
                   (export-element column #t)
                   (format output "</TH>{%}"))
-                (get-columns~ tree))
+                (get-columns tree))
       (format output "</TR>{%}"))
-    (for-each-row~ tree export-row)
+    (for-each-row tree export-row)
     (format output "</TABLE>{%}"))
   
   
@@ -204,18 +206,18 @@
           (first? #t))
       (for-each (lambda (child)
                   (format output "<TD VALIGN=\"TOP\">")
-                  (when (and first? (/= (get-level~ row) 0))
+                  (when (and first? (/= (get-level row) 0))
                     (format output "-- "))
                   (export-element child in-table?)
                   (format output "</TD>{%}")
                   (set! first? #f))
-                (get-children~ row)))
+                (get-children row)))
     (format output "</TR>{%}"))
   
   
   @wait
   (method (export-tree-label data)
-    (let ((string (localize (get-title~ data))))
+    (let ((string (localize (get-title data))))
       (if (empty-string? string)
           (format output "&nbsp;")
         (format output "{a}" string))))
@@ -223,4 +225,4 @@
   
   @wait
   (method (export-tree-column column)
-    (format output "{a}" (localize (get-title~ column))))))
+    (format output "{a}" (localize (get-title column))))))

@@ -41,7 +41,9 @@
 (import (jazz.application)
         (jazz.resource)
         (jazz.search)
-        (jazz.text))
+        (jazz.text)
+        (jazz.ui)
+        (jazz.view))
 
 
 (class File-Search-Result extends Search-Result
@@ -51,10 +53,10 @@
   (slot range getter generate)
   
   
-  (method override (initialize resultset file (position: position #f) (range: range #f))
-    (nextmethod resultset)
-    (set! file~self file)
-    (set! range~self (or range (and position (new Range$Cell$ position position)))))
+  (method override (initialize self resultset file (position: position #f) (range: range #f))
+    (nextmethod self resultset)
+    (set! self.file file)
+    (set! self.range (or range (and position (new Range$Cell$ position position)))))
   
   
   ;;;
@@ -62,23 +64,23 @@
   ;;;
   
   
-  (method override (get-icon)
+  (method override (get-icon self)
     {Image-Resource "TypeFile"})
   
   
-  (method override (present)
-    (present-name~ file))
+  (method override (present self)
+    (present-name file))
   
   
-  (method override (present-name)
-    (present-name~ file))
+  (method override (present-name self)
+    (present-name file))
   
   
-  (method override (present-location)
-    (present-location~ file))
+  (method override (present-location self)
+    (present-location file))
   
   
-  (method override (present-type)
+  (method override (present-type self)
     "")
     
   
@@ -87,8 +89,8 @@
   ;;;
   
   
-  (method override (location-sort-value)
-    (cons (present-location) (if range (get-start~ range) {Cell 0 0})))
+  (method override (location-sort-value self)
+    (cons (present-location self) (if range (get-start range) {Cell 0 0})))
   
   
   ;;;
@@ -96,15 +98,15 @@
   ;;;
   
   
-  (method override (edit select (visible?: visible? #t) (activate-focus?: activate-focus? #t))
+  (method override (edit self select (visible?: visible? #t) (activate-focus?: activate-focus? #t))
     (let ((appl (get-application)))
-      (receive (frame new?) (edit-document~ appl file visible?: visible? return-new?: #t)
-        (let ((guest (get-guest~ frame)))
+      (receive (frame new?) (edit-document appl file visible?: visible? return-new?: #t)
+        (let ((guest (get-guest frame)))
           (when (is? guest Text-View)
             (if range
-                (set-selection~ guest range)
+                (set-selection guest range)
               (when select
-                (select-expr~ guest (get-find~ search) select))))
+                (select-expr guest (get-find search) select))))
           (when (and visible? activate-focus?)
-            (focus-host~ frame))
+            (focus-host frame))
           (values frame new?)))))))

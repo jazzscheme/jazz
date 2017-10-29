@@ -55,26 +55,26 @@
   ;;;
   
   
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (define (install-projects-designers)
-      (for-each-project~ reference
-        add-designer
+      (for-each-project reference
+        (~ add-designer self)
         include-self?: #f
         include-inactives?: #t))
     
-    (apply nextmethod rest)
+    (apply nextmethod self rest)
     (install-projects-designers))
   
   
-  (method (cleanup-project-designers)
+  (method (cleanup-project-designers self)
     (let ((fact (new List-Factory)))
-      (for-each-designer
+      (for-each-designer self
         (lambda (project designer)
-          (if (find-project-by-identity~ reference project)
-              (put~ fact (cons project designer))
-            (when (get-modified?~ designer)
-              (save~ designer)))))
-      (set! project-designers (get-output~ fact))))
+          (if (find-project-by-identity reference project)
+              (put fact (cons project designer))
+            (when (get-modified? designer)
+              (save designer)))))
+      (set! project-designers (get-output fact))))
 
   
   ;;;
@@ -82,47 +82,47 @@
   ;;;
   
   
-  (method override (set-name component name . rest)
+  (method override (set-name self component name . rest)
     (bind-keywords ((use-owner? #t) . others) rest
-      (let ((owner (find-modification-owner component)))
+      (let ((owner (find-modification-owner self component)))
         (if (or (not use-owner?) (eq? owner reference))
-            (apply nextmethod component name others)
-          (let ((designer (get-project-designer owner)))
-            (apply set-name~ designer component name others))))))
+            (apply nextmethod self component name others)
+          (let ((designer (get-project-designer self owner)))
+            (apply set-name designer component name others))))))
   
   
-  (method override (set-property component property value . rest)
+  (method override (set-property self component property value . rest)
     (bind-keywords ((use-owner? #t) . others) rest
-      (let ((owner (find-modification-owner component)))
+      (let ((owner (find-modification-owner self component)))
         (if (or (not use-owner?) (eq? owner reference))
-            (apply nextmethod component property value others)
-          (let ((designer (get-project-designer owner)))
-            (apply set-property~ designer component property value others))))))
+            (apply nextmethod self component property value others)
+          (let ((designer (get-project-designer self owner)))
+            (apply set-property designer component property value others))))))
   
   
-  (method override (add-child child parent . rest)
+  (method override (add-child self child parent . rest)
     (bind-keywords ((use-owner? #t) . others) rest
-      (let ((owner (find-modification-owner parent)))
+      (let ((owner (find-modification-owner self parent)))
         (if (or (not use-owner?) (eq? owner reference))
-            (apply nextmethod child parent others)
-          (let ((designer (get-project-designer owner)))
-            (apply add-child~ designer child parent others))))))
+            (apply nextmethod self child parent others)
+          (let ((designer (get-project-designer self owner)))
+            (apply add-child designer child parent others))))))
   
   
-  (method override (remove-child child . rest)
-    (let* ((parent (get-parent~ child))
-           (owner (find-modification-owner parent)))
+  (method override (remove-child self child . rest)
+    (let* ((parent (get-parent child))
+           (owner (find-modification-owner self parent)))
       (if (eq? owner reference)
-          (apply nextmethod child rest)
-        (let ((designer (get-project-designer owner)))
-          (apply remove-child~ designer child rest)))))
+          (apply nextmethod self child rest)
+        (let ((designer (get-project-designer self owner)))
+          (apply remove-child designer child rest)))))
   
   
-  (method override (relocate-components components destination . rest)
+  (method override (relocate-components self components destination . rest)
     (unimplemented 'relocate-components))
   
   
-  (method override (transfer-components components destination . rest)
+  (method override (transfer-components self components destination . rest)
     (unimplemented 'transfer-components))
   
   
@@ -131,34 +131,34 @@
   ;;;
   
   
-  (method override (cut-components components)
-    (let* ((parents (get-parents components))
-           (owner (find-modification-owner parents)))
+  (method override (cut-components self components)
+    (let* ((parents (get-parents self components))
+           (owner (find-modification-owner self parents)))
       (if (eq? owner reference)
-          (nextmethod components)
-        (let ((designer (get-project-designer owner)))
-          (cut-components~ designer components)))))
+          (nextmethod self components)
+        (let ((designer (get-project-designer self owner)))
+          (cut-components designer components)))))
   
   
-  (method override (copy-components components)
-    (let* ((parents (get-parents components))
-           (owner (find-modification-owner parents)))
+  (method override (copy-components self components)
+    (let* ((parents (get-parents self components))
+           (owner (find-modification-owner self parents)))
       (if (eq? owner reference)
-          (nextmethod components)
-        (let ((designer (get-project-designer owner)))
-          (copy-components~ designer components)))))
+          (nextmethod self components)
+        (let ((designer (get-project-designer self owner)))
+          (copy-components designer components)))))
   
   
-  (method override (paste-clipboard parent . rest)
-    (let ((owner (find-modification-owner parent)))
+  (method override (paste-clipboard self parent . rest)
+    (let ((owner (find-modification-owner self parent)))
       (if (eq? owner reference)
-          (apply nextmethod parent rest)
-        (let ((designer (get-project-designer owner)))
-          (apply paste-clipboard~ designer parent rest)))))
+          (apply nextmethod self parent rest)
+        (let ((designer (get-project-designer self owner)))
+          (apply paste-clipboard designer parent rest)))))
   
   
-  (method (get-parents components)
-    (map get-parent~ components))
+  (method (get-parents self components)
+    (map get-parent components))
 
   
   ;;;
@@ -166,33 +166,33 @@
   ;;;
   
   
-  (method (find-owner-project component)
+  (method (find-owner-project self component)
     (if (or (eq? component reference) (is? component Project))
         component
-      (find-owner-project (get-parent~ component))))
+      (find-owner-project self (get-parent component))))
   
   
-  (method override (component-owned-by-reference? component)
-    (let ((owner-project (find-owner-project component)))
+  (method override (component-owned-by-reference? self component)
+    (let ((owner-project (find-owner-project self component)))
       (and owner-project
            (if (eq? owner-project reference)
                (component-owned? component form reference)
-             (let ((designer (get-project-designer owner-project)))
+             (let ((designer (get-project-designer self owner-project)))
                (and designer
-                    (component-owned-by-reference?~ designer component)))))))
+                    (component-owned-by-reference? designer component)))))))
   
   
-  (method (find-modification-owner components)
+  (method (find-modification-owner self components)
     (define (find-components-owner)
       (if (pair? components)
-          (let ((owners (remove-duplicates (map find-owner-project components))))
+          (let ((owners (remove-duplicates (map (~ find-owner-project self) components))))
             (if (> (length owners) 1)
                 (error "This operation is not yet supported accross multiple projects")
               (car owners)))
-        (find-owner-project components)))
+        (find-owner-project self components)))
     
     (let ((owner (find-components-owner)))
-      (if (not (get-effective-editable?~ owner))
+      (if (not (get-effective-editable? owner))
           (error "Project {a} is not editable"  (get-presentation-property owner))
         owner)))
 
@@ -202,52 +202,52 @@
   ;;;
   
   
-  (method (add-designer project)
-    (let ((project-form (get-form~ project)))
-      (let ((form (case (get-action~ project-form)
-                    ((instantiate) (registered-file-form (get-tag-reference~ project-form)))
-                    ((new) (if (eq? (get-model~ project-form) 'Project-Not-Found)
+  (method (add-designer self project)
+    (let ((project-form (get-form project)))
+      (let ((form (case (get-action project-form)
+                    ((instantiate) (registered-file-form (get-tag-reference project-form)))
+                    ((new) (if (eq? (get-model project-form) 'Project-Not-Found)
                                #f
-                             (registered-file-form (get-origin~ project-form))))
-                    (else (if (eq? (get-model~ project-form) 'Project-Not-Found)
+                             (registered-file-form (get-origin project-form))))
+                    (else (if (eq? (get-model project-form) 'Project-Not-Found)
                               #f
                             (error "Unable to create designer for project: {s}" project))))))
         (when form
           (let ((designer (new Designer form: form reference: project)))
-            (add-project-designer project designer))))))
+            (add-project-designer self project designer))))))
   
   
-  (method (add-project-designer project designer)
+  (method (add-project-designer self project designer)
     (set! project-designers (cons (cons project designer) project-designers)))
   
   
-  (method (remove-designer project)
+  (method (remove-designer self project)
     (set! project-designers (remove! (assq project project-designers) project-designers)))
   
   
-  (method protected (get-project-designer project)
+  (method package (get-project-designer self project)
     (assq-value project project-designers #f))
   
   
-  (method (for-each-designer proc)
+  (method (for-each-designer self proc)
     (for-each (lambda (pair)
                 (bind (project . designer) pair
                   (proc project designer)))
               project-designers))
   
   
-  (method protected (project-add project)
-    (for-each-descendant~ project
+  (method package (project-add self project)
+    (for-each-descendant project
       (lambda (descendant level)
         (when (is? descendant Project)
-          (add-designer descendant)))))
+          (add-designer self descendant)))))
   
   
-  (method protected (project-remove project)
+  (method package (project-remove self project)
     ;; This a bit strange way of doing is necessary because when we get notified,
     ;; the descendants of project have already been removed and so we cannot know
     ;; which designers to remove
-    (cleanup-project-designers))
+    (cleanup-project-designers self))
 
   
   ;;;
@@ -255,14 +255,14 @@
   ;;;
   
   
-  (method protected (save-designer)
+  (method package (save-designer self)
     (let ((some-modified? #f))
-      (when (get-modified?)
+      (when (get-modified? self)
         (set! some-modified? #t)
-        (save))
-      (for-each-designer
+        (save self))
+      (for-each-designer self
         (lambda (project designer)
-          (when (get-modified?~ designer)
+          (when (get-modified? designer)
             (set! some-modified? #t)
-            (save~ designer))))
+            (save designer))))
       some-modified?))))

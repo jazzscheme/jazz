@@ -12,9 +12,9 @@
   (property backend initialize 'odbc accessors generate)
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (unless (memq? backend (valid-backends))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (unless (memq? backend (valid-backends self))
       (error "Invalid backend for {a} : {a}" (class-of self) backend)))
   
   
@@ -23,7 +23,7 @@
   ;;;
   
   
-  (method virtual (valid-backends)
+  (method virtual (valid-backends self)
     '(odbc adodb))
   
   
@@ -57,11 +57,11 @@
   ;;;
   
   
-  (method virtual (convert-symbolic-sql symbolic-sql)
+  (method virtual (convert-symbolic-sql self symbolic-sql)
     (error "Could not convert symbolic sql {a}" symbolic-sql))
   
   
-  (method public (post-process-request request)
+  (method public (post-process-request self request)
     (declare (proper-tail-calls))
     (let ((input (open-input-string request))
           (output (open-output-string)))
@@ -72,7 +72,7 @@
                 ((and (eq? c #\@) (not in-quotes?))
                  (let* ((sql (string (read-char input) (read-char input) (read-char input)))
                         (result (if (string=? sql "sql")
-                                    (convert-symbolic-sql (read input))
+                                    (convert-symbolic-sql self (read input))
                                   sql)))
                    (display result output)
                    (loop in-quotes?)))

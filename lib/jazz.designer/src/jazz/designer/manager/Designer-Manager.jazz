@@ -39,11 +39,14 @@
 
 
 (import (jazz.application)
+        (jazz.component)
         (jazz.descriptor)
         (jazz.designer)
         (jazz.designer.view)
+        (jazz.event)
         (jazz.graphic)
         (jazz.handler)
+        (jazz.ide)
         (jazz.jml)
         (jazz.layout)
         (jazz.resource)
@@ -85,7 +88,7 @@
       (<Push-Tool>      name: validate-integrity size: {Dimension 22 22} tooltip?: #t tooltip-text: "Validate Integrity" resource: {Image-Resource "Validate"} portfolio: :images action-handler: {Event-Handler :form on-validate-integrity})))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Design)
 
   
@@ -94,22 +97,22 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Designer"})
   
 
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Design")
   
   
-  (method override (client-activate)
+  (method override (client-activate self)
     (let ((guest (current-document)))
       (let ((client (and (is? guest Component-Editor) guest)))
-        (set-client client))))
+        (set-client self client))))
   
   
-  (method override (client-deactivate)
-    (set-client #f))
+  (method override (client-deactivate self)
+    (set-client self #f))
 
   
   ;;;
@@ -117,95 +120,95 @@
   ;;;
   
   
-  (method (on-editor evt)
-    (case (get-kind~ evt)
-      ((:designer-change) (set-designer (get-property~ evt designer:)))))
+  (method (on-editor self evt)
+    (case (get-kind evt)
+      ((:designer-change) (set-designer self (get-property evt designer:)))))
   
   
-  (method (on-new evt)
+  (method (on-new self evt)
     )
   
   
-  (method (on-open evt)
-    (set-client~ client (instantiate~ (open-form~ client))))
+  (method package (on-open self evt)
+    (set-client client (instantiate (open-form client))))
   
   
-  (method (on-toggle-frames evt)
-    (toggle-frames~ client))
+  (method (on-toggle-frames self evt)
+    (toggle-frames client))
   
   
-  (method (on-toggle-content evt)
-    (toggle-content~ client))
+  (method (on-toggle-content self evt)
+    (toggle-content client))
   
   
-  (method (on-toggle-lock-selection evt)
-    (toggle-lock-selection~ client))
+  (method (on-toggle-lock-selection self evt)
+    (toggle-lock-selection client))
   
   
-  (method (on-refresh evt)
-    (refresh~ client))
+  (method package (on-refresh self evt)
+    (refresh client))
   
   
-  (method (on-preview evt)
-    (preview~ client))
+  (method (on-preview self evt)
+    (preview client))
   
   
-  (method (on-try-out evt)
+  (method package (on-try-out self evt)
     (if (not client)
         (bell)
-      (try-out~ client)))
+      (try-out client)))
   
   
-  (method (on-viewing-mode evt)
+  (method (on-viewing-mode self evt)
     (with-cursor :wait
       (lambda ()
         (let ((editor client)
               (application (get-application))
-              (mode (get-property~ evt mode:)))
+              (mode (get-property evt mode:)))
           (with-exception-filter
             (lambda (exc)
               (is? exc Cancel-Signal))
             (lambda (exc)
               ;; rollback
               (typecase editor
-                ((Text-Editor) (set-selected?~ (locate 'text-mode) #t))
-                ((Grid-Component-Editor) (set-selected?~ (locate 'grid-mode) #t))
-                ((View-Editor) (set-selected?~ (locate 'view-mode) #t)))
+                ((Text-Editor) (set-selected? (locate self 'text-mode) #t))
+                ((Grid-Component-Editor) (set-selected? (locate self 'grid-mode) #t))
+                ((View-Editor) (set-selected? (locate self 'view-mode) #t)))
               (signal-cancel))
             (lambda ()
-              (prepare-mode-switch~ editor)))
-          (let ((frame (get-frame~ editor))
-                (client (get-client~ editor))
-                (modified? (get-modified?~ editor)))
-            (let ((position (get-position~ frame))
-                  (size (get-size~ frame)))
-              (set-parent~ client #f)
-              (close~ (get-frame~ editor))
+              (prepare-mode-switch editor)))
+          (let ((frame (get-frame editor))
+                (client (get-client editor))
+                (modified? (get-modified? editor)))
+            (let ((position (get-position frame))
+                  (size (get-size frame)))
+              (set-parent client #f)
+              (close (get-frame editor))
               (let ((editor (open-component client editor-class: (case mode
-                                                                   ((view) (view-editor-class~ application))
-                                                                   ((grid) (component-editor-class~ application))
-                                                                   ((text) (text-editor-class~ application)))
+                                                                   ((view) (view-editor-class application))
+                                                                   ((grid) (component-editor-class application))
+                                                                   ((text) (text-editor-class application)))
                               host-position: position
                               host-size: size)))
-                (set-modified?~ editor modified?))))))))
+                (set-modified? editor modified?))))))))
   
   
-  (method (on-edit-form evt)
-    (view-component~ client workspace: (designer-source-workspace)))
+  (method (on-edit-form self evt)
+    (view-component client workspace: (designer-source-workspace)))
   
   
-  (method (on-zoom-change evt)
-    (let ((value (get-zoom~ (get-sender~ evt)))
-          (view (get-client~ client)))
-      (set-scaling~ view value)))
+  (method (on-zoom-change self evt)
+    (let ((value (get-zoom (get-sender evt)))
+          (view (get-client client)))
+      (set-scaling view value)))
   
   
-  (method (on-validate-integrity evt)
+  (method (on-validate-integrity self evt)
     (with-progress
       (lambda (reporter)
-        (validate-integrity~ client reporter: reporter)
-        (user-message~ reporter "Done")
-        (set-done~ reporter))
+        (validate-integrity client reporter: reporter)
+        (report-message reporter "Done")
+        (set-done reporter))
       threaded?: #f
       name: "Validate Integrity"
       progress-reporter: Validation-Reporter
@@ -217,11 +220,11 @@
   ;;;
   
   
-  (method (on-mode evt)
-    (let ((mode (get-property~ evt mode:))
+  (method (on-mode self evt)
+    (let ((mode (get-property evt mode:))
           (editor (current-document)))
-      (set-mode~ editor mode)
-      (invalidate-selection~ editor)))
+      (set-mode editor mode)
+      (invalidate-selection editor)))
   
   
   ;;;
@@ -229,60 +232,60 @@
   ;;;
 
 
-  (method public (get-client)
+  (method public (get-client self)
     client)
 
 
-  (method public (set-client clt)
+  (method public (set-client self clt)
     (set! client clt)
-    (client-update))
+    (client-update self))
   
   
-  (method (client-update)
+  (method package (client-update self)
     (let ((component-editor? (and client (is? client Component-Editor)))
           (view-editor? (and client (is? client View-Editor)))
           (grid-editor? (and client (is? client Grid-Component-Editor)))
-          (component (and client (get-client~ client))))
+          (component (and client (get-client client))))
       (let ((view? (is? component View)))
-        (define (can-try-out?)
-          (let ((class (and component-editor? (get-origin~ (get-form~ (get-designer~ client))))))
+        (define (can-descriptor-try-out?)
+          (let ((class (and component-editor? (get-origin (get-form (get-designer client))))))
             (and (class? class)
-                 (can-try-out?~ (get-descriptor class) class))))
+                 (can-try-out? (get-descriptor class) class))))
         
-        (set-enabled?~ (locate 'select) view-editor?)
-        (set-enabled?~ (locate 'rect) view-editor?)
-        (let ((frames-button (locate 'frames))
-              (content-button (locate 'content))
+        (set-enabled? (locate self 'select) view-editor?)
+        (set-enabled? (locate self 'rect) view-editor?)
+        (let ((frames-button (locate self 'frames))
+              (content-button (locate self 'content))
               @wait
               (preview-button (locate 'preview))
-              (try-out-button (locate 'try-out))
-              (refresh-button (locate 'refresh))
-              (lock-button (locate 'lock-selection))
-              (zoom-layout (locate 'zoom-layout))
-              (zoom (locate 'zoom)))
-          (set-enabled?~ frames-button view-editor?)
-          (set-enabled?~ content-button view-editor?)
+              (try-out-button (locate self 'try-out))
+              (refresh-button (locate self 'refresh))
+              (lock-button (locate self 'lock-selection))
+              (zoom-layout (locate self 'zoom-layout))
+              (zoom (locate self 'zoom)))
+          (set-enabled? frames-button view-editor?)
+          (set-enabled? content-button view-editor?)
           @wait
           (set-enabled?~ preview-button view-editor?)
-          (set-enabled?~ try-out-button (can-try-out?))
-          (set-enabled?~ refresh-button component-editor?)
-          (set-enabled?~ lock-button view-editor?)
-          (set-enabled?~ (locate 'view-mode) view?)
-          (set-enabled?~ (locate 'grid-mode) component-editor?)
-          (set-enabled?~ (locate 'text-mode) component-editor?)
-          (set-enabled?~ zoom-layout view-editor?)
-          (set-enabled?~ zoom view-editor?)
+          (set-enabled? try-out-button (can-descriptor-try-out?))
+          (set-enabled? refresh-button component-editor?)
+          (set-enabled? lock-button view-editor?)
+          (set-enabled? (locate self 'view-mode) view?)
+          (set-enabled? (locate self 'grid-mode) component-editor?)
+          (set-enabled? (locate self 'text-mode) component-editor?)
+          (set-enabled? zoom-layout view-editor?)
+          (set-enabled? zoom view-editor?)
           (when view?
-            (set-zoom~ zoom (effective-scaling~ (get-client~ client))))
-          (set-selected?~ frames-button (and view-editor? (get-show-frames?~ client)))
-          (set-selected?~ content-button (and view-editor? (get-show-content?~ client)))
-          (set-selected?~ lock-button (and view-editor? (get-selection-locked?~ client)))
+            (set-zoom zoom (effective-scaling (get-client client))))
+          (set-selected? frames-button (and view-editor? (get-show-frames? client)))
+          (set-selected? content-button (and view-editor? (get-show-content? client)))
+          (set-selected? lock-button (and view-editor? (get-selection-locked? client)))
           @wait
           (set-selected?~ preview-button (and view-editor? (previewing?~ client))))
-        (cond (view-editor? (set-selected?~ (locate 'view-mode) #t))
-              (grid-editor? (set-selected?~ (locate 'grid-mode) #t))
-              (component-editor? (set-selected?~ (locate 'text-mode) #t)))
-        (set-enabled?~ (locate 'validate-integrity) client))))
+        (cond (view-editor? (set-selected? (locate self 'view-mode) #t))
+              (grid-editor? (set-selected? (locate self 'grid-mode) #t))
+              (component-editor? (set-selected? (locate self 'text-mode) #t)))
+        (set-enabled? (locate self 'validate-integrity) client))))
   
   
   ;;;
@@ -290,11 +293,11 @@
   ;;;
   
   
-  (method (set-designer designer)
+  (method package (set-designer self designer)
     (if (not designer)
-        (set-title "Design")
-      (let ((reference (get-reference~ designer)))
-        (set-title (format "Design : {a}" (category-identifier (class-of reference))))))))
+        (set-title self "Design")
+      (let ((reference (get-reference designer)))
+        (set-title self (format "Design : {a}" (category-identifier (class-of reference))))))))
 
 
 ;;;
@@ -310,5 +313,5 @@
       (<!>     name: invite title: "Please wait while the integrity validation completes")))
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Validation Progress")))

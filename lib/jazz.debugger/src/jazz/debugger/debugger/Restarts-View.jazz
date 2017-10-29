@@ -41,6 +41,7 @@
 (import (jazz.debugger)
         (jazz.handler)
         (jazz.jml)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -65,7 +66,7 @@
               (<Restarts-Tree> name: restarts multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-invoke-restart})))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Restarts)
   
   
@@ -74,11 +75,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Force"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Restarts")
   
   
@@ -87,13 +88,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (locate 'restarts)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (locate self 'restarts)))
+      (acquire-focus tree)))
   
   
   ;;;
@@ -101,19 +102,19 @@
   ;;;
   
   
-  (method public (get-thread)
+  (method public (get-thread self)
     thread)
   
   
-  (method public (set-thread value)
+  (method public (set-thread self value)
     (set! thread value)
-    (update-restarts))
+    (update-restarts self))
   
   
-  (method public (thread-changed new-thread)
-    (set! process (get-process~ (get-debugger-manager)))
+  (method public (thread-changed self new-thread)
+    (set! process (get-process (get-debugger-manager)))
     (set! thread new-thread)
-    (update-restarts))
+    (update-restarts self))
   
   
   ;;;
@@ -121,21 +122,21 @@
   ;;;
   
   
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (size-figure~ (locate 'scroller) dh dv))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (size-figure (locate self 'scroller) dh dv))
   
   
-  (method (on-selection-change evt)
-    (set-enabled?~ (locate 'restart) (selected-restart)))
+  (method package (on-selection-change self evt)
+    (set-enabled? (locate self 'restart) (selected-restart self)))
   
   
-  (method (on-invoke-restart evt)
-    (let ((restart (selected-restart)))
+  (method (on-invoke-restart self evt)
+    (let ((restart (selected-restart self)))
       (when restart
         (with-jrm-exception-handler process
           (lambda ()
-            (restart-stop~ process restart))))))
+            (restart-stop process restart))))))
   
   
   ;;;
@@ -143,25 +144,25 @@
   ;;;
   
   
-  (method (update-restarts)
+  (method (update-restarts self)
     (with-system-exception-debugger
       (lambda ()
-        (let ((tree (locate 'restarts)))
-          (with-preserved-selection~ tree
+        (let ((tree (locate self 'restarts)))
+          (with-preserved-selection tree
             (lambda ()
-              (remove-every-row~ tree)
-              (with-update-locked~ tree
+              (remove-every-row tree)
+              (with-update-locked tree
                 (lambda ()
                   (when thread
-                    (let ((stop (get-active-stop~ thread)))
+                    (let ((stop (get-active-stop thread)))
                       (when stop
                         (for-each (lambda (restart)
-                                    (let ((title (get-message~ restart))
+                                    (let ((title (get-message restart))
                                           (image {Image-Resource "Force"}))
-                                      (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: restart)))
+                                      (add-row tree children: (list (new Tree-Node title: title image: image)) user-data: restart)))
                                   (with-jrm-exception-handler process
                                     (lambda ()
-                                      (get-restarts~ stop))))))))))
+                                      (get-restarts stop))))))))))
             use: 'data
             test: debugged=?
             generate-event?: #t)))))
@@ -172,17 +173,17 @@
   ;;;
   
   
-  (method public (selected-restart)
-    (let ((row (selected-row)))
+  (method public (selected-restart self)
+    (let ((row (selected-row self)))
       (and row
-           (get-user-data~ row))))
+           (get-user-data row))))
   
   
-  (method (selected-row)
-    (let* ((tree (locate 'restarts))
-           (n (get-single-selection~ tree)))
+  (method (selected-row self)
+    (let* ((tree (locate self 'restarts))
+           (n (get-single-selection tree)))
       (and n
-           (get-row~ tree n)))))
+           (get-row tree n)))))
 
 
 ;;;

@@ -70,24 +70,24 @@
   ;;;
   
   
-  (method override (prepare rest)
-    (nextmethod rest)
-    (prepare-root)
-    (destroy-mandatory))
+  (method override (prepare self rest)
+    (nextmethod self rest)
+    (prepare-root self)
+    (destroy-mandatory self))
   
   
-  (method protected virtual (prepare-root)
-    (set-root (new-root)))
+  (method protected virtual (prepare-root self)
+    (set-root self (new-root self)))
 
   
-  (method protected virtual (new-root)
+  (method protected virtual (new-root self)
     (new Host-View offscreen?: #t))
   
   
-  (method override (find-to-modify name test)
+  (method override (find-to-modify self name test)
     (if (eq? name 'root)
-        (get-root)
-      (nextmethod name test)))
+        (get-root self)
+      (nextmethod self name test)))
   
   
   ;;;
@@ -95,22 +95,22 @@
   ;;;
   
   
-  (method override (close)
+  (method override (close self)
     (if (eq? close-behavior 'hide)
-        (set-visible? #f)
-      (nextmethod)))
+        (set-visible? self #f)
+      (nextmethod self)))
   
   
-  (method override (destroy)
+  (method override (destroy self)
     (define (close-root)
       (when root
-        (close~ root)
+        (close root)
         (set! root #f)))
     
     (if (eq? close-behavior 'detach-root)
-        (detach-root)
+        (detach-root self)
       (close-root))
-    (nextmethod))
+    (nextmethod self))
     
   
   ;;;
@@ -118,31 +118,31 @@
   ;;;
   
   
-  (method public (get-caption-base)
+  (method public (get-caption-base self)
     caption-base)
   
 
-  (method public (set-caption-base value)
+  (method public (set-caption-base self value)
     (set! caption-base value)
-    (invalidate-title))
+    (invalidate-title self))
   
   
-  (method public (get-caption)
+  (method public (get-caption self)
     caption)
   
   
-  (method public (set-caption value)
+  (method public (set-caption self value)
     (set! caption value)
-    (invalidate-title))
+    (invalidate-title self))
   
   
-  (method public (get-caption?)
+  (method public (get-caption? self)
     caption?)
   
   
-  (method public (set-caption? value)
+  (method public (set-caption? self value)
     (set! caption? value)
-    (invalidate-title))
+    (invalidate-title self))
     
   
   ;;;
@@ -150,7 +150,7 @@
   ;;;
   
   
-  (method protected virtual (effective-title)
+  (method protected virtual (effective-title self)
     (if (or (not caption) (not caption?))
         (if caption-base
             (localize caption-base)
@@ -161,8 +161,8 @@
           caption))))
   
   
-  (method (invalidate-title)
-    (set-title (effective-title)))
+  (method package (invalidate-title self)
+    (set-title self (effective-title self)))
 
   
   ;;;
@@ -170,10 +170,10 @@
   ;;;
 
 
-  (method override (erase-background surface)
-    (if (and root (get-offscreen?~ root))
+  (method override (erase-background self surface)
+    (if (and root (get-offscreen? root))
         processed
-      (nextmethod surface)))
+      (nextmethod self surface)))
 
   
   ;;;
@@ -181,26 +181,26 @@
   ;;;
   
   
-  (method public (get-root)
+  (method public (get-root self)
     root)
   
   
-  (method public (set-root value (detach?: detach? #t) (offscreen?: offscreen? #t))
+  (method public (set-root self value (detach?: detach? #t) (offscreen?: offscreen? #t))
     (when (neq? value root)
       (when detach?
-        (detach-root))
+        (detach-root self))
       (set! root value)
-      (set-name~ root 'root)
-      (set-parent~ root #f)
-      (set-player~ root self)
-      (set-offscreen?~ root offscreen?)
-      (layout-window)))
+      (set-name root 'root)
+      (set-parent root #f)
+      (set-player root self)
+      (set-offscreen? root offscreen?)
+      (layout-window self)))
   
   
-  (method (detach-root)
+  (method (detach-root self)
     (when root
-      (set-player~ root #f)
-      (set-offscreen?~ root #f)
+      (set-player root #f)
+      (set-offscreen? root #f)
       (set! root #f)))
   
   
@@ -209,18 +209,18 @@
   ;;;
   
   
-  (method override (size-change state size)
-    (nextmethod state size)
-    (layout-window))
+  (method override (size-change self state size)
+    (nextmethod self state size)
+    (layout-window self))
   
   
-  (method override (layout)
+  (method override (layout self)
     (when root
       (parameterize ((inhibit-layouts? #t)
                      (inhibit-invalidates? #t))
-        (set-position~ root {Point 0 0})
-        (set-size~ root (get-size)))
-      (redraw-window)))
+        (set-position root {Point 0 0})
+        (set-size root (get-size self)))
+      (redraw-window self)))
   
   
   ;;;
@@ -231,13 +231,13 @@
   (slot in-error? initialize #f)
   
   
-  (method public (get-in-error?)
+  (method public (get-in-error? self)
     in-error?)
   
   
-  (method public (set-in-error? flag)
+  (method public (set-in-error? self flag)
     (set! in-error? flag)
-    (invalidate-window))
+    (invalidate-window self))
   
   
   (definition Error-Color
@@ -249,23 +249,23 @@
   ;;;
   
   
-  (method override (paint update-region . platform-data)
+  (method override (paint self update-region . platform-data)
     (define (paint-in-error surface bounds)
-      (fill-rect~ surface bounds Error-Color))
+      (fill-rect surface bounds Error-Color))
     
     (let ((proc (debug-flicker)))
       (when proc
         (proc)))
     (with-platform-painting self platform-data
       (lambda (surface)
-        (let ((update-rect (get-box~ update-region)))
-          (set-clipper~ surface update-rect)
+        (let ((update-rect (get-box update-region)))
+          (set-clipper surface update-rect)
           (if in-error?
               (paint-in-error surface update-rect)
             (set! in-error? #t)
             ;; quick hack
             (when root
-              (paint-root~ root surface update-region))
+              (paint-root root surface update-region))
             (set! in-error? #f))))))
   
   
@@ -275,11 +275,11 @@
      (import jazz.platform.cocoa)
      
      ;; quick hack to have a cocoa specific method
-     (method override (paint-cocoa context rect)
+     (method override (paint-cocoa self context rect)
        ;; quick hack until i understand why desktop gets called here
        (unless (is? self Desktop)
          (with ((update-region (new Region rect: (NSRect->rect rect))))
-           (paint update-region context)))))
+           (paint self update-region context)))))
     (else))
   
   
@@ -288,9 +288,9 @@
   ;;;
   
   
-  (method override (receive-files pos files)
+  (method override (receive-files self pos files)
     (unless in-error?
-      (dispatch-receive-files~ root pos files))
+      (dispatch-receive-files root pos files))
     processed)
   
   
@@ -299,104 +299,104 @@
   ;;;
   
   
-  (method override (mouse-down h v)
+  (method override (mouse-down self h v)
     (if in-error?
         (bell)
       (parameterize ((event-type 'mouse))
-        (root-mouse-down~ root h v)))
+        (root-mouse-down root h v)))
     processed)
   
   
-  (method (simulate-mouse-down (pos #f))
-    (let ((pos (or pos (mouse-position))))
-      (let ((view (find-view pos)))
+  (method (simulate-mouse-down self (pos #f))
+    (let ((pos (or pos (mouse-position self))))
+      (let ((view (find-view self pos)))
         (when view
-          (root-mouse-down~ root (get-h~ pos) (get-v~ pos))))))
+          (root-mouse-down root (get-h pos) (get-v pos))))))
   
   
-  (method override (mouse-move h v)
+  (method override (mouse-move self h v)
     (unless in-error?
       (parameterize ((event-type 'mouse))
-        (dispatch-mouse-move~ root h v)))
+        (dispatch-mouse-move root h v)))
     processed)
   
   
-  (method (simulate-mouse-move (pos #f))
-    (let ((pos (or pos (mouse-position))))
-      (let ((view (find-view pos)))
+  (method package (simulate-mouse-move self (pos #f))
+    (let ((pos (or pos (mouse-position self))))
+      (let ((view (find-view self pos)))
         (when view
-          (dispatch-mouse-move~ root (get-h~ pos) (get-v~ pos))))))
+          (dispatch-mouse-move root (get-h pos) (get-v pos))))))
   
   
-  (method (simulate-global-mouse-move)
-    (let ((pos (mouse-position)))
-      (let ((player (find-window pos)))
+  (method (simulate-global-mouse-move self)
+    (let ((pos (mouse-position self)))
+      (let ((player (find-window self pos)))
         (when (is? player View-Player)
-          (let ((root (get-root~ player)))
-            (dispatch-mouse-move~ root (get-h~ pos) (get-v~ pos)))))))
+          (let ((root (get-root player)))
+            (dispatch-mouse-move root (get-h pos) (get-v pos)))))))
   
   
-  (method override (mouse-up h v)
+  (method override (mouse-up self h v)
     (unless in-error?
       (parameterize ((event-type 'mouse))
-        (root-mouse-up~ root h v)))
+        (root-mouse-up root h v)))
     processed)
   
   
-  (method override (double-click h v)
+  (method override (double-click self h v)
     (unless in-error?
       (parameterize ((event-type 'mouse))
-        (root-double-click~ root h v)))
+        (root-double-click root h v)))
     processed)
   
   
-  (method override (multiple-click count h v)
+  (method override (multiple-click self count h v)
     (unless in-error?
       (parameterize ((event-type 'mouse))
-        (root-multiple-click~ root count h v)))
+        (root-multiple-click root count h v)))
     processed)
   
   
-  (method override (context-menu h v)
+  (method override (context-menu self h v)
     (if in-error?
-        (set-in-error? #f)
+        (set-in-error? self #f)
       (parameterize ((event-type 'mouse))
-        (root-context-menu~ root h v)))
+        (root-context-menu root h v)))
     processed)
   
   
-  (method override (middle-mouse-down h v)
+  (method override (middle-mouse-down self h v)
     (unless in-error?
       (parameterize ((event-type 'mouse))
-        (root-middle-mouse-down~ root h v)))
+        (root-middle-mouse-down root h v)))
     processed)
   
   
-  (method override (middle-mouse-up h v)
+  (method override (middle-mouse-up self h v)
     (unless in-error?
       (parameterize ((event-type 'mouse))
-        (root-middle-mouse-up~ root h v)))
+        (root-middle-mouse-up root h v)))
     processed)
   
   
-  (method override (right-mouse-down h v)
+  (method override (right-mouse-down self h v)
     (unless in-error?
       (parameterize ((event-type 'mouse))
-        (root-right-mouse-down~ root h v)))
+        (root-right-mouse-down root h v)))
     processed)
   
   
-  (method override (right-mouse-up h v)
+  (method override (right-mouse-up self h v)
     (unless in-error?
       (parameterize ((event-type 'mouse))
-        (root-right-mouse-up~ root h v)))
+        (root-right-mouse-up root h v)))
     unprocessed)
   
   
-  (method override (mouse-leave)
-    (when (and mouse-in (eq? (get-player~ mouse-in) self))
-      (dispatch-mouse-leave~ mouse-in)
-      (cancel-tooltip-tracking~ mouse-in)
+  (method override (mouse-leave self)
+    (when (and (get-mouse-in) (eq? (get-player (get-mouse-in)) self))
+      (dispatch-mouse-leave (get-mouse-in))
+      (cancel-tooltip-tracking (get-mouse-in))
       (reset-mouse-in)))
 
 
@@ -405,14 +405,14 @@
   ;;;
   
   
-  (method public (for-each-docked proc)
+  (method public (for-each-docked self proc)
     (when root
-      (for-each-view-docked~ root proc)))
+      (for-each-view-docked root proc)))
   
   
-  (method public (find-docked type)
+  (method public (find-docked self type)
     (and root
-         (find-view-docked~ root type)))
+         (find-view-docked root type)))
 
 
   ;;;
@@ -420,10 +420,10 @@
   ;;;
   
   
-  (method public (popup class . initargs)
+  (method public (popup self class . initargs)
     (define (new-popup)
       (apply new class
-        owner: (get-overlapped)
+        owner: (get-overlapped self)
         visible?: #f
         initargs))
     
@@ -432,20 +432,20 @@
       popup))
   
   
-  (method public (close-popups (all?: all? #f) (exclude: exclude #f) (initiator: initiator #f))
+  (method public (close-popups self (all?: all? #f) (exclude: exclude #f) (initiator: initiator #f))
     (let ((manager (get-window-manager)))
-      (close-popups~ manager self all?: all? exclude: exclude initiator: initiator)))
+      (close-popups manager self all?: all? exclude: exclude initiator: initiator)))
   
   
-  (method public (force-close-popups (all?: all? #f) (exclude: exclude #f) (initiator: initiator #f))
+  (method public (force-close-popups self (all?: all? #f) (exclude: exclude #f) (initiator: initiator #f))
     (let ((popups (get-popups)))
       (when (and popups (not (get-passing-through?)))
-        (let* ((overlapped (get-overlapped))
-               (owners (get-owners~ overlapped)))
+        (let* ((overlapped (get-overlapped self))
+               (owners (get-owners overlapped)))
           (for-each (lambda (popup)
                       (when (and (or all? (not (memq? popup owners)))
                                  (or (not exclude) (not (memq? popup exclude)))
-                                 (or (not initiator) (eq? (get-initiator~ popup) initiator))
+                                 (or (not initiator) (eq? (get-initiator popup) initiator))
                                  (neq? popup (get-locked-popup)))
                         (close-popup popup)))
                     popups)))))
@@ -456,96 +456,96 @@
   ;;;
   
   
-  (method override (focus-gain)
+  (method override (focus-gain self)
     (set-focused-window self)
-    (when (and view-focus (in-player?~ view-focus))
+    (when (and view-focus (in-player? view-focus))
       (parameterize ((activating-window? #t))
-        (focus-view view-focus)
-        (focus-delegate~ view-focus)))
+        (focus-view self view-focus)
+        (focus-delegate view-focus)))
     processed)
   
   
-  (method override (focus-lose)
+  (method override (focus-lose self)
     (parameterize ((window-losing-focus? #t))
-      (unfocus-view))
+      (unfocus-view self))
     (set-focused-window #f)
     processed)
   
   
-  (method package (focus-view new-focus (process-focus-change? #t))
+  (method package (focus-view self new-focus (process-focus-change? #t))
     (set! view-focus new-focus)
-    (call-focus-gained~ view-focus)
-    (let ((host (get-host~ view-focus)))
+    (call-focus-gained view-focus)
+    (let ((host (get-host view-focus)))
       (when host
-        (activate-focus~ host)))
+        (activate-focus host)))
     (when (and process-focus-change? (process-active?))
-      (process-focus-change~ (get-application) view-focus)))
+      (process-focus-change (get-application) view-focus)))
   
   
-  (method package (unfocus-view)
+  (method package (unfocus-view self)
     (when view-focus
       (let ((focus view-focus))
-        (let ((container (get-focus-container~ focus)))
+        (let ((container (get-focus-container focus)))
           (when container
-            (preserve-focused~ container focus)))
-        (let ((host (get-host~ focus)))
+            (preserve-focused container focus)))
+        (let ((host (get-host focus)))
           (when host
-            (deactivate-focus~ host)))
-        (call-focus-lose~ focus)
-        (set! view-focus (focus-master~ focus))
-        (call-focus-lost~ focus))))
+            (deactivate-focus host)))
+        (call-focus-lose focus)
+        (set! view-focus (focus-master focus))
+        (call-focus-lost focus))))
   
   
-  (method override (reset-focus)
-    (nextmethod)
+  (method override (reset-focus self)
+    (nextmethod self)
     (when view-focus
-      (unfocus-view)
+      (unfocus-view self)
       (set! view-focus #f)))
   
   
-  (method package (push-view-focus new-focus)
+  (method package (push-view-focus self new-focus)
     (when view-focus
       (set! pushed-focuses (cons view-focus pushed-focuses)))
     ;; quick hack to fix correctly
     (unless (is? view-focus Menubar)
       (let ((focus view-focus))
         (when focus
-          (call-focus-lose~ focus))))
-    (focus-view new-focus #f))
+          (call-focus-lose focus))))
+    (focus-view self new-focus #f))
   
   
-  (method package (pop-view-focus)
-    (when (has-pushed-focuses?)
+  (method package (pop-view-focus self)
+    (when (has-pushed-focuses? self)
       (let ((new-focus (car pushed-focuses)))
         (set! pushed-focuses (cdr pushed-focuses))
         (when view-focus
-          (call-focus-lose~ view-focus))
+          (call-focus-lose view-focus))
         (parameterize ((activating-window? #t))
-          (focus-view new-focus #f)))))
+          (focus-view self new-focus #f)))))
   
   
-  (method package (pop-view-focuses popup)
+  (method package (pop-view-focuses self popup)
     (let (iterate)
       (let ((focus view-focus))
         (when (and view-focus
-                   (eq? (get-player~ view-focus) popup)
-                   (has-pushed-focuses?))
-          (pop-view-focus)
+                   (eq? (get-player view-focus) popup)
+                   (has-pushed-focuses? self))
+          (pop-view-focus self)
           (iterate)))))
   
   
-  (method package (pop-all-view-focuses)
+  (method package (pop-all-view-focuses self)
     (let (iterate)
-      (when (has-pushed-focuses?)
-        (pop-view-focus)
+      (when (has-pushed-focuses? self)
+        (pop-view-focus self)
         (iterate))))
   
   
-  (method package (clear-pushed-focuses)
+  (method package (clear-pushed-focuses self)
     (set! pushed-focuses '()))
   
   
-  (method package (has-pushed-focuses?)
+  (method package (has-pushed-focuses? self)
     (not-null? pushed-focuses))
   
   
@@ -554,9 +554,9 @@
   ;;;
   
   
-  (method override (key-press char)
+  (method override (key-press self char)
     (parameterize ((event-type 'keyboard))
-      (dispatch-key-press~ root char))
+      (dispatch-key-press root char))
     processed)
   
   
@@ -565,5 +565,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.window.descriptors:View-Player-Descriptor))))

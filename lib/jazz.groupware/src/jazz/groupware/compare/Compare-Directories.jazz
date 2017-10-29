@@ -39,12 +39,15 @@
 (module protected jazz.groupware.compare.Compare-Directories jazz
 
 
-(import (jazz.feedback)
+(import (jazz.calendar)
+        (jazz.event)
+        (jazz.feedback)
         (jazz.groupware)
         (jazz.io)
         (jazz.jml)
         (jazz.resource)
         (jazz.time)
+        (jazz.ui)
         (jazz.view)
         (jazz.workspace))
 
@@ -67,7 +70,7 @@
       (<!>       name: right-value  title: "Right Date")))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'compare-directories)
   
   
@@ -76,23 +79,23 @@
   ;;;
 
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "CompareDirectories"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Compare Directories")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 120 110})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 795 500})
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(groupware))
 
   
@@ -101,9 +104,9 @@
   ;;;
   
   
-  (method (on-scan-date evt)
+  (method (on-scan-date self evt)
     (when scanned-date
-      (set-base-date (date-universal->local (get-date~ scanned-date)))))
+      (set-base-date self (date-universal->local (get-date scanned-date)))))
 
   
   ;;;
@@ -111,19 +114,21 @@
   ;;;
   
   
-  (method override (new-comparer)
+  (method override (new-comparer self)
     (new Directory-Comparer))
   
   
-  (method override (get-merge-date mode)
+  (method override (get-merge-date self mode)
+    #f
+    @cant-find-get-time
     ; the date is used even in backup mode
-    (let ((date (get-base-date)))
+    (let ((date (get-base-date self)))
       (and date
-           (get-time~ date))))
+           (get-time date))))
   
   
-  (method override (scan-feedback left right)
-    (user-feedback "Scanning {l detail: :human}..." (trim-left left)))
+  (method override (scan-feedback self left right)
+    (user-feedback "Scanning {l detail: :human}..." (trim-left self left)))
   
   
   ;;;
@@ -131,30 +136,30 @@
   ;;;
   
   
-  (method override (present-root left right)
+  (method override (present-root self left right)
     (cond ((not left)
-           (present-item right))
+           (present-item self right))
           ((not right)
-           (present-item left))
+           (present-item self left))
           (else
-           (let ((l (present-item left))
-                 (r (present-item right)))
+           (let ((l (present-item self left))
+                 (r (present-item self right)))
              (if (string=? l r)
                  l
                (format "{a} / {a}" l r))))))
   
   
-  (method override (present-item item)
-    (get-name~ item))
+  (method override (present-item self item)
+    (get-name item))
   
   
-  (method override (present-value kind date)
+  (method override (present-value self kind date)
     (if (not date)
         ""
       (present-date (time-utc->date (date-universal->local date)))))
   
   
-  (method override (backup-action local-date left left-date right right-date)
+  (method override (backup-action self local-date left left-date right right-date)
     (if local-date
         (let ((base-date (date-local->universal local-date)))
           (if (> left-date base-date)
@@ -163,7 +168,7 @@
       'copy-right))
   
   
-  (method override (merge-action local-date left left-date right right-date)
+  (method override (merge-action self local-date left left-date right right-date)
     (and local-date
          (let ((base-date (date-local->universal local-date)))
            (cond ((and (not left) right)
@@ -187,7 +192,7 @@
                           ((and (is? left Depot-Moniker) (eq? l :not-equal))
                            'copy-right)
                           (else
-                           (debug-line (format "File {s} was modified before the base date on both sides!" (get-name~ left)))
+                           (debug-line (format "File {s} was modified before the base date on both sides!" (get-name left)))
                            'merge))))))))
 
   
@@ -196,20 +201,20 @@
   ;;;
   
   
-  (method protected virtual (overwrite-read-only?)
+  (method protected virtual (overwrite-read-only? self)
     #t)
   
   
-  (method override (add-item src dst)
+  (method override (add-item self src dst)
     (cond ((and (is? src Directory) (is? dst Directory))
-           (copy-directory~ src dst copy?: (lambda (path) (add-path? path))
-            feedback: (lambda (dir) (user-message "Copying {l detail: :human}..." (get-list~ dir)))))
+           (copy-directory src dst copy?: (lambda (path) (add-path? self path))
+            feedback: (lambda (dir) (user-message "Copying {l detail: :human}..." (get-list dir)))))
           (else
-           (nextmethod src dst))))
+           (nextmethod self src dst))))
   
   
-  (method protected virtual (add-path? path)
-    (let ((name (get-name~ path))
+  (method protected virtual (add-path? self path)
+    (let ((name (get-name path))
           (ignored (typecase path
                      ((Directory) ignored-nodes)
                      ((File) ignored-leaves)
@@ -217,22 +222,22 @@
       (and (not (member? name ignored))
            (or (is-not? path File)
                (null? ignored-extensions)
-               (not (member? (get-extension~ path) ignored-extensions))))))
+               (not (member? (get-extension path) ignored-extensions))))))
 
   
-  (method override (copy-item src dst)
+  (method override (copy-item self src dst)
     (if (and (is? src File) (is? dst File))
-        (copy-file~ src dst overwrite-read-only?: (overwrite-read-only?))
+        (copy-file src dst overwrite-read-only?: (overwrite-read-only? self))
       (error "Unable to copy {t} to {t}" src dst))
     (user-message "Done"))
 
   
-  (method override (delete-item item)
+  (method override (delete-item self item)
     (typecase item
       ((File)
-       (delete-file~ item overwrite-read-only?: (overwrite-read-only?)))
+       (delete-file item overwrite-read-only?: (overwrite-read-only? self)))
       ((Directory)
-       (delete-directory~ item overwrite-read-only?: (overwrite-read-only?) feedback: (lambda (dir) (user-message "Deleting {l detail: :human}..." (get-list~ dir))))
+       (delete-directory item overwrite-read-only?: (overwrite-read-only? self) feedback: (lambda (dir) (user-message "Deleting {l detail: :human}..." (get-list dir))))
        (user-message "Done"))
       (else
        (unimplemented 'delete-item))))
@@ -243,42 +248,42 @@
   ;;;
   
   
-  (method override (on-compare evt)
+  (method override (on-compare self evt)
     (with-cursor :wait
       (lambda ()
-        (set! scanned-date (compare-trees)))))
+        (set! scanned-date (compare-trees self)))))
   
   
-  (method override (compare-leaves left right user-data)
-    (let ((ext (get-extension~ left)))
+  (method override (compare-leaves self left right user-data)
+    (let ((ext (get-extension left)))
       (cond @wait-fully-debugged ((member? ext '("dbs" "jdi")) (compare-forms left right user-data))
             ((member? ext '("exe" "pdb")) (message-box (format "Unable to compare .{a} files" ext)))
-            (else (compare-files left right user-data)))))
+            (else (compare-files self left right user-data)))))
   
   
-  (method (compare-files left right user-data)
+  (method (compare-files self left right user-data)
     (with-cursor :wait
       (lambda ()
         (let* ((frame (new-frame Compare-Files host-visible?: #f))
-               (comparer (get-guest~ frame))
-               (has-differences? (compare-monikers comparer left right user-data)))
+               (comparer (get-guest frame))
+               (has-differences? (compare-monikers self comparer left right user-data)))
           (if has-differences?
-              (focus-host~ frame)
-            (close~ frame)
+              (focus-host frame)
+            (close frame)
             (message-box "No differences"))))))
   
   
-  (method protected virtual (compare-monikers comparer left right user-data)
-    (let ((ignore-whitespace? (eq? (get-check-algorithm) 'whitespace)))
-      (compare-monikers~ comparer left right ignore-whitespace?: ignore-whitespace? compare-directory: self compare-directory-cookie: user-data)))
+  (method package virtual (compare-monikers self comparer left right user-data)
+    (let ((ignore-whitespace? (eq? (get-check-algorithm self) 'whitespace)))
+      (compare-monikers comparer left right ignore-whitespace?: ignore-whitespace? compare-directory: self compare-directory-cookie: user-data)))
   
   
   (definition (compare-forms left right user-data)
     (with-cursor :wait
       (lambda ()
         (let ((frame (new-frame Compare-Forms host-visible?: #f left-moniker: left right-moniker: right)))
-          (compare-trees~ (get-guest~ frame))
-          (focus-host~ frame)))))
+          (compare-trees (get-guest frame))
+          (focus-host frame)))))
 
   
   ;;;
@@ -286,8 +291,8 @@
   ;;;
   
   
-  (method override (make-item item root father)
-    (let ((list (append (get-list~ father) (list (get-name~ item)))))
+  (method override (make-item self item root father)
+    (let ((list (append (get-list father) (list (get-name item)))))
       (typecase item
         ((File)
          (new File list)
@@ -313,16 +318,16 @@
             (error "Unable to make item from {t}" item))))))
   
   
-  (method override (tree-base tree)
-    (length (get-list~ tree)))
+  (method override (tree-base self tree)
+    (length (get-list tree)))
   
   
-  (method override (trim-left item)
-    (tail (get-list~ item) left-base))
+  (method override (trim-left self item)
+    (tail (get-list item) left-base))
   
   
-  (method override (trim-right item)
-    (tail (get-list~ item) right-base))
+  (method override (trim-right self item)
+    (tail (get-list item) right-base))
   
 
   ;;;
@@ -330,7 +335,7 @@
   ;;;
   
   
-  (method override (get-compare-menu)
+  (method override (get-compare-menu self)
     (new Compare-Directories-Menu)))
 
 

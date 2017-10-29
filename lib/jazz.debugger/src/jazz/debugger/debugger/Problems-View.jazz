@@ -39,10 +39,12 @@
 
 
 (import (jazz.debugger)
+        (jazz.event)
         (jazz.handler)
         (jazz.io)
         (jazz.jml)
         (jazz.layout)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -72,7 +74,7 @@
   (slot problems-file initialize #f)
 
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Problems)
 
   
@@ -81,11 +83,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Clone"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Problems")
 
   
@@ -94,8 +96,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'detail))
+  (method package (get-tree self)
+    (locate self 'detail))
 
   
   ;;;
@@ -103,40 +105,40 @@
   ;;;
   
   
-  (method (on-open-warnings evt)
+  (method (on-open-warnings self evt)
     (with-cursor :wait
       (lambda ()
-        (if (get-shift?~ evt)
+        (if (get-shift? evt)
             (if (not problems-file)
                 (bell)
               (empty-table details)
-              (report-problems (open-warnings problems-file)))
+              (report-problems self (open-warnings self problems-file)))
           (let ((file (choose-file)))
-            (report-problems (open-warnings file))
+            (report-problems self (open-warnings self file))
             (set! problems-file file))))))
   
   
-  (method (on-resolved evt)
-    (let ((row (selected-row)))
+  (method (on-resolved self evt)
+    (let ((row (selected-row self)))
       (when row
-        (let ((tree (get-tree))
-              (top-row (car (get-spine~ row))))
-          (let ((location (->string (get-title~ (get-user-data~ top-row)))))
+        (let ((tree (get-tree self))
+              (top-row (car (get-spine row))))
+          (let ((location (->string (get-title (get-user-data top-row)))))
             (table-clear details location))
-          (update)
-          (if (> (get-visible-count~ tree) 0)
-              (set-selection~ tree (list 0))
-            (set-selection~ tree '()))))))
+          (update self)
+          (if (> (get-visible-count tree) 0)
+              (set-selection tree (list 0))
+            (set-selection tree '()))))))
   
   
-  (method (on-clear evt)
-    (clear-problems))
+  (method package (on-clear self evt)
+    (clear-problems self))
   
   
-  (method (clear-problems)
+  (method package (clear-problems self)
     (empty-table details)
-    (update)
-    (set-selection~ (get-tree) '()))
+    (update self)
+    (set-selection (get-tree self) '()))
   
   
   ;;;
@@ -144,7 +146,7 @@
   ;;;
   
   
-  (method (open-warnings file)
+  (method (open-warnings self file)
     (let ((queue (new-queue)))
       (define (process line)
         (define (process-header header icon)
@@ -170,7 +172,7 @@
               (unless (eof-object? line)
                 (process line)
                 (iter))))))
-      (let ((partition (partition (queue-list queue) key: (lambda (detail) (car (get-location~ detail))))))
+      (let ((partition (partition (queue-list queue) key: (lambda (detail) (car (get-location detail))))))
         (new-exception-detail "Warning" #f #f
           (map (lambda (partition)
                  (bind (container . details) partition
@@ -184,20 +186,20 @@
   ;;;
 
 
-  (method public (report-problems problems (highlight?: highlight? #f))
+  (method public (report-problems self problems (highlight?: highlight? #f))
     (define (add-detail detail)
-      (let ((location (->string (get-title~ detail))))
+      (let ((location (->string (get-title detail))))
         (table-set! details location detail)))
     
-    (let ((children (get-children~ problems)))
+    (let ((children (get-children problems)))
       (for-each add-detail children)
-      (update)
+      (update self)
       (when (and highlight? (not-null? children))
-        (let ((tree (get-tree))
+        (let ((tree (get-tree self))
               (detail (car children)))
-          (let ((line (user-data-index~ tree detail)))
+          (let ((line (user-data-index tree detail)))
             (when line
-              (set-single-selection~ tree line)))))))
+              (set-single-selection tree line)))))))
 
   
   ;;;
@@ -205,19 +207,19 @@
   ;;;
 
   
-  (method (update)
+  (method package (update self)
     (define (insert-detail tree father detail)
-      (let ((title (get-title~ detail))
-            (icon (get-icon~ detail)))
+      (let ((title (get-title detail))
+            (icon (get-icon detail)))
         (let ((image (if icon (new Image-Resource icon) #f)))
-          (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: detail)))
+          (let ((row (add-row tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: detail)))
             (for-each (lambda (subdetail)
                         (insert-detail tree row subdetail))
-                      (get-children~ detail))))))
+                      (get-children detail))))))
     
-    (let ((tree (get-tree)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+    (let ((tree (get-tree self)))
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (let ((pairs (table->list details)))
             (for-each (lambda (pair)

@@ -38,7 +38,9 @@
 (module protected jazz.editor.jazz.log.Logs-Viewer jazz
 
 
-(import (jazz.debuggee.view)
+(import (jazz.debuggee.ui)
+        (jazz.debuggee.view)
+        (jazz.event)
         (jazz.geometry)
         (jazz.graphic)
         (jazz.handler)
@@ -47,6 +49,7 @@
         (jazz.layout)
         (jazz.locale)
         (jazz.log)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -56,7 +59,7 @@
 (class Logs-Viewer extends Layout-View
 
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'logs-viewer)
 
 
@@ -97,9 +100,9 @@
           (<No-Data-Viewer>)))))
 
 
-  (method override (finish initargs)
-    (nextmethod initargs)
-    (refresh-logs))
+  (method override (finish self initargs)
+    (nextmethod self initargs)
+    (refresh-logs self))
   
   
   ;;;
@@ -107,20 +110,20 @@
   ;;;
   
 
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Log"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Logs Viewer")
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 850 500})
   
   
-  (method override (client-activate)
-    (perserving-refresh-logs))
+  (method override (client-activate self)
+    (perserving-refresh-logs self))
   
   
   ;;;
@@ -128,8 +131,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'logs-tree))
+  (method package (get-tree self)
+    (locate self 'logs-tree))
   
   
   ;;;
@@ -142,95 +145,95 @@
   
   
   (definition (with-directory default? proc)
-    (if (and default? (exists?~ Logs-Directory))
+    (if (and default? (exists? Logs-Directory))
         (with-preserved-current-directory
          (lambda ()
            (proc Logs-Directory)))
       (proc #f)))
   
   
-  (method (on-memory-logs evt)
+  (method (on-memory-logs self evt)
     (set! logs-directory #f)
-    (refresh-logs))
+    (refresh-logs self))
   
   
-  (method (on-directory-logs evt)
-    (with-directory (get-shift?~ evt)
+  (method (on-directory-logs self evt)
+    (with-directory (get-shift? evt)
       (lambda (dir)
         (let ((directory (choose-directory directory: dir)))
           (set! logs-directory directory)
-          (refresh-logs)))))
+          (refresh-logs self)))))
   
   
-  (method (on-refresh-logs evt)
-    (refresh-logs))
+  (method (on-refresh-logs self evt)
+    (refresh-logs self))
   
   
-  (method (perserving-refresh-logs)
-    (let ((tree (get-tree)))
-      (with-preserved-selection~ tree
+  (method (perserving-refresh-logs self)
+    (let ((tree (get-tree self)))
+      (with-preserved-selection tree
         (lambda ()
-          (refresh-logs))
+          (refresh-logs self))
         use: 'data
         generate-event?: #t)))
   
   
-  (method public (refresh-logs)
-    (close-data-viewer)
-    (view-log~ (locate 'log-view) #f)
-    (view-logs))
+  (method public (refresh-logs self)
+    (close-data-viewer self)
+    (view-log (locate self 'log-view) #f)
+    (view-logs self))
   
   
-  (method (on-open evt)
-    (with-directory (get-shift?~ evt)
+  (method package (on-open self evt)
+    (with-directory (get-shift? evt)
       (lambda (dir)
-        (let* ((tree (get-tree))
+        (let* ((tree (get-tree self))
                (file (choose-file extensions: '(("Log Files" . "jlog")) directory: dir))
                (log (new Log file: file load?: #t))
-               (log-view (locate 'log-view)))
-          (set-selection~ tree '())
-          (view-log~ log-view log)))))
+               (log-view (locate self 'log-view)))
+          (set-selection tree '())
+          (view-log log-view log)))))
 
 
-  (method (on-clear evt)
-    (on-refresh evt))
+  (method package (on-clear self evt)
+    (on-refresh self evt))
 
 
-  (method (on-refresh evt)
-    (let ((log-view (locate 'log-view)))
-      (update~ log-view)))
+  (method package (on-refresh self evt)
+    (let ((log-view (locate self 'log-view)))
+      (update log-view)))
 
 
-  (method (on-selection-change evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method package (on-selection-change self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((logs-tree)
-         (let ((selection (get-single-selection~ sender)))
-           (let ((log-view (locate 'log-view))
-                 (log (and selection (get-user-data~ (get-row~ sender selection)))))
-             (close-data-viewer)
-             (when (and log (get-file~ log))
-               (reload~ log))
-             (view-log~ log-view log))))
+         (let ((selection (get-single-selection sender)))
+           (let ((log-view (locate self 'log-view))
+                 (log (and selection (get-user-data (get-row sender selection)))))
+             (close-data-viewer self)
+             (when (and log (get-file log))
+               (reload log))
+             (view-log log-view log))))
         ((log-tree)
-         (let ((selection (get-single-selection~ sender)))
+         (let ((selection (get-single-selection sender)))
            (when selection
-             (let ((node (get-user-data~ (get-row~ sender selection))))
-               (view-data node))))))))
+             (let ((node (get-user-data (get-row sender selection))))
+               (view-data self node))))))))
 
 
-  (method (on-double-click evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method (on-double-click self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((log-tree)
-         (let ((selection (get-single-selection~ sender)))
+         (let ((selection (get-single-selection sender)))
            (when selection
-             (let ((failure (get-user-data~ (get-row~ sender selection))))
-               (edit-location failure))))))))
+             (let ((failure (get-user-data (get-row sender selection))))
+               (edit-location self failure))))))))
   
   
-  (method override (on-return-press evt)
-    (on-double-click evt))
+  (method override (on-return-press self evt)
+    (on-double-click self evt))
   
   
   ;;;
@@ -238,27 +241,27 @@
   ;;;
 
 
-  (method (view-logs)
+  (method (view-logs self)
     (define (insert-log tree log)
-      (let ((name (->string (get-name~ log)))
-            (image (if (get-file~ log) {Image-Resource "Document"} {Image-Resource "Script"})))
-        (add-row~ tree children: (list (new Tree-Node title: name image: image)) user-data: log)))
+      (let ((name (->string (get-name log)))
+            (image (if (get-file log) {Image-Resource "Document"} {Image-Resource "Script"})))
+        (add-row tree children: (list (new Tree-Node title: name image: image)) user-data: log)))
     
     (define (insert-file tree file)
-      (let ((name (get-base~ file)))
-        (add-row~ tree children: (list (new Tree-Node title: name image: {Image-Resource "Document"})) user-data: (new Log file: file))))
+      (let ((name (get-base file)))
+        (add-row tree children: (list (new Tree-Node title: name image: {Image-Resource "Document"})) user-data: (new Log file: file))))
     
-    (let ((tree (get-tree)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+    (let ((tree (get-tree self)))
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (if (not logs-directory)
               (for-each (lambda (log)
                           (insert-log tree log))
                         (get-logs))
-            (iterate-directory~ logs-directory
+            (iterate-directory logs-directory
               (lambda (file)
-                (let ((extension (get-extension~ file)))
+                (let ((extension (get-extension file)))
                   (when (extension=? extension "jlog")
                     (insert-file tree file))))))))))
   
@@ -268,27 +271,27 @@
   ;;;
 
 
-  (method protected virtual (view-data node)
+  (method protected virtual (view-data self node)
     (define (data-viewer-class data)
       (if (and data (is? data Viewable))
-          (or (get-viewer-class~ data) No-Data-Viewer)
+          (or (get-viewer-class data) No-Data-Viewer)
         No-Data-Viewer))
     
-    (close-data-viewer)
+    (close-data-viewer self)
     (when (is? node JML-Node)
-      (let* ((data (get-property~ node 'data))
+      (let* ((data (get-property node 'data))
              (class (data-viewer-class data))
-             (container (locate 'data-container)))
+             (container (locate self 'data-container)))
         (set! data-viewer
               (new class
                 client: data
                 parent: container))
-        (layout-view~ container))))
+        (layout-view container))))
   
   
-  (method (close-data-viewer)
+  (method (close-data-viewer self)
     (when data-viewer
-      (close~ data-viewer)
+      (close data-viewer)
       (set! data-viewer #f)))
 
   
@@ -297,7 +300,7 @@
   ;;;
   
   
-  (method protected virtual (edit-location failure)
+  (method package virtual (edit-location self failure)
     ))
 
 
@@ -316,16 +319,16 @@
     (<install> border-type: edge style: entry))
   
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (define Background-Font
       {Font Heading2})
     
     (define (draw-no-data surface)
-      (set-font~ surface Background-Font)
+      (set-font surface Background-Font)
       (let* ((title (localize "No Data"))
-             (extent (get-text-extent~ surface title))
-             (pos (center extent (get-display-size))))
-        (draw-text~ surface (get-h~ pos) (get-v~ pos) title {Color Medium-Gray})))
+             (extent (get-text-extent surface title))
+             (pos (center extent (get-display-size self))))
+        (draw-text surface (get-h pos) (get-v pos) title {Color Medium-Gray})))
     
-    (nextmethod surface context)
+    (nextmethod self surface context)
     (draw-no-data surface))))

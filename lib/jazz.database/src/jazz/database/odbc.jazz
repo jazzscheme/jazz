@@ -46,17 +46,17 @@
   
   
   (method override (open data-source . rest)
-    (let ((connection-string (get-connection-string~ data-source)))
+    (let ((connection-string (get-connection-string data-source)))
       (SQLDriverConnect hdbc connection-string))
     (nextmethod data-source))
   
   
   (method (resultset->Data-Table resultset)
     (let ((table (new Data-Table)))
-      (set-columns~ table (map (lambda (name)
+      (set-columns table (map (lambda (name)
                                  (new Data-Column name: name))
                                (vector->list (first resultset))))
-      (set-rows~ table
+      (set-rows table
         (map (lambda (vector)
                (new Data-Row table #f (vector->list vector)))
              (second resultset)))))
@@ -77,8 +77,8 @@
   
   
   (method override (execute request)
-    (with ((statement (new ODBC-Statement self (post-process-request~ data-source request))))
-      (execute~ statement)))
+    (with ((statement (new ODBC-Statement self (post-process-request data-source request))))
+      (execute statement)))
   
   
   (method override (load-request request (convert?: convert? #t))
@@ -87,10 +87,10 @@
           (resultset->Data-Table resultset)
         resultset))
     
-    (autoconvert (let ((request (post-process-request~ data-source request)))
+    (autoconvert (let ((request (post-process-request data-source request)))
                    (with ((statement (new ODBC-Statement self request)))
-                     (execute~ statement)
-                     (load-single-resultset~ statement)))))
+                     (execute statement)
+                     (load-single-resultset statement)))))
   
   
   (method override (load-multirequest request (convert?: convert? #t) (strategy: strategy 'mixed))
@@ -99,9 +99,9 @@
           (map resultset->Data-Table resultsets)
         resultsets))
     
-    (autoconvert (let ((request (post-process-request~ data-source request)))
+    (autoconvert (let ((request (post-process-request data-source request)))
                    (with ((statement (new ODBC-Statement self request strategy: strategy)))
-                     (execute~ statement)
-                     (load-multiple-resultsets~ statement)))))))
+                     (execute statement)
+                     (load-multiple-resultsets statement)))))))
   (else))
 )

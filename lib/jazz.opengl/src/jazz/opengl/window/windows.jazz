@@ -127,7 +127,7 @@
       (PIXELFORMATDESCRIPTOR-cColorBits-set! pfd 24)
       (PIXELFORMATDESCRIPTOR-cDepthBits-set! pfd 32)
       (PIXELFORMATDESCRIPTOR-iLayerType-set! pfd PFD_MAIN_PLANE)
-      (let ((hdc (GetDC (get-handle~ window))))
+      (let ((hdc (GetDC (get-handle window))))
         (unless hdc
           (error "Could not create an OpenGL device context"))
         (let ((pixel-format (ChoosePixelFormat hdc pfd)))
@@ -140,23 +140,23 @@
               (error "Could not create an OpenGL rendering context"))
             (make-context-current hdc hrc)
             (set-opengl-context? #t)
-            (set-device~ window hdc)
-            (set-context~ window hrc)
-            (set-title~ window "OpenGL")
+            (set-device window hdc)
+            (set-context window hrc)
+            (set-title window "OpenGL")
             (if fullscreen?
-                (let ((area (get-display-area~ (primary-monitor))))
-                  (let ((left (get-left~ area))
-                        (top (get-top~ area))
+                (let ((area (get-display-area (primary-monitor))))
+                  (let ((left (get-left area))
+                        (top (get-top area))
                         (width (rect-width area))
                         (height (rect-height area)))
-                    (set-position~ window (new Point left top))
-                    (set-size~ window (new Dimension width height))))
-              (set-position~ window position)
-              (set-size~ window size))
+                    (set-position window (new Point left top))
+                    (set-size window (new Dimension width height))))
+              (set-position window position)
+              (set-size window size))
             (when render?
-              (register-timer~ window 'render 10
+              (register-timer window 'render 10
                 (lambda ()
-                  (pulse-scene~ window))))
+                  (pulse-scene window))))
             window))))))
 
 
@@ -168,13 +168,13 @@
 (definition package (adjust-opengl-context window major minor)
   (when (wglewIsSupported "WGL_ARB_create_context")
     (let ((debug-output? (and (find-setting 'jazz.opengl.debug-output? #f) (glewIsSupported "GL_ARB_debug_output")))
-          (hdc (get-device~ window)))
-      (let ((old-context (get-context~ window))
+          (hdc (get-device window)))
+      (let ((old-context (get-context window))
             (new-context (wglCreateContextAttribsARB* hdc NULL major minor (bitwise-ior (if debug-output? WGL_CONTEXT_DEBUG_BIT_ARB 0) WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB) WGL_CONTEXT_CORE_PROFILE_BIT_ARB)))
         (release-current-context)
         (delete-context old-context)
         (make-context-current hdc new-context)
-        (set-context~ window new-context)
+        (set-context window new-context)
         (when debug-output?
           (setup-debug-callback))))))
 
@@ -198,11 +198,11 @@
   (set-style handle (bitwise-ior WS_CLIPSIBLINGS
                                  WS_CLIPCHILDREN
                                  WS_POPUP))
-  (let ((area (get-display-area~ (primary-monitor))))
-    (let ((left (get-left~ area))
-          (top (get-top~ area))
-          (right (get-right~ area))
-          (bottom (get-bottom~ area)))
+  (let ((area (get-display-area (primary-monitor))))
+    (let ((left (get-left area))
+          (top (get-top area))
+          (right (get-right area))
+          (bottom (get-bottom area)))
       (SetWindowPos handle HWND_TOP
         left
         top
@@ -242,7 +242,7 @@
 
 
 (definition package (platform-set-fullscreen-mode handle)
-  (let ((area (get-display-area~ (primary-monitor))))
+  (let ((area (get-display-area (primary-monitor))))
     (let ((width (rect-width area))
           (height (rect-height area))
           (bits 32))

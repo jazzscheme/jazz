@@ -38,8 +38,10 @@
 (module protected jazz.debuggee.view.Log-Tree jazz
 
 
-(import (jazz.debuggee.view)
+(import (jazz.debuggee.ui)
+        (jazz.debuggee.view)
         (jazz.debugger)
+        (jazz.event)
         (jazz.feedback)
         (jazz.graphic)
         (jazz.handler)
@@ -76,44 +78,44 @@
   
   
   (definition (with-directory default? proc)
-    (if (and default? (exists?~ Logs-Directory))
+    (if (and default? (exists? Logs-Directory))
         (with-preserved-current-directory
          (lambda ()
            (proc Logs-Directory)))
       (proc #f)))
   
   
-  (method (on-open evt)
-    (with-directory (get-shift?~ evt)
+  (method package (on-open self evt)
+    (with-directory (get-shift? evt)
       (lambda (dir)
-        (open-file (choose-file extensions: '(("Log Files" . "jlog")) directory: dir)))))
+        (open-file self (choose-file extensions: '(("Log Files" . "jlog")) directory: dir)))))
 
 
-  (method (on-edit evt)
-    (edit-selection))
+  (method package (on-edit self evt)
+    (edit-selection self))
 
 
-  (method (on-clear evt)
-    (on-refresh evt))
+  (method package (on-clear self evt)
+    (on-refresh self evt))
 
 
-  (method (on-refresh evt)
-    (update))
+  (method package (on-refresh self evt)
+    (update self))
 
 
-  (method (on-double-click evt)
-    (edit-selection))
+  (method (on-double-click self evt)
+    (edit-selection self))
   
   
-  (method override (on-return-press evt)
-    (edit-selection))
+  (method override (on-return-press self evt)
+    (edit-selection self))
 
 
-  (method public (clear)
+  (method public (clear self)
     (if (null? log)
         (bell)
-      (clear~ log)
-      (update)))
+      (clear log)
+      (update self)))
   
   
   ;;;
@@ -121,9 +123,9 @@
   ;;;
   
   
-  (method (open-file file)
+  (method package (open-log-file self file)
     (let ((log (new Log file: file load?: #t)))
-      (view-log log)))
+      (view-log self log)))
   
   
   ;;;
@@ -131,14 +133,14 @@
   ;;;
   
   
-  (method public (update (reload?: reload? #t))
-    (when (and reload? log (get-file~ log))
-      (reload~ log))
-    (view-content))
+  (method public (update self (reload?: reload? #t))
+    (when (and reload? log (get-file log))
+      (reload log))
+    (view-content self))
   
   
-  (method protected virtual (extract-log-content log)
-    (get-toplevel-nodes~ log))
+  (method protected virtual (extract-log-content self log)
+    (get-toplevel-nodes log))
   
   
   ;;;
@@ -146,9 +148,9 @@
   ;;;
   
   
-  (method (new-log-node node)
+  (method (new-log-node self node)
     (define (log-node-class)
-      (let ((class (get-property~ node 'class)))
+      (let ((class (get-property node 'class)))
         (if class
             (resolve-runtime-reference (deserialize-runtime-reference class))
           Log-Node)))
@@ -161,19 +163,19 @@
   ;;;
   
   
-  (method (edit-selection)
-    (let ((selection (get-single-selection)))
+  (method package (edit-selection self)
+    (let ((selection (get-single-selection self)))
       (when selection
-        (let ((log-node (get-user-data~ (get-row selection))))
-          (edit-location log-node)
-          (user-message "{a}" (node-message~ log-node))))))
+        (let ((log-node (get-user-data (get-row self selection))))
+          (edit-location self log-node)
+          (user-message "{a}" (node-message log-node))))))
   
   
-  (method (edit-location log-node)
-    (edit-location~ log-node self))
+  (method package (edit-location self log-node)
+    (edit-location log-node self))
   
   
-  (method (get-frame-indicator)
+  (method package (get-frame-indicator self)
     (or frame-indicator
         (let ((indicator (new Location-Indicator {Color red: 255 green: 146 blue: 94})))
           (set! frame-indicator indicator)
@@ -185,32 +187,32 @@
   ;;;
   
   
-  (method public (view-log log)
-    (set! log~self log)
-    (view-content))
+  (method public (view-log self log)
+    (set! self.log log)
+    (view-content self))
   
   
-  (method (view-content)
-    (remove-every-row)
-    (with-update-locked
+  (method (view-content self)
+    (remove-every-row self)
+    (with-update-locked self
       (lambda ()
         (when log
           ;; for-each-reversed ;; wait because of validations
           (for-each (lambda (node)
-                      (insert-node #f node))
-                    (extract-log-content log))))))
+                      (insert-node self #f node))
+                    (extract-log-content self log))))))
 
 
-  (method (insert-node father node)
-    (case (get-tag~ node)
+  (method (insert-node self father node)
+    (case (get-tag node)
       ((resources))
       (else
-       (let* ((log-node (new-log-node node))
-              (name (node-name~ log-node))
-              (image (node-image~ log-node))
-              (message (node-message~ log-node))
-              (location (node-location~ log-node))
-              (subfather (add-row father: father children: (list (new Tree-Node title: name image: image) (new Tree-Label title: message) (new Tree-Label title: location)) user-data: log-node)))
+       (let* ((log-node (new-log-node self node))
+              (name (node-name log-node))
+              (image (node-image log-node))
+              (message (node-message log-node))
+              (location (node-location log-node))
+              (subfather (add-row self father: father children: (list (new Tree-Node title: name image: image) (new Tree-Label title: message) (new Tree-Label title: location)) user-data: log-node)))
          (for-each (lambda (subnode)
-                     (insert-node subfather subnode))
-                   (get-children~ node))))))))
+                     (insert-node self subfather subnode))
+                   (get-children node))))))))

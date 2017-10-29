@@ -38,6 +38,16 @@
 (module jazz.tracker jazz
 
 
+(hub add-allocations)
+(hub extract-allocations)
+(hub get-all)
+(hub get-count)
+(hub get-label)
+(hub reset)
+(hub set-all)
+(hub set-count)
+
+
 ;;;
 ;;;; Tracker
 ;;;
@@ -65,21 +75,21 @@
   (slot allocations accessors generate)
   
   
-  (method override (initialize label tracker)
-    (set! label~self label)
-    (set! tracker~self tracker)
-    (set! all~self 0)
-    (set! count~self 0)
-    (set! allocations~self #f))
+  (method override (initialize self label tracker)
+    (set! self.label label)
+    (set! self.tracker tracker)
+    (set! self.all 0)
+    (set! self.count 0)
+    (set! self.allocations #f))
   
   
-  (method (reset)
+  (method package (reset self)
     (set! all 0)
     (set! count 0)
     (set! allocations #f))
   
   
-  (method (add-allocations)
+  (method package (add-allocations self)
     (let ((allocs (count-allocations)))
       (increase! all allocs)
       (when (not allocations)
@@ -96,7 +106,7 @@
                 (increase! count))))))
   
   
-  (method (extract-allocations)
+  (method package (extract-allocations self)
     (queue-list allocations)))
 
 
@@ -153,7 +163,7 @@
 (definition public (stop-tracker (tracking #f))
   (untrack-allocations)
   (let ((tracking (or tracking (default-tracking))))
-    (add-allocations~ tracking)))
+    (add-allocations tracking)))
 
 
 (definition public (with-tracking label thunk)
@@ -164,14 +174,14 @@
 
 
 (definition (register-tracking tracking)
-  (table-set! *trackings* (get-label~ tracking) tracking))
+  (table-set! *trackings* (get-label tracking) tracking))
 
 (definition (unregister-tracking name)
   (table-clear *trackings* name))
 
 
 (definition public (reset-tracking tracking)
-  (reset~ tracking))
+  (reset tracking))
 
 
 (definition public (reset-trackings)

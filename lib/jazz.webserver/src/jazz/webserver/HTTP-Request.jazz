@@ -53,20 +53,20 @@
   (slot post-parameters initialize '() accessors generate)
   
   
-  (method override (initialize (http-method: http-method #f) 
+  (method override (initialize self (http-method: http-method #f) 
                                (uri: uri #f)
                                (get-parameters: get-parameters '())
                                (post-parameters: post-parameters '())
                                (content: content #f)
                                (headers: headers '()))
-    (nextmethod content: content headers: headers)
-    (set! http-method~self http-method)
-    (set! uri~self uri)
-    (set! get-parameters~self get-parameters)
-    (set! post-parameters~self post-parameters)
-    (let ((cookie-header (get-header "Cookie")))
+    (nextmethod self content: content headers: headers)
+    (set! self.http-method http-method)
+    (set! self.uri uri)
+    (set! self.get-parameters get-parameters)
+    (set! self.post-parameters post-parameters)
+    (let ((cookie-header (get-header self "Cookie")))
       (when cookie-header
-        (parse-cookies cookie-header))))
+        (parse-cookies self cookie-header))))
   
   
   ;;;
@@ -108,7 +108,7 @@ Cookie: SessionID=nil
 "
   
   
-  (method (parse-request port)
+  (method (parse-request self port)
     (define (parse-uri uri)
       (let ((pos (find uri #\question-mark)))
         (if (not pos)
@@ -127,15 +127,15 @@ Cookie: SessionID=nil
                    (cons (url-decode name) (url-decode value))))
                parameters)))
       
-      ;; (if fragment
+;;     (if fragment
 ;;           (call-with-input-string fragment
 ;;             (lambda (port)
-;;               (set! get-parameters~self (split-parameters port))))
+;;               (set! self.get-parameters (split-parameters port))))
 ;;         (let ((body (read-body port)))
 ;;           (when body
 ;;             (call-with-input-u8vector body
 ;;               (lambda (port)
-;;                 (set! post-parameters~self (split-parameters port))))))
+;;                 (set! self.post-parameters (split-parameters port))))))
 ;;         )
       #f
       )
@@ -143,12 +143,12 @@ Cookie: SessionID=nil
     (define (parse-value value)
       (substitute #\+ #\space value))
     
-    ;; (receive (line headers) (read-line/headers port)
+;;     (receive (line headers) (read-line/headers port)
 ;;       (bind (http-method uri protocol) (split line " ")
 ;;         (receive (uri fragment) (parse-uri uri)
-;;           (set! http-method~self http-method)
-;;           (set! uri~self uri)
-;;           (set! protocol~self protocol)
+;;           (set! self.http-method http-method)
+;;           (set! self.uri uri)
+;;           (set! self.protocol protocol)
 ;;           (parse-headers headers)
 ;;           (parse-cookies "Cookie")
 ;;           (parse-parameters fragment port))))
@@ -157,7 +157,7 @@ Cookie: SessionID=nil
     )
 
   
-  (method (parse-cookies cookie-string)
+  (method (parse-cookies self cookie-string)
     (let ((cookie-strings (map irregex-match-substring
                                (irregex-fold (string->irregex "\\w*=.*[,;]?")
                                              (lambda (i m s) (cons m s))
@@ -167,7 +167,7 @@ Cookie: SessionID=nil
       (map (lambda (name-value-str)
              (let ((equal-sign (find name-value-str #\=))
                    (semi (or (find name-value-str #\;) (find name-value-str #\,) (string-length name-value-str))))
-               (add-cookie
+               (add-cookie self
                 (new Cookie (subseq name-value-str 0 equal-sign) (subseq name-value-str (+ equal-sign 1) semi)))))
            cookie-strings)))
   
@@ -177,15 +177,15 @@ Cookie: SessionID=nil
   ;;;
 
 
-  (method (get-parameter name)
+  (method package (get-parameter self name)
     (let ((entry (assoc name get-parameters)))
       (if entry
           (cdr entry)
         #f)))
   
   
-  (method (get-authentication-parameters)
-    (let ((header (get-header "Authorization" #f)))
+  (method (get-authentication-parameters self)
+    (let ((header (get-header self "Authorization" #f)))
       (if header
           (parse-authentication-headers header)
         #f)))
@@ -196,39 +196,39 @@ Cookie: SessionID=nil
   ;;;
   
   
-  (method override (send port)
-    (output-control port)
-    (crlf! port)
-    (print-headers port)
+  (method override (send self port)
+    (output-control self port)
+    (crlf! self port)
+    (print-headers self port)
     (when (string=? http-method "POST")
       (format port "{%}{%}")
-      (output-parameters port post-parameters))
-    (crlf! port)
+      (output-parameters self port post-parameters))
+    (crlf! self port)
     (display content port)
     (force-output port))
   
   
-  (method (debug)
+  (method (debug self)
      (let ((port (open-output-u8vector)))
-      (send port)
+      (send self port)
       (prog1
           (list->string
             (map
               integer->char
               (u8vector->list
                 (get-output-u8vector port))))
-        (close~ port))))
+        (close port))))
   
   
-  (method (output-control output)
+  (method (output-control self output)
     (format output "{a} {a}" http-method uri)
     (when (not (empty? get-parameters))
       (format output "?")
-      (output-parameters output get-parameters))
+      (output-parameters self output get-parameters))
     (format output " HTTP/1.1"))
   
   
-  (method (output-parameters output parameters)
+  (method (output-parameters self output parameters)
     (loop (for parameter in parameters)
           (for first? first #t then #f)
           (do (bind (name . value) parameter

@@ -38,7 +38,9 @@
 (module protected jazz.domain.Localized-Domain jazz
 
 
-(import (jazz.domain)
+(import (jazz.designer)
+        (jazz.domain)
+        (jazz.integrity)
         (jazz.jml)
         (jazz.locale)
         (jazz.locale.components))
@@ -59,7 +61,7 @@
     (<install> nullable?: #t))
   
   
-  (method public (set-active-locale value)
+  (method public (set-active-locale self value)
     (set! active-locale (and value (standardize-locale value))))
   
   
@@ -68,19 +70,19 @@
   ;;;
   
   
-  (method override (get-nil-presentation)
+  (method override (get-nil-presentation self)
     (if active-locale
         ""
-      (nextmethod)))
+      (nextmethod self)))
   
   
-  (method override (present-value value)
+  (method override (present-value self value)
     (if active-locale
-        (or (localize~ value active-locale) "")
+        (or (localize-object value active-locale) "")
       (->string value :reader)))
   
   
-  (method override (parse-presentation text)
+  (method override (parse-presentation self text)
     (if active-locale
         text
       (let ((obj (read-string-safe text)))
@@ -94,15 +96,15 @@
   ;;;
   
   
-  (method override (get-multi-domains client)
+  (method override (get-multi-domains self client)
     (and (not active-locale)
-         (let ((locale-tree (get-locale-tree client)))
+         (let ((locale-tree (component-locale-tree client)))
            (if locale-tree
                (map (lambda (node)
-                      (let ((name (get-name~ node))
-                            (title (get-title~ node)))
+                      (let ((name (get-name node))
+                            (title (get-title node)))
                         (list name title (new Localized-Domain active-locale: (symbol->keyword name)))))
-                    (collect-descendants~ locale-tree Locale-Node))
+                    (collect-descendants locale-tree Locale-Node))
              ;; Hack for Forms that come from files
              (list (list 'locale #f (new Value-Domain)))))))
   
@@ -112,11 +114,11 @@
   ;;;
   
     
-  (method override (validate-value value (validation-context #f))
-    (or (nextmethod value validation-context)
-        (let* ((toolbox-module (and validation-context (get-module-metadata~ validation-context)))
-               (locale-tree (and toolbox-module (get-locale-tree~ toolbox-module))))
-          (validate-locales value locale-tree add-violation))))
+  (method override (validate-value self value (validation-context #f))
+    (or (nextmethod self value validation-context)
+        (let* ((toolbox-module (and validation-context (get-module-metadata validation-context)))
+               (locale-tree (and toolbox-module (get-locale-tree toolbox-module))))
+          (validate-locales value locale-tree (~ add-violation self)))))
   
   
   ;;;
@@ -124,12 +126,12 @@
   ;;;
   
   
-  (method override (setup-entry view client)
+  (method override (setup-entry self view client)
     (if active-locale
         (new jazz.designer:Localized-Entry parent: view domain: self active-locale: active-locale)
-      (let ((locale-tree (get-locale-tree (car client))))
+      (let ((locale-tree (component-locale-tree (car client))))
         (if locale-tree
             (let ((entry (new jazz.designer:Localized-Dialog-Entry parent: view domain: self)))
-              (set-locale-tree~ entry locale-tree)
+              (set-locale-tree entry locale-tree)
               entry)
           (new jazz.designer:Localized-Entry parent: view domain: self active-locale: #f)))))))

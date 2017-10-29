@@ -41,6 +41,7 @@
 (import (jazz.clipboard)
         (jazz.component)
         (jazz.descriptor)
+        (jazz.designer)
         (jazz.domain)
         (jazz.jml)
         (jazz.resource))
@@ -94,9 +95,9 @@
   ;;;
   
   
-  (method override (setup-component)
-    (nextmethod)
-    (set! children-descriptor (child 'children)))
+  (method override (setup-component self)
+    (nextmethod self)
+    (set! children-descriptor (child self 'children)))
   
   
   ;;;
@@ -104,8 +105,8 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
-    (instantiate~ Component-Meta-Descriptor))
+  (method meta override (get-class-descriptor self (context: context #f))
+    (instantiate Component-Meta-Descriptor))
 
 
   ;;;
@@ -113,26 +114,26 @@
   ;;;
   
   
-  (method public virtual (class-get-domain class property)
+  (method public virtual (class-get-domain self class property)
     (let ((property-descriptor (require-property-descriptor class (field-name property))))
-      (or (and property-descriptor (get-domain~ property-descriptor))
+      (or (and property-descriptor (get-domain property-descriptor))
           (error "No domain found for {s}" property))))
   
   
-  (method public virtual (class-get-category class property)
+  (method public virtual (class-get-category self class property)
     (get-domain-category
       (let ((property-descriptor (require-property-descriptor class (field-name property))))
-        (or (and property-descriptor (get-category~ property-descriptor))
+        (or (and property-descriptor (get-category property-descriptor))
             'property))))
   
   
-  (method public virtual (class-get-standard? class property)
+  (method public virtual (class-get-standard? self class property)
     (let ((property-descriptor (require-property-descriptor class (field-name property))))
       (and property-descriptor
-           (get-standard?~ property-descriptor))))
+           (get-standard? property-descriptor))))
 
   
-  (method public virtual (component-property-domain component property)
+  (method public virtual (component-property-domain self component property)
     (get-class-domain (class-of component) property))
   
   
@@ -141,41 +142,41 @@
   ;;;
   
   
-  (method public virtual (class-presentation class)
+  (method public virtual (class-presentation self class)
     (or title (->string (category-name class))))
   
   
-  (method public virtual (class-image class)
+  (method public virtual (class-image self class)
     (or image {Image-Resource "Component"}))
   
   
-  (method public virtual (class-name-prohibited? class)
+  (method public virtual (class-name-prohibited? self class)
     name-prohibited?)
   
   
-  (method public virtual (class-name-mandatory? class)
+  (method public virtual (class-name-mandatory? self class)
     name-mandatory?)
   
   
-  (method public virtual (class-name-unicity? class)
+  (method public virtual (class-name-unicity? self class)
     name-unicity?)
   
   
-  (method public virtual (class-presentation->name class presentation)
+  (method public virtual (class-presentation->name self class presentation)
     (if (or (not presentation) (empty-string? presentation) (equal? presentation "{}"))
         #f
       (string->symbol presentation)))
   
   
-  (method public virtual (class-name->presentation class name)
+  (method public virtual (class-name->presentation self class name)
     (if (not name)
         "{}"
       (->string name)))
   
   
-  (method public virtual (class-property-presentation class property)
+  (method public virtual (class-property-presentation self class property)
     (or (let ((property-descriptor (require-property-descriptor class (field-name property))))
-          (and property-descriptor (get-title~ property-descriptor)))
+          (and property-descriptor (get-title property-descriptor)))
         ;; lets be lazy!!
         (remove-enclosing #\? (join (map (lambda (substr) 
                                            (capitalize (substitute #\- #\space substr))) 
@@ -183,7 +184,7 @@
                                     "->"))))
   
   
-  (method public virtual (class-detail-presentation class property)
+  (method public virtual (class-detail-presentation self class property)
     (case (field-name property)
       ((class-info) "Class")
       ((name-info) "Name")
@@ -191,90 +192,90 @@
       (else (property-presentation class property))))
   
   
-  (method public virtual (class-persist-property? class property)
+  (method public virtual (class-persist-property? self class property)
     #t)
   
   
-  (method public virtual (component-presentation-property? component property)
+  (method public virtual (component-presentation-property? self component property)
     #f)
   
   
-  (method public virtual (component-get-presentation component)
-    (name->presentation (class-of component) (get-name~ component)))
+  (method public virtual (component-get-presentation self component)
+    (name->presentation (class-of component) (get-name component)))
   
   
-  (method public virtual (component-set-presentation component designer presentation)
-    (set-name~ designer component (presentation->name (class-of component) presentation)))
+  (method public virtual (component-set-presentation self component designer presentation)
+    (set-name designer component (presentation->name (class-of component) presentation)))
   
   
-  (method protected (component-get-string-presentation component)
-    (or (get-name~ component) ""))
+  (method package (component-get-string-presentation self component)
+    (or (get-name component) ""))
   
   
-  (method protected (component-set-string-presentation component designer presentation)
+  (method package (component-set-string-presentation self component designer presentation)
     (if (empty-string? presentation)
-        (set-name~ designer component #f)
-      (set-name~ designer component presentation)))
+        (set-name designer component #f)
+      (set-name designer component presentation)))
   
   
-  (method public virtual (component-present-property component property value)
+  (method public virtual (component-present-property self component property value)
     (let ((domain (property-domain component property)))
-      (present~ domain value)))
+      (present domain value)))
   
   
-  (method public virtual (component-get-components component)
-    (get-children~ component))
+  (method public virtual (component-get-components self component)
+    (get-children component))
   
   
-  (method public virtual (component-get-component-image component)
+  (method public virtual (component-get-component-image self component)
     (get-class-image (class-of component)))
   
   
-  (method public virtual (component-can-cut-component? component)
+  (method public virtual (component-can-cut-component? self component)
     (either can-cut? (can-delete-component? component)))
   
   
-  (method public virtual (component-can-copy-component? component)
+  (method public virtual (component-can-copy-component? self component)
     (either can-copy? #t))
   
   
-  (method public virtual (component-can-paste-component? component)
+  (method public virtual (component-can-paste-component? self component)
     (either can-paste? #t))
   
   
-  (method public virtual (component-can-paste-properties-component? component)
+  (method public virtual (component-can-paste-properties-component? self component)
     (either can-paste-properties? #f))
   
   
-  (method public virtual (component-can-rename-component? component)
+  (method public virtual (component-can-rename-component? self component)
     (either can-rename? (not (get-class-name-prohibited? (class-of component)))))
   
   
-  (method public virtual (component-can-select-all-component? component)
+  (method public virtual (component-can-select-all-component? self component)
     (either can-select-all? #f))
   
   
-  (method public virtual (component-can-delete-component? component)
+  (method public virtual (component-can-delete-component? self component)
     (either can-delete? #t))
   
   
-  (method public virtual (component-can-relocate-component? component)
+  (method public virtual (component-can-relocate-component? self component)
     (either can-relocate? #t))
   
   
-  (method public virtual (component-can-view-properties? component)
+  (method public virtual (component-can-view-properties? self component)
     (either can-view-properties? #t))
   
   
-  (method public (component-determine-can-paste component (try-parent? #t))
+  (method public (component-determine-can-paste self component (try-parent? #t))
     (boolean (determine-paster component try-parent?)))
   
   
-  (method public virtual (component-determine-paster component (try-parent? #t))
+  (method public virtual (component-determine-paster self component (try-parent? #t))
     (and (can-paste-component? component)
          (clipboard-format-available? 'jazz-parcels)
          (let* ((parcels (get-jazz-parcels))
-                (models (remove-duplicates (map get-master-model~ parcels))))
+                (models (remove-duplicates (map get-master-model parcels))))
            (cond ((memq? #f models)
                   #f)
                  ((every? (lambda (class)
@@ -283,127 +284,127 @@
                   component)
                  (else
                   (and try-parent?
-                       (let ((parent (get-parent~ component)))
+                       (let ((parent (get-parent component)))
                          (and parent
                               (determine-paster parent #f)))))))))
   
   
-  (method public virtual (component-can-send-before? component types father before)
+  (method public virtual (component-can-send-before? self component types father before)
     (and (every? (lambda (type) (addable-class? component type)) types)
          (not (sort-component-components? component))))
   
   
-  (method public virtual (component-sort-components? component)
+  (method public virtual (component-sort-components? self component)
     (either sort-components? #f))
   
   
-  (method public virtual (component-sort-components component predicate components)
+  (method public virtual (component-sort-components self component predicate components)
     (sort predicate components key: get-presentation-property))
   
   
-  (method public virtual (component-indexable? component)
+  (method public virtual (component-indexable? self component)
     (either indexable? #t))
   
   
-  (method public virtual (component-surrogate-class component)
+  (method public virtual (component-surrogate-class self component)
     jazz.designer:Component-Surrogate)
 
 
-  (method public virtual (component-install-surrogate component editor)
+  (method public virtual (component-install-surrogate self component editor)
     (let ((surrogate (new (component-surrogate component) client: component editor: editor)))
-      (set-surrogate~ component surrogate)
-      (install-handlers~ surrogate)
+      (set-surrogate component surrogate)
+      (install-handlers surrogate)
       (install-children-surrogates component editor)))
   
   
-  (method public virtual (component-install-children-surrogates component editor)
+  (method public virtual (component-install-children-surrogates self component editor)
     (for-each (lambda (component)
                 (install-surrogate component editor))
               (get-components component)))
 
 
-  (method public (component-remove-surrogate component)
+  (method public (component-remove-surrogate self component)
     (remove-component-surrogate component))
 
 
-  (method public (component-remove-component-surrogate component)
+  (method public (component-remove-component-surrogate self component)
     (for-each remove-component-surrogate (get-components component))
-    (let ((surrogate (get-surrogate~ component)))
+    (let ((surrogate (get-surrogate component)))
       (when surrogate
-        (remove-handlers~ surrogate)
-        (set-surrogate~ component #f))))
+        (remove-handlers surrogate)
+        (set-surrogate component #f))))
   
   
-  (method public virtual (component-get-addable-default component)
+  (method public virtual (component-get-addable-default self component)
     #f)
   
   
-  (method public virtual (component-get-addable-classes component)
-    (flatten (component-get-categorized-addable-classes component)))
+  (method public virtual (component-get-addable-classes self component)
+    (flatten-lists (component-get-categorized-addable-classes self component)))
   
   
-  (method public virtual (component-get-categorized-addable-classes component)
+  (method public virtual (component-get-categorized-addable-classes self component)
     categorized-classes)
   
   
-  (method public virtual (component-addable-class? component class)
+  (method public virtual (component-addable-class? self component class)
     (some? (lambda (addable-class)
              (subtype? class addable-class))
            (map resolve-runtime-reference (get-addable-classes component))))
   
   
-  (method public virtual (component-get-classes component)
+  (method public virtual (component-get-classes self component)
     '())
   
   
-  (method public virtual (component-get-addable-traits component)
+  (method public virtual (component-get-addable-traits self component)
     #t)
   
   
-  (method public virtual (component-get-addable-default-trait component)
+  (method public virtual (component-get-addable-default-trait self component)
     Trait)
   
   
-  (method public virtual (component-get-addable-base component)
+  (method public virtual (component-get-addable-base self component)
     (let ((classes (get-addable-classes component)))
       (if (= 1 (length classes))
           (resolve-runtime-reference (car classes))
         Component)))
   
   
-  (method public virtual (component-get-addable-details component)
+  (method public virtual (component-get-addable-details self component)
     (let ((base (get-addable-base component)))
       (and base
            '((name-info 100 #t)))))
   
   
-  (method public virtual (component-get-recursive-details? component)
+  (method public virtual (component-get-recursive-details? self component)
     #f)
   
   
-  (method public virtual (component-get-class-searchable-classes component)
+  (method public virtual (component-get-class-searchable-classes self component)
     '())
   
   
-  (method public virtual (component-get-custom-details component)
+  (method public virtual (component-get-custom-details self component)
     '())
   
   
-  (method public virtual (component-get-custom-card component)
+  (method public virtual (component-get-custom-card self component)
     #f)
   
   
-  (method public virtual (component-add-component-menu component menu)
+  (method public virtual (component-add-component-menu self component menu)
     )
   
   
-  (method public virtual (component-save-properties component designer)
+  (method public virtual (component-save-properties self component designer)
     )
   
   
-  (method public virtual (can-try-out? class)
+  (method public virtual (can-try-out? self class)
     #f)
   
   
-  (method public virtual (try-out class)
+  (method public virtual (try-out self class)
     )))

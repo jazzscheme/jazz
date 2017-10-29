@@ -40,6 +40,8 @@
 
 (import (jazz.catalog)
         (jazz.debugger)
+        (jazz.debugger.jazz)
+        (jazz.event)
         (jazz.feedback)
         (jazz.graphic)
         (jazz.handler)
@@ -47,6 +49,7 @@
         (jazz.jml)
         (jazz.jrm)
         (jazz.layout)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -81,7 +84,7 @@
                 (<Allocations-Tree> name: allocations selection-handler: {Selection-Handler :form on-select-location} double-click-handler: {Event-Handler :form on-inspect-data} return-press-handler: {Event-Handler :form on-return-press}))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Trackings)
   
   
@@ -90,19 +93,19 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Grab"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Trackings")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 28 14})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 408 608})
   
   
@@ -111,12 +114,12 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (get-tree)))
+  (method override (focus-default self)
+    (acquire-focus (get-tree self)))
   
   
   ;;;
@@ -124,8 +127,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'allocations))
+  (method package (get-tree self)
+    (locate self 'allocations))
   
   
   ;;;
@@ -133,64 +136,64 @@
   ;;;
   
   
-  (method (on-start-tracker evt)
+  (method (on-start-tracker self evt)
     (user-feedback "Tracking started")
-    (tracker-start~ (require-focused-process~ (get-debugger-manager))))
+    (tracker-start (require-focused-process (get-debugger-manager))))
   
   
-  (method (on-stop-tracker evt)
-    (tracker-stop~ (require-focused-process~ (get-debugger-manager)))
-    (view-tracking)
+  (method (on-stop-tracker self evt)
+    (tracker-stop (require-focused-process (get-debugger-manager)))
+    (view-tracking self)
     (user-message "Tracking stopped"))
   
   
-  (method (on-flat/hierarchical evt)
-    (set-hierarchical? (not hierarchical?))
-    (view-tracking))
+  (method (on-flat/hierarchical self evt)
+    (set-hierarchical? self (not hierarchical?))
+    (view-tracking self))
   
   
-  (method (set-hierarchical? flag)
+  (method (set-hierarchical? self flag)
     (set! hierarchical? flag))
   
   
-  (method (on-choose-tracking evt)
+  (method (on-choose-tracking self evt)
     (define (present-tracking tracking)
       (if tracking
           (->string tracking)
         "<default>"))
     
-    (let ((process (require-focused-process~ (get-debugger-manager))))
-      (let ((trackings (tracker-trackings~ process))
-            (tracking (tracker-selected-tracking~ process)))
-        (tracker-selected-tracking-set!~ process (request-list (sort string<? trackings key: present-tracking) title: "Choose Tracking" invite: "Select a tracking from the list" present: present-tracking selected: tracking))
-        (view-tracking))))
+    (let ((process (require-focused-process (get-debugger-manager))))
+      (let ((trackings (tracker-trackings process))
+            (tracking (tracker-selected-tracking process)))
+        (tracker-selected-tracking-set! process (request-list (sort string<? trackings key: present-tracking) title: "Choose Tracking" invite: "Select a tracking from the list" present: present-tracking selected: tracking))
+        (view-tracking self))))
   
   
-  (method (on-reset-tracking evt)
-    (let ((all? (get-shift?~ evt)))
-      (reset-tracking all?)))
+  (method (on-reset-tracking self evt)
+    (let ((all? (get-shift? evt)))
+      (reset-tracking self all?)))
   
   
-  (method (reset-tracking all?)
-    (tracking-reset~ (require-focused-process~ (get-debugger-manager)) all?)
-    (view-tracking))
+  (method (reset-tracking self all?)
+    (tracking-reset (require-focused-process (get-debugger-manager)) all?)
+    (view-tracking self))
   
   
-  (method (on-refresh-tracking evt)
-    (view-tracking))
+  (method (on-refresh-tracking self evt)
+    (view-tracking self))
   
   
-  (method (on-select-location evt)
-    (let ((user-origin (get-user-origin~ evt)))
-      (edit-source)
+  (method (on-select-location self evt)
+    (let ((user-origin (get-user-origin evt)))
+      (edit-source self)
       ;; as a quick solution we let the previous call give the focus to the document
       ;; because a lot of framework behavior depends on a new document gaining focus
       (when user-origin
-        (acquire-focus~ (locate 'allocations)))))
+        (acquire-focus (locate self 'allocations)))))
   
   
-  (method (on-inspect-data evt)
-    (inspect-data))
+  (method (on-inspect-data self evt)
+    (inspect-data self))
   
   
   ;;;
@@ -202,12 +205,12 @@
     '())
   
   
-  (method (edit-source)
+  (method (edit-source self)
     (for-each (lambda (indicator)
-                (edit-location~ indicator #f))
+                (edit-location indicator #f))
               *frame-indicators*)
     (set! *frame-indicators*
-          (let ((locations (selected-locations)))
+          (let ((locations (selected-locations self)))
             (if (not locations)
                 '()
               (let ((highest .4)
@@ -216,7 +219,7 @@
                        (bind (location value minimum maximum) info
                          (let ((value (+ highest (* (if (= minimum maximum) .5 (/ (- maximum value) (- maximum minimum))) (- lowest highest)))))
                            (let ((indicator (new Location-Indicator (new Color red: 1. green: value blue: value))))
-                             (edit-location~ indicator location)
+                             (edit-location indicator location)
                              indicator))))
                      locations))))))
   
@@ -226,14 +229,14 @@
   ;;;
   
   
-  (method (inspect-data)
-    (let ((data (get-single-selected-data~ (get-tree))))
+  (method (inspect-data self)
+    (let ((data (get-single-selected-data (get-tree self))))
       (if (and data (pair? (car data)))
           (bind (entry line value info) (car data)
             ;; process should be cached by view-tracking
-            (let ((process (require-focused-process~ (get-debugger-manager))))
-              (let ((debugger (get-debugger~ process)))
-                (inspect-info~ debugger process info))))
+            (let ((process (require-focused-process (get-debugger-manager))))
+              (let ((debugger (get-debugger process)))
+                (inspect-info debugger process info))))
         (bell))))
   
   
@@ -242,15 +245,15 @@
   ;;;
   
   
-  (method (selected-locations)
-    (let ((data (get-single-selected-data~ (get-tree))))
+  (method (selected-locations self)
+    (let ((data (get-single-selected-data (get-tree self))))
       (cond ((not data)
              #f)
             ((pair? (car data))
              (collect (lambda (info)
                         (bind (entry line value minimum maximum) info
                           (when entry
-                            (list (list (get-file~ (get-file-definition~ entry)) line #f) value minimum maximum))))
+                            (list (list (get-file (get-file-definition entry)) line #f) value minimum maximum))))
                       data))
             (else
              (list (list data 0 0 0))))))
@@ -261,15 +264,15 @@
   ;;;
   
   
-  (method (view-tracking)
+  (method (view-tracking self)
     (define (add-entry allocation)
       (bind (info container line) allocation
         (define (determine-entry)
           (when container
             (let ((file-entry (cache-container-entry container)))
               (when file-entry
-                (or (line->entry~ file-entry (- line 1))
-                    (get-root-definition~ file-entry))))))
+                (or (line->entry file-entry (- line 1))
+                    (get-root-definition file-entry))))))
         
         (cons (determine-entry) allocation)))
     
@@ -277,7 +280,7 @@
       (for-each (lambda (frame)
                   (bind (creator locat) frame
                     (bind (container line col) locat
-                      (add-row~ tree
+                      (add-row tree
                         father: father
                         children: (list (new Tree-Node title: (->string container))
                                         (new Tree-Label title: "")
@@ -295,7 +298,7 @@
     (define (present-location allocation)
       (bind (entry info container line) allocation
         (if entry
-            (get-name~ entry)
+            (get-name entry)
           (format "{a}:{a}" container line))))
     
     (define (present-object allocation)
@@ -308,19 +311,19 @@
     
     (with-cursor :wait
       (lambda ()
-        (let ((tree (get-tree))
+        (let ((tree (get-tree self))
               (tracking (parameterize ((receive-timeout 30))
-                          (tracker-tracking~ (require-focused-process~ (get-debugger-manager))))))
+                          (tracker-tracking (require-focused-process (get-debugger-manager))))))
           (when tracking
             (bind (label all allocations) tracking
               (let ((allocations (map add-entry allocations)))
-                (remove-every-row~ tree)
+                (remove-every-row tree)
                 (let ((title (format "{a}: all: {a}, count: {a}" (or label '<default>) all (length allocations))))
-                  (set-title~ (locate 'tracking) title)
-                  (set-tooltip?~ (locate 'tracking) #t)
-                  (set-tooltip-text~ (locate 'tracking) title))
+                  (set-title (locate self 'tracking) title)
+                  (set-tooltip? (locate self 'tracking) #t)
+                  (set-tooltip-text (locate self 'tracking) title))
                 (if hierarchical?
-                    (with-update-locked~ tree
+                    (with-update-locked tree
                       (lambda ()
                         (let ((entry-set (sort-allocations (partition allocations key: car))))
                           (for-each (lambda (info)
@@ -333,7 +336,7 @@
                                                   (minimum (minimum line-cardinalities))
                                                   (maximum (maximum line-cardinalities)))
                                               (let ((father
-                                                      (add-row~ tree
+                                                      (add-row tree
                                                         children: (list (new Tree-Node title: (present-location sample))
                                                                         (new Tree-Label title: (join-strings (map present-object (map cadr type-samples)) " "))
                                                                         (new Tree-Label title: (->string cardinality)))
@@ -348,7 +351,7 @@
                                                                             (bind (stack allocations cardinality) info
                                                                               (let ((sample (car allocations)))
                                                                                 (let ((father
-                                                                                        (add-row~ tree
+                                                                                        (add-row tree
                                                                                           father: father
                                                                                           children: (list (new Tree-Node title: (->string line))
                                                                                                           (new Tree-Label title: (present-object sample))
@@ -359,11 +362,11 @@
                                                                           stack-set))))
                                                           line-set)))))))
                                     entry-set))))
-                  (with-update-locked~ tree
+                  (with-update-locked tree
                     (lambda ()
                       (for-each (lambda (allocation)
                                   (let ((father
-                                          (add-row~ tree
+                                          (add-row tree
                                             children: (list (new Tree-Node title: (present-location allocation))
                                                             (new Tree-Label title: (present-object allocation))
                                                             (new Tree-Label title: "1"))

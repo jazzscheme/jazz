@@ -44,6 +44,7 @@
         (jazz.platform)
         (jazz.skin)
         (jazz.tree)
+        (jazz.ui)
         (jazz.view))
 
 
@@ -65,11 +66,11 @@
   (slot inside?   initialize #f)
   
   
-  (method override (default-size)
+  (method override (default-size self)
     {Dimension 100 16})
   
   
-  (method override (get-sort-value)
+  (method override (get-sort-value self)
     (localize title))
   
   
@@ -78,23 +79,23 @@
   ;;;
 
 
-  (method public (get-checked?)
+  (method public (get-checked? self)
     checked?)
   
 
-  (method public (set-checked? flag)
+  (method public (set-checked? self flag)
     (set! checked? flag)
-    (call-content-change #f)
-    (invalidate-view))
+    (call-content-change self #f)
+    (invalidate-view self))
 
 
-  (method public (get-color)
+  (method public (get-color self)
     color)
 
 
-  (method public (set-color value)
+  (method public (set-color self value)
     (set! color value)
-    (invalidate-view))
+    (invalidate-view self))
   
   
   ;;;
@@ -102,16 +103,16 @@
   ;;;
   
   
-  (method protected virtual (change-state reverse?)
-    (set-checked? (not checked?)))
+  (method package virtual (change-state self reverse?)
+    (set-checked? self (not checked?)))
   
   
-  (method (process-change-state)
-    (change-state (shift-down?))
-    (set-modified? #t)
+  (method (process-change-state self)
+    (change-state self (shift-down?))
+    (set-modified? self #t)
     (if (not outline-view)
-        (process-action self)
-      (process-action~ outline-view self)))
+        (process-action self self)
+      (process-action outline-view self)))
   
   
   ;;;
@@ -119,18 +120,18 @@
   ;;;
   
   
-  (method (text-extent)
+  (method package (text-extent self)
     (let ((title (localize title)))
-      (text-extent~ (effective-font) title)))
+      (text-extent (effective-font self) title)))
   
   
-  (method (box-rect)
+  (method (box-rect self)
     (let* ((title (localize title))
-           (extent (if title (text-extent) #f))
+           (extent (if title (text-extent self) #f))
            ;; quicky
            (center? (not extent))
-           (h (if center? (quotient (- (get-width) box-size) 2) 0))
-           (v (quotient (- (get-height) (if extent (get-height~ extent) box-size)) 2)))
+           (h (if center? (quotient (- (get-width self) box-size) 2) 0))
+           (v (quotient (- (get-height self) (if extent (get-height extent) box-size)) 2)))
       (new Rect h v (+ h box-size) (+ v box-size))))
   
   
@@ -139,45 +140,45 @@
   ;;;
   
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (define (effective-selected?)
       (if (not outline-view)
           (getf context selected?:)
-        (cell-selected?~ (outline-column) context)))
+        (cell-selected? (outline-column self) context)))
     
     (let* ((title (localize title))
-           (extent (if title (text-extent) #f))
+           (extent (if title (text-extent self) #f))
            ;; quicky
            (center? (not extent))
-           (box-h (if center? (quotient (- (get-width) box-size) 2) 0))
-           (box-v (quotient (- (get-height) (if extent (get-height~ extent) box-size)) 2))
+           (box-h (if center? (quotient (- (get-width self) box-size) 2) 0))
+           (box-v (quotient (- (get-height self) (if extent (get-height extent) box-size)) 2))
            (box-rect (new Rect box-h box-v (+ box-h box-size) (+ box-v box-size)))
-           (enabled? (view-enabled?))
+           (enabled? (view-enabled? self))
            (grayed? (or (not enabled?) (and tracking? inside?))))
       (unless flat?
-        (draw-edge~ surface box-rect inner: 'sunken outer: 'sunken edges: 'rectangle))
-      (fill-rect~ surface (inflate-rect box-rect -2 -2) (if grayed? {Color Medium} {Color White}))
-      (draw-check surface (+ 3 box-h) (+ 3 box-v) grayed?)
+        (draw-edge surface box-rect inner: 'sunken outer: 'sunken edges: 'rectangle))
+      (fill-rect surface (inflate-rect box-rect -2 -2) (if grayed? {Color Medium} {Color White}))
+      (draw-check self surface (+ 3 box-h) (+ 3 box-v) grayed?)
       (when title
         (let ((selected? (effective-selected?))
               (text-h (+ 18 box-h))
               (text-v box-v))
           (when selected?
-            (let ((color (if (is? outline-view Tree-View) (selection-color~ outline-view) {Color Focused-Selection}))
+            (let ((color (if (is? outline-view Tree-View) (selection-color outline-view) {Color Focused-Selection}))
                   (rect
-                   (if (and (is? outline-view Tree-View) (eq? (get-selection-mode~ outline-view) 'cell))
-                       (new Rect (- text-h 3) (- text-v 2) (get-width) (+ text-v (get-height~ extent) 2))
-                     (new Rect (- text-h 3) (- text-v 2) (+ text-h (get-width~ extent) 3) (+ text-v (get-height~ extent) 2)))))
-              (fill-rect~ surface rect color)))
-          (set-font~ surface (effective-font))
-          (draw-text~ surface text-h text-v title (text-color selected?)
+                   (if (and (is? outline-view Tree-View) (eq? (get-selection-mode outline-view) 'cell))
+                       (new Rect (- text-h 3) (- text-v 2) (get-width self) (+ text-v (get-height extent) 2))
+                     (new Rect (- text-h 3) (- text-v 2) (+ text-h (get-width extent) 3) (+ text-v (get-height extent) 2)))))
+              (fill-rect surface rect color)))
+          (set-font surface (effective-font self))
+          (draw-text surface text-h text-v title (text-color self selected?)
             enabled?: (or enabled? selected?))))))
   
   
-  (method protected virtual (draw-check surface h v grayed?)
+  (method package virtual (draw-check self surface h v grayed?)
     (when checked?
-      (set-color~ surface (if grayed? {Color Dark} {Color Black}))
-      (draw-check~ surface h v)))
+      (set-color surface (if grayed? {Color Dark} {Color Black}))
+      (draw-check surface h v)))
   
   
   ;;;
@@ -185,14 +186,14 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:check))
   
   
-  (method (text-color selected?)
-    (let ((skin (get-skin)))
-      (or (get-text-color~ skin)
-          (determine-color~ color enabled? selected?)
+  (method (text-color self selected?)
+    (let ((skin (get-skin self)))
+      (or (get-text-color skin)
+          (determine-color color enabled? selected?)
           {Color White})))
 
 
@@ -201,16 +202,16 @@
   ;;;
 
 
-  (method override (focus-gained)
-    (nextmethod)
+  (method override (focus-gained self)
+    (nextmethod self)
     (when outline-view
-      (focus-gained~ outline-view)))
+      (focus-gained outline-view)))
 
 
-  (method override (focus-lost)
-    (nextmethod)
+  (method override (focus-lost self)
+    (nextmethod self)
     (when outline-view
-      (focus-lost~ outline-view)))
+      (focus-lost outline-view)))
   
   
   ;;;
@@ -218,28 +219,28 @@
   ;;;
   
   
-  (method override (key-press evt)
-    (case (get-key~ evt)
+  (method override (key-press self evt)
+    (case (get-key evt)
       ((#\space)
-       (process-change-state))
+       (process-change-state self))
       (else
        (when outline-view
-         (call-key-press~ outline-view evt)))))
+         (call-key-press outline-view evt)))))
   
   
-  (method override (arrow-press evt)
+  (method override (arrow-press self evt)
     (when outline-view
-      (call-arrow-press~ outline-view evt)))
+      (call-arrow-press outline-view evt)))
   
   
-  (method override (return-press evt)
+  (method override (return-press self evt)
     (when outline-view
-      (call-return-press~ outline-view evt)))
+      (call-return-press outline-view evt)))
   
   
-  (method override (escape-press evt)
+  (method override (escape-press self evt)
     (when outline-view
-      (call-escape-press~ outline-view evt)))
+      (call-escape-press outline-view evt)))
   
   
   ;;;
@@ -247,32 +248,32 @@
   ;;;
   
   
-  (method override (mouse-down evt)
+  (method override (mouse-down self evt)
     (when outline-view
-      (outline-select))
-    (when (and (view-enabled?) editable? (or (not outline-view) (in-rect? (get-position~ evt) (box-rect))))
+      (outline-select self))
+    (when (and (view-enabled? self) editable? (or (not outline-view) (in-rect? (get-position evt) (box-rect self))))
       (set! tracking? #t)
       (set! inside? #t)
-      (acquire-capture)
-      (invalidate-view)))
+      (acquire-capture self)
+      (invalidate-view self)))
   
   
-  (method override (drag-move evt)
+  (method override (drag-move self evt)
     (when tracking?
-      (let ((over? (over-view? (get-position~ evt))))
+      (let ((over? (over-view? self (get-position evt))))
         (when (neq? over? inside?)
           (set! inside? over?)
-          (invalidate-view)))))
+          (invalidate-view self)))))
   
   
-  (method override (drag-up evt . rest)
+  (method override (drag-up self evt . rest)
     (when tracking?
-      (release-capture)
+      (release-capture self)
       (set! tracking? #f)
       (when inside?
         (when selectable?
-          (acquire-focus))
-        (process-change-state))))
+          (acquire-focus self))
+        (process-change-state self))))
   
   
   ;;;
@@ -280,5 +281,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Check-Box-Descriptor))))

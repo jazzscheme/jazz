@@ -39,10 +39,12 @@
 
 
 (import (jazz.designer)
+        (jazz.domain)
         (jazz.graphic)
         (jazz.jml)
         (jazz.reference)
         (jazz.runtime)
+        (jazz.text)
         (jazz.ui)
         (jazz.view))
 
@@ -58,21 +60,21 @@
     (<install> kind: choose))
 
   
-  (method public (set-reference reference)
-    (set! reference~self reference)
-    (set-string-content~ (locate 'body) (get-presentation~ parent)))
+  (method public (set-reference self reference)
+    (set! self.reference reference)
+    (set-string-content (locate self 'body) (get-presentation parent)))
   
   
-  (method public (get-import)
+  (method public (get-import self)
     (and reference
          (second (serialize-runtime-reference reference))))
   
   
-  (method override (button-action)
+  (method override (button-action self)
     (define (initialize-manager manager)
       (when reference
         (bind (unit symbol) (parse-runtime-reference reference)
-          (setup~ manager unit symbol))))
+          (setup manager unit symbol))))
     
     (bind (symbol unit) 
         (get-modal Class-Dialog-Toolbox 
@@ -82,8 +84,8 @@
                                           (runtime-reference->reference class-ref)
                                         class-ref))
                                     classes))
-      (set-reference (deserialize-runtime-reference (list 'module-public unit symbol)))
-      (set-modified? #t))))
+      (set-reference self (deserialize-runtime-reference (list 'module-public unit symbol)))
+      (set-modified? self #t))))
 
 
 (class Class-Reference-Entry extends Property-Entry
@@ -95,43 +97,43 @@
         (<!>         name: body  left-padding: 0 top-padding: 1))))
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (set-classes~ (locate 'combo) (get-classes~ domain)))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (set-classes (locate self 'combo) (get-classes domain)))
   
   
-  (method override (tab-view)
-    (locate '(combo body)))
+  (method override (tab-view self)
+    (locate self '(combo body)))
   
   
-  (method override (get-value)
-    (let ((value (get-reference~ (locate 'combo))))
-      (if (get-runtime-reference?~ domain)
+  (method override (get-value self)
+    (let ((value (get-reference (locate self 'combo))))
+      (if (get-runtime-reference? domain)
           value
         (let ((ref (new Class-Reference (last (parse-runtime-reference value)))))
-          (setup-context~ ref (new Environment #f (lambda (sym) value)))
+          (setup-context ref (new Environment #f (lambda (sym) value)))
           ref))))
   
   
-  (method override (set-value value)
-    (let ((ref (if (get-runtime-reference?~ domain)
+  (method override (set-value self value)
+    (let ((ref (if (get-runtime-reference? domain)
                    value
-                 (let ((class (resolve-reference~ value)))
+                 (let ((class (reference-resolve value)))
                    (deserialize-runtime-reference (list 'module-public (category-unit class) (category-name class)))))))
-      (set-reference~ (locate 'combo) ref)))
+      (set-reference (locate self 'combo) ref)))
   
   
-  (method override (get-imports)
-    (list (get-import~ (locate 'combo))))
+  (method override (get-imports self)
+    (list (get-import (locate self 'combo))))
   
   
-  (method override (get-modified?)
-    (get-modified?~ (locate 'combo)))
+  (method override (get-modified? self)
+    (get-modified? (locate self 'combo)))
   
   
-  (method override (set-modified? value)
-    (set-modified?~ (locate 'combo) value))
+  (method override (set-modified? self value)
+    (set-modified? (locate self 'combo) value))
   
   
-  (method override (set-editable? value)
-    (set-editable?~ (locate 'combo) value))))
+  (method override (set-editable? self value)
+    (set-editable? (locate self 'combo) value))))

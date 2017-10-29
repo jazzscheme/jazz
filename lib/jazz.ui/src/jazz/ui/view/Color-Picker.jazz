@@ -64,23 +64,23 @@
   ;;;
 
 
-  (method public (get-colors)
+  (method public (get-colors self)
     colors)
 
 
-  (method public (set-colors value)
+  (method public (set-colors self value)
     (set! colors value)
-    (invalidate-tools)
-    (layout-view))
+    (invalidate-tools self)
+    (layout-view self))
 
 
-  (method public (get-geometry)
+  (method public (get-geometry self)
     geometry)
 
 
-  (method public (set-geometry value)
+  (method public (set-geometry self value)
     (set! geometry value)
-    (layout-view))
+    (layout-view self))
   
   
   ;;;
@@ -88,12 +88,12 @@
   ;;;
   
   
-  (method override (set-action-handler handler)
+  (method override (set-action-handler self handler)
     (set! action-handler handler)
     (for-each (lambda (tool)
-                (set-action-handler~ tool handler))
-              (get-children~ (locate 'colors)))
-    (set-action-handler~ (locate 'more) handler))
+                (set-action-handler tool handler))
+              (get-children (locate self 'colors)))
+    (set-action-handler (locate self 'more) handler))
 
   
   ;;;
@@ -136,7 +136,7 @@
       {Color Dark-Gray}))
   
   
-  (method (effective-colors)
+  (method (effective-colors self)
     (or colors Default-Colors))
 
   
@@ -145,12 +145,12 @@
   ;;;
   
   
-  (method (invalidate-tools)
-    (let ((view (locate 'colors)))
-      (for-each close~ (get-children~ view))
+  (method (invalidate-tools self)
+    (let ((view (locate self 'colors)))
+      (for-each close (get-children view))
       (for-each (lambda (color)
                   (new Color-Tool parent: view size: {Dimension 18 18} color: color action-handler: action-handler))
-                (effective-colors))))
+                (effective-colors self))))
   
   
   ;;;
@@ -158,22 +158,22 @@
   ;;;
   
   
-  (method override (layout)
-    (let* ((view (locate 'colors))
-           (children (get-children~ view)))
+  (method override (layout self)
+    (let* ((view (locate self 'colors))
+           (children (get-children view)))
       (when (not-null? children)
         (let* ((geometry (or geometry {Cell 3 8}))
-               (lines (get-line~ geometry))
-               (columns (get-col~ geometry)))
+               (lines (get-line geometry))
+               (columns (get-col geometry)))
           (for-each (lambda (h)
                       (for-each (lambda (v)
                                   (let* ((n (+ (* h lines) v))
                                          (tool (element children n)))
-                                    (set-position~ tool (new Point (+ 2 (* h 18)) (+ 2 (* v 18))))))
+                                    (set-position tool (new Point (+ 2 (* h 18)) (+ 2 (* v 18))))))
                                 (naturals 0 lines)))
                     (naturals 0 columns))
-          (set-size (new Dimension (+ 2 (* columns 18) 2 8) (+ 2 (* lines 18) 2 8 30))))))
-    (nextmethod)))
+          (set-size self (new Dimension (+ 2 (* columns 18) 2 8) (+ 2 (* lines 18) 2 8 30))))))
+    (nextmethod self)))
 
 
 ;;;
@@ -188,55 +188,56 @@
   (property color  initialize #f accessors generate)
   
   
-  (method override (get-tooltip?)
+  (method override (get-tooltip? self)
     #t)
   
   
-  (method override (get-tooltip-text)
+  @cant-find-present
+  (method override (get-tooltip-text self)
     (if (not color)
         "No Color"
-      (present~ color)))
+      (present color)))
   
   
-  (method override (action-properties)
+  (method override (action-properties self)
     (list color: color))
   
   
-  (method override (mouse-enter)
-    (set-state 'highlighted)
-    (invalidate-view))
+  (method override (mouse-enter self)
+    (set-state self 'highlighted)
+    (invalidate-view self))
   
   
-  (method override (mouse-leave)
-    (set-state 'inactive)
-    (invalidate-view))
+  (method override (mouse-leave self)
+    (set-state self 'inactive)
+    (invalidate-view self))
   
   
-  (method override (mouse-up evt)
-    (process-action self))
+  (method override (mouse-up self evt)
+    (process-action self self))
   
   
-  (method override (up)
+  (method override (up self)
     )
   
   
-  (method override (draw-highlighted surface)
-    (if mouse-down?
-        (draw-pushed surface)
-      (nextmethod surface)))
+  (method override (draw-highlighted self surface)
+    (if (get-mouse-down?)
+        (draw-pushed self surface)
+      (nextmethod self surface)))
   
   
-  (method override (draw-tool surface context)
-    (nextmethod surface context)
-    (let* ((rect (get-bounds))
+  (method override (draw-tool self surface context)
+    (nextmethod self surface context)
+    (let* ((rect (get-bounds self))
            (outside (inflate-rect rect -3 -3))
            (inside (inflate-rect outside -1 -1)))
-      (frame-rect~ surface outside {Color Dark})
+      (frame-rect surface outside {Color Dark})
       (if color
-          (fill-rect~ surface inside color)
-        (set-color~ surface {Color Dark})
-        (set-line-width~ surface 1)
-        (line~ surface (get-right~ inside) (get-top~ inside) (get-left~ inside) (get-bottom~ inside))))))
+          (fill-rect surface inside color)
+        (set-color surface {Color Dark})
+        (set-line-width surface 1)
+        (line surface (get-right inside) (get-top inside) (get-left inside) (get-bottom inside))))))
 
 
 ;;;
@@ -247,26 +248,26 @@
 (class More-Tool extends Label-Tool
   
   
-  (method override (mouse-enter)
-    (set-state 'highlighted)
-    (invalidate-view))
+  (method override (mouse-enter self)
+    (set-state self 'highlighted)
+    (invalidate-view self))
   
   
-  (method override (mouse-leave)
-    (set-state 'inactive)
-    (invalidate-view))
+  (method override (mouse-leave self)
+    (set-state self 'inactive)
+    (invalidate-view self))
   
   
-  (method override (mouse-up evt)
-    (close-popups)
-    (process-action self (list color: (choose-color))))
+  (method override (mouse-up self evt)
+    (close-popups self)
+    (process-action self self (list color: (choose-color))))
   
   
-  (method override (up)
+  (method override (up self)
     )
   
   
-  (method override (draw-highlighted surface)
-    (if mouse-down?
-        (draw-pushed surface)
-      (nextmethod surface)))))
+  (method override (draw-highlighted self surface)
+    (if (get-mouse-down?)
+        (draw-pushed self surface)
+      (nextmethod self surface)))))

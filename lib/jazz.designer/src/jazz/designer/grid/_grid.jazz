@@ -52,9 +52,12 @@
         (jazz.locale)
         (jazz.jml)
         (jazz.menu)
+        (jazz.outline)
+        (jazz.reference)
         (jazz.resource)
         (jazz.runtime)
-        (jazz.tree))
+        (jazz.tree)
+        (jazz.view))
 
 
 (definition (classes-common-ancestor . classes)
@@ -68,7 +71,7 @@
 
 (definition (get-class-standard-properties class)
   (let* ((properties-descriptor (get-properties-descriptor class))
-         (standard (get-standard~ properties-descriptor)))
+         (standard (get-standard properties-descriptor)))
     (either standard #f)))
 
 
@@ -78,13 +81,13 @@
       (let ((standard? (get-class-standard? class property))
             (category (get-class-category class property)))
         (and standard?
-             (not (eq? (get-name~ category) 'infos))
+             (not (eq? (get-name category) 'infos))
              (if standard
-                 (memq (get-name~ property) standard)
-               (let ((property-descriptor (get-property-descriptor class (get-name~ property))))
-                 (and property-descriptor (get-domain~ property-descriptor)))))))
+                 (memq (get-name property) standard)
+               (let ((property-descriptor (get-property-descriptor class (get-name property))))
+                 (and property-descriptor (get-domain property-descriptor)))))))
     
-    (collect-if keep-property? (get-properties~ class))))
+    (collect-if keep-property? (get-properties class))))
 
 
 (definition (present-property-value component property)
@@ -93,8 +96,8 @@
 
 
 (definition (column-data-component-property row-data column-data fail succeed)
-  (let* ((component (element (get-hierarchy~ row-data) (get-component-offset~ column-data)))
-         (field (and component (category-field (class-of component) (get-identifier~ column-data))))
+  (let* ((component (element (get-hierarchy row-data) (get-component-offset column-data)))
+         (field (and component (category-field (class-of component) (get-identifier column-data))))
          (property (and (is? field Property) field)))
     (if property
         (succeed component property)
@@ -110,7 +113,7 @@
   (remove-duplicates
     (append-map (lambda (class)
                   (map (lambda (property)
-                         (list (get-name~ property)
+                         (list (get-name property)
                                (property-presentation class property)
                                (get-class-domain class property)))
                        (class-properties class)))
@@ -120,12 +123,12 @@
 
 
 (definition public (get-selection-columns grid)
-  (collect-type Component-Provider-Selection-Data (get-columns~ grid) key: get-provider-data~))
+  (collect-type Component-Provider-Selection-Data (get-columns grid) key: get-provider-data))
 
 
 (definition public (get-sub-property-domain component property sub-identifier)
   (let* ((domain (property-domain component property))
-         (multi-domains (get-multi-domains~ domain component))
+         (multi-domains (get-multi-domains domain component))
          (result (and multi-domains (assq-value sub-identifier multi-domains #f))))
     (and result (second result))))
 
@@ -147,7 +150,7 @@
   (property parent-offset    initialize #f accessors generate)
   
   
-  (method (class-selection?)
+  (method package (class-selection? self)
     (eq? identifier 'class-info)))
 
 
@@ -171,43 +174,43 @@
   (slot client accessors generate)
   
   
-  (method (get-grid)
-    (get-parent))
+  (method (get-grid self)
+    (get-parent self))
   
   
-  (method (column-data-component-class-references row-data column-data fail succeed)
-    (let ((component (element (get-hierarchy~ row-data) (get-component-offset~ column-data))))
+  (method (column-data-component-class-references self row-data column-data fail succeed)
+    (let ((component (element (get-hierarchy row-data) (get-component-offset column-data))))
       (if component
-          (let ((component-column-data (element (get-selection-structure~ editor) (get-component-offset~ column-data))))
-            (succeed component (get-class-references~ component-column-data)))
+          (let ((component-column-data (element (get-selection-structure editor) (get-component-offset column-data))))
+            (succeed component (get-class-references component-column-data)))
         (fail))))
   
   
-  (method (get-class-domain row-data column-data)
-    (column-data-component-class-references row-data column-data
+  (method (get-class-domain self row-data column-data)
+    (column-data-component-class-references self row-data column-data
       (const #f)
       (lambda (component class-references)
         (new Class-Reference-Domain classes: class-references runtime-reference?: #t))))
   
   
-  (method (get-class-reference row-data column-data fail succeed)
-    (column-data-component-class-references row-data column-data
+  (method (get-class-reference self row-data column-data fail succeed)
+    (column-data-component-class-references self row-data column-data
       fail
       (lambda (component class-references)
         (succeed (runtime-class-reference (class-of component))))))
   
   
-  (method (set-class row-data column-data reference)
+  (method (set-class self row-data column-data reference)
     (let ((runtime-reference (publicize-runtime-reference reference)))
-      (column-data-component-class-references row-data column-data
+      (column-data-component-class-references self row-data column-data
         (lambda () (error "Can't set class"))
         (lambda (component _)
-          (let ((parent (get-parent~ component))
-                (name (get-name~ component))
+          (let ((parent (get-parent component))
+                (name (get-name component))
                 (import (second (serialize-runtime-reference runtime-reference)))
                 (new-component (new (resolve-runtime-reference runtime-reference))))
-            (remove-child~ designer component)
-            (add-child~ designer new-component parent name: name import: import))))))
+            (remove-child designer component)
+            (add-child designer new-component parent name: name import: import))))))
   
   
   ;;;
@@ -215,11 +218,11 @@
   ;;;
   
   
-  (method override (get-data row-data column-data fail succeed)
+  (method override (get-data self row-data column-data fail succeed)
     (cond ((is? column-data Component-Provider-Selection-Data)
            (fail))
-          ((class-selection?~ column-data)
-           (get-class-reference row-data column-data fail succeed))
+          ((class-selection? column-data)
+           (get-class-reference self row-data column-data fail succeed))
           (else
            (column-data-component-property row-data column-data
              fail
@@ -227,45 +230,45 @@
                (succeed (read-property component property)))))))
   
   
-  (method override (set-data row-data column-data value)
-    (if (class-selection?~ column-data)
-        (set-class row-data column-data value)
+  (method override (set-data self row-data column-data value)
+    (if (class-selection? column-data)
+        (set-class self row-data column-data value)
       (column-data-component-property row-data column-data
         (lambda () (error "Can't set data"))
         (lambda (component property)
-          (safe-set-property~ designer component property value)))))
+          (safe-set-property designer component property value)))))
   
   
-  (method override (get-domain row-data column-data)
+  (method override (get-domain self row-data column-data)
     (cond ((is? column-data Component-Provider-Selection-Data)
            #f)
-          ((class-selection?~ column-data)
-           (get-class-domain row-data column-data))
+          ((class-selection? column-data)
+           (get-class-domain self row-data column-data))
           ((is? column-data Component-Provider-Sub-Property-Data)
            (column-data-component-property row-data column-data (const #f)
              (lambda (component property)
-               (get-sub-property-domain component property (get-sub-identifier~ column-data)))))
+               (get-sub-property-domain component property (get-sub-identifier column-data)))))
           (else
            (column-data-component-property row-data column-data (const #f) property-domain))))
   
   
-  (method override (read-only? row-data column-data)
-    (or (get-read-only?~ column-data)
-        (and (class-selection?~ column-data)
-             (column-data-component-class-references row-data column-data
+  (method override (read-only? self row-data column-data)
+    (or (get-read-only? column-data)
+        (and (class-selection? column-data)
+             (column-data-component-class-references self row-data column-data
                (lambda args #t)
                (lambda (component _)
-                 (not (component-owned? component (get-form~ designer) (get-reference~ designer))))))))
+                 (not (component-owned? component (get-form designer) (get-reference designer))))))))
   
   
-  (method override (get-violation row-data column-data)
-    (let ((index (find (get-columns~ (get-grid)) column-data key: get-provider-data~ test: eq?)))
-      (element (get-violations~ row-data) index)))
+  (method override (get-violation self row-data column-data)
+    (let ((index (find (get-columns (get-grid self)) column-data key: get-provider-data test: eq?)))
+      (element (get-violations row-data) index)))
   
   
-  (method override (set-violation row-data column-data violation)
-    (let ((index (find (get-columns~ (get-grid)) column-data key: get-provider-data~ test: eq?)))
-      (list-set! (get-violations~ row-data) index violation))))
+  (method override (set-violation self row-data column-data violation)
+    (let ((index (find (get-columns (get-grid self)) column-data key: get-provider-data test: eq?)))
+      (list-set! (get-violations row-data) index violation))))
 
 
 (class Component-Controller-Actions extends Actions
@@ -310,67 +313,67 @@
   ;;;
   
   
-  (method override (drop? source cell)
+  (method override (drop? self source cell)
     (and (not cell)
-         (let ((view (get-view~ source)))
+         (let ((view (get-view source)))
            (and (is? view Toolbox-Tree)
-                (let ((class (selected-class~ view)))
+                (let ((class (selected-class view)))
                   (addable-class? client class))))))
   
   
-  (method override (receive-drop sender pos drag-drop)
-    (let* ((tool (selected-component~ sender))
-           (ref (get-reference~ tool))
+  (method override (receive-drop self sender pos drag-drop)
+    (let* ((tool (selected-component sender))
+           (ref (get-reference tool))
            (child (new (resolve-runtime-reference ref))))
-      (add-child~ designer child client import: (get-unit~ tool) descendant?: #t)))
+      (add-child designer child client import: (get-unit tool) descendant?: #t)))
   
   
-  (method override (get-tab-stops)
-    (let ((grid (get-grid)))
+  (method override (get-tab-stops self)
+    (let ((grid (get-grid self)))
       
       (define (tab-cell row column)
-        (let ((cell (site->cell~ grid (row/column->site~ grid row column))))
-          (or (and (cell=? (get-single-selection~ grid) cell) cell)
+        (let ((cell (site->cell grid (row/column->site grid row column))))
+          (or (and (cell=? (get-single-selection grid) cell) cell)
               (call-with-row/column-data row column
                 (lambda (rd cd)
                   (and (is-not? cd Component-Provider-Selection-Data)
-                       (not (get-read-only?~ cd))
+                       (not (get-read-only? cd))
                        (column-data-component-property rd cd
                          (lambda () #f)
                          (lambda (c p) cell))))))))
       
       (append-map (lambda (row)
-                    (collect (lambda (column) (tab-cell row column)) (get-columns~ grid)))
-                  (collect-visible-rows~ grid))))
+                    (collect (lambda (column) (tab-cell row column)) (get-columns grid)))
+                  (collect-visible-rows grid))))
   
   
-  (method (update-rows-highlight old new)
+  (method package (update-rows-highlight self old new)
     (define (background row-data column-data selected?)
-      (get-data~ (get-provider) row-data column-data
+      (get-data (get-provider self) row-data column-data
         (lambda ()
-          (inactive-background row-data column-data selected?))
+          (inactive-background self row-data column-data selected?))
         (lambda (val)
-          (active-background row-data column-data selected?))))
+          (active-background self row-data column-data selected?))))
     
     (define (switch-row-color row selected?)
-      (let ((row-data (get-user-data~ row)))
+      (let ((row-data (get-user-data row)))
         (for-each (lambda (label column-data)
                     (let ((color (background row-data column-data selected?)))
                       (typecase label
                         ((Tree-Data)
-                         (set-background~ label color))
+                         (set-background label color))
                         ((Tree-Data-View)
-                         (set-background~ label color)))))
-                  (get-children~ row)
-                  (map get-provider-data~ (get-columns~ (get-grid))))))
+                         (set-background label color)))))
+                  (get-children row)
+                  (map get-provider-data (get-columns (get-grid self))))))
     
     (define (get-merged-rows rows)
-      (let ((components (map first (map get-hierarchy~ (map get-user-data~ rows)))))
-        (user-data-rows~ (get-grid) components test: (lambda (data component)
-                                                       (eq? (first (get-hierarchy~ data)) component)))))
+      (let ((components (map first (map get-hierarchy (map get-user-data rows)))))
+        (user-data-rows (get-grid self) components test: (lambda (data component)
+                                                       (eq? (first (get-hierarchy data)) component)))))
     
-    (let ((old-rows (get-merged-rows (map (~ get-row (get-grid)) (remove-duplicates (map get-line~ old)))))
-          (new-rows (get-merged-rows (map (~ get-row (get-grid)) (remove-duplicates (map get-line~ new))))))
+    (let ((old-rows (get-merged-rows (map (~ get-row (get-grid self)) (remove-duplicates (map get-line old)))))
+          (new-rows (get-merged-rows (map (~ get-row (get-grid self)) (remove-duplicates (map get-line new))))))
       (let ((removed-rows (difference old-rows new-rows))
             (added-rows (difference new-rows old-rows)))
         (for-each (lambda (row)
@@ -381,7 +384,7 @@
                   added-rows))))
   
   
-  (method override (inactive-title row-data column-data)
+  (method override (inactive-title self row-data column-data)
     (if (is? column-data Component-Provider-Selection-Data)
         "+"
       ""))
@@ -393,237 +396,237 @@
   (definition grayed-selected-color {Color Dark-Gray})
   
   
-  (method override (inactive-background row-data column-data (selected? #f))
+  (method override (inactive-background self row-data column-data (selected? #f))
     (let ((clear-color (if selected? clear-selected-color clear-color))
           (grayed-color (if selected? grayed-selected-color grayed-color)))
       (typecase column-data
         ((Component-Provider-Selection-Data)
-         (let ((parent-offset (get-parent-offset~ column-data)))
+         (let ((parent-offset (get-parent-offset column-data)))
            (cond ((not parent-offset) clear-color)
-                 ((element (get-hierarchy~ row-data) (get-parent-offset~ column-data)) clear-color)
+                 ((element (get-hierarchy row-data) (get-parent-offset column-data)) clear-color)
                  (else grayed-color))))
         (else
          grayed-color))))
   
   
-  (method override (active-background row-data column-data (selected? #f))
+  (method override (active-background self row-data column-data (selected? #f))
     (if selected? clear-selected-color clear-color))
   
   
-  (method override (get-frame-color)
+  (method override (get-frame-color self)
     #f)
   
   
-  (method public (get-cell-color row-data column-data)
-    (and (get-violation~ (get-provider) row-data column-data)
+  (method public (get-cell-color self row-data column-data)
+    (and (get-violation (get-provider self) row-data column-data)
          {Color Red}))
   
   
-  (method public (get-editor-color row-data column-data)
-    (if (get-violation~ (get-provider) row-data column-data)
+  (method public (get-editor-color self row-data column-data)
+    (if (get-violation (get-provider self) row-data column-data)
         {Color Red}
       {Color Black}))
   
   
-  (method override (selection-cell? row column)
+  (method override (selection-cell? self row column)
     (call-with-row/column-data row column
       (lambda (row-data column-data)
         (is? column-data Component-Provider-Selection-Data))))
   
   
-  (method override (cell-editable? row column)
+  (method override (cell-editable? self row column)
     (call-with-row/column-data row column
       (lambda (row-data column-data)
-        (and (not (get-read-only?~ column-data))
+        (and (not (get-read-only? column-data))
              (not (is? column-data Component-Provider-Selection-Data))))))
   
   
-  (method (get-provider)
-    (get-provider~ parent))
+  (method package (get-provider self)
+    (get-provider parent))
   
   
-  (method (get-grid)
+  (method (get-grid self)
     parent)
   
   
-  (method override (get-focus-actions)
+  (method override (get-focus-actions self)
     (find-actions 'component-controller))
   
   
-  (method public (can-rename?)
-    (receive (rows-data columns-data) (selected-cells-data~ (get-grid))
+  (method public (can-rename? self)
+    (receive (rows-data columns-data) (selected-cells-data (get-grid self))
       (and (= 1 (length rows-data))
            (let ((row-data (car rows-data))
                  (column-data (car columns-data)))
              (and (is? column-data Component-Provider-Selection-Data)
-                  (let ((component (element (get-hierarchy~ row-data) (get-component-offset~ column-data))))
+                  (let ((component (element (get-hierarchy row-data) (get-component-offset column-data))))
                     (and component
-                         (not (get-component-name~ column-data))
-                         (component-owned-by-reference?~ designer component))))))))
+                         (not (get-component-name column-data))
+                         (component-owned-by-reference? designer component))))))))
   
   
-  (method public (can-insert?)
-    (receive (rows-data columns-data) (selected-cells-data~ (get-grid))
+  (method public (can-insert? self)
+    (receive (rows-data columns-data) (selected-cells-data (get-grid self))
       (and (= 1 (length rows-data))
            (let ((row-data (car rows-data))
                  (column-data (car columns-data)))
              (and (is? column-data Component-Provider-Selection-Data)
-                  (or (not (get-component-name~ column-data))
-                      (not (element (get-hierarchy~ row-data) (get-component-offset~ column-data)))))))))
+                  (or (not (get-component-name column-data))
+                      (not (element (get-hierarchy row-data) (get-component-offset column-data)))))))))
   
   
-  (method override (focus-update-actions)
-    (set-action-enabled? {Action component-controller insert} (can-insert?))
-    (set-action-enabled? {Action component-controller rename} (can-rename?)))
+  (method override (focus-update-actions self)
+    (set-action-enabled? {Action component-controller insert} (can-insert? self))
+    (set-action-enabled? {Action component-controller rename} (can-rename? self)))
   
   
-  (method override (get-context-menu)
+  (method override (get-context-menu self)
     (new Component-Controller-Menu client: self))
   
   
-  (method (selected-components)
-    (receive (rows-data columns-data) (selected-cells-data~ (get-grid))
+  (method package (selected-components self)
+    (receive (rows-data columns-data) (selected-cells-data (get-grid self))
       (if (null? rows-data)
           (list client)
         (assert (if (> (length columns-data) 1)
                     (every? (lambda (data) (is? data Component-Provider-Selection-Data)) columns-data)
                   #t))
-        (remove-false (map element (map get-hierarchy~ rows-data) (map get-component-offset~ columns-data))))))
+        (remove-false (map element (map get-hierarchy rows-data) (map get-component-offset columns-data))))))
   
   
-  (method public (on-rename-component evt)
-    (let* ((components (selected-components))
+  (method public (on-rename-component self evt)
+    (let* ((components (selected-components self))
            (component (car components))
-           (presentation (request-component-presentation (class-of component) (get-brothers~ component) initial-value: (get-presentation-property component))))
+           (presentation (request-component-presentation (class-of component) (get-brothers component) initial-value: (get-presentation-property component))))
       (set-presentation-property component designer presentation)
-      (update-selection~ editor)))
+      (update-selection editor)))
   
   
-  (method public (on-insert-component evt)
-    (receive (rows-data columns-data) (selected-cells-data~ (get-grid))
+  (method public (on-insert-component self evt)
+    (receive (rows-data columns-data) (selected-cells-data (get-grid self))
       (let ((row-data (car rows-data))
             (column-data (car columns-data)))
-        (let ((runtime-reference (publicize-runtime-reference (car (get-class-references~ column-data))))
-              (parent (let ((parent-offset (get-parent-offset~ column-data)))
-                        (if parent-offset (element (get-hierarchy~ row-data) parent-offset) client))))
-          (let* ((brothers (get-children~ parent))
+        (let ((runtime-reference (publicize-runtime-reference (car (get-class-references column-data))))
+              (parent (let ((parent-offset (get-parent-offset column-data)))
+                        (if parent-offset (element (get-hierarchy row-data) parent-offset) client))))
+          (let* ((brothers (get-children parent))
                  (class (resolve-runtime-reference runtime-reference))
-                 (name (or (get-component-name~ column-data) (string->symbol (request-component-presentation class brothers)))))
-            (set-selection~ editor (list (add-child~ designer (new class) parent name: name import: (second (serialize-runtime-reference runtime-reference))))))))))
+                 (name (or (get-component-name column-data) (string->symbol (request-component-presentation class brothers)))))
+            (set-selection editor (list (add-child designer (new class) parent name: name import: (second (serialize-runtime-reference runtime-reference))))))))))
   
   
-  (method override (on-selection-change evt)
+  (method override (on-selection-change self evt)
     (when editor
-      (let ((old (get-selection~ editor))
-            (new (selected-components)))
+      (let ((old (get-selection editor))
+            (new (selected-components self)))
         (unless (equal? old new)
-          (set-selection~ editor (selected-components))
-          (update-focus-actions~ (get-application))))))
+          (set-selection editor (selected-components self))
+          (update-focus-actions (get-application))))))
   
   
-  (method override (cut-selection)
-    (cut-components~ designer (selected-components)))
+  (method override (cut-selection self)
+    (cut-components designer (selected-components self)))
   
   
-  (method override (copy-selection)
-    (copy-components~ designer (selected-components)))
+  (method override (copy-selection self)
+    (copy-components designer (selected-components self)))
   
   
-  (method override (delete-selection)
-    (delete-components~ designer (selected-components)))
+  (method override (delete-selection self)
+    (delete-components designer (selected-components self)))
   
   
-  (method override (paste-clipboard)
-    (let ((parent (determine-unique-paster (selected-components))))
-      (paste-parcels~ designer (get-jazz-parcels) parent)))
+  (method override (paste-clipboard self)
+    (let ((parent (determine-unique-paster (selected-components self))))
+      (paste-parcels designer (get-jazz-parcels) parent)))
   
   
-  (method override (can-copy?)
-    (can-copy-components? (selected-components)))
+  (method override (can-copy? self)
+    (can-copy-components? (selected-components self)))
   
   
-  (method override (can-cut?)
-    (let ((components (selected-components)))
+  (method override (can-cut? self)
+    (let ((components (selected-components self)))
       (and (every? (~ component-owned-by-reference? designer) components)
            (can-cut-components? components))))
   
   
-  (method override (can-paste?)
-    (can-paste-components? (selected-components)))
+  (method override (can-paste? self)
+    (can-paste-components? (selected-components self)))
   
   
-  (method override (can-delete?)
-    (let ((components (selected-components)))
+  (method override (can-delete? self)
+    (let ((components (selected-components self)))
       (and (every? (~ component-owned-by-reference? designer) components)
            (can-delete-components? components))))
   
   
-  (method override (get-draggable?)
-    (can-modify-components? (selected-components) can-relocate-component?))
+  (method override (get-draggable? self)
+    (can-modify-components? (selected-components self) can-relocate-component?))
   
   
-  (method (child-add child parent)
-    (populate~ (get-grid)))
+  (method package (name-changed self component new-name old-name)
+    (populate (get-grid self)))
   
   
-  (method (child-remove child parent)
-    (populate~ (get-grid)))
-  
-  
-  (method (property-change component property)
-    (for-each-row~ (get-grid)
+  (method package (property-changed self component property)
+    (for-each-row (get-grid self)
       (lambda (row row-rank)
-        (let ((row-data (get-user-data~ row)))
-          (when (memq? component (get-hierarchy~ row-data))
-            (for-each-column~ (get-grid)
+        (let ((row-data (get-user-data row)))
+          (when (memq? component (get-hierarchy row-data))
+            (for-each-column (get-grid self)
               (lambda (column column-rank)
-                (let ((column-data (get-provider-data~ column)))
-                  (when (and (eq? (get-name~ property) (get-identifier~ column-data))
-                             (eq? component (element (get-hierarchy~ row-data) (get-component-offset~ column-data))))
-                    (update-cell~ (get-grid) (new Cell row-rank column-rank)))))))))))
+                (let ((column-data (get-provider-data column)))
+                  (when (and (eq? (get-name property) (get-identifier column-data))
+                             (eq? component (element (get-hierarchy row-data) (get-component-offset column-data))))
+                    (update-cell (get-grid self) (new Cell row-rank column-rank)))))))))))
   
   
-  (method (name-change component new-name old-name)
-    (populate~ (get-grid)))
+  (method package (child-added self child parent)
+    (populate (get-grid self)))
   
   
-  (method override (merge? row1-data row2-data column-data)
-    (let ((component-offset (get-component-offset~ column-data))
-          (parent-offset (get-parent-offset~ column-data)))
-      (let ((c1 (element (get-hierarchy~ row1-data) component-offset))
-            (c2 (element (get-hierarchy~ row2-data) component-offset)))
+  (method package (child-removed self child parent)
+    (populate (get-grid self)))
+  
+  
+  (method override (merge? self row1-data row2-data column-data)
+    (let ((component-offset (get-component-offset column-data))
+          (parent-offset (get-parent-offset column-data)))
+      (let ((c1 (element (get-hierarchy row1-data) component-offset))
+            (c2 (element (get-hierarchy row2-data) component-offset)))
         (if (and (not c1) (not c2))
-            (and parent-offset (merge? row1-data row2-data (element (get-selection-structure~ editor) parent-offset)))
+            (and parent-offset (merge? self row1-data row2-data (element (get-selection-structure editor) parent-offset)))
           (eq? c1 c2)))))
   
   
-  (method (new-selection-column selection-data)
-    (let* ((common-class (apply classes-common-ancestor (map resolve-runtime-reference (get-class-references~ selection-data))))
+  (method (new-selection-column self selection-data)
+    (let* ((common-class (apply classes-common-ancestor (map resolve-runtime-reference (get-class-references selection-data))))
            (title (get-class-presentation common-class)))
       (let ((column (new Grid-Tree-Column title: title width: Default-Selection-Width)))
-        (add-child~ column selection-data)
+        (add-child column selection-data)
         column)))
   
   
-   (method (new-class-column component-name component-offset parent-offset)
+   (method (new-class-column self component-name component-offset parent-offset)
     (let ((column (new Grid-Tree-Column title: "Class" width: Default-Class-Width)))
-      (add-child~ column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: 'class-info component-offset: component-offset parent-offset: parent-offset))
+      (add-child column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: 'class-info component-offset: component-offset parent-offset: parent-offset))
       column))
   
   
-  (method (new-property-column component-name component-offset parent-offset identifier title (read-only? #f))
+  (method (new-property-column self component-name component-offset parent-offset identifier title (read-only? #f))
     (let ((column (new Grid-Tree-Column title: title width: Default-Property-Width)))
-      (add-child~ column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: identifier component-offset: component-offset parent-offset: parent-offset read-only?: read-only?))
+      (add-child column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: identifier component-offset: component-offset parent-offset: parent-offset read-only?: read-only?))
       column))
   
   
-  (method (new-sub-property-column component-name component-offset parent-offset identifier sub-identifier title (read-only? #f))
+  (method (new-sub-property-column self component-name component-offset parent-offset identifier sub-identifier title (read-only? #f))
     (let ((column (new Grid-Tree-Column title: title width: Default-Property-Width)))
-      (add-child~ column (new Component-Provider-Sub-Property-Data name: 'provider-data component-name: component-name identifier: identifier sub-identifier: sub-identifier component-offset: component-offset parent-offset: parent-offset read-only?: read-only?))
+      (add-child column (new Component-Provider-Sub-Property-Data name: 'provider-data component-name: component-name identifier: identifier sub-identifier: sub-identifier component-offset: component-offset parent-offset: parent-offset read-only?: read-only?))
       column))
   
   
-  (method (generate-components-lists)
+  (method (generate-components-lists self)
     (define (make-child-lists child rest)
       (if (null? rest)
           (list (list child))
@@ -633,9 +636,9 @@
       (if (null? selection-datas)
           '()
         (let* ((column-data (car selection-datas))
-               (name (get-component-name~ column-data)))
+               (name (get-component-name column-data)))
           (if name
-              (make-child-lists (find-child~ component name)
+              (make-child-lists (find-child component name)
                                 (make-rows-components-lists component (cdr selection-datas)))
             (let ((addable-children (collect-if (lambda (class) (addable-class? component class))
                                                 (get-components component)
@@ -646,50 +649,50 @@
                               (make-child-lists child (make-rows-components-lists child (cdr selection-datas))))
                             addable-children)))))))
     
-    (set! components-lists (make-rows-components-lists client (get-selection-structure~ editor))))
+    (set! components-lists (make-rows-components-lists client (get-selection-structure editor))))
   
   
-  (method override (make-columns)
+  (method override (make-columns self)
     (define (make-property-columns component-name classes component-offset parent-offset)
       (append-map (lambda (x)
                     (bind (identifier presentation domain) x
-                      (let ((multi-domains (get-multi-domains~ domain client)))
+                      (let ((multi-domains (get-multi-domains domain client)))
                         (if multi-domains
                             (map (lambda (lst)
                                    (bind (sub-identifier title domain) lst
                                      (let ((title (and title (localize title))))
-                                       (new-sub-property-column component-name component-offset parent-offset identifier sub-identifier (format "{a}{? {a}~}" presentation title)))))
+                                       (new-sub-property-column self component-name component-offset parent-offset identifier sub-identifier (format "{a}{? {a}~}" presentation title)))))
                                  multi-domains)
-                          (list (new-property-column component-name component-offset parent-offset identifier presentation))))))
+                          (list (new-property-column self component-name component-offset parent-offset identifier presentation))))))
                   (classes-properties/presentations/domains classes)))
     
     (define (make-component-columns component-name component-offset parent-offset classes)
-      (let ((name-column (and (not component-name) (new-property-column component-name component-offset parent-offset 'name-info "Name" #t)))
-            (class-column (new-class-column component-name component-offset parent-offset))
+      (let ((name-column (and (not component-name) (new-property-column self component-name component-offset parent-offset 'name-info "Name" #t)))
+            (class-column (new-class-column self component-name component-offset parent-offset))
             (property-columns (make-property-columns component-name classes component-offset parent-offset)))
         (append (if name-column (list name-column) '())
                 (if class-column (list class-column) '())
                 property-columns)))
     
-    (generate-components-lists)
+    (generate-components-lists self)
     (append-map (lambda (selection-data components)
-                  (let ((component-name (get-component-name~ selection-data))
-                        (component-offset (get-component-offset~ selection-data))
-                        (parent-offset (get-parent-offset~ selection-data))
+                  (let ((component-name (get-component-name selection-data))
+                        (component-offset (get-component-offset selection-data))
+                        (parent-offset (get-parent-offset selection-data))
                         (classes (remove-duplicates (map class-of (remove-false components)))))
-                    (cons (new-selection-column selection-data)
+                    (cons (new-selection-column self selection-data)
                           (if (null? classes)
                               '()
                             (make-component-columns component-name component-offset parent-offset classes)))))
-                (get-selection-structure~ editor)
+                (get-selection-structure editor)
                 (if (null? components-lists)
-                    (map list (get-selection-structure~ editor))
+                    (map list (get-selection-structure editor))
                   (apply zip components-lists))))
   
   
-  (method override (client-rows-datas)
+  (method override (client-rows-datas self)
     (map (lambda (components)
-           (new Component-Row-Data hierarchy: components violations: (make-list (length (get-columns~ (get-grid))) #f)))
+           (new Component-Row-Data hierarchy: components violations: (make-list (length (get-columns (get-grid self))) #f)))
          components-lists)))
 
 
@@ -709,10 +712,10 @@
         (<Component-Controller> name: controller))))
   
   
-  (method override (destroy)
-    (set-designer #f)
-    (set-editor #f)
-    (nextmethod))
+  (method override (destroy self)
+    (set-designer self #f)
+    (set-editor self #f)
+    (nextmethod self))
   
   
   ;;;
@@ -720,16 +723,16 @@
   ;;;
   
   
-  (method (get-grid)
-    (locate 'grid))
+  (method (get-grid self)
+    (locate self 'grid))
   
   
-  (method (get-provider)
-    (locate 'provider))
+  (method package (get-provider self)
+    (locate self 'provider))
   
   
-  (method (get-controller)
-    (locate 'controller))
+  (method (get-controller self)
+    (locate self 'controller))
   
   
   ;;;
@@ -744,14 +747,14 @@
   ;;;
   
   
-  (method public (get-client)
+  (method public (get-client self)
     client)
   
   
-  (method public (set-client clt)
+  (method public (set-client self clt)
     (when (neq? clt client)
       (set! client clt)
-      (client-update)))
+      (client-update self)))
   
   
   ;;;
@@ -759,64 +762,64 @@
   ;;;
   
   
-  (method (update-provider)
-    (set-client~ (get-provider) client)
-    (set-designer~ (get-provider) designer)
-    (set-editor~ (get-provider) self))
+  (method (update-provider self)
+    (set-client (get-provider self) client)
+    (set-designer (get-provider self) designer)
+    (set-editor (get-provider self) self))
   
   
-  (method (update-controller)
-    (set-client~ (get-controller) client)
-    (set-designer~ (get-controller) designer)
-    (set-editor~ (get-controller) self))
+  (method (update-controller self)
+    (set-client (get-controller self) client)
+    (set-designer (get-controller self) designer)
+    (set-editor (get-controller self) self))
   
   
-  (method (client-update)
-    (end-edition~ (get-grid))
-    (update-controller)
-    (update-provider)
-    (update))
+  (method package (client-update self)
+    (end-edition (get-grid self))
+    (update-controller self)
+    (update-provider self)
+    (update self))
   
   
-  (method (update)
-    (with-update-locked~ (get-grid)
+  (method package (update self)
+    (with-update-locked (get-grid self)
       (lambda ()
-        (setup-structure)
-        (populate~ (get-grid)))))
+        (setup-structure self)
+        (populate (get-grid self)))))
   
   
-  (method (new-selection-data component-name component-offset parent-offset class-references)
+  (method (new-selection-data self component-name component-offset parent-offset class-references)
     (new Component-Provider-Selection-Data name: 'provider-data component-name: component-name component-offset: component-offset parent-offset: parent-offset class-references: class-references))
   
   
-  (method (make-selection-structure)
+  (method (make-selection-structure self)
     (define (make-children-selection-datas addable-references parent-offset)
       (let* ((addable-ancestor (apply classes-common-ancestor (map resolve-runtime-reference addable-references)))
              (ancestor-descriptor (get-descriptor addable-ancestor))
-             (children-descriptor (find-child~ ancestor-descriptor 'children))
-             (child-descriptors (get-children~ children-descriptor)))
+             (children-descriptor (find-child ancestor-descriptor 'children))
+             (child-descriptors (get-children children-descriptor)))
         (append (map (lambda (component-name component-offset class-references)
-                       (new-selection-data component-name component-offset parent-offset (map get-runtime-reference~ class-references)))
-                     (map get-target~ child-descriptors)
+                       (new-selection-data self component-name component-offset parent-offset (map get-runtime-reference class-references)))
+                     (map get-target child-descriptors)
                      (iota (length child-descriptors) (+ parent-offset 1))
-                     (map get-classes~ child-descriptors))
-                (let ((ancestor-addable-references (and (get-addable?~ children-descriptor)
-                                                        (component-get-addable-classes~ (get-descriptor addable-ancestor) #f))))
+                     (map get-classes child-descriptors))
+                (let ((ancestor-addable-references (and (get-addable? children-descriptor)
+                                                        (component-get-addable-classes (get-descriptor addable-ancestor) #f))))
                   (if (and ancestor-addable-references (not-null? ancestor-addable-references))
                       (make-all-selection-datas ancestor-addable-references (+ parent-offset 1 (length child-descriptors)) parent-offset)
                     '())))))
     
     (define (make-all-selection-datas addable-references component-offset parent-offset)
       (let ((class-references (remove-duplicates addable-references key: resolve-runtime-reference)))
-        (cons (new-selection-data #f component-offset parent-offset class-references)
+        (cons (new-selection-data self #f component-offset parent-offset class-references)
               (make-children-selection-datas addable-references component-offset))))
     
     (make-all-selection-datas (component-addable-classes client) 0 #f))
   
   
-  (method (setup-structure)
+  (method (setup-structure self)
     (set! selection-structure (if (and client (not-null? (component-addable-classes client)))
-                                  (make-selection-structure)
+                                  (make-selection-structure self)
                                 '())))
   
   
@@ -825,24 +828,24 @@
   ;;;
   
   
-  (method (set-designer dsg)
+  (method package (set-designer self dsg)
     (when (neq? dsg designer)
       (when designer
-        (remove-designer-listener~ designer self))
+        (remove-designer-listener designer self))
       (set! designer dsg)
       (when designer
         (let ((listener (new Event-Handler target: self method-name: 'on-designer)))
-          (add-designer-listener~ designer listener))
-        (update-controller)
-        (update-provider))))
+          (add-designer-listener designer listener))
+        (update-controller self)
+        (update-provider self))))
   
   
-  (method (on-designer evt)
-    (case (get-kind~ evt)
-      ((:name-change)     (name-change~     (get-controller) (get-property~ evt component:) (get-property~ evt name:) (get-property~ evt old-name:)))
-      ((:child-add)       (child-add~       (get-controller) (get-property~ evt child:) (get-property~ evt parent:)))
-      ((:child-remove)    (child-remove~    (get-controller) (get-property~ evt child:) (get-property~ evt parent:)))
-      ((:property-change) (property-change~ (get-controller) (get-property~ evt component:) (get-property~ evt property:)))))
+  (method (on-designer self evt)
+    (case (get-kind evt)
+      ((:name-change)     (name-changed     (get-controller self) (get-property evt component:) (get-property evt name:) (get-property evt old-name:)))
+      ((:property-change) (property-changed (get-controller self) (get-property evt component:) (get-property evt property:)))
+      ((:child-add)       (child-added      (get-controller self) (get-property evt child:) (get-property evt parent:)))
+      ((:child-remove)    (child-removed    (get-controller self) (get-property evt child:) (get-property evt parent:)))))
   
   
   ;;;
@@ -850,35 +853,35 @@
   ;;;
   
   
-  (method public (get-editor)
+  (method public (get-editor self)
     editor)
   
   
-  (method public (set-editor edt)
+  (method public (set-editor self edt)
     (when (neq? edt editor)
       (when editor
-        (remove-editor-listener~ editor self))
+        (remove-editor-listener editor self))
       (set! editor edt)
       (when editor
-        (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))))
+        (add-editor-listener editor (new Event-Handler target: self method-name: 'on-editor)))))
   
   
-  (method (on-editor evt)
-    (case (get-kind~ evt)
-      ((:client-change) (set-client (get-property~ evt client:)))
-      ((:designer-change) (set-designer (get-property~ evt designer:)))
+  (method (on-editor self evt)
+    (case (get-kind evt)
+      ((:client-change) (set-client self (get-property evt client:)))
+      ((:designer-change) (set-designer self (get-property evt designer:)))
       ((:selection-changed)
-       (selection-changed (get-selection~ evt) (get-origin~ evt)))
-      ((:saving) (end-edition~ (get-grid)))))
+       (selection-changed self (get-selection evt) (get-origin evt)))
+      ((:saving) (end-edition (get-grid self)))))
   
   
-  (method (determine-client components)
+  (method (determine-client self components)
     (define (get-addable? component)
       (let* ((descriptor (get-descriptor (class-of component)))
-             (structure (find-child~ descriptor 'children)))
-        (get-addable?~ structure)))
+             (structure (find-child descriptor 'children)))
+        (get-addable? structure)))
     
-    (let ((editor-client (get-client~ editor)))
+    (let ((editor-client (get-client editor)))
       (let (loop (ancestor (common-ancestor components)))
         (cond ((or (eq? ancestor editor-client)
                    (not ancestor))
@@ -887,36 +890,36 @@
                     (not-null? (component-addable-classes ancestor)))
                ancestor)
               (else
-               (loop (get-parent~ ancestor)))))))
+               (loop (get-parent ancestor)))))))
   
   
-  (method (get-selection)
-    (get-selection~ editor))
+  (method package (get-selection self)
+    (get-selection editor))
   
   
-  (method (set-selection components)
-    (set-selection~ editor components origin: self force?: #t focus?: #f))
+  (method package (set-selection self components)
+    (set-selection editor components origin: self force?: #t focus?: #f))
   
   
-  (method (update-selection)
-    (selection-changed (get-selection~ editor) self))
+  (method package (update-selection self)
+    (selection-changed self (get-selection editor) self))
   
   
-  (method (selection-changed selection origin)
-    (let ((grid (get-grid)))
+  (method (selection-changed self selection origin)
+    (let ((grid (get-grid self)))
       (define (component->cell component)
-        (let* ((row (user-data-row~ grid component test: (lambda (target val) (memq? target (get-hierarchy~ val)))))
+        (let* ((row (user-data-row grid component test: (lambda (target val) (memq? target (get-hierarchy val)))))
                ;; This does not work if the selection columns are reordered
-               (column (and row (element (get-selection-columns grid) (find (get-hierarchy~ (get-user-data~ row)) component)))))
-          (and row (new Cell (row->line~ grid row) (column->col~ grid column)))))
+               (column (and row (element (get-selection-columns grid) (find (get-hierarchy (get-user-data row)) component)))))
+          (and row (new Cell (row->line grid row) (column->col grid column)))))
       
       (unless (eq? self origin)
-        (let ((client (determine-client selection)))
-          (unless (eq? client (get-client))
-            (set-client client))))
+        (let ((client (determine-client self selection)))
+          (unless (eq? client (get-client self))
+            (set-client self client))))
       (let ((cells (collect component->cell selection)))
-        (unless (nu=? cells (get-selection~ grid))
-          (set-selection~ grid cells))))))
+        (unless (nu=? cells (get-selection grid))
+          (set-selection grid cells))))))
 
 
 (class Grid-Component-Editor extends Component-Editor
@@ -932,11 +935,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Doc"})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 800 600})
   
   
@@ -945,7 +948,7 @@
   ;;;
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set-editor~ (locate 'grid) self)
-    (set-designer~ (locate 'grid) designer))))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (set-editor (locate self 'grid) self)
+    (set-designer (locate self 'grid) designer))))

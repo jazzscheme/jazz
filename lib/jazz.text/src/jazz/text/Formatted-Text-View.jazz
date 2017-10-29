@@ -42,8 +42,10 @@
         (jazz.application)
         (jazz.document)
         (jazz.event)
+        (jazz.exemplar)
         (jazz.handler)
         (jazz.text)
+        (jazz.view)
         (jazz.window))
 
 
@@ -53,7 +55,7 @@
   (slot ruler initialize #f)
   
   
-  (method override (new-model)
+  (method override (new-model self)
     (new Formatted-Text-Model))
   
   
@@ -62,9 +64,9 @@
   ;;;
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'formatted-text)
-          (nextmethod)))
+          (nextmethod self)))
 
   
   ;;;
@@ -72,7 +74,7 @@
   ;;;
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(formatted))
   
   
@@ -81,15 +83,15 @@
   ;;;
   
   
-  (method override (new-document-controller)
+  (method override (new-document-controller self)
     (new Formatted-Text-Controller self))
   
   
-  (method override (default-extension)
+  (method override (default-extension self)
     "ftx")
   
   
-  (method override (extensions)
+  (method override (extensions self)
     '(("Formatted Texts" . "ftx")))
 
 
@@ -98,11 +100,11 @@
   ;;;
   
   
-  (method override (get-ruler)
+  (method override (get-ruler self)
     ruler)
   
   
-  (method public (set-ruler r)
+  (method public (set-ruler self r)
     (set! ruler r))
 
   
@@ -112,7 +114,7 @@
   
   
   ;; until converted
-  (method override (get-context-menu)
+  (method override (get-context-menu self)
     #f)
 
 
@@ -121,17 +123,17 @@
   ;;;
 
 
-  (method override (cursor-update evt)
-    (let ((view (get-position~ evt)))
-      (show-text-cursor)
-      (when (and (view-enabled?) selectable?)
-        (if (mouse-copy? evt)
+  (method override (cursor-update self evt)
+    (let ((view (get-position evt)))
+      (show-text-cursor self)
+      (when (and (view-enabled? self) selectable?)
+        (if (mouse-copy? self evt)
             (set-cursor :finger)
-          (let* ((pos (view->text view))
-                 (par (get-paragraph (get-line~ pos))))
-            (if (< (get-h~ view) (paragraph-left~ par))
+          (let* ((pos (view->text self view))
+                 (par (get-paragraph self (get-line pos))))
+            (if (< (get-h view) (paragraph-left par))
                 (set-cursor :left-arrow)
-              (let ((style (get-style-at~ model pos)))
+              (let ((style (get-style-at model pos)))
                 (if (is? style Link-Style)
                     (set-cursor :finger)
                   (set-cursor :ibeam)))))))))
@@ -142,36 +144,36 @@
   ;;;
 
 
-  (method override (mouse-down evt)
-    (let* ((pos (view->text (get-position~ evt)))
-           (style (get-style-at~ model pos)))
+  (method override (mouse-down self evt)
+    (let* ((pos (view->text self (get-position evt)))
+           (style (get-style-at model pos)))
       (unless (is? style Link-Style)
-        (nextmethod evt))))
+        (nextmethod self evt))))
 
 
-  (method override (drag-up evt . rest)
+  (method override (drag-up self evt . rest)
     (define (invoke-action action pos style)
       (cond ((is? action Event-Handler)
-             (invoke~ action self (apply make-event Event :link self (get-properties~ action))))
+             (invoke action self (apply make-event Event :link self (get-properties action))))
             (else
              (action self pos style))))
     
     (define (goto-anchor anchor)
-      (for-each-heading~ model
+      (for-each-heading model
         (lambda (name heading line string)
           (when (equal? string anchor)
-            (set-selection (new Range$Cell$
+            (set-selection self (new Range$Cell$
                              (new Cell line 0)
                              (new Cell line (cardinality string))))))))
     
     (let ((mouse-selecting? mouse-selecting?))
-      (nextmethod evt)
-      (when (and (view-enabled?) (not mouse-selecting?))
-        (let* ((pos (view->text (get-position~ evt)))
-               (style (get-style-at~ model pos)))
+      (nextmethod self evt)
+      (when (and (view-enabled? self) (not mouse-selecting?))
+        (let* ((pos (view->text self (get-position evt)))
+               (style (get-style-at model pos)))
           (when (is? style Link-Style)
-            (let ((anchor (get-anchor~ style))
-                  (action (get-action~ style)))
+            (let ((anchor (get-anchor style))
+                  (action (get-action style)))
               (cond (action
                      (invoke-action action pos style))
                     (anchor
@@ -185,21 +187,21 @@
   ;;;
   
   
-  (method override (copy-selection)
-    (copy-formatted-selection)
-    (add-clipboard~ (get-application)))
+  (method override (copy-selection self)
+    (copy-formatted-selection self)
+    (add-clipboard (get-application)))
   
   
-  (method override (paste-clipboard)
-    (paste-formatted-clipboard))
+  (method override (paste-clipboard self)
+    (paste-formatted-clipboard self))
   
   
-  (method override (paste-clipboard-value clipboard)
-    (paste-formatted-clipboard-value clipboard))
+  (method override (paste-clipboard-value self clipboard)
+    (paste-formatted-clipboard-value self clipboard))
   
   
-  (method override (cycle-paste-clipboard previous-clipboard clipboard)
-    (paste-clipboard-value clipboard))
+  (method override (cycle-paste-clipboard self previous-clipboard clipboard)
+    (paste-clipboard-value self clipboard))
 
   
   ;;;
@@ -207,26 +209,26 @@
   ;;;
   
   
-  (method public (for-each-heading proc)
+  (method public (for-each-heading self proc)
     (let ((all '(Heading1 Heading2 Heading3 Heading4 Heading5)))
-      (for-each-paragraph~ model
+      (for-each-paragraph model
         (lambda (line <fx> paragraph <Paragraph>)
-          (let ((run (first-run~ paragraph)))
-            (let ((style (and run (get-style~ run))))
+          (let ((run (first-run paragraph)))
+            (let ((style (and run (get-style run))))
               (when style
                 (for-each (lambda (name)
-                            (let ((heading (locate-style name error?: #f)))
-                              (when (and heading (inherits?~ style heading))
-                                (proc name heading line (get-string~ paragraph)))))
+                            (let ((heading (locate-style self name error?: #f)))
+                              (when (and heading (inherits? style heading))
+                                (proc name heading line (get-string paragraph)))))
                           all))))))))
   
   
-  (method public (collect-headings)
+  (method public (collect-headings self)
     (let ((headings (new List-Factory)))
-      (for-each-heading
+      (for-each-heading self
         (lambda (name style line string)
-           (put~ headings (list name style line string))))
-      (get-output~ headings)))
+           (put headings (list name style line string))))
+      (get-output headings)))
 
   
   ;;;
@@ -244,7 +246,7 @@
                     (when (eq? name 'Heading1)
                       (insert-newline))
                     (let* ((start (get-start))
-                           (line (get-line~ start)))
+                           (line (get-line start)))
                       (insert-link string anchor: string)
                       (insert-newline)
                       (unless (eq? name 'Heading1)
@@ -279,20 +281,20 @@
   ;;;
   
   
-  (method override (get-chapters)
+  (method override (get-chapters self)
     (collect (lambda (heading)
                (bind (name style line string) heading
                  (let ((level (heading-level name)))
                    (when (<= level 3)
                      (list level (new Cell line 0) "" string)))))
-             (collect-headings)))
+             (collect-headings self)))
   
   
-  (method override (get-first-chapter lst)
+  (method override (get-first-chapter self lst)
     #f)
   
   
-  (method override (get-remaining-chapters lst)
+  (method override (get-remaining-chapters self lst)
     lst))
 
 
@@ -304,15 +306,15 @@
 (class Formatted-Text-Controller extends Document-Controller
   
   
-  (method override (install-container)
+  (method override (install-container self)
     (define (install-ruler)
-      (let ((host (get-host~ document))
-            (scroller (get-scroller~ document)))
+      (let ((host (get-host document))
+            (scroller (get-scroller document)))
         (let ((ruler (new Ruler parent: host)))
-          (set-ruler~ document ruler)
-          (set-parent~ scroller (get-content~ ruler))
-          (set-client~ ruler document)
-          (set-content~ host ruler))))
+          (set-ruler document ruler)
+          (set-parent scroller (get-content ruler))
+          (set-client ruler document)
+          (set-content host ruler))))
     
-    (install-scroller)
+    (install-scroller self)
     (install-ruler))))

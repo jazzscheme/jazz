@@ -39,6 +39,7 @@
 
 
 (import (jazz.application)
+        (jazz.graphic)
         (jazz.ide)
         (jazz.ide.activity)
         (jazz.jml)
@@ -60,13 +61,13 @@
     (bitwise-ior WS_POPUP WS_CLIPCHILDREN))
 
 
-  (method override (show)
-    (set-visible-flag #t)
-    (when (get-active?~ (get-application))
-      (show-noactivate)))
+  (method override (show self)
+    (set-visible-flag self #t)
+    (when (get-active? (get-application))
+      (show-noactivate self)))
   
   
-  (method override (mouse-activate?)
+  (method override (mouse-activate? self)
     #f)
 
 
@@ -75,13 +76,13 @@
   ;;;
   
   
-  (method override (close-window)
-    (hide))
+  (method override (close-window self)
+    (hide self))
   
   
-  (method override (destroy)
+  (method override (destroy self)
     (destroy-manager)
-    (nextmethod))
+    (nextmethod self))
 
 
   ;;;
@@ -89,9 +90,9 @@
   ;;;
   
   
-  (method public (close-manager)
-    (unless (not-null? (get-reporters))
-      (close)))
+  (method public (close-manager self)
+    (unless (not-null? (get-reporters self))
+      (close self)))
 
 
   ;;;
@@ -99,14 +100,14 @@
   ;;;
   
   
-  (method public (toggle-visible?)
-    (let ((visible? (not (get-visible?))))
+  (method public (toggle-visible? self)
+    (let ((visible? (not (get-visible? self))))
       @wait
       (when visible?
         (let* ((reporters (get-reporters))
                (delay (/ 0.005 (if (null? reporters) 1 (length reporters)))))
-          (set-effect~ root (new Wipe-Effect direction: 'up delay: delay))))
-      (set-visible? visible?)))
+          (set-effect root (new Wipe-Effect direction: 'up delay: delay))))
+      (set-visible? self visible?)))
 
 
   ;;;
@@ -114,23 +115,23 @@
   ;;;
   
   
-  (method public (register-activity)
-    (let* ((size (get-size))
-           (reporters (get-reporters))
+  (method public (register-activity self)
+    (let* ((size (get-size self))
+           (reporters (get-reporters self))
            (rank (if (null? reporters) 0 (+ (max-reporter-rank reporters) 1)))
-           (border (locate 'border))
+           (border (locate self 'border))
            (reporter (new Activity-Reporter parent: border rank: rank))
-           (height (get-height~ (get-size~ reporter))))
-      (set-size~ reporter (new Dimension (- (get-width~ size) 14) height))
-      (update-title)
-      (update-rectangle)
+           (height (get-height (get-size reporter))))
+      (set-size reporter (new Dimension (- (get-width size) 14) height))
+      (update-title self)
+      (update-rectangle self)
       reporter))
   
   
-  (method public (unregister-activity reporter)
-    (close~ reporter)
-    (update-title)
-    (update-rectangle))
+  (method public (unregister-activity self reporter)
+    (close reporter)
+    (update-title self)
+    (update-rectangle self))
 
 
   ;;;
@@ -138,50 +139,50 @@
   ;;;
   
   
-  (method protected (update-title)
-    (let* ((n (count-if (lambda (reporter) (not (get-done~ reporter))) (get-reporters)))
+  (method package (update-title self)
+    (let* ((n (count-if (lambda (reporter) (not (get-done reporter))) (get-reporters self)))
            (text (if (= n 0)
                      "No registered activities"
                    (format
                            "{a} activit{a} registered"
                            (capitalize (format-cardinality n))
                            (if (= n 1) "y" "ies")))))
-      (set-title (format "Activities Manager : {a}" text))
-      (let ((status (find-status-bar~ (get-application))))
+      (set-title self (format "Activities Manager : {a}" text))
+      (let ((status (find-status-bar (get-application))))
         (when status
-          (set-title~ (child~ status 'activities) text)))))
+          (set-title (child status 'activities) text)))))
   
   
-  (method protected (update-rectangle)
+  (method package (update-rectangle self)
     (define (compact-reporters)
       (let ((rank 0))
         (for-each (lambda (reporter)
-                    (set-rank~ reporter rank)
+                    (set-rank reporter rank)
                     (increase! rank))
-                  (sort < (get-reporters) key: reporter-rank))))
+                  (sort < (get-reporters self) key: reporter-rank))))
     
     (compact-reporters)
-    (let ((width (get-width))
-          (reporters (get-reporters))
+    (let ((width (get-width self))
+          (reporters (get-reporters self))
           (base (manager-position)))
       (if (null? reporters)
           (begin
-            (hide)
-            (set-position base)
-            (set-size {Dimension 247 57}))
+            (hide self)
+            (set-position self base)
+            (set-size self {Dimension 247 57}))
         (let* ((n (+ 1 (max-reporter-rank reporters)))
-               (v (get-height~ (get-size~ (car reporters))))
+               (v (get-height (get-size (car reporters))))
                (height (+ 10 (* n (+ v 8)) 2)))
-          (set-position (new Point (get-h~ base) (- (+ (get-v~ base) 57) height)))
-          (set-size (new Dimension width height))))))
+          (set-position self (new Point (get-h base) (- (+ (get-v base) 57) height)))
+          (set-size self (new Dimension width height))))))
   
   
-  (method public (clear-done)
+  (method public (clear-done self)
     (for-each (lambda (reporter)
-                (when (get-done~ reporter)
-                  (close~ reporter)))
-              (get-reporters))
-    (update-rectangle))
+                (when (get-done reporter)
+                  (close reporter)))
+              (get-reporters self))
+    (update-rectangle self))
 
 
   ;;;
@@ -189,8 +190,8 @@
   ;;;
   
   
-  (method protected (get-reporters)
-    (get-children~ (locate 'border)))
+  (method package (get-reporters self)
+    (get-children (locate self 'border)))
   
   
   (definition (max-reporter-rank reporters)
@@ -198,7 +199,7 @@
   
   
   (definition (reporter-rank reporter)
-    (get-rank~ reporter)))
+    (get-rank reporter)))
 
 
 ;;;
@@ -209,7 +210,7 @@
 (class Activities-Border extends View
   
   
-  (method override (draw surface context)
-    (let ((bounds (get-bounds)))
-      (draw-edge~ surface bounds inner: 'raised outer: 'raised edges: '(left top right))
-      (draw-edge~ surface bounds outer: 'sunken edges: '(bottom))))))
+  (method override (draw self surface context)
+    (let ((bounds (get-bounds self)))
+      (draw-edge surface bounds inner: 'raised outer: 'raised edges: '(left top right))
+      (draw-edge surface bounds outer: 'sunken edges: '(bottom))))))

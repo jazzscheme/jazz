@@ -41,6 +41,7 @@
 (import (jazz.action)
         (jazz.application)
         (jazz.component)
+        (jazz.designer)
         (jazz.event)
         (jazz.graphic)
         (jazz.handler)
@@ -51,7 +52,7 @@
 
 
 (definition public (call-with-row/column-data row column proc)
-  (proc (get-user-data~ row) (get-provider-data~ column)))
+  (proc (get-user-data row) (get-provider-data column)))
 
 
 ;;;
@@ -62,18 +63,18 @@
 (interface Data-Provider
   
   
-  (method public virtual abstract (get-domain row-data column-data))
-  (method public virtual abstract (get-data row-data column-data fail succeed))
-  (method public virtual abstract (set-data row-data column-data value))
-  (method public virtual abstract (read-only? row-data column-data))
-  (method public virtual abstract (get-violation row-data column-data))
-  (method public virtual abstract (set-violation row-data column-data violation)))
+  (method public virtual abstract (get-domain self row-data column-data))
+  (method public virtual abstract (get-data self row-data column-data fail succeed))
+  (method public virtual abstract (set-data self row-data column-data value))
+  (method public virtual abstract (read-only? self row-data column-data))
+  (method public virtual abstract (get-violation self row-data column-data))
+  (method public virtual abstract (set-violation self row-data column-data violation)))
 
 
 (class Provider-Data extends Component
   
   
-  (method override (default-name)
+  (method override (default-name self)
     'provider-data))
 
 
@@ -93,31 +94,31 @@
 (interface Grid-Controller
   
   
-  (method public virtual abstract (get-focus-actions))
-  (method public virtual abstract (focus-update-actions))
-  (method public virtual abstract (selection-cell? row column))
-  (method public virtual abstract (get-context-menu))
-  (method public virtual abstract (on-selection-change evt))
-  (method public virtual abstract (get-tab-stops))
-  (method public virtual abstract (copy-selection))
-  (method public virtual abstract (cut-selection))
-  (method public virtual abstract (delete-selection))
-  (method public virtual abstract (paste-clipboard))
-  (method public virtual abstract (can-copy?))
-  (method public virtual abstract (can-cut?))
-  (method public virtual abstract (can-delete?))
-  (method public virtual abstract (can-paste?))
-  (method public virtual abstract (get-draggable?))
-  (method public virtual abstract (active-background row-data column-data))
-  (method public virtual abstract (inactive-title row-data column-data))
-  (method public virtual abstract (inactive-background row-data column-data))
-  (method public virtual abstract (get-frame-color))
-  (method public virtual abstract (cell-editable? row column))
-  (method public virtual abstract (merge? master-row-data row-data column-data))
-  (method public virtual abstract (client-rows-datas))
-  (method public virtual abstract (drop? source cell))
-  (method public virtual abstract (make-columns))
-  (method public virtual abstract (receive-drop sender pos drag-drop)))
+  (method public virtual abstract (get-focus-actions self))
+  (method public virtual abstract (focus-update-actions self))
+  (method public virtual abstract (selection-cell? self row column))
+  (method public virtual abstract (get-context-menu self))
+  (method public virtual abstract (on-selection-change self evt))
+  (method public virtual abstract (get-tab-stops self))
+  (method public virtual abstract (copy-selection self))
+  (method public virtual abstract (cut-selection self))
+  (method public virtual abstract (delete-selection self))
+  (method public virtual abstract (paste-clipboard self))
+  (method public virtual abstract (can-copy? self))
+  (method public virtual abstract (can-cut? self))
+  (method public virtual abstract (can-delete? self))
+  (method public virtual abstract (can-paste? self))
+  (method public virtual abstract (get-draggable? self))
+  (method public virtual abstract (active-background self row-data column-data))
+  (method public virtual abstract (inactive-title self row-data column-data))
+  (method public virtual abstract (inactive-background self row-data column-data))
+  (method public virtual abstract (get-frame-color self))
+  (method public virtual abstract (cell-editable? self row column))
+  (method public virtual abstract (merge? self master-row-data row-data column-data))
+  (method public virtual abstract (client-rows-datas self))
+  (method public virtual abstract (drop? self source cell))
+  (method public virtual abstract (make-columns self))
+  (method public virtual abstract (receive-drop self sender pos drag-drop)))
   
 
 ;;;
@@ -132,20 +133,20 @@
     (<install> justification: (1 1)))
   
   
-  (method (get-provider-data)
-    (child 'provider-data))
+  (method package (get-provider-data self)
+    (child self 'provider-data))
   
   
-  (method override (draw-data surface context row data width height)
-    (let ((provider (get-provider~ parent)))
+  (method override (draw-data self surface context row data width height)
+    (let ((provider (get-provider parent)))
       (call-with-row/column-data row self
         (lambda (row-data column-data)
-          (get-data~ provider row-data column-data
+          (get-data provider row-data column-data
             (lambda ()
-              (nextmethod surface context row data width height))
+              (nextmethod self surface context row data width height))
             (lambda (value)
-              (let ((domain (get-domain~ provider row-data column-data)))
-                (draw-data~ domain surface context value self row data width height)))))))))
+              (let ((domain (get-domain provider row-data column-data)))
+                (draw-data domain surface context value self row data width height)))))))))
 
 
 ;;;
@@ -160,38 +161,38 @@
     (<install> default-row-height: 15 row-spacing: 1 column-spacing: 1 background: {Color Medium-Gray} empty-background: {Color Medium-Gray} multiple-selection?: #t filled-column: #f selection-mode: cell selection-handler: {Event-Handler :self on-selection-change}))
   
   
-  (method (get-provider)
-    (child 'provider))
+  (method package (get-provider self)
+    (child self 'provider))
   
   
-  (method (get-controller)
-    (child 'controller))
+  (method (get-controller self)
+    (child self 'controller))
   
   
-  (method virtual (get-widget)
-    (find-ascendant Grid-Tree-Widget))
+  (method virtual (get-widget self)
+    (find-ascendant self Grid-Tree-Widget))
   
   
-  (method override (focus-actions)
-    (let ((actions (get-focus-actions~ (get-controller))))
+  (method override (focus-actions self)
+    (let ((actions (get-focus-actions (get-controller self))))
       (if actions
-          (cons actions (nextmethod))
-        (nextmethod))))
+          (cons actions (nextmethod self))
+        (nextmethod self))))
   
   
-  (method override (focus-update-actions)
-    (focus-update-actions~ (get-controller)))
+  (method override (focus-update-actions self)
+    (focus-update-actions (get-controller self)))
   
   
-  (method (selected-cells-data)
-    (let ((cells (remove-duplicates (get-selection) test: cell=?)))
-      (values (map (compose* get-user-data~ get-row get-line~) cells)
-              (map (compose* get-provider-data~ get-column get-col~) cells))))
+  (method package (selected-cells-data self)
+    (let ((cells (remove-duplicates (get-selection self) test: cell=?)))
+      (values (map (compose* get-user-data (~ get-row self) get-line) cells)
+              (map (compose* get-provider-data (~ get-column self) get-col) cells))))
   
   
-  (method (cell-data-values cell)
-    (receive (row column) (cell-values cell)
-      (values (get-user-data~ row) (get-provider-data~ column))))
+  (method (cell-data-values self cell)
+    (receive (row column) (cell-values self cell)
+      (values (get-user-data row) (get-provider-data column))))
   
   
   ;;;
@@ -199,103 +200,103 @@
   ;;;
   
   
-  (method override (mouse-down evt)
-    (let ((cell (view->tree (get-position~ evt))))
+  (method override (mouse-down self evt)
+    (let ((cell (view->tree self (get-position evt))))
       (when cell
-        (save-edition)
-        (end-edition)
-        (receive (row column) (cell-values cell)
+        (save-edition self)
+        (end-edition self)
+        (receive (row column) (cell-values self cell)
           (if (and (or (null? selection)
-                       (receive (row column) (cell-values (car selection))
-                         (selection-cell?~ (get-controller) row column)))
-                   (selection-cell?~ (get-controller) row column))
-              (nextmethod evt)
-            (select-cell cell))))))
+                       (receive (row column) (cell-values self (car selection))
+                         (selection-cell? (get-controller self) row column)))
+                   (selection-cell? (get-controller self) row column))
+              (nextmethod self evt)
+            (select-cell self cell))))))
   
   
-  (method override (context-menu evt)
-    (let ((pos (get-position~ evt)))
-      (save-edition)
-      (end-edition)
-      (with-context-click pos
+  (method override (context-menu self evt)
+    (let ((pos (get-position evt)))
+      (save-edition self)
+      (end-edition self)
+      (with-context-click self pos
         (lambda ()
-          (let ((menu (get-context-menu~ (get-controller))))
+          (let ((menu (get-context-menu (get-controller self))))
             (when menu
-              (track-popup-menu menu pos)))))))
+              (track-popup-menu self menu pos)))))))
   
   
-  (method (on-selection-change evt)
-    (on-selection-change~ (get-controller) evt)
-    (update-focus-actions~ (get-application))
-    (update-rows-highlight~ (get-controller) (get-old~ evt) (get-selection~ evt))
-    (invalidate-view))
+  (method package (on-selection-change self evt)
+    (on-selection-change (get-controller self) evt)
+    (update-focus-actions (get-application))
+    (update-rows-highlight (get-controller self) (get-old evt) (get-selection evt))
+    (invalidate-view self))
   
   
-  (method (editor-arrow-press tab-view evt)
+  (method (editor-arrow-press self tab-view evt)
     (let ((text? (is? tab-view Text-View)))
-      (let ((edited-cell (get-edited-cell))
+      (let ((edited-cell (get-edited-cell self))
             (next-move (dispatch (class-of tab-view) (if text? 'arrow-move 'arrow-press)))
-            (direction (get-property~ evt direction:))
-            (internal? (if text? (get-property~ evt word?:) (get-control?~ evt)))
+            (direction (get-property evt direction:))
+            (internal? (if text? (get-property evt word?:) (get-control? evt)))
             (evt (if text?
-                     (make-event Action-Event (get-kind~ evt) (get-sender~ evt) word?: #f extend?: (get-property~ evt extend?:) direction: (get-property~ evt direction:))
+                     (make-event Action-Event (get-kind evt) (get-sender evt) word?: #f extend?: (get-property evt extend?:) direction: (get-property evt direction:))
                    evt)))
         (unless internal?
-          (save-edition))
+          (save-edition self))
         (case direction
-          ((left)  (if internal? (next-move tab-view evt) (select-left edited-cell)))
-          ((right) (if internal? (next-move tab-view evt) (select-right edited-cell)))
-          ((up)    (select-up edited-cell))
-          ((down)  (select-down edited-cell))))))
+          ((left)  (if internal? (next-move tab-view evt) (select-left self edited-cell)))
+          ((right) (if internal? (next-move tab-view evt) (select-right self edited-cell)))
+          ((up)    (select-up self edited-cell))
+          ((down)  (select-down self edited-cell))))))
   
   
-  (method override (arrow-press evt)
+  (method override (arrow-press self evt)
     (define (select-direction next-cell)
-      (let ((cell (next-cell (get-single-selection))))
+      (let ((cell (next-cell (get-single-selection self))))
         (when cell
-          (select-cell cell))))
+          (select-cell self cell))))
     
-    (let ((direction (get-property~ evt direction:)))
+    (let ((direction (get-property evt direction:)))
       (select-direction (case direction
-                          ((left)  cell-left)
-                          ((right) cell-right)
-                          ((up)    cell-up)
-                          ((down)  cell-down)))))
+                          ((left)  (~ cell-left self))
+                          ((right) (~ cell-right self))
+                          ((up)    (~ cell-up self))
+                          ((down)  (~ cell-down self))))))
   
   
-  (method (editor-return-press tab-view evt)
-    (on-tab-press~ tab-view evt))
+  (method (editor-return-press self tab-view evt)
+    (on-tab-press tab-view evt))
   
   
-  (method (editor-tab-press tab-view evt)
-    (if (and (is? tab-view Text-View) (has-ambiguous-completion?~ tab-view))
-        (end-completion~ tab-view)
-      (navigate-view~ tab-view (if (get-shift?~ evt) #t #f))))
+  (method (editor-tab-press self tab-view evt)
+    (if (and (is? tab-view Text-View) (has-ambiguous-completion? tab-view))
+        (end-completion tab-view)
+      (navigate-view tab-view (if (get-shift? evt) #t #f))))
   
   
-  (method override (navigate-tab from backward?)
-    (save-edition)
-    (let ((stops (get-tab-stops)))
+  (method override (navigate-tab self from backward?)
+    (save-edition self)
+    (let ((stops (get-tab-stops self)))
       (if (not-null? stops)
-          (if (eq? from (get-creator))
+          (if (eq? from (get-creator self))
               (let ((cell (if backward?
                               (last stops)
                             (first stops))))
                 (when cell
                   (when (eq? cell from)
-                    (set! cell (navigated-view cell backward?)))
+                    (set! cell (navigated-view self cell backward?)))
                   (if (is? cell Cell)
-                      (select-cell cell)
-                    (navigate-tab~ cell self backward?))))
-            (let ((sel (navigated-view (car (get-selection)) backward? test: cell=?)))
+                      (select-cell self cell)
+                    (navigate-tab cell self backward?))))
+            (let ((sel (navigated-view self (car (get-selection self)) backward? test: cell=?)))
               (if (and sel (is? sel Cell))
-                  (select-cell sel)
-                (navigate-tab~ sel self backward?))))
-        (nextmethod from backward?))))
+                  (select-cell self sel)
+                (navigate-tab sel self backward?))))
+        (nextmethod self from backward?))))
   
   
-  (method override (get-tab-stops)
-    (get-tab-stops~ (get-controller)))
+  (method override (get-tab-stops self)
+    (get-tab-stops (get-controller self)))
   
   
   ;;;
@@ -303,40 +304,40 @@
   ;;;
   
   
-  (method override (copy-selection)
-    (copy-selection~ (get-controller)))
+  (method override (copy-selection self)
+    (copy-selection (get-controller self)))
   
   
-  (method override (cut-selection)
-    (cut-selection~ (get-controller)))
+  (method override (cut-selection self)
+    (cut-selection (get-controller self)))
   
   
-  (method override (delete-selection)
-    (delete-selection~ (get-controller)))
+  (method override (delete-selection self)
+    (delete-selection (get-controller self)))
   
   
-  (method override (paste-clipboard)
-    (paste-clipboard~ (get-controller)))
+  (method override (paste-clipboard self)
+    (paste-clipboard (get-controller self)))
   
   
-  (method override (can-copy?)
-    (can-copy?~ (get-controller)))
+  (method override (can-copy? self)
+    (can-copy? (get-controller self)))
   
   
-  (method override (can-cut?)
-    (can-cut?~ (get-controller)))
+  (method override (can-cut? self)
+    (can-cut? (get-controller self)))
   
   
-  (method override (can-paste?)
-    (can-paste?~ (get-controller)))
+  (method override (can-paste? self)
+    (can-paste? (get-controller self)))
   
   
-  (method override (can-delete?)
-    (can-delete?~ (get-controller)))
+  (method override (can-delete? self)
+    (can-delete? (get-controller self)))
   
   
-  (method override (get-draggable?)
-    (get-draggable?~ (get-controller)))
+  (method override (get-draggable? self)
+    (get-draggable? (get-controller self)))
   
   
   ;;;
@@ -344,25 +345,25 @@
   ;;;
   
   
-  (method override (highlight-drop drag-drop pos)
+  (method override (highlight-drop self drag-drop pos)
     )
   
   
-  (method override (get-tree-target drag-drop pos)
-    (call-with-view->tree pos
+  (method override (get-tree-target self drag-drop pos)
+    (call-with-view->tree self pos
       (lambda (cell v height)
-        (let ((row (and cell (get-row (get-line~ cell))))
-              (col (and cell (get-col~ cell)))
-              (source (get-source~ drag-drop))
-              (current (get-target~ drag-drop)))
-          (when (or (neq? (get-view~ source) self) (neq? (get-row~ source) row) (not (equal? (get-col~ source) col)))
-            (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (equal? col (get-col~ current)))
+        (let ((row (and cell (get-row self (get-line cell))))
+              (col (and cell (get-col cell)))
+              (source (get-source drag-drop))
+              (current (get-target drag-drop)))
+          (when (or (neq? (get-view source) self) (neq? (get-row source) row) (not (equal? (get-col source) col)))
+            (if (and current (eq? self (get-view current)) (eq? row (get-row current)) (equal? col (get-col current)))
                 current
-              (and (drop?~ (get-controller) source cell) (new Tree-Drop-Target view: self row: row col: col))))))))
+              (and (drop? (get-controller self) source cell) (new Tree-Drop-Target view: self row: row col: col))))))))
   
   
-  (method override (receive-drop sender pos drag-drop)
-    (receive-drop~ (get-controller) sender pos drag-drop))
+  (method override (receive-drop self sender pos drag-drop)
+    (receive-drop (get-controller self) sender pos drag-drop))
   
   
   ;;;
@@ -370,76 +371,76 @@
   ;;;
   
   
-  (method (prepare-and-focus-entry entry)
-    (let ((view-to-focus (tab-view~ entry)))
-      (set-arrow-press-handler~ view-to-focus (new Event-Handler execute: (lambda (evt) (editor-arrow-press view-to-focus evt))))
-      (set-return-press-handler~ view-to-focus (new Event-Handler execute: (lambda (evt) (editor-return-press view-to-focus evt))))
-      (set-tab-press-handler~ view-to-focus (new Event-Handler execute: (lambda (evt) (editor-tab-press view-to-focus evt))))
-      (acquire-focus~ view-to-focus)
-      (select-all~ view-to-focus)))
+  (method (prepare-and-focus-entry self entry)
+    (let ((view-to-focus (tab-view entry)))
+      (set-arrow-press-handler view-to-focus (new Event-Handler execute: (lambda (evt) (editor-arrow-press self view-to-focus evt))))
+      (set-return-press-handler view-to-focus (new Event-Handler execute: (lambda (evt) (editor-return-press self view-to-focus evt))))
+      (set-tab-press-handler view-to-focus (new Event-Handler execute: (lambda (evt) (editor-tab-press self view-to-focus evt))))
+      (acquire-focus view-to-focus)
+      (select-all view-to-focus)))
   
   
-  (method virtual (new-editor)
+  (method virtual (new-editor self)
     (new Border-View border-type: 'edge style: 'entry))
   
   
-  (method virtual (setup-entry editor domain component)
-    (let ((entry (setup-entry~ domain editor (list component))))
-      (setup-for-grid~ entry)
+  (method package virtual (setup-entry self editor domain component)
+    (let ((entry (setup-entry domain editor (list component))))
+      (setup-for-grid entry)
       entry))
   
   
-  (method (save-edition)
-    (let ((provider (get-provider)))
+  (method package (save-edition self)
+    (let ((provider (get-provider self)))
       (when edited-site
-        (let ((cell (site->cell edited-site))
-              (entry (first-child~ (first-child~ cell-editor))))
-          (receive (row-data column-data) (cell-data-values cell)
-            (when (get-modified?~ entry)
-              (let ((text (get-presentation~ entry))
-                    (violation (presentation-violation~ entry)))
-                (set-violation~ provider row-data column-data (and violation (new Provider-Violation violation: violation presentation: text)))
+        (let ((cell (site->cell self edited-site))
+              (entry (first-child (first-child cell-editor))))
+          (receive (row-data column-data) (cell-data-values self cell)
+            (when (get-modified? entry)
+              (let ((text (get-presentation entry))
+                    (violation (presentation-violation entry)))
+                (set-violation provider row-data column-data (and violation (new Provider-Violation violation: violation presentation: text)))
                 (if violation
-                    (update-cell cell)
-                  (set-data~ provider row-data column-data (get-value~ entry))))))))))
+                    (update-cell self cell)
+                  (set-data provider row-data column-data (get-value entry))))))))))
   
   
-  (method override (select-cell cell)
-    (let ((provider (get-provider)))
-      (receive (row-data column-data) (cell-data-values cell)
-        (acquire-focus)
-        (set-single-selection cell)
-        (unless (read-only?~ provider row-data column-data)
-          (get-data~ provider row-data column-data
+  (method override (select-cell self cell)
+    (let ((provider (get-provider self)))
+      (receive (row-data column-data) (cell-data-values self cell)
+        (acquire-focus self)
+        (set-single-selection self cell)
+        (unless (read-only? provider row-data column-data)
+          (get-data provider row-data column-data
             (const #f)
             (lambda (value)
-              (let ((domain (get-domain~ provider row-data column-data))
-                    (editor (new-editor))
-                    (component (element (get-hierarchy~ row-data) (get-component-offset~ column-data))))
-                (let ((entry (setup-entry editor domain component)))
-                  (let ((provider-violation (get-violation~ provider row-data column-data)))
+              (let ((domain (get-domain provider row-data column-data))
+                    (editor (new-editor self))
+                    (component (element (get-hierarchy row-data) (get-component-offset column-data))))
+                (let ((entry (setup-entry self editor domain component)))
+                  (let ((provider-violation (get-violation provider row-data column-data)))
                     (if provider-violation
-                        (set-presentation~ entry (get-presentation~ provider-violation))
-                      (set-value~ entry value)))
-                  (edit-cell cell editor: editor)
-                  (prepare-and-focus-entry entry)))))))))
+                        (set-presentation entry (get-presentation provider-violation))
+                      (set-value entry value)))
+                  (edit-cell self cell editor: editor)
+                  (prepare-and-focus-entry self entry)))))))))
   
   
-  (method (populate)
-    (let ((scrolled-position (get-scrolled-position)))
-      (remove-every-row)
-      (remove-columns)
+  (method package (populate self)
+    (let ((scrolled-position (get-scrolled-position self)))
+      (remove-every-row self)
+      (remove-columns self)
       (for-each (lambda (column)
-                  (set-parent~ column self))
-                (make-columns~ (get-controller)))
-      (let ((datas (client-rows-datas~ (get-controller))))
+                  (set-parent column self))
+                (make-columns (get-controller self)))
+      (let ((datas (client-rows-datas (get-controller self))))
         (for-each (lambda (row-data row-labels)
-                    (add-row children: row-labels user-data: row-data))
+                    (add-row self children: row-labels user-data: row-data))
                   datas
-                  (map make-row-labels datas)))
-      (merge-grid-cells)
-      (update-highlight)
-      (scroll-to scrolled-position)))
+                  (map (~ make-row-labels self) datas)))
+      (merge-grid-cells self)
+      (update-highlight self)
+      (scroll-to self scrolled-position)))
   
   
   ;;;
@@ -447,39 +448,39 @@
   ;;;
   
   
-  (method (make-row-label row-data column-data)
+  (method (make-row-label self row-data column-data)
     (let ((label (new Tree-Label)))
-      (update-label row-data column-data label #f)
+      (update-label self row-data column-data label #f)
       label))
   
   
-  (method (make-row-labels row-data)
+  (method (make-row-labels self row-data)
     (map (lambda (column)
-           (make-row-label row-data (get-provider-data~ column)))
-         (get-columns)))
+           (make-row-label self row-data (get-provider-data column)))
+         (get-columns self)))
   
   
-  (method public (update-label row-data column-data label selected?)
+  (method public (update-label self row-data column-data label selected?)
     (define (update-inactive-element)
-      (set-title~ label (inactive-title~ (get-controller) row-data column-data))
-      (set-background~ label (inactive-background~ (get-controller) row-data column-data selected?)))
+      (set-title label (inactive-title (get-controller self) row-data column-data))
+      (set-background label (inactive-background (get-controller self) row-data column-data selected?)))
     
     (define (update-active-element val)
-      (let ((domain (get-domain~ (get-provider) row-data column-data)))
-        (set-background~ label (active-background~ (get-controller) row-data column-data selected?))
-        (let ((violation (get-violation~ (get-provider) row-data column-data)))
+      (let ((domain (get-domain (get-provider self) row-data column-data)))
+        (set-background label (active-background (get-controller self) row-data column-data selected?))
+        (let ((violation (get-violation (get-provider self) row-data column-data)))
           (if violation
-              (set-title~ label (get-presentation~ violation))
-            (set-title~ label (present~ domain val))))))
+              (set-title label (get-presentation violation))
+            (set-title label (present domain val))))))
     
-    (get-data~ (get-provider) row-data column-data update-inactive-element update-active-element))
+    (get-data (get-provider self) row-data column-data update-inactive-element update-active-element))
   
   
-  (method public (update-editor row-data column-data editor)
-    (let ((entry (first-child~ (get-editor~ editor))))
-      (unless (or (get-modified?~ entry)
-                  (get-violation~ (get-provider) row-data column-data))
-        (get-data~ (get-provider) row-data column-data
+  (method public (update-editor self row-data column-data editor)
+    (let ((entry (first-child (get-editor editor))))
+      (unless (or (get-modified? entry)
+                  (get-violation (get-provider self) row-data column-data))
+        (get-data (get-provider self) row-data column-data
           (const #f)
           (~ set-value entry)))))
   
@@ -489,50 +490,50 @@
   ;;;
   
   
-  (method virtual (update-frame-highlight)
-    (set-border-color~ (get-widget) (get-frame-color~ (get-controller))))
+  (method virtual (update-frame-highlight self)
+    (set-border-color (get-widget self) (get-frame-color (get-controller self))))
   
   
-  (method virtual (update-cell-highlight tree-data cell)
-    (receive (row-data column-data) (cell-data-values cell)
-      (let ((current-color (get-frame-color~ tree-data))
-            (color (get-cell-color~ (get-controller) row-data column-data)))
+  (method virtual (update-cell-highlight self tree-data cell)
+    (receive (row-data column-data) (cell-data-values self cell)
+      (let ((current-color (get-frame-color tree-data))
+            (color (get-cell-color (get-controller self) row-data column-data)))
         (unless (eq? current-color color)
-          (set-frame-color~ tree-data color)
-          (invalidate-cell cell)))))
+          (set-frame-color tree-data color)
+          (invalidate-cell self cell)))))
   
   
-  (method virtual (get-editor-widget editor)
-    (find-ascendant~ editor Border-View include-self?: #t))
+  (method virtual (get-editor-widget self editor)
+    (find-ascendant editor Border-View include-self?: #t))
   
       
-  (method virtual (update-editor-highlight tree-data cell)
-    (update-cell-highlight (get-preserved-data~ tree-data) cell)
-    (let ((border (get-editor-widget (get-editor~ tree-data))))
-      (receive (row-data column-data) (cell-data-values cell)
-        (let ((current-color (get-border-color~ border))
-              (color (get-editor-color~ (get-controller) row-data column-data)))
+  (method virtual (update-editor-highlight self tree-data cell)
+    (update-cell-highlight self (get-preserved-data tree-data) cell)
+    (let ((border (get-editor-widget self (get-editor tree-data))))
+      (receive (row-data column-data) (cell-data-values self cell)
+        (let ((current-color (get-border-color border))
+              (color (get-editor-color (get-controller self) row-data column-data)))
           (unless (eq? current-color color)
-            (set-border-color~ border color))))))
+            (set-border-color border color))))))
   
   
-  (method (update-cells-highlight)
-    (for-each-visible-row
+  (method (update-cells-highlight self)
+    (for-each-visible-row self
       (lambda (row line)
-        (for-each-column
+        (for-each-column self
           (lambda (column col)
-            (let ((tree-data (get-child~ row col))
+            (let ((tree-data (get-child row col))
                   (cell (new Cell line col)))
-              (typecase child
+              (typecase (~ child self)
                 ((Tree-Label)
-                 (update-cell-highlight tree-data cell))
+                 (update-cell-highlight self tree-data cell))
                 ((Tree-Data-View)
-                 (update-editor-highlight tree-data cell)))))))))
+                 (update-editor-highlight self tree-data cell)))))))))
           
   
-  (method (update-highlight)
-    (update-frame-highlight)
-    (update-cells-highlight))
+  (method package (update-highlight self)
+    (update-frame-highlight self)
+    (update-cells-highlight self))
   
   
   ;;;
@@ -540,36 +541,36 @@
   ;;;
   
   
-  (method (merge-column-cells column col)
-    (let (iterate-master-rows (master (get-next~ (get-root-row))))
+  (method (merge-column-cells self column col)
+    (let (iterate-master-rows (master (get-next (get-root-row self))))
       (when master
-        (let (iterate-rows (current (get-next~ master)) (to-merge 0))
-          (if (and current (merge?~ (get-controller) (get-user-data~ master) (get-user-data~ current) (get-provider-data~ column)))
-              (iterate-rows (get-next~ current) (+ to-merge 1))
-            (let ((cell (new Cell (row->line master) col)))
-              (merge-cells cell (+ to-merge 1) 1)
+        (let (iterate-rows (current (get-next master)) (to-merge 0))
+          (if (and current (merge? (get-controller self) (get-user-data master) (get-user-data current) (get-provider-data column)))
+              (iterate-rows (get-next current) (+ to-merge 1))
+            (let ((cell (new Cell (row->line self master) col)))
+              (merge-cells self cell (+ to-merge 1) 1)
               (iterate-master-rows current)))))))
   
   
-  (method (merge-grid-cells)
-    (for-each-column merge-column-cells))
+  (method (merge-grid-cells self)
+    (for-each-column self (~ merge-column-cells self)))
   
   
-  (method (update-cell cell)
-    (let* ((edited-cell (get-edited-cell))
+  (method package (update-cell self cell)
+    (let* ((edited-cell (get-edited-cell self))
            (editor (and edited-cell (cell=? cell edited-cell) cell-editor))
-           (label (if editor (get-preserved-data~ cell-editor) (get-cell-data cell))))
-      (receive (row column) (cell-values cell)
+           (label (if editor (get-preserved-data cell-editor) (get-cell-data self cell))))
+      (receive (row column) (cell-values self cell)
         (call-with-row/column-data row column
           (lambda (rd cd)
-            (let ((selected-lines (remove-duplicates (map get-line~ selection)))
-                  (cell-line (get-line~ cell)))
-              (update-label rd cd label (memv? cell-line selected-lines)))
-            (update-cell-highlight label cell)
+            (let ((selected-lines (remove-duplicates (map get-line selection)))
+                  (cell-line (get-line cell)))
+              (update-label self rd cd label (memv? cell-line selected-lines)))
+            (update-cell-highlight self label cell)
             (when editor
-              (update-editor rd cd editor)
-              (update-editor-highlight editor cell))
-            (invalidate-cell cell)))))))
+              (update-editor self rd cd editor)
+              (update-editor-highlight self editor cell))
+            (invalidate-cell self cell)))))))
 
 
 (class Grid-Tree-Widget extends Border-View

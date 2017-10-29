@@ -45,6 +45,7 @@
         (jazz.jml)
         (jazz.menu)
         (jazz.ui)
+        (jazz.view)
         (jazz.window))
 
 
@@ -60,35 +61,35 @@
   ;;;
   
   
-  (method override (size-change size)
-    (nextmethod size)
-    (invalidate-top)
-    (invalidate-border insets: {Rect 2 2 2 2}))
+  (method override (size-change self size)
+    (nextmethod self size)
+    (invalidate-top self)
+    (invalidate-border self insets: {Rect 2 2 2 2}))
   
   
-  (method (on-close evt)
-    (let* ((parent (get-parent))
-           (grand (get-parent~ parent)))
+  (method package (on-close self evt)
+    (let* ((parent (get-parent self))
+           (grand (get-parent parent)))
       (with-locked-update
         (lambda ()
-          (set-visible? #f)
-          (set-parent (get-toplevel))
+          (set-visible? self #f)
+          (set-parent self (current-toplevel))
           (cond ((is? parent Splitter-View)
-                 (let ((other (first-view~ parent)))
+                 (let ((other (first-view parent)))
                    (when other
                      (if #f @ZOO (is? parent Workspace-Splitter)
                          (begin
-                           (set-mode~ parent 'zoom)
-                           (layout-view~ parent))
-                       (set-location~ other (get-location~ parent))
-                       (set-parent~ other grand)
-                       (close~ parent)
-                       (layout-view~ grand)))))
+                           (set-mode parent 'zoom)
+                           (layout-view parent))
+                       (set-location other (get-location parent))
+                       (set-parent other grand)
+                       (close parent)
+                       (layout-view grand)))))
                 ((is? parent Pad-View)
-                 (close)
-                 (let ((other (first-child~ parent)))
-                   (set-location~ other 'selection)
-                   (layout-view~ parent))))))))
+                 (close self)
+                 (let ((other (first-child parent)))
+                   (set-location other 'selection)
+                   (layout-view parent))))))))
 
   
   ;;;
@@ -96,18 +97,18 @@
   ;;;
   
   
-  (method override (mouse-activate?)
+  (method override (mouse-activate? self)
     #f)
   
   
-  (method override (activate-focus)
-    (nextmethod)
-    (invalidate-caption))
+  (method override (activate-focus self)
+    (nextmethod self)
+    (invalidate-caption self))
   
   
-  (method override (deactivate-focus)
-    (nextmethod)
-    (invalidate-caption))
+  (method override (deactivate-focus self)
+    (nextmethod self)
+    (invalidate-caption self))
   
 
   ;;;
@@ -115,12 +116,12 @@
   ;;;
   
   
-  (method override (layout)
+  (method override (layout self)
     (when guest
-      (let ((width (get-width))
-            (height (get-height)))
-        (set-position~ guest {Point 0 0})
-        (set-size~ guest (new Dimension width height)))))
+      (let ((width (get-width self))
+            (height (get-height self)))
+        (set-position guest {Point 0 0})
+        (set-size guest (new Dimension width height)))))
 
 
   ;;;
@@ -128,16 +129,16 @@
   ;;;
   
   
-  (method (menu-rect)
+  (method (menu-rect self)
     (new Rect 1 1 25 25))
   
   
-  (method (caption-rect)
-    (new Rect 1 1 (- (get-width) 2) 24))
+  (method (caption-rect self)
+    (new Rect 1 1 (- (get-width self) 2) 24))
   
   
-  (method (top-rect)
-    (new Rect 1 1 (- (get-width) 2) 25))
+  (method (top-rect self)
+    (new Rect 1 1 (- (get-width self) 2) 25))
 
 
   ;;;
@@ -145,12 +146,12 @@
   ;;;
   
   
-  (method (invalidate-top)
-    (invalidate-rect (top-rect)))
+  (method (invalidate-top self)
+    (invalidate-rect self (top-rect self)))
   
   
-  (method override (invalidate-caption)
-    (invalidate-rect (caption-rect)))
+  (method override (invalidate-caption self)
+    (invalidate-rect self (caption-rect self)))
   
 
   ;;;
@@ -158,36 +159,36 @@
   ;;;
 
   
-  (method override (mouse-down evt)
-    (let ((pos (get-position~ evt)))
-      (cond ((in-rect? pos (menu-rect))
-             (select-menu))
-            ((in-rect? pos (caption-rect))
-             (toggle-docked pos)))))
+  (method override (mouse-down self evt)
+    (let ((pos (get-position evt)))
+      (cond ((in-rect? pos (menu-rect self))
+             (select-menu self))
+            ((in-rect? pos (caption-rect self))
+             (toggle-docked self pos)))))
   
   
-  (method (toggle-docked pos)
-    (let ((parent (get-parent)))
+  (method (toggle-docked self pos)
+    (let ((parent (get-parent self)))
       (when (is? parent Pad-View)
-        (let* ((title (get-title))
+        (let* ((title (get-title self))
                (font {Font Label})
-               (h (+ 28 (text-width~ font title))))
-          (when (< (get-h~ pos) h)
+               (h (+ 28 (text-width font title))))
+          (when (< (get-h pos) h)
             (with-locked-update
               (lambda ()
-                (select-next~ parent))))))))
+                (select-next parent))))))))
   
   
-  (method override (double-click evt)
-    (let* ((parent (get-parent))
+  (method override (double-click self evt)
+    (let* ((parent (get-parent self))
            (target (if (is? parent Pad-View) parent self))
-           (splitter (if (is? parent Pad-View) (get-parent~ parent) parent)))
+           (splitter (if (is? parent Pad-View) (get-parent parent) parent)))
       (when (is? splitter Splitter-View)
         (with-locked-update
           (lambda ()
-            (if (= (get-state~ splitter) 'split)
-                (zoom~ splitter target)
-              (unzoom~ splitter)))))))
+            (if (= (get-state splitter) 'split)
+                (zoom splitter target)
+              (unzoom splitter)))))))
   
 
   ;;;
@@ -195,32 +196,32 @@
   ;;;
   
   
-  (method (select-menu)
-    (let ((brothers (collect-brothers)))
+  (method (select-menu self)
+    (let ((brothers (collect-brothers self)))
       (when brothers
         (let ((menu (new Context-Menu)))
           (for-each (lambda (docked)
-                      (let* ((guest (get-guest~ docked))
-                             (title (get-title~ docked))
-                             (icon (host-icon~ (class-of guest))))
+                      (let* ((guest (get-guest docked))
+                             (title (get-title docked))
+                             (icon (host-icon (class-of guest))))
                         (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-select properties: (list host: docked)))))
                     brothers)
-          (layout-menu~ menu)
-          (track-popup-menu menu {Point 2 25})))))
+          (layout-menu menu)
+          (track-popup-menu self menu {Point 2 25})))))
   
   
-  (method (collect-brothers)
-    (let ((pad (get-parent)))
+  (method (collect-brothers self)
+    (let ((pad (get-parent self)))
       (when (is? pad Pad-View)
         (collect-if (lambda (host)
                       (neq? host self))
-                    (get-children~ pad)))))
+                    (get-children pad)))))
   
   
-  (method (on-select evt)
-    (let ((parent (get-parent))
-          (host (get-property~ evt host:)))
+  (method (on-select self evt)
+    (let ((parent (get-parent self))
+          (host (get-property evt host:)))
       (with-locked-update
         (lambda ()
-          (set-selection~ parent host)
-          (focus-host~ host)))))))
+          (set-selection parent host)
+          (focus-host host)))))))

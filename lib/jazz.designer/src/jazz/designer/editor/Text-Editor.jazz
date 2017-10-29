@@ -4,9 +4,11 @@
 (import (jazz.component)
         (jazz.designer)
         (jazz.designer.view)
+        (jazz.editor)
         (jazz.editor.jazz)
         (jazz.handler)
         (jazz.jml)
+        (jazz.text)
         (jazz.ui)
         (jazz.view))
 
@@ -33,47 +35,47 @@
   (slot designer initialize #f accessors generate)
   
   
-  (method public (set-editor edt)
+  (method public (set-editor self edt)
     (when (neq? edt editor)
       (when editor
-        (remove-editor-listener~ editor self))
+        (remove-editor-listener editor self))
       (set! editor edt)
       (when editor
-        (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))))
+        (add-editor-listener editor (new Event-Handler target: self method-name: 'on-editor)))))
   
   
-  (method (on-editor evt)
-    (case (get-kind~ evt)
-      ((:designer-change) (set-designer (get-property~ evt designer:)))))
+  (method (on-editor self evt)
+    (case (get-kind evt)
+      ((:designer-change) (set-designer self (get-property evt designer:)))))
   
   
-  (method (get-imports-expression)
+  (method (get-imports-expression self)
     (let ((explorer (new Jazz-Explorer model)))
-      (forward-namespace~ explorer)
-      (find-import~ explorer)
-      (read-marked~ explorer)))
+      (forward-namespace explorer)
+      (find-import explorer)
+      (read-marked explorer)))
   
   
-  (method (get-class-form-expression class-name)
+  (method (get-class-form-expression self class-name)
     (let ((explorer (new Jazz-Explorer model)))
-      (forward-location~ explorer (list class-name :form))
+      (forward-location explorer (list class-name :form))
       (parameterize ((walk-for #f))
         (with-readtable jazz-readtable-no-comments
           (lambda ()
-            (read-marked~ explorer))))))
+            (read-marked explorer))))))
   
   
-  (method (get-trait-form-expression trait-name)
+  (method (get-trait-form-expression self trait-name)
     (let ((explorer (new Jazz-Explorer model)))
-      (forward-location~ explorer (list trait-name 3))
-      (list (string->symbol (format "<{a}>" (get-model~ (get-form~ designer))))
+      (forward-location explorer (list trait-name 3))
+      (list (string->symbol (format "<{a}>" (get-model (get-form designer))))
             (parameterize ((walk-for #f))
               (with-readtable jazz-readtable-no-comments
                 (lambda ()
-                  (read-marked~ explorer)))))))
+                  (read-marked explorer)))))))
   
   
-  (method (make-new-form origin locator)
+  (method (make-new-form self origin locator)
     (with-exception-filter
       (lambda (exc)
         (is? exc Comment-Exception))
@@ -83,15 +85,15 @@
       (lambda ()
         (bind (module symbol) (cdr (serialize-origin origin))
           (if (class? origin)
-              (construct-form (cadr (get-class-form-expression symbol)) locator)
-            (construct-form (get-trait-form-expression symbol) locator))))))
+              (construct-form (cadr (get-class-form-expression self symbol)) locator)
+            (construct-form (get-trait-form-expression self symbol) locator))))))
   
   
-  (method (evaluate-form)
+  (method (evaluate-form self)
     (with-cursor :wait
       (lambda ()
         (sleep .1)
-        (when (get-modified?)
+        (when (get-modified? self)
           (with-exception-filter
             (lambda (obj)
               (is-not? obj Cancel-Signal))
@@ -101,57 +103,57 @@
                      (result (message-box msg yes: "Correct errors" no: "Revert changes")))
                 (case result
                   ((no)
-                   (reset-form)))
+                   (reset-form self)))
                 (signal-cancel)))
             (lambda ()
-              (let ((origin (get-origin~ (get-form~ designer)))
-                    (locator (imports-locator (cdr (get-imports-expression)))))
+              (let ((origin (get-origin (get-form designer)))
+                    (locator (imports-locator (cdr (get-imports-expression self)))))
                 (bind (module symbol) (cdr (serialize-origin origin))
-                  (let ((new-form (make-new-form origin locator)))
-                    (setup-context~ new-form new-form)
-                    (set-origin~ new-form origin)
-                    (create-client~ editor new-form)
-                    (set-form~ designer new-form)
-                    (set-modified?~ editor #t)
-                    (set-modified? #f))))))))))
+                  (let ((new-form (make-new-form self origin locator)))
+                    (setup-context new-form new-form)
+                    (set-origin new-form origin)
+                    (create-client editor new-form)
+                    (set-form designer new-form)
+                    (set-modified? editor #t)
+                    (set-modified? self #f))))))))))
   
   
-  (method (reset-form)
-    (let* ((form (get-form~ designer))
-           (origin (get-origin~ form)))
+  (method package (reset-form self)
+    (let* ((form (get-form designer))
+           (origin (get-origin form)))
       (bind (unit symbol) (cdr (serialize-origin origin))
-        (set-string-content (format "(module {a} jazz)" unit))
+        (set-string-content self (format "(module {a} jazz)" unit))
         (insert-imports self (form-imports form) #t)
         (if (class? origin)
             (begin
               (insert-class self symbol (category-name (class-ascendant origin)))
               (insert-new-form self symbol form))
           (let* ((trait (resolve-runtime-reference origin))
-                 (range (find-namespace-insertion-range~ (new Jazz-Explorer model))))
-            (insert-string~ model range (format "{%}{%}{%}(define-trait {a} {a}{%}{a})" symbol (category-name (get-client-type~ trait)) (form->string (car (get-children~ form)) 1 include-form?: #f)))))
-        (set-modified? #f)
-        (goto-home #t #f)
-        (reset~ (get-undoer~ model)))))
+                 (range (find-namespace-insertion-range (new Jazz-Explorer model))))
+            (insert-string model range (format "{%}{%}{%}(define-trait {a} {a}{%}{a})" symbol (category-name (get-client-type trait)) (form->string (car (get-children form)) 1 include-form?: #f)))))
+        (set-modified? self #f)
+        (goto-home self #t #f)
+        (reset (get-undoer model)))))
   
   
-  (method override (get-modified?)
-    (get-text-modified?~ editor))
+  (method override (get-modified? self)
+    (get-text-modified? editor))
   
   
-  (method override (set-modified? flag)
-    (set-text-modified?~ editor flag))
+  (method override (set-modified? self flag)
+    (set-text-modified? editor flag))
   
   
-  (method override (evaluate-range range . rest)
-    (evaluate-form))
+  (method override (evaluate-range self range . rest)
+    (evaluate-form self))
   
   
-  (method override (evaluate-selection)
-    (evaluate-form))
+  (method override (evaluate-selection self)
+    (evaluate-form self))
   
   
-  (method override (evaluate-buffer)
-    (evaluate-form)))
+  (method override (evaluate-buffer self)
+    (evaluate-form self)))
 
 
 (class Text-Editor-Controller extends Component-Editor-Controller
@@ -161,24 +163,24 @@
   (slot text-modified? initialize #f)
   
   
-  (method override (get-modified?)
+  (method override (get-modified? self)
     (or form-modified? text-modified?))
   
   
-  (method override (set-modified? flag)
+  (method override (set-modified? self flag)
     (when (neq? flag form-modified?)
       (set! form-modified? flag)
-      (update-status)))
+      (update-status self)))
   
   
-  (method public (get-text-modified?)
+  (method public (get-text-modified? self)
     text-modified?)
   
   
-  (method public (set-text-modified? flag)
+  (method public (set-text-modified? self flag)
     (when (neq? flag text-modified?)
       (set! text-modified? flag)
-      (update-status))))
+      (update-status self))))
 
 
 (class Text-Editor extends Component-Editor
@@ -191,47 +193,47 @@
           (<Jazz-Text-Editor-View> name: text)))))
   
   
-  (method override (get-text-view)
-    (locate 'text))
+  (method override (get-text-view self)
+    (locate self 'text))
   
   
-  (method override (new-document-controller)
+  (method override (new-document-controller self)
     (new Text-Editor-Controller self))
   
   
-  (method public (set-text-modified? flag)
-    (set-text-modified?~ (get-document-controller) flag))
+  (method public (set-text-modified? self flag)
+    (set-text-modified? (get-document-controller self) flag))
   
   
-  (method public (get-text-modified?)
-    (get-text-modified?~ (get-document-controller)))
+  (method public (get-text-modified? self)
+    (get-text-modified? (get-document-controller self)))
   
   
-  (method public (create-client form)
-    (set! client (recreate-client form)))
+  (method public (create-client self form)
+    (set! client (recreate-client self form)))
   
   
-  (method override (prepare-mode-switch)
-    (evaluate-buffer~ (get-text-view))
-    (nextmethod))
+  (method override (prepare-mode-switch self)
+    (evaluate-buffer (get-text-view self))
+    (nextmethod self))
   
   
-  (method override (save-content-patch)
-    (evaluate-buffer~ (get-text-view))
-    (nextmethod))
+  (method override (save-content-patch self)
+    (evaluate-buffer (get-text-view self))
+    (nextmethod self))
   
   
-  (method override (set-selection new . rest)
+  (method override (set-selection self new . rest)
     (when (is? new Range$Cell$)
-      (set-selection~ (get-text-view) new)))
+      (set-selection (get-text-view self) new)))
   
   
-  (method override (client-updated)
+  (method override (client-updated self)
     (when client
-      (reset-form~ (get-text-view))))
+      (reset-form (get-text-view self))))
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set-editor~ (get-text-view) self)
-    (set-designer~ (get-text-view) designer))))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (set-editor (get-text-view self) self)
+    (set-designer (get-text-view self) designer))))

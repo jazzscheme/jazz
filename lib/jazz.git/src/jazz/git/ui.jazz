@@ -38,8 +38,8 @@
 (module jazz.git.ui jazz
 
 
-(import (jazz.application)
-        (jazz.editor.diff)
+(import (jazz.editor.diff)
+        (jazz.event)
         (jazz.feedback)
         (jazz.git)
         (jazz.graphic)
@@ -47,7 +47,9 @@
         (jazz.jml)
         (jazz.layout)
         (jazz.menu)
+        (jazz.outline)
         (jazz.resource)
+        (jazz.search)
         (jazz.text)
         (jazz.tree)
         (jazz.ui)
@@ -99,10 +101,10 @@
               (<Diff-Text-View>       name: diff-text)))))))
   
   
-  (method override (finish initargs)
-    (nextmethod initargs)
+  (method override (finish self initargs)
+    (nextmethod self initargs)
     (when depot
-      (set-moniker~ (locate 'depot) (get-directory~ depot))))
+      (set-moniker (locate self 'depot) (get-directory depot))))
   
   
   ;;;
@@ -110,28 +112,28 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Configure"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Git Explorer")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 28 14})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 800 500})
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(home))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'filter-text)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'filter-text)))
   
   
   ;;;
@@ -139,8 +141,8 @@
   ;;;
   
   
-  (method override (filter filter-search)
-    (filter-rows~ (locate 'history-tree)
+  (method override (filter self filter-search)
+    (filter-rows (locate self 'history-tree)
       (lambda (title)
         (search title filter-search))))
   
@@ -150,47 +152,47 @@
   ;;;
   
   
-  (method (on-context-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (pos (get-position~ evt))
-           (acquired (acquire sender pos))
-           (menu (get-context-menu)))
+  (method (on-context-menu self evt)
+    (let* ((sender (get-sender evt))
+           (pos (get-position evt))
+           (acquired (acquire self sender pos))
+           (menu (get-context-menu self)))
       (when menu
-        (with-context-click~ sender pos
+        (with-context-click sender pos
           (lambda ()
-            (track-popup-menu menu acquired))))))
+            (track-popup-menu self menu acquired))))))
   
   
-  (method override (get-context-menu)
+  (method override (get-context-menu self)
     (new Git-Commit-Menu))
   
   
-  (method (on-moniker-update evt)
-    (update-depot))
+  (method (on-moniker-update self evt)
+    (update-depot self))
   
   
-  (method override (on-return-press evt)
-    (update-depot))
+  (method override (on-return-press self evt)
+    (update-depot self))
   
   
-  (method (on-selection-change evt)
-    (update-diff))
+  (method package (on-selection-change self evt)
+    (update-diff self))
   
   
-  (method (on-filter evt)
-    (filter-target~ (locate 'filter-text)))
+  (method (on-filter self evt)
+    (filter-target (locate self 'filter-text)))
   
   
-  (method (on-generate-patch evt)
+  (method (on-generate-patch self evt)
     (define (generate-patch commit rank)
       (let ((digest (first commit))
             (number (+ rank 1)))
         (receive (input output) (open-string-pipe)
           (user-message "Generating patch {a}" number)
-          (git~ depot (list "format-patch" "--start-number" (->string number) "-1" digest) output))))
+          (git depot (list "format-patch" "--start-number" (->string number) "-1" digest) output))))
     
-    (let ((tree (locate 'history-tree)))
-      (let ((data (get-selected-data~ tree)))
+    (let ((tree (locate self 'history-tree)))
+      (let ((data (get-selected-data tree)))
         (when (not-null? data)
           (with-cursor :wait
             (lambda ()
@@ -198,26 +200,25 @@
               (user-message "Done")))))))
   
   
-  (method (on-conflicts evt)
-    (let* ((appl (get-application))
-           (manager (get-search-manager~ appl))
-           (player (get-player~ manager)))
-      (set-selection-name~ (locate~ manager 'tab) 'directories)
-      (let ((search (locate~ manager 'directories-search)))
-        (set-string-content~ (locate~ search 'directories) (format "{l}" (get-list~ (get-directory~ depot))))
-        (set-string-content~ (locate~ search 'extensions) "")
-        (set-search-targets~ search
+  (method (on-conflicts self evt)
+    (let* ((manager (get-search-manager))
+           (player (get-player manager)))
+      (set-selection-name (locate manager 'tab) 'directories)
+      (let ((search (locate manager 'directories-search)))
+        (set-string-content (locate search 'directories) (format "{l}" (get-list (get-directory depot))))
+        (set-string-content (locate search 'extensions) "")
+        (set-search-targets search
           (list (list (make-string 7 #\>) "")
                 (list (make-string 7 #\<) "")))
-        (set-whole-words?~ search #f)
-        (set-ignore-case?~ search #f)
-        (set-regexp?~ search #f)
-        (set-preserve-case?~ search #f)
-        (set-play-recording?~ search #f)
-        (set-expression?~ search #f)
-        (bring-to-front~ player)
-        (set-visible?~ player #t)
-        (select-search~ search))))
+        (set-whole-words? search #f)
+        (set-ignore-case? search #f)
+        (set-regexp? search #f)
+        (set-preserve-case? search #f)
+        (set-play-recording? search #f)
+        (set-expression? search #f)
+        (bring-to-front player)
+        (set-visible? player #t)
+        (select-search search))))
   
   
   ;;;
@@ -225,12 +226,12 @@
   ;;;
   
   
-  (method (update-depot)
-    (set! depot (new Git-Depot (get-moniker~ (locate 'depot))))
-    (update))
+  (method (update-depot self)
+    (set! depot (new Git-Depot (get-moniker (locate self 'depot))))
+    (update self))
   
   
-  (method (update)
+  (method package (update self)
     (define (read-history input)
       (let ((queue (new-queue)))
         (let (iterate)
@@ -243,13 +244,13 @@
         (queue-list queue)))
     
     (define (update-history)
-      (let ((tree (locate 'history-tree)))
-        (remove-every-row~ tree)
-        (with-update-locked~ tree
+      (let ((tree (locate self 'history-tree)))
+        (remove-every-row tree)
+        (with-update-locked tree
           (lambda ()
             (for-each (lambda (info)
                         (bind (digest date author message) info
-                          (add-row~ tree children: (list (new Tree-Node title: digest)
+                          (add-row tree children: (list (new Tree-Node title: digest)
                                                          (new Tree-Label title: date)
                                                          (new Tree-Label title: author)
                                                          (new Tree-Label title: message))
@@ -259,23 +260,23 @@
     (with-cursor :wait
       (lambda ()
         (receive (input output) (open-string-pipe)
-          (git~ depot (list "log" "--pretty=format:%H;%ai;%an;%s") output)
+          (git depot (list "log" "--pretty=format:%H;%ai;%an;%s") output)
           (set! history (read-history input))
           (update-history)
-          (set-string-content~ (locate 'diff-text) "")))))
+          (set-string-content (locate self 'diff-text) "")))))
   
   
-  (method (update-diff)
-    (let ((commit (get-single-selected-data~ (locate 'history-tree))))
+  (method (update-diff self)
+    (let ((commit (get-single-selected-data (locate self 'history-tree))))
       (when commit
         (with-cursor :wait
           (lambda ()
             (let ((digest (first commit)))
               (receive (input output) (open-string-pipe)
-                (git-show~ depot digest output)
+                (git-show depot digest output)
                 (input-port-timeout-set! input 0)
                 (let ((content (read-content-string input)))
-                  (set-string-content~ (locate 'diff-text) content))))))))))
+                  (set-string-content (locate self 'diff-text) content))))))))))
 
 
 ;;;

@@ -58,14 +58,14 @@
   ;;;
   
   
-  (method override (get-height)
-    (get-height~ (get-metrics~ (get-font))))
+  (method override (get-height self)
+    (get-height (get-metrics (get-font self))))
   
   
-  (method override (run-width run)
-    (let ((string (get-string~ run)))
+  (method override (run-width self run)
+    (let ((string (get-string run)))
       ;; warning this coerce could become inefficient
-      (text-width~ (get-font) (coerce string String))))
+      (text-width (get-font self) (coerce string String))))
   
   
   ;;;
@@ -73,8 +73,8 @@
   ;;;
   
   
-  (method override (scan h <fx> start <fx> end <fx> tabs run <Run> proc)
-    (let ((string (get-string~ run)))
+  (method override (scan self h <fx> start <fx> end <fx> tabs run <Run> proc)
+    (let ((string (get-string run)))
       (let ((left #f)
             (mid #f)
             (right h)
@@ -89,7 +89,7 @@
                         (set! left right)
                         (set! mid (+ right (fxround/ width 2)))
                         (set! right (+ left width))))
-                  (let ((width (get-char-width~ (get-font) c)))
+                  (let ((width (get-char-width (get-font self) c)))
                     (set! left right)
                     (set! mid (+ right (fxround/ width 2)))
                     (increase! right width)))
@@ -105,16 +105,16 @@
     '(#\space))
   
   
-  (method override (wrap context margin h <fx> v <fx> width <fx> tabs place break run <Run>)
+  (method override (wrap self context margin h <fx> v <fx> width <fx> tabs place break run <Run>)
     (let* ((start h)
-           (string (get-string~ run))
+           (string (get-string run))
            (len (cardinality string))
            (end (- len 1))
            (offset 0)
            (brk #f)
            (brk-right #f)
            (rightmost h))
-      (scan h 0 len tabs run
+      (scan self h 0 len tabs run
         (lambda (c <char> n <fx> left <fx> mid <fx> right <fx>)
           (set! rightmost right)
           (when (memq? c Break-Characters)
@@ -137,7 +137,7 @@
       (+ h (- rightmost start))))
   
   
-  (method override (height-update height)
+  (method override (height-update self height)
     )
   
   
@@ -146,22 +146,22 @@
   ;;;
   
   
-  (method override (draw-style surface <Surface> context string <Sequence> h <fx> v <fx> line-height <fx> tabs left <fx> enabled? <bool>) <fx>
-    (let ((font (or (get-font) (registered-font 'Label))))
-      (set-font~ surface font)
-      (let* ((font-height (get-height~ (get-metrics~ font)))
-             (v (+ v (justify-element font-height line-height)))
+  (method override (draw-style self surface <Surface> context string <Sequence> h <fx> v <fx> line-height <fx> tabs left <fx> enabled? <bool>) <fx>
+    (let ((font (or (get-font self) (registered-font 'Label))))
+      (set-font surface font)
+      (let* ((font-height (get-height (get-metrics font)))
+             (v (+ v (justify-element self font-height line-height)))
              (color (if (getf context print-black/white?:)
                         (registered-color 'Black)
-                      (or (get-color) (registered-color 'Black))))
-             (highlight (get-highlight))
-             (frame (get-frame)))
+                      (or (get-color self) (registered-color 'Black))))
+             (highlight (get-highlight self))
+             (frame (get-frame self)))
         (if (not enabled?)
             (begin
-              (draw-text~ surface h v (coerce string String) {Color Dark} enabled?: #f)
+              (draw-text surface h v (coerce string String) {Color Dark} enabled?: #f)
               0)
-          (let ((width (draw-tabbed-text~ surface h v string tabs left color highlight)))
+          (let ((width (draw-tabbed-text surface h v string tabs left color highlight)))
             (when frame
               (let ((rect (new Rect h v (+ h width) (+ v line-height))))
-                (frame-rect~ surface rect frame)))
+                (frame-rect surface rect frame)))
             width)))))))

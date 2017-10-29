@@ -41,12 +41,16 @@
 (import (jazz.action)
         (jazz.application)
         (jazz.component)
+        (jazz.event)
         (jazz.handler)
         (jazz.ide)
         (jazz.io)
         (jazz.jml)
         (jazz.layout)
         (jazz.menu)
+        (jazz.network)
+        (jazz.outline)
+        (jazz.process)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -85,7 +89,7 @@
                 (<Tree-Label-Column> name: debugged       title: "Debug" width: 100))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'servers-manager)
 
   
@@ -94,11 +98,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Model"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Servers")
   
   
@@ -107,12 +111,12 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (get-tree)))
+  (method override (focus-default self)
+    (acquire-focus (get-tree self)))
   
   
   ;;;
@@ -120,10 +124,10 @@
   ;;;
 
   
-  (method override (install rest)
-    (nextmethod rest)
-    (setup-configurations)
-    (update-servers))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (setup-configurations self)
+    (update-servers self))
 
   
   ;;;
@@ -131,8 +135,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'servers))
+  (method package (get-tree self)
+    (locate self 'servers))
 
   
   ;;;
@@ -140,93 +144,93 @@
   ;;;
   
   
-  (method (on-edit-server evt)
+  (method (on-edit-server self evt)
     (with-cursor :wait
       (lambda ()
-        (edit-server (selected-configuration)))))
+        (edit-server self (selected-configuration self)))))
   
   
-  (method (on-start-server evt)
+  (method (on-start-server self evt)
     (with-cursor :wait
       (lambda ()
-        (start-server (selected-configuration))))
-    (update-tools)
-    (update-states))
+        (start-server self (selected-configuration self))))
+    (update-tools self)
+    (update-states self))
   
   
-  (method (on-stop-server evt)
+  (method (on-stop-server self evt)
     (with-cursor :wait
       (lambda ()
-        (stop-server (selected-configuration))))
-    (update-tools)
-    (update-states))
+        (stop-server self (selected-configuration self))))
+    (update-tools self)
+    (update-states self))
   
   
-  (method (on-restart-server evt)
+  (method (on-restart-server self evt)
     (with-cursor :wait
       (lambda ()
-        (restart-server (selected-configuration))))
-    (update-tools)
-    (update-states))
+        (restart-server self (selected-configuration self))))
+    (update-tools self)
+    (update-states self))
   
   
-  (method (on-debug-server evt)
-    (debug-server (selected-configuration))
-    (update-tools)
-    (update-states))
+  (method (on-debug-server self evt)
+    (debug-server self (selected-configuration self))
+    (update-tools self)
+    (update-states self))
   
   
-  (method (on-selection-change evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method package (on-selection-change self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((servers)
-         (update-tools)))))
+         (update-tools self)))))
   
   
-  (method (on-refresh evt)
-    (update-servers))
+  (method package (on-refresh self evt)
+    (update-servers self))
   
   
-  (method (update-tools)
-    (let* ((config (selected-configuration))
-           (server (and config (find-server (get-name~ config)))))
-      (set-enabled?~ (locate 'edit) config)
-      (set-enabled?~ (locate 'start) (and config (not server)))
-      (set-enabled?~ (locate 'stop) server)
-      (set-enabled?~ (locate 'restart) server)
-      (set-enabled?~ (locate 'debug) server)
-      (set-selected?~ (locate 'debug) (and config (get-debug?~ config)))))
+  (method (update-tools self)
+    (let* ((config (selected-configuration self))
+           (server (and config (find-server self (get-name config)))))
+      (set-enabled? (locate self 'edit) config)
+      (set-enabled? (locate self 'start) (and config (not server)))
+      (set-enabled? (locate self 'stop) server)
+      (set-enabled? (locate self 'restart) server)
+      (set-enabled? (locate self 'debug) server)
+      (set-selected? (locate self 'debug) (and config (get-debug? config)))))
   
   
-  (method (on-double-click evt)
+  (method (on-double-click self evt)
     (with-cursor :wait
       (lambda ()
-        (start/stop-server (selected-configuration))))
-    (update-tools)
-    (update-states))
+        (start/stop-server self (selected-configuration self))))
+    (update-tools self)
+    (update-states self))
   
   
-  (method (on-context-menu evt)
+  (method (on-context-menu self evt)
     (define (new-servers-menu config)
       (let* ((menu (new Server-Menu))
-             (name (get-name~ config))
-             (server (find-server name)))
-        (set-visible?~ (locate~ menu 'start) (not server))
-        (set-visible?~ (locate~ menu 'stop) server)
-        (set-visible?~ (locate~ menu 'restart) server)
-        (set-visible?~ (locate~ menu 'debug) server)
-        (layout-menu~ menu)
+             (name (get-name config))
+             (server (find-server self name)))
+        (set-visible? (locate menu 'start) (not server))
+        (set-visible? (locate menu 'stop) server)
+        (set-visible? (locate menu 'restart) server)
+        (set-visible? (locate menu 'debug) server)
+        (layout-menu menu)
         menu))
     
-    (let* ((sender (get-sender~ evt))
-           (pos (get-position~ evt))
-           (acquired (acquire sender pos)))
-      (with-context-click~ sender pos
+    (let* ((sender (get-sender evt))
+           (pos (get-position evt))
+           (acquired (acquire self sender pos)))
+      (with-context-click sender pos
         (lambda ()
-          (let ((config (selected-configuration)))
+          (let ((config (selected-configuration self)))
             (when config
               (let ((menu (new-servers-menu config)))
-                (track-popup-menu menu acquired))))))))
+                (track-popup-menu self menu acquired))))))))
 
   
   ;;;
@@ -234,15 +238,15 @@
   ;;;
   
   
-  (method (setup-configurations)
+  (method (setup-configurations self)
     (define Servers-File
       {File Profile "settings" "Servers.jml"})
     
     (define (load-servers)
       (let ((file Servers-File))
         (and (is-alias? 'Profile)
-             (exists?~ file)
-             (instantiate~ (read-form file)))))
+             (exists? file)
+             (instantiate (read-form file)))))
     
     (define (default-servers)
       (new Server-Configurations))
@@ -260,47 +264,47 @@
   ;;;
   
   
-  (method (update-servers)
-    (let ((tree (get-tree)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+  (method (update-servers self)
+    (let ((tree (get-tree self)))
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (when configurations
             (for-each (lambda (config)
-                        (let* ((name (get-name~ config))
-                               (server (find-server name))
+                        (let* ((name (get-name config))
+                               (server (find-server self name))
                                (state (if (not server) 'stopped 'started))
-                               (port (get-port~ config))
+                               (port (get-port config))
                                (image (case state ((stopped) {Image-Resource "ServerStopped"}) ((started) {Image-Resource "ServerRunning"})))
                                (title (->string name))
                                (state-text (case state ((stopped) "Stopped") ((started) "Started")))
-                               (description (get-description~ config))
-                               (hits (if (not server) 0 (get-hits~ server)))
-                               (debug? (get-debug?~ config)))
-                          (add-row~ tree state: 'dynamic children: (list (new Tree-Node title: title image: image) (new Tree-Label title: state-text) (new Tree-Label title: (->string port)) (new Tree-Label title: description) (new Tree-Label title: (->string hits)) (new Tree-Label title: (if debug? "True" "False"))) user-data: config)))
-                      (get-children~ configurations)))))))
+                               (description (get-description config))
+                               (hits (if (not server) 0 (get-hits server)))
+                               (debug? (get-debug? config)))
+                          (add-row tree state: 'dynamic children: (list (new Tree-Node title: title image: image) (new Tree-Label title: state-text) (new Tree-Label title: (->string port)) (new Tree-Label title: description) (new Tree-Label title: (->string hits)) (new Tree-Label title: (if debug? "True" "False"))) user-data: config)))
+                      (get-children configurations)))))))
   
   
-  (method (update-states)
-    (let ((tree (get-tree)))
-      (for-each-visible-row~ tree
+  (method (update-states self)
+    (let ((tree (get-tree self)))
+      (for-each-visible-row tree
        (lambda (row rank)
          (let* ((c0 (new Cell rank 0))
                 (c1 (new Cell rank 1))
                 (c5 (new Cell rank 5))
-                (config (get-user-data~ row))
-                (name (get-name~ config))
-                (server (find-server name))
+                (config (get-user-data row))
+                (name (get-name config))
+                (server (find-server self name))
                 (state (if server 'started 'stopped))
                 (image (case state ((stopped) {Image-Resource "ServerStopped"}) ((started) {Image-Resource "ServerRunning"}) (else "Document")))
                 (state-text (case state ((stopped) "Stopped") ((started) "Started")))
-                (debug? (get-debug?~ config)))
-           (set-image~ (get-cell-data~ tree c0) image)
-           (set-title~ (get-cell-data~ tree c1) state-text)
-           (set-title~ (get-cell-data~ tree c5) (if debug? "True" "False"))
-           (invalidate-cell~ tree c0)
-           (invalidate-cell~ tree c1)
-           (invalidate-cell~ tree c5))))))
+                (debug? (get-debug? config)))
+           (set-image (get-cell-data tree c0) image)
+           (set-title (get-cell-data tree c1) state-text)
+           (set-title (get-cell-data tree c5) (if debug? "True" "False"))
+           (invalidate-cell tree c0)
+           (invalidate-cell tree c1)
+           (invalidate-cell tree c5))))))
 
   
   ;;;
@@ -308,55 +312,55 @@
   ;;;
   
   
-  (method (start-server config)
-    (stop-server config)
-    (let* ((name (get-name~ config))
-           (unit (get-unit~ config))
-           (class (get-class~ config))
-           (port (get-port~ config))
-           (debug? (get-debug?~ config))
+  (method (start-server self config)
+    (stop-server self config)
+    (let* ((name (get-name config))
+           (unit (get-unit config))
+           (class (get-class config))
+           (port (get-port config))
+           (debug? (get-debug? config))
            (server (new (module-ref unit class) port: port)))
-      (start-process~ server)
+      (start-process server)
       (table-set! servers name server)))
   
   
-  (method (stop-server config)
-    (let* ((name (get-name~ config))
-           (server (find-server name)))
+  (method (stop-server self config)
+    (let* ((name (get-name config))
+           (server (find-server self name)))
       (when server
-        (stop~ server)
+        (stop server)
         (table-set! servers name #f))))
   
   
-  (method (restart-server config)
-    (stop-server config)
-    (start-server config))
+  (method (restart-server self config)
+    (stop-server self config)
+    (start-server self config))
   
   
-  (method (start/stop-server config)
-    (let* ((name (get-name~ config))
-           (server (find-server name))
+  (method (start/stop-server self config)
+    (let* ((name (get-name config))
+           (server (find-server self name))
            (state (if (not server) 'stopped 'started)))
       (case state
-        ((stopped) (start-server config))
-        ((started) (stop-server config)))))
+        ((stopped) (start-server self config))
+        ((started) (stop-server self config)))))
   
   
-  (method (debug-server config)
-    (toggle-debug?~ config)
-    (let* ((name (get-name~ config))
-           (server (find-server name)))
+  (method (debug-server self config)
+    (toggle-debug? config)
+    (let* ((name (get-name config))
+           (server (find-server self name)))
       (when server
-        (set-debug?~ server (get-debug?~ config)))))
+        (set-debug? server (get-debug? config)))))
   
   
-  (method (edit-server config)
+  (method (edit-server self config)
     (let ((appl (get-application))
-          (class (get-class~ config)))
-      (edit-definitions~ appl class context: 'jazz)))
+          (class (get-class config)))
+      (edit-definitions appl class context: 'jazz)))
   
   
-  (method public (find-server name)
+  (method public (find-server self name)
     (table-ref servers name #f))
 
   
@@ -365,15 +369,15 @@
   ;;;
   
   
-  (method (selected-object)
-    (let* ((tree (get-tree))
-           (rank (get-single-selection~ tree)))
+  (method (selected-object self)
+    (let* ((tree (get-tree self))
+           (rank (get-single-selection tree)))
       (and rank
-           (get-user-data~ (get-row~ tree rank)))))
+           (get-user-data (get-row tree rank)))))
   
   
-  (method (selected-configuration)
-    (let ((object (selected-object)))
+  (method (selected-configuration self)
+    (let ((object (selected-object self)))
       (and (and object (is? object Server-Configuration))
            object))))
 

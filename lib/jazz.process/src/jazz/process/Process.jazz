@@ -72,48 +72,48 @@
   ;;;
   
   
-  (method public virtual (process-name)
+  (method public virtual (process-name self)
     "Process")
   
   
-  (method public virtual (process-owner)
+  (method public virtual (process-owner self)
     #f)
   
   
-  (method public virtual (process-copyright)
+  (method public virtual (process-copyright self)
     #f)
   
   
-  (method public virtual (process-licensee)
+  (method public virtual (process-licensee self)
     #f)
   
   
-  (method public virtual (process-icon)
+  (method public virtual (process-icon self)
     "Process")
   
 
-  (method public virtual (process-version)
+  (method public virtual (process-version self)
     {Version 1 0 0})
   
 
-  (method public virtual (process-release)
+  (method public virtual (process-release self)
     #f)
   
   
-  (method public virtual (process-email)
+  (method public virtual (process-email self)
     #f)
   
   
-  (method public virtual (process-actions)
+  (method public virtual (process-actions self)
     '())
   
   
-  (method public virtual (process-event-source)
+  (method public virtual (process-event-source self)
     (or (string-parameter "event-source" 'EventSource #f)
-        (process-name)))
+        (process-name self)))
   
   
-  (method public virtual (is-application?)
+  (method public virtual (is-application? self)
     #f)
   
   
@@ -122,48 +122,48 @@
   ;;;
   
   
-  (method public virtual (boot-environment)
+  (method public virtual (boot-environment self)
     (catch (Cancel-Signal signal
              #f)
-      (setup-debugging)
-      (monitor-memory)
-      (update-debuggee)
+      (setup-debugging self)
+      (monitor-memory self)
+      (update-debuggee self)
       (initialize-aliases)
-      (initialize-app)
-      (initialize-settings)
-      (register-versions)
-      (prepare-phase)
-      (install-phase)
-      (finalize-phase)
-      (finish-phase)
-      (conclude-phase)
+      (initialize-app self)
+      (initialize-settings self)
+      (register-versions self)
+      (prepare-phase self)
+      (install-phase self)
+      (finalize-phase self)
+      (finish-phase self)
+      (conclude-phase self)
       (activate-process)
-      (start-process)
+      (start-process self)
       (ready-debuggee)
-      (maybe-validate)
+      (maybe-validate self)
       (when (run-loop?)
         ;; sanity check for a bug that can occur very easily and is extremely difficult to debug
         (when (and (eq? (current-thread) (get-load-thread)) (not-null? (current-load-stack)))
           (system-message (format "Internal error: Load stack not empty.{%}{%}This is probably caused by a product run unit doing its initialisations at the toplevel instead of registering them using register-product-run.{%}{%}Please report this problem to the JazzScheme team if this is not the case.")))
-        (run-loop))
+        (run-loop self))
       #f))
   
   
-  (method (setup-debugging)
+  (method (setup-debugging self)
     ;; need to think this through about letting gambit handle debugging
     ;; when there is a controlling terminal versus generating a snapshot
     (unless (or (controlling-terminal?) (using-debugger?))
-      (let ((exception-debugger (process-debugger)))
+      (let ((exception-debugger (process-debugger self)))
         (when exception-debugger
           (set-exception-debugger exception-debugger)
           (set-exception-hook exception-debugger-hook)))))
   
   
-  (method protected virtual (process-debugger)
+  (method protected virtual (process-debugger self)
     (application-exception-debugger))
   
   
-  (method (monitor-memory)
+  (method (monitor-memory self)
     (when monitor-memory?
       (add-gc-interrupt-job!
         (let ((n-times-over 0)
@@ -182,169 +182,169 @@
                        (set! n-times-over (+ n-times-over 1)))))))))))
   
   
-  (method (update-debuggee)
+  (method (update-debuggee self)
     (unless (current-process-title)
-      (current-process-title-set! (process-name)))
-    (current-process-version-set! (present~ (process-version)))
+      (current-process-title-set! (process-name self)))
+    (current-process-version-set! (present (process-version self)))
     (update-debuggee-process))
   
   
-  (method protected virtual (initialize-app)
+  (method protected virtual (initialize-app self)
     )
   
   
-  (method protected virtual (initialize-settings)
+  (method protected virtual (initialize-settings self)
     )
   
   
-  (method protected virtual (settings-version)
+  (method protected virtual (settings-version self)
     )
   
   
-  (method (register-versions)
+  (method (register-versions self)
     @unimplemented
-    (register-crash-info platform-version: #f (present~ (get-platform-version))))
+    (register-crash-info platform-version: #f (present (get-platform-version))))
   
   
-  (method protected virtual (prepare-phase)
-    (prepare-settings)
-    (prepare-bindings)
-    (prepare-aliases)
-    (prepare-system)
-    (prepare-locales)
-    (prepare-platform)
-    (prepare-profile)
-    (setup-nicknames)
-    (login-profile)
-    (prepare-environment)
-    (prepare-preferences)
-    (prepare-preferences-aliases)
-    (prepare-workbench)
-    (prepare-process))
+  (method protected virtual (prepare-phase self)
+    (prepare-settings self)
+    (prepare-bindings self)
+    (prepare-aliases self)
+    (prepare-system self)
+    (prepare-locales self)
+    (prepare-platform self)
+    (prepare-profile self)
+    (setup-nicknames self)
+    (login-profile self)
+    (prepare-environment self)
+    (prepare-preferences self)
+    (prepare-preferences-aliases self)
+    (prepare-workbench self)
+    (prepare-process self))
   
   
-  (method protected virtual (prepare-settings)
+  (method protected virtual (prepare-settings self)
     )
   
   
-  (method protected virtual (prepare-system)
-    (set-process self))
+  (method protected virtual (prepare-system self)
+    (set-current-process self))
   
   
-  (method protected virtual (prepare-locales)
-    (register-locale~ (get-locale-state) (new Locale 'english 'all     {Locales english: "English" french: "Anglais"}))
-    (register-locale~ (get-locale-state) (new Locale 'french  'english {Locales english: "French" french: "Français"}))
-    (set-current-locale~ (get-locale-state) english:))
+  (method protected virtual (prepare-locales self)
+    (register-locale (get-locale-state) (new Locale 'english 'all     {Locales english: "English" french: "Anglais"}))
+    (register-locale (get-locale-state) (new Locale 'french  'english {Locales english: "French" french: "Français"}))
+    (set-current-locale (get-locale-state) english:))
   
   
-  (method protected virtual (prepare-platform)
+  (method protected virtual (prepare-platform self)
     )
   
   
-  (method protected virtual (prepare-profile)
+  (method protected virtual (prepare-profile self)
     )
 
 
-  (method protected virtual (prepare-environment)
+  (method protected virtual (prepare-environment self)
     )
 
 
-  (method (prepare-preferences)
-    (setup-preferences))
+  (method (prepare-preferences self)
+    (setup-preferences self))
 
   
-  (method public virtual (prepare-process)
+  (method public virtual (prepare-process self)
     (let ((use? (use-snapshot?)))
       (when use?
         (setup-crash-handler (eq? use? 'both)))))
   
   
-  (method protected virtual (install-phase)
-    (install-environment)
-    (install-process))
+  (method protected virtual (install-phase self)
+    (install-environment self)
+    (install-process self))
 
 
-  (method protected virtual (install-environment)
+  (method protected virtual (install-environment self)
     )
   
   
-  (method public virtual (install-process)
+  (method public virtual (install-process self)
     )
   
   
-  (method protected virtual (finalize-phase)
-    (finalize-environment)
-    (maybe-start-servers)
-    (finalize-process)
-    (setup-profile))
+  (method protected virtual (finalize-phase self)
+    (finalize-environment self)
+    (maybe-start-servers self)
+    (finalize-process self)
+    (setup-profile self))
 
 
-  (method protected virtual (finalize-environment)
+  (method protected virtual (finalize-environment self)
     )
   
   
-  (method public virtual (finalize-process)
+  (method public virtual (finalize-process self)
     )
 
   
-  (method public virtual (setup-profile)
+  (method public virtual (setup-profile self)
     (define (create-profile)
       (if (find-unit-source profile-class)
           (set! profile (new (load-profile-class profile-class)))
-        (new-default-profile)))
+        (new-default-profile self)))
     
-    (when (and (use-profile?) profile-class)
+    (when (and (use-profile? self) profile-class)
       (create-profile)))
   
   
-  (method protected virtual (new-default-profile)
+  (method protected virtual (new-default-profile self)
     (new Me))
     
   
-  (method protected virtual (finish-phase)
-    (finish-environment)
-    (finish-process))
+  (method protected virtual (finish-phase self)
+    (finish-environment self)
+    (finish-process self))
   
   
-  (method protected virtual (finish-environment)
-    (register-base-objects))
+  (method protected virtual (finish-environment self)
+    (register-base-objects self))
   
   
-  (method public virtual (finish-process)
+  (method public virtual (finish-process self)
     )
     
   
-  (method protected virtual (conclude-phase)
-    (conclude-environment)
-    (conclude-process)
-    (conclude-debuggee))
+  (method protected virtual (conclude-phase self)
+    (conclude-environment self)
+    (conclude-process self)
+    (conclude-debuggee self))
   
   
-  (method protected virtual (conclude-environment)
+  (method protected virtual (conclude-environment self)
     )
   
   
-  (method public virtual (conclude-process)
+  (method public virtual (conclude-process self)
     )
   
   
-  (method public virtual (conclude-debuggee)
+  (method public virtual (conclude-debuggee self)
     (when (get-controller-debugger)
-      (start-console)
+      (start-console self)
       (current-input-port (console-input-port))
       (current-output-port (console-output-port))))
   
   
-  (method protected virtual (start-console)
-    (select-console)
-    (start-repl-thread (current-thread) #f (get-console-port)))
+  (method protected virtual (start-console self)
+    (select-debugger-console)
+    (start-repl-thread (current-thread) #f (current-console-port)))
   
   
-  (method protected virtual (start-process)
+  (method package virtual (start-process self)
     )
   
   
-  (method protected virtual (safe-execution?)
+  (method package virtual (safe-execution? self)
     #f)
   
   
@@ -353,24 +353,24 @@
   ;;;
   
   
-  (method public (validate-process?)
+  (method public (validate-process? self)
     (boolean (command-argument "validate")))
   
   
-  (method virtual (maybe-validate)
-    (when (validate-process?)
-      (start-validate-process)))
+  (method virtual (maybe-validate self)
+    (when (validate-process? self)
+      (start-validate-process self)))
   
   
-  (method protected virtual (start-validate-process)
+  (method protected virtual (start-validate-process self)
     (thread-start!
       (new-thread
         (lambda ()
-          (validate-process))
+          (validate-process self))
         'validate)))
   
   
-  (method protected virtual (validate-process)
+  (method protected virtual (validate-process self)
     )
   
   
@@ -379,7 +379,7 @@
   ;;;
   
   
-  (method protected virtual (terminate-process)
+  (method protected virtual (terminate-process self)
     )
   
   
@@ -388,20 +388,20 @@
   ;;;
   
   
-  (method public virtual (preserve-environment)
+  (method public virtual (preserve-environment self)
     )
   
   
-  (method public virtual (close-environment)
-    (persist-preferences)
+  (method public virtual (close-environment self)
+    (persist-preferences self)
     (unless (reloading-process?)
       (detach-from-controller)
-      (stop-servers)))
+      (stop-servers self)))
   
   
-  (method (persist-preferences)
-    (when (and preferences-designer (persist-preferences?) (file? (get-origin~ (get-form~ preferences-designer))))
-      (save~ preferences-designer)))
+  (method (persist-preferences self)
+    (when (and preferences-designer (persist-preferences? self) (file? (get-origin (get-form preferences-designer))))
+      (save preferences-designer)))
 
   
   ;;;
@@ -409,7 +409,7 @@
   ;;;
   
   
-  (method protected virtual (templates-directory)
+  (method package virtual (templates-directory self)
     )
 
 
@@ -418,33 +418,33 @@
   ;;;
   
   
-  (method protected virtual (login-profile)
-    (when (use-profile?)
-      (install-profiles)
-      (log-profile)))
+  (method protected virtual (login-profile self)
+    (when (use-profile? self)
+      (install-profiles self)
+      (log-profile self)))
   
   
-  (method protected virtual (use-profile?)
+  (method protected virtual (use-profile? self)
     #f)
   
   
-  (method protected virtual (install-profiles)
+  (method protected virtual (install-profiles self)
     )
   
   
-  (method protected virtual (log-profile)
-    (let ((profile-arg (profile-parameter)))
+  (method protected virtual (log-profile self)
+    (let ((profile-arg (profile-parameter self)))
       (when profile-arg
-        (receive (name unit bindings) (standard-profile (->string profile-arg))
+        (receive (name unit bindings) (standard-profile self (->string profile-arg))
           (set! profile-class (compose-identifier unit name))
-          (install-profile name unit bindings)))))
+          (install-profile self name unit bindings)))))
   
   
-  (method protected virtual (profile-kind)
+  (method protected virtual (profile-kind self)
     "jazz")
   
   
-  (method (profile-parameter)
+  (method (profile-parameter self)
     (let ((profile (string-parameter "profile" 'profile #f)))
       (and profile
            (let ((name (->string profile)))
@@ -453,22 +453,22 @@
                name)))))
   
   
-  (method (standard-profile title)
+  (method (standard-profile self title)
     (let ((name (string->symbol title))
           (unit-name (string->symbol (format "profile.{a}" (downcase title))))
-          (template (profile-kind)))
+          (template (profile-kind self)))
       (values name unit-name template)))
   
   
-  (method (install-profile name unit template)
+  (method (install-profile self name unit template)
     (define (install-new-profile name unit template)
       (let ((associations (list (cons 'jazz-settings-version (and jazz-settings-version (present-version jazz-settings-version)))
-                                (cons 'settings-version (present-version (settings-version)))
+                                (cons 'settings-version (present-version (settings-version self)))
                                 (cons 'profile name)
                                 (cons 'profile-lowercase (downcase (symbol->string name)))
                                 (cons 'profile-unit unit)
                                 (cons 'active-skin (case kernel-windowing ((cocoa) 'mac) ((x11) 'x11) (else 'jazz))))))
-        (copy-template (new-directory~ (templates-directory) (list "profile" template))
+        (copy-template (new-directory (templates-directory self) (list "profile" template))
                        {Directory Home}
                        associations
                        ignored-nodes: (if jazz-settings-version '() '(".jazz"))))
@@ -481,7 +481,7 @@
       (when (not source)
         (install-new-profile name unit template)
         (set! source (find-unit-source profile-class)))
-      (register-alias 'Profile (get-list~ (get-parent~ source)))))
+      (register-alias 'Profile (get-list (get-parent source)))))
   
   
   ;;;
@@ -489,25 +489,25 @@
   ;;;
   
   
-  (method public virtual (runtime-product)
+  (method public virtual (runtime-product self)
     (or (jazz-product) (current-process-product) 'jazz))
   
   
-  (method public virtual (runtime-products)
+  (method public virtual (runtime-products self)
     '())
   
   
-  (method public virtual (runtime-units)
+  (method public virtual (runtime-units self)
     (if profile-class
         (list profile-class)
       '()))
   
   
-  (method public virtual (evaluation-processes)
+  (method public virtual (evaluation-processes self)
     (list (get-local-process)))
   
   
-  (method public virtual (runtime-properties)
+  (method public virtual (runtime-properties self)
     '())
 
   
@@ -516,7 +516,7 @@
   ;;;
   
   
-  (method protected virtual (user-notification wparam lparam)
+  (method protected virtual (user-notification self wparam lparam)
     )
   
   
@@ -525,7 +525,7 @@
   ;;;
   
   
-  (method public virtual (get-toplevel)
+  (method public virtual (get-toplevel self)
     #f)
   
   
@@ -534,30 +534,30 @@
   ;;;
   
 
-  (method public virtual (quit-process (status 0))
-    (unload-process)
+  (method public virtual (quit-process self (status 0))
+    (unload-process self)
     (quit))
   
   
-  (method public virtual (reboot-process (status 0))
+  (method public virtual (reboot-process self (status 0))
     (unimplemented 'reboot-process))
   
 
-  (method public virtual (reload-process)
+  (method public virtual (reload-process self)
     (thread-execute (primordial-thread) 'reload-process
       (lambda ()
         (parameterize ((*reloading-process?* #t))
-          (unload-process))
+          (unload-process self))
         @convert
         (continuation-graft quit-continuation boot-environment))))
   
   
-  (method package (unload-process)
+  (method package (unload-process self)
     (parameterize ((*unloading-process?* #t))
-      (preserve-environment)
-      (close-environment)
-      (terminate-process)
-      (set-process #f)))
+      (preserve-environment self)
+      (close-environment self)
+      (terminate-process self)
+      (set-current-process #f)))
   
 
   ;;;
@@ -565,7 +565,7 @@
   ;;;
   
   
-  (method protected virtual (setup-nicknames)
+  (method protected virtual (setup-nicknames self)
     (register-nickname :process (lambda () self))
     (register-nickname :profile (lambda () profile)))
   
@@ -575,13 +575,13 @@
   ;;;
   
   
-  (method public (get-context)
+  (method public (get-context self)
     context)
   
   
-  (method public (set-context ctx)
+  (method public (set-context self ctx)
     (set! context ctx)
-    (context-update))
+    (context-update self))
   
   
   ;; Ugly hardcoding updates for now as the right approach
@@ -589,40 +589,40 @@
   ;; updates themselves or maybe objects interesseted in being
   ;; notified about preferences changes register themselves
   ;; for designer events that could be sent when the context is changed.
-  (method protected virtual (context-update)
+  (method protected virtual (context-update self)
     (define (modify-preferences)
-      (let* ((pref (get-preferences #f))
-             (designer (get-preferences-designer))
-             (trait (find-component~ pref context)))
-        (set-active-trait~ pref trait)))
+      (let* ((pref (current-preferences #f))
+             (designer (get-preferences-designer self))
+             (trait (find-component pref context)))
+        (set-active-trait pref trait)))
     
     (define (modify-connections)
       @wait
       (when (in-manifest? 'SQL-Connections-Manager)
-        (modify-editor (get-guest~ (singleton-docked SQL-Connections-Manager)))))
+        (modify-editor (get-guest (singleton-docked SQL-Connections-Manager)))))
     
     (define (modify-toolbox)
       @wait
       (when (in-manifest? 'Toolbox-Manager)
-        (modify-editor (get-guest~ (singleton-docked Toolbox-Manager)))))
+        (modify-editor (get-guest (singleton-docked Toolbox-Manager)))))
     
     (define (modify-editor editor)
-      (let* ((client (get-client~ editor))
-             (trait (find-component~ client context)))
-        (set-active-trait~ client trait)
-        (set-client~ editor #f)
-        (set-client~ editor client)))
+      (let* ((client (get-client editor))
+             (trait (find-component client context)))
+        (set-active-trait client trait)
+        (set-client editor #f)
+        (set-client editor client)))
     
     (modify-preferences)
     (modify-connections)
     (modify-toolbox))
   
   
-  (method public (install-context component)
+  (method public (install-context self component)
     (when context
-      (let ((trait (find-child~ component context)))
+      (let ((trait (find-child component context)))
         (when trait
-          (set-active-trait~ component trait)))))
+          (set-active-trait component trait)))))
   
   
   ;;;
@@ -630,7 +630,7 @@
   ;;;
   
   
-  (method protected virtual (former-class)
+  (method protected virtual (former-class self)
     Former)
   
   
@@ -639,63 +639,63 @@
   ;;;
   
   
-  (method protected virtual (persist-preferences?)
+  (method protected virtual (persist-preferences? self)
     #f)
   
   
-  (method protected virtual (preferences-file)
+  (method protected virtual (preferences-file self)
     {File Profile "settings" "Preferences.jml"})
   
   
-  (method protected virtual (setup-preferences)
-    (setup-preferences/designer))
+  (method package virtual (setup-preferences self)
+    (setup-preferences/designer self))
   
   
-  (method (setup-preferences/designer)
-    (set-preferences/designer (load-preferences))
-    (let ((root (get-preferences-root)))
+  (method (setup-preferences/designer self)
+    (set-preferences/designer self (load-preferences self))
+    (let ((root (current-preferences-root)))
       (define (preferences-context)
         (let ((arg (command-argument "context")))
           (cond (arg (string->symbol arg))
-                (root (get-active-context~ root))
+                (root (get-active-context root))
                 (else #f))))
       
       (set! context (preferences-context))
-      (install-context root)
-      (let ((directory (get-current-directory~ root)))
-        (when (and directory (exists?~ directory))
-          (set-current-directory directory)))))
+      (install-context self root)
+      (let ((directory (get-current-directory root)))
+        (when (and directory (exists? directory))
+          (current-directory-set! directory)))))
   
   
-  (method (set-preferences/designer preferences)
-    (set! preferences-designer (new (former-class) form: (get-form~ preferences) reference: preferences)))
+  (method (set-preferences/designer self preferences)
+    (set! preferences-designer (new (former-class self) form: (get-form preferences) reference: preferences)))
 
   
-  (method protected virtual (load-preferences)
-    (let ((persist? (persist-preferences?))
-          (file (preferences-file)))
-      (if (and persist? (is-alias? 'Profile) (exists?~ file))
-          (instantiate~ (read-form file))
-        (default-preferences))))
+  (method protected virtual (load-preferences self)
+    (let ((persist? (persist-preferences? self))
+          (file (preferences-file self)))
+      (if (and persist? (is-alias? 'Profile) (exists? file))
+          (instantiate (read-form file))
+        (default-preferences self))))
   
   
-  (method protected virtual (default-preferences)
+  (method protected virtual (default-preferences self)
     (new Process-Preferences))
   
   
-  (method public (apply-preferences preferences (client #f))
-    (apply-preferences~ preferences client))
+  (method public (apply-preferences self preferences (client #f))
+    (apply-preferences preferences client))
   
   
-  (method public (save-preferences preferences (client #f))
-    (save-preferences~ preferences (get-preferences-designer) client))
+  (method public (save-preferences self preferences (client #f))
+    (save-preferences preferences (get-preferences-designer self) client))
 
   
-  (method public (set-preferences-property preferences property value)
-    (set-property~ preferences (get-preferences-designer) property value))
+  (method public (set-preferences-property self preferences property value)
+    (set-property preferences (get-preferences-designer self) property value))
   
   
-  (method public virtual (get-preferences-rights)
+  (method public virtual (get-preferences-rights self)
     #f)
   
   
@@ -704,11 +704,11 @@
   ;;;
   
   
-  (method public virtual (persist-usernames?)
+  (method public virtual (persist-usernames? self)
     #f)
   
   
-  (method public virtual (persist-passwords?)
+  (method public virtual (persist-passwords? self)
     #f)
   
   
@@ -717,7 +717,7 @@
   ;;;
   
   
-  (method public virtual (mandatory-version what)
+  (method public virtual (mandatory-version self what)
     #f)
 
   
@@ -738,34 +738,34 @@
   ;;;
   
   
-  (method public virtual (run-loop)
+  (method public virtual (run-loop self)
     (continuation-capture
       (lambda (cont)
         (with-repl-context cont
           (lambda ()
             (with-current-loop
               (lambda ()
-                (start-loop))))))))
+                (start-loop self))))))))
   
   
-  (method public (invoke-resume-loop)
+  (method public (invoke-resume-loop self)
     (let ((restart (find-restart 'resume-loop)))
       (when restart
         (invoke-restart restart))))
 
 
-  (method public virtual (start-loop)
+  (method public virtual (start-loop self)
     (declare (proper-tail-calls))
     (let (restart-loop)
       (with-restart-catcher 'resume-loop (present-current-loop-restart)
         (lambda ()
           (with-exception-debugger (get-exception-debugger)
             (lambda ()
-              (thread-process-loop)))))
+              (thread-process-loop self)))))
       (restart-loop)))
   
   
-  (method public virtual (thread-process-loop (done? #f))
+  (method public virtual (thread-process-loop self (done? #f))
     (declare (proper-tail-calls))
     (let (loop)
       (thread-process)
@@ -778,7 +778,7 @@
   ;;;
   
   
-  (method public virtual (system-title)
+  (method public virtual (system-title self)
     "JazzScheme")
 
 
@@ -787,7 +787,7 @@
   ;;;
   
   
-  (method protected virtual (prepare-bindings)
+  (method protected virtual (prepare-bindings self)
     )
 
 
@@ -796,23 +796,23 @@
   ;;;
   
   
-  (method protected virtual (prepare-aliases)
+  (method protected virtual (prepare-aliases self)
     )
   
   
-  (method public virtual (prepare-preferences-aliases)
-    (let ((pref (get-preferences 'aliases error?: #f)))
+  (method public virtual (prepare-preferences-aliases self)
+    (let ((pref (current-preferences 'aliases error?: #f)))
       (when pref
-        (let ((aliases (get-children~ pref)))
+        (let ((aliases (get-children pref)))
           (for-each (lambda (pref)
-                      (let ((alias (get-alias~ pref))
-                            (directory (get-directory~ pref)))
+                      (let ((alias (get-alias pref))
+                            (directory (get-directory pref)))
                         (when directory
-                          (register-alias alias (get-list~ directory)))))
+                          (register-alias alias (get-list directory)))))
                     aliases)))))
   
   
-  (method public virtual (resolve-alias name)
+  (method public virtual (resolve-alias self name)
     #f)
 
 
@@ -821,7 +821,7 @@
   ;;;
   
   
-  (method public virtual (prepare-workbench)
+  (method public virtual (prepare-workbench self)
     )
   
   
@@ -830,26 +830,26 @@
   ;;;
   
   
-  (method (maybe-start-servers)
-    (when (start-servers?)
-      (start-servers)))
+  (method (maybe-start-servers self)
+    (when (start-servers? self)
+      (start-servers self)))
   
   
-  (method protected virtual (start-servers?)
+  (method protected virtual (start-servers? self)
     ;; start now if listen is specified
     (receive (host service alternate-service) (listen-parameter)
       (or host service)))
   
   
-  (method protected virtual (start-servers)
-    (start-remote-server))
+  (method protected virtual (start-servers self)
+    (start-remote-server self))
   
   
-  (method package (start-remote-server)
+  (method package (start-remote-server self)
     (start-remote-listener))
   
   
-  (method protected virtual (stop-servers)
+  (method protected virtual (stop-servers self)
     (stop-remote-listener))
 
 
@@ -858,15 +858,15 @@
   ;;;
   
   
-  (method public (get-name)
-    (process-name))
+  (method public (get-name self)
+    (process-name self))
   
   
-  (method public (get-icon)
-    (process-icon))
+  (method public (get-icon self)
+    (process-icon self))
   
   
-  (method public (get-register)
+  (method public (get-register self)
     (get-local-register))
 
 
@@ -875,7 +875,7 @@
   ;;;
   
   
-  (method protected virtual (register-base-objects)
+  (method protected virtual (register-base-objects self)
     )
   
   
@@ -884,11 +884,11 @@
   ;;;
   
   
-  (method public virtual (get-local-debugger)
+  (method public virtual (get-local-debugger self)
     #f)
   
   
-  (method public virtual (get-snapshot-debugger)
+  (method public virtual (get-snapshot-debugger self)
     #f)
   
   
@@ -897,19 +897,19 @@
   ;;;
   
   
-  (method protected virtual (effective-transmit-runtime-what what)
+  (method package virtual (effective-transmit-runtime-what self what)
     what)
   
   
-  (method public virtual (default-console-readtable)
+  (method public virtual (default-console-readtable self)
     jazz-readtable)
   
   
-  (method public virtual (initial-console-context)
+  (method public virtual (initial-console-context self)
     :process)
   
   
-  (method protected virtual (process-debuggee-loop)
+  (method package virtual (process-debuggee-loop self)
     (debuggee-loop))
 
 
@@ -918,5 +918,5 @@
   ;;;
 
 
-  (method public virtual (get-remote-profile name)
+  (method public virtual (get-remote-profile self name)
     #f)))

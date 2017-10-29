@@ -38,7 +38,8 @@
 (module protected jazz.ide.showcase.Threads-Showcase jazz
 
 
-(import (jazz.event)
+(import (jazz.audio)
+        (jazz.event)
         (jazz.feedback)
         (jazz.handler)
         (jazz.jml)
@@ -65,36 +66,36 @@
       (<View>        name: area            position: {Point 2 32} size: {Dimension 776 470})))
   
   
-  (method override (destroy-component)
-    (stop-showcase)
-    (nextmethod))
+  (method override (destroy-component self)
+    (stop-showcase self)
+    (nextmethod self))
 
 
-  (method (start-showcase)
+  (method (start-showcase self)
     (set! start (current-seconds))
     (set! count 0)
     (set! done? #f)
-    (add-threads))
+    (add-threads self))
 
 
-  (method (stop-showcase)
+  (method (stop-showcase self)
     (set! done? #t)
     (for-each thread-join! threads)
     (set! threads '()))
   
   
-  (method (add-icon n)
-    (let* ((area (locate 'area))
-           (size (get-size~ area)))
+  (method (add-icon self n)
+    (let* ((area (locate self 'area))
+           (size (get-size area)))
       (new Showcase-Icon
         resource: {Image-Resource "Jedi"}
         parent: area
-        position: (new Point (random (- (get-width~ size) 42)) (random (- (get-height~ size) 42)))
+        position: (new Point (random (- (get-width size) 42)) (random (- (get-height size) 42)))
         size: {Dimension 32 32})))
   
   
-  (method public (add-threaded-icon n)
-    (let* ((icon (add-icon n))
+  (method public (add-threaded-icon self n)
+    (let* ((icon (add-icon self n))
            (thread (thread-start!
                      (new-thread
                        (lambda ()
@@ -102,38 +103,39 @@
                            (sleep slowdown)
                            (execute-event
                              (lambda ()
-                               (animate-icon~ icon)))))
+                               (animate-icon icon)))))
                        'showcase))))
       (set! threads (cons thread threads))
       (set! slowdown (* (length threads) .005))
       icon))
   
   
-  (method (on-add-threads evt)
-    (add-threads))
+  (method (on-add-threads self evt)
+    (add-threads self))
   
   
-  (method (on-suspend-threads evt)
-    (for-each suspend~ threads))
+  (method (on-suspend-threads self evt)
+    @cant-find
+    (for-each suspend threads))
   
   
-  (method (on-resume-threads evt)
-    (for-each resume~ threads))
+  (method (on-resume-threads self evt)
+    (for-each resume threads))
   
   
-  (method (add-threads)
+  (method (add-threads self)
     (for-each (lambda (n)
-                (add-threaded-icon n))
+                (add-threaded-icon self n))
               (naturals 0 5)))
   
   
-  (method (report-timing)
+  (method (report-timing self)
     (increase! count)
     (when (= (modulo count 100) 0)
       (user-message "{s}" (/ (cast <fl> count) (- (current-seconds) start)))))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{s}"
@@ -152,23 +154,23 @@
   (slot direction-v)
   
   
-  (method override (prepare rest)
-    (nextmethod rest)
+  (method override (prepare self rest)
+    (nextmethod self rest)
     (set! direction-h (- (random 11) 5))
     (set! direction-v (- (random 11) 5)))
   
   
-  (method public (animate-icon)
+  (method public (animate-icon self)
     (define (move-icon)
-      (let ((pos (get-position)))
-        (set-position (new Point (+ (get-h~ pos) direction-h) (+ (get-v~ pos) direction-v)))))
+      (let ((pos (get-position self)))
+        (set-position self (new Point (+ (get-h pos) direction-h) (+ (get-v pos) direction-v)))))
     
     (define (rebound-icon)
-      (let ((rect (get-rect))
-            (area (get-size~ parent)))
-        (when (or (< (get-left~ rect) 0) (> (get-right~ rect) (get-width~ area)))
+      (let ((rect (get-rect self))
+            (area (get-size parent)))
+        (when (or (< (get-left rect) 0) (> (get-right rect) (get-width area)))
           (set! direction-h (- direction-h)))
-        (when (or (< (get-top~ rect) 0) (> (get-bottom~ rect) (get-height~ area)))
+        (when (or (< (get-top rect) 0) (> (get-bottom rect) (get-height area)))
           (set! direction-v (- direction-v)))))
     
     (move-icon)

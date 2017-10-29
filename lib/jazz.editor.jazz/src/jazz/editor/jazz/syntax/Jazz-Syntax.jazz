@@ -39,11 +39,14 @@
 
 
 (import (jazz.clipboard)
+        (jazz.component)
+        (jazz.editor)
         (jazz.editor.jazz)
         (jazz.editor.lisp)
         (jazz.feedback)
         (jazz.graphic)
         (jazz.jml)
+        (jazz.outline)
         (jazz.preferences)
         (jazz.resource)
         (jazz.runtime)
@@ -62,8 +65,8 @@
   ;;;
 
   
-  (method override (preferences)
-    (get-preferences '(documents jazz-text)))
+  (method override (preferences self)
+    (current-preferences '(documents jazz-text)))
 
   
   ;;;
@@ -71,11 +74,11 @@
   ;;;
   
   
-  (method override (default-extension)
+  (method override (default-extension self)
     "jazz")
   
   
-  (method override (extensions)
+  (method override (extensions self)
     '(("Jazz Texts" . "jazz")))
 
   
@@ -84,7 +87,7 @@
   ;;;
   
   
-  (method override (parser-class)
+  (method override (parser-class self)
     Jazz-Parser)
 
   
@@ -93,9 +96,9 @@
   ;;;
   
   
-  (method override (translate-key key)
-    (if (or (find-setting 'jazz.translate-keys? #f) (get-translate-keys?~ (get-preferences '(documents jazz-text))))
-        (translate-lisp-key key)
+  (method override (translate-key self key)
+    (if (or (find-setting 'jazz.translate-keys? #f) (get-translate-keys? (current-preferences '(documents jazz-text))))
+        (translate-lisp-key self key)
       key))
   
   
@@ -104,7 +107,7 @@
   ;;;
   
   
-  (method override (get-constituent-test)
+  (method override (get-constituent-test self)
     jazz-constituent?)
    
 
@@ -113,7 +116,7 @@
   ;;;
 
 
-  (method override (explorer-class)
+  (method override (explorer-class self)
     Jazz-Explorer)
   
   
@@ -122,7 +125,7 @@
   ;;;
   
   
-  (method override (get-readtable)
+  (method override (get-readtable self)
     jazz-readtable)
   
   
@@ -131,22 +134,22 @@
   ;;;
   
   
-  (method override (declaration-style documented?)
+  (method override (declaration-style self documented?)
     (if documented?
         'Documented-Declaration
       'Undocumented-Declaration))
   
   
-  (method override (colorize-tag colorizer start end)
-    (apply-coloring colorizer start end 'Tag))
+  (method override (colorize-tag self colorizer start end)
+    (apply-coloring self colorizer start end 'Tag))
   
   
-  (method override (colorize-specifier colorizer start end)
-    (apply-coloring colorizer start end 'Specifier))
+  (method override (colorize-specifier self colorizer start end)
+    (apply-coloring self colorizer start end 'Specifier))
   
   
-  (method (recolorize-named-comments line)
-    (let* ((str (paragraph-string~ model line))
+  (method (recolorize-named-comments self line)
+    (let* ((str (paragraph-string model line))
            (len (cardinality str))
            (col 0)
            (done? #f))
@@ -156,11 +159,11 @@
               (set! done? #t)
             (unless (and (> comment 0) (eqv? (element str (- comment 1)) #\,))
               (let* ((pos (new Cell line (+ comment 1)))
-                     (expl <Text-Explorer> (new (explorer-class) model start: pos end: pos))
-                     (kind (forward-expr~ expl))
-                     (end (get-end~ expl)))
-                (when (and (eq? kind 'symbol) (= (get-line~ end) line))
-                  (apply-style~ model 'Named-Comment (- (get-start~ expl) 1) (get-end~ expl)))))
+                     (expl <Text-Explorer> (new (explorer-class self) model start: pos end: pos))
+                     (kind (forward-expr expl))
+                     (end (get-end expl)))
+                (when (and (eq? kind 'symbol) (= (get-line end) line))
+                  (apply-style model 'Named-Comment (- (get-start expl) 1) (get-end expl)))))
             (set! col (+ comment 1)))))))
 
 
@@ -169,14 +172,14 @@
   ;;;
   
   
-  (method override (find-imports symbol)
+  (method override (find-imports self symbol)
     (define (present-imports imports)
       (let* ((border (new Imports-Border size: {Dimension 450 150}))
-             (tree (locate~ border 'tree))
+             (tree (locate border 'tree))
              (count (length imports)))
         (for-each (lambda (import)
                     (let ((title (symbol->string import)))
-                      (add-row~ tree children: (list (new Tree-Node title: title image: {Image-Resource "Import"})))))
+                      (add-row tree children: (list (new Tree-Node title: title image: {Image-Resource "Import"})))))
                   imports)
         (message-box (format "Found {a} import{a}" (format-cardinality count) (format-plural count))
                      type: 'confirmation
@@ -193,12 +196,12 @@
            (set-clipboard-text (join (map symbol->string imports) " "))))
         ((no)
          (unless (null? imports)
-           (let ((expl (new (explorer-class) model)))
+           (let ((expl (new (explorer-class self) model)))
              (for-each (lambda (import)
                          (unless (eq? import 'jazz)
-                           (set-start~ expl (text-beginning~ model))
-                           (set-end~ expl (text-beginning~ model))
-                           (insert-import-invoice~ expl import)))
+                           (set-start expl (text-beginning model))
+                           (set-end expl (text-beginning model))
+                           (insert-import-invoice expl import)))
                        imports))))
         ((cancel)
          (signal-cancel))))))

@@ -40,12 +40,15 @@
 
 
 (import (jazz.action)
+        (jazz.application)
+        (jazz.component)
         (jazz.geometry)
         (jazz.graphic)
         (jazz.handler)
         (jazz.jml)
         (jazz.locale)
         (jazz.locator)
+        (jazz.menu)
         (jazz.outline)
         (jazz.preferences)
         (jazz.selection)
@@ -129,21 +132,21 @@
   ;;;
   
   
-  (method override (prepare rest)
-    (nextmethod rest)
+  (method override (prepare self rest)
+    (nextmethod self rest)
     (set! selection '()))
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (invalidate-columns)
-    (fill-column)
-    (invalidate-header))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (invalidate-columns self)
+    (fill-column self)
+    (invalidate-header self))
   
   
-  (method override (destroy-component)
-    (end-edition)
-    (nextmethod))
+  (method override (destroy-component self)
+    (end-edition self)
+    (nextmethod self))
   
 
   ;;;
@@ -151,26 +154,26 @@
   ;;;
 
 
-  (method override (add-child child)
-    (nextmethod child)
+  (method override (add-child self child)
+    (nextmethod self child)
     (when (is? child Tree-Column)
       (set! columns (append! columns (list child)))
-      (invalidate-columns)
-      (fill-column)
-      (invalidate-header)))
+      (invalidate-columns self)
+      (fill-column self)
+      (invalidate-header self)))
   
   
-  (method override (remove-child child)
-    (nextmethod child)
-    (unless (destroying?)
+  (method override (remove-child self child)
+    (nextmethod self child)
+    (unless (destroying? self)
       (when (is? child Tree-Column)
         (set! columns (remove! child columns))
         (when (eq? child node-column)
           (set! node-column #f))
         ;; should idealy be done incrementaly
-        (invalidate-columns)
-        (fill-column)
-        (invalidate-header))))
+        (invalidate-columns self)
+        (fill-column self)
+        (invalidate-header self))))
 
   
   
@@ -179,98 +182,98 @@
   ;;;
   
   
-  (method public (get-portfolio)
+  (method public (get-portfolio self)
     (and portfolio
          (if (is? portfolio Portfolio)
              portfolio
-           (set! portfolio (child portfolio))
+           (set! portfolio (child self portfolio))
            portfolio)))
 
 
-  (method public (set-portfolio object)
+  (method public (set-portfolio self object)
     (set! portfolio object)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-multiple-selection?)
+  (method public (get-multiple-selection? self)
     multiple-selection?)
 
 
-  (method public (set-multiple-selection? flag)
+  (method public (set-multiple-selection? self flag)
     (set! multiple-selection? flag)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-can-select-empty?)
+  (method public (get-can-select-empty? self)
     can-select-empty?)
 
 
-  (method public (set-can-select-empty? flag)
+  (method public (set-can-select-empty? self flag)
     (set! can-select-empty? flag)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-show-unfocused-selection?)
+  (method public (get-show-unfocused-selection? self)
     show-unfocused-selection?)
 
 
-  (method public (set-show-unfocused-selection? flag)
+  (method public (set-show-unfocused-selection? self flag)
     (set! show-unfocused-selection? flag)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-focused-on-descendants?)
+  (method public (get-focused-on-descendants? self)
     focused-on-descendants?)
 
 
-  (method public (set-focused-on-descendants? flag)
+  (method public (set-focused-on-descendants? self flag)
     (set! focused-on-descendants? flag)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-selection-mode)
+  (method public (get-selection-mode self)
     selection-mode)
 
 
-  (method public (set-selection-mode value)
+  (method public (set-selection-mode self value)
     (set! selection-mode value)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-cell-background)
+  (method public (get-cell-background self)
     cell-background)
   
   
-  (method public (set-cell-background color)
+  (method public (set-cell-background self color)
     (set! cell-background color)
-    (invalidate-view))
+    (invalidate-view self))
   
   
-  (method public (get-empty-background)
+  (method public (get-empty-background self)
     empty-background)
   
   
-  (method public (set-empty-background color)
+  (method public (set-empty-background self color)
     (set! empty-background color)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-column-spacing)
+  (method public (get-column-spacing self)
     column-spacing)
 
 
-  (method public (set-column-spacing spacing)
+  (method public (set-column-spacing self spacing)
     (set! column-spacing spacing)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-column-frequency)
+  (method public (get-column-frequency self)
     column-frequency)
 
 
-  (method public (set-column-frequency frequency)
+  (method public (set-column-frequency self frequency)
     (set! column-frequency frequency)
-    (invalidate-view))
+    (invalidate-view self))
 
 
   ;;;
@@ -278,62 +281,62 @@
   ;;;
 
 
-  (method override (focus-gained)
-    (nextmethod)
-    (invalidate-selection selection))
+  (method override (focus-gained self)
+    (nextmethod self)
+    (invalidate-selection self selection))
 
 
-  (method override (focus-lost)
-    (nextmethod)
-    (invalidate-selection selection))
+  (method override (focus-lost self)
+    (nextmethod self)
+    (invalidate-selection self selection))
   
   
-  (method public (selection-border)
-    (if (focused?)
-        (focused-border)
-      (unfocused-border)))
+  (method public (selection-border self)
+    (if (focused? self)
+        (focused-border self)
+      (unfocused-border self)))
   
   
-  (method protected virtual (focused-border)
-    (get-focused-border~ (get-skin)))
+  (method protected virtual (focused-border self)
+    (get-focused-border (get-skin self)))
   
   
-  (method protected virtual (unfocused-border)
-    (get-unfocused-border~ (get-skin)))
+  (method protected virtual (unfocused-border self)
+    (get-unfocused-border (get-skin self)))
   
   
-  (method public (selection-color)
-    (if (focused?)
-        (focused-color)
-      (unfocused-color)))
+  (method public (selection-color self)
+    (if (focused? self)
+        (focused-color self)
+      (unfocused-color self)))
   
   
-  (method protected virtual (focused-color)
-    (or (get-focused-color~ (get-skin))
+  (method protected virtual (focused-color self)
+    (or (get-focused-color (get-skin self))
         {Color Focused-Selection}))
   
   
-  (method protected virtual (unfocused-color)
-    (or (get-unfocused-color~ (get-skin))
+  (method protected virtual (unfocused-color self)
+    (or (get-unfocused-color (get-skin self))
         {Color Unfocused-Selection}))
   
   
-  (method public (selected-text-color)
-    (if (focused?)
+  (method public (selected-text-color self)
+    (if (focused? self)
         {Color Focused-Selected-Text}
       {Color Unfocused-Selected-Text}))
   
   
-  (method public virtual (focused?)
-    (or (is-focused?)
+  (method public virtual (focused? self)
+    (or (is-focused? self)
         (and focused-on-descendants?
-             (contains-focus?))))
+             (contains-focus? self))))
   
   
-  (method public (focus-and-select)
-    (acquire-focus)
-    (when (> (get-visible-count) 0)
-      (set-single-selection 0)))
+  (method public (focus-and-select self)
+    (acquire-focus self)
+    (when (> (get-visible-count self) 0)
+      (set-single-selection self 0)))
 
 
   ;;;
@@ -341,9 +344,9 @@
   ;;;
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'tree)
-          (nextmethod)))
+          (nextmethod self)))
 
 
   ;;;
@@ -351,35 +354,35 @@
   ;;;
   
   
-  (method (on-expand evt)
-    (let ((row (get-selected-row)))
+  (method (on-expand self evt)
+    (let ((row (get-selected-row self)))
       (if (not row)
           (bell)
-        (expand row))))
+        (expand self row))))
   
   
-  (method (on-expand-all evt)
-    (let ((row (get-selected-row)))
+  (method (on-expand-all self evt)
+    (let ((row (get-selected-row self)))
       (if (not row)
           (bell)
-        (expand-all row))))
+        (expand-all self row))))
   
   
-  (method (on-collapse evt)
-    (let ((row (get-selected-row)))
+  (method (on-collapse self evt)
+    (let ((row (get-selected-row self)))
       (if (not row)
           (bell)
-        (collapse row))))
+        (collapse self row))))
   
   
-  (method (on-collapse-all evt)
-    (let ((row (get-selected-row)))
+  (method (on-collapse-all self evt)
+    (let ((row (get-selected-row self)))
       (if (not row)
           (bell)
-        (collapse-all row))))
+        (collapse-all self row))))
   
   
-  (method protected virtual (on-properties evt)
+  (method protected virtual (on-properties self evt)
     )
   
   
@@ -388,28 +391,28 @@
   ;;;
   
   
-  (method public (get-header)
-    (and parent (let ((header (get-parent~ parent)))
+  (method public (get-header self)
+    (and parent (let ((header (get-parent parent)))
                   (and (is? header Tree-Header)
                        header))))
   
   
-  (method public (invalidate-header)
-    (let ((header (get-header)))
+  (method public (invalidate-header self)
+    (let ((header (get-header self)))
       (when header
-        (invalidate-view~ header))))
+        (invalidate-view header))))
   
   
-  (method virtual (make-header-menu column)
+  (method virtual (make-header-menu self column)
     #f)
 
 
-  (method public (header-menu column pos)
-    (let ((menu (make-header-menu column)))
+  (method public (header-menu self column pos)
+    (let ((menu (make-header-menu self column)))
       (and menu
-           (layout-menu~ menu)
-           (let ((header (get-header)))
-             (track-popup-menu menu (acquire header (point+ pos (header-position~ header column))))))))
+           (layout-menu menu)
+           (let ((header (get-header self)))
+             (track-popup-menu self menu (acquire self header (point+ pos (header-position header column))))))))
   
   
   ;;;
@@ -417,21 +420,21 @@
   ;;;
   
   
-  (method override (find-subdrawing surface <Surface> device-pos <Point> pos <Point> ignore)
-    (or (let ((cell (view->tree pos)))
+  (method override (find-subdrawing self surface <Surface> device-pos <Point> pos <Point> ignore)
+    (or (let ((cell (view->tree self pos)))
           (and cell
-               (let ((merge-cell (get-merge-cell (cell->site cell))))
+               (let ((merge-cell (get-merge-cell self (cell->site self cell))))
                  (and merge-cell
-                      (let ((data (get-site-data (get-first-site~ merge-cell))))
+                      (let ((data (get-site-data self (get-first-site merge-cell))))
                         (and (is? data View)
-                             (let ((row (get-parent~ data)))
-                               (let ((position (get-position~ row))
-                                     (size (get-size~ row)))
+                             (let ((row (get-parent data)))
+                               (let ((position (get-position row))
+                                     (size (get-size row)))
                                  ;; bypassing the row's find-in-drawing as the merge-cell can exceed the row's bounds
-                                 (with-clipping-transformation~ surface (get-h~ position) (get-v~ position) (get-width~ size) (get-height~ size) (get-transformation~ row)
+                                 (with-clipping-transformation surface (get-h position) (get-v position) (get-width size) (get-height size) (get-transformation row)
                                    (lambda ()
-                                     (find-in-drawing~ data surface device-pos ignore)))))))))))
-        (nextmethod surface device-pos pos ignore)))
+                                     (find-in-drawing data surface device-pos ignore)))))))))))
+        (nextmethod self surface device-pos pos ignore)))
 
 
   ;;;
@@ -439,15 +442,15 @@
   ;;;
   
   
-  (method protected (layout-column column)
-    (let ((row (get-next~ root-row))
+  (method package (layout-column self column)
+    (let ((row (get-next root-row))
           (rt 0))
       (while row
-        (let* ((height (get-effective-height~ row))
+        (let* ((height (get-effective-height row))
                (rb (+ rt height)))
-          (set-size~ row (new Dimension columns-right height))
+          (set-size row (new Dimension columns-right height))
           (set! rt rb)
-          (set! row (get-next~ row))
+          (set! row (get-next row))
           (increase! rt row-spacing)))))
   
 
@@ -456,18 +459,18 @@
   ;;;
   
   
-  (method override (layout-scrollee)
+  (method override (layout-scrollee self)
     ;; column width change must be done before calling nextmethod
     (unless (or update-locked? (inhibit-scrollee-layouts?))
       (when filled-column
-        (fill-column)))
-    (nextmethod))
+        (fill-column self)))
+    (nextmethod self))
   
   
-  (method override (scrollee-width)
+  (method override (scrollee-width self)
     (let ((width (if show-header? columns-right (+ visible-width column-spacing))))
       (if (and scroller fit-to-scroller?)
-          (max (get-display-width) width)
+          (max (get-display-width self) width)
         width)))
   
 
@@ -477,15 +480,15 @@
   
   
   ;; todo: do both of these in a single pass
-  (method override (update-visible)
+  (method override (update-visible self)
     (define (update-visible-height)
       (let ((count 0)
             (height 0)
             (first? #t))
-        (for-each-visible-row
+        (for-each-visible-row self
           (lambda (row line)
             (increase! count)
-            (increase! height (get-effective-height~ row))
+            (increase! height (get-effective-height row))
             (if first?
                 (set! first? #f)
               (increase! height row-spacing))))
@@ -499,26 +502,26 @@
         (let ((width 0))
           ;; a quick not too clean solution for now...
           (when (is? node-column Tree-Node-Column)
-            (for-each-visible-row
+            (for-each-visible-row self
               (lambda (row line)
                 (let* ((highlight-border 3)
-                       (nw (+ (or (calculate-node-width~ row) 0) highlight-border))
-                       (w (+ (text-h~ node-column (get-level~ row)) nw)))
+                       (nw (+ (or (calculate-node-width row) 0) highlight-border))
+                       (w (+ (text-h node-column (get-level row)) nw)))
                   (when (> w width)
                     (set! width w)))))
             (set! visible-width width)
             (set! columns-right width)
-            (set-borders~ node-column (cons 0 width))
-            (set-width~ node-column width)))))
+            (set-borders node-column (cons 0 width))
+            (set-width node-column width)))))
     
     (update-visible-height)
     (update-visible-width))
   
   
-  (method override (scroll-invalidate delta)
-    (nextmethod delta)
-    (when (/= (get-x~ delta) 0)
-      (invalidate-header)))
+  (method override (scroll-invalidate self delta)
+    (nextmethod self delta)
+    (when (/= (get-x delta) 0)
+      (invalidate-header self)))
 
 
   ;;;
@@ -536,90 +539,90 @@
     {Color Dark-Red})
   
   
-  (method override (get-drawing-background context)
-    (or (get-background~ (get-skin))
-        (nextmethod context)))
+  (method override (get-drawing-background self context)
+    (or (get-background (get-skin self))
+        (nextmethod self context)))
 
   
-  (method override (draw-outline surface context clipper scrolled-v)
-    (nextmethod surface context clipper scrolled-v)
-    (let ((right (+ (get-right~ clipper) (get-h~ (get-position))))
-          (height (get-height)))
-      (when (and (view-enabled?) empty-background (<= columns-right right))
+  (method override (draw-outline self surface context clipper scrolled-v)
+    (nextmethod self surface context clipper scrolled-v)
+    (let ((right (+ (get-right clipper) (get-h (get-position self))))
+          (height (get-height self)))
+      (when (and (view-enabled? self) empty-background (<= columns-right right))
         (let ((rect (new Rect columns-right 0 right height)))
-          (fill-rect~ surface rect (if (debug-paint?) (cycle-debug-color!) empty-background)))))
-    (draw-highlighted surface))
+          (fill-rect surface rect (if (debug-paint?) (cycle-debug-color!) empty-background)))))
+    (draw-highlighted self surface))
   
   
-  (method override (draw-empty surface top bottom rt width)
-    (when (and (view-enabled?) empty-background (<= rt bottom))
+  (method override (draw-empty self surface top bottom rt width)
+    (when (and (view-enabled? self) empty-background (<= rt bottom))
       (let ((rect (new Rect 0 rt width bottom)))
-        (fill-rect~ surface rect (if (debug-paint?) (cycle-debug-color!) empty-background)))))
+        (fill-rect surface rect (if (debug-paint?) (cycle-debug-color!) empty-background)))))
   
   
-  (method (draw-highlighted surface)
+  (method (draw-highlighted self surface)
     (for-each-reversed (lambda (highlight)
-                         (let ((row (get-row~ highlight))
-                               (col (get-col~ highlight))
-                               (insert (get-insert~ highlight)))
+                         (let ((row (get-row highlight))
+                               (col (get-col highlight))
+                               (insert (get-insert highlight)))
                            (if (not insert)
-                               (draw-highlighted-cell surface row col highlight)
-                             (let ((rect (highlighted-insert-rect row insert)))
-                               (fill-rect~ surface rect Highlighted-Insert-Color)))))
+                               (draw-highlighted-cell self surface row col highlight)
+                             (let ((rect (highlighted-insert-rect self row insert)))
+                               (fill-rect surface rect Highlighted-Insert-Color)))))
                        highlighted))
   
   
-  (method protected virtual (draw-highlighted-cell surface row col highlight)
-    (let* ((inner-rect (highlighted-target-rect row col))
+  (method protected virtual (draw-highlighted-cell self surface row col highlight)
+    (let* ((inner-rect (highlighted-target-rect self row col))
            (outer-rect (inflate-rect inner-rect 1 1)))
-      (let ((outer-color (or (get-outer-color~ highlight) (highlighted-outer-color)))
-            (inner-color (or (get-inner-color~ highlight) (highlighted-inner-color))))
-        (frame-rect~ surface outer-rect outer-color)
-        (when (highlight-inner?)
-          (frame-rect~ surface inner-rect inner-color)))))
+      (let ((outer-color (or (get-outer-color highlight) (highlighted-outer-color self)))
+            (inner-color (or (get-inner-color highlight) (highlighted-inner-color self))))
+        (frame-rect surface outer-rect outer-color)
+        (when (highlight-inner? self)
+          (frame-rect surface inner-rect inner-color)))))
   
   
-  (method protected virtual (highlighted-outer-color)
+  (method protected virtual (highlighted-outer-color self)
     Highlighted-Outer-Color)
   
   
-  (method protected virtual (highlighted-inner-color)
+  (method protected virtual (highlighted-inner-color self)
     Highlighted-Inner-Color)
   
   
-  (method protected virtual (highlight-inner?)
+  (method protected virtual (highlight-inner? self)
     #t)
   
   
-  (method public virtual (header-color)
+  (method public virtual (header-color self)
     {Color Medium})
   
   
-  (method override (draw-children surface <Surface> nodes context)
+  (method override (draw-children self surface <Surface> nodes context)
     (define (paint-data context column row h v width height data)
       (let ((view? (is? data View)))
-        (with-clipping-transformation~ surface h v width height (and view? (get-transformation~ data))
+        (with-clipping-transformation surface h v width height (and view? (get-transformation data))
           (lambda ()
             (if (not view?)
-                (draw-data~ column surface context row data width height)
-              (render-drawing~ data surface context))))))
+                (draw-data column surface context row data width height)
+              (render-drawing data surface context))))))
     
     (define (paint-merge-cell merge-cell)
-      (let ((rect (merge-cell-rect merge-cell)))
-        (receive (top-left bottom-right) (merge-corner-site merge-cell)
-          (let ((left-column (get-column~ top-left))
-                (top-row (get-row~ top-left))
-                (left (get-left~ rect))
-                (top (get-top~ rect))
-                (right (get-right~ rect))
-                (bottom (get-bottom~ rect))
-                (data (get-site-data (get-first-site~ merge-cell)))
-                (selected? (merge-cell-selected? merge-cell)))
-            (let ((new-context `(selected?: ,selected? line: ,(row->line top-row) ,@context)))
+      (let ((rect (merge-cell-rect self merge-cell)))
+        (receive (top-left bottom-right) (merge-corner-site self merge-cell)
+          (let ((left-column (get-column top-left))
+                (top-row (get-row top-left))
+                (left (get-left rect))
+                (top (get-top rect))
+                (right (get-right rect))
+                (bottom (get-bottom rect))
+                (data (get-site-data self (get-first-site merge-cell)))
+                (selected? (merge-cell-selected? self merge-cell)))
+            (let ((new-context `(selected?: ,selected? line: ,(row->line self top-row) ,@context)))
               (paint-data new-context left-column top-row left top (- right left) (- bottom top) data))))))
     
     (parameterize ((redrawn-merge-cells (make-table test: eq?)))
-      (nextmethod surface nodes context)
+      (nextmethod self surface nodes context)
       (iterate-table (redrawn-merge-cells)
         (lambda (merge-cell value)
           (paint-merge-cell merge-cell)))))
@@ -630,7 +633,7 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:tree))
   
   
@@ -639,19 +642,19 @@
   ;;;
   
   
-  (method public (get-highlighted)
+  (method public (get-highlighted self)
     highlighted)
   
   
-  (method public (set-highlighted value)
+  (method public (set-highlighted self value)
     (define (invalidate-highlighted highlighted)
       (for-each (lambda (highlight)
-                  (let ((row (get-row~ highlight))
-                        (col (get-col~ highlight))
-                        (insert (get-insert~ highlight)))
+                  (let ((row (get-row highlight))
+                        (col (get-col highlight))
+                        (insert (get-insert highlight)))
                     (if (not insert)
-                        (invalidate-highlighted-cell row col)
-                      (invalidate-rect (highlighted-insert-rect row insert)))))
+                        (invalidate-highlighted-cell self row col)
+                      (invalidate-rect self (highlighted-insert-rect self row insert)))))
                 highlighted))
     
     (assert (every? (lambda (object) (is? object Tree-Highlight)) value))
@@ -662,23 +665,23 @@
         (invalidate-highlighted highlighted))))
   
   
-  (method protected virtual (invalidate-highlighted-cell row col)
-    (with ((inner (highlighted-target-rect row col))
+  (method protected virtual (invalidate-highlighted-cell self row col)
+    (with ((inner (highlighted-target-rect self row col))
            (outer (inflate-rect inner 1 1))
            (region (frame-region outer insets: {Rect 2 2 2 2})))
-      (invalidate-region region)))
+      (invalidate-region self region)))
 
   
-  (method (highlighted-target-rect row col)
+  (method (highlighted-target-rect self row col)
     (if (not col)
-        (cell-text-rect (new Cell (row->line row) 0))
-      (cell-rect (new Cell (row->line row) col))))
+        (cell-text-rect self (new Cell (row->line self row) 0))
+      (cell-rect self (new Cell (row->line self row) col))))
   
   
-  (method (highlighted-insert-rect row insert)
-    (let* ((height (get-height))
-           (line (row->line row))
-           (rect (line-rect line) @old-l&f-probably-better (cell-content-rect (new Cell line 0)))
+  (method (highlighted-insert-rect self row insert)
+    (let* ((height (get-height self))
+           (line (row->line self row))
+           (rect (line-rect self line) @old-l&f-probably-better (cell-content-rect (new Cell line 0)))
            (before-first? (and (= line 0) (eq? insert 'before)))
            (after-last? (and (= line (- visible-count 1)) (eq? insert 'after)))
            (half-spacing (- (fxround/ row-spacing 2) 1))
@@ -690,10 +693,10 @@
             (lambda (v)
               (let* ((top (+ v offset))
                      (bottom (+ top 2)))
-                (new Rect (get-left~ rect) top (get-right~ rect) bottom)))))
+                (new Rect (get-left rect) top (get-right rect) bottom)))))
       (case insert
-        ((before) (proc (get-top~ rect)))
-        ((after) (proc (get-bottom~ rect))))))
+        ((before) (proc (get-top rect)))
+        ((after) (proc (get-bottom rect))))))
 
   
   ;;;
@@ -701,29 +704,29 @@
   ;;;
   
   
-  (method override (update-visible-width-incremental level width)
+  (method override (update-visible-width-incremental self level width)
     @wait-optimized
-    (let ((width (+ (text-h~ node-column level) width)))
+    (let ((width (+ (text-h node-column level) width)))
       (when (> width visible-width)
         (set! visible-width width))))
 
   
-  (method override (remove-row row)
-    (when (and (attached?~ row) (eq? row auto-expanded-row))
-      (close-auto-expanded-row))
-    (nextmethod row))
+  (method override (remove-row self row)
+    (when (and (attached? row) (eq? row auto-expanded-row))
+      (close-auto-expanded-row self))
+    (nextmethod self row))
   
   
-  (method override (remove-every-row)
-    (close-auto-expanded-row)
-    (set-sorted-column #f #f)
+  (method override (remove-every-row self)
+    (close-auto-expanded-row self)
+    (set-sorted-column self #f #f)
     (set! highlighted '())
     (set! selection-pivot #f)
-    (unmerge-all-cells)
-    (nextmethod))
+    (unmerge-all-cells self)
+    (nextmethod self))
   
   
-  (method public (unmerge-all-cells)
+  (method public (unmerge-all-cells self)
     (empty-table merge-cell-table))
   
   
@@ -732,10 +735,10 @@
   ;;;
   
   
-  (method override (cursor-update evt)
-    (if (mouse-copy? evt)
+  (method override (cursor-update self evt)
+    (if (mouse-copy? self evt)
         (set-cursor :finger)
-      (nextmethod evt)))
+      (nextmethod self evt)))
   
 
   ;;;
@@ -743,93 +746,93 @@
   ;;;
   
   
-  (method override (allow-start-drag? pos)
-    (and (nextmethod pos)
-         (allow-start-drag?~ selection-manager)))
+  (method override (allow-start-drag? self pos)
+    (and (nextmethod self pos)
+         (allow-start-drag? selection-manager)))
   
   
-  (method override (mouse-down evt)
-    (let ((view (get-position~ evt)))
-      (let* ((cell (view->tree view))
-             (pos (and cell (cell-coordinates cell view)))
-             (part (and cell (find-part~ (get-column (get-col~ cell)) cell pos))))
-        (mouse-down~ selection-manager view part (get-shift?~ evt) (get-control?~ evt) (get-alt?~ evt) (get-multiple-selection?)))
-      (acquire-focus)
-      (acquire-capture)
-      (let ((cell (view->tree view))
-            (shift? (get-shift?~ evt))
-            (control? (get-control?~ evt)))
+  (method override (mouse-down self evt)
+    (let ((view (get-position evt)))
+      (let* ((cell (view->tree self view))
+             (pos (and cell (cell-coordinates self cell view)))
+             (part (and cell (find-part (get-column self (get-col cell)) cell pos))))
+        (mouse-down selection-manager view part (get-shift? evt) (get-control? evt) (get-alt? evt) (get-multiple-selection? self)))
+      (acquire-focus self)
+      (acquire-capture self)
+      (let ((cell (view->tree self view))
+            (shift? (get-shift? evt))
+            (control? (get-control? evt)))
         (if (not cell)
             (when can-select-empty?
-              (set-selection '() user-origin: 'mouse))
-          (let ((pos (cell-coordinates cell view))
-                (column (get-column (get-col~ cell))))
-            (mouse-down~ column cell pos shift? control?))))))
+              (set-selection self '() user-origin: 'mouse))
+          (let ((pos (cell-coordinates self cell view))
+                (column (get-column self (get-col cell))))
+            (mouse-down column cell pos shift? control?))))))
   
   
-  (method override (drag-move evt)
-    (let ((view (get-position~ evt)))
-      (let ((cell (view->tree view)))
+  (method override (drag-move self evt)
+    (let ((view (get-position evt)))
+      (let ((cell (view->tree self view)))
         (when cell
-          (let ((pos (cell-coordinates cell view))
-                (column (get-column (get-col~ cell))))
-            (drag-move~ column cell pos))))))
+          (let ((pos (cell-coordinates self cell view))
+                (column (get-column self (get-col cell))))
+            (drag-move column cell pos))))))
   
   
-  (method override (drag-up evt (dragging? #f))
-    (let ((shift? (get-shift?~ evt))
-          (control? (get-control?~ evt))
-          (alt? (get-alt?~ evt)))
-      (mouse-up~ selection-manager shift? control? alt?)
-      (let ((pos (get-mouse-down-view~ selection-manager)))
-        (when (and pos (not (mouse-down-part-control?~ selection-manager)))
-          (let ((cell (view->tree pos)))
+  (method override (drag-up self evt (dragging? #f))
+    (let ((shift? (get-shift? evt))
+          (control? (get-control? evt))
+          (alt? (get-alt? evt)))
+      (mouse-up selection-manager shift? control? alt?)
+      (let ((pos (get-mouse-view selection-manager)))
+        (when (and pos (not (mouse-part-control? selection-manager)))
+          (let ((cell (view->tree self pos)))
             (when cell
-              (let ((row (get-row (get-line~ cell)))
-                    (column (get-column (get-col~ cell))))
+              (let ((row (get-row self (get-line cell)))
+                    (column (get-column self (get-col cell))))
                 (when auto-expand/collapse?
-                  (auto-expand/collapse row))
-                (focus-delegate)
-                (drag-up~ column cell pos))))
-          (process-action self))))
-    (release-capture)
-    (reset~ selection-manager))
+                  (auto-expand/collapse self row))
+                (focus-delegate self)
+                (drag-up column cell pos))))
+          (process-action self self))))
+    (release-capture self)
+    (reset selection-manager))
   
   
-  (method override (call-double-click evt)
-    (let ((view (get-position~ evt)))
-      (let ((cell (view->tree view)))
+  (method override (call-double-click self evt)
+    (let ((view (get-position evt)))
+      (let ((cell (view->tree self view)))
         (when cell
-          (let* ((pos (cell-coordinates cell view))
-                 (column (get-column (get-col~ cell)))
-                 (part (find-part~ column cell pos)))
+          (let* ((pos (cell-coordinates self cell view))
+                 (column (get-column self (get-col cell)))
+                 (part (find-part column cell pos)))
             (case part
-              ((control) (mouse-down evt))
-              ((content) (nextmethod evt))
-              (else (double-click~ column cell pos))))))))
+              ((control) (mouse-down self evt))
+              ((content) (nextmethod self evt))
+              (else (double-click column cell pos))))))))
   
   
-  (method override (double-click evt)
-    (double-click~ selection-manager (get-shift?~ evt) (get-control?~ evt) (get-alt?~ evt))
-    (let ((view (get-position~ evt)))
-      (let ((cell (view->tree view)))
+  (method override (double-click self evt)
+    (double-click selection-manager (get-shift? evt) (get-control? evt) (get-alt? evt))
+    (let ((view (get-position evt)))
+      (let ((cell (view->tree self view)))
         (when cell
-          (let* ((pos (cell-coordinates cell view))
-                 (column (get-column (get-col~ cell)))
-                 (part (find-part~ column cell pos)))
-            (double-click~ column cell pos))))))
+          (let* ((pos (cell-coordinates self cell view))
+                 (column (get-column self (get-col cell)))
+                 (part (find-part column cell pos)))
+            (double-click column cell pos))))))
   
   
-  (method override (context-menu evt)
-    (let ((view (get-position~ evt)))
-      (let ((cell (view->tree view)))
+  (method override (context-menu self evt)
+    (let ((view (get-position evt)))
+      (let ((cell (view->tree self view)))
         (when cell
-          (let ((row (get-row (get-line~ cell))))
-            (context-menu~ row (acquire~ row self view)))))))
+          (let ((row (get-row self (get-line cell))))
+            (context-menu row (acquire row self view)))))))
   
   
-  (method (cell-coordinates cell <Cell> pos <Point>) <Point>
-    (- pos (cell-position cell)))
+  (method package (cell-coordinates self cell <Cell> pos <Point>) <Point>
+    (- pos (cell-position self cell)))
 
 
   ;;;
@@ -837,10 +840,10 @@
   ;;;
   
   
-  (method override (mouse-data pos)
-    (let ((cell (view->tree pos)))
+  (method override (mouse-data self pos)
+    (let ((cell (view->tree self pos)))
       (and cell
-           (get-cell-title cell))))
+           (get-cell-title self cell))))
 
 
   ;;;
@@ -848,10 +851,10 @@
   ;;;
 
 
-  (method override (key-press evt)
-    (let ((key (get-key~ evt)))
-      (when (and (use-locator?) (alphanumeric? key) (> visible-count 0))
-        (enter~ locator key))))
+  (method override (key-press self evt)
+    (let ((key (get-key evt)))
+      (when (and (use-locator? self) (alphanumeric? key) (> visible-count 0))
+        (enter locator key))))
 
 
   ;;;
@@ -859,12 +862,12 @@
   ;;;
   
   
-  (method protected virtual (use-locator?)
+  (method protected virtual (use-locator? self)
     #t)
   
   
-  (method public (locate-prefix prefix)
-    (locate~ locator prefix))
+  (method public (locate-prefix self prefix)
+    (locate locator prefix))
   
 
   ;;;
@@ -872,42 +875,42 @@
   ;;;
 
   
-  (method public virtual (header-click column)
-    (let* ((current-direction (column-sorting column))
+  (method public virtual (header-click self column)
+    (let* ((current-direction (column-sorting self column))
            (new-direction (case current-direction
                             ((ascending) 'descending)
                             ((descending) 'ascending)
                             (else 'ascending))))
       (unless (eq? current-direction new-direction)
-        (set-sorted-column column new-direction)
-        (sort-rows column new-direction)))
-    (ensure-displayed))
+        (set-sorted-column self column new-direction)
+        (sort-rows self column new-direction)))
+    (ensure-displayed self))
     
   
-  (method protected (set-sorted-column column direction)
+  (method protected (set-sorted-column self column direction)
     (if (not column)
         (set! sorted-columns '())
       (set! sorted-columns (list (cons column direction))))
-    (invalidate-header))
+    (invalidate-header self))
 
   
-  (method public (column-sorting column)
+  (method public (column-sorting self column)
     (let ((pair (assq column sorted-columns)))
       (and pair
            (cdr pair))))
   
   
-  (method protected (sort-rows column direction)
+  (method protected (sort-rows self column direction)
     (define (call-sort rows equal predicate)
-      (let ((col (column->col column)))
+      (let ((col (column->col self column)))
         (let ((dual? (/= col 0)))
           (define (get-node row children n)
             (let ((data (element children n)))
-              (or (sort-value~ (get-column n) row data) "")))
+              (or (sort-value (get-column self n) row data) "")))
           
           (sort (lambda (rx ry)
-                  (let* ((cx (get-children~ rx))
-                         (cy (get-children~ ry))
+                  (let* ((cx (get-children rx))
+                         (cy (get-children ry))
                          (nx (localize (get-node rx cx col)))
                          (ny (localize (get-node ry cy col))))
                     (or (predicate nx ny)
@@ -917,17 +920,17 @@
                 rows))))
     
     (receive (equal smaller greater) (sort-predicates)
-      (let ((predicate (case (column-sorting column)
+      (let ((predicate (case (column-sorting self column)
                          ((ascending) smaller)
                          ((descending) greater))))
         (define (iter row)
-          (let ((sorted (call-sort (get-sons~ row) equal predicate)))
-            (reorder-sons~ row sorted)
-            (iterate (get-sons~ row) iter)))
+          (let ((sorted (call-sort (get-sons row) equal predicate)))
+            (reorder-sons row sorted)
+            (iterate (get-sons row) iter)))
         
-        (with-preserved-selection
+        (with-preserved-selection self
           (lambda ()
-            (with-update-locked
+            (with-update-locked self
               (lambda ()
                 (iter root-row))))
           ensure-displayed?: #f))))
@@ -938,35 +941,35 @@
   ;;;
   
 
-  (method public (selector-click row)
-    (acquire-focus)
+  (method public (selector-click self row)
+    (acquire-focus self)
     (case selection-mode
       ((cell)
-       (let ((col (if selection-pivot (get-col~ selection-pivot) 0)))
+       (let ((col (if selection-pivot (get-col selection-pivot) 0)))
          (let ((select-list
-                 (loop (for n from 0 below (get-columns-count))
-                       (collect (new Cell (row->line row) n)))))
-           (set-selection select-list))))
+                 (loop (for n from 0 below (get-columns-count self))
+                       (collect (new Cell (row->line self row) n)))))
+           (set-selection self select-list))))
       (else
-       (set-selection (list (row->line row))))))
+       (set-selection self (list (row->line self row))))))
   
   
-  (method public (selector-multi-select row initial-line)
-    (let ((new-line (row->line row)))
+  (method public (selector-multi-select self row initial-line)
+    (let ((new-line (row->line self row)))
       (let ((from-line (min initial-line new-line))
             (to-line (max initial-line new-line)))
         (case selection-mode
           ((cell)
            (let ((select-list (new-queue)))
              (loop (for line from from-line to to-line)
-                   (loop (for col from 0 below (get-columns-count))
+                   (loop (for col from 0 below (get-columns-count self))
                          (enqueue select-list (new Cell line col))))
-             (set-selection (queue-list select-list))))
+             (set-selection self (queue-list select-list))))
           (else
            (let ((select-list
                    (loop (for line from from-line to to-line)
                          (collect line))))
-             (set-selection select-list)))))))
+             (set-selection self select-list)))))))
   
   
   ;;;
@@ -974,19 +977,19 @@
   ;;;
   
   
-  (method override (get-content)
+  (method override (get-content self)
     content)
   
   
-  (method override (set-content value)
+  (method override (set-content self value)
     (loop (for row in value)
           (for i from 0)
           (loop (for info in row)
                 (for j from 0)
                 (do (let* ((cell (new Cell i j))
-                           (data (get-cell-data cell)))
-                      (set-title~ data info)
-                      (invalidate-cell cell))))))
+                           (data (get-cell-data self cell)))
+                      (set-title data info)
+                      (invalidate-cell self cell))))))
 
 
   ;;;
@@ -994,21 +997,21 @@
   ;;;
 
   
-  (method override (with-context-click pos proc)
-    (acquire-focus)
-    (let ((cell (view->tree pos)))
+  (method override (with-context-click self pos proc)
+    (acquire-focus self)
+    (let ((cell (view->tree self pos)))
       (if (not cell)
           (when can-select-empty?
-            (set-selection '()))
-        (let ((row (get-row (get-line~ cell))))
+            (set-selection self '()))
+        (let ((row (get-row self (get-line cell))))
           (case selection-mode
             ((cell)
-             (unless (member? cell (get-selection) test: cell=?)
-               (set-selection (list cell))))
+             (unless (member? cell (get-selection self) test: cell=?)
+               (set-selection self (list cell))))
             (else
-             (unless (memq? (get-line~ cell) (get-selection))
-               (set-selection (list (get-line~ cell)))))))
-        (update-view))
+             (unless (memq? (get-line cell) (get-selection self))
+               (set-selection self (list (get-line cell)))))))
+        (update-view self))
       (proc)))
 
   
@@ -1017,59 +1020,59 @@
   ;;;
   
   
-  (method public (flattened?)
-    (let ((path-column (get-path-column)))
-      (and path-column (get-visible?~ path-column))))
+  (method public (flattened? self)
+    (let ((path-column (get-path-column self)))
+      (and path-column (get-visible? path-column))))
   
   
-  (method public (flatten/unflatten)
-    (let* ((path-column (get-path-column))
-           (flattened? (flattened?)))
+  (method public (flatten/unflatten self)
+    (let* ((path-column (get-path-column self))
+           (flattened? (flattened? self)))
       (if (not path-column)
           (error "Unable to find path column")
-        (set-visible?~ path-column (not flattened?))
-        (fill-column)
-        (with-preserved-selection
+        (set-visible? path-column (not flattened?))
+        (fill-column self)
+        (with-preserved-selection self
           (lambda ()
-            (with-update-locked
+            (with-update-locked self
               (lambda ()
                 (if flattened?
-                    (unflatten)
-                  (flatten)))))))))
+                    (unflatten self)
+                  (flatten self)))))))))
   
   
-  (method public (get-path-column)
+  (method public (get-path-column self)
     (find-if (lambda (column)
                (is? column Tree-Path-Column))
              columns))
   
   
-  (method public virtual (flatten-row? row)
+  (method public virtual (flatten-row? self row)
     #t)
   
   
-  (method public (flatten)
-    (let ((sons (get-sons~ root-row)))
+  (method public (flatten self)
+    (let ((sons (get-sons root-row)))
       (iterate sons
                (lambda (son)
-                 (if (flatten-row? son)
-                     (disconnect~ son)
-                   (flatten~ son root-row))))
+                 (if (flatten-row? self son)
+                     (disconnect son)
+                   (flatten son root-row))))
       (iterate sons
                (lambda (son)
-                 (unless (disconnected?~ son)
-                   (set-visible?~ son #f))))))
+                 (unless (disconnected? son)
+                   (set-visible? son #f))))))
   
   
-  (method public (unflatten)
-    (iterate (get-sons~ root-row)
+  (method public (unflatten self)
+    (iterate (get-sons root-row)
              (lambda (son)
-               (when (disconnected?~ son)
-                 (reconnect~ son))))
-    (iterate (get-sons~ root-row)
+               (when (disconnected? son)
+                 (reconnect son))))
+    (iterate (get-sons root-row)
              (lambda (son)
-               (unless (get-visible?~ son)
-                 (set-visible?~ son #t)))))
+               (unless (get-visible? son)
+                 (set-visible? son #t)))))
   
   
   ;;;
@@ -1077,29 +1080,29 @@
   ;;;
   
   
-  (method public (filter-rows cell-title-filter (row-filter: row-filter #f))
+  (method public (filter-rows self cell-title-filter (row-filter: row-filter #f))
     (define (determine-visible? row)
       (and (or (not row-filter) (row-filter row))
            (or (not cell-title-filter)
                (some? (lambda (cell)
-                        (let ((title (get-title~ cell)))
+                        (let ((title (get-title cell)))
                           (and title
                                (cell-title-filter title))))
-                      (get-children~ row)))))
+                      (get-children row)))))
   
     (define (make-row-visible row visible?)
-      (set-visible?~ row visible?)
+      (set-visible? row visible?)
       (when visible?
-        (let loop ((node (get-father~ row)))
+        (let loop ((node (get-father row)))
              (when node
-               (set-visible?~ node #t)
-               (loop (get-father~ node))))))
+               (set-visible? node #t)
+               (loop (get-father node))))))
     
-    (scroll-to {Point 0 0})   ; quicky
-    (set-selection '())       ; quicky
-    (with-update-locked
+    (scroll-to self {Point 0 0})   ; quicky
+    (set-selection self '())       ; quicky
+    (with-update-locked self
       (lambda ()
-        (for-each-row
+        (for-each-row self
           (lambda (row rank)
             (make-row-visible row (determine-visible? row)))))))
   
@@ -1109,61 +1112,61 @@
   ;;;
 
 
-  (method override (get-tooltip?)
+  (method override (get-tooltip? self)
     #t)
   
   
-  (method (calculate-tooltip-bounds cell)
-    (cell-rect cell))
+  (method (calculate-tooltip-bounds self cell)
+    (cell-rect self cell))
   
   
-  (method override (get-tooltip-bounds pos)
-    (let ((cell (view->tree pos)))
+  (method override (get-tooltip-bounds self pos)
+    (let ((cell (view->tree self pos)))
       (and cell
-           (calculate-tooltip-bounds cell))))
+           (calculate-tooltip-bounds self cell))))
   
   
-  (method override (get-tooltip-context pos)
-    (if (get-tooltip-text)
-        (nextmethod pos)
-      (let ((cell (view->tree pos)))
+  (method override (get-tooltip-context self pos)
+    (if (get-tooltip-text self)
+        (nextmethod self pos)
+      (let ((cell (view->tree self pos)))
         (and cell
-             (let ((row (get-row (get-line~ cell)))
-                   (column (get-column (get-col~ cell)))
-                   (text (localize (get-cell-tooltip cell))))
+             (let ((row (get-row self (get-line cell)))
+                   (column (get-column self (get-col cell)))
+                   (text (localize (get-cell-tooltip self cell))))
                (and text
-                    (let* ((width (get-width~ column))
-                           (height (get-height~ row))
-                           (content-rect (content-rect~ column row cell width height))
-                           (formatted? (get-formatted-tooltip?))
-                           (text-width (if formatted? 0 (+ (text-width~ (effective-font) text) 2))))
-                      (and (or (cell-tooltips? cell) (> text-width (rect-width content-rect)))
-                           (let ((rect (calculate-tooltip-bounds cell))
-                                 (h (+ (content-h~ column (get-level~ row)) (if (= (get-col~ cell) 0) 2 -2))))
+                    (let* ((width (get-width column))
+                           (height (get-height row))
+                           (content-rect (content-rect column row cell width height))
+                           (formatted? (get-formatted-tooltip? self))
+                           (text-width (if formatted? 0 (+ (text-width (effective-font self) text) 2))))
+                      (and (or (cell-tooltips? self cell) (> text-width (rect-width content-rect)))
+                           (let ((rect (calculate-tooltip-bounds self cell))
+                                 (h (+ (content-h column (get-level row)) (if (= (get-col cell) 0) 2 -2))))
                              (new Tooltip-Context
                                view: self
                                text: (if formatted? text (split-lines text))
                                bounds: rect
-                               position: (get-tooltip-position text rect h 0)
+                               position: (get-tooltip-position self text rect h 0)
                                padding: (new Dimension 0 0)
-                               font: (effective-font)))))))))))
+                               font: (effective-font self)))))))))))
   
   
-  (method protected virtual (cell-tooltips? cell)
+  (method protected virtual (cell-tooltips? self cell)
     #f)
   
   
-  (method protected virtual (get-cell-tooltip cell)
-    (let ((column (get-column (get-col~ cell)))
-          (data (get-cell-data cell)))
-      (get-data-tooltip~ column data)))
+  (method protected virtual (get-cell-tooltip self cell)
+    (let ((column (get-column self (get-col cell)))
+          (data (get-cell-data self cell)))
+      (get-data-tooltip column data)))
   
   
-  (method protected virtual (get-tooltip-position text rect h v)
+  (method protected virtual (get-tooltip-position self text rect h v)
     (+ (rect-position rect) (new Point (- h 10) (+ v (rect-height rect) 5))))
   
   
-  (method protected virtual (get-column-tooltip column)
+  (method package virtual (get-column-tooltip self column)
     #f)
 
 
@@ -1172,9 +1175,9 @@
   ;;;
   
   
-  (method override (get-drag-drop)
-    (and (view->tree mouse-down-point)
-         (nextmethod)))
+  (method override (get-drag-drop self)
+    (and (view->tree self (get-mouse-down-point))
+         (nextmethod self)))
 
 
   ;;;
@@ -1182,50 +1185,50 @@
   ;;;
   
   
-  (method override (get-drag-source)
-    (let* ((pos (get-drag-position))
-           (cell (view->tree pos))
-           (row (get-row (get-line~ cell)))
-           (col (get-col~ cell)))
-      (get-drag-cell-source pos row col)))
+  (method override (get-drag-source self)
+    (let* ((pos (get-drag-position self))
+           (cell (view->tree self pos))
+           (row (get-row self (get-line cell)))
+           (col (get-col cell)))
+      (get-drag-cell-source self pos row col)))
   
   
-  (method protected virtual (get-drag-cell-source pos row col)
+  (method protected virtual (get-drag-cell-source self pos row col)
     (new Tree-Drag-Source view: self position: pos @old image: @old (get-drag-image pos) row: row col: col))
   
   
-  (method override (get-drag-image pos)
-    (let* ((cell (view->tree pos))
-           (line (get-line~ cell)))
-      (get-node-image line)))
+  (method override (get-drag-image self pos)
+    (let* ((cell (view->tree self pos))
+           (line (get-line cell)))
+      (get-node-image self line)))
 
   
-  (method public (get-node-image line)
+  (method public (get-node-image self line)
     @old
     (let* ((cdc (new Client-Surface player))
            (font (effective-font))
            (row (get-row line))
            (data (get-cell-data (new Cell line 0)))
-           (image (get-image~ data))
-           (title (get-title~ data))
-           (width (get-width~ node-column))
-           (height (get-height~ row))
+           (image (get-image data))
+           (title (get-title data))
+           (width (get-width node-column))
+           (height (get-height row))
            (bitmap (unspecified))
            (mask (unspecified)))
       (with ((memdc (new Memory-Surface cdc (new Dimension width height) keep-bitmap?: #t))
              (maskdc (new Memory-Surface cdc (new Dimension width height) keep-bitmap?: #t)))
-        (fill-rect~ memdc (new Rect 0 0 width height) {Color Tree-Background})
-        (fill-rect~ maskdc (new Rect 0 0 width height) {Color Tree-Background})
-        (draw-image~ portfolio memdc #f image 0 0)
-        (draw-mask~ portfolio maskdc image 0 0)
-        (set-font~ memdc font)
-        (draw-text~ memdc 19 2 title {Color Black})
-        (set-font~ maskdc font)
-        (draw-text~ maskdc 19 2 title {Color Black})
-        (set! bitmap (get-bitmap~ memdc))
-        (set! mask (get-bitmap~ maskdc)))
+        (fill-rect memdc (new Rect 0 0 width height) {Color Tree-Background})
+        (fill-rect maskdc (new Rect 0 0 width height) {Color Tree-Background})
+        (draw-image portfolio memdc #f image 0 0)
+        (draw-mask portfolio maskdc image 0 0)
+        (set-font memdc font)
+        (draw-text memdc 19 2 title {Color Black})
+        (set-font maskdc font)
+        (draw-text maskdc 19 2 title {Color Black})
+        (set! bitmap (get-bitmap memdc))
+        (set! mask (get-bitmap maskdc)))
       (let* ((portfolio (new Portfolio))
-             (no (add-masked-bitmap~ portfolio bitmap mask)))
+             (no (add-masked-bitmap portfolio bitmap mask)))
         (new Image portfolio: portfolio resource: no))))
     
 
@@ -1234,18 +1237,18 @@
   ;;;
   
   
-  (method override (current-drop drag-drop pos)
+  (method override (current-drop self drag-drop pos)
     (define (get-reorder-target drag-drop pos)
-      (call-with-view->tree pos
+      (call-with-view->tree self pos
         (lambda (cell v height)
           (and cell
-               (let* ((line (get-line~ cell))
+               (let* ((line (get-line cell))
                       (quarter (get-row-quarter v height))
-                      (current (get-target~ drag-drop))
-                      (row (get-row line)))
-                 (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (eqv? quarter (get-quarter~ current)))
+                      (current (get-target drag-drop))
+                      (row (get-row self line)))
+                 (if (and current (eq? self (get-view current)) (eq? row (get-row current)) (eqv? quarter (get-quarter current)))
                      current
-                   (get-row-reorder-target drag-drop row quarter)))))))
+                   (get-row-reorder-target self drag-drop row quarter)))))))
     
     (define (get-row-quarter v height)
       (let ((quarter (/ (cast <fl> height) 4))
@@ -1255,19 +1258,19 @@
               ((< v (- height quarter)) 3)
               (else 4))))
     
-    (if (get-surrogate)
-        (nextmethod drag-drop pos)
-      (if (and reorderable? (eq? self (get-view~ (get-source~ drag-drop))))
+    (if (get-surrogate self)
+        (nextmethod self drag-drop pos)
+      (if (and reorderable? (eq? self (get-view (get-source drag-drop))))
           (get-reorder-target drag-drop pos)
-        (get-tree-target drag-drop pos))))
+        (get-tree-target self drag-drop pos))))
   
   
-  (method protected virtual (get-row-reorder-target drag-drop row quarter)
-    (let* ((same-row? (memq? (row->line row) selection))
-           (src-selection (get-selection~ (get-view~ (get-source~ drag-drop))))
+  (method protected virtual (get-row-reorder-target self drag-drop row quarter)
+    (let* ((same-row? (memq? (row->line self row) selection))
+           (src-selection (get-selection (get-view (get-source drag-drop))))
            (src-range (contiguous-range src-selection))
-           (dst (get-user-data~ row))
-           (dst-line (row->line row))
+           (dst (get-user-data row))
+           (dst-line (row->line self row))
            (current-rank (if (memq? quarter '(1 2)) dst-line (+ dst-line 1)))
            (accept? (or (not src-range) (and (not (memq? current-rank src-selection)) (/= current-rank (+ (cdr src-range) 1))))))
       (and accept?
@@ -1275,57 +1278,57 @@
              (new Tree-Drop-Target view: self row: row part: part)))))
   
   
-  (method protected virtual (get-tree-target drag-drop pos)
-    (call-with-view->tree pos
+  (method protected virtual (get-tree-target self drag-drop pos)
+    (call-with-view->tree self pos
       (lambda (cell v height)
         (and cell
-             (let ((row (get-row (get-line~ cell)))
-                   (current (get-target~ drag-drop)))
-               (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)))
+             (let ((row (get-row self (get-line cell)))
+                   (current (get-target drag-drop)))
+               (if (and current (eq? self (get-view current)) (eq? row (get-row current)))
                    current
-                 (get-row-target drag-drop row)))))))
+                 (get-row-target self drag-drop row)))))))
   
     
-  (method public (get-tree-data-target drag-drop pos)
-    (call-with-view->tree pos
+  (method public (get-tree-data-target self drag-drop pos)
+    (call-with-view->tree self pos
       (lambda (cell v height)
         (and cell
-             (let ((row (get-row (get-line~ cell)))
-                   (col (get-col~ cell))
-                   (source (get-source~ drag-drop))
-                   (current (get-target~ drag-drop)))
-               (and (or (neq? (get-view~ source) self) (neq? (get-row~ source) row) (/= (get-col~ source) col))
-                    (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (= col (get-col~ current)))
+             (let ((row (get-row self (get-line cell)))
+                   (col (get-col cell))
+                   (source (get-source drag-drop))
+                   (current (get-target drag-drop)))
+               (and (or (neq? (get-view source) self) (neq? (get-row source) row) (/= (get-col source) col))
+                    (if (and current (eq? self (get-view current)) (eq? row (get-row current)) (= col (get-col current)))
                         current
-                      (get-cell-target drag-drop row col))))))))
+                      (get-cell-target self drag-drop row col))))))))
   
   
-  (method protected virtual (get-row-target drag-drop row)
+  (method protected virtual (get-row-target self drag-drop row)
     #f)
   
   
-  (method protected virtual (get-cell-target drag-drop row col)
+  (method protected virtual (get-cell-target self drag-drop row col)
     #f)
     
   
-  (method override (highlight-drop drag-drop pos)
-    (let ((target (get-target~ drag-drop)))
+  (method override (highlight-drop self drag-drop pos)
+    (let ((target (get-target drag-drop)))
       ;; temp patch... this should always be a t-d-t
       (when (is? target Tree-Drop-Target)
-        (let* ((row (get-row~ target))
-               (col (get-col~ target))
-               (part (get-part~ target))
+        (let* ((row (get-row target))
+               (col (get-col target))
+               (part (get-part target))
                (insert
                 (case part
                   ((row) #f)
                   ((before) 'before)
                   ((after) 'after)))
                (highlight (new Tree-Highlight row col insert: insert outer-color: Highlighted-Outer-Color inner-color: Highlighted-Inner-Color)))
-          (set-highlighted (cons highlight (get-highlighted)))))))
+          (set-highlighted self (cons highlight (get-highlighted self)))))))
   
   
-  (method override (unhighlight-drop drag-drop)
-    (set-highlighted (if (null? highlighted)
+  (method override (unhighlight-drop self drag-drop)
+    (set-highlighted self (if (null? highlighted)
                          '()
                        (cdr highlighted))))
 
@@ -1335,7 +1338,7 @@
   ;;;
   
   
-  (method override (tab-stop-enter)
+  (method override (tab-stop-enter self)
     )
 
   
@@ -1344,60 +1347,60 @@
   ;;;
     
   
-  (method (on-move evt)
+  (method (on-move self evt)
     (if arrow-press-handler
         (invoke-handler self arrow-press-handler evt)
-      (let ((direction (get-property~ evt direction:))
-            (modifiers (get-modifiers~ evt)))
+      (let ((direction (get-property evt direction:))
+            (modifiers (get-modifiers evt)))
         (case direction
-          ((up) (up-arrow-action modifiers #t))
-          ((down) (down-arrow-action modifiers #t))
-          ((left) (left-arrow-action modifiers #t))
-          ((right) (right-arrow-action modifiers #t))))))
+          ((up) (up-arrow-action self modifiers #t))
+          ((down) (down-arrow-action self modifiers #t))
+          ((left) (left-arrow-action self modifiers #t))
+          ((right) (right-arrow-action self modifiers #t))))))
 
 
-  (method virtual package (on-home evt)
-    (home-action))
+  (method virtual package (on-home self evt)
+    (home-action self))
   
   
-  (method public (home-action)
-    (let ((count (get-visible-count)))
+  (method public (home-action self)
+    (let ((count (get-visible-count self)))
       (when (> count 0)
         (case selection-mode
           ((cell)
-           (let ((col (if selection-pivot (get-col~ selection-pivot) 0)))
-             (set-selection (list (new Cell 0 col)))))
+           (let ((col (if selection-pivot (get-col selection-pivot) 0)))
+             (set-selection self (list (new Cell 0 col)))))
           (else
-           (set-selection (list 0)))))))
+           (set-selection self (list 0)))))))
 
 
-  (method virtual package (on-end evt)
-    (end-action))
+  (method virtual package (on-end self evt)
+    (end-action self))
   
   
-  (method public (end-action)
-    (let ((count (get-visible-count)))
+  (method public (end-action self)
+    (let ((count (get-visible-count self)))
       (when (> count 0)
         (case selection-mode
           ((cell)
-           (let ((col (if selection-pivot (get-col~ selection-pivot) 0)))
-             (set-selection (list (new Cell (- count 1) col)))))
+           (let ((col (if selection-pivot (get-col selection-pivot) 0)))
+             (set-selection self (list (new Cell (- count 1) col)))))
           (else
-           (set-selection (list (- count 1))))))))
+           (set-selection self (list (- count 1))))))))
 
 
-  (method override (left-arrow-press modifiers)
-    (left-arrow-action modifiers #t))
+  (method override (left-arrow-press self modifiers)
+    (left-arrow-action self modifiers #t))
   
   
-  (method public (left-arrow-action modifiers user-origin)
+  (method public (left-arrow-action self modifiers user-origin)
     (define (logical-col cell)
-      (let ((site (cell->site cell)))
+      (let ((site (cell->site self cell)))
         (and site
-             (let ((merge-cell (get-merge-cell site)))
+             (let ((merge-cell (get-merge-cell self site)))
                (if merge-cell
-                   (get-first-col~ merge-cell)
-                 (get-col~ cell))))))
+                   (get-first-col merge-cell)
+                 (get-col cell))))))
     
     (case selection-mode
       ((cell)
@@ -1405,29 +1408,29 @@
          (let ((cell selection-pivot))
            (let ((col (logical-col cell)))
              (when (> col 0)
-               (move-cell (new Cell (get-line~ cell) (- col 1)) 'left user-origin))))))
+               (move-cell self (new Cell (get-line cell) (- col 1)) 'left user-origin))))))
       ((row)
-       (let ((row (get-selected-row)))
+       (let ((row (get-selected-row self)))
          (if (not row)
              (bell)
-           (if (expanded?~ row)
-               (expand/collapse row)
-             (when (> (get-level~ row) 0)
-               (set-selection (list (row->line (get-father~ row)))))))))))
+           (if (expanded? row)
+               (expand/collapse self row)
+             (when (> (get-level row) 0)
+               (set-selection self (list (row->line self (get-father row)))))))))))
 
 
-  (method override (up-arrow-press modifiers)
-    (up-arrow-action modifiers #t))
+  (method override (up-arrow-press self modifiers)
+    (up-arrow-action self modifiers #t))
   
   
-  (method public (up-arrow-action modifiers user-origin)
+  (method public (up-arrow-action self modifiers user-origin)
     (define (logical-row cell)
-      (let ((site (cell->site cell)))
+      (let ((site (cell->site self cell)))
         (and site
-             (let ((merge-cell (get-merge-cell site)))
+             (let ((merge-cell (get-merge-cell self site)))
                (if merge-cell
-                   (get-first-line~ merge-cell)
-                 (get-line~ cell))))))
+                   (get-first-line merge-cell)
+                 (get-line cell))))))
     
     (case selection-mode
       ((cell)
@@ -1435,59 +1438,59 @@
          (let ((cell selection-pivot))
            (let ((line (logical-row cell)))
              (when (> line 0)
-               (move-cell (new Cell (- line 1) (get-col~ cell)) 'up user-origin))))))
+               (move-cell self (new Cell (- line 1) (get-col cell)) 'up user-origin))))))
       (else
-       (let ((count (get-visible-count)))
+       (let ((count (get-visible-count self)))
          (if (null? selection)
              (when (> count 0)
-               (move-selection (- count 1) 'backward user-origin))
+               (move-selection self (- count 1) 'backward user-origin))
            (let ((line (car selection)))
              (when (> line 0)
-               (move-selection (- line 1) 'backward user-origin))))))))
+               (move-selection self (- line 1) 'backward user-origin))))))))
 
 
-  (method override (right-arrow-press modifiers)
-    (right-arrow-action modifiers #t))
+  (method override (right-arrow-press self modifiers)
+    (right-arrow-action self modifiers #t))
   
   
-  (method public (right-arrow-action modifiers user-origin)
+  (method public (right-arrow-action self modifiers user-origin)
     (define (logical-col cell)
-      (let ((site (cell->site cell)))
+      (let ((site (cell->site self cell)))
         (and site
-             (let ((merge-cell (get-merge-cell site)))
+             (let ((merge-cell (get-merge-cell self site)))
                (if merge-cell
-                   (get-last-col~ merge-cell)
-                 (get-col~ cell))))))
+                   (get-last-col merge-cell)
+                 (get-col cell))))))
     
     (case selection-mode
       ((cell)
        (when (not-null? selection)
          (let ((cell selection-pivot))
            (let ((col (logical-col cell)))
-             (when (< col (- (get-columns-count) 1))
-               (move-cell (new Cell (get-line~ cell) (+ col 1)) 'right user-origin))))))
+             (when (< col (- (get-columns-count self) 1))
+               (move-cell self (new Cell (get-line cell) (+ col 1)) 'right user-origin))))))
       (else
-       (let ((row (get-selected-row)))
+       (let ((row (get-selected-row self)))
          (if (not row)
              (bell)
-           (unless (expanded?~ row)
-             (expand/collapse row)))))))
+           (unless (expanded? row)
+             (expand/collapse self row)))))))
 
 
-  (method override (down-arrow-press modifiers)
-    (down-arrow-action modifiers #t))
+  (method override (down-arrow-press self modifiers)
+    (down-arrow-action self modifiers #t))
   
   
-  (method public (down-arrow-action modifiers user-origin)
+  (method public (down-arrow-action self modifiers user-origin)
     (define (logical-row cell)
-      (let ((site (cell->site cell)))
+      (let ((site (cell->site self cell)))
         (and site
-             (let ((merge-cell (get-merge-cell site)))
+             (let ((merge-cell (get-merge-cell self site)))
                (if merge-cell
-                   (get-last-line~ merge-cell)
-                 (get-line~ cell))))))
+                   (get-last-line merge-cell)
+                 (get-line cell))))))
 
-    (let* ((count (get-visible-count))
+    (let* ((count (get-visible-count self))
            (last (- count 1)))
       (case selection-mode
         ((cell)
@@ -1495,53 +1498,53 @@
            (let ((cell selection-pivot))
              (let ((line (logical-row cell)))
                (when (< line last)
-                 (move-cell (new Cell (+ line 1) (get-col~ cell)) 'down user-origin))))))
+                 (move-cell self (new Cell (+ line 1) (get-col cell)) 'down user-origin))))))
         (else
          (if (null? selection)
              (when (> count 0)
-               (move-selection 0 'forward user-origin))
+               (move-selection self 0 'forward user-origin))
            (let ((line (car selection)))
              (when (< line last)
-               (move-selection (+ line 1) 'forward user-origin))))))))
+               (move-selection self (+ line 1) 'forward user-origin))))))))
     
   
-  (method (move-selection line direction user-origin)
-    (let ((row (get-row line)))
-      (set-selection (list line) user-origin: user-origin)
+  (method package (move-selection self line direction user-origin)
+    (let ((row (get-row self line)))
+      (set-selection self (list line) user-origin: user-origin)
       (when user-origin
-        (update-view))))
+        (update-view self))))
   
   
-  (method (move-cell cell direction user-origin)
-    (set-selection (list cell) ensure-displayed?: #f user-origin: user-origin)
-    (let ((rect (cell-rect cell)))
+  (method (move-cell self cell direction user-origin)
+    (set-selection self (list cell) ensure-displayed?: #f user-origin: user-origin)
+    (let ((rect (cell-rect self cell)))
       (case direction
-        ((left)  (scroll (new Point (horizontal-scroll-needed (get-left~ rect) 'backward) 0)))
-        ((up)    (scroll (new Point 0 (vertical-scroll-needed (get-top~ rect) 'backward))))
-        ((right) (scroll (new Point (horizontal-scroll-needed (get-right~ rect) 'forward) 0)))
-        ((down)  (scroll (new Point 0 (vertical-scroll-needed (get-bottom~ rect) 'forward))))))
+        ((left)  (scroll self (new Point (horizontal-scroll-needed self (get-left rect) 'backward) 0)))
+        ((up)    (scroll self (new Point 0 (vertical-scroll-needed self (get-top rect) 'backward))))
+        ((right) (scroll self (new Point (horizontal-scroll-needed self (get-right rect) 'forward) 0)))
+        ((down)  (scroll self (new Point 0 (vertical-scroll-needed self (get-bottom rect) 'forward))))))
     (when user-origin
-      (update-view)))
+      (update-view self)))
   
   
-  (method (line-displayed? line)
-    (let* ((row (get-row line))
-           (top (get-top~ row))
-           (bottom (get-bottom~ row))
-           (needed (scroll-needed (new Point 0 top) (new Point 0 bottom) #f)))
-      (= (get-v~ needed) 0)))
+  (method (line-displayed? self line)
+    (let* ((row (get-row self line))
+           (top (get-top row))
+           (bottom (get-bottom row))
+           (needed (scroll-needed self (new Point 0 top) (new Point 0 bottom) #f)))
+      (= (get-v needed) 0)))
   
   
-  (method (cell-displayed? cell)
-    (let* ((rect (cell-rect cell))
-           (needed (scroll-needed (new Point (get-left~ rect) (get-top~ rect)) (new Point (get-right~ rect) (get-bottom~ rect)) #f)))
-      (and (= (get-h~ needed) 0)
-           (= (get-v~ needed) 0))))
+  (method package (cell-displayed? self cell)
+    (let* ((rect (cell-rect self cell))
+           (needed (scroll-needed self (new Point (get-left rect) (get-top rect)) (new Point (get-right rect) (get-bottom rect)) #f)))
+      (and (= (get-h needed) 0)
+           (= (get-v needed) 0))))
   
   
-  (method override (select-all (user-origin: user-origin #f))
+  (method override (select-all self (user-origin: user-origin #f))
     (when multiple-selection?
-      (set-selection (naturals 0 visible-count) user-origin: user-origin)))
+      (set-selection self (naturals 0 visible-count) user-origin: user-origin)))
 
   
   ;;;
@@ -1549,78 +1552,78 @@
   ;;;
   
   
-  (method public (for-each-column proc)
-    (for-each proc (get-columns) (iota (get-columns-count))))
+  (method public (for-each-column self proc)
+    (for-each proc (get-columns self) (iota (get-columns-count self))))
   
   
-  (method public (fill-column)
+  (method public (fill-column self)
     (define (find-filled-column name)
       (cond ((integer? name) (element columns name))
             ((eq? name #t) (and (not-null? columns) (last columns)))
             (else (find-if (lambda (column)
-                             (eq? (get-name~ column) name))
+                             (eq? (get-name column) name))
                            columns))))
     
-    (when (and filled-column (not-null? columns) (get-finished?))
+    (when (and filled-column (not-null? columns) (get-finished? self))
       (let ((column (find-filled-column filled-column)))
         (when column
-          (let ((col (column->col column)))
+          (let ((col (column->col self column)))
             (when (< col (length columns))
-              (let* ((filled-borders (get-borders~ column))
+              (let* ((filled-borders (get-borders column))
                      (space-after (- columns-right (borders-right filled-borders)))
-                     (size (get-display-size))
-                     (delta (max (- (borders-width filled-borders)) (- (get-width~ size) space-after (borders-right filled-borders))))
+                     (size (get-display-size self))
+                     (delta (max (- (borders-width filled-borders)) (- (get-width size) space-after (borders-right filled-borders))))
                      (old-right (cdr filled-borders))
                      (new-right (+ old-right delta)))
                 (for-each (lambda (column)
-                            (bind (left . right) (get-borders~ column)
-                              (set-borders~ column (cons (+ left delta) (+ right delta)))))
+                            (bind (left . right) (get-borders column)
+                              (set-borders column (cons (+ left delta) (+ right delta)))))
                           (tail columns (+ col 1)))
                 (set-cdr! filled-borders new-right)
                 (increase! columns-right delta)
-                (set-width~ column (max (+ (get-width~ column) delta) min-column-width))
+                (set-width column (max (+ (get-width column) delta) min-column-width))
                 (let ((left (max (- (min old-right new-right) 2) 0))
                       (top 0)
-                      (right (get-width~ size))
-                      (bottom (get-height~ size)))
+                      (right (get-width size))
+                      (bottom (get-height size)))
                   (when (and (< left right) (< top bottom))
-                    (invalidate-rect (new Rect left top right bottom))))
-                (invalidate-header))))))))
+                    (invalidate-rect self (new Rect left top right bottom))))
+                (invalidate-header self))))))))
 
   
-  (method public (add-column . rest)
+  (method public (add-column self . rest)
     (bind-keywords ((class Tree-Column) . others) rest
       (apply new class parent: self others)))
   
   
-  (method public (remove-column column)
-    (remove-child column))
+  (method public (remove-column self column)
+    (remove-child self column))
   
   
-  (method public (remove-columns (preserve-node-column?: preserve-node-column? #f) (preserve: preserve '()))
+  (method public (remove-columns self (preserve-node-column?: preserve-node-column? #f) (preserve: preserve '()))
     (define (remove-columns-preserving)
-      (remove-every-row)
+      (remove-every-row self)
       (for-each (lambda (column)
                   (unless (or (and preserve-node-column? (is? column Tree-Node-Column))
-                              (memq? (get-name~ column) preserve))
-                    (remove-column column)))
-                (get-columns))
-      (invalidate-header))
+                              (memq? (get-name column) preserve))
+                    (remove-column self column)))
+                (get-columns self))
+      (invalidate-header self))
     
     (define (remove-all-columns)
-      (remove-every-row)
-      (set-children '())
+      (remove-every-row self)
+      (set-children self '())
       (set! columns '())
       (set! columns-right 0)
       (set! node-column #f)
-      (invalidate-header))
+      (invalidate-header self))
     
     (if (or preserve-node-column? preserve)
         (remove-columns-preserving)
       (remove-all-columns)))
 
   
-  (method override (invalidate-columns)
+  (method override (invalidate-columns self)
     (define (update-node-column)
       (set! node-column (find-if (lambda (column)
                                    (is? column Tree-Node-Column))
@@ -1630,12 +1633,12 @@
       (let ((left 0)
             (last-right #f))
         (for-each (lambda (column rank)
-                    (set-rank~ column rank)
-                    (let* ((width (get-width~ column))
+                    (set-rank column rank)
+                    (let* ((width (get-width column))
                            (right (+ left width)))
-                      (set-borders~ column (cons left right))
-                      (when (get-visible?~ column)
-                        (set! left (+ right (if (space-column? column rank) column-spacing 0))))
+                      (set-borders column (cons left right))
+                      (when (get-visible? column)
+                        (set! left (+ right (if (space-column? self column rank) column-spacing 0))))
                       (set! last-right right)))
                   columns
                   (naturals 0 (length columns)))
@@ -1646,28 +1649,28 @@
       (update-columns)))
   
   
-  (method protected virtual (space-column? column rank)
+  (method package virtual (space-column? self column rank)
     (= (modulo (+ rank 1) column-frequency) 0))
     
   
-  (method public (get-columns-count)
+  (method public (get-columns-count self)
     (length columns))
     
   
-  (method public (get-column col)
+  (method public (get-column self col)
     (element columns col))
   
   
-  (method public (find-column name)
-    (find-component name))
+  (method public (find-column self name)
+    (find-component self name))
   
   
-  (method public (get-node-column-index)
-    (column->col node-column))
+  (method public (get-node-column-index self)
+    (column->col self node-column))
   
   
-  (method public (column->col column)
-    (get-rank~ column))
+  (method public (column->col self column)
+    (get-rank column))
 
   
   ;;;
@@ -1675,35 +1678,35 @@
   ;;;
   
   
-  (method override (row-class)
+  (method override (row-class self)
     Tree-Row)
   
   
-  (method override (update-father-control father)
-    (when (and (not update-locked?) (neq? father root-row) (row-visible?~ father))
-      (let* ((line (row->line father))
-             (top (row-top line)))
-        (when (< top (get-height))
-          (invalidate-rect (control-rect~ node-column father top))
-          (invalidate-rect (image-rect~ node-column father top))))))
+  (method override (update-father-control self father)
+    (when (and (not update-locked?) (neq? father root-row) (row-visible? father))
+      (let* ((line (row->line self father))
+             (top (row-top self line)))
+        (when (< top (get-height self))
+          (invalidate-rect self (control-rect node-column father top))
+          (invalidate-rect self (image-rect node-column father top))))))
   
   
-  (method override (add-empty-row (father: father #f))
+  (method override (add-empty-row self (father: father #f))
     (let ((father (or father root-row)))
-      (add-row father: father children: (map (lambda (column)
-                                               (new-empty-cell~ column))
+      (add-row self father: father children: (map (lambda (column)
+                                               (new-empty-cell column))
                                              columns))))
   
   
-  (method override (line-selected? line)
+  (method override (line-selected? self line)
     (case selection-mode
-      ((cell) (some? (lambda (cell) (= (get-line~ cell) line)) selection))
+      ((cell) (some? (lambda (cell) (= (get-line cell) line)) selection))
       (else (memq? line selection))))
   
   
-  (method override (line-draw-selected? line)
-    (and (nextmethod line)
-         (or (has-focus?) show-unfocused-selection?)))
+  (method override (line-draw-selected? self line)
+    (and (nextmethod self line)
+         (or (has-focus? self) show-unfocused-selection?)))
 
   
   ;;;
@@ -1711,156 +1714,156 @@
   ;;;
   
   
-  (method public (merge-cells cell nbline nbcol)
+  (method public (merge-cells self cell nbline nbcol)
     (if (and (> nbline 0) (> nbcol 0))
-        (let ((cell-data (get-cell-data cell)))
+        (let ((cell-data (get-cell-data self cell)))
           (if cell-data
-              (let ((title (get-cell-title cell))
-                    (site (cell->site cell)))
+              (let ((title (get-cell-title self cell))
+                    (site (cell->site self cell)))
                 (when site
-                  (when (get-merge-cell site)
-                    (unmerge-cells cell)))
+                  (when (get-merge-cell self site)
+                    (unmerge-cells self cell)))
                 (when (or (> nbline 1) (> nbcol 1))
-                  (let ((cell-line (get-line~ cell))
-                        (cell-col (get-col~ cell)))
-                    (if (and (< (+ cell-line nbline -1) (get-row-count))
-                             (< (+ cell-col nbcol -1) (get-columns-count)))
+                  (let ((cell-line (get-line cell))
+                        (cell-col (get-col cell)))
+                    (if (and (< (+ cell-line nbline -1) (get-row-count self))
+                             (< (+ cell-col nbcol -1) (get-columns-count self)))
                         (let ((merged-rows (let ((queue (new-queue)))
                                              (loop (for r from cell-line below (+ cell-line nbline))
-                                                   (enqueue queue (get-row r)))
+                                                   (enqueue queue (get-row self r)))
                                              (queue-list queue)))
                               (merged-columns (let ((queue (new-queue)))
                                                 (loop (for c from cell-col below (+ cell-col nbcol))
-                                                      (enqueue queue (get-column c)))
+                                                      (enqueue queue (get-column self c)))
                                                 (queue-list queue))))
-                          (merge-sites merged-rows merged-columns))
+                          (merge-sites self merged-rows merged-columns))
                       (error "Merge cell out of tree bounds")))))
             (error "First cell is empty")))
       (error "Invalid merge-cells")))
   
   
-  (method protected (merge-sites rows columns (inhibit-invalidate?: inhibit-invalidate? #f))
+  (method protected (merge-sites self rows columns (inhibit-invalidate?: inhibit-invalidate? #f))
     (let ((merge-cell (new Merge-Cell rows columns self)))
       (for-each (lambda (column)
                   (for-each (lambda (row)
-                              (set-merge-cell! (new Site row column) merge-cell))
+                              (set-merge-cell! self (new Site row column) merge-cell))
                             rows))
                 columns)
       (unless inhibit-invalidate?
-        (let ((rect (merge-cell-rect merge-cell)))
+        (let ((rect (merge-cell-rect self merge-cell)))
           (when rect
-            (let ((site-data (get-site-data (new Site (first rows) (first columns)))))
+            (let ((site-data (get-site-data self (new Site (first rows) (first columns)))))
               (when (is? site-data View)
-                (set-rect~ site-data (acquire~ (get-parent~ site-data) self rect))))
-            (invalidate-rect rect))))))
+                (set-rect site-data (acquire (get-parent site-data) self rect))))
+            (invalidate-rect self rect))))))
   
   
-  (method public (unmerge-cells cell)
-    (let ((merge-cell-to-remove (get-merge-cell (cell->site cell))))
+  (method public (unmerge-cells self cell)
+    (let ((merge-cell-to-remove (get-merge-cell self (cell->site self cell))))
       (when merge-cell-to-remove
-        (let ((rect (merge-cell-rect merge-cell-to-remove)))
-          (for-each-cell~ merge-cell-to-remove
+        (let ((rect (merge-cell-rect self merge-cell-to-remove)))
+          (for-each-cell merge-cell-to-remove
             (lambda (row column)
-              (let ((site (row/column->site row column)))
-                (clear-merge-cell site))))
+              (let ((site (row/column->site self row column)))
+                (clear-merge-cell self site))))
           (when rect
-            (invalidate-rect rect))))))
+            (invalidate-rect self rect))))))
   
   
-  (method public (add-merged-row row merge-cell)
-    (let ((merged-title (get-cell-title (get-master-cell~ merge-cell)))
+  (method public (add-merged-row self row merge-cell)
+    (let ((merged-title (get-cell-title self (get-master-cell merge-cell)))
           (is-valid? #t)
           (site-list '()))
       (for-each (lambda (column)
-                  (let ((new-title (get-data-title (get-child~ row (column->col column)))))
+                  (let ((new-title (get-data-title self (get-child row (column->col self column)))))
                     (if (equal? merged-title new-title)
                         (let ((site (new Site row column)))
-                          (set-merge-cell! site merge-cell)
+                          (set-merge-cell! self site merge-cell)
                           (set! site-list (cons site site-list)))
                       (set! is-valid? #f))))
-                (get-merged-columns~ merge-cell))
+                (get-merged-columns merge-cell))
       (if is-valid?
-          (add-merged-row~ merge-cell row)
-        (for-each clear-merge-cell site-list))
+          (add-merged-row merge-cell row)
+        (for-each (~ clear-merge-cell self) site-list))
       @creates-problems-with-edited-cells
       (when (not is-valid?)
         (error "Merged cells title must be identical"))))
 
   
-  (method public (get-merge-cell site)
+  (method public (get-merge-cell self site)
     (table-ref merge-cell-table site #f))
   
   
-  (method public (safe-get-merge-cell site)
+  (method public (safe-get-merge-cell self site)
     (case selection-mode
-      ((cell) (get-merge-cell site))
+      ((cell) (get-merge-cell self site))
       (else #f)))
   
   
-  (method public (set-merge-cell! site merge-cell)
+  (method public (set-merge-cell! self site merge-cell)
     (table-set! merge-cell-table site merge-cell))
   
   
-  (method public (clear-merge-cell site)
+  (method public (clear-merge-cell self site)
     (table-clear merge-cell-table site))
   
   
-  (method (merge-cell-selected? merge-cell)
-    (and (or (has-focus?) show-unfocused-selection?)
+  (method package (merge-cell-selected? self merge-cell)
+    (and (or (has-focus? self) show-unfocused-selection?)
          (case selection-mode
            ((cell)
             (some? (lambda (cell)
-                     (let ((site (cell->site cell)))
+                     (let ((site (cell->site self cell)))
                        (and site
-                            (eq? merge-cell (get-merge-cell site)))))
-                   (get-selection)))
+                            (eq? merge-cell (get-merge-cell self site)))))
+                   (get-selection self)))
            (else
             #f))))
     
 
-  (method (merge-corner-site merge-cell)
-    (values (get-first-site~ merge-cell) (get-last-site~ merge-cell)))
+  (method (merge-corner-site self merge-cell)
+    (values (get-first-site merge-cell) (get-last-site merge-cell)))
     
 
-  (method (merge-corner-cell merge-cell)
-    (values (get-first-cell~ merge-cell) (get-last-cell~ merge-cell)))
+  (method (merge-corner-cell self merge-cell)
+    (values (get-first-cell merge-cell) (get-last-cell merge-cell)))
   
   
-  (method public (merge-cell-rect merge-cell)
-    (receive (top-left bottom-right) (merge-corner-site merge-cell)
+  (method public (merge-cell-rect self merge-cell)
+    (receive (top-left bottom-right) (merge-corner-site self merge-cell)
       (if (and top-left bottom-right)
-          (let ((top-left-rect (unmerged-site-rect top-left))
-                (bottom-right-rect (unmerged-site-rect bottom-right)))
-            (new Rect (get-left~ top-left-rect) (get-top~ top-left-rect) (get-right~ bottom-right-rect) (get-bottom~ bottom-right-rect)))
+          (let ((top-left-rect (unmerged-site-rect self top-left))
+                (bottom-right-rect (unmerged-site-rect self bottom-right)))
+            (new Rect (get-left top-left-rect) (get-top top-left-rect) (get-right bottom-right-rect) (get-bottom bottom-right-rect)))
         #f)))
   
   
-  (method public (invalidate-merge-cell merge-cell)
-    (when (view-visible?)
-      (with-transformation-surface
+  (method public (invalidate-merge-cell self merge-cell)
+    (when (view-visible? self)
+      (with-transformation-surface self
         (lambda (surface)
-          (with ((region (new Region rect: (logical->device~ surface (merge-cell-rect merge-cell)))))
-            (invalidate-region~ player region))))))
+          (with ((region (new Region rect: (logical->device surface (merge-cell-rect self merge-cell)))))
+            (invalidate-region player region))))))
   
   
-  (method public (get-master-cell cell)
-    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
+  (method public (get-master-cell self cell)
+    (let ((merge-cell (safe-get-merge-cell self (cell->site self cell))))
       (if merge-cell
-          (get-master-cell~ merge-cell)
+          (get-master-cell merge-cell)
         cell)))
   
   
-  (method public (get-master-site site)
-    (let ((merge-cell (safe-get-merge-cell site)))
+  (method public (get-master-site self site)
+    (let ((merge-cell (safe-get-merge-cell self site)))
       (if merge-cell
-          (cell->site (get-master-cell~ merge-cell))
+          (cell->site self (get-master-cell merge-cell))
         site)))
   
   
-  (method public (get-top-site site)
-    (let ((merge-cell (safe-get-merge-cell site)))
+  (method public (get-top-site self site)
+    (let ((merge-cell (safe-get-merge-cell self site)))
       (if merge-cell
-          (cell->site (get-first-cell~ merge-cell))
+          (cell->site self (get-first-cell merge-cell))
         site)))
   
 
@@ -1869,58 +1872,58 @@
   ;;;
   
   
-  (method public (row-index target)
+  (method public (row-index self target)
     (continuation-capture
       (lambda (return)
-        (for-each-visible-row
+        (for-each-visible-row self
           (lambda (row line)
             (when (eq? row target)
               (continuation-return return line))))
         #f)))
   
   
-  (method public (user-data-row data (test: test eqv?) (include-invisibles?: include-invisibles? #f))
-    (let ((rows (if include-invisibles? (collect-rows) (collect-visible-rows))))
-      (find rows data key: get-user-data~ test: test return: 'item)))
+  (method public (user-data-row self data (test: test eqv?) (include-invisibles?: include-invisibles? #f))
+    (let ((rows (if include-invisibles? (collect-rows self) (collect-visible-rows self))))
+      (find rows data key: get-user-data test: test return: 'item)))
 
 
-  (method public (user-data-rows data-list (test: test eqv?) (include-invisibles?: include-invisibles? #f))
+  (method public (user-data-rows self data-list (test: test eqv?) (include-invisibles?: include-invisibles? #f))
     (let ((fact (new List-Factory)))
-      ((if include-invisibles? for-each-row for-each-visible-row)
+      ((if include-invisibles? (~ for-each-row self) (~ for-each-visible-row self))
        (lambda (row line)
-         (let ((user-data (get-user-data~ row)))
+         (let ((user-data (get-user-data row)))
            (when (member? user-data data-list test: test)
-             (put~ fact row)))))
-      (get-output~ fact)))
+             (put fact row)))))
+      (get-output fact)))
 
 
   ;; Because it returns the line, this method only makes sense on visible rows
-  (method public (user-data-index data (test: test eqv?))
+  (method public (user-data-index self data (test: test eqv?))
     (continuation-capture
       (lambda (return)
-        (for-each-visible-row
+        (for-each-visible-row self
           (lambda (row line)
-            (when (test (get-user-data~ row) data)
+            (when (test (get-user-data row) data)
               (continuation-return return line))))
         #f)))
 
 
   ;; Because it returns the line, this method only makes sense on visible rows
-  (method public (user-data-indexes data-list (test: test eqv?))
+  (method public (user-data-indexes self data-list (test: test eqv?))
     (let ((fact (new List-Factory)))
-      (for-each-visible-row
+      (for-each-visible-row self
         (lambda (row line)
-          (let ((user-data (get-user-data~ row)))
+          (let ((user-data (get-user-data row)))
             (when (member? user-data data-list test: test)
-              (put~ fact line)))))
-      (get-output~ fact)))
+              (put fact line)))))
+      (get-output fact)))
   
   
-  (method public (select-user-data-row data (test: test eqv?) (include-invisibles?: include-invisibles? #f) (error?: error? #t))
-    (let ((row (user-data-row data test: test include-invisibles?: include-invisibles?)))
+  (method public (select-user-data-row self data (test: test eqv?) (include-invisibles?: include-invisibles? #f) (error?: error? #t))
+    (let ((row (user-data-row self data test: test include-invisibles?: include-invisibles?)))
       (if (not row)
           (and error? (error "Unable to select user-data: {t}" data))
-        (set-single-selection (row->line row)))))
+        (set-single-selection self (row->line self row)))))
 
   
   ;;;
@@ -1928,69 +1931,69 @@
   ;;;
   
   
-  (method public (cell-values cell)
-    (values (get-row (get-line~ cell))
-            (get-column (get-col~ cell))))
+  (method public (cell-values self cell)
+    (values (get-row self (get-line cell))
+            (get-column self (get-col cell))))
   
   
-  (method public (get-site-data site)
-    (let ((row (get-row~ site))
-          (col (column->col (get-column~ site))))
-      (get-child~ row col)))
+  (method public (get-site-data self site)
+    (let ((row (get-row site))
+          (col (column->col self (get-column site))))
+      (get-child row col)))
   
   
-  (method public (get-cell-data cell)
-    (let ((row (get-row (get-line~ cell))))
+  (method public (get-cell-data self cell)
+    (let ((row (get-row self (get-line cell))))
       (and row
            (begin
-             (when (>= (get-col~ cell) (length (get-children~ row)))
+             (when (>= (get-col cell) (length (get-children row)))
                (set! selection '())
                (error "Sequence overrun"))
-             (get-child~ row (get-col~ cell))))))
+             (get-child row (get-col cell))))))
   
   
-  (method public (set-cell-data cell data)
-    (let ((row (get-row (get-line~ cell))))
-      (set-element! (get-children~ row) (get-col~ cell) data)))
+  (method public (set-cell-data self cell data)
+    (let ((row (get-row self (get-line cell))))
+      (set-element! (get-children row) (get-col cell) data)))
   
   
-  (method public (get-data-title data)
+  (method public (get-data-title self data)
     (cond ((is? data Tree-Label)
-           (get-title~ data))
+           (get-title data))
           ((is? data Tree-Data-View)
-           (get-title~ (get-preserved-data~ data)))))
+           (get-title (get-preserved-data data)))))
   
   
-  (method public (set-data-title data title)
+  (method public (set-data-title self data title)
     (cond ((is? data Tree-Label)
-           (set-title~ data title))
+           (set-title data title))
           ((is? data Tree-Data-View)
-           (set-title~ (get-preserved-data~ data) title))))
+           (set-title (get-preserved-data data) title))))
   
   
-  (method public (get-cell-title cell)
-    (let ((data (get-cell-data cell)))
+  (method public (get-cell-title self cell)
+    (let ((data (get-cell-data self cell)))
       (and data
-           (get-data-title data))))
+           (get-data-title self data))))
   
   
-  (method public (set-cell-title cell title)
-    (let ((data (get-cell-data cell)))
+  (method public (set-cell-title self cell title)
+    (let ((data (get-cell-data self cell)))
       (when data
-        (set-data-title data title))))
+        (set-data-title self data title))))
 
   
-  (method public (invalidate-site site)
-    (invalidate-rect (site-rect site)))
+  (method public (invalidate-site self site)
+    (invalidate-rect self (site-rect self site)))
   
   
-  (method public (invalidate-cell cell)
-    (invalidate-rect (cell-rect cell)))
+  (method public (invalidate-cell self cell)
+    (invalidate-rect self (cell-rect self cell)))
   
   
-  (method public (redraw-cell cell)
-    (invalidate-cell cell)
-    (update-view))
+  (method public (redraw-cell self cell)
+    (invalidate-cell self cell)
+    (update-view self))
 
 
   ;;;
@@ -1998,103 +2001,103 @@
   ;;;
   
   
-  (method override (expand/collapse row)
-    (let ((top (get-v~ (get-position~ row))))
-      (invalidate-rect (control-rect~ node-column row top)))
-    (case (get-state~ row)
-      ((dynamic) (dynamic-expand row))
-      (else (nextmethod row))))
+  (method override (expand/collapse self row)
+    (let ((top (get-v (get-position row))))
+      (invalidate-rect self (control-rect node-column row top)))
+    (case (get-state row)
+      ((dynamic) (dynamic-expand self row))
+      (else (nextmethod self row))))
   
   
-  (method public (dynamic-expand row)
-    (update-row row)
-    (expand row #t))
+  (method public (dynamic-expand self row)
+    (update-row self row)
+    (expand self row #t))
   
   
-  (method override (invalidate-expand row top dynamic?)
+  (method override (invalidate-expand self row top dynamic?)
     (when node-column
-      (invalidate-rect (image-rect~ node-column row top))
-      (if (and dynamic? (= (cardinality (get-sons~ row)) 0))
-          (invalidate-rect (control-rect~ node-column row top))
-        (invalidate-rect (plus/minus-rect~ node-column row top)))))
+      (invalidate-rect self (image-rect node-column row top))
+      (if (and dynamic? (= (cardinality (get-sons row)) 0))
+          (invalidate-rect self (control-rect node-column row top))
+        (invalidate-rect self (plus/minus-rect node-column row top)))))
   
   
-  (method override (invalidate-collapse line row top selected?)
+  (method override (invalidate-collapse self line row top selected?)
     (when node-column
-      (invalidate-rect (image-rect~ node-column row top))
+      (invalidate-rect self (image-rect node-column row top))
       (if selected?
-          (invalidate-rect (line-rect line))
-        (invalidate-rect (plus/minus-rect~ node-column row top)))))
+          (invalidate-rect self (line-rect self line))
+        (invalidate-rect self (plus/minus-rect node-column row top)))))
   
   
-  (method override (collapse-selection line removed)
+  (method override (collapse-selection self line removed)
     (case selection-mode
       ((cell)
        (when removed
-         (let ((cell (new Cell line (get-col~ removed))))
+         (let ((cell (new Cell line (get-col removed))))
            (unless (member? cell selection)
-             (set-selection (cons cell selection))))))
+             (set-selection self (cons cell selection))))))
       (else
-       (when (and removed (not (line-selected? line)))
-         (set-selection (cons line selection)))))
+       (when (and removed (not (line-selected? self line)))
+         (set-selection self (cons line selection)))))
     (unless selection-pivot
       (set! selection-pivot (and (not-null? selection) (car selection)))))
   
   
-  (method public (auto-expand/collapse row (close-auto-expanded?: close-auto-expanded? #t) (auto-toggle?: auto-toggle? #f))
+  (method public (auto-expand/collapse self row (close-auto-expanded?: close-auto-expanded? #t) (auto-toggle?: auto-toggle? #f))
     (define (auto-toggle row auto-toggle?)
-      (if (expanded?~ row)
+      (if (expanded? row)
           (when auto-toggle?
-            (when (collapsable?~ row)
-              (collapse row))
+            (when (collapsable? row)
+              (collapse self row))
             (set! auto-expanded-row #f))
-        (when (expandable?~ row)
-          (expand/collapse row))
+        (when (expandable? row)
+          (expand/collapse self row))
         (set! auto-expanded-row row)))
     
-    (let ((selected-rows (selection->rows selection)))
-      (cond ((mouse-down?~ selection-manager)
+    (let ((selected-rows (selection->rows self selection)))
+      (cond ((mouse-down? selection-manager)
              (when (and close-auto-expanded? auto-expanded-row (neq? auto-expanded-row row))
-               (close-auto-expanded new-spine: (and row (get-spine~ row)) force?: #f)
+               (close-auto-expanded self new-spine: (and row (get-spine row)) force?: #f)
                (set! delayed-autorow auto-expanded-row)
                (set! auto-expanded-row #f)))
-            ((mouse-up?~ selection-manager)
+            ((mouse-up? selection-manager)
              (when delayed-autorow
                (if row
-                   (close-delayed-row new-spine: (get-spine~ row))
-                 (let ((row (if (expanded?~ delayed-autorow)
+                   (close-delayed-row self new-spine: (get-spine row))
+                 (let ((row (if (expanded? delayed-autorow)
                                 delayed-autorow
-                              (get-father~ delayed-autorow))))
-                   (when (collapsable?~ row)
-                     (collapse row)))
+                              (get-father delayed-autorow))))
+                   (when (collapsable? row)
+                     (collapse self row)))
                  (set! delayed-autorow #f)))
              (when row
                (auto-toggle row auto-toggle?)))
             (else
              (when close-auto-expanded?
-               (close-auto-expanded new-spine: (and row (get-spine~ row))))
+               (close-auto-expanded self new-spine: (and row (get-spine row))))
              (when row
                (auto-toggle row auto-toggle?))))
-      (set! selection (rows->selection selected-rows))))
+      (set! selection (rows->selection self selected-rows))))
   
   
-  (method public (close-delayed-row (new-spine: new-spine #f))
+  (method public (close-delayed-row self (new-spine: new-spine #f))
     (when delayed-autorow
-      (let ((old-spine (get-spine~ delayed-autorow))
+      (let ((old-spine (get-spine delayed-autorow))
             (done? #f))
         (set! delayed-autorow #f)
         (for-each-reversed (lambda (row)
                              (unless done?
                                (if (and new-spine (memq? row new-spine))
                                    (set! done? #t)
-                                 (when (collapsable?~ row)
-                                   (collapse row)))))
+                                 (when (collapsable? row)
+                                   (collapse self row)))))
                            old-spine))))
   
   
-  (method public (close-auto-expanded (new-spine: new-spine #f) (force?: force? #t))
+  (method public (close-auto-expanded self (new-spine: new-spine #f) (force?: force? #t))
     (when auto-expanded-row
-      (let ((old-spine (get-spine~ auto-expanded-row))
+      (let ((old-spine (get-spine auto-expanded-row))
             (done? #f))
         (set! auto-expanded-row #f)
         (for-each-reversed (lambda (row)
@@ -2102,26 +2105,26 @@
                                (if (and new-spine (memq? row new-spine))
                                    (set! done? #t)
                                  (if force?
-                                     (when (collapsable?~ row)
-                                       (collapse row))
+                                     (when (collapsable? row)
+                                       (collapse self row))
                                    (set! auto-expanded-row row)
                                    (set! done? #t)))))
                            old-spine))))
   
   
-  (method (close-auto-expanded-row)
+  (method (close-auto-expanded-row self)
     (when auto-expanded-row
-      (when (collapsable?~ auto-expanded-row)
-        (collapse auto-expanded-row))
+      (when (collapsable? auto-expanded-row)
+        (collapse self auto-expanded-row))
       (set! auto-expanded-row #f)))
   
   
-  (method public (set-dynamic row)
-    (when (neq? (get-state~ row) 'dynamic)
-      (set-state~ row 'dynamic)
-      (let* ((line (row->line row))
-             (top (row-top line)))
-        (invalidate-rect (control-rect~ node-column row top)))))
+  (method public (set-dynamic self row)
+    (when (neq? (get-state row) 'dynamic)
+      (set-state row 'dynamic)
+      (let* ((line (row->line self row))
+             (top (row-top self line)))
+        (invalidate-rect self (control-rect node-column row top)))))
 
   
   ;;;
@@ -2129,17 +2132,17 @@
   ;;;
 
 
-  (method override (ensure-displayed . rest)
+  (method override (ensure-displayed self . rest)
     (when (not-null? selection)
       (if (eq? selection-mode 'cell)
-          (ensure-cell-displayed (car selection))
-        (ensure-row-displayed (selection-row (car selection))))))
+          (ensure-cell-displayed self (car selection))
+        (ensure-row-displayed self (selection-row self (car selection))))))
   
   
-  (method (ensure-cell-displayed cell)
-    (let ((rect (cell-rect cell)))
+  (method package (ensure-cell-displayed self cell)
+    (let ((rect (cell-rect self cell)))
       ;; the second pos should take in the cell width and height
-      (scroll (scroll-needed (rect-position rect) (rect-end-position rect) (get-scroll-context)))))
+      (scroll self (scroll-needed self (rect-position rect) (rect-end-position rect) (get-scroll-context self)))))
 
   
   ;;;
@@ -2147,105 +2150,105 @@
   ;;;
 
 
-  (method (cell->site cell)
+  (method package (cell->site self cell)
     (if (is? cell Cell)
-        (let ((column (get-column (get-col~ cell)))
-              (row (get-row (get-line~ cell))))
+        (let ((column (get-column self (get-col cell)))
+              (row (get-row self (get-line cell))))
           (new Site row column))
       cell))
 
 
-  (method (row/column->site row column)
+  (method package (row/column->site self row column)
     (new Site row column))
 
 
-  (method (site->cell site)
+  (method package (site->cell self site)
     (if (is? site Site)
-        (let ((col (column->col (get-column~ site)))
-              (line (row->line (get-row~ site))))
+        (let ((col (column->col self (get-column site)))
+              (line (row->line self (get-row site))))
           (new Cell line col))
       site))
 
 
-  (method (site->line/col site)
-    (let ((col (column->col (get-column~ site)))
-          (line (row->line (get-row~ site))))
+  (method (site->line/col self site)
+    (let ((col (column->col self (get-column site)))
+          (line (row->line self (get-row site))))
       (values line col)))
 
   
-  (method (process-multi-selection-row element shift? control? user-origin)
+  (method (process-multi-selection-row self element shift? control? user-origin)
     (cond ((and shift? control?)
            (set! selection-pivot element)
            (unless (member? element selection)
-             (set-selection (list element) set-pivot?: #f user-origin: user-origin)))
+             (set-selection self (list element) set-pivot?: #f user-origin: user-origin)))
           (shift?
             (let ((pivot (or selection-pivot 0)))
-              (cond ((= element pivot) (set-selection (list element) set-pivot?: #f user-origin: user-origin))
-                    ((> element pivot) (set-selection (naturals pivot (+ element 1)) set-pivot?: #f user-origin: user-origin))
-                    ((< element pivot) (set-selection (naturals element (+ pivot 1)) set-pivot?: #f user-origin: user-origin)))))
+              (cond ((= element pivot) (set-selection self (list element) set-pivot?: #f user-origin: user-origin))
+                    ((> element pivot) (set-selection self (naturals pivot (+ element 1)) set-pivot?: #f user-origin: user-origin))
+                    ((< element pivot) (set-selection self (naturals element (+ pivot 1)) set-pivot?: #f user-origin: user-origin)))))
           (control?
             (if (member? element selection test: nu=?)
-                (set-selection (remove element selection test: equal?) set-pivot?: #f user-origin: user-origin)
-              (set-selection (cons element selection) set-pivot?: #f user-origin: user-origin))
+                (set-selection self (remove element selection test: equal?) set-pivot?: #f user-origin: user-origin)
+              (set-selection self (cons element selection) set-pivot?: #f user-origin: user-origin))
             (when (and selection-pivot (= element selection-pivot))
               (cond ((null? selection) (set! selection-pivot #f))
                     ((< selection-pivot (car selection)) (set! selection-pivot (car selection)))
                     ((> selection-pivot (last selection)) (set! selection-pivot (last selection))))))))
   
 
-  (method (process-multi-selection-cell element shift? control? user-origin)
+  (method (process-multi-selection-cell self element shift? control? user-origin)
     (cond ((and shift? control?)
            (set! selection-pivot element)
            (unless (member? element selection test: cell=?)
-             (set-selection (list element) set-pivot?: #f user-origin: user-origin)))
+             (set-selection self (list element) set-pivot?: #f user-origin: user-origin)))
           (shift?
-            (unless (or (and selection-pivot (/= (get-col~ element) (get-col~ selection-pivot)))
+            (unless (or (and selection-pivot (/= (get-col element) (get-col selection-pivot)))
                         (not selection-pivot))
-              (let ((col (get-col~ selection-pivot))
-                    (element (get-line~ element))
-                    (pivot (get-line~ selection-pivot)))
+              (let ((col (get-col selection-pivot))
+                    (element (get-line element))
+                    (pivot (get-line selection-pivot)))
                 (define (make-cell line)
                   (new Cell line col))
-                (cond ((= element pivot) (set-selection (map make-cell (list element)) set-pivot?: #f user-origin: user-origin))
-                      ((> element pivot) (set-selection (map make-cell (naturals pivot (+ element 1))) set-pivot?: #f user-origin: user-origin))
-                      ((< element pivot) (set-selection (map make-cell (naturals element (+ pivot 1))) set-pivot?: #f user-origin: user-origin))))))
+                (cond ((= element pivot) (set-selection self (map make-cell (list element)) set-pivot?: #f user-origin: user-origin))
+                      ((> element pivot) (set-selection self (map make-cell (naturals pivot (+ element 1))) set-pivot?: #f user-origin: user-origin))
+                      ((< element pivot) (set-selection self (map make-cell (naturals element (+ pivot 1))) set-pivot?: #f user-origin: user-origin))))))
           (control?
             (if (member? element selection test: cell=?)
-                (set-selection (remove element selection test: cell=?) set-pivot?: #f user-origin: user-origin)
-              (set-selection (cons element selection) set-pivot?: #f user-origin: user-origin))
+                (set-selection self (remove element selection test: cell=?) set-pivot?: #f user-origin: user-origin)
+              (set-selection self (cons element selection) set-pivot?: #f user-origin: user-origin))
             (when selection-pivot
-              (let ((element-col (get-col~ element))
-                    (pivot-col (get-col~ selection-pivot)))
+              (let ((element-col (get-col element))
+                    (pivot-col (get-col selection-pivot)))
                 (if (= element-col pivot-col)
                     (when (cell=? element selection-pivot)
-                      (let ((pivot-line (get-line~ selection-pivot)))
+                      (let ((pivot-line (get-line selection-pivot)))
                         (cond ((null? selection) (set! selection-pivot #f))
-                              ((< pivot-line (get-line~ (car selection))) (set! selection-pivot (car selection)))
-                              ((> pivot-line (get-line~ (last selection))) (set! selection-pivot (last selection))))))
+                              ((< pivot-line (get-line (car selection))) (set! selection-pivot (car selection)))
+                              ((> pivot-line (get-line (last selection))) (set! selection-pivot (last selection))))))
                   (set! selection-pivot #f)))))))
   
   
-  (method public (process-selection cell shift? control? user-origin)
-    (let ((element (case selection-mode ((cell) cell) (else (get-line~ cell)))))
+  (method public (process-selection self cell shift? control? user-origin)
+    (let ((element (case selection-mode ((cell) cell) (else (get-line cell)))))
       (if (and multiple-selection? (or shift? control?))
           ((case selection-mode
-             ((cell) process-multi-selection-cell)
-             ((row)  process-multi-selection-row)) element shift? control? user-origin)
-        (when (and (not always-select?) (member? element selection test: (if (eq? selection-mode 'cell) cell=? equal?)) (allow-start-drag?~ selection-manager))
-          (delay-selection~ selection-manager))
+             ((cell) (~ process-multi-selection-cell self))
+             ((row)  (~ process-multi-selection-row self))) element shift? control? user-origin)
+        (when (and (not always-select?) (member? element selection test: (if (eq? selection-mode 'cell) cell=? equal?)) (allow-start-drag? selection-manager))
+          (delay-selection selection-manager))
         (set! selection-pivot element)
-        (set-selection (list element) set-pivot?: #f user-origin: user-origin))))
+        (set-selection self (list element) set-pivot?: #f user-origin: user-origin))))
   
   
-  (method override (get-selection)
+  (method override (get-selection self)
     selection)
   
   
-  (method public (get-ordered-selection)
+  (method public (get-ordered-selection self)
     (sort < selection))
   
   
-  (method override (set-selection sel
+  (method override (set-selection self sel
                                   (force?: force? #f)
                                   (set-pivot?: set-pivot? #t)
                                   (ensure-displayed?: ensure-displayed? #t)
@@ -2255,15 +2258,15 @@
     (define (inval-selection selection)
       (when (not-null? selection)
         (for-each (lambda (cell)
-                    (let ((merge-cell (and (is? cell Cell) (get-merge-cell (cell->site cell)))))
+                    (let ((merge-cell (and (is? cell Cell) (get-merge-cell self (cell->site self cell)))))
                       (if merge-cell
-                          (invalidate-merge-cell merge-cell)
-                        (invalidate-selection (list cell)))))
+                          (invalidate-merge-cell self merge-cell)
+                        (invalidate-selection self (list cell)))))
                   selection)))
     
-    (unless (locked?~ selection-manager)
-      (reset~ locator)
-      (when (change-selection?~ selection-manager)
+    (unless (locked? selection-manager)
+      (reset locator)
+      (when (change-selection? selection-manager)
         (let ((old-selection selection))
           (set! selection sel)
           (when set-pivot?
@@ -2271,53 +2274,53 @@
           (inval-selection old-selection)
           (inval-selection selection)
           (when generate-event?
-            (selection-change old-selection force? user-origin))))
+            (selection-change self old-selection force? user-origin))))
       (when (and auto-expand/collapse? auto-expand? (eq? user-origin 'mouse))
         (unless multiple-selection?
-          (let ((auto-row (and (not-null? sel) (get-row (selection-row (car sel))))))
-            (when (or (not auto-row) (collapsed?~ auto-row))
-              (auto-expand/collapse auto-row auto-toggle?: #t)))))
-      (let ((selection-cell (selection-cell)))
+          (let ((auto-row (and (not-null? sel) (get-row self (selection-row self (car sel))))))
+            (when (or (not auto-row) (collapsed? auto-row))
+              (auto-expand/collapse self auto-row auto-toggle?: #t)))))
+      (let ((selection-cell (selection-cell self)))
         (when selection-cell
-          (let ((data (get-cell-data selection-cell)))
+          (let ((data (get-cell-data self selection-cell)))
             (when (is? data View)
-              (let ((outline-view (get-outline-view~ data)))
+              (let ((outline-view (get-outline-view data)))
                 (when (and (eq? outline-view self)
-                           (is-focused?))
-                  (acquire-focus~ data)))))))
-      (when (and ensure-displayed? (end-delayed?~ selection-manager))
-        (ensure-displayed))))
+                           (is-focused? self))
+                  (acquire-focus data)))))))
+      (when (and ensure-displayed? (end-delayed? selection-manager))
+        (ensure-displayed self))))
   
   
-  (method protected virtual (selection-change old-selection force? user-origin)
-    (with-locked-operation~ selection-manager
+  (method package virtual (selection-change self old-selection force? user-origin)
+    (with-locked-operation selection-manager
       (lambda ()
-        (call-selection-handler old-selection selection force? user-origin))))
+        (call-selection-handler self old-selection selection force? user-origin))))
   
   
-  (method public (get-selection-state (use: use 'row))
+  (method public (get-selection-state self (use: use 'row))
     (define (save-selection selection)
       (case selection-mode
         ((cell) (map save-cell selection))
         (else (map save-row selection))))
     
     (define (save-cell cell)
-      (cons (save-row (get-line~ cell)) (get-col~ cell)))
+      (cons (save-row (get-line cell)) (get-col cell)))
     
     (define (save-row line)
       (case use
-        ((row) (get-row line))
+        ((row) (get-row self line))
         ((rank) line)
         ((text) (line->text line))
-        ((data) (get-user-data~ (get-row line)))))
+        ((data) (get-user-data (get-row self line)))))
     
     (define (line->text line)
-      (map row-title (get-spine~ (get-row line))))
+      (map (~ row-title self) (get-spine (get-row self line))))
     
-    (let ((saved-selection (save-selection (get-selection)))
-          (saved-position (nu+ (get-scrolled-position) (selection-position (get-selection))))
+    (let ((saved-selection (save-selection (get-selection self)))
+          (saved-position (nu+ (get-scrolled-position self) (selection-position self (get-selection self))))
           (saved-pivot (and selection-pivot (save-selection (list selection-pivot))))
-          (saved-edited (and edited-site (save-cell (site->cell edited-site)))))
+          (saved-edited (and edited-site (save-cell (site->cell self edited-site)))))
       (list use
             saved-selection
             saved-position
@@ -2325,13 +2328,13 @@
             saved-edited)))
   
   
-  (method public (set-selection-state state (test: test eqv?) (ensure-expanded?: ensure-expanded? #f) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
+  (method public (set-selection-state self state (test: test eqv?) (ensure-expanded?: ensure-expanded? #f) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
     (bind (use saved-selection saved-position saved-pivot saved-edited) state
       (let ((row->line (if ensure-expanded?
                            (lambda (row)
-                             (ensure-expanded row)
-                             (row->line row))
-                         row->line)))
+                             (ensure-expanded self row)
+                             (row->line self row))
+                         (~ row->line self))))
         (define (restore-selection saved-selection)
           (remove-false
             (case selection-mode
@@ -2349,13 +2352,13 @@
             ((row) (row->line saved))
             ((rank) saved)
             ((text) (text->line saved))
-            ((data) (user-data-index saved test: test))))
+            ((data) (user-data-index self saved test: test))))
         
         (define (text->line text)
           (let (iter (row root-row) (text text))
             (if (null? text)
                 (row->line row)
-              (let ((subrow (find-by-title~ row (car text))))
+              (let ((subrow (find-by-title row (car text))))
                 (and subrow
                      (iter subrow (cdr text)))))))
         
@@ -2367,136 +2370,136 @@
         (when saved-edited
           (let ((edited (restore-cell saved-edited)))
             (if (not edited)
-                (kill-edition)
-              (set! edited-site (cell->site (get-master-cell edited)))
-              (replace-site edited-site cell-editor)
-              (let* ((rect (site-rect edited-site))
-                     (size (new Dimension (- (get-right~ rect) (get-left~ rect)) (- (get-bottom~ rect) (get-top~ rect)))))
-                (set-size~ cell-editor size)))))
+                (kill-edition self)
+              (set! edited-site (cell->site self (get-master-cell self edited)))
+              (replace-site self edited-site cell-editor)
+              (let* ((rect (site-rect self edited-site))
+                     (size (new Dimension (- (get-right rect) (get-left rect)) (- (get-bottom rect) (get-top rect)))))
+                (set-size cell-editor size)))))
         (let ((selection (restore-selection saved-selection)))
-          (scroll-to (nu- saved-position (selection-position selection)))
-          (set-selection selection ensure-displayed?: ensure-displayed? generate-event?: generate-event? auto-expand?: #f)))))
+          (scroll-to self (nu- saved-position (selection-position self selection)))
+          (set-selection self selection ensure-displayed?: ensure-displayed? generate-event?: generate-event? auto-expand?: #f)))))
   
   
-  (method (selection-position selection)
-    (with ((region (selection-region selection identity no-clipping?: #t)))
-      (rect-position (get-box~ region))))
+  (method (selection-position self selection)
+    (with ((region (selection-region self selection identity no-clipping?: #t)))
+      (rect-position (get-box region))))
   
   
-  (method public (with-preserved-selection thunk (use: use 'row) (test: test eqv?) (ensure-expanded?: ensure-expanded? #f) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
-    (let ((saved-state (get-selection-state use: use)))
+  (method public (with-preserved-selection self thunk (use: use 'row) (test: test eqv?) (ensure-expanded?: ensure-expanded? #f) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
+    (let ((saved-state (get-selection-state self use: use)))
       (thunk)
-      (set-selection-state saved-state test: test ensure-expanded?: ensure-expanded? ensure-displayed?: ensure-displayed? generate-event?: generate-event?)))
+      (set-selection-state self saved-state test: test ensure-expanded?: ensure-expanded? ensure-displayed?: ensure-displayed? generate-event?: generate-event?)))
   
   
-  (method public (get-single-selection)
+  (method public (get-single-selection self)
     (if (null? selection)
         #f
       (car selection)))
   
   
-  (method public (set-single-selection sel . rest)
+  (method public (set-single-selection self sel . rest)
     (assert (or (integer? sel) (is? sel Cell)))
-    (apply set-selection (list sel) rest))
+    (apply (~ set-selection self) (list sel) rest))
   
   
-  (method public (select-first-row)
-    (when (and (null? selection) (> (get-visible-count) 0))
-      (set-selection (list 0))))
+  (method public (select-first-row self)
+    (when (and (null? selection) (> (get-visible-count self) 0))
+      (set-selection self (list 0))))
   
   
-  (method public (select-first-data)
+  (method public (select-first-data self)
     (define (find-data)
       (continuation-capture
         (lambda (return)
-          (for-each-visible-row
+          (for-each-visible-row self
             (lambda (row line)
-              (when (get-user-data~ row)
+              (when (get-user-data row)
                 (continuation-return return line))))
           #f)))
     
     (let ((line (find-data)))
       (when line
-        (set-selection (list line)))))
+        (set-selection self (list line)))))
   
   
-  (method (selected-row-proc)
+  (method (selected-row-proc self)
     (case selection-mode
       ((cell)
        (lambda (cell)
-         (get-row (get-line~ cell))))
+         (get-row self (get-line cell))))
       (else
-       get-row)))
+       (~ get-row self))))
   
   
-  (method public (get-selected-row)
-    (let ((selection (get-single-selection)))
+  (method public (get-selected-row self)
+    (let ((selection (get-single-selection self)))
       (and selection
-           ((selected-row-proc) selection))))
+           ((selected-row-proc self) selection))))
   
   
-  (method public (get-selected-rows)
-    (map (selected-row-proc) (sort < selection)))
+  (method public (get-selected-rows self)
+    (map (selected-row-proc self) (sort < selection)))
   
   
-  (method public (get-selected-data)
-    (map get-user-data~ (get-selected-rows)))
+  (method public (get-selected-data self)
+    (map get-user-data (get-selected-rows self)))
   
   
-  (method public (get-single-selected-data)
-    (let ((row (get-selected-row)))
+  (method public (get-single-selected-data self)
+    (let ((row (get-selected-row self)))
       (and row
-           (get-user-data~ row))))
+           (get-user-data row))))
   
   
-  (method public (get-selection-data selection)
+  (method public (get-selection-data self selection)
     (map (lambda (line)
-           (let ((row (get-row line)))
-             (get-user-data~ row)))
+           (let ((row (get-row self line)))
+             (get-user-data row)))
          selection))
   
   
-  (method public (with-deleted-selection selection proc (can-survive?: can-survive? #f))
-    (let* ((selected-lines (if (eq? selection-mode 'cell) (map get-line~ selection) selection))
-           (data (and can-survive? (get-selection-data selected-lines)))
+  (method public (with-deleted-selection self selection proc (can-survive?: can-survive? #f))
+    (let* ((selected-lines (if (eq? selection-mode 'cell) (map get-line selection) selection))
+           (data (and can-survive? (get-selection-data self selected-lines)))
            (smallest (apply min selected-lines)))
       (proc)
-      (let ((sel (and can-survive? (remove-false (map user-data-index data)))))
+      (let ((sel (and can-survive? (remove-false (map (~ user-data-index self) data)))))
         (if (and can-survive? (= (length selection) (length sel)))
-            (set-selection sel)
+            (set-selection self sel)
           (when (and smallest (> smallest 0))
             (let ((previous (- smallest 1)))
-              (set-single-selection (if (eq? selection-mode 'cell) (new Cell previous 0) previous))))))))
+              (set-single-selection self (if (eq? selection-mode 'cell) (new Cell previous 0) previous))))))))
   
   
-  (method (selection->rows selection)
+  (method (selection->rows self selection)
     (case selection-mode
       ((cell)
        (map (lambda (cell)
-              (cons (get-visible-row (get-line~ cell)) (get-col~ cell)))
+              (cons (get-visible-row self (get-line cell)) (get-col cell)))
             selection))
       (else
-       (map get-visible-row selection))))
+       (map (~ get-visible-row self) selection))))
   
   
-  (method (rows->selection rows)
+  (method (rows->selection self rows)
     (case selection-mode
       ((cell)
        (remove-false (map (lambda (pair)
                             (bind (row . col) pair
-                              (new Cell (row-index row) col)))
+                              (new Cell (row-index self row) col)))
                           rows)))
       (else
-       (remove-false (map row-index rows)))))
+       (remove-false (map (~ row-index self) rows)))))
   
   
   ;; update slots that are line based
-  (method override (added-update-selection line count)
+  (method override (added-update-selection self line count)
     (let ((proc (case selection-mode
                   ((cell) (lambda (cell)
-                            (let ((l (get-line~ cell)))
+                            (let ((l (get-line cell)))
                               (if (>= l line)
-                                  (new Cell (+ l count) (get-col~ cell))
+                                  (new Cell (+ l count) (get-col cell))
                                 cell))))
                   (else (lambda (l)
                           (if (>= l line)
@@ -2510,16 +2513,16 @@
   
   
   ;; update slots that are line based
-  (method override (removed-update-selection line count)
+  (method override (removed-update-selection self line count)
     (let ((end-line (+ line count))
           (removed #f))
       (let ((proc (case selection-mode
                     ((cell) (lambda (cell)
-                              (let ((l (get-line~ cell)))
+                              (let ((l (get-line cell)))
                                 (cond ((< l line)
                                        cell)
                                       ((>= l end-line)
-                                       (new Cell (- l count) (get-col~ cell)))
+                                       (new Cell (- l count) (get-col cell)))
                                       (else
                                        #f)))))
                     (else (lambda (l)
@@ -2541,56 +2544,56 @@
         removed)))
 
   
-  (method override (selection-region sel transformer (no-clipping?: no-clipping? #f))
+  (method override (selection-region self sel transformer (no-clipping?: no-clipping? #f))
     (define (element-region element)
       (case selection-mode
-        ((cell) (new Region rect: (transformer (cell-rect element))))
-        (else (selection-row-region element transformer))))
+        ((cell) (new Region rect: (transformer (cell-rect self element))))
+        (else (selection-row-region self element transformer))))
     
     (let ((region (new Region)))
       (loop (for element in sel)
-            (let ((merge-cell (safe-get-merge-cell (cell->site element))))
+            (let ((merge-cell (safe-get-merge-cell self (cell->site self element))))
               (if merge-cell
-                  (with ((row-region (new Region rect: (transformer (merge-cell-rect merge-cell)))))
-                    (combine-or!~ region row-region))
+                  (with ((row-region (new Region rect: (transformer (merge-cell-rect self merge-cell)))))
+                    (combine-or! region row-region))
                 (with ((row-region (element-region element)))
-                  (combine-or!~ region row-region)))))
+                  (combine-or! region row-region)))))
       (unless no-clipping?
-        (with ((clipper (new Region rect: (transformer (get-view-clipper)))))
-          (combine-and!~ region clipper)))
+        (with ((clipper (new Region rect: (transformer (get-view-clipper self)))))
+          (combine-and! region clipper)))
       region))
   
   
-  (method override (selection-row-rect line)
+  (method override (selection-row-rect self line)
     (define (left-with-node row)
-      (let* ((node-left (row-text-left~ node-column row))
+      (let* ((node-left (row-text-left node-column row))
              (columns-left (if (> (length columns) 1)
-                               (borders-left (get-borders~ (second columns)))
+                               (borders-left (get-borders (second columns)))
                              node-left)))
         (min node-left columns-left)))
     
     (define (left-without-node)
-      (borders-left (get-borders~ (first columns))))
+      (borders-left (get-borders (first columns))))
     
-    (let ((row (get-row line)))
+    (let ((row (get-row self line)))
       (let ((left   (if node-column (left-with-node row) (left-without-node)))
-            (top    (get-v~ (get-position~ row))))
-        (new Rect (- left 3) top columns-right (+ top (get-height~ row))))))
+            (top    (get-v (get-position row))))
+        (new Rect (- left 3) top columns-right (+ top (get-height row))))))
   
   
-  (method (selection-row element)
+  (method (selection-row self element)
     (case selection-mode
-      ((cell) (get-line~ element))
+      ((cell) (get-line element))
       (else element)))
   
   
-  (method (selection-cell)
+  (method (selection-cell self)
     (and (not multiple-selection?)
-         (let ((selection (get-single-selection)))
+         (let ((selection (get-single-selection self)))
            (and selection
                 (case selection-mode
                   ((cell) selection)
-                  ((row) (and (= 1 (get-columns-count))
+                  ((row) (and (= 1 (get-columns-count self))
                               (new Cell selection 0)))
                   ((node) (new Cell selection 0)))))))
   
@@ -2600,14 +2603,14 @@
   ;;;
   
   
-  (method override (get-view-state (use: use 'row))
-    (list (get-expand-state) (get-selection-state use: use)))
+  (method override (get-view-state self (use: use 'row))
+    (list (get-expand-state self) (get-selection-state self use: use)))
   
   
-  (method override (set-view-state state)
+  (method override (set-view-state self state)
     (bind (expand-state selection-state) state
-      (set-expand-state expand-state)
-      (set-selection-state selection-state)))
+      (set-expand-state self expand-state)
+      (set-selection-state self selection-state)))
   
   
   ;;;
@@ -2615,9 +2618,9 @@
   ;;;
   
   
-  (method public (cell-visible? cell)
-    (and (< (get-line~ cell) visible-count)
-         (< (get-col~ cell) (get-columns-count))))
+  (method public (cell-visible? self cell)
+    (and (< (get-line cell) visible-count)
+         (< (get-col cell) (get-columns-count self))))
 
 
   ;;;
@@ -2643,99 +2646,99 @@
   
   
   ;; temp patch to be virtual...
-  (method override (line-rect line <fx>) <Rect>
-    (let* ((row   (get-row line))
-           (left  (borders-left (get-borders~ (car columns))))
-           (top   (get-v~ (get-position~ row)))
+  (method override (line-rect self line <fx>) <Rect>
+    (let* ((row   (get-row self line))
+           (left  (borders-left (get-borders (car columns))))
+           (top   (get-v (get-position row)))
            (right columns-right))
-      (new Rect left top right (+ top (get-height~ row)))))
+      (new Rect left top right (+ top (get-height row)))))
   
   
-  (method public (cell-position cell <Cell>) <Point>
-    (let ((rect (cell-rect cell)))
-      (new Point (get-left~ rect) (get-top~ rect))))
+  (method public (cell-position self cell <Cell>) <Point>
+    (let ((rect (cell-rect self cell)))
+      (new Point (get-left rect) (get-top rect))))
   
   
-  (method public (site-rect site <Site>) <Rect>
-    (let ((merge-cell (safe-get-merge-cell site)))
+  (method public (site-rect self site <Site>) <Rect>
+    (let ((merge-cell (safe-get-merge-cell self site)))
       (if merge-cell
-          (merge-cell-rect merge-cell)
-        (unmerged-site-rect site))))
+          (merge-cell-rect self merge-cell)
+        (unmerged-site-rect self site))))
   
   
-  (method public (cell-rect cell <Cell>) <Rect>
-    (site-rect (cell->site cell)))
+  (method public (cell-rect self cell <Cell>) <Rect>
+    (site-rect self (cell->site self cell)))
 
   
-  (method public (unmerged-site-rect site <Site>) <Rect>
-    (let* ((borders (get-borders~ (get-column~ site)))
-           (row (get-row~ site))
-           (top (get-v~ (get-position~ row))))
-      (new Rect (borders-left borders) top (borders-right borders) (+ top (get-height~ row)))))
+  (method public (unmerged-site-rect self site <Site>) <Rect>
+    (let* ((borders (get-borders (get-column site)))
+           (row (get-row site))
+           (top (get-v (get-position row))))
+      (new Rect (borders-left borders) top (borders-right borders) (+ top (get-height row)))))
   
   
-  (method public (cell-region cell <Cell>) <Region>
-    (new Region rect: (cell-rect cell)))
+  (method public (cell-region self cell <Cell>) <Region>
+    (new Region rect: (cell-rect self cell)))
   
   
-  (method (cell-content-rect cell <Cell>) <Rect>
-    (let* ((line    (get-line~ cell))
-           (col     (get-col~ cell))
-           (row     (get-row line))
-           (column  (get-column col))
-           (top     (get-v~ (get-position~ row)))
-           (data    (get-cell-data cell))
-           (width   (get-width~ column))
-           (borders (get-borders~ column))
+  (method (cell-content-rect self cell <Cell>) <Rect>
+    (let* ((line    (get-line cell))
+           (col     (get-col cell))
+           (row     (get-row self line))
+           (column  (get-column self col))
+           (top     (get-v (get-position row)))
+           (data    (get-cell-data self cell))
+           (width   (get-width column))
+           (borders (get-borders column))
            (left    (borders-left borders)))
-      (offset-rect (content-rect~ column row data width (get-height~ row)) left top)))
+      (offset-rect (content-rect column row data width (get-height row)) left top)))
     
   
-  (method (cell-text-rect cell <Cell>) <Rect>
-    (let* ((line  (get-line~ cell))
-           (col   (get-col~ cell))
-           (row   (get-row line))
-           (top   (get-v~ (get-position~ row)))
-           (data  (get-cell-data cell))
-           (width (get-width~ node-column)))
-      (offset-rect (text-rect~ (get-column col) row data width (get-height~ row) #f) 0 top)))
+  (method (cell-text-rect self cell <Cell>) <Rect>
+    (let* ((line  (get-line cell))
+           (col   (get-col cell))
+           (row   (get-row self line))
+           (top   (get-v (get-position row)))
+           (data  (get-cell-data self cell))
+           (width (get-width node-column)))
+      (offset-rect (text-rect (get-column self col) row data width (get-height row) #f) 0 top)))
   
   
-  (method public (view->tree pos <Point> (any?: any? #f) (uniform-height?: uniform-height? #f))
+  (method public (view->tree self pos <Point> (any?: any? #f) (uniform-height?: uniform-height? #f))
     (define (visible-cell cell)
       (if any?
           cell
-        (and (cell-visible? cell)
+        (and (cell-visible? self cell)
              cell)))
     
-    (let ((line (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->line (get-v~ pos))))
-          (col (h->col (get-h~ pos))))
+    (let ((line (if uniform-height? (quotient (get-v pos) default-row-height) (v->line self (get-v pos))))
+          (col (h->col self (get-h pos))))
       (and line col (>= line 0)
         (let ((cell (new Cell line col)))
-          (let ((merge-cell (get-merge-cell (cell->site cell))))
-            (visible-cell (if merge-cell (get-first-cell~ merge-cell) cell)))))))
+          (let ((merge-cell (get-merge-cell self (cell->site self cell))))
+            (visible-cell (if merge-cell (get-first-cell merge-cell) cell)))))))
 
 
-  (method public (call-with-view->tree pos <Point> proc)
-    (call-with-v->line (get-v~ pos)
+  (method public (call-with-view->tree self pos <Point> proc)
+    (call-with-v->line self (get-v pos)
       (lambda (line v height)
         (if line
-            (let ((col (h->col (get-h~ pos))))
+            (let ((col (h->col self (get-h pos))))
               (if (and line col (>= line 0))
                   (let ((cell (new Cell line col)))
-                    (if (cell-visible? cell)
+                    (if (cell-visible? self cell)
                         (proc cell v height)
                       (proc #f #f #f)))
                 (proc #f #f #f)))
           (proc #f #f #f)))))
   
 
-  (method public (h->col h)
+  (method public (h->col self h)
     (continuation-capture
       (lambda (return)
-        (loop (for col from 0 below (get-columns-count))
+        (loop (for col from 0 below (get-columns-count self))
               (for column in columns)
-              (bind (left . right) (get-borders~ column)
+              (bind (left . right) (get-borders column)
                 (when (and (<= h right) (/= left right))
                   (continuation-return return col))))
         #f)))
@@ -2746,165 +2749,165 @@
   ;;;
   
   
-  (method public (in-edition?)
+  (method public (in-edition? self)
     edited-site)
   
   
-  (method public (edit-cell cell (editor: editor #f) (after-end: after-end #f))
+  (method public (edit-cell self cell (editor: editor #f) (after-end: after-end #f))
     (assert (not update-locked?))
-    (assert (< (get-col~ cell) (get-columns-count)))
-    (end-edition)
-    (let ((rect (cell-editor-rect cell))
+    (assert (< (get-col cell) (get-columns-count self)))
+    (end-edition self)
+    (let ((rect (cell-editor-rect self cell))
           (view (new Tree-Data-View
-                  preserved-data: (get-cell-data cell)
+                  preserved-data: (get-cell-data self cell)
                   after-end: after-end
                   visible?: #f
                   children: (list editor)))
-          (site (cell->site cell)))
-      (replace-site (get-top-site site) view)
-      (set-rect~ view (acquire~ (get-parent~ view) self rect))
+          (site (cell->site self cell)))
+      (replace-site self (get-top-site self site) view)
+      (set-rect view (acquire (get-parent view) self rect))
       (set! edited-site site)
       (set! cell-editor view)
-      (set-visible?~ view #t)))
+      (set-visible? view #t)))
   
   
-  (method public (end-edition)
+  (method public (end-edition self)
     (when edited-site
       (let ((site edited-site)
             (editor cell-editor))
         (set! edited-site #f)
         (set! cell-editor #f)
-        (receive (line col) (site->line/col site)
+        (receive (line col) (site->line/col self site)
           (when (and line col)
-            (let ((bounds (cell-editor-rect (new Cell line col)))
-                  (after-end (get-after-end~ editor)))
-              (replace-site (get-master-site site) (get-preserved-data~ editor))
-              (close~ editor)
+            (let ((bounds (cell-editor-rect self (new Cell line col)))
+                  (after-end (get-after-end editor)))
+              (replace-site self (get-master-site self site) (get-preserved-data editor))
+              (close editor)
               (when after-end
                 (after-end site))
-              (invalidate-rect bounds)))))))
+              (invalidate-rect self bounds)))))))
   
   
-  (method public (kill-edition)
+  (method public (kill-edition self)
     (when edited-site
       (let ((site edited-site)
             (editor cell-editor))
         (set! edited-site #f)
         (set! cell-editor #f)
-        (replace-site (get-master-site site) (get-preserved-data~ editor))
-        (close~ editor))))
+        (replace-site self (get-master-site self site) (get-preserved-data editor))
+        (close editor))))
   
   
-  (method public (replace-site site child)
-    (replace-child~ (get-row~ site) (column->col (get-column~ site)) child))
+  (method public (replace-site self site child)
+    (replace-child (get-row site) (column->col self (get-column site)) child))
   
   
-  (method public (replace-cell cell child)
-    (replace-child~ (get-row (get-line~ cell)) (get-col~ cell) child))
+  (method public (replace-cell self cell child)
+    (replace-child (get-row self (get-line cell)) (get-col cell) child))
   
   
-  (method public (get-edited-cell)
-    (and edited-site (site->cell edited-site)))
+  (method public (get-edited-cell self)
+    (and edited-site (site->cell self edited-site)))
   
   
-  (method (cell-editor-rect cell)
+  (method (cell-editor-rect self cell)
     ;; quicky
-    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
+    (let ((merge-cell (safe-get-merge-cell self (cell->site self cell))))
       (if merge-cell
-          (merge-cell-rect merge-cell)
-        (let* ((line    (get-line~ cell))
-               (col     (get-col~ cell))
-               (row     (get-row line))
-               (column  (get-column col))
-               (top     (get-v~ (get-position~ row)))
-               (cell    (get-cell-data cell))
-               (width   (if show-header? (get-width~ column) (get-width)))
-               (borders (get-borders~ column))
+          (merge-cell-rect self merge-cell)
+        (let* ((line    (get-line cell))
+               (col     (get-col cell))
+               (row     (get-row self line))
+               (column  (get-column self col))
+               (top     (get-v (get-position row)))
+               (cell    (get-cell-data self cell))
+               (width   (if show-header? (get-width column) (get-width self)))
+               (borders (get-borders column))
                (left    (borders-left borders))
-               (h       (text-h~ column (get-level~ row)))
-               (rect    (content-rect~ column row cell width (get-height~ row))))
+               (h       (text-h column (get-level row)))
+               (rect    (content-rect column row cell width (get-height row))))
           (offset-rect rect left top)))))
   
   
-  (method public (cell-up cell)
-    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
+  (method public (cell-up self cell)
+    (let ((merge-cell (safe-get-merge-cell self (cell->site self cell))))
       (let ((line (- (if merge-cell
-                         (get-first-line~ merge-cell)
-                       (get-line~ cell)) 1))
-            (col (get-col~ cell)))
+                         (get-first-line merge-cell)
+                       (get-line cell)) 1))
+            (col (get-col cell)))
         (and (>= line 0)
              (new Cell line col)))))
   
   
-  (method public (cell-down cell (validate? #t))
-    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
+  (method public (cell-down self cell (validate? #t))
+    (let ((merge-cell (safe-get-merge-cell self (cell->site self cell))))
       (let ((line (+ (if merge-cell
-                         (get-last-line~ merge-cell)
-                       (get-line~ cell)) 1))
-            (col (get-col~ cell)))
-        (and (or (not validate?) (< line (get-visible-count)))
+                         (get-last-line merge-cell)
+                       (get-line cell)) 1))
+            (col (get-col cell)))
+        (and (or (not validate?) (< line (get-visible-count self)))
              (new Cell line col)))))
   
   
-  (method public (cell-left cell)
-    (let* ((merge-cell (safe-get-merge-cell (cell->site cell)))
-           (col (- (or (and merge-cell (get-first-col~ merge-cell))
-                       (get-col~ cell))
+  (method public (cell-left self cell)
+    (let* ((merge-cell (safe-get-merge-cell self (cell->site self cell)))
+           (col (- (or (and merge-cell (get-first-col merge-cell))
+                       (get-col cell))
                    1))
-           (cell (new Cell (get-line~ cell) col)))
+           (cell (new Cell (get-line cell) col)))
       (cond ((< col 0) #f)
-            ((get-visible?~ (get-column col))
+            ((get-visible? (get-column self col))
              cell)
             (else
-             (cell-left cell)))))
+             (cell-left self cell)))))
   
   
-  (method public (cell-right cell)
-    (let* ((merge-cell (safe-get-merge-cell (cell->site cell)))
-           (col (+ (or (and merge-cell (get-first-col~ merge-cell))
-                       (get-col~ cell))
+  (method public (cell-right self cell)
+    (let* ((merge-cell (safe-get-merge-cell self (cell->site self cell)))
+           (col (+ (or (and merge-cell (get-first-col merge-cell))
+                       (get-col cell))
                    1))
-           (cell (new Cell (get-line~ cell) col)))
-      (cond ((>= col (get-columns-count)) #f)
-            ((get-visible?~ (get-column col))
+           (cell (new Cell (get-line cell) col)))
+      (cond ((>= col (get-columns-count self)) #f)
+            ((get-visible? (get-column self col))
              cell)
             (else
-             (cell-right cell)))))
+             (cell-right self cell)))))
   
   
-  (method public (select-up cell)
-    (let ((sel (cell-up cell)))
+  (method public (select-up self cell)
+    (let ((sel (cell-up self cell)))
       (when sel
-        (end-edition)
-        (select-cell sel))))
+        (end-edition self)
+        (select-cell self sel))))
   
   
-  (method public (select-down cell (validate? #t))
-    (let ((sel (cell-down cell validate?)))
+  (method public (select-down self cell (validate? #t))
+    (let ((sel (cell-down self cell validate?)))
       (when sel
-        (end-edition)
-        (select-cell sel))))
+        (end-edition self)
+        (select-cell self sel))))
     
   
-  (method public (select-left cell)
-    (let ((sel (cell-left cell)))
+  (method public (select-left self cell)
+    (let ((sel (cell-left self cell)))
       (when sel
-        (end-edition)
-        (select-cell sel))))
+        (end-edition self)
+        (select-cell self sel))))
 
   
-  (method public (select-right cell)
-    (let ((sel (cell-right cell)))
+  (method public (select-right self cell)
+    (let ((sel (cell-right self cell)))
       (when sel
-        (end-edition)
-        (select-cell sel))))
+        (end-edition self)
+        (select-cell self sel))))
   
   
-  (method public virtual (select-cell cell . rest)
-    (set-single-selection 
+  (method public virtual (select-cell self cell . rest)
+    (set-single-selection self 
       (if (eq? selection-mode 'cell)
           cell
-        (get-line~ cell))))
+        (get-line cell))))
   
   
   ;;;
@@ -2912,7 +2915,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.tree.descriptors:Tree-View-Descriptor)))
 
 
@@ -2928,39 +2931,39 @@
   (slot column initialize #f)
   
   
-  (method override (initialize tree . rest)
-    (set! tree~self tree)
-    (apply nextmethod rest))
+  (method override (initialize self tree . rest)
+    (set! self.tree tree)
+    (apply nextmethod self rest))
   
   
-  (method override (iterate proc)
+  (method override (iterate-entries self proc)
     (define (prepare-iterate)
-      (let ((sel (get-single-selection~ tree)))
-        (case (get-selection-mode~ tree)
+      (let ((sel (get-single-selection tree)))
+        (case (get-selection-mode tree)
           ((cell)
-           (set! column (if sel (get-col~ sel) 0))
-           (cons (and sel (get-row~ tree (get-line~ sel)))
-                 (lambda (row) (element (get-children~ row) column))))
+           (set! column (if sel (get-col sel) 0))
+           (cons (and sel (get-row tree (get-line sel)))
+                 (lambda (row) (element (get-children row) column))))
           (else
-           (cons (and sel (get-row~ tree sel))
-                 (lambda (row) (car (get-children~ row))))))))
+           (cons (and sel (get-row tree sel))
+                 (lambda (row) (car (get-children row))))))))
     
     (bind (row . child-get) (prepare-iterate)
-      (for-each-visible-row~ tree
+      (for-each-visible-row tree
         (lambda (row line)
           (let ((child (child-get row)))
             (let ((title (typecase child
-                           ((Tree-Label) (get-title~ child))
-                           (else (get-title~ child)))))
+                           ((Tree-Label) (get-title child))
+                           (else (get-title child)))))
               (proc title line))))
-        start: (and row (if prefix row (get-next~ row)))
+        start: (and row (if prefix row (get-next row)))
         wrap?: #t)))
   
   
-  (method override (select line)
-    (case (get-selection-mode~ tree)
-      ((cell) (set-single-selection~ tree (new Cell line column)))
-      (else (set-single-selection~ tree line)))))
+  (method override (select-entry self line)
+    (case (get-selection-mode tree)
+      ((cell) (set-single-selection tree (new Cell line column)))
+      (else (set-single-selection tree line)))))
 
 
 ;;;
@@ -2976,20 +2979,20 @@
   (slot tree           initialize #f  accessors generate)
   
   
-  (method override (initialize rows-list columns-list cells-tree)
-    (nextmethod)
+  (method override (initialize self rows-list columns-list cells-tree)
+    (nextmethod self)
     (set! merged-rows rows-list)
     (set! merged-columns columns-list)
     (set! tree cells-tree))
   
   
-  (method public (get-master-cell)
+  (method public (get-master-cell self)
     (let ((master-row (first merged-rows))
           (master-column (first merged-columns)))
-      (site->cell~ tree (new Site master-row master-column))))
+      (site->cell tree (new Site master-row master-column))))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (let ((r (length merged-rows))
@@ -2997,11 +3000,11 @@
           (format output "{a} row{a} {a} column{a}" r (format-plural r) c (format-plural c))))))
   
   
-  (method public (add-merged-row row)
+  (method public (add-merged-row self row)
     (set! merged-rows (cons row merged-rows)))
   
   
-  (method public (for-each-cell proc)
+  (method public (for-each-cell self proc)
     (for-each (lambda (row)
                 (for-each (lambda (column)
                             (proc row column))
@@ -3009,35 +3012,35 @@
               merged-rows))
   
   
-  (method public (get-first-row)
+  (method public (get-first-row self)
     (first merged-rows))
   
   
-  (method public (get-last-row)
+  (method public (get-last-row self)
     (last merged-rows))
   
   
-  (method public (get-first-column)
+  (method public (get-first-column self)
     (first merged-columns))
   
   
-  (method public (get-last-column)
+  (method public (get-last-column self)
     (last merged-columns))
   
   
-  (method public (get-first-site)
-    (new Site (get-first-row) (get-first-column)))
+  (method public (get-first-site self)
+    (new Site (get-first-row self) (get-first-column self)))
   
   
-  (method public (get-last-site)
-    (new Site (get-last-row) (get-last-column)))
+  (method public (get-last-site self)
+    (new Site (get-last-row self) (get-last-column self)))
   
   
-  (method public (get-first-line)
+  (method public (get-first-line self)
     (let ((first-line #f))
       (for-each (lambda (row)
-                  (when (get-visible?~ row)
-                    (let ((line (row->line~ tree row)))
+                  (when (get-visible? row)
+                    (let ((line (row->line tree row)))
                       (when (or (not first-line)
                                 (< line first-line))
                         (set! first-line line)))))
@@ -3045,22 +3048,22 @@
       first-line))
   
   
-  (method public (get-last-line)
+  (method public (get-last-line self)
     (let ((last-line 0))
       (for-each (lambda (row)
-                  (when (get-visible?~ row)
-                    (let ((line (row->line~ tree row)))
+                  (when (get-visible? row)
+                    (let ((line (row->line tree row)))
                       (when (> line last-line)
                         (set! last-line line)))))
                 merged-rows)
       last-line))
   
   
-  (method public (get-first-col)
+  (method public (get-first-col self)
     (let ((first-col #f))
       (for-each (lambda (column)
-                  (when (get-visible?~ column)
-                    (let ((col (column->col~ tree column)))
+                  (when (get-visible? column)
+                    (let ((col (column->col tree column)))
                       (when (or (not first-col)
                                 (< col first-col))
                         (set! first-col col)))))
@@ -3068,26 +3071,26 @@
       first-col))
   
   
-  (method public (get-last-col)
+  (method public (get-last-col self)
     (let ((last-col 0))
       (for-each (lambda (column)
-                  (when (get-visible?~ column)
-                    (let ((col (column->col~ tree column)))
+                  (when (get-visible? column)
+                    (let ((col (column->col tree column)))
                       (when (> col last-col)
                         (set! last-col col)))))
                 merged-columns)
       last-col))
 
 
-  (method public (get-first-cell)
-    (let ((first-line (get-first-line))
-          (first-col (get-first-col)))
+  (method public (get-first-cell self)
+    (let ((first-line (get-first-line self))
+          (first-col (get-first-col self)))
       (if (and first-line first-col)
           (new Cell first-line first-col)
         #f)))
 
 
-  (method public (get-last-cell)
-    (let ((last-line (get-last-line))
-          (last-col (get-last-col)))
+  (method public (get-last-cell self)
+    (let ((last-line (get-last-line self))
+          (last-col (get-last-col self)))
       (new Cell last-line last-col)))))

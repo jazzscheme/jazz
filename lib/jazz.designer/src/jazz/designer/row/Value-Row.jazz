@@ -43,6 +43,7 @@
         (jazz.graphic)
         (jazz.handler)
         (jazz.jml)
+        (jazz.outline)
         (jazz.platform)
         (jazz.text)
         (jazz.tree)
@@ -68,12 +69,12 @@
   ;;;
 
 
-  (method override (initialize . rest)
+  (method override (initialize self . rest)
     (bind-keywords ((property #f) (value #f) (domain #f) . others) rest
-      (apply nextmethod others)
-      (set! property_~self property)
-      (set! value~self value)
-      (set! domain~self domain)))
+      (apply nextmethod self others)
+      (set! self.property_ property)
+      (set! self.value value)
+      (set! self.domain domain)))
   
   
   ;;;
@@ -81,26 +82,26 @@
   ;;;
 
 
-  (method public (get-property)
+  (method public (get-property self)
     property_)
 
 
-  (method public (set-property prop)
+  (method public (set-property self prop)
     (set! property_ prop))
   
   
-  (method public (get-title)
+  (method public (get-title self)
     (let ((node (car children)))
-      (get-title~ node)))
+      (get-title node)))
   
   
-  (method public (set-title title)
+  (method public (set-title self title)
     (let ((node (car children)))
-      (set-title~ node title)))
+      (set-title node title)))
 
 
-  (method public (get-client)
-    (get-client~ (get-tree)))
+  (method public (get-client self)
+    (get-client (get-tree self)))
   
   
   ;;;
@@ -108,19 +109,19 @@
   ;;;
   
   
-  (method public (enter-value v (imports: imports #f))
+  (method public (enter-value self v (imports: imports #f))
     (set! value v)
-    (set-modified? #t)
+    (set-modified? self #t)
     (if (not property_)
-        (update value)
-      (enter-value~ (get-card~ (get-tree)) property_ value imports: imports)))
+        (update self value)
+      (enter-value (get-card (get-tree self)) property_ value imports: imports)))
   
   
-  (method public (enter-edited-value)
-    (enter-value (get-edited-value) imports: (get-edited-imports)))
+  (method public (enter-edited-value self)
+    (enter-value self (get-edited-value self) imports: (get-edited-imports self)))
   
   
-  (method public (default-value)
+  (method public (default-value self)
     #f)
   
   
@@ -129,12 +130,12 @@
   ;;;
   
   
-  (method public (present value)
-    (present~ domain value))
+  (method public (present self value)
+    (present domain value))
   
   
-  (method (get-entry)
-    (first-child~ editor))
+  (method package (get-entry self)
+    (first-child editor))
   
   
   ;;;
@@ -142,69 +143,69 @@
   ;;;
   
   
-  (method public (editable?)
+  (method public (editable? self)
     (or (not property_)
         (property-setter property_)))
   
   
-  (method public (get-edited-value)
-    (get-value~ (get-entry)))
+  (method public (get-edited-value self)
+    (get-value (get-entry self)))
   
   
-  (method public (set-edited-value value)
+  (method public (set-edited-value self value)
     (if violation
-        (set-edited-violation)
-      (set-value~ (get-entry) value)))
+        (set-edited-violation self)
+      (set-value (get-entry self) value)))
   
   
-  (method public (get-edited-modified?)
-    (get-modified?~ (get-entry)))
+  (method public (get-edited-modified? self)
+    (get-modified? (get-entry self)))
   
   
-  (method public (set-edited-modified? flag)
-    (set-modified?~ (get-entry) flag))
+  (method public (set-edited-modified? self flag)
+    (set-modified? (get-entry self) flag))
   
   
-  (method public (start-edition (focus?: focus? #t))
-    (when (not (in-edition?))
-      (edit focus?: focus?)))
+  (method public (start-edition self (focus?: focus? #t))
+    (when (not (in-edition? self))
+      (edit self focus?: focus?)))
   
   
-  (method public (finish-edition)
-    (when (in-edition?)
-      (close-editor)))
+  (method public (finish-edition self)
+    (when (in-edition? self)
+      (close-editor self)))
   
   
-  (method public (close-editor)
-    (save-edition)
-    (end-edition~ (get-tree)))
+  (method public (close-editor self)
+    (save-edition self)
+    (end-edition (get-tree self)))
   
   
-  (method public (save-edition)
-    (when (get-edited-modified?)
-      (let ((entry (get-entry)))
-        (let ((violation (presentation-violation~ entry))
-              (string (get-presentation~ entry))
-              (label (get-preserved-data~ (get-cell-editor~ (get-parent)))))
-          (set! violation~self (and violation (cons string violation)))
-          (set-frame-color~ label (and violation {Color Red}))
+  (method public (save-edition self)
+    (when (get-edited-modified? self)
+      (let ((entry (get-entry self)))
+        (let ((violation (presentation-violation entry))
+              (string (get-presentation entry))
+              (label (get-preserved-data (get-cell-editor (get-parent self)))))
+          (set! self.violation (and violation (cons string violation)))
+          (set-frame-color label (and violation {Color Red}))
           (if violation
-              (set-title~ label string)
-            (enter-edited-value))
-          (set-edited-modified? #f)
-          (invalidate-cell~ (get-parent) (new Cell (row->line~ parent self) 1))))))
+              (set-title label string)
+            (enter-edited-value self))
+          (set-edited-modified? self #f)
+          (invalidate-cell (get-parent self) (new Cell (row->line parent self) 1))))))
   
   
-  (method public (in-edition?)
-    (and editor (in-edition?~ (get-tree))))
+  (method public (in-edition? self)
+    (and editor (in-edition? (get-tree self))))
   
   
-  (method public (get-edited-imports)
-    (get-imports~ (get-entry)))
+  (method public (get-edited-imports self)
+    (get-imports (get-entry self)))
   
   
-  (method (set-edited-violation)
-    (set-presentation~ (get-entry) (car violation)))
+  (method (set-edited-violation self)
+    (set-presentation (get-entry self) (car violation)))
   
   
   ;;;
@@ -212,40 +213,40 @@
   ;;;
   
   
-  (method public (editor-up-arrow)
-    (up-arrow-press~ (get-tree) NoModifiers))
+  (method public (editor-up-arrow self)
+    (up-arrow-press (get-tree self) NoModifiers))
   
   
-  (method public (editor-down-arrow)
-    (down-arrow-press~ (get-tree) NoModifiers))
+  (method public (editor-down-arrow self)
+    (down-arrow-press (get-tree self) NoModifiers))
   
   
-  (method public (editor-tab)
+  (method public (editor-tab self)
     (let ((modifiers NoModifiers))
       (if (shift-down?)
-          (up-arrow-press~ (get-tree) modifiers)
-        (down-arrow-press~ (get-tree) modifiers))))
+          (up-arrow-press (get-tree self) modifiers)
+        (down-arrow-press (get-tree self) modifiers))))
   
   
-  (method public (editor-return)
+  (method public (editor-return self)
     (with-cursor :wait
       (lambda ()
-        (set-edited-modified? #t)
-        (save-edition))
+        (set-edited-modified? self #t)
+        (save-edition self))
       duration: .150))
   
   
-  (method public (editor-focus-delegate)
-    (start-edition)
-    (focus-editor select-all?: #f)
-    (invalidate-drawing))
+  (method public (editor-focus-delegate self)
+    (start-edition self)
+    (focus-editor self select-all?: #f)
+    (invalidate-drawing self))
   
   
-  (method public (editor-focus-lose)
+  (method public (editor-focus-lose self)
     (unless (window-losing-focus?)
-      (when (get-player)
-        (finish-edition)
-        (invalidate-drawing))))
+      (when (get-player self)
+        (finish-edition self)
+        (invalidate-drawing self))))
   
   
   ;;;
@@ -253,79 +254,79 @@
   ;;;
   
   
-  (method public (edit (focus?: focus? #t))
-    (let* ((tree (get-tree))
-           (cell (new Cell (row->line~ tree self) 1))
+  (method public (edit self (focus?: focus? #t))
+    (let* ((tree (get-tree self))
+           (cell (new Cell (row->line tree self) 1))
            (border (new Border-View border-type: 'solid border-color: {Color Dark-Red}))
            (scroller (new Scroller-View parent: border vscroll?: #f hscroll?: #f))
-           (content (get-content~ scroller)))
-      (set-layout-type~ content 'fill)
-      (set! editor (new-editor))
-      (set-parent~ editor content)
-      (set-edited-value value)
-      (edit-cell~ tree cell editor: border after-end: (lambda (site) (set! editor #f)))
+           (content (get-content scroller)))
+      (set-layout-type content 'fill)
+      (set! editor (new-editor self))
+      (set-parent editor content)
+      (set-edited-value self value)
+      (edit-cell tree cell editor: border after-end: (lambda (site) (set! editor #f)))
       (when focus?
-        (focus-editor))
-      (set-client~ scroller editor)))
+        (focus-editor self))
+      (set-client scroller editor)))
   
   
-  (method protected (new-editor)
+  (method protected (new-editor self)
     (let ((editor (new Value-Editor)))
-      (setup-entry~ domain editor (get-client))
+      (setup-entry domain editor (get-client self))
       editor))
   
   
-  (method protected (editor-class)
+  (method protected (editor-class self)
     )
   
   
-  (method public (focus-editor (start: start #f) (end: end #f) (select-all?: select-all? #t))
-    (let* ((entry (get-entry))
-           (view (tab-view~ entry)))
+  (method public (focus-editor self (start: start #f) (end: end #f) (select-all?: select-all? #t))
+    (let* ((entry (get-entry self))
+           (view (tab-view entry)))
       (when view
-        (set-escape-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-escape))
-        (set-arrow-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-arrow))
-        (set-tab-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-tab))
-        (set-return-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-return))
-        (set-focus-lose-handler~ view (new Event-Handler target: self method-name: 'on-focus-lose))
-        (when (is? (get-entry) Enumeration-Entry)
-          (set-action-handler~ (locate~ entry 'combo) (new Event-Handler target: self method-name: 'on-editor-action)))
-        (acquire-focus~ view)
-        (select-all~ view))))
+        (set-escape-press-handler view (new Event-Handler target: self method-name: 'on-editor-escape))
+        (set-arrow-press-handler view (new Event-Handler target: self method-name: 'on-editor-arrow))
+        (set-tab-press-handler view (new Event-Handler target: self method-name: 'on-editor-tab))
+        (set-return-press-handler view (new Event-Handler target: self method-name: 'on-editor-return))
+        (set-focus-lose-handler view (new Event-Handler target: self method-name: 'on-focus-lose))
+        (when (is? (get-entry self) Enumeration-Entry)
+          (set-action-handler (locate entry 'combo) (new Event-Handler target: self method-name: 'on-editor-action)))
+        (acquire-focus view)
+        (select-all view))))
   
   
-  (method (on-editor-tab evt)
-    (editor-tab))
+  (method (on-editor-tab self evt)
+    (editor-tab self))
   
   
-  (method (on-editor-return evt)
-    (editor-return))
+  (method (on-editor-return self evt)
+    (editor-return self))
   
   
-  (method (on-editor-arrow evt)
-    (let ((direction (get-property~ evt direction:))
-          (view (tab-view~ (get-entry))))
+  (method (on-editor-arrow self evt)
+    (let ((direction (get-property evt direction:))
+          (view (tab-view (get-entry self))))
       (case direction
-        ((up) (editor-up-arrow))
-        ((down) (editor-down-arrow))
+        ((up) (editor-up-arrow self))
+        ((down) (editor-down-arrow self))
         (else
          (typecase view
-           ((Text-View) (arrow-move~ view evt))
-           (else (arrow-press~ view evt)))))))
+           ((Text-View) (arrow-move view evt))
+           (else (arrow-press view evt)))))))
   
   
-  (method (on-editor-escape evt)
-    (end-edition~ (get-tree)))
+  (method (on-editor-escape self evt)
+    (end-edition (get-tree self)))
   
   
-  (method (on-focus-lose evt)
-    (editor-focus-lose))
+  (method (on-focus-lose self evt)
+    (editor-focus-lose self))
   
   
-  (method (on-editor-action evt)
-    (let ((combo (locate~ (get-entry) 'combo)))
-      (on-action~ combo evt)
-      (editor-return)))
+  (method (on-editor-action self evt)
+    (let ((combo (locate (get-entry self) 'combo)))
+      (on-action combo evt)
+      (editor-return self)))
 
   
   ;;;
@@ -337,33 +338,33 @@
     {Color Dark-Red})
   
   
-  (method public (update value)
-    (let* ((tree (get-tree))
-           (title (present value))
-           (line (row->line~ tree self))
+  (method public (update self value)
+    (let* ((tree (get-tree self))
+           (title (present self value))
+           (line (row->line tree self))
            (cell (new Cell line 1))
-           (edited? (in-edition?))
+           (edited? (in-edition? self))
            (data (if edited?
-                     (get-preserved-data~ (get-cell-editor~ tree))
-                   (get-cell-data~ tree cell))))
-      (set-value value)
-      (set-property-modified? #t)
-      (set-color~ data #f)
-      (set-title~ data title)
+                     (get-preserved-data (get-cell-editor tree))
+                   (get-cell-data tree cell))))
+      (set-value self value)
+      (set-property-modified? self #t)
+      (set-color data #f)
+      (set-title data title)
       (if edited?
-          (set-edited-modified? #t)
-        (invalidate-cell~ tree cell))))
+          (set-edited-modified? self #t)
+        (invalidate-cell tree cell))))
   
   
-  (method (set-property-modified? flag)
+  (method package (set-property-modified? self flag)
     (when property_
-      (let* ((tree (get-tree))
-             (line (row->line~ tree self))
+      (let* ((tree (get-tree self))
+             (line (row->line tree self))
              (cell (new Cell line 0))
-             (node (get-cell-data~ tree cell))
+             (node (get-cell-data tree cell))
              (color (if flag Modified-Color #f)))
-        (set-color~ node color)
-        (invalidate-cell~ tree cell))))
+        (set-color node color)
+        (invalidate-cell tree cell))))
   
   
   ;;;
@@ -371,33 +372,33 @@
   ;;;
   
   
-  (method override (double-click pos)
+  (method override (double-click self pos)
     (if (is? domain Boolean-Domain)
         (begin
-          (enter-edited-value)
-          (set-edited-value (not value))
-          (enter-edited-value)
-          (focus-editor))
-      (nextmethod pos)))
+          (enter-edited-value self)
+          (set-edited-value self (not value))
+          (enter-edited-value self)
+          (focus-editor self))
+      (nextmethod self pos)))
 
   
-  (method public (show-property)
-    (let* ((client (get-client))
-           (surrogate (get-surrogate~ client)))
+  (method public (show-property self)
+    (let* ((client (get-client self))
+           (surrogate (get-surrogate client)))
       (if (not surrogate)
           (bell)
-        (let ((editor (get-editor~ surrogate)))
+        (let ((editor (get-editor surrogate)))
           (if (is-not? editor View-Editor)
               (bell)
-            (set-showed-property~ editor (field-name property_)))))))
+            (set-showed-property editor (field-name property_)))))))
   
   
-  (method public (revert-property)
-    (set-edited-value value)
-    (set-edited-modified? #f)
-    (set-property-modified? #f)
-    (set-modified? #f)
-    (focus-editor))
+  (method public (revert-property self)
+    (set-edited-value self value)
+    (set-edited-modified? self #f)
+    (set-property-modified? self #f)
+    (set-modified? self #f)
+    (focus-editor self))
   
   
   ;;;
@@ -405,8 +406,8 @@
   ;;;
   
   
-  (method (draw-data surface context value column row data width height)
-    (draw-data~ domain surface context value column row data width height)))
+  (method package (draw-data self surface context value column row data width height)
+    (draw-data domain surface context value column row data width height)))
 
 
 ;;;

@@ -42,8 +42,7 @@
         (jazz.jml)
         (jazz.preferences)
         (jazz.process)
-        (jazz.resource)
-        (jazz.tree.preferences))
+        (jazz.resource))
 
 
 ;;;
@@ -81,7 +80,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.application.descriptors:Application-Preferences-Descriptor)))
 
 
@@ -102,7 +101,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.application.descriptors:Aliases-Preferences-Descriptor)))
 
 
@@ -127,7 +126,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.application.descriptors:Alias-Configuration-Descriptor)))
 
 
@@ -148,7 +147,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.application.descriptors:Favorites-Preferences-Descriptor)))
 
 
@@ -173,7 +172,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.application.descriptors:Favorite-Configuration-Descriptor)))
 
 
@@ -197,9 +196,11 @@
 (class undocumented Interface-Preferences extends Preferences
     
   
+  (property sort-case-sensitive? initialize #f accessors generate)
+    
+  
   (form
     (<install>                         title: "Interface"
-      (<Tree-Preferences>  name: tree)
       (<Print-Preferences> name: print)))
   
   
@@ -208,8 +209,31 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.application.descriptors:Interface-Preferences-Descriptor)))
+
+
+(definition public (sort-case-sensitive?)
+  (let ((pref (current-preferences '(interface tree) error?: #f)))
+    (and pref (get-sort-case-sensitive? pref))))
+
+
+(definition public (sort-predicates)
+  (if (sort-case-sensitive?)
+      (values nu=? nu<? nu>?)
+    (values di=? di<? di>?)))
+
+
+(definition public (sort-predicate name)
+  (let ((case-sensitive? (sort-case-sensitive?)))
+    (case name
+      ((equal)         (if case-sensitive? nu=?  ci=?))
+      ((smaller)       (if case-sensitive? nu<?  ci<?))
+      ((smaller/equal) (if case-sensitive? nu<=? ci<=?))
+      ((greater)       (if case-sensitive? nu>?  ci>?))
+      ((greater/equal) (if case-sensitive? nu>=? ci>=?))
+      ((compare)       (if case-sensitive? compare ci-compare))
+      (else (error "Unknown sort predicate: {t}" name)))))
 
 
 ;;;
@@ -232,5 +256,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.application.descriptors:Print-Preferences-Descriptor))))

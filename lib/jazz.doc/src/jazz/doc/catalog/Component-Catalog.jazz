@@ -38,7 +38,8 @@
 (module protected jazz.doc.catalog.Component-Catalog jazz
 
 
-(import (jazz.catalog))
+(import (jazz.catalog)
+        (jazz.component))
 
 
 (class Component-Catalog extends Catalog
@@ -49,12 +50,12 @@
   (slot references-index  getter generate)
 
 
-  (method override (initialize name client)
-    (nextmethod name)
-    (set! client~self client)
-    (set! definitions-index~self (make-table test: eq?))
-    (set! references-index~self (make-table test: eq?))
-    (update-catalog-indexes))
+  (method override (initialize self name client)
+    (nextmethod self name)
+    (set! self.client client)
+    (set! self.definitions-index (make-table test: eq?))
+    (set! self.references-index (make-table test: eq?))
+    (update-catalog-indexes self))
 
 
   ;;;
@@ -62,7 +63,7 @@
   ;;;
   
   
-  (method public (get-statistics)
+  (method public (get-statistics self)
     (let ((d (table-length definitions-index))
           (r (table-length references-index)))
       (format "{a} definition{a}, {a} reference{a}"
@@ -75,11 +76,11 @@
   ;;;
 
   
-  (method (update-catalog-indexes)
-    (set-catalog~ client self)
-    (for-each-descendant~ client
+  (method (update-catalog-indexes self)
+    (set-catalog client self)
+    (for-each-descendant client
       (lambda (child level)
-        (let ((name (get-name~ child)))
+        (let ((name (get-name child)))
           (when name
             (table-add definitions-index name child))))))
 
@@ -89,9 +90,9 @@
   ;;;
   
   
-  (method override (get-definitions name)
+  (method override (get-definitions self name)
     (table-ref definitions-index name #f))
   
   
-  (method override (get-references name)
+  (method override (get-references self name)
     (table-ref references-index name #f))))

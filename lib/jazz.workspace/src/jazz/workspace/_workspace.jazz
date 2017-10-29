@@ -38,13 +38,52 @@
 (module jazz.workspace jazz
 
 
+(hub activate)
+(hub deactivate)
+(hub get-active)
+(hub get-associations)
+(hub get-class)
+(hub get-frame-model)
+(hub get-fullscreen?)
+(hub get-guest-model)
+(hub get-identifier)
+(hub get-insets)
+(hub get-maximized?)
+(hub get-mode)
+(hub get-model)
+(hub get-orientation)
+(hub get-shortcut)
+(hub get-state)
+(hub get-target)
+(hub get-zoomable?)
+(hub notify)
+(hub remember-stage)
+(hub set-caption?)
+(hub set-division)
+(hub set-fullscreen?)
+(hub set-insets)
+(hub set-maximized?)
+(hub set-mode)
+(hub set-model)
+(hub set-orientation)
+(hub set-separator)
+(hub set-shortcut)
+(hub set-state)
+(hub set-target)
+(hub set-zoomable?)
+(hub update-status)
+
+
 (export
   (jazz.workspace.ui (autoload Workspace-Button)))
 
 (import (jazz.application)
+        (jazz.component)
         (jazz.debuggee)
+        (jazz.designer)
         (jazz.document)
         (jazz.feedback)
+        (jazz.figure)
         (jazz.figure.preferences)
         (jazz.jml)
         (jazz.menu)
@@ -71,29 +110,29 @@
   (make-parameter #f))
 
 
-(definition public (get-workspace-preferences)
-  (get-workspace-preferences~ (get-toplevel)))
+(definition public (current-workspace-preferences)
+  (get-workspace-preferences (current-toplevel)))
 
-(definition public (set-workspace-preferences preferences)
-  (set-workspace-preferences~ (get-toplevel) preferences))
+(definition public (set-current-workspace-preferences preferences)
+  (set-workspace-preferences (current-toplevel) preferences))
 
 
 (definition public (get-workspaces-preferences (error?: error? #t))
-  (let ((designer (get-workspaces-designer~ (get-application))))
+  (let ((designer (get-workspaces-designer (get-application))))
     (if (not designer)
         (and error? (error "Could not find workspaces"))
-      (get-reference~ designer))))
+      (get-reference designer))))
 
 
 (definition public (get-workspaces)
-  (get-children~ (get-workspaces-preferences)))
+  (get-children (get-workspaces-preferences)))
 
 
 (definition public (find-workspace name)
-  (find-component~ (get-workspaces-preferences) name))
+  (find-component (get-workspaces-preferences) name))
 
 
-(definition public (get-workspace name)
+(definition public (require-workspace name)
   (or (find-workspace name)
       (error "Unknown workspace: {t}" name)))
 
@@ -105,31 +144,31 @@
   (set! Selected-Workspace workspace))
 
 
-(definition public (select-workspace name)
-  (apply-preferences~ (get-workspace name)))
+(definition public (select-named-workspace name)
+  (apply-preferences (require-workspace name)))
 
 
 (definition public (select-current-workspace)
-  (apply-preferences~ (get-workspace-preferences)))
+  (apply-preferences (current-workspace-preferences)))
 
 
 (definition public (select-next-workspace)
-  (let* ((current (get-workspace-preferences))
+  (let* ((current (current-workspace-preferences))
          (workspaces (collect-type Workspace-Preferences (get-workspaces)))
          (rank (find workspaces current))
          (next (element workspaces (modulo (+ rank 1) (length workspaces)))))
     (unless (eq? next current)
-      (apply-preferences~ next))))
+      (apply-preferences next))))
 
 
 (definition public (select-previous-workspace)
-  (let* ((current (get-workspace-preferences))
+  (let* ((current (current-workspace-preferences))
          (workspaces (collect-type Workspace-Preferences (get-workspaces)))
          (rank (find workspaces current))
          (previous-rank (if (= rank 0) (- (length workspaces) 1) (- rank 1)))
          (previous (element workspaces previous-rank)))
     (unless (eq? previous current)
-      (apply-preferences~ previous))))
+      (apply-preferences previous))))
 
 
 ;;;
@@ -140,63 +179,63 @@
 (definition public (select-docked class (name: name #f) (workspace: workspace 'home) (focus?: focus? #f))
   (define (select-view view)
     (and view
-         (let* ((host (get-host~ view))
-                (parent (get-parent~ host)))
+         (let* ((host (get-host view))
+                (parent (get-parent host)))
            (when (is? parent Pad-View)
-             (set-selection~ parent host))
+             (set-selection parent host))
            (ensure-unzoomed (if (is? parent Splitter-View) host parent))
            (when focus?
-             (focus-host~ host))
+             (focus-host host))
            view)))
   
-  (let ((guest (find-docked class)))
+  (let ((guest (find-docked-class class)))
     (if guest
         (select-view guest)
       (and workspace
            (begin
-             (apply-preferences~ (get-workspace workspace))
-             (select-view (find-docked class)))))))
+             (apply-preferences (require-workspace workspace))
+             (select-view (find-docked-class class)))))))
 
 
-(definition public (find-docked class)
+(definition public (find-docked-class class)
   (continuation-capture
     (lambda (return)
-      (for-each-docked
+      (for-each-window-docked
         (lambda (view)
           (when (is? view class)
             (continuation-return return view))))
       #f)))
 
 
-(definition public (for-each-docked proc)
+(definition public (for-each-window-docked proc)
   (for-each (lambda (window)
-              (for-each-docked~ window
+              (for-each-docked window
                 proc))
             (all-windows)))
 
 
 (definition public (docked-views)
   (let ((docked-views '()))
-    (for-each-docked (lambda (view)
-                       (set! docked-views (cons view docked-views))))
+    (for-each-window-docked (lambda (view)
+                              (set! docked-views (cons view docked-views))))
     docked-views))
 
 
 (definition public (for-each-splitter view proc)
-  (let ((splitter (get-parent~ view))
+  (let ((splitter (get-parent view))
         (splitter-class Splitter-View))
     (while (is? splitter splitter-class)
       (proc splitter view)
       (set! view splitter)
-      (set! splitter (get-parent~ splitter)))))
+      (set! splitter (get-parent splitter)))))
 
 
 (definition public (ensure-unzoomed view)
   (for-each-splitter view
     (lambda (splitter view)
-      (when (and (eq? (get-state~ splitter) 'zoom)
-                 (neq? (get-effective-target~ splitter) view))
-        (unzoom~ splitter)))))
+      (when (and (eq? (get-state splitter) 'zoom)
+                 (neq? (get-effective-target splitter) view))
+        (unzoom splitter)))))
 
 
 ;;;
@@ -215,7 +254,7 @@
   *stages*)
 
 (definition public (get-active-stages)
-  (collect-if in-player?~ *stages*))
+  (collect-if in-player? *stages*))
 
 
 (definition public (first-stage)
@@ -235,20 +274,20 @@
       (when stage
         (set! *stages* (cons stage (remove! stage *stages*))))
       (when previous
-        (invalidate-border~ (get-border~ previous)))
+        (invalidate-border (get-border previous)))
       (when stage
-        (invalidate-border~ (get-border~ stage))
-        (stage-activate~ stage))))
+        (invalidate-border (get-border stage))
+        (stage-activate stage))))
   (when activate?
     (activate-current-frame))
-  (update-menubar-buttons~ (get-application)))
+  (update-menubar-buttons (get-application)))
 
 (definition public (reset-current-stage)
   (set-current-stage #f))
 
 
 (definition public (create-stage)
-  (let ((stage (new-stage~ (get-application))))
+  (let ((stage (new-stage (get-application))))
     (set! *stages* (cons stage *stages*))
     stage))
 
@@ -256,7 +295,7 @@
 (definition public (current-stage-border)
   (let ((stage (current-stage)))
     (and stage
-         (get-parent~ stage))))
+         (get-parent stage))))
 
 
 (definition public (all-frames (include-invisibles?: include-invisibles? #f))
@@ -267,15 +306,15 @@
 (definition public (all-internal-frames (include-invisibles?: include-invisibles? #f))
   (collect-if (lambda (frame)
                 (and (is? frame Internal-Frame-Host)
-                     (or include-invisibles? (get-visible?~ frame))))
-              (get-frames)))
+                     (or include-invisibles? (get-visible? frame))))
+              (active-frames)))
 
 
 (definition public (all-external-frames (include-invisibles?: include-invisibles? #f))
   (collect-if (lambda (frame)
                 (and (is? frame External-Frame-Host)
-                     (or include-invisibles? (get-visible?~ frame))))
-              (get-frames)))
+                     (or include-invisibles? (get-visible? frame))))
+              (active-frames)))
 
 
 (definition public (first-frame)
@@ -301,27 +340,27 @@
 
 (definition public (collect-frames)
   (collect-if (lambda (frame)
-                (let ((guest (get-guest~ frame)))
+                (let ((guest (get-guest frame)))
                   (or (is-not? guest Document)
-                      (not (get-tool?~ (get-document-controller~ guest))))))
+                      (not (get-tool? (get-document-controller guest))))))
               (all-frames)))
 
 
 (definition public (find-frame-if-guest pred)
-  (find-if pred (all-frames include-invisibles?: #t) key: get-guest~))
+  (find-if pred (all-frames include-invisibles?: #t) key: get-guest))
 
 
 (definition public (find-frame-host guest-type)
   (find-if (lambda (view)
              (and (is? view Host-View)
-                  (is? (get-guest~ view) guest-type)))
+                  (is? (get-guest view) guest-type)))
            (all-frames include-invisibles?: #t)))
 
 
 (definition public (find-frame-guest guest-type)
   (let ((host (find-frame-host guest-type)))
     (and host
-         (get-guest~ host))))
+         (get-guest host))))
 
 
 ;;;
@@ -345,23 +384,23 @@
         (active *active-frame*))
     (when (neq? front active)
       (when active
-        (deactivate-frame~ active))
+        (deactivate-frame active))
       (if front
-          (activate-frame~ front)
+          (activate-frame front)
         (let ((stage (current-stage)))
           (when stage
-            (stage-empty-activate~ stage)))))))
+            (stage-empty-activate stage)))))))
 
 
 (definition public (front-frame)
   (let ((stage (current-stage)))
-    (and stage (first-view~ stage))))
+    (and stage (first-view stage))))
 
 
 (definition public (current-stage-frames)
   (let ((stage (current-stage)))
     (if stage
-        (get-views~ stage)
+        (get-views stage)
       '())))
 
 
@@ -372,7 +411,7 @@
 (definition public (current-document)
   (let ((frame (current-frame)))
     (and (is? frame Frame-Host)
-         (get-guest~ frame))))
+         (get-guest frame))))
 
 
 ;;;
@@ -405,16 +444,16 @@
 
 
 (definition (collect-frames-positions host guest)
-  (let* ((stage (get-stage~ host))
-         (maximized? (get-maximized?~ stage)))
+  (let* ((stage (get-stage host))
+         (maximized? (get-maximized? stage)))
     (collect (lambda (frame)
                (and (is? frame Internal-Frame-Host)
                     @for-correct-cascading
-                    (eq? (class-of (get-guest~ frame)) (class-of guest))
+                    (eq? (class-of (get-guest frame)) (class-of guest))
                     (if maximized?
-                        (get-preserved-position~ frame)
-                      (get-position~ frame))))
-             (get-views~ stage))))
+                        (get-preserved-position frame)
+                      (get-position frame))))
+             (get-views stage))))
 
 
 (definition (cascade-frame-position host guest)
@@ -426,20 +465,20 @@
 (definition public (new-internal-frame guest/class . rest)
   (let ((guest-class (if (class? guest/class) guest/class (class-of guest/class)))
         (guest (if (class? guest/class) #f guest/class)))
-    (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (initialize #f) . others) rest
+    (bind-keywords ((host-title (host-title guest-class)) (host-position (host-position guest-class)) (host-size (host-size guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (initialize #f) . others) rest
       (define (determine-stage)
         (let ((stages (get-active-stages)))
           (continuation-capture
             (lambda (return)
               ;; find a tie match
               (for-each (lambda (stage)
-                          (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
-                            (when (and guest-model (subtype? guest-class (resolve-reference~ guest-model)))
+                          (let ((guest-model (get-guest-model (get-figure-preferences stage))))
+                            (when (and guest-model (subtype? guest-class (reference-resolve guest-model)))
                               (continuation-return return stage))))
                         stages)
               ;; prefer untied stages
               (for-each (lambda (stage)
-                          (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
+                          (let ((guest-model (get-guest-model (get-figure-preferences stage))))
                             (when (not guest-model)
                               (continuation-return return stage))))
                         stages)
@@ -450,19 +489,19 @@
         (when initialize
           (initialize guest))
         (let ((host (new Internal-Frame-Host parent: (determine-stage) visible?: #f)))
-          (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
-          (set-position~ host (or host-position (cascade-frame-position host guest)))
-          (set-size~ host (or host-size (nu+ (get-size~ guest) {Dimension 8 28})))
+          (set-title host (or host-title "Frame"))
+          (set-position host (or host-position (cascade-frame-position host guest)))
+          (set-size host (or host-size (nu+ (get-size guest) {Dimension 8 28})))
           (when host-workspace
-            (set-workspace~ host host-workspace))
-          (set-guest~ host guest)
+            (set-workspace host host-workspace))
+          (set-guest host guest)
           (when host-visible?
-            (ensure-displayed~ host)
-            (bring-to-front~ host)
-            (set-visible?~ host #t)
-            (remember-workspace-stage~ host)
+            (ensure-displayed host)
+            (bring-to-front host)
+            (set-visible? host #t)
+            (remember-workspace-stage host)
             (when host-focus?
-              (focus-host~ host)))
+              (focus-host host)))
           host)))))
 
 
@@ -472,21 +511,21 @@
 
 
 (definition public (delete-stage)
-  (let ((designer (get-workspaces-designer~ (get-application)))
+  (let ((designer (get-workspaces-designer (get-application)))
         (current-stage (current-stage)))
-    (let ((stage (get-figure-preferences~ current-stage)))
-      (let ((splitter (get-parent~ stage)))
+    (let ((stage (get-figure-preferences current-stage)))
+      (let ((splitter (get-parent stage)))
         (if (is-not? splitter Splitter-Preferences)
             (bell)
-          (let ((splitter-view (get-parent~ (get-border~ current-stage))))
+          (let ((splitter-view (get-parent (get-border current-stage))))
             (delete-stages designer stage splitter current-stage splitter-view)))))))
 
 
 (definition public (delete-other-stages)
-  (let ((designer (get-workspaces-designer~ (get-application)))
+  (let ((designer (get-workspaces-designer (get-application)))
         (current-stage (current-stage)))
-    (let ((stage (get-figure-preferences~ current-stage)))
-      (let ((splitter (get-parent~ stage)))
+    (let ((stage (get-figure-preferences current-stage)))
+      (let ((splitter (get-parent stage)))
         (if (is-not? splitter Splitter-Preferences)
             (bell)
           (receive (preference view) (find-top-stage current-stage)
@@ -495,13 +534,13 @@
 
 (definition public (find-top-stage stage)
   (define (find-splitter preference view)
-    (let ((parent (get-parent~ preference)))
+    (let ((parent (get-parent preference)))
       (if (stage-splitter? parent)
-          (find-splitter parent (get-parent~ view))
+          (find-splitter parent (get-parent view))
         (values preference view))))
   
-  (let ((preference (get-figure-preferences~ stage)))
-    (find-splitter preference (get-border~ stage))))
+  (let ((preference (get-figure-preferences stage)))
+    (find-splitter preference (get-border stage))))
 
 
 (definition public (stage-splitter? splitter)
@@ -509,54 +548,54 @@
        (every? (lambda (pref)
                  (or (is? pref Stage-Preferences)
                      (stage-splitter? pref)))
-               (get-children~ splitter))))
+               (get-children splitter))))
 
 
 (definition (delete-stages designer stage splitter stage-view closed-view)
   (define (only-stages? view)
     (or (is? view Stage-Preferences)
         (and (is? view Splitter-Preferences)
-             (every? only-stages? (get-children~ view)))))
+             (every? only-stages? (get-children view)))))
   
   (define (move-frames destroyed-stages stage-view)
     (for-each (lambda (stage)
                 (for-each (lambda (frame)
                             (if (find-frame-brother stage-view frame)
-                                (close~ frame)
-                              (set-parent~ frame stage-view)
-                              (send-to-back~ frame)))
-                          (get-children~ stage)))
+                                (close frame)
+                              (set-parent frame stage-view)
+                              (send-to-back frame)))
+                          (get-children stage)))
               destroyed-stages))
   
-  (let ((parent (get-parent~ splitter)))
-    (if (or (not (can-relocate-component?~ designer stage parent))
+  (let ((parent (get-parent splitter)))
+    (if (or (not (component-relocatable? designer stage parent))
             (not (only-stages? splitter)))
         (bell)
-      (set-property~ designer stage 'location (get-location~ splitter))
-      (relocate-component~ designer stage parent)
-      (remove-child~ designer splitter)
-      (let ((border-view (get-border~ stage-view)))
-        (let ((parent-view (get-parent~ closed-view))
-              (destroyed-stages (remove! stage-view (collect-descendants~ closed-view Stage))))
+      (set-property designer stage 'location (get-location splitter))
+      (relocate-component designer stage parent)
+      (remove-child designer splitter)
+      (let ((border-view (get-border stage-view)))
+        (let ((parent-view (get-parent closed-view))
+              (destroyed-stages (remove! stage-view (collect-descendants closed-view Stage))))
           (move-frames destroyed-stages stage-view)
-          (set-location~ border-view (get-location~ closed-view))
-          (set-parent~ border-view parent-view)
-          (close~ closed-view)
-          (layout-view~ parent-view)))
-      (update-window-actions~ (get-application)))))
+          (set-location border-view (get-location closed-view))
+          (set-parent border-view parent-view)
+          (close closed-view)
+          (layout-view parent-view)))
+      (update-window-actions (get-application)))))
 
 
 (definition protected (find-frame-brother stage frame)
   (and (is? frame Host-View)
-       (let ((guest (get-guest~ frame)))
+       (let ((guest (get-guest frame)))
          (and (is? guest Text-View)
-              (let ((model (get-model~ guest)))
+              (let ((model (get-model guest)))
                 (find-if (lambda (actual-frame)
                            (and (is? actual-frame Host-View)
-                                (let ((actual-guest (get-guest~ actual-frame)))
+                                (let ((actual-guest (get-guest actual-frame)))
                                   (and (is? actual-guest Text-View)
-                                       (eq? (get-model~ actual-guest) model)))))
-                         (get-views~ stage)))))))
+                                       (eq? (get-model actual-guest) model)))))
+                         (get-views stage)))))))
 
 
 (definition public (split-stage-vertically)
@@ -568,102 +607,102 @@
 
 
 (definition (split-stage direction)
-  (let ((designer (get-workspaces-designer~ (get-application)))
+  (let ((designer (get-workspaces-designer (get-application)))
         (current-stage (current-stage)))
     (if (not current-stage)
         (bell)
-      (let ((stage-preferences (get-figure-preferences~ current-stage))
-            (frame (first-view~ current-stage)))
-        (let ((parent-preferences (get-parent~ stage-preferences))
+      (let ((stage-preferences (get-figure-preferences current-stage))
+            (frame (first-view current-stage)))
+        (let ((parent-preferences (get-parent stage-preferences))
               (new-splitter-preferences (new Splitter-Preferences))
               (new-stage-preferences (new Stage-Preferences)))
-          (let ((splitter-location (get-location~ stage-preferences))
+          (let ((splitter-location (get-location stage-preferences))
                 (splitter-orientation direction)
                 (splitter-mode 'relative)
                 (splitter-division 50))
-            (when (descendant-owned-by-reference?~ designer stage-preferences)
-              (add-child~ designer new-splitter-preferences parent-preferences)
-              (relocate-component~ designer stage-preferences new-splitter-preferences)
-              (add-child~ designer new-stage-preferences new-splitter-preferences)
-              (set-property~ designer new-splitter-preferences 'location splitter-location)
-              (set-property~ designer new-splitter-preferences 'orientation splitter-orientation)
-              (set-property~ designer new-splitter-preferences 'mode splitter-mode)
-              (set-property~ designer new-splitter-preferences 'division splitter-division)
-              (set-property~ designer stage-preferences 'location 'first)
-              (set-property~ designer new-stage-preferences 'location 'second)
-              (set-property~ designer new-stage-preferences 'maximized? (get-maximized?~ stage-preferences)))
-            (let ((border (get-border~ current-stage)))
-              (let ((parent (get-parent~ border))
+            (when (descendant-owned-by-reference? designer stage-preferences)
+              (add-child designer new-splitter-preferences parent-preferences)
+              (relocate-component designer stage-preferences new-splitter-preferences)
+              (add-child designer new-stage-preferences new-splitter-preferences)
+              (set-property designer new-splitter-preferences 'location splitter-location)
+              (set-property designer new-splitter-preferences 'orientation splitter-orientation)
+              (set-property designer new-splitter-preferences 'mode splitter-mode)
+              (set-property designer new-splitter-preferences 'division splitter-division)
+              (set-property designer stage-preferences 'location 'first)
+              (set-property designer new-stage-preferences 'location 'second)
+              (set-property designer new-stage-preferences 'maximized? (get-maximized? stage-preferences)))
+            (let ((border (get-border current-stage)))
+              (let ((parent (get-parent border))
                     (splitter (new Splitter-View))
-                    (stage (remember-stage~ new-stage-preferences)))
-                (set-parent~ border splitter)
-                (set-parent~ splitter parent)
-                (set-parent~ (get-parent~ stage) splitter)
-                (set-location~ splitter splitter-location)
-                (set-orientation~ splitter splitter-orientation)
-                (set-mode~ splitter splitter-mode)
-                (set-division~ splitter splitter-division)
-                (set-location~ border 'first)
-                (set-location~ (get-parent~ stage) 'second)
-                (set-maximized?~ stage (get-maximized?~ current-stage))
-                (layout-view~ (get-parent~ splitter))
-                (layout-view~ splitter)
+                    (stage (remember-stage new-stage-preferences)))
+                (set-parent border splitter)
+                (set-parent splitter parent)
+                (set-parent (get-parent stage) splitter)
+                (set-location splitter splitter-location)
+                (set-orientation splitter splitter-orientation)
+                (set-mode splitter splitter-mode)
+                (set-division splitter splitter-division)
+                (set-location border 'first)
+                (set-location (get-parent stage) 'second)
+                (set-maximized? stage (get-maximized? current-stage))
+                (layout-view (get-parent splitter))
+                (layout-view splitter)
                 (set-current-stage stage activate?: (not (front-frame)))
                 (when (is? frame Host-View)
-                  (let ((splitted (split-view~ (get-guest~ frame))))
+                  (let ((splitted (split-view (get-guest frame))))
                     (when splitted
-                      (remember-workspace-stage~ splitted))))
+                      (remember-workspace-stage splitted))))
                 (activate-current-frame)))
-            (update-window-actions~ (get-application))))))))
+            (update-window-actions (get-application))))))))
 
 
 (definition public (move-frame)
   (let ((frame (current-frame)))
-    (let ((stage (if frame (get-stage~ frame) (current-stage))))
+    (let ((stage (if frame (get-stage frame) (current-stage))))
       (let ((next-stage (navigate-next-stage)))
         (if (not next-stage)
             (bell)
           (when frame
-            (set-parent~ frame next-stage)
-            (maximize/restore~ frame)
-            (remember-workspace-stage~ frame)))))))
+            (set-parent frame next-stage)
+            (maximize/restore frame)
+            (remember-workspace-stage frame)))))))
 
 
 (definition public (clone-frame)
   (let ((frame (current-frame)))
     (if (is-not? frame Host-View)
         (bell)
-      (let ((stage (get-stage~ frame)))
+      (let ((stage (get-stage frame)))
         (let ((next-stage (navigate-next-stage)))
           (if (not next-stage)
               (bell)
             (let ((brother (find-frame-brother next-stage frame)))
               (if brother
-                  (focus-host~ brother)
-                (let ((splitted (split-view~ (get-guest~ frame))))
+                  (focus-host brother)
+                (let ((splitted (split-view (get-guest frame))))
                   (if (not splitted)
                       (bell)
-                    (set-parent~ splitted next-stage)
-                    (maximize/restore~ splitted)
-                    (remember-workspace-stage~ splitted)))))))))))
+                    (set-parent splitted next-stage)
+                    (maximize/restore splitted)
+                    (remember-workspace-stage splitted)))))))))))
 
 
 (definition public (tie-frame-model)
   (let ((frame (current-frame)))
     (if (is-not? frame Host-View)
         (bell)
-      (let ((guest (get-guest~ frame))
-            (stage (get-figure-preferences~ (current-stage)))
-            (designer (get-workspaces-designer~ (get-application))))
+      (let ((guest (get-guest frame))
+            (stage (get-figure-preferences (current-stage)))
+            (designer (get-workspaces-designer (get-application))))
         (let ((guest-model (category-name (class-of guest))))
-          (set-property~ designer stage 'guest-model (new Reference guest-model))
+          (set-property designer stage 'guest-model (new Reference guest-model))
           (user-message "Stage tied to {s}" guest-model))))))
 
 
 (definition public (untie-stage)
-  (let ((stage (get-figure-preferences~ (current-stage)))
-        (designer (get-workspaces-designer~ (get-application))))
-    (set-property~ designer stage 'guest-model #f)
+  (let ((stage (get-figure-preferences (current-stage)))
+        (designer (get-workspaces-designer (get-application))))
+    (set-property designer stage 'guest-model #f)
     (user-message "Stage untied")))
 
 
@@ -707,10 +746,10 @@
 
 
 (define (activate-stage stage)
-  (let ((frame (first-view~ stage)))
+  (let ((frame (first-view stage)))
     (if frame
-        (focus-host~ frame)
-      (acquire-focus~ stage))))
+        (focus-host frame)
+      (acquire-focus stage))))
 
 
 ;;;
@@ -734,7 +773,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.workspace.descriptors:Workspaces-Preferences-Descriptor)))
 
 
@@ -760,17 +799,17 @@
   ;;;
   
   
-  (method override (apply-preferences (restore-focus?: restore-focus? #t))
+  (method override (apply-preferences self (restore-focus?: restore-focus? #t))
     (without-local-debugger
       (lambda ()
         (with-locked-update
           (lambda ()
             (parameterize ((inhibit-layouts? #t))
               (when (selected-workspace)
-                (deactivate~ (selected-workspace)))
+                (deactivate (selected-workspace)))
               (assert (not (workspace-activation?)))
               (parameterize ((workspace-activation? #t))
-                (activate restore-focus?: restore-focus?))))))))
+                (activate self restore-focus?: restore-focus?))))))))
   
   
   ;;;
@@ -778,35 +817,35 @@
   ;;;
   
   
-  (method (activate (restore-focus?: restore-focus? #t))
+  (method package (activate self (restore-focus?: restore-focus? #t))
     (define (close-palettes)
-      (for-each close~ (collect-palettes)))
+      (for-each close (collect-palettes)))
     
     (define (process-palettes)
       (for-each (lambda (preferences)
-                  (unless (eq? (get-location~ preferences) 'root)
-                    (let ((title (get-title~ preferences))
-                          (position (get-position~ preferences))
-                          (size (get-size~ preferences))
-                          (root-preferences (first-child~ preferences))
+                  (unless (eq? (get-location preferences) 'root)
+                    (let ((title (get-title preferences))
+                          (position (get-position preferences))
+                          (size (get-size preferences))
+                          (root-preferences (first-child preferences))
                           (palette (new Palette close-behavior: 'detach-root visible?: #f)))
-                      (apply-root~ root-preferences palette)
+                      (apply-root root-preferences palette)
                       (when title
-                        (set-title~ palette title))
+                        (set-title palette title))
                       (if (and position size)
-                          (set-placement~ palette (list 'restored position size))
-                        (maximize~ palette))
-                      (set-visible?~ palette #t))))
+                          (set-placement palette (list 'restored position size))
+                        (maximize palette))
+                      (set-visible? palette #t))))
                 children))
     
     (define (collect-visibilities)
       (let ((frames (all-internal-frames include-invisibles?: #t)))
         (reverse!
           (collect (lambda (frame)
-                     (let ((visible? (get-visible?~ frame))
-                           (guest (get-guest~ frame)))
+                     (let ((visible? (get-visible? frame))
+                           (guest (get-guest frame)))
                        (and guest
-                            (let ((workspaces (effective-host-workspaces~ guest)))
+                            (let ((workspaces (effective-host-workspaces guest)))
                               (cons frame
                                     (or (memq? name workspaces)
                                         (and (null? workspaces) visible?)))))))
@@ -816,7 +855,7 @@
       (for-each (lambda (info)
                   (bind (frame . visible?) info
                     (when (not visible?)
-                      (set-visible?~ frame #f))))
+                      (set-visible? frame #f))))
                 visibilities))
     
     (define (show-frames visibilities)
@@ -825,18 +864,18 @@
         (for-each (lambda (info)
                     (bind (frame . visible?) info
                       (when visible?
-                        (let ((preferred (intersection active-stages (get-workspace-stages~ frame))))
+                        (let ((preferred (intersection active-stages (get-workspace-stages frame))))
                           (if (not-null? preferred)
-                              (set-parent~ frame (car preferred))
+                              (set-parent frame (car preferred))
                             (let ((stage (current-stage)))
-                              (set-parent~ frame stage)
-                              (remember-workspace-stage~ frame))))
-                        (if (get-visible?~ frame)
-                            (maximize/restore~ frame)
-                          (set-visible?~ frame #t))
+                              (set-parent frame stage)
+                              (remember-workspace-stage frame))))
+                        (if (get-visible? frame)
+                            (maximize/restore frame)
+                          (set-visible? frame #t))
                         @wait-bug-fix-on-x11
                         (unless maximized?
-                          (ensure-displayed~ frame))
+                          (ensure-displayed frame))
                         (set! current frame))))
                   visibilities)
         current))
@@ -846,68 +885,68 @@
         (if (null? frames)
             (let ((stage (current-stage)))
               (when stage
-                (stage-empty-activate~ stage)))
-          (for-each-docked
-            client-activate~))))
+                (stage-empty-activate stage)))
+          (for-each-window-docked
+            client-activate))))
     
     (define (focus-stage)
       (let ((stage (current-stage)))
         (when stage
-          (let ((frame (first-view~ stage)))
+          (let ((frame (first-view stage)))
             (if frame
-                (focus-host~ frame)
-              (acquire-focus~ stage))))))
+                (focus-host frame)
+              (acquire-focus stage))))))
     
     (let ((appl (get-application))
-          (toplevel (get-toplevel))
+          (toplevel (current-toplevel))
           (visibilities (collect-visibilities))
-          (focus (get-focus))
+          (focus (active-focus))
           (stage (current-stage)))
       (close-palettes)
-      (full-screen-stage~ appl #f)
+      (full-screen-stage appl #f)
       (hide-frames visibilities)
       (reset-current-stage)
-      (let ((root-preferences (find-located 'root)))
+      (let ((root-preferences (find-located self 'root)))
         (when root-preferences
-          (let ((previous-root (get-root~ toplevel)))
+          (let ((previous-root (get-root toplevel)))
             (when previous-root
-              (set-offscreen?~ previous-root #f)))
-          (apply-root~ root-preferences toplevel)))
+              (set-offscreen? previous-root #f)))
+          (apply-root root-preferences toplevel)))
       (process-palettes)
-      (set-workspace-preferences self)
+      (set-current-workspace-preferences self)
       (set-selected-workspace self)
-      (update-status)
-      (full-screen-stage~ appl fullscreen?)
+      (update-status self)
+      (full-screen-stage appl fullscreen?)
       (if (and position size)
-          (set-placement~ toplevel (list 'restored position size))
-        (when (get-visible?~ toplevel)
-          (restore-state~ toplevel)))
+          (set-placement toplevel (list 'restored position size))
+        (when (get-visible? toplevel)
+          (restore-state toplevel)))
       (let ((current-frame (show-frames visibilities)))
-        (update-windowing-actions~ appl)
-        (update-menubar-buttons~ appl)
-        (process-application-event~ appl 'workspace 'activate self workspace: self)
+        (update-windowing-actions appl)
+        (update-menubar-buttons appl)
+        (process-application-event appl 'workspace 'activate self workspace: self)
         (process-activation)
-        (when (and stage (in-player?~ stage))
+        (when (and stage (in-player? stage))
           (set-current-stage stage))
-        (if (and restore-focus? focus (in-player?~ focus))
-            (acquire-focus~ focus)
+        (if (and restore-focus? focus (in-player? focus))
+            (acquire-focus focus)
           (if (and current-frame (is? current-frame Focus-Container))
-              (focus-host~ current-frame)
+              (focus-host current-frame)
             (focus-stage))))
-      (verify-reloads~ appl)))
+      (verify-reloads appl)))
   
   
-  (method (deactivate)
-    (process-application-event~ (get-application) 'workspace 'deactivate self workspace: self))
+  (method package (deactivate self)
+    (process-application-event (get-application) 'workspace 'deactivate self workspace: self))
   
   
-  (method public (update-status)
+  (method public (update-status self)
     (let* ((appl (get-application))
-           (status (find-status-bar~ appl))
-           (label (and status (find-component~ status 'workspace))))
+           (status (find-status-bar appl))
+           (label (and status (find-component status 'workspace))))
       (when label
-        (set-title~ label (get-title))
-        (set-icon~ label (get-icon)))))
+        (set-title label (get-title self))
+        (set-icon label (get-icon self)))))
   
   
   ;;;
@@ -915,7 +954,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.workspace.descriptors:Workspace-Preferences-Descriptor)))
 
 
@@ -939,28 +978,28 @@
   ;;;
   
   
-  (method override (apply-root player)
-    (set-root~ player (singleton-toolbar (get-class) model))
-    (apply-to (get-root~ player)))
+  (method override (apply-root self player)
+    (set-root player (singleton-toolbar (get-class self) model))
+    (apply-to self (get-root player)))
   
   
-  (method override (apply-preferences (parent #f))
+  (method override (apply-preferences self (parent #f))
     (assert parent)
-    (let ((host (singleton-toolbar (get-class) model)))
-      (set-parent~ host parent)
+    (let ((host (singleton-toolbar (get-class self) model)))
+      (set-parent host parent)
       (when title
-        (set-title~ host title))
-      (set-location~ host location)
-      (client-activate~ (get-guest~ host))
-      (set-visible?~ host #t)))
+        (set-title host title))
+      (set-location host location)
+      (client-activate (get-guest host))
+      (set-visible? host #t)))
   
   
-  (method (apply-to toolbar)
+  (method (apply-to self toolbar)
     (when title
-      (set-title~ toolbar title))
-    (set-location~ toolbar location)
-    (client-activate~ (get-guest~ toolbar))
-    (set-visible?~ toolbar #t))
+      (set-title toolbar title))
+    (set-location toolbar location)
+    (client-activate (get-guest toolbar))
+    (set-visible? toolbar #t))
   
   
   (define default-toolbar-classes
@@ -970,16 +1009,16 @@
        (:status  . {Class-Reference Status-Toolbar}))))
   
   
-  (method (get-class)
+  (method package (get-class self)
     (define (get-reference)
       (if (symbol? model)
-          (let ((pair (or (assq model (get-toolbar-classes~ (get-preferences-root))) (assq model (get-data~ default-toolbar-classes)))))
+          (let ((pair (or (assq model (get-toolbar-classes (current-preferences-root))) (assq model (get-data default-toolbar-classes)))))
             (if (not pair)
                 (error "Unknown toolbar class: {s}" model)
               (cdr pair)))
         model))
     
-    (resolve-reference~ (get-reference)))
+    (reference-resolve (get-reference)))
   
   
   ;;;
@@ -987,7 +1026,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.workspace.descriptors:Toolbar-Preferences-Descriptor)))
 
 
@@ -1018,39 +1057,39 @@
   ;;;
   
   
-  (method override (apply-root player)
-    (set-root~ player (new Splitter-View offscreen?: #t preferences: self))
-    (apply-to (get-root~ player)))
+  (method override (apply-root self player)
+    (set-root player (new Splitter-View offscreen?: #t preferences: self))
+    (apply-to self (get-root player)))
   
   
-  (method override (apply-preferences (parent #f))
+  (method override (apply-preferences self (parent #f))
     (assert parent)
-    (apply-to (new Splitter-View parent: parent preferences: self)))
+    (apply-to self (new Splitter-View parent: parent preferences: self)))
   
   
-  (method (apply-to splitter)
-    (remove-children~ splitter)
-    (apply-properties splitter)
+  (method (apply-to self splitter)
+    (remove-children splitter)
+    (apply-properties self splitter)
     (for-each (lambda (pref)
-                (apply-preferences~ pref splitter))
+                (apply-preferences pref splitter))
               children)
     (for-each (lambda (child)
                 (when (is? child Host-View)
-                  (host-install~ (get-guest~ child))))
-              (get-children~ splitter))
-    (layout-view~ splitter))
+                  (host-install (get-guest child))))
+              (get-children splitter))
+    (layout-view splitter))
   
   
-  (method protected (apply-properties splitter)
-    (set-separator~ splitter separator)
-    (set-state~ splitter state)
-    (set-target~ splitter target)
-    (set-orientation~ splitter orientation)
-    (set-mode~ splitter mode)
-    (set-division~ splitter division)
-    (set-insets~ splitter insets)
-    (set-visible?~ splitter (get-visible?))
-    (set-location~ splitter location))
+  (method protected (apply-properties self splitter)
+    (set-separator splitter separator)
+    (set-state splitter state)
+    (set-target splitter target)
+    (set-orientation splitter orientation)
+    (set-mode splitter mode)
+    (set-division splitter division)
+    (set-insets splitter insets)
+    (set-visible? splitter (get-visible? self))
+    (set-location splitter location))
   
   
   ;;;
@@ -1058,7 +1097,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.workspace.descriptors:Splitter-Preferences-Descriptor)))
 
 
@@ -1151,29 +1190,29 @@
   ;;;
   
   
-  (method override (apply-root player)
-    (set-root~ player (get-parent~ (remember-stage)))
-    (set-offscreen?~ (get-root~ player) #t)
-    (apply-to (get-root~ player)))
+  (method override (apply-root self player)
+    (set-root player (get-parent (remember-stage self)))
+    (set-offscreen? (get-root player) #t)
+    (apply-to self (get-root player)))
   
   
-  (method override (apply-preferences (parent #f))
+  (method override (apply-preferences self (parent #f))
     (assert parent)
-    (let ((stage-border (get-parent~ (remember-stage))))
-      (set-parent~ stage-border parent)
-      (apply-to stage-border)))
+    (let ((stage-border (get-parent (remember-stage self))))
+      (set-parent stage-border parent)
+      (apply-to self stage-border)))
   
   
-  (method (apply-to stage-border)
-    (set-location~ stage-border location)
-    (set-visible?~ stage-border (get-visible?))
-    (set-maximized?~ stage maximized?))
+  (method (apply-to self stage-border)
+    (set-location stage-border location)
+    (set-visible? stage-border (get-visible? self))
+    (set-maximized? stage maximized?))
   
   
-  (method (remember-stage)
+  (method package (remember-stage self)
     (unless stage
       (set! stage (create-stage))
-      (set-figure-preferences~ stage self))
+      (set-figure-preferences stage self))
     (unless (current-stage)
       (set-current-stage stage))
     stage)
@@ -1184,7 +1223,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.workspace.descriptors:Stage-Preferences-Descriptor)))
 
 
@@ -1205,28 +1244,28 @@
   ;;;
   
   
-  (method override (apply-root player)
-    (set-root~ player (new Pad-View offscreen?: #t preferences: self))
-    (apply-to (get-root~ player)))
+  (method override (apply-root self player)
+    (set-root player (new Pad-View offscreen?: #t preferences: self))
+    (apply-to self (get-root player)))
   
   
-  (method override (apply-preferences (parent #f))
+  (method override (apply-preferences self (parent #f))
     (assert parent)
-    (apply-to (new Pad-View parent: parent preferences: self)))
+    (apply-to self (new Pad-View parent: parent preferences: self)))
   
   
-  (method (apply-to pad)
-    (remove-children~ pad)
-    (set-location~ pad location)
-    (set-visible?~ pad (get-visible?))
+  (method (apply-to self pad)
+    (remove-children pad)
+    (set-location pad location)
+    (set-visible? pad (get-visible? self))
     (for-each (lambda (pref)
-                (apply-preferences~ pref pad))
+                (apply-preferences pref pad))
               children)
     (for-each (lambda (child)
                 (when (is? child Host-View)
-                  (host-install~ (get-guest~ child))))
-              (get-children~ pad))
-    (layout-view~ pad))
+                  (host-install (get-guest child))))
+              (get-children pad))
+    (layout-view pad))
   
   
   ;;;
@@ -1234,7 +1273,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.workspace.descriptors:Pad-Preferences-Descriptor)))
 
 
@@ -1257,29 +1296,29 @@
   ;;;
   
   
-  (method override (apply-preferences (parent #f))
+  (method override (apply-preferences self (parent #f))
     (assert parent)
-    (let* ((class (resolve-reference~ model))
-           (host (create-host class)))
-      (set-parent~ host parent)
-      (setup-host host)
-      (client-activate~ (get-guest~ host))
-      (set-visible?~ host #t)))
+    (let* ((class (reference-resolve model))
+           (host (create-host self class)))
+      (set-parent host parent)
+      (setup-host self host)
+      (client-activate (get-guest host))
+      (set-visible? host #t)))
   
   
-  (method protected virtual (create-host class)
+  (method protected virtual (create-host self class)
     (named-singleton-docked class name))
   
   
-  (method protected virtual (setup-host host)
+  (method protected virtual (setup-host self host)
     (when title
-      (set-title~ host title))
+      (set-title host title))
     (when icon
-      (set-icon~ host icon))
-    (set-caption?~ host caption?)
-    (set-zoomable?~ host zoomable?)
-    (set-location~ host location)
-    (set-preferences~ host self))
+      (set-icon host icon))
+    (set-caption? host caption?)
+    (set-zoomable? host zoomable?)
+    (set-location host location)
+    (set-preferences host self))
   
   
   ;;;
@@ -1287,5 +1326,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.workspace.descriptors:Docked-Preferences-Descriptor))))

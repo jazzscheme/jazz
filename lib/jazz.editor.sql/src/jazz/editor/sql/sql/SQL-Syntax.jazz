@@ -41,6 +41,7 @@
 (import (jazz.automata)
         (jazz.editor)
         (jazz.editor.sql)
+        (jazz.exemplar)
         (jazz.preferences))
 
 
@@ -52,8 +53,8 @@
   ;;;
 
   
-  (method override (preferences)
-    (get-preferences '(documents sql-text)))
+  (method override (preferences self)
+    (current-preferences '(documents sql-text)))
   
   
   ;;;
@@ -61,7 +62,7 @@
   ;;;
   
   
-  (method override (get-constituent-test)
+  (method override (get-constituent-test self)
     sql-constituent?)
 
   
@@ -70,8 +71,8 @@
   ;;;
 
 
-  (method override (favorite-completions)
-    (get-completions~ (preferences)))
+  (method override (favorite-completions self)
+    (get-completions (preferences self)))
 
 
   ;;;
@@ -79,7 +80,7 @@
   ;;;
 
 
-  (method override (explorer-class)
+  (method override (explorer-class self)
     SQL-Explorer)
  
   
@@ -88,9 +89,9 @@
   ;;;
   
   
-  (method override (name-at range)
+  (method override (name-at self range)
     (when range
-      (let ((name (get-string~ model range)))
+      (let ((name (get-string model range)))
         (when (> (cardinality name) 0)
           (if (eqv? (element name 0) #\open-brace)
               (read-string-element name)
@@ -107,11 +108,11 @@
       "--- "))
   
   
-  (method override (get-headers)
+  (method override (get-headers self)
     headers)
   
   
-  (method override (get-first-special?)
+  (method override (get-first-special? self)
     #f)
 
   
@@ -243,7 +244,7 @@
       "WITH"))
   
   
-  (method protected virtual (get-keywords)
+  (method package virtual (get-keywords self)
     Keywords)
 
   
@@ -259,34 +260,34 @@
     #f)
   
   
-  (method override (syntax-targets)
+  (method override (syntax-targets self)
     (unless Syntax-Targets
-      (set! Syntax-Targets (compute-syntax-targets)))
+      (set! Syntax-Targets (compute-syntax-targets self)))
     Syntax-Targets)
   
   
-  (method override (syntax-automata)
+  (method override (syntax-automata self)
     (unless Syntax-Automata
-      (set! Syntax-Automata (compute-syntax-automata)))
+      (set! Syntax-Automata (compute-syntax-automata self)))
     Syntax-Automata)
   
   
-  (method override (compute-syntax-targets)
+  (method override (compute-syntax-targets self)
     (append (list (list "--" 'line-comment #f))
             (map (lambda (str) (list str 'definition)) (get-definitions))
-            (map (lambda (str) (list str 'keyword)) (get-keywords))))
+            (map (lambda (str) (list str 'keyword)) (get-keywords self))))
         
   
-  (method override (compute-syntax-automata)
-    (build-search-automata (syntax-targets) #t #t sql-constituent?))
+  (method override (compute-syntax-automata self)
+    (build-search-automata (syntax-targets self) #t #t sql-constituent?))
   
   
-  (method override (colorize-type found type start end colorizer recolorize?)
+  (method override (colorize-type self found type start end colorizer recolorize?)
     (case type
-      ((line-comment) (colorize-line-comment found start end colorizer 'Line-Comment 'Title #\minus))
-      ((definition)   (colorize-keyword      found start end colorizer 'Definition))
-      ((keyword)      (colorize-keyword      found start end colorizer 'Keyword))
-      (else (nextmethod found type start end colorizer recolorize?))))
+      ((line-comment) (colorize-line-comment self found start end colorizer 'Line-Comment 'Title #\minus))
+      ((definition)   (colorize-keyword self      found start end colorizer 'Definition))
+      ((keyword)      (colorize-keyword self      found start end colorizer 'Keyword))
+      (else (nextmethod self found type start end colorizer recolorize?))))
   
   
   ;;;
@@ -298,7 +299,7 @@
     '(Title Line-Comment))
   
   
-  (method override (comment-style? style)
+  (method override (comment-style? self style)
     (some? (lambda (style-name)
-             (inherits?~ style style-name))
+             (inherits? style style-name))
            Comment-Styles))))

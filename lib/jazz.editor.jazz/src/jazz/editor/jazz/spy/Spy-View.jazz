@@ -38,8 +38,10 @@
 (module protected jazz.editor.jazz.spy.Spy-View jazz
 
 
-(import (jazz.handler)
+(import (jazz.event)
+        (jazz.handler)
         (jazz.jml)
+        (jazz.outline)
         (jazz.picker)
         (jazz.resource)
         (jazz.tree)
@@ -84,8 +86,8 @@
   ;;;
   
   
-  (method public (get-tree)
-    (locate 'tree))
+  (method public (get-tree self)
+    (locate self 'tree))
 
   
   ;;;
@@ -93,21 +95,21 @@
   ;;;
 
 
-  (method public (get-clients)
+  (method public (get-clients self)
     clients)
 
 
-  (method public (set-clients list)
+  (method public (set-clients self list)
     (when active?
-      (for-each unspy clients))
+      (for-each (~ unspy self) clients))
     (set! clients list)
-    (activate))
+    (activate self))
 
 
-  (method (activate)
+  (method package (activate self)
     (set! active? #t)
-    (for-each spy clients)
-    (set-selected?~ (locate 'on/off) #t))
+    (for-each (~ spy self) clients)
+    (set-selected? (locate self 'on/off) #t))
 
   
   ;;;
@@ -115,45 +117,45 @@
   ;;;
 
 
-  (method override (destroy)
-    (set-clients '())
-    (nextmethod))
+  (method override (destroy self)
+    (set-clients self '())
+    (nextmethod self))
 
 
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (move-figure~ (locate 'clear) dh 0)
-    (move-figure~ (locate 'slowdown) dh 0)
-    (move-figure~ (locate 'on/off) dh 0)
-    (size-figure~ (locate 'tree-border) dh dv))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (move-figure (locate self 'clear) dh 0)
+    (move-figure (locate self 'slowdown) dh 0)
+    (move-figure (locate self 'on/off) dh 0)
+    (size-figure (locate self 'tree-border) dh dv))
 
 
-  (method (on-category evt)
-    (set! category (get-name~ (get-sender~ evt))))
+  (method (on-category self evt)
+    (set! category (get-name (get-sender evt))))
   
   
-  (method (on-spy evt)
-    (pick-client
+  (method (on-spy self evt)
+    (pick-client self
       (lambda (view pos)
-        (let ((figure (case (spy-domain)
-                        ((windows) (get-player~ view))
+        (let ((figure (case (spy-domain self)
+                        ((windows) (get-player view))
                         ((views) view))))
-          (set-clients (list figure))))))
+          (set-clients self (list figure))))))
   
   
-  (method (on-spy-family evt)
-    (pick-client
+  (method (on-spy-family self evt)
+    (pick-client self
       (lambda (view pos)
-        (let ((figure (case (spy-domain)
-                        ((windows) (get-player~ view))
+        (let ((figure (case (spy-domain self)
+                        ((windows) (get-player view))
                         ((views) view))))
-          (set-clients (collect-descendants~ figure))))))
+          (set-clients self (collect-descendants figure))))))
   
   
-  (method (pick-client action)
-    (let ((domain (spy-domain)))
+  (method (pick-client self action)
+    (let ((domain (spy-domain self)))
       (pick-figure
-       exclude: (list (get-player))
+       exclude: (list (get-player self))
        click: action
        highlight: #t
        highlight-root-only?: (neq? domain 'views)
@@ -162,19 +164,19 @@
        tooltips?: #f)))
   
   
-  (method (on-clear evt)
-    (remove-every-row~ (get-tree)))
+  (method package (on-clear self evt)
+    (remove-every-row (get-tree self)))
 
 
-  (method (on-slowdown evt)
+  (method (on-slowdown self evt)
     (set! slowdown? (not slowdown?)))
 
 
-  (method (on-on/off evt)
+  (method (on-on/off self evt)
     (set! active? (not active?))
     (if active?
-        (for-each spy clients)
-      (for-each unspy clients)))
+        (for-each (~ spy self) clients)
+      (for-each (~ unspy self) clients)))
 
   
   ;;;
@@ -182,13 +184,13 @@
   ;;;
   
   
-  (method protected virtual (spy-domain)
+  (method protected virtual (spy-domain self)
     )
 
 
-  (method protected virtual (spy client)
+  (method protected virtual (spy self client)
     )
 
 
-  (method protected virtual (unspy client)
+  (method protected virtual (unspy self client)
     )))

@@ -41,13 +41,16 @@
 (import (jazz.component (cond (not ios)))
         (jazz.debuggee)
         (jazz.debuggee.autoload)
+        (jazz.debuggee.jazz)
         (jazz.debuggee.stub)
         (jazz.debuggee.jazz.autoload)
         (jazz.debuggee.jazz.autoload-external)
+        (jazz.debugger.stub)
         (jazz.evaluate)
         (jazz.event (cond (not ios)))
         (jazz.inspector)
         (jazz.jrm)
+        (jazz.process)
         (jazz.runtime)
         (jazz.tracker)
         (profiler))
@@ -56,19 +59,19 @@
 (class Jazz-Debuggee-Process extends Debuggee-Process
   
   
-  (method override (get-id)
+  (method override (get-id self)
     #f)
   
   
-  (method override (get-title)
+  (method override (get-title self)
     (current-process-present))
   
   
-  (method override (get-traits)
+  (method override (get-traits self)
     (current-process-traits))
   
   
-  (method override (get-icon)
+  (method override (get-icon self)
     (current-process-icon))
   
   
@@ -77,24 +80,24 @@
   ;;;
   
   
-  (method override (detach-process)
+  (method override (detach-process self)
     (detach-from-controller))
   
   
-  (method override (reload-process)
-    (reload-process~ (get-process)))
+  (method override (reload-process self)
+    (reload-process (current-process)))
   
   
-  (method override (attach-to-debugger controller-register debugger-cookie)
+  (method override (attach-to-debugger self controller-register debugger-cookie)
     (thread-post (primordial-thread) 'attach-to-debugger
       (lambda ()
         (attach-debuggee-to-controller controller-register focus?: #t)
-        (start-repl-thread (current-thread) #f (get-console-port))
-        (select-console)
+        (start-repl-thread (current-thread) #f (current-console-port))
+        (select-debugger-console)
         (ready-to-controller debugger-cookie))))
   
   
-  (method override (quit-process)
+  (method override (quit-process self)
     (detach-from-controller)
     (quit))
   
@@ -104,8 +107,8 @@
   ;;;
   
   
-  (method override (console-input thread-proxy str)
-    (let ((thread (get-thread~ (get-object~ thread-proxy))))
+  (method override (console-input self thread-proxy str)
+    (let ((thread (get-thread (get-object thread-proxy))))
       (let ((port (thread-console-pump-port thread)))
         (if (not str)
             (close-port port)
@@ -113,8 +116,8 @@
           (force-output port)))))
   
   
-  (method override (console-close thread-proxy)
-    (let ((thread (get-thread~ (get-object~ thread-proxy))))
+  (method override (console-close self thread-proxy)
+    (let ((thread (get-thread (get-object thread-proxy))))
       (close-thread-console thread)))
   
   
@@ -123,9 +126,9 @@
   ;;;
   
   
-  (method override (get-toplevel-hwnd)
+  (method override (get-toplevel-hwnd self)
     @convert
-    (get-handle~ (get-toplevel)))
+    (get-handle (current-toplevel)))
   
   
   ;;;
@@ -133,7 +136,7 @@
   ;;;
   
   
-  (method override (get-threads)
+  (method override (get-threads self)
     (map (lambda (thread)
            (new Debuggee-Thread-Local-Proxy (new Jazz-Debuggee-Thread thread)))
          (top-threads)))
@@ -144,10 +147,10 @@
   ;;;
   
   
-  (method override (restart-stop restart-proxy)
-    (let ((debuggee-restart (get-object~ restart-proxy)))
-      (let ((thread (get-thread~ debuggee-restart))
-            (restart (get-restart~ debuggee-restart)))
+  (method override (restart-stop self restart-proxy)
+    (let ((debuggee-restart (get-object restart-proxy)))
+      (let ((thread (get-thread debuggee-restart))
+            (restart (get-restart debuggee-restart)))
         (thread-post thread 'restart-stop
           (lambda ()
             (invoke-restart restart))))))
@@ -158,17 +161,17 @@
   ;;;
   
   
-  (method override (break-thread thread-proxy)
-    (let ((thread (get-thread~ (get-object~ thread-proxy))))
+  (method override (break-thread self thread-proxy)
+    (let ((thread (get-thread (get-object thread-proxy))))
       (thread-interrupt! thread
         (lambda ()
           (break)))))
   
   
-  (method override (terminate-thread thread-proxy preserve-console?)
-    (let ((thread (get-thread~ (get-object~ thread-proxy))))
+  (method override (terminate-thread self thread-proxy preserve-console?)
+    (let ((thread (get-thread (get-object thread-proxy))))
       (if (eq? thread (primordial-thread))
-          (quit-process)
+          (quit-process self)
         (with-exception-filter
           inactive-thread-exception?
           (lambda (exception) #f)
@@ -177,10 +180,10 @@
           (close-thread-console thread)))))
   
   
-  (method override (kill-thread thread-proxy)
-    (let ((thread (get-thread~ (get-object~ thread-proxy))))
+  (method override (kill-thread self thread-proxy)
+    (let ((thread (get-thread (get-object thread-proxy))))
       (if (eq? thread (primordial-thread))
-          (quit-process)
+          (quit-process self)
         (with-exception-filter
           inactive-thread-exception?
           (lambda (exception) #f)
@@ -193,19 +196,19 @@
   ;;;
   
   
-  (method override (continue-stop stop-proxy)
-    (let ((stop (get-object~ stop-proxy)))
-      (let ((thread (get-thread~ stop))
-            (continuation (get-continuation~ stop)))
+  (method override (continue-stop self stop-proxy)
+    (let ((stop (get-object stop-proxy)))
+      (let ((thread (get-thread stop))
+            (continuation (get-continuation stop)))
         (thread-post thread 'continue-stop
           (lambda ()
             (continuation-return continuation #f))))))
   
   
-  (method override (step-stop stop-proxy command)
-    (let ((stop (get-object~ stop-proxy)))
-      (let ((thread (get-thread~ stop))
-            (stepper (get-stepper~ stop)))
+  (method override (step-stop self stop-proxy command)
+    (let ((stop (get-object stop-proxy)))
+      (let ((thread (get-thread stop))
+            (stepper (get-stepper stop)))
         (thread-post thread 'step-stop
           (lambda ()
             (stepper command))))))
@@ -216,7 +219,7 @@
   ;;;
   
   
-  (method override (transmit-runtime-information what)
+  (method override (transmit-runtime-information self what)
     (thread-start!
       (new-safe-thread
         (lambda (exception)
@@ -228,30 +231,30 @@
                 (when resource
                   (enqueue queue (resource-pathname resource)))))
             
-            (let ((process (get-process)))
-              (let ((properties (runtime-properties~ process)))
-                (if (eq? (effective-transmit-runtime-what~ process what) 'properties)
+            (let ((process (current-process)))
+              (let ((properties (runtime-properties process)))
+                (if (eq? (effective-transmit-runtime-what process what) 'properties)
                     (transmit-information '() '() properties)
                   ;; immediately transmit properties before doing
                   ;; the potentially long computation of filenames
                   (transmit-information #f #f properties)
                   (when kernel-source-access?
                     (when (remote-proxy? (get-controller-debugger))
-                      (let ((product (runtime-product~ process)))
+                      (let ((product (runtime-product process)))
                         (when product
                           (for-each add-unit (product-units product))))
-                      (let ((products (runtime-products~ process)))
+                      (let ((products (runtime-products process)))
                         (for-each (lambda (product)
                                     (for-each add-unit (product-units product)))
                                   products)))
-                    (for-each add-unit (runtime-units~ process)))
+                    (for-each add-unit (runtime-units process)))
                   (let ((filenames (queue-list queue))
-                        (processes (evaluation-processes~ process)))
+                        (processes (evaluation-processes process)))
                     (transmit-information filenames processes properties)))))))
         'runtime-information)))
   
   
-  (method override (transmit-product-runtime-information what product)
+  (method override (transmit-product-runtime-information self what product)
     (thread-start!
       (new-thread
         (lambda ()
@@ -281,14 +284,14 @@
   ;;;
   
   
-  (method override (evaluate-expressions forms syntax str container line col evaluation-mode walk-debugger walk-cookie)
+  (method override (evaluate-expressions self forms syntax str container line col evaluation-mode walk-debugger walk-cookie)
     (thread-call (primordial-thread) 'evaluate-expressions
       (lambda ()
         (let ((evaluate-hook (get-evaluate-forms-hook)))
           (when (or (not evaluate-hook)
                     (not (evaluate-hook forms syntax str container line col evaluation-mode walk-debugger walk-cookie)))
             (catch (Walk-Problems exc
-                     (report-walk-problems~ walk-debugger (get-local-process) (exception-detail exc) walk-cookie)
+                     (report-walk-problems walk-debugger (get-local-process) (exception-detail exc) walk-cookie)
                      (unless (delay-reporting?)
                        (throw exc)))
               (evaluate-forms syntax str container line col evaluation-mode)
@@ -300,33 +303,33 @@
   ;;;
   
   
-  (method override (profiler-start)
+  (method override (profiler-start self)
     (let ((profile (find-selected-profile)))
       (when profile
         (active-profile profile)
         (start-profiler profile))))
   
   
-  (method override (profiler-stop)
+  (method override (profiler-stop self)
     (let ((profile (find-selected-profile)))
       (when profile
         (stop-profiler profile)
         (active-profile #f))))
 
 
-  (method override (profiler-profiles)
+  (method override (profiler-profiles self)
     (get-profile-names))
   
   
-  (method override (profiler-selected-profile)
+  (method override (profiler-selected-profile self)
     (get-selected-profile))
   
   
-  (method override (profiler-selected-profile-set! name)
+  (method override (profiler-selected-profile-set! self name)
     (set-selected-profile name))
   
   
-  (method override (profiler-profile)
+  (method override (profiler-profile self)
     (define (package-frame frame)
       (or (and frame
                (bind (creator locat) frame
@@ -352,7 +355,7 @@
     
     (let ((profile (find-selected-profile)))
       (and profile
-           (let ((remote-profile (and (get-application) (get-remote-profile~ (get-application) (profile-label profile)))))
+           (let ((remote-profile (and (get-application) (get-remote-profile (get-application) (profile-label profile)))))
              (let ((frames-count (profile-add profile remote-profile profile-frames-count))
                    (frames-duration (profile-add profile remote-profile profile-frames-duration))
                    (calls-count (profile-add profile remote-profile profile-calls-count))
@@ -373,7 +376,7 @@
                      (table->list calls)))))))
   
   
-  (method override (profile-reset profiler depth all?)
+  (method override (profile-reset self profiler depth all?)
     (if all?
         (reset-profiles)
       (let ((profile (find-selected-profile)))
@@ -386,27 +389,27 @@
   ;;;
   
   
-  (method override (tracker-start)
+  (method override (tracker-start self)
     (start-tracker))
   
   
-  (method override (tracker-stop)
+  (method override (tracker-stop self)
     (stop-tracker))
 
 
-  (method override (tracker-trackings)
+  (method override (tracker-trackings self)
     (get-tracking-names))
   
   
-  (method override (tracker-selected-tracking)
+  (method override (tracker-selected-tracking self)
     (get-selected-tracking))
   
   
-  (method override (tracker-selected-tracking-set! name)
+  (method override (tracker-selected-tracking-set! self name)
     (set-selected-tracking name))
   
   
-  (method override (tracker-tracking)
+  (method override (tracker-tracking self)
     (define (package-frame frame)
       (or (and frame
                (bind (creator locat) frame
@@ -417,16 +420,16 @@
     
     (let ((tracking (find-selected-tracking)))
       (and tracking
-           (let ((allocations (extract-allocations~ tracking)))
-             (list (get-label~ tracking)
-                   (get-all~ tracking)
+           (let ((allocations (extract-allocations tracking)))
+             (list (get-label tracking)
+                   (get-all tracking)
                    (map (lambda (allocation)
                           (bind (object file line stack) allocation
                             (list (package-info object) file line (and stack (map package-frame stack)))))
                         allocations))))))
   
   
-  (method override (tracking-reset all?)
+  (method override (tracking-reset self all?)
     (if all?
         (reset-trackings)
       (let ((tracking (find-selected-tracking)))
@@ -439,11 +442,11 @@
   ;;;
   
   
-  (method override (inspect-serial serial max-content)
+  (method override (inspect-serial self serial max-content)
     (inspect-value (serial->object serial) max-content: max-content))
   
   
-  (method override (inspect-continuation serial)
+  (method override (inspect-continuation self serial)
     (let ((k (serial->object serial)))
       (assert (continuation? k))
       (thread-start! (make-thread (lambda ()
@@ -453,7 +456,7 @@
                                   debugged-continuations-thread-group))))
   
   
-  (method override (present-serial serial)
+  (method override (present-serial self serial)
     (let ((port (open-output-string)))
       (display (serial->object serial) port)
       (get-output-string port)))
@@ -464,7 +467,7 @@
   ;;;
   
   
-  (method override (try-out class)
+  (method override (try-out self class)
     (cond-expand
       (ios)
       (else
@@ -472,4 +475,4 @@
       (when (subtype? class Component)
         (delay-event
           (lambda ()
-            (try-out~ class))))))))))
+            (try-out class))))))))))

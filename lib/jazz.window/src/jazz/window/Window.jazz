@@ -66,60 +66,60 @@
   ;;;
 
 
-  (method protected virtual (opengl?)
+  (method package virtual (opengl? self)
     #f)
   
   
-  (method override (initially-visible?)
+  (method override (initially-visible? self)
     #f)
 
 
-  (method override (default-parent)
+  (method override (default-parent self)
     (window-default-parent self))
 
 
-  (method override (prepare rest)
+  (method override (prepare self rest)
     (define (setup-handle handle)
-      (set-window handle self)
-      (set-handle handle))
+      (register-window handle self)
+      (set-handle self handle))
     
-    (nextmethod rest)
+    (nextmethod self rest)
     (setup-handle (prepare-handle self rest)))
   
   
-  (method override (conclude rest)
-    (nextmethod rest)
-    (size-change 'restored (get-size)))
+  (method override (conclude self rest)
+    (nextmethod self rest)
+    (size-change self 'restored (get-size self)))
   
   
-  (method public (open?)
+  (method public (open? self)
     (boolean handle))
 
 
-  (method override (show)
-    (nextmethod)
+  (method override (show self)
+    (nextmethod self)
     (assert handle)
     (show-window handle)
-    (invalidate-offscreen))
+    (invalidate-offscreen self))
 
 
-  (method override (hide)
-    (nextmethod)
+  (method override (hide self)
+    (nextmethod self)
     (assert handle)
     (hide-window handle))
   
   
-  (method public (minimize)
+  (method public (minimize self)
     (assert handle)
     (minimize-window handle))
   
   
-  (method public (get-state)
+  (method public (get-state self)
     (assert handle)
     (get-window-state handle))
   
   
-  (method public (set-state state)
+  (method public (set-state self state)
     (assert handle)
     (case state
       ((minimized) (minimize-window handle))
@@ -128,42 +128,42 @@
       (else (error "Unknown window state: {s}" state))))
   
   
-  (method public (get-placement)
+  (method public (get-placement self)
     (get-window-placement handle))
   
   
-  (method public (set-placement info)
+  (method public (set-placement self info)
     (assert handle)
     (set-window-placement handle info))
   
   
-  (method public (maximize)
+  (method public (maximize self)
     (assert handle)
     (show-maximized handle))
 
 
-  (method override (close)
-    (set-visible? #f)
-    (destroy-component)
+  (method override (close self)
+    (set-visible? self #f)
+    (destroy-component self)
     (destroy-window handle)
-    (set-window handle #f)
-    (set-handle #f))
+    (register-window handle #f)
+    (set-handle self #f))
 
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (if (not handle)
             (format output "orphaned")
-          (let ((position (get-position))
-                (size (get-size)))
+          (let ((position (get-position self))
+                (size (get-size self)))
             (if (or (not title) (empty-string? title))
                 (format output "{a} {a}" position size)
               (format output "{s} {a} {a}" title position size)))))))
   
   
-  (method (invalidate-offscreen)
-    (let ((rect (size-rect (get-size))))
+  (method (invalidate-offscreen self)
+    (let ((rect (size-rect (get-size self))))
       (invalidate-offscreen-rect handle rect)))
   
   
@@ -172,12 +172,12 @@
   ;;;
 
 
-  (method override (add-child child)
+  (method override (add-child self child)
     (set! children (cons child children)))
   
   
-  (method override (add-form parent-form child-form)
-    (set-parent~ parent-form child-form))
+  (method override (add-form self parent-form child-form)
+    (set-parent parent-form child-form))
 
 
   ;;;
@@ -185,7 +185,7 @@
   ;;;
   
   
-  (method protected virtual (unprocessed-message)
+  (method protected virtual (unprocessed-message self)
     unprocessed)
 
 
@@ -194,19 +194,19 @@
   ;;;
 
 
-  (method protected virtual (erase-background handle)
+  (method protected virtual (erase-background self handle)
     (assert handle)
     (platform-erase-background handle))
   
 
-  (method protected virtual (paint region . platform-data)
+  (method package virtual (paint self region . platform-data)
     (with-platform-painting self platform-data
       (lambda (surface)
-        (draw surface))))
+        (draw self surface))))
   
   
   ;; quick hack
-  (method protected virtual (paint-cocoa context rect)
+  (method package virtual (paint-cocoa self context rect)
     )
   
   
@@ -226,12 +226,12 @@
     0)
   
 
-  (definition (draw-placeholder surface)
-    (set-color~ surface (cycle-debug-color!))
-    (paint~ surface))
+  (method (draw-placeholder self surface)
+    (set-color surface (cycle-debug-color!))
+    (paint surface))
   
 
-  (method protected virtual (draw surface)
+  (method package virtual (draw self surface)
     )
 
 
@@ -240,68 +240,68 @@
   ;;;
   
   
-  (method protected virtual (mouse-wheel h v delta)
+  (method package virtual (mouse-wheel self h v delta)
     (let ((view (get-mouse-in)))
       (if view
           (let ((acquired #f))
-            (mouse-wheel~ view acquired delta)
+            (mouse-wheel view acquired delta)
             processed)
         unprocessed)))
 
   
-  (method protected virtual (mouse-down h v)
+  (method package virtual (mouse-down self h v)
     unprocessed)
   
   
-  (method protected virtual (mouse-move h v)
+  (method protected virtual (mouse-move self h v)
     unprocessed)
   
   
-  (method protected virtual (call-mouse-moved x y)
+  (method package virtual (call-mouse-moved self x y)
     (if (and manage-captured? cursor-positionable?)
-        (mouse-moved (- x (get-h~ warp-delta)) (- y (get-v~ warp-delta)))
-      (mouse-moved x y)))
+        (mouse-moved self (- x (get-h warp-delta)) (- y (get-v warp-delta)))
+      (mouse-moved self x y)))
   
   
-  (method protected virtual (mouse-moved x y)
-    (mouse-move (fxround x) (fxround y)))
+  (method package virtual (mouse-moved self x y)
+    (mouse-move self (fxround x) (fxround y)))
   
   
-  (method protected virtual (mouse-up h v)
+  (method package virtual (mouse-up self h v)
     unprocessed)
   
   
-  (method protected virtual (double-click h v)
-    (mouse-down h v))
+  (method package virtual (double-click self h v)
+    (mouse-down self h v))
   
   
-  (method protected virtual (multiple-click count h v)
+  (method package virtual (multiple-click self count h v)
     (if (odd? count)
-        (mouse-down h v)
-      (double-click h v)))
+        (mouse-down self h v)
+      (double-click self h v)))
   
   
-  (method protected virtual (middle-mouse-down h v)
+  (method package virtual (middle-mouse-down self h v)
     unprocessed)
   
   
-  (method protected virtual (middle-mouse-up h v)
+  (method package virtual (middle-mouse-up self h v)
     unprocessed)
   
   
-  (method protected virtual (right-mouse-down h v)
+  (method package virtual (right-mouse-down self h v)
     unprocessed)
   
   
-  (method protected virtual (right-mouse-up h v)
+  (method package virtual (right-mouse-up self h v)
     unprocessed)
   
   
-  (method protected virtual (right-double-click h v)
-    (right-mouse-down h v))
+  (method protected virtual (right-double-click self h v)
+    (right-mouse-down self h v))
   
   
-  (method protected virtual (context-menu h v)
+  (method package virtual (context-menu self h v)
     unprocessed)
 
 
@@ -310,12 +310,12 @@
   ;;;
   
   
-  (method public (acquire-capture)
+  (method public (acquire-capture self)
     (assert handle)
     (set-capture handle))
   
   
-  (method public (release-capture)
+  (method public (release-capture self)
     (unset-capture))
 
 
@@ -332,18 +332,18 @@
   (slot warp-delta           initialize #f getter generate)
   
   
-  (method public (show-cursor)
+  (method public (show-cursor self)
     (platform-show-cursor handle)
     (set! cursor-visible? #t))
   
   
-  (method public (hide-cursor)
+  (method public (hide-cursor self)
     (platform-hide-cursor handle)
     (set! cursor-visible? #f))
   
   
-  (method public (capture-cursor)
-    (when (and (not cursor-captured?) (get-active?~ (get-application)))
+  (method public (capture-cursor self)
+    (when (and (not cursor-captured?) (get-active? (get-application)))
       (let ((manage? (not (platform-capture-cursor handle))))
         (set! cursor-visible? #f)
         (set! cursor-captured? #t)
@@ -354,26 +354,26 @@
                                      (else (find-setting 'jazz.cursor-positionable? #t))))
         (set! manage-captured? manage?)
         (when manage?
-          (hide-cursor)
+          (hide-cursor self)
           (when cursor-positionable?
-            (let ((pos (mouse-position))
-                  (center (cursor-center)))
+            (let ((pos (mouse-position self))
+                  (center (cursor-center self)))
               (set! manage-preserved pos)
               (set! warp-delta (nu- center pos))
-              (set-mouse-position center)))))))
+              (set-mouse-position self center)))))))
   
   
-  (method (cursor-center)
-    (new Point (fxround/ (get-width) 2) (fxround/ (get-height) 2)))
+  (method (cursor-center self)
+    (new Point (fxround/ (get-width self) 2) (fxround/ (get-height self) 2)))
   
   
-  (method public (release-cursor)
+  (method public (release-cursor self)
     (when cursor-captured?
       (platform-release-cursor handle)
       (when manage-captured?
         (when cursor-positionable?
-          (set-mouse-position manage-preserved))
-        (show-cursor))
+          (set-mouse-position self manage-preserved))
+        (show-cursor self))
       (set! cursor-visible? #t)
       (set! cursor-captured? #f)
       (set! manage-captured? #f)
@@ -381,7 +381,7 @@
       (set! warp-delta #f)))
 
   
-  (method protected virtual (cursor-update hit)
+  (method package virtual (cursor-update self hit)
     (if hit
         processed
       unprocessed))
@@ -392,32 +392,32 @@
   ;;;
   
   
-  (method (system-key-down)
+  (method (system-key-down self)
     (update-cursor)
     processed)
   
   
-  (method (system-key-up)
+  (method (system-key-up self)
     (update-cursor)
     processed)
     
   
-  (method protected virtual (key-down code)
+  (method package virtual (key-down self code)
     (update-cursor)
     unprocessed)
   
   
-  (method protected virtual (key-up code)
+  (method package virtual (key-up self code)
     (update-cursor)
     unprocessed)
   
   
-  (method (call-key-press char)
+  (method package (call-key-press self char)
     (unless (invalid-character? char)
-      (key-press char)))
+      (key-press self char)))
 
 
-  (method public virtual (key-press char)
+  (method public virtual (key-press self char)
     unprocessed)
 
 
@@ -426,7 +426,7 @@
   ;;;
   
   
-  (method package virtual (reset-focus)
+  (method package virtual (reset-focus self)
     )
 
 
@@ -445,7 +445,7 @@
     0)
   
   
-  (method public (register-timer name elapse proc)
+  (method public (register-timer self name elapse proc)
     (define (unique-id)
       (prog1 timer-id
         (increase! timer-id)))
@@ -456,14 +456,14 @@
       (platform-set-timer handle id elapse)))
   
   
-  (method public (unregister-timer name)
+  (method public (unregister-timer self name)
     (let ((id (table-ref timer-names name)))
       (platform-kill-timer handle id)
       (table-clear timer-names name)
       (table-clear timer-ids id)))
   
   
-  (method protected (timer-pulse id)
+  (method protected (timer-pulse self id)
     (let ((proc (table-ref timer-ids id)))
       (proc)))
 
@@ -473,77 +473,77 @@
   ;;;
   
   
-  (method public (call-position-change h v)
-    (position-change (new Point h v)))
+  (method public (call-position-change self h v)
+    (position-change self (new Point h v)))
   
   
-  (method protected virtual (position-change position)
+  (method protected virtual (position-change self position)
     unprocessed)
 
 
-  (method public (call-size-change state width height)
-    (if (get-installed?)
-        (size-change state (new Dimension width height))
+  (method public (call-size-change self state width height)
+    (if (get-installed? self)
+        (size-change self state (new Dimension width height))
       unprocessed))
 
 
-  (method protected virtual (size-change state size)
+  (method package virtual (size-change self state size)
     unprocessed)
   
   
-  (method protected virtual (mouse-enter)
+  (method package virtual (mouse-enter self)
     unprocessed)
   
   
-  (method protected virtual (mouse-leave)
+  (method package virtual (mouse-leave self)
     unprocessed)
   
   
-  (method protected virtual (mouse-activate?)
+  (method package virtual (mouse-activate? self)
     #f)
 
 
-  (method protected virtual (mouse-activate)
+  (method package virtual (mouse-activate self)
     unprocessed)
 
 
   ;; when a toplevel window (including palettes) is activated or deactivated
-  (method protected virtual (activate kind)
+  (method package virtual (activate self kind)
     (if (eq? kind 'inactive)
-        (deactivate-palette)
-      (activate-palette))
+        (deactivate-palette self)
+      (activate-palette self))
     unprocessed)
 
   
-  (method protected virtual (activate-palette)
+  (method protected virtual (activate-palette self)
     )
   
   
-  (method protected virtual (deactivate-palette)
+  (method protected virtual (deactivate-palette self)
     )
 
 
   ;; Called when a toplevel window (including palettes)
   ;; is activated by a change of the active application
-  (method protected virtual (activate-application)
+  (method package virtual (activate-application self)
     unprocessed)
 
 
   ;; Called when a toplevel window (including palettes)
   ;; is deactivated by a change of the active application
-  (method protected virtual (deactivate-application)
+  (method package virtual (deactivate-application self)
     unprocessed)
   
   
-  (method public virtual (close-window)
-    (close))
+  (method public virtual (close-window self)
+    (close self))
 
 
-  (method protected virtual (focus-gain)
+  (method package virtual (focus-gain self)
     unprocessed)
 
 
-  (method protected virtual (focus-lose)
+  (method package virtual (focus-lose self)
     unprocessed)
   
   
@@ -552,11 +552,11 @@
   ;;;
   
   
-  (method (drop-files wparam)
+  (method package (drop-files self wparam)
     (platform-drop-files self wparam))
   
   
-  (method protected virtual (receive-files pos files)
+  (method package virtual (receive-files self pos files)
     )
   
   
@@ -569,10 +569,10 @@
   ;; should use cairo...
   ;; also the menubar should only fade-in the first menu so that wiggling
   ;; between all the menus is zero delay after the first one popped
-  (method public (fade-in (fade-speed: fade-speed #f))
+  (method public (fade-in self (fade-speed: fade-speed #f))
     @w
     (set-alpha-blending handle 0)
-    (set-visible? #t)
+    (set-visible? self #t)
     @w(
     (update-window)
     (let* ((max 255)
@@ -586,7 +586,7 @@
     (set-layered? handle #f)))
   
   
-  (method public (fade-out (to: to 0) (step: step 5))
+  (method public (fade-out self (to: to 0) (step: step 5))
     @need-to-get-layered-attributes
     (let ((alpha))
       (loop (for n from 0 to to by step)
@@ -601,131 +601,131 @@
   ;;;
 
 
-  (method public (opened?)
+  (method public (opened? self)
     (boolean handle))
 
 
-  (method public (get-external-frame)
+  (method public (get-external-frame self)
     (if (is? self External-Frame)
         self
       (and parent
-           (get-frame~ parent))))
+           (get-frame parent))))
   
   
-  (method public (get-overlapped)
+  (method public (get-overlapped self)
     (if (is? self Overlapped)
         self
-      (get-overlapped~ parent)))
+      (get-overlapped parent)))
   
 
-  (method public virtual (get-title)
+  (method public virtual (get-title self)
     title)
   
 
-  (method public virtual (set-title value)
+  (method public virtual (set-title self value)
     (set! title value)
     (assert handle)
     (platform-set-window-title handle (localize title)))
   
 
-  (method public (get-window-title)
+  (method public (get-window-title self)
     (assert handle)
     (platform-get-window-title handle))
   
 
-  (method public (acquire window <Window> shape)
+  (method public (acquire self window <Window> shape)
     (assert handle)
     (typecase shape
       ((Point)
-       (acquire-point handle (get-handle~ window) shape))
+       (acquire-point handle (get-handle window) shape))
       ((Rect)
-       (acquire-rect handle (get-handle~ window) shape))
+       (acquire-rect handle (get-handle window) shape))
       (else
        (error "Unable to acquire {t}" shape))))
   
   
-  (method override (get-position) <Point>
+  (method override (get-position self) <Point>
     (assert handle)
     (platform-get-frame-position handle))
   
   
-  (method override (set-position pos <Point>) <void>
+  (method override (set-position self pos <Point>) <void>
     (assert handle)
-    (unless (nu=? pos (get-position))
+    (unless (nu=? pos (get-position self))
       (platform-set-frame-position handle pos)))
   
   
-  (method public (move-window dh <fx> dv <fx>)
-    (let ((pos (get-position)))
-      (set-position (new Point (+ (get-h~ pos) dh) (+ (get-v~ pos) dv)))))
+  (method public (move-window self dh <fx> dv <fx>)
+    (let ((pos (get-position self)))
+      (set-position self (new Point (+ (get-h pos) dh) (+ (get-v pos) dv)))))
   
   
-  (method override (get-size) <Dimension>
+  (method override (get-size self) <Dimension>
     (assert handle)
     (platform-get-content-size handle))
   
   
-  (method override (set-size new-size <Dimension>) <void>
+  (method override (set-size self new-size <Dimension>) <void>
     (assert handle)
     (platform-set-content-size handle new-size))
   
   
-  (method public (size-window dwidth <fx> dheight <fx>)
-    (let ((size (get-size)))
-      (set-size (new Dimension (+ (get-width~ size) dwidth) (+ (get-height~ size) dheight)))))
+  (method public (size-window self dwidth <fx> dheight <fx>)
+    (let ((size (get-size self)))
+      (set-size self (new Dimension (+ (get-width size) dwidth) (+ (get-height size) dheight)))))
   
   
-  (method public (grow-rect dh dv dwidth dheight)
-    (let ((pos (+ (get-position) (new Point dh dv)))
-          (size (+ (get-size) (new Dimension dwidth dheight))))
-      (set-size size)
-      (set-position pos)))
+  (method public (grow-rect self dh dv dwidth dheight)
+    (let ((pos (+ (get-position self) (new Point dh dv)))
+          (size (+ (get-size self) (new Dimension dwidth dheight))))
+      (set-size self size)
+      (set-position self pos)))
 
 
-  (method public (get-width) <fx>
-    (get-width~ (get-size)))
+  (method public (get-width self) <fx>
+    (get-width (get-size self)))
 
   
-  (method public (get-height) <fx>
-    (get-height~ (get-size)))
+  (method public (get-height self) <fx>
+    (get-height (get-size self)))
   
   
-  (method public (get-frame-size) <Dimension>
+  (method public (get-frame-size self) <Dimension>
     (assert handle)
     (platform-get-frame-size handle))
 
 
-  (method public (set-frame-size size)
+  (method public (set-frame-size self size)
     (assert handle)
     (platform-set-frame-size handle size))
   
 
-  (method public (get-frame-rect) <Rect>
+  (method public (get-frame-rect self) <Rect>
     (assert handle)
     (platform-get-frame-rect handle))
   
   
-  (method public (set-frame-rect rect)
+  (method public (set-frame-rect self rect)
     (assert handle)
     (platform-set-frame-rect handle rect))
   
 
-  (method public (get-bounds) <Rect>
+  (method public (get-bounds self) <Rect>
     (assert handle)
     (platform-get-bounds handle))
 
   
-  (method public (ensure-displayed)
-    (let ((outer (if (not parent) (get-size~ (get-desktop)) (get-size~ parent)))
-          (rect (get-frame-rect)))
+  (method public (ensure-displayed self)
+    (let ((outer (if (not parent) (get-size (get-desktop)) (get-size parent)))
+          (rect (get-frame-rect self)))
       (receive (new-position new-size) (fit-within outer rect padding: 8)
-        (set-size new-size)
-        (set-position new-position))))
+        (set-size self new-size)
+        (set-position self new-position))))
 
 
   (cond-expand
     (cocoa
-     (method public (mouse-position) <Point>
+     (method public (mouse-position self) <Point>
        (platform-mouse-position handle)))
     (else
      (method public (mouse-position) <Point>
@@ -734,61 +734,61 @@
 
   (cond-expand
     (cocoa
-     (method public (set-mouse-position pos)
-       (platform-set-mouse-position handle (get-h~ pos) (get-v~ pos))))
+     (method public (set-mouse-position self pos)
+       (platform-set-mouse-position handle (get-h pos) (get-v pos))))
     (else
      (method public (set-mouse-position pos)
-       (let ((pos (acquire~ (get-desktop) self pos)))
-         (platform-set-mouse-position (get-h~ pos) (get-v~ pos))))))
+       (let ((pos (acquire (get-desktop) self pos)))
+         (platform-set-mouse-position (get-h pos) (get-v pos))))))
 
 
-  (method public (mouse-window)
-    (find-window (mouse-position)))
+  (method public (mouse-window self)
+    (find-window self (mouse-position self)))
 
 
-  (method public (mouse-in-window?)
-    (point-in-window? (mouse-position)))
+  (method public (mouse-in-window? self)
+    (point-in-window? self (mouse-position self)))
 
 
-  (method public (point-in-window? point)
-    (let ((size (get-frame-size)))
-      (and (in-interval? (get-h~ point) 0 (get-width~ size))
-           (in-interval? (get-v~ point) 0 (get-height~ size)))))
+  (method public (point-in-window? self point)
+    (let ((size (get-frame-size self)))
+      (and (in-interval? (get-h point) 0 (get-width size))
+           (in-interval? (get-v point) 0 (get-height size)))))
 
 
-  (method public (find-window point)
-    (let ((pos (acquire~ (get-desktop) self point)))
-      (get-window (platform-window-from-point pos))))
+  (method public (find-window self point)
+    (let ((pos (acquire (get-desktop) self point)))
+      (registered-window (platform-window-from-point pos))))
 
 
-  (method public (flash-window)
+  (method public (flash-window self)
     (platform-flash-window handle))
 
 
-  (method public (move x y cx cy)
+  (method public (move self x y cx cy)
     (assert handle)
     (platform-move-window handle x y cx cy))
 
 
-  (method public (acquire-focus)
+  (method public (acquire-focus self)
     (set-window-focus self))
   
   
-  (method public (center-window)
+  (method public (center-window self)
     (let ((screen (primary-screen)))
       ;; until implemented on all platforms
       (when screen
-        (set-position (center-screen screen (get-frame-size))))))
+        (set-position self (center-screen screen (get-frame-size self))))))
   
   
-  (method public (enter-modal overlapped)
+  (method public (enter-modal self overlapped)
     (assert handle)
-    (platform-enter-modal handle (and overlapped (get-handle~ overlapped))))
+    (platform-enter-modal handle (and overlapped (get-handle overlapped))))
   
   
   (cond-expand
     (cocoa
-      (method public (run-modal done?)
+      (method public (run-modal self done?)
         (assert handle)
         (platform-run-modal handle done?)))
     (else
@@ -796,89 +796,89 @@
         (process-events done?))))
   
   
-  (method public (exit-modal overlapped)
+  (method public (exit-modal self overlapped)
     (assert handle)
-    (platform-exit-modal handle (and overlapped (get-handle~ overlapped))))
+    (platform-exit-modal handle (and overlapped (get-handle overlapped))))
   
   
-  (method public (disable-window)
+  (method public (disable-window self)
     (assert handle)
     (platform-disable-window handle))
   
   
-  (method public (enable-window)
+  (method public (enable-window self)
     (assert handle)
     (platform-enable-window handle))
 
 
-  (method public (get-client-rect)
+  (method public (get-client-rect self)
     (assert handle)
     (platform-get-client-rect handle))
 
 
-  (method public virtual (scroll-window delta rect clip-rect)
+  (method public virtual (scroll-window self delta rect clip-rect)
     (assert handle)
     (if (inhibit-updates?)
-        (invalidate-rect clip-rect)
+        (invalidate-rect self clip-rect)
       (platform-scroll-window handle delta rect clip-rect))
     (let ((proc (debug-flicker)))
       (when proc
         (proc))))
 
   
-  (method public (invalidate-rect rect)
+  (method public (invalidate-rect self rect)
     (assert handle)
     (platform-invalidate-rect handle rect))
 
   
-  (method public (invalidate-region region)
+  (method public (invalidate-region self region)
     (assert handle)
     (platform-invalidate-region handle region))
 
   
-  (method public (invalidate-window)
+  (method public (invalidate-window self)
     (assert handle)
     (platform-invalidate-window handle))
 
   
-  (method public (redraw-window (rect: rect #f) (region: region #f))
+  (method public (redraw-window self (rect: rect #f) (region: region #f))
     (assert handle)
     (if (inhibit-updates?)
-        (cond (rect (invalidate-rect rect))
-              (region (invalidate-region region))
-              (else (invalidate-window)))
+        (cond (rect (invalidate-rect self rect))
+              (region (invalidate-region self region))
+              (else (invalidate-window self)))
       (if (or rect region)
           (platform-redraw-window handle rect region)
-        (platform-redraw-window handle (get-client-rect) #f))))
+        (platform-redraw-window handle (get-client-rect self) #f))))
 
 
-  (method public (invalidate-border (insets: insets {Rect 1 1 1 1}))
-    (with ((region (border-region insets: insets)))
-      (invalidate-region region)))
+  (method public (invalidate-border self (insets: insets {Rect 1 1 1 1}))
+    (with ((region (border-region self insets: insets)))
+      (invalidate-region self region)))
 
 
-  (method public (redraw-border (insets: insets {Rect 1 1 1 1}))
-    (with ((region (border-region insets: insets)))
-      (redraw-window region: region)))
+  (method public (redraw-border self (insets: insets {Rect 1 1 1 1}))
+    (with ((region (border-region self insets: insets)))
+      (redraw-window self region: region)))
 
 
-  (method public (border-region (insets: insets {Rect 1 1 1 1}))
-    (frame-region (get-client-rect) insets: insets))
+  (method public (border-region self (insets: insets {Rect 1 1 1 1}))
+    (frame-region (get-client-rect self) insets: insets))
 
 
-  (method public (update-window)
+  (method public (update-window self)
     (assert handle)
     (if (inhibit-updates?)
-        (invalidate-window)
+        (invalidate-window self)
       (platform-update-window handle)))
   
   
-  (method public (show-noactivate)
+  (method public (show-noactivate self)
     (assert handle)
     (platform-show-noactivate handle))
   
   
-  (method public (hide-noactivate)
+  (method public (hide-noactivate self)
     (assert handle)
     (platform-hide-noactivate handle))
 
@@ -888,22 +888,22 @@
   ;;;
 
 
-  (method public (first-window)
-    (let ((windows (get-windows)))
+  (method public (first-window self)
+    (let ((windows (get-windows self)))
       (if (null? windows)
           #f
         (first windows))))
   
   
-  (method public (get-windows (include-invisibles?: include-invisibles? #f))
+  (method public (get-windows self (include-invisibles?: include-invisibles? #f))
     (collect-if (lambda (child)
                   (and (is? child Window)
-                       (or include-invisibles? (get-visible?~ child))))
-                (get-children)))
+                       (or include-invisibles? (get-visible? child))))
+                (get-children self)))
 
 
-  (method public (front-window?)
-    (eq? self (first-window~ parent)))
+  (method public (front-window? self)
+    (eq? self (first-window parent)))
 
 
   ;;;
@@ -911,19 +911,19 @@
   ;;;
   
   
-  (method override (bring-to-front)
-    (nextmethod)
+  (method override (bring-to-front self)
+    (nextmethod self)
     (assert handle)
     (platform-bring-window-to-front handle))
 
 
-  (method override (send-to-back)
-    (nextmethod)
+  (method override (send-to-back self)
+    (nextmethod self)
     (assert handle)
     (platform-send-window-to-back handle))
   
   
-  (method public (select-foreground)
+  (method public (select-foreground self)
     (platform-select-foreground-window handle))
   
 
@@ -932,19 +932,19 @@
   ;;;
 
 
-  (method override (get-location)
+  (method override (get-location self)
     location)
 
 
-  (method override (set-location loc)
+  (method override (set-location self loc)
     (set! location loc))
   
   
-  (method public (layout-window)
-    (layout))
+  (method public (layout-window self)
+    (layout self))
   
   
-  (method public virtual (layout)
+  (method public virtual (layout self)
     )
   
   
@@ -953,21 +953,21 @@
   ;;;
   
   
-  (method public (mouse-view)
-    (find-view (mouse-position)))
+  (method public (mouse-view self)
+    (find-view self (mouse-position self)))
   
   
-  (method public (find-view pos (ignore: ignore #f))
-    (let ((window (find-window pos)))
+  (method public (find-view self pos (ignore: ignore #f))
+    (let ((window (find-window self pos)))
       (and (is? window View-Player)
-           (let ((root (get-root~ window)))
-             (find-drawing~ root (acquire~ window self pos) ignore: ignore)))))
+           (let ((root (get-root window)))
+             (find-drawing root (acquire window self pos) ignore: ignore)))))
   
   
-  (method public (to-view shape view)
-    (let* ((player (get-player~ view))
-           (acquired (acquire~ player self shape)))
-      (acquire~ view (get-root~ player) acquired)))
+  (method public (to-view self shape view)
+    (let* ((player (get-player view))
+           (acquired (acquire player self shape)))
+      (acquire view (get-root player) acquired)))
 
 
   ;;;
@@ -975,13 +975,13 @@
   ;;;
   
   
-  (method public virtual (debug-window pos)
+  (method public virtual (debug-window self pos)
     (unimplemented 'debug-window)
     @Development
     (set-%~ Development self))
 
 
-  (method public virtual (describe-window pos)
+  (method public virtual (describe-window self pos)
     (unimplemented 'describe-window)
     @WINSTYLE(
     (format :console "{%}")

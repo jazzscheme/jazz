@@ -39,6 +39,7 @@
 
 
 (import (jazz.catalog)
+        (jazz.io)
         (jazz.resource))
 
 
@@ -55,31 +56,31 @@
   (slot lines)
   
   
-  (method override (initialize catalog file digest dialect definitions)
-    (nextmethod)
-    (set! catalog~self catalog)
-    (set! file~self file)
-    (set! digest~self digest)
-    (set! dialect~self dialect)
-    (set! definitions~self definitions)
-    (set! location-name~self (get-base~ file))
-    (set! lines~self #f)
-    (set! marked?~self #t)
+  (method override (initialize self catalog file digest dialect definitions)
+    (nextmethod self)
+    (set! self.catalog catalog)
+    (set! self.file file)
+    (set! self.digest digest)
+    (set! self.dialect dialect)
+    (set! self.definitions definitions)
+    (set! self.location-name (get-base file))
+    (set! self.lines #f)
+    (set! self.marked? #t)
     (for-each (lambda (definition)
-                (set-parent~ definition self)
-                (set-file-definition~ definition self))
+                (set-parent definition self)
+                (set-file-definition definition self))
               definitions)
-    (when (context-setup?~ file)
+    (when (context-setup? file)
       (clear-file-entry file)))
 
 
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{s}" file))))
   
   
-  (method public virtual (print-catalog first? output)
+  (method public virtual (print-catalog self first? output)
     (when (not first?)
       (format output "{%}{_ :v}" 2))
     (format output "~{{s} {s} {s} {s}"
@@ -88,12 +89,12 @@
             digest
             dialect)
     (for-each (lambda (definition)
-                (print-catalog~ definition 2 output))
+                (print-catalog definition 2 output))
               definitions)
     (format output "}"))
   
   
-  (method (context-setup)
+  (method package (context-setup self)
     (clear-file-entry file))
 
 
@@ -102,41 +103,41 @@
   ;;;
 
 
-  (method override (get-file)
+  (method override (get-file self)
     file)
 
 
-  (method override (get-moniker)
+  (method override (get-moniker self)
     file)
 
 
-  (method override (get-definitions)
+  (method override (get-definitions self)
     definitions)
 
 
-  (method override (get-location-name)
+  (method override (get-location-name self)
     location-name)
 
 
-  (method override (get-root-definition)
+  (method override (get-root-definition self)
     (and (not-null? definitions)
          (car definitions)))
 
 
-  (method override (get-file-definition)
+  (method override (get-file-definition self)
     self)
   
   
-  (method public (get-definition name)
+  (method public (get-definition self name)
     (find-if (lambda (definition)
-               (= (get-name~ definition) name))
+               (= (get-name definition) name))
              definitions))
   
   
-  (method (cache-lines) <vector>
+  (method (cache-lines self) <vector>
     (or lines
         (let ((queue (new-queue)))
-          (for-each-descendant-entry
+          (for-each-descendant-entry self
             (lambda (entry)
               (enqueue queue entry)))
           (let ((vec (list->vector (queue-list queue))))
@@ -144,28 +145,28 @@
             vec))))
   
   
-  (method override (for-each-descendant-entry proc)
+  (method override (for-each-descendant-entry self proc)
     (let (iter (entry self))
-      (loop (for child in (get-definitions~ entry))
+      (loop (for child in (get-definitions entry))
             (proc child)
             (iter child))))
   
   
   ;; binary search
-  (method (line->entry line)
-    (let ((lines (cache-lines)))
+  (method package (line->entry self line)
+    (let ((lines (cache-lines self)))
       (let ((len (length lines)))
         (and (> len 0)
              (let (iter (head <fx> 0)
                         (pos <fx> (fxround/ len 2))
                         (tail <fx> (- len 1)))
                (let ((entry (vector-ref lines pos)))
-                 (let ((entry-line (get-line~ entry)))
+                 (let ((entry-line (get-line entry)))
                    (cond ((and (>= line entry-line)
                                (let ((next-pos (+ pos 1)))
                                  (or (> next-pos tail)
                                      (let ((next-entry (vector-ref lines next-pos)))
-                                       (< line (get-line~ next-entry))))))
+                                       (< line (get-line next-entry))))))
                           entry)
                          ((< line entry-line)
                           (let ((new-pos (fxfloor/ (+ head pos) 2)))
@@ -182,12 +183,12 @@
   ;;;
   
   
-  (method override (get-image)
+  (method override (get-image self)
     {Image-Resource "File"})
 
 
-  (method override (present-detailed)
-    (get-name~ file))
+  (method override (present-detailed self)
+    (get-name file))
 
 
   ;;;
@@ -195,7 +196,7 @@
   ;;;
   
   
-  (method override (update-indexes definitions-index references-index)
+  (method override (update-indexes self definitions-index references-index)
     (for-each (lambda (definition)
-                (update-indexes~ definition definitions-index references-index))
+                (update-indexes definition definitions-index references-index))
               definitions))))

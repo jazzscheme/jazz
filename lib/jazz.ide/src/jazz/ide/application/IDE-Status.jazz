@@ -39,17 +39,22 @@
 
 
 (import (jazz.application)
+        (jazz.component)
         (jazz.debugger)
         (jazz.descriptor)
+        (jazz.event)
         (jazz.handler)
         (jazz.ide)
         (jazz.ide.activity)
         (jazz.jml)
         (jazz.layout)
         (jazz.menu)
+        (jazz.preferences)
         (jazz.resource)
         (jazz.skin)
         (jazz.ui)
+        (jazz.view)
+        (jazz.window)
         (jazz.workspace))
 
 
@@ -73,10 +78,10 @@
   ;;;
   
   
-  (method protected virtual (on-mouse-down evt)
-    (let* ((sender (get-sender~ evt))
-           (name (get-name~ sender))
-           (pos (acquire sender (get-position~ evt))))
+  (method protected virtual (on-mouse-down self evt)
+    (let* ((sender (get-sender evt))
+           (name (get-name sender))
+           (pos (acquire self sender (get-position evt))))
       (case name
         ((process) (popup-processes-menu self pos))
         ((workspace) (popup-workspaces-menu self pos))
@@ -84,13 +89,13 @@
         ((activities) (toggle-visible?~ (get-activity-manager)))
         @wait
         ((locales) (track-popup-menu (new Locales-Menu) pos))
-        ((look) (track-popup-menu (new Look-Menu) pos)))))
+        ((look) (track-popup-menu self (new Look-Menu) pos)))))
 
 
-  (method protected virtual (on-context-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (name (get-name~ sender))
-           (pos (acquire sender (get-position~ evt))))
+  (method protected virtual (on-context-menu self evt)
+    (let* ((sender (get-sender evt))
+           (name (get-name sender))
+           (pos (acquire self sender (get-position evt))))
       (case name
         ((process) (popup-processes-menu self pos))
         ((workspace) (popup-workspaces-menu self pos))
@@ -98,7 +103,7 @@
         ((activities) (track-popup-menu (new Activities-Menu) pos))
         @wait
         ((locales) (track-popup-menu (new Locales-Menu) pos))
-        ((look) (track-popup-menu (new Look-Menu) pos)))))
+        ((look) (track-popup-menu self (new Look-Menu) pos)))))
 
   
   ;;;
@@ -106,7 +111,7 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Document"})
 
   
@@ -115,9 +120,9 @@
   ;;;
 
 
-  (method override (install rest)
-    (nextmethod rest)
-    (update-focused-process))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (update-focused-process self))
 
 
   ;;;
@@ -125,17 +130,17 @@
   ;;;
 
 
-  (method public (update-focused-process)
-    (let ((label (locate 'process))
+  (method public (update-focused-process self)
+    (let ((label (locate self 'process))
           (manager (get-debugger-manager)))
-      (let ((focused-mode? (get-focused-mode?~ manager))
-            (focused (get-focused-process~ manager)))
+      (let ((focused-mode? (get-focused-mode? manager))
+            (focused (get-focused-process manager)))
         (cond (focused-mode?
-               (set-icon~ label (if focused {Image-Resource "Script"} #f))
-               (set-title~ label (if focused (present~ focused) "")))
+               (set-icon label (if focused {Image-Resource "Script"} #f))
+               (set-title label (if focused (present focused) "")))
               (else
-               (set-icon~ label #f)
-               (set-title~ label "")))))))
+               (set-icon label #f)
+               (set-title label "")))))))
 
 
 ;;;
@@ -144,40 +149,40 @@
 
 
 (definition (popup-processes-menu view pos)
-  (track-popup-menu~ view (new Processes-Menu) pos))
+  (track-popup-menu view (new Processes-Menu) pos))
 
 
 (class Processes-Menu extends Context-Menu
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    (insert-processes))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (insert-processes self))
   
   
-  (method (insert-processes)
+  (method (insert-processes self)
     (define (process-image manager process live?) ;; dup from processes update
       (cond ((not live?)
              {Image-Resource "ProcessDead"})
-            ((not (process-received-filenames?~ manager process))
+            ((not (process-received-filenames? manager process))
              {Image-Resource "Link"})
             (else
              {Image-Resource "Script"})))
     
     (let ((manager (get-debugger-manager)))
-      (for-each-process~ manager
+      (for-each-process manager
         (lambda (debugger process live? focused?)
-          (let ((title (present~ process))
+          (let ((title (present process))
                 (icon (process-image manager process live?)))
             (let ((item (new Radio-Item parent: self title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list process: process)))))
-              (set-enabled?~ item live?)
-              (set-selected?~ item focused?)))))))
+              (set-enabled? item live?)
+              (set-selected? item focused?)))))))
   
   
-  (method (on-action evt)
+  (method package (on-action self evt)
     (let ((manager (get-debugger-manager))
-          (process (get-property~ evt process:)))
-      (focus-process~ manager process))))
+          (process (get-property evt process:)))
+      (focus-process manager process))))
 
 
 ;;;
@@ -188,20 +193,20 @@
 (definition (popup-workspaces-menu view pos)
   (let ((preferences (get-workspaces-preferences error?: #f)))
     (when preferences
-      (let ((workspaces (get-visible-children~ preferences)))
+      (let ((workspaces (get-visible-children preferences)))
         (when (>= (length workspaces) 1)
-          (track-popup-menu~ view (new Workspaces-Menu) pos))))))
+          (track-popup-menu view (new Workspaces-Menu) pos))))))
 
 
 (class Workspaces-Menu extends Context-Menu
   
   
-  (method override (install rest)
+  (method override (install self rest)
     (define (insert-workspaces)
       (let* ((selected (selected-workspace))
              (preferences (get-workspaces-preferences))
-             (workspaces (get-visible-children~ preferences))
-             (default (find-component~ preferences 'default)))
+             (workspaces (get-visible-children preferences))
+             (default (find-component preferences 'default)))
         (when default
           (insert-workspace default (eq? default selected))
           (new Separator-Item parent: self))
@@ -214,18 +219,18 @@
     
     (define (insert-workspace workspace selected?)
       (let* ((title (if workspace (get-presentation-property workspace) "None"))
-             (icon (if workspace (get-icon~ workspace) {Image-Resource "Empty"}))
+             (icon (if workspace (get-icon workspace) {Image-Resource "Empty"}))
              (item (new Radio-Item parent: self title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list workspace: workspace)))))
         (when selected?
-          (set-selected?~ item #t))))
+          (set-selected? item #t))))
     
-    (nextmethod rest)
+    (nextmethod self rest)
     (insert-workspaces))
   
   
-  (method (on-action evt)
-    (let ((workspace (get-property~ evt workspace:)))
-      (apply-preferences~ workspace))))
+  (method package (on-action self evt)
+    (let ((workspace (get-property evt workspace:)))
+      (apply-preferences workspace))))
 
 
 ;;;
@@ -244,16 +249,16 @@
       (<Label-Item>     name: clear-done title: "Clear Done" icon: {Image-Resource "Done"} action-handler: {Event-Handler :form on-clear-done})))
   
   
-  (method (on-open evt)
-    (show~ (get-activity-manager)))
+  (method package (on-open self evt)
+    (show (get-activity-manager)))
   
   
-  (method (on-close evt)
-    (hide~ (get-activity-manager)))
+  (method package (on-close self evt)
+    (hide (get-activity-manager)))
   
   
-  (method (on-clear-done evt)
-    (clear-done~ (get-activity-manager))))
+  (method (on-clear-done self evt)
+    (clear-done (get-activity-manager))))
 
 
 ;;;
@@ -264,7 +269,7 @@
 (class Look-Menu extends Context-Menu
   
   
-  (method override (install rest)
+  (method override (install self rest)
     (define (insert-looks)
       (let ((current (get-look))
             (looks (registered-looks)))
@@ -273,15 +278,15 @@
                   looks)))
     
     (define (insert-look look checked?)
-      (let* ((title (present~ look))
+      (let* ((title (present look))
              (item (new Check-Item parent: self title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list look: look)))))
         (when checked?
-          (set-checked?~ item #t))))
+          (set-checked? item #t))))
     
-    (nextmethod rest)
+    (nextmethod self rest)
     (insert-looks))
   
   
-  (method (on-action evt)
-    (set-look (get-property~ evt look:))
-    (redraw-window~ (get-toplevel)))))
+  (method package (on-action self evt)
+    (set-look (get-property evt look:))
+    (redraw-window (current-toplevel)))))

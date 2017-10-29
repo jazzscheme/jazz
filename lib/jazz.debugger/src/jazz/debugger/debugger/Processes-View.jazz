@@ -39,7 +39,9 @@
 
 
 (import (jazz.application)
+        (jazz.debuggee)
         (jazz.debugger)
+        (jazz.event)
         (jazz.feedback)
         (jazz.graphic)
         (jazz.handler)
@@ -49,6 +51,7 @@
         (jazz.layout)
         (jazz.menu)
         (jazz.network)
+        (jazz.outline)
         (jazz.process)
         (jazz.resource)
         (jazz.text)
@@ -82,13 +85,13 @@
               (<Processes-Tree> name: processes    multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-process} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
 
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Processes)
   
   
-  (method override (finish initargs)
-    (nextmethod initargs)
-    (set-selected?~ (locate 'focused-mode) (get-focused-mode?~ (get-debugger-manager))))
+  (method override (finish self initargs)
+    (nextmethod self initargs)
+    (set-selected? (locate self 'focused-mode) (get-focused-mode? (get-debugger-manager))))
 
   
   ;;;
@@ -96,26 +99,26 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Process"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Processes")
   
   
-  (method override (client-activate)
+  (method override (client-activate self)
     (let ((guest (current-document)))
       (if (is? guest Text-View)
-          (set-client guest)
-        (set-client #f)))
-    (let ((selected-process (selected-process)))
+          (set-client self guest)
+        (set-client self #f)))
+    (let ((selected-process (selected-process self)))
       (when selected-process
-        (update-highlight selected-process))))
+        (update-highlight self selected-process))))
   
   
-  (method override (client-deactivate)
-    (set-client #f))
+  (method override (client-deactivate self)
+    (set-client self #f))
   
   
   ;;;
@@ -123,13 +126,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (locate 'processes)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (locate self 'processes)))
+      (acquire-focus tree)))
 
   
   ;;;
@@ -137,9 +140,9 @@
   ;;;
 
 
-  (method override (install rest)
-    (nextmethod rest)
-    (update))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (update self))
 
   
   ;;;
@@ -147,77 +150,77 @@
   ;;;
 
 
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (size-figure~ (locate 'scroller) dh dv))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (size-figure (locate self 'scroller) dh dv))
   
   
-  (method (on-context-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (pos (get-position~ evt))
-           (acquired (acquire sender pos)))
-      (with-context-click~ sender pos
+  (method (on-context-menu self evt)
+    (let* ((sender (get-sender evt))
+           (pos (get-position evt))
+           (acquired (acquire self sender pos)))
+      (with-context-click sender pos
         (lambda ()
-          (let ((menu (new-context-menu (selected-object))))
+          (let ((menu (new-context-menu self (selected-object self))))
             (when menu
-              (track-popup-menu menu acquired)))))))
+              (track-popup-menu self menu acquired)))))))
   
   
-  (method (on-double-click evt)
-    (let ((process (selected-process)))
-      (when (and process (focusable?~ process))
-        (focus-selected-process))))
+  (method (on-double-click self evt)
+    (let ((process (selected-process self)))
+      (when (and process (focusable? process))
+        (focus-selected-process self))))
   
   
-  (method (on-attach-process evt)
+  (method (on-attach-process self evt)
     (let ((address (request-string title: "Enter process address")))
-      (attach-process-at address)))
+      (attach-process-at self address)))
   
   
-  (method (attach-process-at address)
-    (start-remote-server~ (get-process))
+  (method (attach-process-at self address)
+    (start-remote-server (current-process))
     (receive (host service alternate-service) (parse-host/service address)
       (let ((remote-register (connect-remote-register host service)))
-        (let ((remote-debuggee (find-object~ remote-register 'debuggee))
+        (let ((remote-debuggee (find-object remote-register 'debuggee))
               (cookie (register-debugger-cookie)))
           (register-debugger-cookie-procedure cookie
             (lambda (process cookie)
               (clear-user-message)
-              (transmit-runtime-information~ (get-debugger~ process) (get-reference~ process) 'all)))
+              (transmit-runtime-information (get-debugger process) (get-reference process) 'all)))
           (user-message "Attaching {a}..." address)
-          (attach-to-debugger~ remote-debuggee (get-local-register) cookie)))))
+          (attach-to-debugger remote-debuggee (get-local-register) cookie)))))
   
   
   (definition Snapshot-Extensions
     '(("Snapshot Files" . "snapshot")))
   
   
-  (method (on-open-snapshot evt)
+  (method (on-open-snapshot self evt)
     (with-cursor :wait
       (lambda ()
         (let ((file (with-preserved-current-directory
                       (lambda ()
                         (choose-file directory: {Directory Settings} extensions: Snapshot-Extensions)))))
-          (set-selected-process (open-snapshot file))
-          (acquire-focus~ (locate 'processes))))))
+          (set-selected-process self (open-snapshot self file))
+          (acquire-focus (locate self 'processes))))))
 
 
-  (method (on-select-process evt)
-    (process-change))
+  (method (on-select-process self evt)
+    (process-change self))
   
   
-  (method (on-focused-mode evt)
-    (toggle-focused-mode))
+  (method (on-focused-mode self evt)
+    (toggle-focused-mode self))
   
   
-  (method (on-update evt)
-    (when (get-shift?~ evt)
-      (for-each validate-processes~ (get-debuggers)))
-    (update user-origin: #t))
+  (method (on-update self evt)
+    (when (get-shift? evt)
+      (for-each validate-processes (get-debuggers)))
+    (update self user-origin: #t))
   
   
-  (method (process-change)
-    (process-changed~ (get-debugger-manager) (selected-process)))
+  (method (process-change self)
+    (process-changed (get-debugger-manager) (selected-process self)))
   
   
   ;;;
@@ -225,14 +228,14 @@
   ;;;
 
 
-  (method public (get-client)
+  (method public (get-client self)
     client)
 
  
-  (method public (set-client clt)
+  (method public (set-client self clt)
     (when (neq? clt client)
       (set! client clt)
-      (update)))
+      (update self)))
 
   
   ;;;
@@ -240,52 +243,52 @@
   ;;;
   
   
-  (method public (update (user-origin: user-origin #f))
+  (method public (update self (user-origin: user-origin #f))
     (define (process-image debugger process live? processes manager)
-      (cond ((standard-process-image~ debugger))
+      (cond ((standard-process-image debugger))
             ((not live?)
              {Image-Resource "ProcessDead"})
-            ((not (process-received-filenames?~ manager process))
+            ((not (process-received-filenames? manager process))
              {Image-Resource "Link"})
             ((member? process processes test: debugged=?)
              {Image-Resource "Script"})
             (else
-             (or (get-icon~ process)
+             (or (get-icon process)
                  {Image-Resource "Process"}))))
     
     (define (effective-processes manager)
       (define (client-filename)
         (and client
-             (let ((moniker (get-moniker~ client)))
+             (let ((moniker (get-moniker client)))
                (and moniker
-                    (parse~ moniker)))))
+                    (parse moniker)))))
       
       (let ((filename (client-filename)))
         (if (not filename)
-            (collect-always-processes~ manager)
-          (effective-filename-processes~ manager filename))))
+            (collect-always-processes manager)
+          (effective-filename-processes manager filename))))
     
     (define (update-processes tree)
       (let ((manager (get-debugger-manager)))
         (let ((processes (effective-processes manager)))
-          (for-each-process~ manager
+          (for-each-process manager
             (lambda (debugger process live? focused?)
-              (let ((title (present~ process))
+              (let ((title (present process))
                     (image (process-image debugger process live? processes manager))
-                    (font (and (get-focused-mode?~ manager) focused? {Font Link-Small}))
-                    (frame-color (get-stopped-frame-color~ manager process))
-                    (background (get-visited-highlight-color~ manager process)))
-                (set-alive?~ manager process live?)
-                (add-row~ tree children: (list (new Tree-Node title: title font: font image: image frame-color: frame-color background: background)) user-data: process)))
+                    (font (and (get-focused-mode? manager) focused? {Font Link-Small}))
+                    (frame-color (get-stopped-frame-color manager process))
+                    (background (get-visited-highlight-color manager process)))
+                (set-alive? manager process live?)
+                (add-row tree children: (list (new Tree-Node title: title font: font image: image frame-color: frame-color background: background)) user-data: process)))
             live-test?: user-origin))))
     
     (with-system-exception-debugger
       (lambda ()
-        (let ((tree (locate 'processes)))
-          (with-preserved-selection~ tree
+        (let ((tree (locate self 'processes)))
+          (with-preserved-selection tree
             (lambda ()
-              (remove-every-row~ tree)
-              (with-update-locked~ tree
+              (remove-every-row tree)
+              (with-update-locked tree
                 (lambda ()
                   (update-processes tree))))
             use: 'data
@@ -293,8 +296,8 @@
             generate-event?: user-origin)))))
   
   
-  (method public (update-focused-mode focused-mode?)
-    (set-selected?~ (locate 'focused-mode) focused-mode?))
+  (method public (update-focused-mode self focused-mode?)
+    (set-selected? (locate self 'focused-mode) focused-mode?))
 
   
   ;;;
@@ -302,19 +305,19 @@
   ;;;
   
   
-  (method public (update-highlight process)
-    (let ((selected-process (selected-process)))
+  (method public (update-highlight self process)
+    (let ((selected-process (selected-process self)))
       (when (debugged=? process selected-process)
-        (visit-debugged~ (get-debugger-manager) process)))
-    (let ((tree (locate 'processes)))
+        (visit-debugged (get-debugger-manager) process)))
+    (let ((tree (locate self 'processes)))
       (let ((line (process-row tree process)))
         (when line
-          (let ((cell (new Cell (row->line~ tree line) 0)))
-            (let ((data (get-cell-data~ tree cell))
+          (let ((cell (new Cell (row->line tree line) 0)))
+            (let ((data (get-cell-data tree cell))
                   (manager (get-debugger-manager)))
-              (set-frame-color~ data (get-stopped-frame-color~ manager process))
-              (set-background~ data (get-visited-highlight-color~ manager process)))
-            (invalidate-cell~ tree cell))))))
+              (set-frame-color data (get-stopped-frame-color manager process))
+              (set-background data (get-visited-highlight-color manager process)))
+            (invalidate-cell tree cell))))))
   
   
   ;;;
@@ -322,37 +325,37 @@
   ;;;
   
   
-  (method public (selected-process)
-    (selected-object))
+  (method public (selected-process self)
+    (selected-object self))
   
   
-  (method public (selected-object)
-    (let ((row (selected-row)))
+  (method public (selected-object self)
+    (let ((row (selected-row self)))
       (and row
-           (get-user-data~ row))))
+           (get-user-data row))))
   
   
-  (method (selected-row)
-    (let* ((tree (locate 'processes))
-           (n (get-single-selection~ tree)))
+  (method (selected-row self)
+    (let* ((tree (locate self 'processes))
+           (n (get-single-selection tree)))
       (and n
-           (get-row~ tree n))))
+           (get-row tree n))))
   
   
-  (method public (set-selected-process process)
-    (let ((tree (locate 'processes)))
+  (method public (set-selected-process self process)
+    (let ((tree (locate self 'processes)))
       (let ((row (process-row tree process)))
         (when row
-          (set-single-selection~ tree (row->line~ tree row))))))
+          (set-single-selection tree (row->line tree row))))))
   
   
   (definition (process-row tree process)
     (assert process)
     (continuation-capture
       (lambda (return)
-        (for-each-row~ tree
+        (for-each-row tree
           (lambda (row rank)
-            (when (debugged=? (get-user-data~ row) process)
+            (when (debugged=? (get-user-data row) process)
               (continuation-return return row))))
         #f)))
   
@@ -362,28 +365,28 @@
   ;;;
   
   
-  (method (new-context-menu object)
+  (method (new-context-menu self object)
     (define (new-process-menu)
       (let ((manager (get-debugger-manager))
             (menu (new Process-Menu client: self)))
-        (let ((alive? (get-alive?~ manager object))
-              (evaluate (process-evaluate-when~ manager object))
-              (focusable? (focusable?~ object)))
+        (let ((alive? (get-alive? manager object))
+              (evaluate (process-evaluate-when manager object))
+              (focusable? (focusable? object)))
           (define (update-evaluate state evaluate)
-            (set-selected?~ (locate~ menu state) (eq? state evaluate)))
+            (set-selected? (locate menu state) (eq? state evaluate)))
           
           (unless (and focusable? alive?)
             (for-each (lambda (name)
-                        (set-visible?~ (locate~ menu name) #f))
+                        (set-visible? (locate menu name) #f))
                       '(focus never known always refresh)))
           (when (and focusable? alive?)
-            (set-title~ (locate~ menu 'quit) "Quit"))
+            (set-title (locate menu 'quit) "Quit"))
           (when (not alive?)
-            (set-title~ (locate~ menu 'quit) "Remove Process"))
+            (set-title (locate menu 'quit) "Remove Process"))
           (update-evaluate 'never evaluate)
           (update-evaluate 'known evaluate)
           (update-evaluate 'always evaluate))
-        (layout-menu~ menu)
+        (layout-menu menu)
         menu))
     
     (typecase object
@@ -391,53 +394,53 @@
       (else #f)))
   
   
-  (method (quit-selected-process)
+  (method package (quit-selected-process self)
     (let ((manager (get-debugger-manager))
-          (object (selected-object)))
-      (if (get-alive?~ manager object)
-          (quit~ object)
-        (detach~ object))
-      (let ((tree (locate 'processes)))
-        (set-selection~ tree '()))))
+          (object (selected-object self)))
+      (if (get-alive? manager object)
+          (quit-process object)
+        (detach object))
+      (let ((tree (locate self 'processes)))
+        (set-selection tree '()))))
   
   
-  (method (toggle-focused-mode)
-    (toggle-focused-mode~ (get-debugger-manager)))
+  (method package (toggle-focused-mode self)
+    (toggle-focused-mode (get-debugger-manager)))
   
   
-  (method (focus-selected-process)
-    (focus-process~ (get-debugger-manager) (selected-process)))
+  (method package (focus-selected-process self)
+    (focus-process (get-debugger-manager) (selected-process self)))
   
   
-  (method (evaluate-never-process)
-    (process-evaluate-never~ (get-debugger-manager) (selected-process))
-    (update))
+  (method package (evaluate-never-process self)
+    (process-evaluate-never (get-debugger-manager) (selected-process self))
+    (update self))
   
-  (method (evaluate-known-process)
-    (process-evaluate-known~ (get-debugger-manager) (selected-process))
-    (update))
+  (method package (evaluate-known-process self)
+    (process-evaluate-known (get-debugger-manager) (selected-process self))
+    (update self))
   
-  (method (evaluate-always-process)
-    (process-evaluate-always~ (get-debugger-manager) (selected-process))
-    (update))
+  (method package (evaluate-always-process self)
+    (process-evaluate-always (get-debugger-manager) (selected-process self))
+    (update self))
   
   
-  (method (refresh-selected-process)
-    (let ((process (selected-process)))
+  (method package (refresh-selected-process self)
+    (let ((process (selected-process self)))
       (if (not process)
           (bell)
-        (clear-runtime-information~ (get-debugger~ process) (get-reference~ process))
-        (transmit-runtime-information~ process 'all))))
+        (clear-runtime-information (get-debugger process) (get-reference process))
+        (transmit-runtime-information process 'all))))
   
   
-  (method public (open-snapshot file)
+  (method public (open-snapshot self file)
     (let ((snapshot (load-jml file)))
-      (set-property~ snapshot 'file file)
-      (add-snapshot snapshot)))
+      (set-property snapshot 'file file)
+      (add-snapshot self snapshot)))
   
   
-  (method public (add-snapshot snapshot)
-    (attach-process~ (get-snapshot-debugger~ (get-application)) snapshot #f)))
+  (method public (add-snapshot self snapshot)
+    (attach-process (get-snapshot-debugger (get-application)) snapshot #f)))
 
 
 ;;;
@@ -474,23 +477,23 @@
       (<Label-Item>     name: quit    title: "Close" action-handler: {Event-Handler :form on-quit})))
   
   
-  (method (on-focus evt)
-    (focus-selected-process~ client))
+  (method (on-focus self evt)
+    (focus-selected-process client))
   
   
-  (method (on-evaluate-never evt)
-    (evaluate-never-process~ client))
+  (method (on-evaluate-never self evt)
+    (evaluate-never-process client))
   
-  (method (on-evaluate-known evt)
-    (evaluate-known-process~ client))
+  (method (on-evaluate-known self evt)
+    (evaluate-known-process client))
   
-  (method (on-evaluate-always evt)
-    (evaluate-always-process~ client))
-  
-  
-  (method (on-refresh evt)
-    (refresh-selected-process~ client))
+  (method (on-evaluate-always self evt)
+    (evaluate-always-process client))
   
   
-  (method (on-quit evt)
-    (quit-selected-process~ client))))
+  (method package (on-refresh self evt)
+    (refresh-selected-process client))
+  
+  
+  (method (on-quit self evt)
+    (quit-selected-process client))))

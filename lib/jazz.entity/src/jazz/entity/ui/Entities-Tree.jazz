@@ -45,6 +45,8 @@
         (jazz.designer)
         (jazz.entity)
         (jazz.locale)
+        (jazz.menu)
+        (jazz.outline)
         (jazz.tree)
         (jazz.view)
         (jazz.workspace))
@@ -62,9 +64,9 @@
   ;;;
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'entities-tree)
-          (nextmethod)))
+          (nextmethod self)))
 
 
   ;;;
@@ -72,29 +74,29 @@
   ;;;
   
   
-  (method (on-delete-selection evt)
-    (delete-selection))
+  (method (on-delete-selection self evt)
+    (delete-selection self))
   
   
-  (method (on-rename-selection evt)
-    (rename-selection))
+  (method (on-rename-selection self evt)
+    (rename-selection self))
   
   
-  (method override (context-menu evt)
-    (let ((pos (get-position~ evt)))
-      (with-context-click pos
+  (method override (context-menu self evt)
+    (let ((pos (get-position evt)))
+      (with-context-click self pos
         (lambda ()
-          (let ((menu (get-context-menu)))
+          (let ((menu (get-context-menu self)))
             (when menu
-              (track-popup-menu menu pos)))))))
+              (track-popup-menu self menu pos)))))))
   
   
-  (method override (get-context-menu)
+  (method override (get-context-menu self)
     (new Entity-Menu client: self))
   
   
-  (method override (on-properties evt)
-    (show-properties))
+  (method override (on-properties self evt)
+    (show-properties self))
     
   
   ;;;
@@ -102,8 +104,8 @@
   ;;;
   
   
-  (method override (focus-update-actions)
-    (set-action-enabled? {Action entities-tree rename} (can-rename?)))
+  (method override (focus-update-actions self)
+    (set-action-enabled? {Action entities-tree rename} (can-rename? self)))
 
   
   ;;;
@@ -111,70 +113,70 @@
   ;;;
   
   
-  (method public virtual (get-factories)
-    (let ((entity (selected-entity)))
+  (method public virtual (get-factories self)
+    (let ((entity (selected-entity self)))
       (if (null? entity)
-          (root-factories)
-        (get-factories~ entity))))
+          (root-factories self)
+        (get-factories entity))))
   
   
-  (method public virtual (root-factories)
+  (method public virtual (root-factories self)
     '())
   
   
-  (method public virtual (add-entity factory (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
-    (let* ((class (get-class~ factory))
-           (selected (selected-entity))
-           (parent (or parent (relocation-parent selected class) selected client))
+  (method public virtual (add-entity self factory (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
+    (let* ((class (get-class factory))
+           (selected (selected-entity self))
+           (parent (or parent (relocation-parent self selected class) selected client))
            (extra-properties properties))
-      (receive (presentation added-properties) (if presentation (values presentation '()) (add-entity-request factory parent))
+      (receive (presentation added-properties) (if presentation (values presentation '()) (add-entity-request self factory parent))
         (let ((child (new class parent: parent))
               (name (presentation->name factory presentation))
-              (controller (get-controller)))
+              (controller (get-controller self)))
           (when name
-            (set-name~ child name))
-          (with-update-locked
+            (set-name child name))
+          (with-update-locked self
             (lambda ()
-              (install-new-entity controller child parent presentation (append added-properties extra-properties))))
+              (install-new-entity self controller child parent presentation (append added-properties extra-properties))))
           (when select?
-            (select-entity child))
+            (select-entity self child))
           child))))
   
   
-  (method protected virtual (add-entity-request factory parent)
-    (values (entity-presentation-request factory (entity-children parent))
-            (entity-properties-request factory)))
+  (method protected virtual (add-entity-request self factory parent)
+    (values (entity-presentation-request self factory (entity-children self parent))
+            (entity-properties-request self factory)))
   
   
-  (method protected virtual (entity-presentation-request factory brothers (initial-value: initial-value #f))
-    (if (get-name-prohibited?~ factory)
+  (method protected virtual (entity-presentation-request self factory brothers (initial-value: initial-value #f))
+    (if (get-name-prohibited? factory)
         #f
-      (let* ((name-mandatory? (get-name-mandatory?~ factory))
-             (name-unicity? (get-name-unicity?~ factory))
-             (unicity-domain (and name-unicity? (map get-presentation~ brothers)))
-             (name-validator (entity-name-validator))
-             (pres (localize (get-factory-presentation~ factory)))
+      (let* ((name-mandatory? (get-name-mandatory? factory))
+             (name-unicity? (get-name-unicity? factory))
+             (unicity-domain (and name-unicity? (map get-presentation brothers)))
+             (name-validator (entity-name-validator self))
+             (pres (localize (get-factory-presentation factory)))
              (presentation (request-string title: (new Locales english: (format "Enter {a} Name" pres) french: "Entrez le nom") initial-value: initial-value accepts-empty?: (not name-mandatory?) unicity-domain: unicity-domain validator: name-validator)))
         presentation)))
   
   
-  (method protected virtual (entity-properties-request factory)
+  (method protected virtual (entity-properties-request self factory)
     #f)
   
   
-  (method protected virtual (entity-name-validator)
+  (method protected virtual (entity-name-validator self)
     #f)
   
   
-  (method protected virtual (install-new-entity controller child parent presentation properties)
-    (add-child~ controller child parent)
-    (set-presentation~ child controller presentation)
-    (add-properties child properties))
+  (method protected virtual (install-new-entity self controller child parent presentation properties)
+    (add-child controller child parent)
+    (set-presentation child controller presentation)
+    (add-properties self child properties))
   
   
-  (method protected virtual (add-properties entity properties)
+  (method package virtual (add-properties self entity properties)
     (for-each-property (lambda (property value)
-                         (set-property~ controller entity property value))
+                         (set-property controller entity property value))
                        properties))
 
 
@@ -183,47 +185,47 @@
   ;;;
   
   
-  (method override (rename-selection)
-    (let ((entity (selected-entity)))
+  (method override (rename-selection self)
+    (let ((entity (selected-entity self)))
       (when entity
-        (rename-entity entity))))
+        (rename-entity self entity))))
   
 
-  (method public (rename-entity entity)
-    (let ((row (entity-row entity)))
+  (method public (rename-entity self entity)
+    (let ((row (entity-row self entity)))
       (when row
-        (ensure-expanded row)
-        (let* ((presentation (entity-presentation-request (get-factory~ entity) (entity-brothers entity) initial-value: (get-presentation~ entity)))
-               (line (row->line row))
+        (ensure-expanded self row)
+        (let* ((presentation (entity-presentation-request self (get-factory entity) (entity-brothers self entity) initial-value: (get-presentation entity)))
+               (line (row->line self row))
                (cell (new Cell line 0)))
-          (end-rename entity cell presentation)))))
+          (end-rename self entity cell presentation)))))
   
   
-  (method (end-rename entity cell presentation)
+  (method (end-rename self entity cell presentation)
     (define (reorder-entity entity)
-      (let ((row (find-row entity)))
-        (move-entity-row row (get-father~ row))))
+      (let ((row (find-row self entity)))
+        (move-entity-row row (get-father row))))
     
     (define (move-entity-row row father (position: position #f))
-      (unless (and (eq? (get-father~ row) father) (= 1 (cardinality (get-sons~ father))))
-        (let* ((source (get-user-data~ row))
-               (destination (or (get-user-data~ father) client))
-               (sort? (sort-entities?~ destination)))
-          (move-row row father
+      (unless (and (eq? (get-father row) father) (= 1 (cardinality (get-sons father))))
+        (let* ((source (get-user-data row))
+               (destination (or (get-user-data father) client))
+               (sort? #f @cant-find (sort-entities? destination)))
+          (move-row self row father
             position: (or position (lambda ()
                                      (if (not sort?)
                                          #f
-                                       (find-entity-position source row father))))))))
+                                       (find-entity-position self source row father))))))))
     
-    (with-update-locked
+    (with-update-locked self
       (lambda ()
-        (set-title~ (get-cell-data cell) presentation)
-        (set-name~ controller entity presentation)
-        (let ((parent (get-parent~ entity)))
-          (when (and parent (sort-entitys?~ parent))
+        (set-title (get-cell-data self cell) presentation)
+        (set-name controller entity presentation)
+        (let ((parent (get-parent entity)))
+          (when (and parent @cant-find (sort-entitys? parent))
             (reorder-entity entity)))))
-    (acquire-focus)
-    (select-entity entity))
+    (acquire-focus self)
+    (select-entity self entity))
     
 
   ;;;
@@ -231,41 +233,41 @@
   ;;;
   
   
-  (method (move-entities source target)
-    (let* ((controller (get-controller))
-           (entities (get-selected-data~ (get-view~ source)))
-           (dst (get-row~ target))
-           (part (get-part~ target))
-           (destination (get-user-data~ dst)))
-      (with-update-locked
+  (method package (move-entities self source target)
+    (let* ((controller (get-controller self))
+           (entities (get-selected-data (get-view source)))
+           (dst (get-row target))
+           (part (get-part target))
+           (destination (get-user-data dst)))
+      (with-update-locked self
         (lambda ()
           (if (eq? part 'row)
-              (let ((parent (uniform entities key: (lambda (entity) (relocation-parent destination (class-of entity))))))
+              (let ((parent (uniform entities key: (lambda (entity) (relocation-parent self destination (class-of entity))))))
                 (if (not parent)
                     (bell)
-                  (move-entities~ controller entities parent)))
-            (let* ((father (get-father~ dst))
-                   (sons (get-sons~ father))
-                   (rank (son-rank~ father dst))
+                  (move-entities controller entities parent)))
+            (let* ((father (get-father dst))
+                   (sons (get-sons father))
+                   (rank (son-rank father dst))
                    (position (case part ((before) rank) ((after) (+ rank 1))))
                    (target (if (< position (cardinality sons)) (element sons position) #f))
-                   (target-data (and target (get-user-data~ target))))
+                   (target-data (and target (get-user-data target))))
               (for-each (lambda (entity)
-                          (send-before~ controller entity (and target (send-entity-before entity target-data))))
+                          (send-before controller entity (and target (send-entity-before self entity target-data))))
                         entities)))
-          (select-entities entities)))))
+          (select-entities self entities)))))
   
   
-  (method protected virtual (find-entity-position entity row father)
-    (find-ordered-position (get-presentation~ entity) father))
+  (method protected virtual (find-entity-position self entity row father)
+    (find-ordered-position self (get-presentation entity) father))
   
   
-  (method protected virtual (find-entity-insertion parent-row entity target)
+  (method protected virtual (find-entity-insertion self parent-row entity target)
     (when target
-      (son-rank~ parent-row (find-row target))))
+      (son-rank parent-row (find-row self target))))
   
   
-  (method protected virtual (send-entity-before entity before)
+  (method protected virtual (send-entity-before self entity before)
     before)
   
 
@@ -274,7 +276,7 @@
   ;;;
   
   
-  (method override (get-draggable?)
+  (method override (get-draggable? self)
     #f
     @to-convert
     (let ((entity (selected-entity)))
@@ -288,17 +290,17 @@
   
   @to-convert
   (method (get-row-reorder-target drag-drop row quarter)
-    (let* ((src-selection (get-selection~ (get-view~ (get-source~ drag-drop))))
+    (let* ((src-selection (get-selection (get-view (get-source drag-drop))))
            (src-range (contiguous-range src-selection))
-           (src (map (lambda (n) (get-user-data~ (get-row n))) src-selection))
+           (src (map (lambda (n) (get-user-data (get-row n))) src-selection))
            (src-types (remove-duplicates (map class-of src)))
-           (src-parent (uniform src key: (lambda (entity) (parent-relocation (get-parent~ entity)))))
-           (dst (get-user-data~ row))
-           (dst-father (get-father~ row))
+           (src-parent (uniform src key: (lambda (entity) (parent-relocation (get-parent entity)))))
+           (dst (get-user-data row))
+           (dst-father (get-father row))
            (dst-line (row->line row))
-           (dst-parent (parent-relocation (get-parent~ dst)))
+           (dst-parent (parent-relocation (get-parent dst)))
            (before? (eq? src-parent dst-parent))
-           (before-last (row->line (last (get-sons~ dst-father))))
+           (before-last (row->line (last (get-sons dst-father))))
            (before-rank (and before? (if (memq? quarter '(1 2)) dst-line (if (eq? dst-line before-last) #f (+ dst-line 1)))))
            (before (and before-rank (if (< before-rank visible-count) (get-row before-rank) #f)))
            (move? (and (not (memq? dst src)) (or (null? dst) (and (or (null? src-parent) (neq? src-parent dst)) (every? (lambda (src) (and (not (has-parent?~ dst src)) (addable-class? dst (class-of src)))) src)))))
@@ -313,28 +315,28 @@
   
   @to-convert
   (method (get-row-target drag-drop row)
-    (let* ((source (get-source~ drag-drop))
-           (view (get-view~ source)))
+    (let* ((source (get-source drag-drop))
+           (view (get-view source)))
       #f))
   
   
   @to-convert
   (method (receive-drop sender pos drag-drop)
-    (let* ((source (get-source~ drag-drop))
-           (view (get-view~ source))
-           (target (get-target~ drag-drop)))
+    (let* ((source (get-source drag-drop))
+           (view (get-view source))
+           (target (get-target drag-drop)))
       (when (eq? view self)
         (move-entities source target))))
   
   
   @to-convert
   (method (receive-model window target)
-    (let* ((model (dispatch (class-of self) (get-model~ window)))
-           (parent (get-user-data~ (get-row~ target)))
+    (let* ((model (dispatch (class-of self) (get-model window)))
+           (parent (get-user-data (get-row target)))
            (child (new model visible?: #f)))
       (with-update-locked
         (lambda ()
-          (add-view~ (get-controller) child parent position: {Point 0 0} centered?: #f)
+          (add-view (get-controller) child parent position: {Point 0 0} centered?: #f)
           (rename-entity child)))))
 
   
@@ -343,11 +345,11 @@
   ;;;
   
   
-  (method protected virtual (parent-relocation parent)
+  (method protected virtual (parent-relocation self parent)
     parent)
   
   
-  (method protected virtual (relocation-parent destination class)
+  (method protected virtual (relocation-parent self destination class)
     destination)
   
   
@@ -356,100 +358,100 @@
   ;;;
   
   
-  (method override (can-undo?)
+  (method override (can-undo? self)
     #f)
   
   
-  (method override (can-redo?)
+  (method override (can-redo? self)
     #f)
   
   
-  (method override (can-cut?)
-    (let ((entities (selected-entities)))
+  (method override (can-cut? self)
+    (let ((entities (selected-entities self)))
       (and entities
-           (every? can-cut-entity?~ entities))))
+           (every? can-cut-entity? entities))))
   
   
-  (method override (can-copy?)
-    (let ((entities (selected-entities)))
+  (method override (can-copy? self)
+    (let ((entities (selected-entities self)))
       (and entities
-           (every? can-copy-entity?~ entities))))
+           (every? can-copy-entity? entities))))
   
   
-  (method override (can-paste?)
-    (let* ((entities (selected-entities))
+  (method override (can-paste? self)
+    (let* ((entities (selected-entities self))
            (parents (map determine-paster entities)))
       (and (not (memq? #f parents))
            (= 1 (length (remove-duplicates parents))))))
   
   
-  (method override (can-delete?)
-    (let ((entities (selected-entities)))
+  (method override (can-delete? self)
+    (let ((entities (selected-entities self)))
       (and entities
-           (every? can-delete-entity?~ entities))))
+           (every? can-delete-entity? entities))))
   
   
-  (method override (can-rename?)
-    (let ((entities (selected-entities)))
+  (method override (can-rename? self)
+    (let ((entities (selected-entities self)))
       (and (= (length entities) 1)
            (let ((entity (car entities)))
-             (can-rename-entity?~ entity)))))
+             (can-rename-entity? entity)))))
   
   
-  (method override (can-select-all?)
+  (method override (can-select-all? self)
     #t)
   
   
-  (method override (cut-selection)
-    (let ((entities (selected-entities)))
+  (method override (cut-selection self)
+    (let ((entities (selected-entities self)))
       (if (null? entities)
           (bell)
-        (with-update-locked
+        (with-update-locked self
           (lambda ()
-            (with-deleted-selection (get-selection)
+            (with-deleted-selection self (get-selection self)
               (lambda ()
-                (cut-entities~ controller entities))))))))
+                (cut-entities controller entities))))))))
   
   
-  (method override (copy-selection)
-    (let ((entities (selected-entities)))
+  (method override (copy-selection self)
+    (let ((entities (selected-entities self)))
       (if (null? entities)
           (bell)
         (with-cursor :wait
           (lambda ()
-            (copy-entities~ controller entities)
-            (update-focus-actions~ (get-application)))
+            (copy-entities controller entities)
+            (update-focus-actions (get-application)))
           duration: .150))))
   
   
-  (method override (paste-clipboard)
-    (let ((parent (or (selected-entity) client))
+  (method override (paste-clipboard self)
+    (let ((parent (or (selected-entity self) client))
           (parcels (get-jazz-parcels)))
-      (with-update-locked
+      (with-update-locked self
         (lambda ()
           (with-cursor :wait
             (lambda ()
               (for-each (lambda (info)
                           (bind (model . parcels) info
-                            (paste-parcels~ controller parcels (relocation-parent parent model))))
-                        (partition parcels key: (lambda (parcel) (let ((master (car (get-content~ parcel)))) (get-model~ master)))))))))))
+                            (paste-parcels controller parcels (relocation-parent self parent model))))
+                        (partition parcels key: (lambda (parcel) (let ((master (car (get-content parcel)))) (get-model master)))))))))))
   
   
-  (method override (delete-selection)
-    (let ((selection (get-selection)))
+  (method override (delete-selection self)
+    (let ((selection (get-selection self)))
       (when (not-null? selection)
-        (let ((entities (get-selected-data)))
-          (when (confirm-close entities)
-            (with-deleted-selection selection
+        (let ((entities (get-selected-data self)))
+          (when (confirm-close self entities)
+            (with-deleted-selection self selection
               (lambda ()
-                (delete-entities~ controller entities))))))))
+                (delete-entities controller entities))))))))
   
   
-  (method override (confirm-close (entities '()))
-    (confirm-action "Delete selected objects?"))
+  (method override (confirm-close self (entities '()))
+    (confirm-action self "Delete selected objects?"))
   
   
-  (method (confirm-action text)
+  (method (confirm-action self text)
     (let ((code (message-box (localize text) type: 'confirmation)))
       (case code
         ((yes) #t)
@@ -462,56 +464,56 @@
   ;;;
   
   
-  (method override (selection-change old-selection force? user-origin)
+  (method override (selection-change self old-selection force? user-origin)
     (let ((appl (get-application)))
-      (update-focus-actions~ appl)))
+      (update-focus-actions appl)))
   
   
-  (method public (selected-entity)
-    (let ((selection (get-single-selection)))
+  (method public (selected-entity self)
+    (let ((selection (get-single-selection self)))
       (if (null? selection)
           client
-        (get-user-data~ (get-row selection)))))
+        (get-user-data (get-row self selection)))))
   
   
-  (method public (selected-entities)
-    (let ((selection (get-ordered-selection)))
+  (method public (selected-entities self)
+    (let ((selection (get-ordered-selection self)))
       (if (null? selection)
           (list client)
         (map (lambda (row)
-               (get-user-data~ (get-row row)))
+               (get-user-data (get-row self row)))
              selection))))
   
   
-  (method public (entity-row entity)
+  (method public (entity-row self entity)
     (continuation-capture
       (lambda (return)
-        (for-each-row
+        (for-each-row self
           (lambda (row rank)
-            (when (eq? (get-user-data~ row) entity)
+            (when (eq? (get-user-data row) entity)
               (continuation-return return row))))
         #f)))
   
   
-  (method (entity-visible-row entity)
-    (user-data-index entity))
+  (method (entity-visible-row self entity)
+    (user-data-index self entity))
   
   
-  (method public (select-entity entity)
-    (let ((row (entity-visible-row entity)))
+  (method public (select-entity self entity)
+    (let ((row (entity-visible-row self entity)))
       ;; if row is #f, then the row must be collapsed and I should expand it...
       (when row
-        (set-single-selection row))))
+        (set-single-selection self row))))
   
   
-  (method public (select-entities entities)
-    (let ((rows (remove-false (map entity-visible-row entities))))
+  (method public (select-entities self entities)
+    (let ((rows (remove-false (map (~ entity-visible-row self) entities))))
       ;; if a row is #f, then the row must be collapsed and I should expand it...
-      (set-selection rows)))
+      (set-selection self rows)))
   
   
-  (method protected virtual (find-row entity)
-    (entity-row entity))
+  (method protected virtual (find-row self entity)
+    (entity-row self entity))
   
   
   ;;;
@@ -519,11 +521,11 @@
   ;;;
   
   
-  (method public (preserving-update)
-    (update expand-state: (get-expand-state) :selected-entities (selected-entities)))
+  (method public (preserving-update self)
+    (update self expand-state: (get-expand-state self) :selected-entities (selected-entities self)))
 
 
-  (method public virtual (update . rest)
+  (method public virtual (update self . rest)
     )
   
   
@@ -532,18 +534,18 @@
   ;;;
   
   
-  (method protected virtual abstract (entity-parent entity)
+  (method protected virtual abstract (entity-parent self entity)
     )
   
   
-  (method protected virtual abstract (entity-children entity)
+  (method protected virtual abstract (entity-children self entity)
     )
   
   
-  (method (entity-brothers entity)
-    (let ((parent (entity-parent entity)))
+  (method (entity-brothers self entity)
+    (let ((parent (entity-parent self entity)))
       (when parent
-        (remove entity (entity-children parent)))))
+        (remove entity (entity-children self parent)))))
   
   
   ;;;
@@ -551,8 +553,8 @@
   ;;;
   
   
-  (method public (update-menu menu)
-    (let* ((entities (selected-entities))
+  (method public (update-menu self menu)
+    (let* ((entities (selected-entities self))
            (entity (car entities))
            (count (length entities))
            (can-cut? (get-action-enabled? {Action view cut}))
@@ -562,40 +564,40 @@
            (can-rename? (get-action-enabled? {Action entities-tree rename}))
            (can-properties? (and entity (can-view-properties? entity) (get-standard-properties entity)))
            (empty-add? #f))
-      (let ((add-menu (locate~ menu 'add-menu))
-            (add-item (locate~ menu 'add-item)))
-        (if (and (= count 1) (add-entities~ add-menu self))
-            (let ((children (get-children~ add-menu)))
+      (let ((add-menu (locate menu 'add-menu))
+            (add-item (locate menu 'add-item)))
+        (if (and (= count 1) (add-entities add-menu self))
+            (let ((children (get-children add-menu)))
               (when (= (length children) 1)
-                (set-visible?~ add-item #f)
+                (set-visible? add-item #f)
                 (let ((unique (car children)))
-                  (set-icon~ unique (get-icon~ add-item))
-                  (set-title~ unique (format "{a} {a}" (localize "Add") (get-title~ unique)))
-                  (set-parent~ unique menu)
-                  (set-before~ unique 'end-add-group))))
-          (set-visible?~ add-item #f)
+                  (set-icon unique (get-icon add-item))
+                  (set-title unique (format "{a} {a}" (localize "Add") (get-title unique)))
+                  (set-parent unique menu)
+                  (set-before unique 'end-add-group))))
+          (set-visible? add-item #f)
           (set! empty-add? #t)))
       (when (not can-cut?)
-        (set-visible?~ (locate~ menu 'cut) #f))
+        (set-visible? (locate menu 'cut) #f))
       (when (not can-copy?)
-        (set-visible?~ (locate~ menu 'copy) #f))
+        (set-visible? (locate menu 'copy) #f))
       (when (not can-paste?)
-        (set-visible?~ (locate~ menu 'paste) #f))
+        (set-visible? (locate menu 'paste) #f))
       (when (not can-delete?)
-        (set-visible?~ (locate~ menu 'delete-selection) #f))
+        (set-visible? (locate menu 'delete-selection) #f))
       (when (not can-rename?)
-        (set-visible?~ (locate~ menu 'rename-selection) #f))
+        (set-visible? (locate menu 'rename-selection) #f))
       (when (not can-properties?)
-        (set-visible?~ (locate~ menu 'properties) #f))
+        (set-visible? (locate menu 'properties) #f))
       (let ((empty-edit? (and (not can-cut?) (not can-copy?) (not can-paste?)))
-             (empty-entity? (and (not (get-visible?~ (locate~ menu 'delete-selection))) (not (get-visible?~ (locate~ menu 'rename-selection)))))
+             (empty-entity? (and (not (get-visible? (locate menu 'delete-selection))) (not (get-visible? (locate menu 'rename-selection)))))
              (empty-properties? (not can-properties?)))
         (when (or empty-add? empty-edit?)
-          (set-visible?~ (locate~ menu 'end-add-group) #f))
+          (set-visible? (locate menu 'end-add-group) #f))
         (when (or empty-edit? empty-entity?)
-          (set-visible?~ (locate~ menu 'end-edit-group) #f))
+          (set-visible? (locate menu 'end-edit-group) #f))
         (when (or (and empty-add? empty-entity?) empty-properties?)
-          (set-visible?~ (locate~ menu 'before-properties) #f)))))
+          (set-visible? (locate menu 'before-properties) #f)))))
   
   
   ;;;
@@ -603,5 +605,5 @@
   ;;;
   
   
-  (method public (show-properties)
+  (method public (show-properties self)
     (select-docked Properties-Manager workspace: #f focus?: #t))))

@@ -40,11 +40,15 @@
 
 (import (jazz.action)
         (jazz.application)
+        (jazz.event)
         (jazz.feedback)
         (jazz.handler)
+        (jazz.ide)
         (jazz.io)
         (jazz.jml)
         (jazz.menu)
+        (jazz.outline)
+        (jazz.process)
         (jazz.project)
         (jazz.resource)
         (jazz.template)
@@ -68,7 +72,7 @@
                 (<Tree-Node-Column>                      title: "Repositories" width: 329))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Repositories)
 
   
@@ -77,20 +81,20 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Repositories"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Repositories")
   
   
-  (method override (install-in-host host)
-    (setup-repositories))
+  (method override (install-in-host self host)
+    (setup-repositories self))
   
   
-  (method (setup-repositories)
-    (update))
+  (method (setup-repositories self)
+    (update self))
   
   
   ;;;
@@ -98,13 +102,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (get-tree)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (get-tree self)))
+      (acquire-focus tree)))
 
   
   ;;;
@@ -112,8 +116,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'repositories))
+  (method package (get-tree self)
+    (locate self 'repositories))
 
   
   ;;;
@@ -121,36 +125,36 @@
   ;;;
   
   
-  (method (update)
-    (let ((tree (get-tree)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+  (method package (update self)
+    (let ((tree (get-tree self)))
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
-          (let ((repositories-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: "Repositories" image: {Image-Resource "Repositories"})) user-data: #f)))
+          (let ((repositories-row (add-row tree state: 'expanded children: (list (new Tree-Node title: "Repositories" image: {Image-Resource "Repositories"})) user-data: #f)))
             (for-each (lambda (repository)
-                        (add-repository tree repositories-row 'collapsed repository))
-                      (get-repositories)))))))
+                        (add-repository self tree repositories-row 'collapsed repository))
+                      (repositories-get)))))))
   
   
-  (method (add-repository tree father state repository)
+  (method (add-repository self tree father state repository)
     (let ((name (repository-name repository)))
       (let ((title (->string name))
             (image {Image-Resource "Repository"}))
-        (let ((repository-row (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: repository)))
+        (let ((repository-row (add-row tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: repository)))
           (for-each (lambda (package)
-                      (add-package tree repository-row package))
+                      (add-package self tree repository-row package))
                     (sort string<? (repository-packages repository) key: (lambda (package) (->string (package-name package)))))
           repository-row))))
   
   
-  (method (add-package tree father package)
+  (method (add-package self tree father package)
     (let ((name (package-name package))
           (file (package-project-file package)))
       (let ((title (->string name))
             (image (cond ((not file) {Image-Resource "NoProjectPackage"})
-                         ((find-project-by-file~ (get-workbench) file) {Image-Resource "Package"})
+                         ((find-project-by-file (get-workbench) file) {Image-Resource "Package"})
                          (else {Image-Resource "UninstalledPackage"}))))
-        (add-row~ tree father: father children: (list (new Tree-Node title: title image: image)) user-data: package))))
+        (add-row tree father: father children: (list (new Tree-Node title: title image: image)) user-data: package))))
   
   
   ;;;
@@ -158,17 +162,17 @@
   ;;;
 
   
-  (method (on-new-repository evt)
-    (receive (directory dirname name) (get-modal New-Repository-Dialog directory: (get-current-directory))
-      (let ((template (new-directory~ (templates-directory~ (get-application)) "repository"))
+  (method (on-new-repository self evt)
+    (receive (directory dirname name) (get-modal New-Repository-Dialog directory: (current-directory-get))
+      (let ((template (new-directory (templates-directory (get-application)) "repository"))
             (destination directory)
             (effective-name (if (empty-string? name) dirname name)))
         (let ((associations (list (cons 'dirname dirname) (cons 'name effective-name))))
           (copy-template template destination associations)
-          (install/add-repository (new-directory~ directory dirname))))))
+          (install/add-repository self (new-directory directory dirname))))))
   
   
-  (method (on-register-repository evt)
+  (method (on-register-repository self evt)
     (define (load-repository-name file)
       (call-with-input-file (path-settings file)
         (lambda (input)
@@ -176,22 +180,22 @@
             (cadr form)))))
     
     (let ((dir (choose-directory)))
-      (let ((repository-file (new-file~ dir ".repository")))
-        (if (exists?~ repository-file)
+      (let ((repository-file (new-file dir ".repository")))
+        (if (exists? repository-file)
             (let ((name (load-repository-name repository-file)))
               (if (find-repository name)
                   (message-box (format "A repository with this name is already registered: {a}" name))
-                (install/add-repository dir)))
+                (install/add-repository self dir)))
           (message-box "Unable to find \".repository\" file")))))
   
   
-  (method (install/add-repository dir)
-    (let ((tree (get-tree))
-          (repositories-row (selected-row))
-          (repository (install-repository (parse~ dir))))
-      (let ((repository-row (add-repository tree repositories-row 'expanded repository)))
-        (ensure-expanded~ tree repository-row)
-        (set-single-selection~ tree (row->line~ tree repository-row)))))
+  (method (install/add-repository self dir)
+    (let ((tree (get-tree self))
+          (repositories-row (selected-row self))
+          (repository (install-repository (parse dir))))
+      (let ((repository-row (add-repository self tree repositories-row 'expanded repository)))
+        (ensure-expanded tree repository-row)
+        (set-single-selection tree (row->line tree repository-row)))))
   
   
   (definition (system-repository? repository)
@@ -203,22 +207,22 @@
   ;;;
   
   
-  (method (on-edit-repository evt)
-    (for-each edit-repository (selected-objects)))
+  (method (on-edit-repository self evt)
+    (for-each (~ edit-repository self) (selected-objects self)))
   
   
-  (method (edit-repository repository)
+  (method (edit-repository self repository)
     (let ((dir (new Directory (tokenise-filename (repository-directory repository)))))
-      (edit-document~ (get-application) (new-file~ dir ".repository"))))
+      (edit-document (get-application) (new-file dir ".repository"))))
   
   
-  (method (on-new-package evt)
-    (receive (repository package) (get-modal New-Package-Dialog repository: (selected-object))
+  (method (on-new-package self evt)
+    (receive (repository package) (get-modal New-Package-Dialog repository: (selected-object self))
       (let* ((package-name (string->symbol package))
              (package-parts (map ->string (split-identifier package-name)))
              (product (last package-parts))
              (project (capitalize product))
-             (template (new-directory~ (templates-directory~ (get-application)) "package"))
+             (template (new-directory (templates-directory (get-application)) "package"))
              (directory (new Directory (tokenise-filename (repository-library-directory repository))))
              (destination directory)
              (associations (list (cons 'package package)
@@ -228,42 +232,42 @@
                                  (cons 'project-directories (cons "project" package-parts))
                                  (cons 'product product))))
         (copy-template template destination associations)
-        (let* ((file (new-file~ destination (list package ".package")))
-               (package (load-package repository #f package-name (parse~ file))))
+        (let* ((file (new-file destination (list package ".package")))
+               (package (load-package repository #f package-name (parse file))))
           (repository-add-package repository package)
-          (let ((tree (get-tree))
-                (repository-row (selected-row)))
-            (let ((package-row (add-package tree repository-row package)))
-              (ensure-expanded~ tree package-row)
-              (set-single-selection~ tree (row->line~ tree package-row))))))))
+          (let ((tree (get-tree self))
+                (repository-row (selected-row self)))
+            (let ((package-row (add-package self tree repository-row package)))
+              (ensure-expanded tree package-row)
+              (set-single-selection tree (row->line tree package-row))))))))
   
   
-  (method (on-scan-new-packages evt)
-    (let ((repository-row (selected-row)))
-      (let ((repository (get-user-data~ repository-row)))
+  (method (on-scan-new-packages self evt)
+    (let ((repository-row (selected-row self)))
+      (let ((repository (get-user-data repository-row)))
         (let ((packages (repository-install-packages repository)))
           (if (null? packages)
               (user-message "No new packages found")
-            (let ((tree (get-tree)))
+            (let ((tree (get-tree self)))
               (let ((rows (map (lambda (package)
-                                 (let ((package-row (add-package tree repository-row package)))
-                                   (ensure-expanded~ tree package-row)
+                                 (let ((package-row (add-package self tree repository-row package)))
+                                   (ensure-expanded tree package-row)
                                    package-row))
                                packages)))
-                (set-selection~ tree (map (lambda (row)
-                                            (row->line~ tree row))
+                (set-selection tree (map (lambda (row)
+                                            (row->line tree row))
                                           rows)))
               (let ((count (length packages)))
                 (user-message "Found {a} new package{a}" count (format-plural count)))))))))
   
   
-  (method (on-unregister-repository evt)
+  (method (on-unregister-repository self evt)
     (define (uninstall/remove-repository row)
-      (let ((repository (get-user-data~ row)))
+      (let ((repository (get-user-data row)))
         (uninstall-repository repository)
-        (remove-row~ (get-tree) row)))
+        (remove-row (get-tree self) row)))
     
-    (for-each uninstall/remove-repository (selected-rows)))
+    (for-each uninstall/remove-repository (selected-rows self)))
   
   
   ;;;
@@ -271,33 +275,33 @@
   ;;;
   
   
-  (method (on-edit-package evt)
-    (for-each edit-package (selected-objects)))
+  (method (on-edit-package self evt)
+    (for-each (~ edit-package self) (selected-objects self)))
   
   
-  (method (edit-package package)
+  (method (edit-package self package)
     (let ((dir (new Directory (tokenise-filename (repository-library-directory (package-repository package))))))
-      (edit-document~ (get-application) (new-file~ dir (list (->string (package-name package)) ".package")))))
+      (edit-document (get-application) (new-file dir (list (->string (package-name package)) ".package")))))
   
   
-  (method (on-install-in-workbench evt)
-    (let ((workbench-manager (get-workbench-manager~ (get-application)))
+  (method (on-install-in-workbench self evt)
+    (let ((workbench-manager (get-workbench-manager (get-application)))
           (workbench (get-workbench))
-          (tree (get-tree)))
+          (tree (get-tree self)))
       (for-each (lambda (row)
-                  (install-in-workbench workbench-manager workbench tree row))
-                (selected-rows))))
+                  (install-in-workbench self workbench-manager workbench tree row))
+                (selected-rows self))))
   
   
-  (method (install-in-workbench workbench-manager workbench tree row)
-    (let ((package (get-user-data~ row)))
+  (method (install-in-workbench self workbench-manager workbench tree row)
+    (let ((package (get-user-data row)))
       (let ((file (package-project-file package)))
-        (install-project~ workbench-manager file workbench #f)
-        (let ((line (row->line~ tree row)))
+        (install-project workbench-manager file workbench #f)
+        (let ((line (row->line tree row)))
           (let ((cell (new Cell line 0)))
-            (let ((node (get-cell-data~ tree cell)))
-              (set-image~ node {Image-Resource "Package"})
-              (invalidate-cell~ tree cell)))))))
+            (let ((node (get-cell-data tree cell)))
+              (set-image node {Image-Resource "Package"})
+              (invalidate-cell tree cell)))))))
   
   
   (definition (package-project-file package)
@@ -309,7 +313,7 @@
   
   (definition (package-project-installable? package)
     (let ((file (package-project-file package)))
-      (and file (not (find-project-by-file~ (get-workbench) file)))))
+      (and file (not (find-project-by-file (get-workbench) file)))))
   
   
   ;;;
@@ -326,8 +330,8 @@
            'package)))
   
   
-  (method (selected-kind/objects)
-    (let ((objects (get-selected-data~ (get-tree))))
+  (method (selected-kind/objects self)
+    (let ((objects (get-selected-data (get-tree self))))
       (if (null? objects)
           (values #f #f)
         (let ((kind (uniform objects key: selected-kind)))
@@ -336,21 +340,21 @@
             (values kind objects))))))
   
   
-  (method (selected-objects)
-    (receive (kind objects) (selected-kind/objects)
+  (method (selected-objects self)
+    (receive (kind objects) (selected-kind/objects self)
       objects))
   
   
-  (method (selected-object)
-    (car (selected-objects)))
+  (method (selected-object self)
+    (car (selected-objects self)))
   
   
-  (method (selected-rows)
-    (get-selected-rows~ (get-tree)))
+  (method (selected-rows self)
+    (get-selected-rows (get-tree self)))
   
   
-  (method (selected-row)
-    (get-selected-row~ (get-tree)))
+  (method (selected-row self)
+    (get-selected-row (get-tree self)))
 
   
   ;;;
@@ -358,43 +362,43 @@
   ;;;
   
   
-  (method (on-context-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (pos (get-position~ evt))
-           (acquired (acquire sender pos)))
-      (with-context-click~ sender pos
+  (method (on-context-menu self evt)
+    (let* ((sender (get-sender evt))
+           (pos (get-position evt))
+           (acquired (acquire self sender pos)))
+      (with-context-click sender pos
         (lambda ()
-          (let ((menu (new-menu)))
+          (let ((menu (new-menu self)))
             (when menu
-              (track-popup-menu menu acquired)))))))
+              (track-popup-menu self menu acquired)))))))
   
   
-  (method public (new-menu)
+  (method public (new-menu self)
     (define (new-repositories-menu objects)
-      (let ((menu (new Repositories-Menu client: (get-tree))))
-        (layout-menu~ menu)
+      (let ((menu (new Repositories-Menu client: (get-tree self))))
+        (layout-menu menu)
         menu))
     
     (define (new-repository-menu objects)
-      (let ((menu (new Repository-Menu client: (get-tree))))
+      (let ((menu (new Repository-Menu client: (get-tree self))))
         (when (> (length objects) 1)
-          (set-visible?~ (locate~ menu 'new-package-separator) #f)
-          (set-visible?~ (locate~ menu 'new-package) #f))
+          (set-visible? (locate menu 'new-package-separator) #f)
+          (set-visible? (locate menu 'new-package) #f))
         (when (some? system-repository? objects)
-          (set-visible?~ (locate~ menu 'unregister-repository-separator) #f)
-          (set-visible?~ (locate~ menu 'unregister-repository) #f))
-        (layout-menu~ menu)
+          (set-visible? (locate menu 'unregister-repository-separator) #f)
+          (set-visible? (locate menu 'unregister-repository) #f))
+        (layout-menu menu)
         menu))
     
     (define (new-package-menu objects)
-      (let ((menu (new Package-Menu client: (get-tree))))
+      (let ((menu (new Package-Menu client: (get-tree self))))
         (unless (every? package-project-installable? objects)
-          (set-visible?~ (locate~ menu 'install-package-separator) #f)
-          (set-visible?~ (locate~ menu 'install-package) #f))
-        (layout-menu~ menu)
+          (set-visible? (locate menu 'install-package-separator) #f)
+          (set-visible? (locate menu 'install-package) #f))
+        (layout-menu menu)
         menu))
     
-    (receive (kind objects) (selected-kind/objects)
+    (receive (kind objects) (selected-kind/objects self)
       (if (not kind)
           #f
         (case kind

@@ -61,19 +61,19 @@
   
   (method public (navigate host operation resource (port: port 'http) (parameters: parameters '()))
     (define (store-cookies response)
-      (for-each-cookie~ response
+      (for-each-cookie response
         (lambda (name cookie)
           (add-cookie cookie))))
     
     (let* ((request (build-request host port operation resource parameters))
            (response (send-request request host port))
-           (code (get-code~ response)))
+           (code (get-code response)))
       (store-cookies response)
       (case code
         ((see-other)
-         (let* ((location (get-header~ response "Location"))
+         (let* ((location (get-header response "Location"))
                 (url (new URL (list location))))
-           (receive (hostname resource) (split~ url)
+           (receive (hostname resource) (split url)
              ;; should probably modify split to not remove the / instead...
              (let ((resource (concatenate "/" resource)))
                (navigate-safely (new Host name: hostname) "GET" resource)))))
@@ -93,7 +93,7 @@
   
   
   (method (add-cookie cookie)
-    (let ((name (get-name~ cookie)))
+    (let ((name (get-name cookie)))
       (table-set! cookies name cookie)))
   
   
@@ -110,10 +110,10 @@
     (unimplemented 'send-request)
     @windows-specific
     (with ((socket (new Socket)))
-      (let* ((string (message-string~ request))
+      (let* ((string (message-string request))
              (block (coerce string Heap-Block)))
-        (connect~ socket host port)
-        (send-raw~ socket block)
+        (connect socket host port)
+        (send-raw socket block)
         (new HTTP-Response socket: socket))))
   
   
@@ -121,9 +121,9 @@
     (let ((request (new HTTP-Request operation: operation resource: resource parameters: parameters)))
       (set-header!~ request "Accept" "text/html")
       (set-header!~ request "Accept-Encoding" "identity")
-      (set-header!~ request "Host" (get-name~ host))
+      (set-header!~ request "Host" (get-name host))
       (for-each-cookie
        (lambda (name cookie)
-         (add-cookie~ request cookie)))
+         (add-cookie request cookie)))
       (add-cookies request)
       request))))

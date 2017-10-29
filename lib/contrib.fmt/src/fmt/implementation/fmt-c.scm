@@ -839,7 +839,7 @@
 (define (c& . args) (apply c-op '& args))
 ;; (define (|c\|| . args) (apply c-op '|\|| args))
 (define (c^ . args) (apply c-op '^ args))
-(define (c~ . args) (apply c-op '~ args))
+(define (c . args) (apply c-op '~ args))
 (define (c! . args) (apply c-op '! args))
 (define (c&& . args) (apply c-op '&& args))
 ;; (define (|c\|\|| . args) (apply c-op '|\|\|| args))

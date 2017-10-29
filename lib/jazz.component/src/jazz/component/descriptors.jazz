@@ -44,7 +44,9 @@
         (jazz.integrity)
         (jazz.jml)
         (jazz.locale)
-        (jazz.resource))
+        (jazz.reference)
+        (jazz.resource)
+        (jazz.text))
 
 
 ;;;
@@ -53,7 +55,7 @@
 
 
 (definition public (get-active-trait-presentation component)
-  (let ((trait (get-active-trait~ component)))
+  (let ((trait (get-active-trait component)))
     (if (not trait)
         (get-presentation-property component)
       (get-presentation-property trait))))
@@ -65,18 +67,19 @@
 
 
 (definition public (unfold-branches component (branches: branches #t) (properties: properties '()) (include-root?: include-root? #t))
-  (let* ((form (get-form~ (get-creator~ component)))
-         (active-branch (get-branch~ component))
-         (active-branch-name (and active-branch (get-name~ active-branch)))
-         (all-branch-names (map get-name~ (child-traits~ component))))
+  (let* ((form (get-form (get-creator component)))
+         (active-branch (get-branch component))
+         (active-branch-name (and active-branch (get-name active-branch)))
+         (all-branch-names (map get-name (child-traits component))))
     (define (instantiate branch-name)
       (if (eq? branch-name active-branch-name)
           component
-        (let ((client (apply instantiate~ form properties)))
+        (let ((client (apply instantiate form properties)))
           (when branch-name
-            (let ((branch (child~ client branch-name)))
-              (set-restoreable?~ branch #f)
-              (set-active-branch~ client branch)))
+            (let ((branch (child client branch-name)))
+              (set-restoreable? branch #f)
+              @cant-find
+              (set-active-branch client branch)))
           client)))
     
     (if (eq? branches #t)
@@ -92,14 +95,14 @@
 
 
 (definition public (install-designer component designer)
-  (set-designers~ component (cons designer (get-designers~ component)))
+  (set-designers component (cons designer (get-designers component)))
   (for-each (lambda (child)
               (install-designer child designer))
             (get-components component)))
 
 
 (definition public (uninstall-designer component designer)
-  (set-designers~ component (remove! designer (get-designers~ component)))
+  (set-designers component (remove! designer (get-designers component)))
   (for-each (lambda (child)
               (uninstall-designer child designer))
             (get-components component)))
@@ -113,7 +116,7 @@
 (update-surrogate-set!
   (lambda (component surrogate)
     (remove-surrogate component)
-    (install-surrogate component (get-editor~ surrogate))))
+    (install-surrogate component (get-editor surrogate))))
 
 (remove-surrogate-set!
   remove-surrogate)
@@ -127,10 +130,10 @@
 (generic (validate-component (<Component> component) validation-context)
   (for-each (lambda (symbol)
               (let* ((property (property-field (class-of component) symbol))
-                     (validation-context (refine~ validation-context property: symbol)))
+                     (validation-context (refine validation-context property: symbol)))
                 (map (lambda (violation)
-                       (add-property-violation~ validation-context "{a}" (get-message~ violation)))
-                     (collect-value-violations~ (property-domain component property) (read-property component property) validation-context))))
+                       (add-property-violation validation-context "{a}" (get-message violation)))
+                     (collect-value-violations (property-domain component property) (read-property component property) validation-context))))
             (get-filtered-properties component))
   (validate-children component validation-context))
 
@@ -144,40 +147,40 @@
                          message: (format "Class {a} cannot have children of type {a}"
                                           (category-name (class-of component))
                                           (category-name (class-of child))))))
-        (add-violation~ (get-manager~ validation-context) violation child (get-root~ validation-context) (get-editor~ validation-context)))))
+        (add-violation (get-manager validation-context) violation child (get-root validation-context) (get-editor validation-context)))))
   
   (define (validate-child-descriptor child child-descriptor)
     (unless (some? (lambda (class-ref)
-                     (is? child (resolve-reference~ class-ref)))
-                   (get-classes~ child-descriptor))
+                     (is? child (reference-resolve class-ref)))
+                   (get-classes child-descriptor))
       (let ((violation (new Integrity-Violation
                          message: (format "Child named {a} cannot be of type {a}"
-                                          (get-name~ child)
+                                          (get-name child)
                                           (category-name (class-of child))))))
-        (add-violation~ (get-manager~ validation-context) violation child (get-root~ validation-context) (get-editor~ validation-context)))))
+        (add-violation (get-manager validation-context) violation child (get-root validation-context) (get-editor validation-context)))))
   
-  (let ((addable-classes (map resolve-runtime-reference (flatten (get-categorized-addable-classes component))))
-        (children-descriptor (get-children-descriptor~ (get-class-descriptor~ (class-of component)))))
+  (let ((addable-classes (map resolve-runtime-reference (flatten-lists (get-categorized-addable-classes component))))
+        (children-descriptor (get-children-descriptor (get-class-descriptor (class-of component)))))
     (for-each (lambda (child)
-                (let ((name (get-name~ child)))
+                (let ((name (get-name child)))
                   (let ((child-descriptor (and name
                                                (find-if (lambda (child-descriptor)
-                                                          (eq? (get-target~ child-descriptor)
+                                                          (eq? (get-target child-descriptor)
                                                                name))
-                                                        (get-children~ children-descriptor)))))
+                                                        (get-children children-descriptor)))))
                     (if child-descriptor
                         (validate-child-descriptor child child-descriptor)
                       (validate-child addable-classes child)))))
-              (get-children~ component))
+              (get-children component))
     (for-each (lambda (child-descriptor)
-                (when (get-mandatory?~ child-descriptor)
-                  (let ((child (find-child~ component (get-target~ child-descriptor))))
+                (when (get-mandatory? child-descriptor)
+                  (let ((child (find-child component (get-target child-descriptor))))
                     (unless child
                       (let ((violation (new Integrity-Violation
                                          message: (format "Missing child named {a}"
-                                                          (get-target~ child-descriptor)))))
-                        (add-violation~ (get-manager~ validation-context) violation component (get-root~ validation-context) (get-editor~ validation-context)))))))
-              (get-children~ children-descriptor))))
+                                                          (get-target child-descriptor)))))
+                        (add-violation (get-manager validation-context) violation component (get-root validation-context) (get-editor validation-context)))))))
+              (get-children children-descriptor))))
 
 
 ;;;
@@ -203,7 +206,7 @@
   (define (search-plain-text text <Object> target <Object>)
     (some? (lambda (line)
              (search line target ignore-case?: #t))
-           (get-paragraphs~ text)))
+           (get-paragraphs text)))
   
   (define (search-formatted-text text <Object> target <Object>)
     (some? (lambda (info)
@@ -212,7 +215,7 @@
                         (let ((string (car run)))
                           (search string target ignore-case?: #t)))
                       runs)))
-           (get-paragraphs~ text)))
+           (get-paragraphs text)))
   
   (unimplemented 'search-text)
   @Unimplemented
@@ -240,8 +243,8 @@
           (<Value-Domain>      name: domain)))))
   
   
-  (method override (component-set-presentation component designer presentation)
-    (set-name~ designer component (string->symbol presentation) trait: #f)))
+  (method override (component-set-presentation self component designer presentation)
+    (set-name designer component (string->symbol presentation) trait: #f)))
 
 
 ;;;
@@ -265,16 +268,16 @@
           (<Boolean-Domain>    name: domain)))))
   
   
-  (method override (component-get-component-image component)
-    (or (get-icon~ component) (nextmethod component)))
+  (method override (component-get-component-image self component)
+    (or (get-icon component) (nextmethod self component)))
   
   
-  (method override (component-get-custom-card component)
+  (method override (component-get-custom-card self component)
     jazz.designer:Group-Card)
   
   
-  (method override (component-sort-components? component)
-    (get-sort?~ component))
+  (method override (component-sort-components? self component)
+    (get-sort? component))
 
 
   ;;;
@@ -282,19 +285,19 @@
   ;;;
   
   
-  (method override (component-get-categorized-addable-classes component)
+  (method override (component-get-categorized-addable-classes self component)
     '()
     @historical
     (map (lambda (model)
            (when model
-             (resolve-reference~ model)))
+             (reference-resolve model)))
          (get-component-classes component)))
   
   
-  (method override (component-get-classes component)
-    (or (get-classes~ component)
-        (when (get-parent~ component)
-          (get-component-classes (get-parent~ component))))))
+  (method override (component-get-classes self component)
+    (or (get-classes component)
+        (when (get-parent component)
+          (get-component-classes (get-parent component))))))
 
 
 ;;;
@@ -305,8 +308,8 @@
 (class Classes-Domain extends List-Domain
   
   
-  (method override (finish rest)
-    (nextmethod rest)
+  (method override (finish self rest)
+    (nextmethod self rest)
     @w
     (set! domain (new Class-Domain))))
 
@@ -319,7 +322,7 @@
 (class Class-Domain extends Enumeration-Domain
   
   
-  (method override (finish rest)
-    (nextmethod rest)
+  (method override (finish self rest)
+    (nextmethod self rest)
     @convert
     (set-choices '((() "Separator") () (Group "Group") () (Note "Note") (Task "Task") (Calendar-Event "Event") (Anniversary "Anniversary") () (Company "Company") (Organism "Organism") (Person "Person") () (Password "Password") () (Apartment "Apartment") (Recipe "Recipe"))))))

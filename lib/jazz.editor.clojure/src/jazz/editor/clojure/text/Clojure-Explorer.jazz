@@ -46,9 +46,9 @@
 (class Clojure-Explorer extends Lisp-Explorer
   
   
-  (method override (forward-delimited-string)
-    (forward)
-    (forward-string))
+  (method override (forward-delimited-string self)
+    (forward self)
+    (forward-string self))
 
 
   ;;;
@@ -56,37 +56,37 @@
   ;;;
   
   
-  (method override (find-named-walker name)
+  (method override (find-named-walker self name)
     (case name
-      ((:def) walk-def)
-      (else (nextmethod name))))
+      ((:def) (~ walk-def self))
+      (else (nextmethod self name))))
 
   
-  (method (walk-def context symbol form declaration keyword expression doc)
+  (method (walk-def self context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (forward-whites)
-      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+      (forward-whites self)
+      (let ((list? (eqv? (char-forward self 0) #\open-parenthesis)))
         (when list?
-          (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol))
+          (enter-list self))
+        (when (and (forward-expr self) (eq? kind 'symbol))
           (let (iterate)
-            (let ((marked (get-marked)))
+            (let ((marked (get-marked self)))
               (cond ((string=? marked "^")
-                     (when (forward-expr)
+                     (when (forward-expr self)
                        (set! kind 'expr-comment)
-                       (expression context (get-start) (get-end) 'code 'metadata)
-                       (when (and (forward-expr) (eq? kind 'symbol))
+                       (expression context (get-start self) (get-end self) 'code 'metadata)
+                       (when (and (forward-expr self) (eq? kind 'symbol))
                          (iterate))))
                     ((starts-with? marked "^")
-                     (expression context (get-start) (get-end) 'code 'metadata)
-                     (when (and (forward-expr) (eq? kind 'symbol))
+                     (expression context (get-start self) (get-end self) 'code 'metadata)
+                     (when (and (forward-expr self) (eq? kind 'symbol))
                        (iterate)))
                     (else
                      (set! entry (declaration context 'define '() symbol '() #f start end marked #f)))))))
         (when list?
-          (walk-parameters entry declaration keyword expression doc))
+          (walk-parameters self entry declaration keyword expression doc))
         (when list?
-          (exit-list)))
-      (walk-expressions entry expression 'code #f)
+          (exit-list self)))
+      (walk-expressions self entry expression 'code #f)
       entry))))

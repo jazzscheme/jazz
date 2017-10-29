@@ -42,6 +42,7 @@
         (jazz.graphic)
         (jazz.handler)
         (jazz.jml)
+        (jazz.outline)
         (jazz.resource)
         (jazz.time)
         (jazz.tree)
@@ -75,13 +76,13 @@
       (<Push-Button>                   name: cancel         title: "Cancel" position: {Point 194 315} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
 
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (let ((tree (get-tree)))
-      (setup-periods tree)
-      (setup-selection tree)
-      (update-buttons)
-      (acquire-focus~ tree)))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (let ((tree (get-tree self)))
+      (setup-periods self tree)
+      (setup-selection self tree)
+      (update-buttons self)
+      (acquire-focus tree)))
 
   
   ;;;
@@ -89,8 +90,8 @@
   ;;;
 
 
-  (method (get-tree)
-    (locate 'periods-tree))
+  (method package (get-tree self)
+    (locate self 'periods-tree))
 
   
   ;;;
@@ -98,15 +99,15 @@
   ;;;
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Choose dates")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 450 300})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 302 120})
   
   
@@ -115,63 +116,64 @@
   ;;;
   
   
-  (method (on-action evt)
-    (update-buttons))
+  (method package (on-action self evt)
+    (update-buttons self))
   
   
-  (method (on-selection-change evt)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree)))
-      (update-buttons)))
+  (method package (on-selection-change self evt)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree)))
+      (update-buttons self)))
   
   
-  (method (on-edit-start evt)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree))
+  (method (on-edit-start self evt)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree))
            (period (element periods selection))
-           (date (get-modal Calendar-Dialog host-title: "Choose start date" initial-date: (get-start~ period))))
-      (set-start~ period date)
-      (update)))
+           (date (get-modal Calendar-Dialog host-title: "Choose start date" initial-date: (get-start period))))
+      (set-start period date)
+      (update self)))
   
   
-  (method (on-edit-end evt)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree))
+  (method (on-edit-end self evt)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree))
            (period (element periods selection))
-           (date (get-modal Calendar-Dialog host-title: "Choose end date" initial-date: (get-end~ period))))
-      (set-end~ period date)
-      (update)))
+           (date (get-modal Calendar-Dialog host-title: "Choose end date" initial-date: (get-end period))))
+      (set-end period date)
+      (update self)))
   
   
-  (method (on-add-period evt)
-    (let* ((tree (get-tree))
+  (method (on-add-period self evt)
+    @cant-find-add
+    (let* ((tree (get-tree self))
            (start (get-modal Calendar-Dialog host-title: "Choose start date"))
-           (end (get-modal Calendar-Dialog host-title: "Choose end date" initial-date: (add~ start 'week 1)))
+           (end (get-modal Calendar-Dialog host-title: "Choose end date" initial-date: (add start 'week 1)))
            (period (list (new Period start end))))
       (set! periods (append periods period))
-      (update)))
+      (update self)))
   
   
-  (method (on-remove-period evt)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree))
+  (method (on-remove-period self evt)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree))
            (period (element periods selection)))
       (set! periods (remove period periods))
-      (update)
-      (when (< selection (get-visible-count~ tree))
-        (set-single-selection~ tree selection))))
+      (update self)
+      (when (< selection (get-visible-count tree))
+        (set-single-selection tree selection))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (let ((dialog (get-host)))
-      (end-modal~ dialog (get-modal-result~ dialog))))
+  (method override (on-return-press self evt)
+    (let ((dialog (get-host self)))
+      (end-modal dialog (get-modal-result dialog))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
 
   
   ;;;
@@ -179,22 +181,22 @@
   ;;;
   
   
-  (method (update)
-    (setup-periods (get-tree)))
+  (method package (update self)
+    (setup-periods self (get-tree self)))
 
   
-  (method (setup-periods tree)
-    (remove-every-row~ tree)
-    (with-update-locked~ tree
+  (method (setup-periods self tree)
+    (remove-every-row tree)
+    (with-update-locked tree
       (lambda ()
         (for-each (lambda (period)
-                    (add-row~ tree children: (list (new Tree-Node image: {Image-Resource "PageDate"} title: (present-date-day (get-start~ period))) (new Tree-Label title: (present-date-day (get-end~ period)))) user-data: period))
+                    (add-row tree children: (list (new Tree-Node image: {Image-Resource "PageDate"} title: (present-date-day (get-start period))) (new Tree-Label title: (present-date-day (get-end period)))) user-data: period))
                   periods))))
   
   
-  (method (setup-selection tree)
+  (method (setup-selection self tree)
     (when periods
-      (set-selection~ tree (list 0))))
+      (set-selection tree (list 0))))
   
   
   ;;;
@@ -202,19 +204,19 @@
   ;;;
   
   
-  (method (update-buttons)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree)))
+  (method package (update-buttons self)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree)))
       (if (null? selection)
           (begin
-            (set-enabled?~ (locate 'edit-start) #f)
-            (set-enabled?~ (locate 'edit-end) #f)
-            (set-enabled?~ (locate 'add-period) #t)
-            (set-enabled?~ (locate 'remove-period) #f))
-        (set-enabled?~ (locate 'edit-start) #t)
-        (set-enabled?~ (locate 'edit-end) #t)
-        (set-enabled?~ (locate 'add-period) #t)
-        (set-enabled?~ (locate 'remove-period) #t))))
+            (set-enabled? (locate self 'edit-start) #f)
+            (set-enabled? (locate self 'edit-end) #f)
+            (set-enabled? (locate self 'add-period) #t)
+            (set-enabled? (locate self 'remove-period) #f))
+        (set-enabled? (locate self 'edit-start) #t)
+        (set-enabled? (locate self 'edit-end) #t)
+        (set-enabled? (locate self 'add-period) #t)
+        (set-enabled? (locate self 'remove-period) #t))))
   
   
   ;;;
@@ -222,11 +224,11 @@
   ;;;
   
   
-  (method override (get-modal-result)
-    (let ((tree (get-tree))
+  (method override (get-modal-result self)
+    (let ((tree (get-tree self))
           (periods (new List-Factory)))
-      (for-each-visible-row~ tree
+      (for-each-visible-row tree
        (lambda (row rank)
-         (let ((period (get-user-data~ row)))
-           (put~ periods period))))
-      (get-output~ periods)))))
+         (let ((period (get-user-data row)))
+           (put periods period))))
+      (get-output periods)))))

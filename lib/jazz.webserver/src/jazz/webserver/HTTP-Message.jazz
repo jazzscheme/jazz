@@ -47,13 +47,13 @@
   (slot cookies  initialize (make-table test: equal?) getter generate) ;; this goes into/comes out of headers
   
   
-  (method override (initialize (content: content #f) (headers: headers '()))
-    (nextmethod)
-    (set! headers~self headers)
-    (set! content~self content))
+  (method override (initialize self (content: content #f) (headers: headers '()))
+    (nextmethod self)
+    (set! self.headers headers)
+    (set! self.content content))
 
   
-  (method (crlf! port)
+  (method (crlf! self port)
     (write-subu8vector #u8(13 10) 0 2 port))
   
 
@@ -62,42 +62,42 @@
   ;;;
   
   
-  (method public (get-header name (default #f))
+  (method public (get-header self name (default #f))
     (let ((maybe-header (assoc name headers)))
       (if maybe-header
           (cdr maybe-header)
           default)))
   
   
-  (method public (set-header! name value)
+  (method public (set-header! self name value)
     (let ((old-header (assoc name headers)))
       (if old-header
           (set-cdr! old-header value)
           (set! headers (cons (cons name value) headers)))))
   
   
-  (method (print-headers port)
+  (method (print-headers self port)
     (when content
-      (set-header! "Content-Length" 
+      (set-header! self "Content-Length" 
                    ((if (string? content)
                         string-length
                       car) ;; assume it's a u8 content bag
                     content)))
     (map (lambda (header)
-           (print-header (car header) (cdr header) port))
+           (print-header self (car header) (cdr header) port))
          headers))
   
   
-  (method (print-header name value port)
+  (method (print-header self name value port)
     (format port "{a}: {a}" name value)
-    (crlf! port))
+    (crlf! self port))
  
 
-  (method virtual (parse port)
+  (method package virtual (parse self port)
     )
 
 
-  (method virtual (send port)
+  (method package virtual (send self port)
     )
 
   
@@ -106,10 +106,10 @@
   ;;;
 
 
-  (method public (get-cookie name)
+  (method public (get-cookie self name)
     (table-ref cookies name #f))
   
   
-  (method public (add-cookie cookie)
-    (let ((name (get-name~ cookie)))
+  (method public (add-cookie self cookie)
+    (let ((name (get-name cookie)))
       (table-set! cookies name cookie)))))

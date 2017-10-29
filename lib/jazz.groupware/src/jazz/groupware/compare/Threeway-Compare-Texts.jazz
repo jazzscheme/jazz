@@ -38,12 +38,15 @@
 (module protected jazz.groupware.compare.Threeway-Compare-Texts jazz
 
 
-(import (jazz.groupware)
+(import (jazz.event)
+        (jazz.groupware)
         (jazz.handler)
+        (jazz.io)
         (jazz.jml)
         (jazz.layout)
         (jazz.platform)
         (jazz.resource)
+        (jazz.text)
         (jazz.ui)
         (jazz.view))
 
@@ -89,24 +92,24 @@
   ;;;
     
 
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "CompareFiles"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Threeway Compare")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 90 80})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 795 500})
   
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'local/remote)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'local/remote)))
 
   
   ;;;
@@ -114,14 +117,14 @@
   ;;;
   
   
-  (method public (merge-conflict text)
-    (parse-conflicts text
+  (method public (merge-conflict self text)
+    (parse-conflicts self text
       (lambda (local base remote)
-        (compare-setup text local base remote)
-        (compare-conflicts))))
+        (compare-setup self text local base remote)
+        (compare-conflicts self))))
   
   
-  (method (parse-conflicts text proc)
+  (method (parse-conflicts self text proc)
     (define local-start-marker
       (make-string 7 #\<))
     (define base-start-marker
@@ -131,16 +134,16 @@
     (define remote-end-marker
       (make-string 7 #\>))
     
-    (let ((model (get-model~ text))
-          (line (get-line~ (get-end~ text))))
-      (let ((local-start (text-search~ model local-start-marker start: (new Cell line (paragraph-length~ text line)) reversed?: #t)))
+    (let ((model (get-model text))
+          (line (get-line (get-end text))))
+      (let ((local-start (text-search model local-start-marker start: (new Cell line (paragraph-length text line)) reversed?: #t)))
         (if (not local-start)
             (begin
               (message-box "Unable to find git conflict")
               (signal-cancel))
-          (let ((base-start (text-search~ model base-start-marker start: local-start))
-                (remote-start (text-search~ model remote-start-marker start: local-start))
-                (remote-end (text-search~ model remote-end-marker start: local-start)))
+          (let ((base-start (text-search model base-start-marker start: local-start))
+                (remote-start (text-search model remote-start-marker start: local-start))
+                (remote-end (text-search model remote-end-marker start: local-start)))
             (if (not (and remote-start remote-end (nu<? local-start remote-start remote-end)))
                 (begin
                   (message-box "Invalid git conflict markers")
@@ -155,31 +158,31 @@
                   (proc local base remote)))))))))
   
   
-  (method (compare-setup text local base remote)
+  (method (compare-setup self text local base remote)
     (define (save content)
-      (let ((range (valid-range~ text (new Range$Cell$ (nu- (get-start~ local) {Cell 1 0}) (nu+ (get-end~ remote) {Cell 1 0})))))
-        (replace~ text range content)
-        (close~ (get-host))))
+      (let ((range (valid-range text (new Range$Cell$ (nu- (get-start local) {Cell 1 0}) (nu+ (get-end remote) {Cell 1 0})))))
+        (replace text range content)
+        (close (get-host self))))
     
-    (let ((model (get-model~ text)))
-      (set! text~self text)
+    (let ((model (get-model text)))
+      (set! self.text text)
       (set! local-file (get-temporary-file))
       (set! base-file (get-temporary-file))
       (set! remote-file (get-temporary-file))
-      (save-lines~ local-file (range-strings~ model local))
-      (save-lines~ base-file (range-strings~ model base))
-      (save-lines~ remote-file (range-strings~ model remote))
+      (save-lines local-file (range-strings model local))
+      (save-lines base-file (range-strings model base))
+      (save-lines remote-file (range-strings model remote))
       (set! save-proc save)))
     
   
-  (method (compare-conflicts)
-    (let ((ignore-whitespace? (get-selected?~ (locate 'ignore-whitespace))))
+  (method (compare-conflicts self)
+    (let ((ignore-whitespace? (get-selected? (locate self 'ignore-whitespace))))
       (define (make-comparer)
         (new Text-Comparer ignore-whitespace?: ignore-whitespace?))
       
-      (compare-monikers~ (locate 'local/base) (make-comparer) local-file base-file)
-      (compare-monikers~ (locate 'local/remote) (make-comparer) local-file remote-file)
-      (compare-monikers~ (locate 'remote/base) (make-comparer) remote-file base-file)))
+      (compare-monikers (locate self 'local/base) (make-comparer) local-file base-file)
+      (compare-monikers (locate self 'local/remote) (make-comparer) local-file remote-file)
+      (compare-monikers (locate self 'remote/base) (make-comparer) remote-file base-file)))
   
   
   ;;;
@@ -187,11 +190,11 @@
   ;;;
   
   
-  (method override (get-tab-stops)
+  (method override (get-tab-stops self)
     (list
-      (locate 'local/base)
-      (locate 'local/remote)
-      (locate 'remote/base)))
+      (locate self 'local/base)
+      (locate self 'local/remote)
+      (locate self 'remote/base)))
   
   
   ;;;
@@ -199,59 +202,59 @@
   ;;;
   
   
-  (method (focused-compare-text)
-    (let ((text (get-focus)))
+  (method (focused-compare-text self)
+    (let ((text (active-focus)))
       (and (is? text Compare-Text-View)
            text)))
   
   
-  (method (on-next-diff evt)
-    (let ((text (focused-compare-text)))
+  (method (on-next-diff self evt)
+    (let ((text (focused-compare-text self)))
       (if (not text)
           (bell)
-        (goto-next-diff~ text))))
+        (goto-next-diff text))))
   
   
-  (method (on-previous-diff evt)
-    (let ((text (focused-compare-text)))
+  (method (on-previous-diff self evt)
+    (let ((text (focused-compare-text self)))
       (if (not text)
           (bell)
-        (goto-previous-diff~ text))))
+        (goto-previous-diff text))))
   
   
-  (method (on-keep-green evt)
-    (let ((text (focused-compare-text)))
+  (method (on-keep-green self evt)
+    (let ((text (focused-compare-text self)))
       (if (not text)
           (bell)
-        (keep-green~ text)
-        (let ((next? (if (has-property?~ evt next?:)
-                         (get-property~ evt next?:)
-                       (not (get-shift?~ evt)))))
+        (keep-green text)
+        (let ((next? (if (has-property? evt next?:)
+                         (get-property evt next?:)
+                       (not (get-shift? evt)))))
           (when next?
-            (goto-next-diff~ text))))))
+            (goto-next-diff text))))))
   
   
-  (method (on-keep-blue evt)
-    (let ((text (focused-compare-text)))
+  (method (on-keep-blue self evt)
+    (let ((text (focused-compare-text self)))
       (if (not text)
           (bell)
-        (keep-blue~ text)
-        (let ((next? (if (has-property?~ evt next?:)
-                         (get-property~ evt next?:)
-                       (not (get-shift?~ evt)))))
+        (keep-blue text)
+        (let ((next? (if (has-property? evt next?:)
+                         (get-property evt next?:)
+                       (not (get-shift? evt)))))
           (when next?
-            (goto-next-diff~ text))))))
+            (goto-next-diff text))))))
   
   
-  (method (on-keep-both evt)
-    (let ((text (focused-compare-text)))
+  (method (on-keep-both self evt)
+    (let ((text (focused-compare-text self)))
       (if (not text)
           (bell)
-        (keep-both~ text))))
+        (keep-both text))))
   
   
-  (method (on-ignore-whitespace evt)
-    (compare-conflicts))
+  (method (on-ignore-whitespace self evt)
+    (compare-conflicts self))
     
   
   ;;;
@@ -259,15 +262,15 @@
   ;;;
   
   
-  (method override (save)
-    (let ((text (focused-compare-text)))
+  (method override (save self)
+    (let ((text (focused-compare-text self)))
       (if (not text)
           (bell)
-        (save-proc (get-content~ (get-model~ text))))))
+        (save-proc (get-content (get-model text))))))
 
   
-  (method override (save-as)
-    (let ((text (focused-compare-text)))
+  (method override (save-as self)
+    (let ((text (focused-compare-text self)))
       (if (not text)
           (bell)
-        (save-as~ text))))))
+        (save-as text))))))

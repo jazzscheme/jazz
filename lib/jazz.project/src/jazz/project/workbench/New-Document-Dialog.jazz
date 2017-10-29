@@ -42,6 +42,7 @@
         (jazz.handler)
         (jazz.io)
         (jazz.jml)
+        (jazz.outline)
         (jazz.project)
         (jazz.text)
         (jazz.tree)
@@ -81,15 +82,15 @@
       (<Push-Button>              name: cancel              title: "Cancel" position: {Point 253 227} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
     
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (setup-kinds)
-    (prepare-directory)
-    (update-ok))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (setup-kinds self)
+    (prepare-directory self)
+    (update-ok self))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'kinds)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'kinds)))
 
   
   ;;;
@@ -97,28 +98,28 @@
   ;;;
   
   
-  (method (setup-kinds)
-    (let ((tree (locate 'kinds))
-          (text (locate 'name-text))
+  (method (setup-kinds self)
+    (let ((tree (locate self 'kinds))
+          (text (locate self 'name-text))
           (root (parse-jml (get-document-kinds))))
-      (remove-every-row~ tree)
+      (remove-every-row tree)
       (letrec ((insert
                 (lambda (node father)
-                  (let* ((title (get-property~ node 'name))
-                         (icon (get-property~ node 'icon))
-                         (row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: icon)) user-data: node)))
+                  (let* ((title (get-property node 'name))
+                         (icon (get-property node 'icon))
+                         (row (add-row tree father: father state: 'expanded children: (list (new Tree-Node title: title image: icon)) user-data: node)))
                     (for-each (lambda (child)
                                 (insert child row))
-                              (get-children~ node))))))
+                              (get-children node))))))
         (for-each (lambda (node)
                     (insert node #f))
-                  (get-children~ root)))
-      (set-single-selection~ tree 0)
-      (ensure-displayed~ tree)))
+                  (get-children root)))
+      (set-single-selection tree 0)
+      (ensure-displayed tree)))
   
   
-  (method (prepare-directory)
-    (set-moniker~ (locate 'directory) directory))
+  (method (prepare-directory self)
+    (set-moniker (locate self 'directory) directory))
 
   
   ;;;
@@ -126,7 +127,7 @@
   ;;;
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "New")
   
 
@@ -135,26 +136,26 @@
   ;;;
   
   
-  (method override (validate-dialog)
-    (receive (kind template directory name) (get-modal-result)
+  (method override (validate-dialog self)
+    (receive (kind template directory name) (get-modal-result self)
       (let* ((extension (extract-extension template))
-             (destination (new-file~ directory (format "{a}.{a}" name extension)))
+             (destination (new-file directory (format "{a}.{a}" name extension)))
              (message (validate-name kind name destination)))
         (when message
           (message-box message)
           (signal-cancel)))))
   
   
-  (method override (get-modal-result)
-    (let ((node (selected-kind)))
-      (values (get-property~ node 'kind) (get-property~ node 'template) (get-moniker~ (locate 'directory)) (get-string-content~ (locate 'name-text)))))
+  (method override (get-modal-result self)
+    (let ((node (selected-kind self)))
+      (values (get-property node 'kind) (get-property node 'template) (get-moniker (locate self 'directory)) (get-string-content (locate self 'name-text)))))
   
   
-  (method (selected-kind)
-    (let* ((tree (locate 'kinds))
-           (rank (get-single-selection~ tree))
-           (row (get-row~ tree rank))
-           (node (get-user-data~ row)))
+  (method (selected-kind self)
+    (let* ((tree (locate self 'kinds))
+           (rank (get-single-selection tree))
+           (row (get-row tree rank))
+           (node (get-user-data row)))
       node))
   
 
@@ -163,11 +164,11 @@
   ;;;
   
   
-  (method override (get-tab-stops)
+  (method override (get-tab-stops self)
     (list
-      (locate 'kinds)
-      (locate 'name-text)
-      (get-text~ (locate 'directory))))
+      (locate self 'kinds)
+      (locate self 'name-text)
+      (get-text (locate self 'directory))))
   
 
   ;;;
@@ -175,37 +176,37 @@
   ;;;
   
   
-  (method (on-selection-change evt)
-    (update-ok))
+  (method package (on-selection-change self evt)
+    (update-ok self))
   
   
-  (method (on-content-change evt)
-    (update-ok))
+  (method (on-content-change self evt)
+    (update-ok self))
   
   
-  (method (on-moniker-update evt)
-    (update-ok))
+  (method (on-moniker-update self evt)
+    (update-ok self))
   
   
-  (method (on-double-click evt)
-    (when (get-enabled?~ (locate 'ok))
-      (validate-dialog)
-      (let ((dialog (get-host)))
-        (end-modal~ dialog (get-modal-result~ dialog)))))
-  
-  
-  ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (when (get-enabled?~ (locate 'ok))
-      (validate-dialog)
-      (let ((dialog (get-host)))
-        (end-modal~ dialog (get-modal-result~ dialog)))))
+  (method (on-double-click self evt)
+    (when (get-enabled? (locate self 'ok))
+      (validate-dialog self)
+      (let ((dialog (get-host self)))
+        (end-modal dialog (get-modal-result dialog)))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-return-press self evt)
+    (when (get-enabled? (locate self 'ok))
+      (validate-dialog self)
+      (let ((dialog (get-host self)))
+        (end-modal dialog (get-modal-result dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
   
 
   ;;;
@@ -213,15 +214,15 @@
   ;;;
   
   
-  (method (update-ok)
-    (set-enabled?~ (locate 'ok) (and (get-property~ (selected-kind) 'kind)
-                                     (not (empty-string? (get-string-content~ (locate 'name-text))))
-                                     (get-moniker~ (locate 'directory)))))
+  (method (update-ok self)
+    (set-enabled? (locate self 'ok) (and (get-property (selected-kind self) 'kind)
+                                     (not (empty-string? (get-string-content (locate self 'name-text))))
+                                     (get-moniker (locate self 'directory)))))
   
   
   (definition (validate-name kind name destination)
-    (cond ((exists?~ destination)
-           (format "Document already exists: {a}" (parse~ destination)))
+    (cond ((exists? destination)
+           (format "Document already exists: {a}" (parse destination)))
           ((memq? kind '(jazz))
            (cond ((let ((first (first name)))
                     (not (or (eqv? first #\_)
@@ -248,6 +249,6 @@
     (new Color red: 120 green: 120 blue: 255))
 
   
-  (method override (draw surface context)
-    (let ((size (get-size)))
-      (gradient-fill-rect~ surface (new Rect 0 0 (get-width~ size) 50) (list (list 0 {Color White}) (list 1 Header-Color)))))))
+  (method override (draw self surface context)
+    (let ((size (get-size self)))
+      (gradient-fill-rect surface (new Rect 0 0 (get-width size) 50) (list (list 0 {Color White}) (list 1 Header-Color)))))))

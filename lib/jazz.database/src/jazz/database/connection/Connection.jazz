@@ -38,6 +38,10 @@
 (module protected jazz.database.connection.Connection jazz
 
 
+(import (jazz.database)
+        (jazz.schema))
+
+
 (class Connection extends Object
   
   
@@ -45,34 +49,34 @@
   (slot inventory   initialize #f)
   
   
-  (method override (initialize data-source . rest)
-    (nextmethod)
-    (setup-connection)
-    (apply open data-source rest)
-    (destroy-mandatory))
+  (method override (initialize self data-source . rest)
+    (nextmethod self)
+    (setup-connection self)
+    (apply (~ open self) data-source rest)
+    (destroy-mandatory self))
   
   
-  (method virtual (setup-connection)
+  (method virtual (setup-connection self)
     )
   
   
-  (method override (destroy)
-    (destroy-connection)
-    (nextmethod))
+  (method override (destroy self)
+    (destroy-connection self)
+    (nextmethod self))
   
   
-  (method virtual (destroy-connection)
+  (method virtual (destroy-connection self)
     (when inventory
-      (close~ inventory)
+      (close inventory)
       (set! inventory #f))
     (set! data-source #f))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (when data-source
-          (format output "{s}" (get-connection-string~ data-source))))))
+          (format output "{s}" (get-connection-string data-source))))))
   
   
   ;;;
@@ -80,13 +84,13 @@
   ;;;
   
   
-  (method public (get-inventory . rest)
-    (or inventory (apply reload-inventory rest)))
+  (method public (get-inventory self . rest)
+    (or inventory (apply (~ reload-inventory self) rest)))
   
   
-  (method public (reload-inventory . rest)
+  (method public (reload-inventory self . rest)
     (when data-source
-      (set! inventory (apply new-inventory~ data-source self rest))))
+      (set! inventory (apply new-inventory data-source self rest))))
   
   
   ;;;
@@ -94,8 +98,8 @@
   ;;;
   
   
-  (method virtual (open data-source . rest)
-    (set! data-source~self data-source))
+  (method package virtual (open self data-source . rest)
+    (set! self.data-source data-source))
   
   
   ;;;
@@ -103,7 +107,7 @@
   ;;;
   
   
-  (method public virtual (get-state)
+  (method public virtual (get-state self)
     )
   
   
@@ -112,12 +116,12 @@
   ;;;
   
   
-  (method public virtual (new-request)
+  (method public virtual (new-request self)
     )
   
   
-  (method public virtual (supports-multirequests?)
-    (supports-multirequests?~ (get-provider~ data-source)))
+  (method public virtual (supports-multirequests? self)
+    (supports-multirequests? (get-provider data-source)))
   
   
   ;;;
@@ -125,38 +129,38 @@
   ;;;
   
   
-  (method public virtual (load-request command (name: name #f) (max-load: max-load #t) (data-class: data-class #f))
-    (let ((command (post-process-request~ data-source command)))
-      (with ((request (new-request)))
-        (load-request~ request command name: name max-load: max-load data-class: data-class))))
+  (method public virtual (load-request self command (name: name #f) (max-load: max-load #t) (data-class: data-class #f))
+    (let ((command (post-process-request data-source command)))
+      (with ((request (new-request self)))
+        (load-request request command name: name max-load: max-load data-class: data-class))))
   
   
-  (method public virtual (load-multirequest command (max-load: max-load #t) (data-classes: data-classes '()))
-    (let ((command (post-process-request~ data-source command)))
-      (with ((request (new-request)))
-        (load-multirequest~ request command max-load: max-load data-classes: data-classes))))
+  (method public virtual (load-multirequest self command (max-load: max-load #t) (data-classes: data-classes '()))
+    (let ((command (post-process-request data-source command)))
+      (with ((request (new-request self)))
+        (load-multirequest request command max-load: max-load data-classes: data-classes))))
   
   
-  (method public virtual (load-rows command)
-    (get-rows~ (load-request command)))
+  (method public virtual (load-rows self command)
+    (get-rows (load-request self command)))
   
   
-  (method public virtual (load-row command)
-    (let ((rows (load-rows command)))
+  (method public virtual (load-row self command)
+    (let ((rows (load-rows self command)))
       (assert (= 1 (length rows)))
       (car rows)))
   
   
-  (method public (load-value command column)
-    (let ((rows (load-rows command)))
+  (method public (load-value self command column)
+    (let ((rows (load-rows self command)))
       (assert (= 1 (length rows)))
-      (get~ (car rows) column)))
+      (get (car rows) column)))
   
   
-  (method public (load-values command column)
+  (method public (load-values self command column)
     (map (lambda (row)
-           (get~ row column))
-         (load-rows command)))
+           (get row column))
+         (load-rows self command)))
   
   
   ;;;
@@ -164,11 +168,11 @@
   ;;;
   
   
-  (method public virtual (execute command)
+  (method public virtual (execute self command)
     )
   
   
-  (method public virtual (comment string . parameters)
+  (method public virtual (comment self string . parameters)
     )
   
   
@@ -177,28 +181,28 @@
   ;;;
   
   
-  (method public virtual (begin-transaction)
+  (method public virtual (begin-transaction self)
     )
   
   
-  (method public virtual (commit-transaction)
+  (method public virtual (commit-transaction self)
     )
   
   
-  (method public virtual (rollback-transaction)
+  (method public virtual (rollback-transaction self)
     )
   
   
-  (method public (with-transaction proc)
+  (method public (with-transaction self proc)
     (let ((started? #f)
           (completed? #f))
       (unwind-protect
           (begin
-            (begin-transaction)
+            (begin-transaction self)
             (set! started? #t)
             (prog1 (proc)
               (set! completed? #t)))
         (when started?
           (if completed?
-              (commit-transaction)
-            (rollback-transaction))))))))
+              (commit-transaction self)
+            (rollback-transaction self))))))))

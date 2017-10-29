@@ -38,8 +38,35 @@
 (module jazz.action jazz
 
 
+(hub actions-orphaned?)
+(hub all-shortcuts)
+(hub enabled-update)
+(hub first-alternate-shortcut)
+(hub get-action-context)
+(hub get-action-handler)
+(hub get-action-name)
+(hub get-actionables)
+(hub get-enabled?)
+(hub get-key)
+(hub get-modifiers)
+(hub get-properties)
+(hub get-shortcut)
+(hub get-title)
+(hub invoke)
+(hub present)
+(hub present-shortcut)
+(hub register-actionable)
+(hub set-action-handler)
+(hub set-enabled?)
+(hub set-shortcut)
+(hub set-title)
+(hub shortcut-update)
+(hub update-actions)
+
+
 (export (jazz.action.autoload))
-(import (jazz.action.autoload))
+(import (jazz.action.autoload)
+        (jazz.component))
 
 
 ;;;
@@ -72,27 +99,27 @@
 
 
 (definition package (find-action-item context name)
-  (find-component~ (find-actions context) name))
+  (find-component (find-actions context) name))
 
 
 (definition package (require-action-item action)
-  (or (find-action-item (get-action-context~ action) (get-action-name~ action))
+  (or (find-action-item (get-action-context action) (get-action-name action))
       (error "Unable to find action: {t}" action)))
 
 
 (definition package (call-action action sender properties (event: event #f))
   (let ((action-item (require-action-item action)))
-    (invoke~ action-item sender properties action: action event: event)))
+    (invoke action-item sender properties action: action event: event)))
 
 
 (definition package (get-action-enabled? action)
   (let ((action-item (require-action-item action)))
-    (get-enabled?~ action-item)))
+    (get-enabled? action-item)))
 
 
 (definition package (set-action-enabled? action enabled?)
   (let ((action-item (require-action-item action)))
-    (set-enabled?~ action-item enabled?)))
+    (set-enabled? action-item enabled?)))
 
 
 (definition package (set-actions-enabled? actions enabled?)
@@ -102,31 +129,31 @@
 
 
 (definition package (get-class-actions object)
-  (class-actions~ object))
+  (class-actions object))
 
 
-(definition package (get-guest-actions view)
-  (guest-actions~ view))
+(definition package (view-guest-actions view)
+  (guest-actions view))
 
 
 (definition package (extract-actions actions-list)
   (let ((fact (new List-Factory)))
     (for-each (lambda (action-list)
-                (let ((context-name (get-name~ action-list)))
+                (let ((context-name (get-name action-list)))
                   (for-each (lambda (action-item)
-                              (let* ((action-name (get-name~ action-item))
-                                     (shortcut (get-shortcut~ action-item)))
+                              (let* ((action-name (get-name action-item))
+                                     (shortcut (get-shortcut action-item)))
                                 (when shortcut
-                                  (put~ fact action-item))))
-                            (get-children~ action-list))))
+                                  (put fact action-item))))
+                            (get-children action-list))))
               actions-list)
-    (get-output~ fact)))
+    (get-output fact)))
 
 
 (definition package (update-actions-for for)
   (iterate-table (get-actions)
     (lambda (context actions)
-      (update-actions~ actions for))))
+      (update-actions actions for))))
 
 
 (definition *global-actions*
@@ -148,11 +175,11 @@
   #f)
 
 
-(definition public (get-bindings)
+(definition public (current-bindings)
   *bindings*)
 
 
-(definition public (set-bindings bindings)
+(definition public (set-current-bindings bindings)
   (set! *bindings* bindings)
   (register-bindings bindings))
 
@@ -161,8 +188,8 @@
   (for-each (lambda (actions)
               ;; this test is for traits
               (when (is? actions Actions)
-                (register-actions (get-name~ actions) actions)))
-            (get-children~ bindings)))
+                (register-actions (get-name actions) actions)))
+            (get-children bindings)))
 
 
 ;;;
@@ -175,13 +202,13 @@
 
 
 (definition public (shortcut=? s1 <Shortcut> s2 <Shortcut>) <bool>
-  (and (equal? (get-modifiers~ s1) (get-modifiers~ s2))
-       (eqv? (get-key~ s1) (get-key~ s2))))
+  (and (equal? (get-modifiers s1) (get-modifiers s2))
+       (eqv? (get-key s1) (get-key s2))))
 
 
 (definition public (shortcut-hash shortcut <Shortcut>)
-  (fxwrap+ (eqv?-hash (get-key~ shortcut))
-           (equal?-hash (get-modifiers~ shortcut))))
+  (fxwrap+ (eqv?-hash (get-key shortcut))
+           (equal?-hash (get-modifiers shortcut))))
 
 
 ;;;

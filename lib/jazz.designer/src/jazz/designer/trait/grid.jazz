@@ -40,10 +40,12 @@
 
 (import (jazz.component)
         (jazz.descriptor)
+        (jazz.designer)
         (jazz.designer.grid)
         (jazz.designer.grid.tree)
         (jazz.graphic)
-        (jazz.jml))
+        (jazz.jml)
+        (jazz.tree))
 
 
 (class Trait-Row-Data extends Component
@@ -64,36 +66,36 @@
   (slot client accessors generate)
   (slot traits accessors generate)
   
-  (method override (get-focus-actions)
+  (method override (get-focus-actions self)
     #f)
-  (method override (focus-update-actions))
-  (method override (selection-cell? row column)
+  (method override (focus-update-actions self))
+  (method override (selection-cell? self row column)
     #f)
-  (method override (get-context-menu)
+  (method override (get-context-menu self)
     #f)
-  (method override (on-selection-change evt))
-  (method override (get-tab-stops)
+  (method override (on-selection-change self evt))
+  (method override (get-tab-stops self)
     #f)
-  (method override (copy-selection))
-  (method override (cut-selection))
-  (method override (delete-selection))
-  (method override (paste-clipboard))
-  (method override (can-copy?) #f)
-  (method override (can-cut?) #f)
-  (method override (can-delete?) #f)
-  (method override (can-paste?) #f)
-  (method override (get-draggable?) #f)
-  (method override (get-frame-color)
+  (method override (copy-selection self))
+  (method override (cut-selection self))
+  (method override (delete-selection self))
+  (method override (paste-clipboard self))
+  (method override (can-copy? self) #f)
+  (method override (can-cut? self) #f)
+  (method override (can-delete? self) #f)
+  (method override (can-paste? self) #f)
+  (method override (get-draggable? self) #f)
+  (method override (get-frame-color self)
     #f)
-  (method override (active-background row-data column-data)
+  (method override (active-background self row-data column-data)
     {Color Tree-Background})
-  (method override (inactive-background row-data column-data)
+  (method override (inactive-background self row-data column-data)
     {Color Gray})
   
-  (method override (cell-editable? row column) #f)
-  (method override (merge? master-row-data row-data column-data) #f)
+  (method override (cell-editable? self row column) #f)
+  (method override (merge? self master-row-data row-data column-data) #f)
   
-  (method override (client-rows-datas)
+  (method override (client-rows-datas self)
     (map (lambda (trait)
            (new Trait-Row-Data trait: (resolve-trait #f trait)))
          traits)))
@@ -105,28 +107,28 @@
   (slot client accessors generate)
   
   
-  (method (get-grid)
-    (get-parent))
+  (method (get-grid self)
+    (get-parent self))
   
   
-  (method override (read-only? row-data column-data)
+  (method override (read-only? self row-data column-data)
     #t)
   
   
-  (method override (get-violation row-data column-data)
+  (method override (get-violation self row-data column-data)
     #f)
   
   
-  (method override (get-domain row-data column-data)
-    (let* ((component (find-path~ client (get-path~ column-data)))
-           (field (and component (category-field (class-of component) (get-prop~ column-data)))))
+  (method override (get-domain self row-data column-data)
+    (let* ((component (find-path client (get-path column-data)))
+           (field (and component (category-field (class-of component) (get-prop column-data)))))
       (and field (property-domain component field))))
   
   
-  (method override (get-data row-data column-data fail succeed)
-    (let ((form (find-path~ (get-client-form~ (get-trait~ row-data)) (get-path~ column-data)))
+  (method override (get-data self row-data column-data fail succeed)
+    (let ((form (find-path (get-client-form (get-trait row-data)) (get-path column-data)))
           (not-found (list 'not-found)))
-      (let ((value (if form (get-property~ form (get-prop~ column-data) not-found) not-found)))
+      (let ((value (if form (get-property form (get-prop column-data) not-found) not-found)))
         (if (eq? value not-found)
             (fail)
           (succeed value))))))
@@ -145,79 +147,79 @@
         (<Traits-Provider> name: provider)
         (<Traits-Controller> name: controller))))
   
-  (method (get-grid)
-    (locate 'grid))
+  (method (get-grid self)
+    (locate self 'grid))
   
   
-  (method (get-provider)
-    (locate 'provider))
+  (method package (get-provider self)
+    (locate self 'provider))
   
   
-  (method (get-controller)
-    (locate 'controller))
+  (method (get-controller self)
+    (locate self 'controller))
   
   
   (definition Default-Property-Width 100)
   
   
-  (method public (setup client traits)
-    (set! traits~self traits)
-    (set-client client))
+  (method public (setup self client traits)
+    (set! self.traits traits)
+    (set-client self client))
   
   
-  (method public (set-client clt)
+  (method public (set-client self clt)
     (when (neq? clt client)
       (set! client clt)
-      (client-update)))
+      (client-update self)))
   
   
-  (method (client-update)
-    (end-edition~ (get-grid))
-    (update-controller)
-    (update-provider)
-    (update))
+  (method package (client-update self)
+    (end-edition (get-grid self))
+    (update-controller self)
+    (update-provider self)
+    (update self))
   
   
-  (method (update-provider)
-    (set-client~ (get-provider) client))
+  (method (update-provider self)
+    (set-client (get-provider self) client))
   
   
-  (method (update-controller)
-    (set-client~ (get-controller) client)
-    (set-traits~ (get-controller) traits))
+  (method (update-controller self)
+    (set-client (get-controller self) client)
+    (set-traits (get-controller self) traits))
   
   
-  (method (update)
-    (with-update-locked~ (get-grid)
+  (method package (update self)
+    (with-update-locked (get-grid self)
       (lambda ()
-        (setup-columns)
-        (populate~ (get-grid)))))
+        (setup-columns self)
+        (populate (get-grid self)))))
   
-  (method (add-column path prop presentation)
-    (let ((column (add-column~ (get-grid) class: Grid-Tree-Column title: presentation width: Default-Property-Width)))
-      (add-child~ column (new Traits-Provider-Data name: 'provider-data path: path prop: prop))))
+  (method package (add-column self path prop presentation)
+    (let ((column (add-column (get-grid self) class: Grid-Tree-Column title: presentation width: Default-Property-Width)))
+      (add-child column (new Traits-Provider-Data name: 'provider-data path: path prop: prop))))
   
   
-  (method (setup-child-columns parent child-descriptor)
-    (let* ((path (list (get-target~ child-descriptor)))
-           (subcomponent (find-path~ parent path))
+  (method (setup-child-columns self parent child-descriptor)
+    (let* ((path (list (get-target child-descriptor)))
+           (subcomponent (find-path parent path))
            (class (class-of subcomponent)))
       (for-each (lambda (x)
                   (bind (name presentation domain) x
-                    (add-column path name presentation)))
+                    (add-column self path name presentation)))
                 (classes-properties/presentations/domains (list class)))))
   
   
-  (method (setup-client-columns)
+  (method (setup-client-columns self)
     (let ((client-class (class-of client)))
       (let ((client-properties/presentation/domains (classes-properties/presentations/domains (list client-class)))
-            (child-descriptors (get-children~ (find-child~ (get-descriptor client-class) 'children))))
-        (for-each (lambda (name presentation) (add-column '() name presentation)) (map car client-properties/presentation/domains) (map cadr client-properties/presentation/domains))
-        (for-each (lambda (desc) (setup-child-columns client desc)) child-descriptors))))
+            (child-descriptors (get-children (find-child (get-descriptor client-class) 'children))))
+        (for-each (lambda (name presentation) (add-column self '() name presentation)) (map car client-properties/presentation/domains) (map cadr client-properties/presentation/domains))
+        (for-each (lambda (desc) (setup-child-columns self client desc)) child-descriptors))))
         
   
-  (method (setup-columns)
-    (remove-columns~ (get-grid))
+  (method (setup-columns self)
+    (remove-columns (get-grid self))
     (when client
-      (setup-client-columns))))
+      (setup-client-columns self))))
 )

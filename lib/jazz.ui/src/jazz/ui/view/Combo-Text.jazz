@@ -38,9 +38,12 @@
 (module protected jazz.ui.view.Combo-Text jazz
 
 
-(import (jazz.graphic)
+(import (jazz.document)
+        (jazz.graphic)
         (jazz.jml)
         (jazz.locale)
+        (jazz.outline)
+        (jazz.text)
         (jazz.ui))
 
 
@@ -60,7 +63,7 @@
           (<Combo-Text-View> name: body     selectable?: #f editable?: #f accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t)))))
 
   
-  (method override (default-size)
+  (method override (default-size self)
     {Dimension 100 17})
 
 
@@ -69,18 +72,18 @@
   ;;;
   
   
-  (method (get-editable?)
+  (method package (get-editable? self)
     editable?)
   
   
-  (method (set-editable? flag)
+  (method package (set-editable? self flag)
     (set! editable? flag)
-    (let ((text (get-body))
-          (pick (get-pick)))
-      (set-editable?~ text flag)
-      (set-selectable?~ text flag)
-      (set-background~ text (if flag {Color White} {Color Medium}))
-      (set-visible?~ pick flag)))
+    (let ((text (get-body self))
+          (pick (get-pick self)))
+      (set-editable? text flag)
+      (set-selectable? text flag)
+      (set-background text (if flag {Color White} {Color Medium}))
+      (set-visible? pick flag)))
   
   
   ;;;
@@ -88,20 +91,20 @@
   ;;;
   
   
-  (method public (get-text)
-    (get-body))
+  (method public (get-text self)
+    (get-body self))
 
 
-  (method public (get-complete?)
+  (method public (get-complete? self)
     complete?)
 
 
-  (method public (set-complete? value)
+  (method public (set-complete? self value)
     (set! complete? value)
     (when complete?
-      (let ((text (get-body)))
-        (set-selectable?~ text #t)
-        (set-editable?~ text #t))))
+      (let ((text (get-body self)))
+        (set-selectable? text #t)
+        (set-editable? text #t))))
   
   
   ;;;
@@ -109,7 +112,7 @@
   ;;;
   
   
-  (method override (highlight-pick?)
+  (method override (highlight-pick? self)
     #t)
 
   
@@ -118,12 +121,12 @@
   ;;;
   
   
-  (method override (set-enabled? flag)
+  (method override (set-enabled? self flag)
     (set! enabled? flag)
-    (set-enabled?~ (get-body) flag)
-    (set-background~ (get-body) (if flag {Color White} {Color Medium}))
-    (set-enabled?~ (get-pick) flag)
-    (invalidate-view))
+    (set-enabled? (get-body self) flag)
+    (set-background (get-body self) (if flag {Color White} {Color Medium}))
+    (set-enabled? (get-pick self) flag)
+    (invalidate-view self))
   
   
   ;;;
@@ -131,14 +134,14 @@
   ;;;
   
   
-  (method public (edit)
-    (focus-body))
+  (method public (edit self)
+    (focus-body self))
   
   
-  (method (focus-body)
-    (let ((text (get-body)))
-      (acquire-focus~ text)
-      (select-all~ text)))
+  (method (focus-body self)
+    (let ((text (get-body self)))
+      (acquire-focus text)
+      (select-all text)))
   
   
   ;;;
@@ -146,20 +149,20 @@
   ;;;
   
   
-  (method public (get-content)
-    (get-string-content~ (get-body)))
+  (method public (get-content self)
+    (get-string-content (get-body self)))
   
   
-  (method public (set-content content)
-    (set-string-content~ (get-body) (if content (localize content) "")))
+  (method public (set-content self content)
+    (set-string-content (get-body self) (if content (localize content) "")))
   
   
-  (method override (get-modified?)
-    (get-modified?~ (get-document-controller~ (get-body))))
+  (method override (get-modified? self)
+    (get-modified? (get-document-controller (get-body self))))
   
   
-  (method override (set-modified? flag)
-    (set-modified?~ (get-document-controller~ (get-body)) flag))
+  (method override (set-modified? self flag)
+    (set-modified? (get-document-controller (get-body self)) flag))
   
   
   ;;;
@@ -167,22 +170,22 @@
   ;;;
   
   
-  (method override (layout)
-    (let ((size (get-size))
-          (text (get-body))
-          (scroller (locate 'scroller))
-          (pick (get-pick)))
-      (let ((width (min (get-height) (+ (get-top-padding~ text) (get-default-row-height~ (get-model~ text)) 0))))
-        (set-position~ scroller {Point 0 0})
-        (let ((scroller-width (if (get-visible?~ pick)
-                                  (- (get-width~ size) width)
-                                (get-width~ size))))
-          (set-size~ scroller (new Dimension scroller-width (get-height~ size))))
-        (set-position~ pick (new Point (- (get-width~ size) width) (pick-v)))
-        (set-size~ pick (new Dimension width width)))))
+  (method override (layout self)
+    (let ((size (get-size self))
+          (text (get-body self))
+          (scroller (locate self 'scroller))
+          (pick (get-pick self)))
+      (let ((width (min (get-height self) (+ (get-top-padding text) (get-default-row-height (get-model text)) 0))))
+        (set-position scroller {Point 0 0})
+        (let ((scroller-width (if (get-visible? pick)
+                                  (- (get-width size) width)
+                                (get-width size))))
+          (set-size scroller (new Dimension scroller-width (get-height size))))
+        (set-position pick (new Point (- (get-width size) width) (pick-v self)))
+        (set-size pick (new Dimension width width)))))
   
   
-  (method protected virtual (pick-v)
+  (method protected virtual (pick-v self)
     0)
   
   
@@ -191,5 +194,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Combo-Text-Descriptor))))

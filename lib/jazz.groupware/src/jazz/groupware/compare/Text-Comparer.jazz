@@ -57,28 +57,28 @@
   (slot matches  <list>          initialize '())
   
   
-  (method override (initialize (ignore-whitespace?: ignore-whitespace? #f))
-    (nextmethod)
-    (set! ignore-whitespace?~self ignore-whitespace?))
+  (method override (initialize self (ignore-whitespace?: ignore-whitespace? #f))
+    (nextmethod self)
+    (set! self.ignore-whitespace? ignore-whitespace?))
   
   
-  (method public (compare-monikers m1 m2)
+  (method public (compare-monikers self m1 m2)
     (set! moniker1 m1)
     (set! moniker2 m2)
-    (set! lines1 (read-moniker moniker1))
-    (set! lines2 (read-moniker moniker2))
-    (compare-line-sets lines1 lines2))
+    (set! lines1 (read-moniker self moniker1))
+    (set! lines2 (read-moniker self moniker2))
+    (compare-line-sets self lines1 lines2))
   
   
-  (method (compare-line-sets initial-set1 initial-set2)
+  (method (compare-line-sets self initial-set1 initial-set2)
     ;; On parcourt les deux listes -> si le match suivant dans la liste 2
     ;; n'est pas < que ou on est rendu dans la liste 1, on continue la liste 1.
     ;; Pour les restants, on les affichent avant le match suivant.
     (define (collect-lines sames1 sames2 set1 set2)
-      (let* ((rank1 <fx> (get-rank~ (first set1)))
-             (rank2 <fx> (get-rank~ (first set2)))
-             (end1 <fx> (get-rank~ (last set1)))
-             (end2 <fx> (get-rank~ (last set2)))
+      (let* ((rank1 <fx> (get-rank (first set1)))
+             (rank2 <fx> (get-rank (first set2)))
+             (end1 <fx> (get-rank (last set1)))
+             (end2 <fx> (get-rank (last set2)))
              (next1 (and (not-null? sames1) (car sames1)))
              (next2 (and (not-null? sames2) (car sames2)))
              (fact (new List-Factory))
@@ -87,18 +87,18 @@
              (proc
                (lambda (rank <fx> end <fx> lines <list> create <procedure>)
                  (while (< rank end)
-                   (put~ fact (create rank lines))
+                   (put fact (create rank lines))
                    (increase! rank))
                  rank))
              (done? #f))
         (while (not done?)
-          (let ((next (if (and next2 (< (get-rank~ (first next2)) rank1)) next2 next1)))
+          (let ((next (if (and next2 (< (get-rank (first next2)) rank1)) next2 next1)))
             (if (not next)
                 (set! done? #t)
-              (let ((stop1 (get-rank~ (first next)))
-                    (stop2 (get-rank~ (second next))))
+              (let ((stop1 (get-rank (first next)))
+                    (stop2 (get-rank (second next))))
                 (cond ((and (eq? next1 next) (eq? next2 next) (< rank1 stop1) (< rank2 stop2))
-                       (put-sequence~ fact (compare-line-sets (subseq lines1 rank1 stop1) (subseq lines2 rank2 stop2)))
+                       (put-sequence fact (compare-line-sets self (subseq lines1 rank1 stop1) (subseq lines2 rank2 stop2)))
                        (set! rank1 stop1)
                        (set! rank2 stop2))
                       ((and (eq? next1 next) (< rank1 stop1))
@@ -107,7 +107,7 @@
                        (set! rank2 (proc rank2 stop2 lines2 blue)))))
               (let ((line (if (eq? next1 next) (element lines1 rank1) (element lines2 rank2)))
                     (color (and (neq? next1 next2) (if (eq? next1 next) 'green 'blue))))
-                (put~ fact (list rank1 rank2 line color)))
+                (put fact (list rank1 rank2 line color)))
               (when (eq? next1 next)
                 (increase! rank1)
                 (set! sames1 (cdr sames1))
@@ -118,7 +118,7 @@
                 (set! next2 (and (not-null? sames2) (first sames2)))))))
         (proc rank1 (+ end1 1) lines1 green)
         (proc rank2 (+ end2 1) lines2 blue)
-        (get-output~ fact)))
+        (get-output fact)))
     
     (define (collect-commons set1 set2)
       (let ((proc
@@ -126,7 +126,7 @@
                 (let ((line1 (and (not-null? set1) (car set1)))
                       (line2 (and (not-null? set2) (car set2)))
                       (commons '()))
-                  (while (and (not-null? set1) (not-null? set2) ((if ignore-whitespace? wi=? string=?) (get-string~ line1) (get-string~ line2)))
+                  (while (and (not-null? set1) (not-null? set2) ((if ignore-whitespace? wi=? string=?) (get-string line1) (get-string line2)))
                     (set! commons (cons (new Compare-Node (list line1 line2) #\nul) commons))
                     (set! set1 (cdr set1))
                     (set! set2 (cdr set2))
@@ -140,18 +140,18 @@
     (receive (commons set1 set2) (collect-commons initial-set1 initial-set2)
       (if (and (not-null? set1) (not-null? set2))
           (let* ((line <Compare-Line> (car set1))
-                 (string <string> (get-string~ line))
+                 (string <string> (get-string line))
                  (proc <procedure>
                    (lambda (line <Compare-Line>)
-                     (insert-line root line))))
+                     (insert-line self root line))))
             (set! root (new Compare-Node (list line) (string-ref string 0)))
             (for-each proc (cdr set1))
             (for-each proc set2)
-            (set! matches (append! commons (collect-matches root))))
+            (set! matches (append! commons (collect-matches self root))))
         (set! matches commons))
-      (let* ((sames (map (lambda (node <Compare-Node>) (extract-diff~ node moniker1 moniker2)) matches))
-             (sames1 (sort < sames key: (lambda (diff <list>) (get-rank~ (element diff 0)))))
-             (sames2 (sort < sames key: (lambda (diff <list>) (get-rank~ (element diff 1))))))
+      (let* ((sames (map (lambda (node <Compare-Node>) (extract-diff node moniker1 moniker2)) matches))
+             (sames1 (sort < sames key: (lambda (diff <list>) (get-rank (element diff 0)))))
+             (sames2 (sort < sames key: (lambda (diff <list>) (get-rank (element diff 1))))))
         (collect-lines sames1 sames2 initial-set1 initial-set2))))
 
   
@@ -166,40 +166,40 @@
       #\nul))
   
   
-  (method (insert-line node <Compare-Node> line <Compare-Line>)
-    (let ((string (get-string~ line)))
+  (method package (insert-line self node <Compare-Node> line <Compare-Line>)
+    (let ((string (get-string line)))
       (define (iter subnode <Compare-Node> n <fx>)
-        (let* ((lines (get-lines~ subnode))
+        (let* ((lines (get-lines subnode))
                (baseline (if (null? lines) #f (car lines))))
           (if baseline
-              (let ((basestring (get-string~ baseline)))
+              (let ((basestring (get-string baseline)))
                 (if ((if ignore-whitespace? wi=? string=?) basestring string)
-                    (add-line~ subnode line)
+                    (add-line subnode line)
                   (let* ((key (string-ref basestring n))
-                         (newnode (new Compare-Node (get-lines~ subnode) key)))
-                    (set-lines~ subnode '())
-                    (add-child~ subnode newnode)
+                         (newnode (new Compare-Node (get-lines subnode) key)))
+                    (set-lines subnode '())
+                    (add-child subnode newnode)
                     (iter subnode n))))
             (let* ((c (string-ref string n))
-                   (matchnode (find-in (get-children~ subnode) c key: (lambda (node <Compare-Node>) (get-key~ node)))))
+                   (matchnode (find-in (get-children subnode) c key: (lambda (node <Compare-Node>) (get-key node)))))
               (if (not matchnode)
-                  (add-child~ subnode (new Compare-Node (list line) c))
+                  (add-child subnode (new Compare-Node (list line) c))
                 (iter matchnode (+ n 1)))))))
       
       (iter node 0)))
   
   
-  (method (collect-matches node <Compare-Node>)
-    (let ((children (get-children~ node)))
+  (method (collect-matches self node <Compare-Node>)
+    (let ((children (get-children node)))
       (append! (collect-if (lambda (subnode <Compare-Node>)
-                             (let ((lines (get-lines~ subnode)))
+                             (let ((lines (get-lines subnode)))
                                (and (not-null? lines)
                                     (= (length lines) 2)
-                                    (neq? (get-moniker~ (first lines))
-                                          (get-moniker~ (second lines))))))
+                                    (neq? (get-moniker (first lines))
+                                          (get-moniker (second lines))))))
                            children)
-               (apply append! (map collect-matches (collect-if (lambda (subnode <Compare-Node>)
-                                                                 (null? (get-lines~ subnode)))
+               (apply append! (map (~ collect-matches self) (collect-if (lambda (subnode <Compare-Node>)
+                                                                 (null? (get-lines subnode)))
                                                                children))))))
 
 
@@ -208,12 +208,12 @@
   ;;;
   
   
-  (method protected virtual (load-moniker moniker)
-    (load-lines~ moniker char-encoding-errors: #f))
+  (method protected virtual (load-moniker self moniker)
+    (load-lines moniker char-encoding-errors: #f))
   
   
-  (method (read-moniker moniker)
-    (let ((lines (load-moniker moniker)))
+  (method (read-moniker self moniker)
+    (let ((lines (load-moniker self moniker)))
       (loop (for string in lines)
             (for n from 0)
             (collect (new Compare-Line moniker string n)))))
@@ -224,11 +224,11 @@
   ;;;
   
   
-  (method public (print-tree node <Compare-Node> output)
+  (method public (print-tree self node <Compare-Node> output)
     (define (iter node <Compare-Node> level <fx>)
       (format output "{_ :v}{s}{%}" (* level 2) node)
       (for-each (lambda (subnode <Compare-Node>)
                   (iter subnode (+ level 1)))
-                (get-children~ node)))
+                (get-children node)))
     
     (iter node 0))))

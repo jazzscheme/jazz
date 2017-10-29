@@ -43,9 +43,11 @@
         (jazz.handler)
         (jazz.io)
         (jazz.jml)
+        (jazz.outline)
         (jazz.preferences)
         (jazz.process)
         (jazz.resource)
+        (jazz.tree)
         (jazz.ui)
         (jazz.view))
 
@@ -59,20 +61,20 @@
         (<Push-Tool> name: reload-preferences size: {Dimension 22 22} tooltip?: #t tooltip-text: "Reload Preferences" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-reload-preferences}))))
   
   
-  (method override (form-model form)
-    (case (get-name~ form)
+  (method override (form-model self form)
+    (case (get-name form)
       ((descendants) Preferences-Editor)
-      (else (nextmethod form))))
+      (else (nextmethod self form))))
   
   
-  (method override (install-in-host host)
-    (nextmethod host)
-    (let ((preferences (tool-preferences)))
+  (method override (install-in-host self host)
+    (nextmethod self host)
+    (let ((preferences (tool-preferences self)))
       (when preferences
-        (apply-preferences~ (get-process) preferences host))))
+        (apply-preferences (current-process) preferences host))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'preferences-manager)
   
   
@@ -81,23 +83,23 @@
   ;;;
     
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Preferences"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     #f)
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     #f)
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 800 450})
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(home))
   
   
@@ -106,9 +108,9 @@
   ;;;
   
   
-  (method override (focus-default)
-    (let ((tree (locate '(descendants tree))))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (locate self '(descendants tree))))
+      (acquire-focus tree)))
   
   
   ;;;
@@ -116,10 +118,10 @@
   ;;;
 
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set-rights (get-preferences-rights~ (get-application)))
-    (set-client (get-preferences-root)))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (set-rights self (get-preferences-rights (get-application)))
+    (set-client self (current-preferences-root)))
   
   
   ;;;
@@ -127,7 +129,7 @@
   ;;;
 
 
-  (method override (new-document-controller)
+  (method override (new-document-controller self)
     (new Preferences-Manager-Controller self))
   
   
@@ -136,7 +138,7 @@
   ;;;
 
 
-  (method override (get-modified?)
+  (method override (get-modified? self)
     #f)
   
   
@@ -145,8 +147,8 @@
   ;;;
   
   
-  (method override (tool-preferences)
-    (get-preferences '(tools preferences-manager)))
+  (method override (tool-preferences self)
+    (current-preferences '(tools preferences-manager)))
   
   
   ;;;
@@ -154,14 +156,14 @@
   ;;;
   
   
-  (method override (confirm-close . rest)
-    (save-session))
+  (method override (confirm-close self . rest)
+    (save-session self))
   
   
-  (method override (save-session)
-    (let ((pref (tool-preferences))
-          (designer (get-preferences-designer~ (get-application))))
-      (save-preferences~ pref designer (get-host))))
+  (method override (save-session self)
+    (let ((pref (tool-preferences self))
+          (designer (get-preferences-designer (get-application))))
+      (save-preferences pref designer (get-host self))))
 
   
   ;;;
@@ -169,21 +171,21 @@
   ;;;
   
   
-  (method package (on-save-preferences evt)
+  (method package (on-save-preferences self evt)
     (with-cursor :wait
       (lambda ()
-        (save))))
+        (save self))))
   
   
-  (method package (on-edit evt)
+  (method package (on-edit self evt)
     (let ((appl (get-application)))
-      (edit-document~ appl {File Profile "settings" "Preferences.jml"})))
+      (edit-document appl {File Profile "settings" "Preferences.jml"})))
   
   
-  (method package (on-reload-preferences evt)
-    (set-selection~ (locate '(descendants tree)) '())
-    (setup-preferences~ (get-process))
-    (set-client (get-preferences-root)))
+  (method package (on-reload-preferences self evt)
+    (set-selection (locate self '(descendants tree)) '())
+    (setup-preferences (current-process))
+    (set-client self (current-preferences-root)))
 
   
   ;;;
@@ -191,15 +193,15 @@
   ;;;
   
   
-  (method override (show-properties)
-    (let ((card (get-card)))
+  (method override (show-properties self)
+    (let ((card (get-card self)))
       ;; quick patch
       (if (not card)
           (bell)
-        (let ((tree (locate~ card 'tree)))
-          (acquire-focus~ tree)
-          (when (and (null? (get-selection~ tree)) (> (get-visible-count~ tree) 0))
-            (set-single-selection~ tree 0))))))
+        (let ((tree (locate card 'tree)))
+          (acquire-focus tree)
+          (when (and (null? (get-selection tree)) (> (get-visible-count tree) 0))
+            (set-single-selection tree 0))))))
   
   
   ;;;
@@ -207,11 +209,11 @@
   ;;;
   
   
-  (method (set-application-selection selection force?)
+  (method (set-application-selection self selection force?)
     )
   
   
-  (method (close-application-selection)
+  (method (close-application-selection self)
     ))
 
 
@@ -223,7 +225,7 @@
 (class Preferences-Manager-Controller extends Component-Editor-Controller
   
   
-  (method override (document-status)
+  (method override (document-status self)
     "Preferences"))
 
 
@@ -235,10 +237,10 @@
 (class Preferences-Editor extends Descendants-Editor
   
   
-  (method override (form-model form)
-    (case (get-name~ form)
+  (method override (form-model self form)
+    (case (get-name form)
       ((tree) Preferences-Tree)
-      (else (nextmethod form)))))
+      (else (nextmethod self form)))))
 
 
 ;;;
@@ -253,11 +255,11 @@
     (<install> portfolio: :images draggable?: #t reorderable?: #t))
   
   
-  (method override (update-selection expand-state selected-components)
+  (method override (update-selection self expand-state selected-components)
     )
   
   
-  (method override (row-state component update? level)
+  (method override (row-state self component update? level)
     (if update?
         (if (< level 1) 'expanded 'collapsed)
       'collapsed))))

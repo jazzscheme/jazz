@@ -40,6 +40,7 @@
 
 (import (jazz.catalog)
         (jazz.resource)
+        (jazz.outline)
         (jazz.tree))
 
 
@@ -54,20 +55,20 @@
 
 
 (generic (insert-self (<Catalog-Entry> entry) tree father level)
-  (let* ((image (get-image~ entry))
-         (definitions (get-definitions~ entry))
+  (let* ((image (get-image entry))
+         (definitions (get-definitions entry))
          (state (insert-state entry level definitions))
-         (title (present-name~ entry)))
-    (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: entry)))
+         (title (present-name entry)))
+    (add-row tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: entry)))
 
 
 (generic (insert-self-definitions (<Catalog-Entry> entry) tree father level sort?)
-  (insert-definitions entry tree father (get-definitions~ entry) level sort?))
+  (insert-definitions entry tree father (get-definitions entry) level sort?))
 
 
 (generic (insert-state (<Catalog-Entry> entry) level definitions)
-  (let ((parent (get-parent~ entry)))
-    (cond ((and parent (= level 2) (= 1 (length (get-definitions~ parent))))
+  (let ((parent (get-parent entry)))
+    (cond ((and parent (= level 2) (= 1 (length (get-definitions parent))))
            'expanded)
           ((and (> level 1) (not-null? definitions))
            'collapsed)
@@ -77,7 +78,7 @@
 
 (definition (insert-definitions entry <Catalog-Entry> tree father definitions level sort?)
   (define (sort-definitions definitions)
-    (sort string<? definitions key: present-name~))
+    (sort string<? definitions key: present-name))
   
   (let ((ordered (if sort? (sort-definitions definitions) definitions)))
     (for-each (lambda (definition)
@@ -97,26 +98,26 @@
   (nextmethod entry tree father level sort?))
 
 
-(definition (collect-ascendants entry <Category-Entry>)
-  (let ((catalog (get-catalog))
+(definition (collect-entry-ascendants entry <Category-Entry>)
+  (let ((catalog (get-catalog-table))
         (fact (new List-Factory)))
     (define (process qualified)
       (when qualified
         (let ((category (get-qualified-category catalog qualified)))
-          (when (and category (not (memq? category (get-list~ fact))))
-            (put~ fact category)
-            (for-each process (get-extends~ category))))))
+          (when (and category (not (memq? category (get-list fact))))
+            (put fact category)
+            (for-each process (get-extends category))))))
     
-    (for-each process (get-extends~ entry))
-    (get-output~ fact)))
+    (for-each process (get-extends entry))
+    (get-output fact)))
 
 
 (generic (insert-ascendants (<Category-Entry> entry) tree father)
-  (let ((ascendants (collect-ascendants entry)))
+  (let ((ascendants (collect-entry-ascendants entry)))
     (when ascendants
-      (let ((row (add-row~ tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: "Superclasses" image: {Image-Resource "OpenedFolder"})))))
+      (let ((row (add-row tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: "Superclasses" image: {Image-Resource "OpenedFolder"})))))
         (for-each (lambda (category)
-                    (add-row~ tree father: row state: 'collapsed row-height: 17 children: (list (new Tree-Node title: (present-name~ category) image: (get-image~ category))) user-data: category))
+                    (add-row tree father: row state: 'collapsed row-height: 17 children: (list (new Tree-Node title: (present-name category) image: (get-image category))) user-data: category))
                   ascendants)))))
 
 
@@ -126,16 +127,16 @@
 
 (definition (insert-interfaces-list entry <Category-Entry> tree father title interfaces)
   (when interfaces
-    (let ((catalog (get-catalog))
-          (row (add-row~ tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: title image: {Image-Resource "OpenedFolder"})))))
+    (let ((catalog (get-catalog-table))
+          (row (add-row tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: title image: {Image-Resource "OpenedFolder"})))))
       (define (insert row qualified)
         (when qualified
           (let ((interface (get-qualified-category catalog qualified)))
             (when interface
-              (let ((row (add-row~ tree father: row state: 'collapsed row-height: 17 children: (list (new Tree-Node title: (present-name~ interface) image: (get-image~ interface))) user-data: interface)))
+              (let ((row (add-row tree father: row state: 'collapsed row-height: 17 children: (list (new Tree-Node title: (present-name interface) image: (get-image interface))) user-data: interface)))
                 (for-each (lambda (interface)
                             (insert row interface))
-                          (get-extends~ interface)))))))
+                          (get-extends interface)))))))
       
       (for-each (lambda (interface)
                   (insert row interface))
@@ -144,12 +145,12 @@
 
 (definition (insert-inherited entry <Category-Entry> tree father)
   (define (collect-inherited ascendants)
-    (apply append (map get-definitions~ ascendants)))
+    (apply append (map get-definitions ascendants)))
   
-  (let* ((ascendants (collect-ascendants entry))
+  (let* ((ascendants (collect-entry-ascendants entry))
          (inherited (collect-inherited ascendants)))
     (when inherited
-      (let ((row (add-row~ tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: "Inherited members" image: {Image-Resource "OpenedFolder"})))))
+      (let ((row (add-row tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: "Inherited members" image: {Image-Resource "OpenedFolder"})))))
         (insert-definitions entry tree row inherited 0 #t)))))
 
 
@@ -157,7 +158,7 @@
   (define (get-category-package definition)
     (find-if (lambda (definition)
                (is? definition Package-Entry))
-             (get-definitions~ (get-file-definition~ definition))))
+             (get-definitions (get-file-definition definition))))
   
   (let ((name (last qualified))
         (qualifier (butlast qualified)))
@@ -165,8 +166,8 @@
                (and (is? definition Category-Entry)
                     (let ((package (get-category-package definition)))
                       (and package
-                           (= (get-qualified~ package) qualifier)))))
-             (get-definitions~ catalog name))))
+                           (= (get-qualified package) qualifier)))))
+             (get-definitions catalog name))))
 
 
 ;;;
@@ -175,7 +176,7 @@
 
 
 (specific (insert-interfaces (<Class-Entry> entry) tree father)
-  (insert-interfaces-list entry tree father "Implemented interfaces" (get-implements~ entry)))
+  (insert-interfaces-list entry tree father "Implemented interfaces" (get-implements entry)))
 
 
 ;;;
@@ -184,7 +185,7 @@
 
 
 (specific (insert-ascendants (<Interface-Entry> entry) tree father)
-  (insert-interfaces-list entry tree father "Superinterfaces" (get-extends~ entry)))
+  (insert-interfaces-list entry tree father "Superinterfaces" (get-extends entry)))
 
 
 ;;;
@@ -193,4 +194,4 @@
 
 
 (specific (insert-definition (<File-Entry> entry) tree father level sort?)
-  (insert-definitions entry tree father (get-definitions~ entry) level sort?)))
+  (insert-definitions entry tree father (get-definitions entry) level sort?)))

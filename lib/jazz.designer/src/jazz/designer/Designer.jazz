@@ -43,13 +43,18 @@
         (jazz.component)
         (jazz.descriptor)
         (jazz.designer)
+        (jazz.editor)
         (jazz.editor.jazz)
         (jazz.event)
+        (jazz.figure)
         (jazz.handler)
+        (jazz.io)
         (jazz.jml)
         (jazz.platform)
         (jazz.preferences)
+        (jazz.reporter)
         (jazz.runtime)
+        (jazz.text)
         (jazz.ui.dialog)
         (jazz.undoer)
         (jazz.view))
@@ -67,7 +72,7 @@
   ;;;
   
   
-  (method override (initialize (form: form #f) (reference: reference #f))
+  (method override (initialize self (form: form #f) (reference: reference #f))
     ;; Setting form to a copy until saving is a tempting approach,
     ;; but fails because we absolutly need pointer equality as a test
     ;; for embed-form to work correctly with anonymous forms.
@@ -80,8 +85,8 @@
     ;; Or maybe simply take a copy before the first modification is made
     ;; (lazy approach) and if we need to rollback, set the original form
     ;; to the copy.
-    (nextmethod form: form reference: reference)
-    (set! undoer (new Undoer reset-modified: reset-modified?)))
+    (nextmethod self form: form reference: reference)
+    (set! undoer (new Undoer reset-modified: (~ reset-modified? self))))
   
   
   ;;;
@@ -96,71 +101,71 @@
     '(("JMF Files" . "jmf")))
   
   
-  (method override (save-as (default-extension: default-extension #f) (extensions: extensions '()))
+  (method override (save-as self (default-extension: default-extension #f) (extensions: extensions '()))
     (let ((file (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))))
-      (save-content file)
-      (set-origin~ form file)))
+      (save-content self file)
+      (set-origin form file)))
   
   
-  (method override (save-destination destination)
+  (method override (save-destination self destination)
     (typecase destination
-      ((Class) (save-to-class destination))
-      ((Runtime-Reference) (save-to-reference destination))
-      (else (nextmethod destination))))
+      ((Class) (save-to-class self destination))
+      ((Runtime-Reference) (save-to-reference self destination))
+      (else (nextmethod self destination))))
 
 
-  (method (save-to-class class)
+  (method (save-to-class self class)
     (let ((class-name (category-name class))
           (module-name (category-unit class)))
-      (define (save-form text form)
+      (define (save-form-to text form)
         (let ((form-exists? (class-has-form? text class-name)))
-          (let ((form-range (location-range~ text (list class-name (if form-exists? :form :new-form))))
+          (let ((form-range (location-range text (list class-name (if form-exists? :form :new-form))))
                 (form-string (format (if form-exists? "{a}" "{%}{%}{%}{a}") (form->string form 2))))
-            (insert-string~ (get-model~ text) form-range form-string))))
+            (insert-string (get-model text) form-range form-string))))
       
       (call-with-saved-text (find-unit-source module-name)
         (lambda (text)
-          (let ((form (get-form)))
-            (insert-imports text (imports-to-insert form '() (list module-name)))
-            (save-form text form)
-            (evaluate-range~ text (location-range~ text (list class-name :form))))))))
+          (let ((form (get-form self)))
+            (insert-imports text (imports-to-insert self form '() (list module-name)))
+            (save-form-to text form)
+            (evaluate-range text (location-range text (list class-name :form))))))))
 
 
-  (method (save-to-reference reference)
+  (method (save-to-reference self reference)
     (bind (_ unit symbol) (serialize-runtime-reference reference)
       (typecase (module-ref unit symbol)
         ((Trait)
-         (save-to-trait unit symbol))
+         (save-to-trait self unit symbol))
         (else
          (error "Unknown save target")))))
   
   
-  (method (save-to-trait unit symbol)
-    (let ((form (get-form)))
-      (let ((imports (imports-to-insert form '() (list unit)))
-            (trait-form (first (get-children~ form)))
-            (class-sym (get-model~ form)))
+  (method (save-to-trait self unit symbol)
+    (let ((form (get-form self)))
+      (let ((imports (imports-to-insert self form '() (list unit)))
+            (trait-form (first (get-children form)))
+            (class-sym (get-model form)))
         (call-with-saved-text (find-unit-source unit)
           (lambda (text)
             (insert-imports text imports)
             (let ((trait-string (format "(define-trait {a} {a}{%}{a})" symbol class-sym (form->string trait-form 1 include-form?: #f))))
-              (insert-string~ (get-model~ text) (location-range~ text (list symbol)) trait-string)
-              (evaluate-range~ text (location-range~ text (list symbol)))))))))
+              (insert-string (get-model text) (location-range text (list symbol)) trait-string)
+              (evaluate-range text (location-range text (list symbol)))))))))
 
 
-  (method public (saved-form . rest)
+  (method public (saved-form self . rest)
     (apply form->string form rest))
   
   
-  (method public (print-to . rest)
+  (method public (print-to self . rest)
     (apply print-file-form form rest))
   
   
-  (method override (imports-to-insert form include-modules exclude-modules)
+  (method override (imports-to-insert self form include-modules exclude-modules)
     (let ((appl (get-application)))
-      (difference (remove-duplicates (append (designer-default-imports~ appl)
+      (difference (remove-duplicates (append (designer-default-imports appl)
                                              include-modules
-                                             (designer-form-imports~ appl form)))
+                                             (designer-form-imports appl form)))
                   exclude-modules)))
   
   
@@ -169,27 +174,27 @@
   ;;;
   
   
-  (method public virtual (set-default-traits component traits-references (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t) (imports: imports #f))
-    (let* ((owner (find-owner component)))
+  (method public virtual (set-default-traits self component traits-references (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t) (imports: imports #f))
+    (let* ((owner (find-owner self component)))
       (if (neq? owner reference)
           (designer-error "Default traits cannot be changed in non owner root {a}" (get-presentation-property reference))
         (when imports
-          (add-import imports))
+          (add-import self imports))
         (for-each (lambda (ref)
-                    (setup-context~ ref form))
+                    (setup-context ref form))
                   traits-references)
-        (set-default-traits~ component traits-references)
-        (set-property~ form default-traits: traits-references)
-        (when (and design-events? (not-null? (get-designers~ component)))
+        (set-default-traits component traits-references)
+        (set-property form default-traits: traits-references)
+        (when (and design-events? (not-null? (get-designers component)))
           (fire-refresh component 'all))
-        (set-modified? #t))))
+        (set-modified? self #t))))
   
   
-  (method override (setting-name branch component name design-events? undoable? thunk)
-    (let ((old-name (get-name~ component))
+  (method override (setting-name self branch component name design-events? undoable? thunk)
+    (let ((old-name (get-name component))
           (old-presentation (get-presentation-property component)))
       (thunk)
-      (when (and design-events? (not-null? (get-designers~ component)))
+      (when (and design-events? (not-null? (get-designers component)))
         (fire-name-change component name old-name undoable?)
         (let ((presentation (get-presentation-property component)))
           (fire-presentation-change component presentation old-presentation undoable?))
@@ -197,8 +202,8 @@
           (fire-property-change branch component property name undoable?)))))
   
   
-  (method override (setting-property branch component property value design-events? undoable?)
-    (if (null? (get-designers~ component))
+  (method override (setting-property self branch component property value design-events? undoable?)
+    (if (null? (get-designers component))
         (write-property component property value)
       (let ((fire-presentation? (and design-events? (presentation-property? component property))))
         (let ((old-presentation (and fire-presentation? (get-presentation-property component))))
@@ -210,99 +215,99 @@
             (fire-property-change branch component property value undoable?))))))
   
   
-  (method override (remove-property-event branch component property value design-events? undoable?)
-    (when (and design-events? (not-null? (get-designers~ component)))
+  (method override (remove-property-event self branch component property value design-events? undoable?)
+    (when (and design-events? (not-null? (get-designers component)))
       (fire-property-change branch component property value undoable?)))
   
   
-  (method override (add-child-event child parent design-events? descendant?)
-    (when (and design-events? (not-null? (get-designers~ parent)))
+  (method override (add-child-event self child parent design-events? descendant?)
+    (when (and design-events? (not-null? (get-designers parent)))
       (fire-child-add child parent descendant?)))
   
   
-  (method override (remove-child-event child parent design-events?)
-    (when (and design-events? (get-designers~ child))
+  (method override (remove-child-event self child parent design-events?)
+    (when (and design-events? (get-designers child))
       (fire-child-remove child parent)))
   
   
-  (method public virtual (send-before child target (trait: trait #t))
+  (method public virtual (send-before self child target (trait: trait #t))
     (unless (eq? child target)
-      (let* ((branch (target-branch trait))
-             (parent (get-parent~ child))
-             (parent-form (find-form parent branch))
-             (child-form (find-form child branch))
-             (target-form (and target (find-form target branch))))
-        (send-before~ child target)
-        (send-child-before~ parent-form child-form target-form)
+      (let* ((branch (target-branch self trait))
+             (parent (get-parent child))
+             (parent-form (find-form self parent branch))
+             (child-form (find-form self child branch))
+             (target-form (and target (find-form self target branch))))
+        (send-before child target)
+        (send-child-before parent-form child-form target-form)
         (fire-send-before child parent target)
-        (set-modified? #t))))
+        (set-modified? self #t))))
   
   
-  (method public (send-to-back child (trait: trait #t))
-    (send-before child (first-child~ (get-parent~ child)) trait: trait))
+  (method public (send-to-back self child (trait: trait #t))
+    (send-before self child (first-child (get-parent child)) trait: trait))
   
   
-  (method public (bring-to-front child (trait: trait #t))
-    (send-before child #f trait: trait))
+  (method public (bring-to-front self child (trait: trait #t))
+    (send-before self child #f trait: trait))
   
   
-  (method public virtual (add-form form parent (trait: trait #t) (name: name #f) (imports: imports '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
-    (with-atomic-undo~ undoer
+  (method public virtual (add-form self form parent (trait: trait #t) (name: name #f) (imports: imports '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
+    (with-atomic-undo undoer
       (lambda ()
-        (let ((child (instantiate-form name #f form parent trait design-events? descendant? imports: imports)))
-          (register-undo~ undoer
+        (let ((child (instantiate-form self name #f form parent trait design-events? descendant? imports: imports)))
+          (register-undo undoer
             (lambda ()
-              (remove-child child)))
+              (remove-child self child)))
           child))))
   
   
-  (method public virtual (apply-form form component (trait: trait #t) (design-events?: design-events? #t))
-    (with-atomic-undo~ undoer
+  (method public virtual (apply-form self form component (trait: trait #t) (design-events?: design-events? #t))
+    (with-atomic-undo undoer
       (lambda ()
-        (instantiate-content form component trait design-events?))))
+        (instantiate-content self form component trait design-events?))))
   
   
-  (method override (remove-components components)
-    (with-atomic-undo~ undoer
+  (method override (remove-components self components)
+    (with-atomic-undo undoer
       (lambda ()
-        (nextmethod components))))
+        (nextmethod self components))))
   
   
-  (method public (relocate-component component destination (trait: trait #t) (design-events?: design-events? #t))
-    (relocate-components (list component) destination trait: trait design-events?: design-events?))
+  (method public (relocate-component self component destination (trait: trait #t) (design-events?: design-events? #t))
+    (relocate-components self (list component) destination trait: trait design-events?: design-events?))
   
   
-  (method public virtual (relocate-components components destination (trait: trait #t) (design-events?: design-events? #t))
-    (let ((destination-form (get-form~ destination)))
+  (method public virtual (relocate-components self components destination (trait: trait #t) (design-events?: design-events? #t))
+    (let ((destination-form (get-form destination)))
       (for-each (lambda (component)
-                  (let ((parent (get-parent~ component))
-                        (form (get-form~ component)))
-                    (remove-child component trait: trait)
-                    (add-child component destination form: form trait: trait)))
+                  (let ((parent (get-parent component))
+                        (form (get-form component)))
+                    (remove-child self component trait: trait)
+                    (add-child self component destination form: form trait: trait)))
                 components)
-      (set-modified? #t)))
+      (set-modified? self #t)))
   
   
-  (method public (can-relocate-component? component destination)
+  (method public (component-relocatable? self component destination)
     (and (addable-class? destination (class-of component))
-         (component-owned-by-reference? component)))
+         (component-owned-by-reference? self component)))
   
   
-  (method public (can-relocate-components? components destination)
+  (method public (components-relocatable? self components destination)
     (every? (lambda (component)
-              (can-relocate-component? component destination))
+              (component-relocatable? self component destination))
             components))
   
   
   ;; This is not a 100% complete solution as this for instance will
   ;; not restore the correct property values as remove-property would...
-  (method public virtual (purge-trait component (trait: trait #t) (design-events?: design-events? #t))
-    (let* ((branch (target-branch trait))
-           (parent (get-parent~ component))
-           (parent-form (find-form parent branch)))
-      (receive (form restore-form) (find-form component branch restore?: #t)
-        (install-form~ component restore-form component #f #f)
-        (remove-child~ parent-form form))))
+  (method public virtual (purge-trait self component (trait: trait #t) (design-events?: design-events? #t))
+    (let* ((branch (target-branch self trait))
+           (parent (get-parent component))
+           (parent-form (find-form self parent branch)))
+      (receive (form restore-form) (find-form self component branch restore?: #t)
+        (install-form component restore-form component #f #f)
+        (remove-child parent-form form))))
   
   
   ;;;
@@ -310,8 +315,8 @@
   ;;;
   
   
-  (method override (register-undo proc)
-    (register-undo~ undoer proc))
+  (method override (register-undo self proc)
+    (register-undo undoer proc))
   
   
   ;;;
@@ -319,31 +324,31 @@
   ;;;
   
   
-  (method public virtual (cut-components components)
-    (let ((components (remove-redundant-descendants components)))
-      (copy-components components)
-      (delete-components components)))
+  (method public virtual (cut-components self components)
+    (let ((components (remove-redundant-descendants self components)))
+      (copy-components self components)
+      (delete-components self components)))
   
   
-  (method public virtual (copy-components components)
-    (let ((components (remove-redundant-descendants components)))
-      (let ((text (copy-components-text components)))
+  (method public virtual (copy-components self components)
+    (let ((components (remove-redundant-descendants self components)))
+      (let ((text (copy-components-text self components)))
         (set-clipboard-text text format: 'jazz-parcels))))
   
   
-  (method public (copy-components-text components (trait: trait #f))
+  (method public (copy-components-text self components (trait: trait #f))
     (let ((output (open-output-string))
-          (parcels (package-components components trait: trait)))
+          (parcels (package-components self components trait: trait)))
       (format output "(")
       (for-each (lambda (parcel)
                   (format output "~{{a} " (category-name (class-of parcel)))
-                  (format output "{a} " (get-process-id~ parcel))
-                  (format output "{a} " (get-object-id~ parcel))
-                  (format output "{a} " (get-imports~ parcel))
+                  (format output "{a} " (get-process-id parcel))
+                  (format output "{a} " (get-object-id parcel))
+                  (format output "{a} " (get-imports parcel))
                   (format output "(")
                   (for-each (lambda (form)
                               (print-form form 0 output))
-                            (get-content~ parcel))
+                            (get-content parcel))
                   (format output ")")
                   (format output "}"))
                 parcels)
@@ -351,47 +356,47 @@
       (get-output-string output)))
   
   
-  (method public virtual (paste-clipboard parent (trait: trait #t) (design-events?: design-events? #t))
+  (method public virtual (paste-clipboard self parent (trait: trait #t) (design-events?: design-events? #t))
     (let ((parcels (get-jazz-parcels)))
-      (paste-parcels parcels parent trait: trait design-events?: design-events?)))
+      (paste-parcels self parcels parent trait: trait design-events?: design-events?)))
   
   
-  (method public virtual (paste-parcels parcels parent (trait: trait #t) (design-events?: design-events? #t) (reporter: reporter #f))
+  (method public virtual (paste-parcels self parcels parent (trait: trait #t) (design-events?: design-events? #t) (reporter: reporter #f))
     (let* ((parent (determine-paster parent))
-           (name-resolution (verify-name-conflicts parcels parent)))
-      (prog1 (instantiate-parcels parcels parent trait: trait name-resolution: name-resolution design-events?: design-events? descendant?: #f reporter: reporter)
-        (set-modified? #t))))
+           (name-resolution (verify-name-conflicts self parcels parent)))
+      (prog1 (instantiate-parcels self parcels parent trait: trait name-resolution: name-resolution design-events?: design-events? descendant?: #f reporter: reporter)
+        (set-modified? self #t))))
   
   
-  (method public virtual (paste-properties components (trait: trait #t) (design-events?: design-events? #t))
+  (method public virtual (paste-properties self components (trait: trait #t) (design-events?: design-events? #t))
     (let ((parcel (car (get-jazz-parcels))))
-      (paste-parcel-properties parcel components trait: trait design-events?: design-events?)))
+      (paste-parcel-properties self parcel components trait: trait design-events?: design-events?)))
   
   
-  (method public (paste-parcel-properties parcel components (trait: trait #t) (design-events?: design-events? #t))
-    (let ((forms (get-content~ parcel)))
+  (method public (paste-parcel-properties self parcel components (trait: trait #t) (design-events?: design-events? #t))
+    (let ((forms (get-content parcel)))
       (for-each (lambda (component)
                   (for-each (lambda (form)
-                              (instantiate-properties component (get-properties~ form) trait design-events?))
+                              (instantiate-properties self component (get-properties form) trait design-events?))
                             forms))
                 components)
-      (set-modified? #t)))
+      (set-modified? self #t)))
   
   
-  (method public virtual (delete-components components (trait: trait #t) (design-events?: design-events? #t))
-    (let ((components (remove-redundant-descendants components)))
+  (method public virtual (delete-components self components (trait: trait #t) (design-events?: design-events? #t))
+    (let ((components (remove-redundant-descendants self components)))
       (for-each (lambda (component)
-                  (delete-component component trait: trait design-events?: design-events?))
+                  (delete-component self component trait: trait design-events?: design-events?))
                 components)))
   
   
-  (method public virtual (delete-component component (trait: trait #t) (design-events?: design-events? #t))
-    (remove-child component trait: trait design-events?: design-events?))
+  (method public virtual (delete-component self component (trait: trait #t) (design-events?: design-events? #t))
+    (remove-child self component trait: trait design-events?: design-events?))
   
   
   ;; For some operations like cut, copy, delete and move, having a component that
   ;; is a descendant of another one doesn't make sense and can lead to problems...
-  (method (remove-redundant-descendants components)
+  (method (remove-redundant-descendants self components)
     components
     ;; waiting for a bug fix in the tree selection update that this has uncovered
     @wait
@@ -408,32 +413,32 @@
   ;;;
   
   
-  (method public (package-component component (trait: trait #f))
-    (car (package-components (list component) trait: trait)))
+  (method public (package-component self component (trait: trait #f))
+    (car (package-components self (list component) trait: trait)))
   
   
-  (method public (package-components components (trait: trait #f))
+  (method public (package-components self components (trait: trait #f))
     ;; Allows copying the reference component
     (define (replace-master old-master component)
-      (if (eq? (get-action~ old-master) 'install)
-          (let ((master (copy-object~ old-master #t))
-                (class-name (get-name~ (class-of component))))
+      (if (eq? (get-action old-master) 'install)
+          (let ((master (copy-object old-master #t))
+                (class-name (get-name (class-of component))))
             (receive (module models) (split-locator class-name)
               (let* ((model (car models))
                      (reference (deserialize-runtime-reference (list 'module-private class-name))))
-                (set-action~ master 'new)
-                (set-model~ master model)
-                (setup-context~ master master)
-                (set-locator~ master (locator-add-reference (get-locator~ master) model reference))
+                (set-action master 'new)
+                (set-model master model)
+                (setup-context master master)
+                (set-locator master (locator-add-reference (get-locator master) model reference))
                 master)))
         old-master))
     
     ;; Modifying the master from its parent is equivalent to an install
     (define (modify->install form)
-      (let ((new-form (copy-object~ form #f)))
-        (when (eq? (get-action~ new-form) 'modify)
-          (set-action~ new-form 'install)
-          (set-name~ new-form #f))
+      (let ((new-form (copy-object form #f)))
+        (when (eq? (get-action new-form) 'modify)
+          (set-action new-form 'install)
+          (set-name new-form #f))
         new-form))
     
     (define (package-component component)
@@ -455,87 +460,87 @@
   ;;;
   
   
-  (method public virtual (instantiate-parcels parcels parent (trait: trait #t) (name-resolution: name-resolution #f) (design-events?: design-events? #t) (descendant?: descendant? #f) (reporter: reporter #f))
+  (method public virtual (instantiate-parcels self parcels parent (trait: trait #t) (name-resolution: name-resolution #f) (design-events?: design-events? #t) (descendant?: descendant? #f) (reporter: reporter #f))
     (map (lambda (parcel)
            (when reporter
-             (user-message~ reporter "Pasting {a}..." (get-master-name~ parcel)))
-           (prog1 (instantiate-parcel parcel parent trait: trait name-resolution: name-resolution design-events?: design-events? descendant?: descendant?)
+             (report-message reporter "Pasting {a}..." (get-master-name parcel)))
+           (prog1 (instantiate-parcel self parcel parent trait: trait name-resolution: name-resolution design-events?: design-events? descendant?: descendant?)
              (when reporter
-               (step-it~ reporter))))
+               (step-it reporter))))
          parcels))
   
   
-  (method public virtual (instantiate-parcel parcel parent (trait: trait #t) (name-resolution: name-resolution #f) (design-events?: design-events? #t) (descendant?: descendant? #f))
+  (method public virtual (instantiate-parcel self parcel parent (trait: trait #t) (name-resolution: name-resolution #f) (design-events?: design-events? #t) (descendant?: descendant? #f))
     (define (set-context-recursive form context)
-      (set-context~ form context)
-      (for-each (lambda (child) (set-context-recursive child context)) (get-children~ form)))
+      (set-context form context)
+      (for-each (lambda (child) (set-context-recursive child context)) (get-children form)))
     
-    (let* ((forms (get-content~ parcel))
+    (let* ((forms (get-content parcel))
            (master (car forms))
-           (name (get-name~ master)))
-      (if (not (eq? (get-action~ master) 'new))
+           (name (get-name master)))
+      (if (not (eq? (get-action master) 'new))
           (designer-error "Master form's action must be 'new")
-        (let* ((brothers (get-children~ parent))
-               (domain (map get-name~ brothers))
+        (let* ((brothers (get-children parent))
+               (domain (map get-name brothers))
                (equal (sort-predicate 'equal))
                (conflict? (and name (member? name domain test: equal))))
           (when conflict?
             (case name-resolution
               ((rename)
-               (set! name (unique-name name domain)))
+               (set! name (unique-name self name domain)))
               ((override)
                (let ((conflicts (name-conflicts (list name) brothers)))
-                 (delete-components conflicts trait: trait))))))
-        (let ((imports (get-imports~ parcel)))
+                 (delete-components self conflicts trait: trait))))))
+        (let ((imports (get-imports parcel)))
           (let ((locator (imports-locator imports)))
             (for-each (lambda (f)
-                        (set-locator~ f locator)
+                        (set-locator f locator)
                         (set-context-recursive f f))
                       forms))
-          (let ((component (instantiate-form name name-resolution master parent trait design-events? descendant? imports: imports)))
+          (let ((component (instantiate-form self name name-resolution master parent trait design-events? descendant? imports: imports)))
             (for-each (lambda (form)
-                        (instantiate-form name #f form component trait design-events? descendant?))
+                        (instantiate-form self name #f form component trait design-events? descendant?))
                       (cdr forms))
             component)))))
   
   
-  (method public virtual (instantiate-form name name-resolution form parent trait design-events? descendant? (imports: imports '()))
-    (let ((component (instantiate-component name name-resolution form parent trait design-events? descendant? imports: imports)))
+  (method public virtual (instantiate-form self name name-resolution form parent trait design-events? descendant? (imports: imports '()))
+    (let ((component (instantiate-component self name name-resolution form parent trait design-events? descendant? imports: imports)))
       (when component
-        (instantiate-content form component trait design-events?))))
+        (instantiate-content self form component trait design-events?))))
   
   
-  (method public virtual (instantiate-content form component trait design-events?)
-    (instantiate-properties component (get-properties~ form) trait design-events?)
-    (instantiate-children component (get-children~ form) trait design-events?)
+  (method public virtual (instantiate-content self form component trait design-events?)
+    (instantiate-properties self component (get-properties form) trait design-events?)
+    (instantiate-children self component (get-children form) trait design-events?)
     component)
 
   
-  (method public virtual (instantiate-component name name-resolution form parent trait design-events? descendant? (imports: imports '()))
-    (let ((action (get-action~ form)))
+  (method public virtual (instantiate-component self name name-resolution form parent trait design-events? descendant? (imports: imports '()))
+    (let ((action (get-action form)))
       (case action
-        ((new) (instantiate-new-component name form parent trait design-events? descendant? imports: imports))
-        ((modify locate) (find-to-modify~ parent (get-name~ form) (sort-predicate 'equal)))
+        ((new) (instantiate-new-component self name form parent trait design-events? descendant? imports: imports))
+        ((modify locate) (find-to-modify parent (get-name form) (sort-predicate 'equal)))
         ((install) parent)
         (else (designer-error "Unsupported form action: {t}" action)))))
   
   
-  (method public virtual (instantiate-new-component name form parent trait design-events? descendant? (imports: imports '()))
-    (let ((component (instantiate-component~ form parent: parent)))
-      (add-child component parent trait: trait name: name design-events?: design-events? descendant?: descendant? import: imports)
+  (method public virtual (instantiate-new-component self name form parent trait design-events? descendant? (imports: imports '()))
+    (let ((component (instantiate-component form parent: parent)))
+      (add-child self component parent trait: trait name: name design-events?: design-events? descendant?: descendant? import: imports)
       component))
   
   
-  (method public virtual (instantiate-properties component properties trait design-events?)
+  (method public virtual (instantiate-properties self component properties trait design-events?)
     (for-each-property (lambda (property value)
-                         (unless (initer-property?~ component property)
-                           (set-property component property value trait: trait design-events?: design-events? undoable?: #f)))
+                         (unless (initer-property? component property)
+                           (set-property self component property value trait: trait design-events?: design-events? undoable?: #f)))
                        properties))
 
   
-  (method public virtual (instantiate-children component children trait design-events?)
+  (method public virtual (instantiate-children self component children trait design-events?)
     (for-each (lambda (form)
-                (instantiate-form (get-name~ form) #f form component trait design-events? #t))
+                (instantiate-form self (get-name form) #f form component trait design-events? #t))
               children))
   
   
@@ -544,13 +549,13 @@
   ;;;
   
   
-  (method public virtual (transfer-components components destination (trait: trait #t))
-    (let* ((components (remove-redundant-descendants components))
-           (parcels (package-components components))
-           (name-resolution (verify-name-conflicts parcels destination)))
-      (delete-components components trait: trait)
-      (prog1 (instantiate-parcels parcels destination trait: trait name-resolution: name-resolution design-events?: #t descendant?: #f)
-        (set-modified? #t))))
+  (method public virtual (transfer-components self components destination (trait: trait #t))
+    (let* ((components (remove-redundant-descendants self components))
+           (parcels (package-components self components))
+           (name-resolution (verify-name-conflicts self parcels destination)))
+      (delete-components self components trait: trait)
+      (prog1 (instantiate-parcels self parcels destination trait: trait name-resolution: name-resolution design-events?: #t descendant?: #f)
+        (set-modified? self #t))))
   
   
   ;;;
@@ -558,14 +563,14 @@
   ;;;
   
   
-  (method protected virtual (unique-name name domain)
-    (let ((unique-name (unique-domain-name (->string name) (map ->string domain) separator: (unique-separator))))
+  (method protected virtual (unique-name self name domain)
+    (let ((unique-name (unique-domain-name (->string name) (map ->string domain) separator: (unique-separator self))))
       (if (symbol? name)
           (string->symbol unique-name)
         unique-name)))
   
   
-  (method protected virtual (unique-separator)
+  (method protected virtual (unique-separator self)
     "_")
   
   
@@ -577,7 +582,7 @@
   (definition (name-conflicts names children)
     (let ((equal (sort-predicate 'equal)))
       (collect-if (lambda (child)
-                    (let ((child-name (get-name~ child)))
+                    (let ((child-name (get-name child)))
                       (and child-name
                            (some? (lambda (name)
                                     (equal child-name name))
@@ -585,25 +590,25 @@
                   children)))
   
   
-  (method public (verify-name-conflicts parcels destination)
+  (method public (verify-name-conflicts self parcels destination)
     (define (confirm-name-resolution children conflicts)
       (define (present-conflicts header conflicts)
         (let ((fact (new List-Factory)))
-          (put~ fact header)
+          (put fact header)
           (for-each (lambda (conflict)
-                      (put~ fact `(<bulleted> ,(->string (get-name~ conflict)))))
+                      (put fact `(<bulleted> ,(->string (get-name conflict)))))
                     conflicts)
-          (get-output~ fact)))
+          (get-output fact)))
       
       (if (every? (lambda (parcel)
                     (let ((equal (sort-predicate 'equal))
-                          (process-id (get-process-id~ parcel))
-                          (component-id (get-object-id~ parcel))
-                          (name (get-master-name~ parcel)))
+                          (process-id (get-process-id parcel))
+                          (component-id (get-object-id parcel))
+                          (name (get-master-name parcel)))
                       (and (= process-id (current-process-id))
                            (some? (lambda (child)
                                     (and (= component-id (object->serial child))
-                                         (equal name (get-name~ child))))
+                                         (equal name (get-name child))))
                                   children))))
                   parcels)
           'rename
@@ -614,8 +619,8 @@
             ((yes) 'override)
             ((no) (signal-cancel))))))
     
-    (let* ((names (map get-master-name~ parcels))
-           (children (get-children~ destination))
+    (let* ((names (map get-master-name parcels))
+           (children (get-children destination))
            (conflicts (name-conflicts names children)))
       (when (not-null? conflicts)
         (confirm-name-resolution children conflicts))))
@@ -628,31 +633,31 @@
   
   ;; This special support for views is not clean, but it is better
   ;; than having it directly inside add-child where it was before!
-  (method public virtual (add-view child parent . rest)
+  (method public virtual (add-view self child parent . rest)
     (bind-keywords ((name #f) (position #f) (centered? #f) (visible? #t) . others) rest
-      (with-atomic-undo~ undoer
+      (with-atomic-undo undoer
         (lambda ()
-          (apply add-child child parent name: name others)
+          (apply (~ add-child self) child parent name: name others)
           (when position
-            (set-property child 'position position))
+            (set-property self child 'position position))
           (when centered?
-            (center-child child))
+            (center-child self child))
           (when visible?
-            (set-visible?~ child #t))
-          (set-modified? #t)))))
+            (set-visible? child #t))
+          (set-modified? self #t)))))
   
   
-  (method public (center-child child)
-    (let ((size (get-size~ child)))
-      (move-figure~ child (- (quotient (get-width~ size) 2)) (- (quotient (get-height~ size) 2)))
-      (set-property child 'position (get-position~ child))))
+  (method public (center-child self child)
+    (let ((size (get-size child)))
+      (move-figure child (- (quotient (get-width size) 2)) (- (quotient (get-height size) 2)))
+      (set-property self child 'position (get-position child))))
   
   
-  (method public (cascade-view-position view initial)
+  (method public (cascade-view-position self view initial)
     (when (is? view View)
-      (let* ((positions (map get-position~ (remove view (get-views~ (get-parent~ view)))))
+      (let* ((positions (map get-position (remove view (get-views (get-parent view)))))
              (pos (cascade-position initial {Distance 10 10} positions)))
-        (safe-set-property view 'position pos))))
+        (safe-set-property self view 'position pos))))
   
   
   ;;;
@@ -664,16 +669,16 @@
   ;; - the trait must be the owner of the property (i.e. have set it)
   
   
-  (method public (get-name path (trait: trait #t))
-    (let* ((branch (target-branch trait))
-           (form (if branch (get-client-form~ (get-trait~ branch)) form)))
-      (get-name~ (follow-form~ path form))))
+  (method public (get-name self path (trait: trait #t))
+    (let* ((branch (target-branch self trait))
+           (form (if branch (get-client-form (get-trait branch)) form)))
+      (get-name (follow-form path form))))
   
   
-  (method public (get-property path property (trait: trait #t))
-    (let* ((branch (target-branch trait))
-           (form (if branch (get-client-form~ (get-trait~ branch)) form)))
-      (get-property~ (follow-form~ path form) property)))
+  (method public (get-property self path property (trait: trait #t))
+    (let* ((branch (target-branch self trait))
+           (form (if branch (get-client-form (get-trait branch)) form)))
+      (get-property (follow-form path form) property)))
   
   
   ;;;
@@ -681,10 +686,10 @@
   ;;;
   
   
-  (method public (safe-set-property . rest)
+  (method public (safe-set-property self . rest)
     (with-safe-design
       (lambda ()
-        (apply set-property rest))))
+        (apply (~ set-property self) rest))))
   
   
   ;;;
@@ -692,82 +697,82 @@
   ;;;
   
   
-  (method public (add-designer-listener listener)
+  (method public (add-designer-listener self listener)
     (set! listeners (add-listener listener listeners)))
   
   
-  (method public (remove-designer-listener listener)
+  (method public (remove-designer-listener self listener)
     (set! listeners (remove-listener listener listeners)))
 
   
-  (method (process-name-change component name old-name undoable?)
+  (method package (process-name-change self component name old-name undoable?)
     (when (not-null? listeners)
       (let ((evt (make-event Designer-Event :name-change self component: component name: name old-name: old-name undoable?: undoable?)))
         (for-each (lambda (listener)
-                    (invoke~ listener self evt))
+                    (invoke listener self evt))
                   listeners))))
 
   
-  (method (process-presentation-change component presentation old-presentation undoable?)
+  (method package (process-presentation-change self component presentation old-presentation undoable?)
     (when (not-null? listeners)
       (let ((evt (make-event Designer-Event :presentation-change self component: component presentation: presentation old-presentation: old-presentation undoable?: undoable?)))
         (for-each (lambda (listener)
-                    (invoke~ listener self evt))
+                    (invoke listener self evt))
                   listeners))))
 
   
-  (method (process-property-change branch component property value undoable?)
+  (method package (process-property-change self branch component property value undoable?)
     (when (not-null? listeners)
       (let ((evt (make-event Designer-Event :property-change self branch: branch component: component property: property value: value undoable?: undoable?)))
         (for-each (lambda (listener)
-                    (invoke~ listener self evt))
+                    (invoke listener self evt))
                   listeners))))
 
   
-  (method (process-child-add child parent descendant?)
+  (method package (process-child-add self child parent descendant?)
     (when (not-null? listeners)
       (let ((evt (make-event Designer-Event :child-add self child: child parent: parent descendant?: descendant?)))
         (for-each (lambda (listener)
-                    (invoke~ listener self evt))
+                    (invoke listener self evt))
                   listeners))))
 
   
-  (method (process-child-remove child parent)
+  (method package (process-child-remove self child parent)
     (when (not-null? listeners)
       (let ((evt (make-event Designer-Event :child-remove self child: child parent: parent)))
         (for-each (lambda (listener)
-                    (invoke~ listener self evt))
+                    (invoke listener self evt))
                   listeners))))
   
   
-  (method (process-child-relocate child parent destination)
+  (method package (process-child-relocate self child parent destination)
     (when (not-null? listeners)
       (let ((evt (make-event Designer-Event :child-relocate self child: child parent: parent target: destination)))
         (for-each (lambda (listener)
-                    (invoke~ listener self evt))
+                    (invoke listener self evt))
                   listeners))))
 
   
-  (method (process-send-before child parent target)
+  (method package (process-send-before self child parent target)
     (when (not-null? listeners)
       (let ((evt (make-event Designer-Event :send-before self child: child parent: parent target: target)))
         (for-each (lambda (listener)
-                    (invoke~ listener self evt))
+                    (invoke listener self evt))
                   listeners))))
 
   
-  (method public (process-refresh component what)
+  (method public (process-refresh self component what)
     (when (not-null? listeners)
       (let ((evt (make-event Designer-Event :refresh self component: component what: what)))
         (for-each (lambda (listener)
-                    (invoke~ listener self evt))
+                    (invoke listener self evt))
                   listeners))))
 
   
-  (method public (process-user-event event)
+  (method public (process-user-event self event)
     (when (not-null? listeners)
       (for-each (lambda (listener)
-                  (invoke~ listener self event))
+                  (invoke listener self event))
                 listeners))))
 
 

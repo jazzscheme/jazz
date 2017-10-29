@@ -40,7 +40,8 @@
 
 (import (jazz.catalog)
         (jazz.editor.lisp)
-        (jazz.jml))
+        (jazz.jml)
+        (jazz.text))
 
 
 (class Lisp-Parser extends File-Parser
@@ -51,7 +52,7 @@
   ;;;
   
   
-  (method meta protected virtual (iterate-references name <string> proc <procedure>)
+  (method meta protected virtual (iterate-references self name <string> proc <procedure>)
     (define (parse-tag)
       (and (tag-string? name)
            (begin
@@ -90,7 +91,7 @@
   ;;;
   
   
-  (method meta override (get-match-test)
+  (method meta override (get-match-test self)
     (lambda (seq whole-words? constituent-test from to)
       (or (not whole-words?)
           (let ((card (cardinality seq)))
@@ -113,7 +114,7 @@
                   (let ((found (subseq seq from to)))
                     (continuation-capture
                       (lambda (return)
-                        (iterate-references (subseq seq before after)
+                        (iterate-references self (subseq seq before after)
                           (lambda (ref pos)
                             (when (and (= from (+ before pos)) (equal? ref found))
                               (continuation-return return #t))))
@@ -121,7 +122,7 @@
   
   
   ;; first approximation
-  (method meta override (get-constituent-test)
+  (method meta override (get-constituent-test self)
     scheme-constituent?)
   
   
@@ -130,25 +131,25 @@
   ;;;
   
   
-  (method override (parse file digest dialect)
-    (new Lisp-File-Entry catalog file digest dialect (parse-definitions file)))
+  (method override (parse self file digest dialect)
+    (new Lisp-File-Entry catalog file digest dialect (parse-definitions self file)))
   
   
-  (method (parse-definitions file)
+  (method (parse-definitions self file)
     ;; until it is cleanly processed in the Lisp explorer
     (define Lisp-Period
       ".")
     
-    (let ((text (new (text-view-class))))
-      (let ((model (get-model~ text))
-            (syntax (get-syntax~ text)))
-        (set-char-encoding~ model char-encoding)
-        (set-colorize?~ syntax #f)
-        (set-moniker~ text file)
-        (let* ((beginning (text-beginning~ model))
-               (expl (new (explorer-class file) model start: beginning end: beginning))
+    (let ((text (new (text-view-class self))))
+      (let ((model (get-model text))
+            (syntax (get-syntax text)))
+        (set-char-encoding model char-encoding)
+        (set-colorize? syntax #f)
+        (set-moniker text file)
+        (let* ((beginning (text-beginning model))
+               (expl (new (explorer-class self file) model start: beginning end: beginning))
                (fact (new List-Factory)))
-          (walk-declarations~ expl
+          (walk-declarations expl
             #f
             ;; declaration
             (lambda (parent kind modifiers symbol parameters type start end marked documented?)
@@ -173,11 +174,11 @@
               
               (let* ((name (reference->name (if (pair? marked) (car marked) marked)))
                      (signature (mangle-declaration name (if (pair? marked) (cdr marked) #f))))
-                (let ((entry (new Lisp-Entry name kind modifiers parameters signature type (get-line~ start) (get-col~ start) (get-line~ end) (get-col~ end) '() '())))
+                (let ((entry (new Lisp-Entry name kind modifiers parameters signature type (get-line start) (get-col start) (get-line end) (get-col end) '() '())))
                   (if (not parent)
-                      (put~ fact entry)
-                    (set-parent~ entry parent)
-                    (add-definition~ parent entry))
+                      (put fact entry)
+                    (set-parent entry parent)
+                    (add-definition parent entry))
                   entry)))
             ;; keyword
             (lambda (parent start end)
@@ -185,17 +186,17 @@
             ;; expression
             (lambda (parent start end mode kind)
               (when (and parent (memq? kind '(symbol specifier tag keyword)))
-                (let ((name (get-marked~ expl)))
+                (let ((name (get-marked expl)))
                   (unless (or (empty-string? name)
                               (eqv? (string-ref name 0) #\')
                               (string=? name Lisp-Period))
-                    (iterate-references~ (class-of self) name
+                    (iterate-references (class-of self) name
                       (lambda (ref pos)
                         (unless (empty-string? ref)
-                          (add-reference~ parent ref)))))))
+                          (add-reference parent ref)))))))
               parent)
             #f)
-          (get-output~ fact)))))
+          (get-output fact)))))
   
   
   ;;;
@@ -203,9 +204,9 @@
   ;;;
   
   
-  (method protected virtual (text-view-class)
+  (method protected virtual (text-view-class self)
     )
   
   
-  (method protected virtual (explorer-class file)
+  (method package virtual (explorer-class self file)
     )))

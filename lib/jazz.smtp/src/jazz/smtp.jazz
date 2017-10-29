@@ -39,7 +39,15 @@
 (module jazz.smtp jazz
 
 
+(hub get-from)
+(hub get-message)
+(hub get-to)
+(hub send-email-message)
+(hub send-on)
+
+
 (import (base64)
+        (jazz.io)
         (jazz.time))
 
 
@@ -62,16 +70,16 @@
   (slot quoted-printable? getter generate)
   
   
-  (method override (initialize from to subject message (cc: cc '()) (bcc: bcc '()) (content-type: content-type #f) (attachments: attachments '()) (quoted-printable?: quoted-printable? #t))
-    (set! from~self from)
-    (set! to~self to)
-    (set! subject~self subject)
-    (set! message~self message)
-    (set! cc~self cc)
-    (set! bcc~self bcc)
-    (set! content-type~self content-type)
-    (set! attachments~self attachments)
-    (set! quoted-printable?~self quoted-printable?))
+  (method override (initialize self from to subject message (cc: cc '()) (bcc: bcc '()) (content-type: content-type #f) (attachments: attachments '()) (quoted-printable?: quoted-printable? #t))
+    (set! self.from from)
+    (set! self.to to)
+    (set! self.subject subject)
+    (set! self.message message)
+    (set! self.cc cc)
+    (set! self.bcc bcc)
+    (set! self.content-type content-type)
+    (set! self.attachments attachments)
+    (set! self.quoted-printable? quoted-printable?))
   
   
   (definition boundary
@@ -96,7 +104,7 @@
     (format "--{a}--\n" boundary))
   
   
-  (method (remove-unicode-characters string)
+  (method (remove-unicode-characters self string)
     (list->string
       (map (lambda (ch)
              (let ((n (char->integer ch)))
@@ -104,21 +112,21 @@
            (string->list string))))
   
   
-  (method (format-mime-date date)
+  (method (format-mime-date self date)
     (date->string date "~d ~b ~Y ~H:~M:~S ~z"))
   
   
-  (method (make-mime-header)
+  (method (make-mime-header self)
     (string-append (format "From: {a}{%}" from)
                    (format "To: {a}{%}" (join to ", "))
                    (format "{?:Cc: {a}{%}~}" (not-null? cc) (join cc ", "))
                    (format "{?:Bcc: {a}{%}~}" (not-null? bcc) (join bcc ", "))
-                   (format "Date: {a}{%}" (format-mime-date (system-date)))
-                   (format "Subject: {a}{%}" (encode-subject))
+                   (format "Date: {a}{%}" (format-mime-date self (system-date)))
+                   (format "Subject: {a}{%}" (encode-subject self))
                    "MIME-Version: 1.0\n"))
   
   
-  (method (send-message port)
+  (method (send-message self port)
     (let ((length (string-length message)))
       (let ((last-index (* line-size (quotient length line-size))))
         (let (loop (i 0))
@@ -130,7 +138,7 @@
             (write-substring message i length port))))))
   
   
-  (method (encode-subject)
+  (method (encode-subject self)
     (let ((buffer (make-u8vector subject-buffer-size))
           (u8-port (open-u8vector '(char-encoding: UTF-8)))
           (string-port (open-output-string)))
@@ -150,7 +158,7 @@
             (get-output-string string-port))))))
   
   
-  (method (send-file file port)
+  (method (send-file self file port)
     (let ((buffer (make-u8vector attachment-buffer-size)))
       (let (loop)
         (let ((size-read (read-subu8vector buffer 0 attachment-buffer-size file)))
@@ -162,8 +170,8 @@
             (loop))))))
   
   
-  (method (send-on port)
-    (display (make-mime-header) port)
+  (method package (send-on self port)
+    (display (make-mime-header self) port)
     (unless (null? attachments)
       (display (format "Content-Type: multipart/mixed; boundary={a}\n" boundary) port)
       (display separator port))
@@ -175,11 +183,11 @@
     (for-each (lambda (file)
                 (display separator port)
                 (display "Content-Type: application/octet-stream\n" port)
-                (display (format "Content-Disposition: attachment; filename={s}\n" (get-name~ file)) port)
+                (display (format "Content-Disposition: attachment; filename={s}\n" (get-name file)) port)
                 (display "Content-Transfer-Encoding: base64\n\n" port)
-                (call-with-input-file (parse~ file)
+                (call-with-input-file (parse file)
                   (lambda (file-port)
-                    (send-file file-port port)))
+                    (send-file self file-port port)))
                 (display "\n\n" port))
               attachments)
     (display (if (null? attachments) "\n\n" ending) port)))
@@ -196,32 +204,32 @@
   (slot port)
   
   
-  (method override (initialize server-address (port-number: port-number 25) (username: username "") (password: password ""))
+  (method override (initialize self server-address (port-number: port-number 25) (username: username "") (password: password ""))
     (set! port (open-tcp-client (list
                                   server-address: server-address
                                   port-number: port-number
                                   eol-encoding: 'cr-lf
                                   buffering: 'line
                                   keep-alive: #t)))
-    (get-reply "220" #f)
+    (get-reply self "220" #f)
     (display (format "EHLO {a}\n" server-address) port)
-    (let ((commands (cdr (get-reply "250" #f))))
-      (let ((login-methods (get-login-methods commands)))
+    (let ((commands (cdr (get-reply self "250" #f))))
+      (let ((login-methods (get-login-methods self commands)))
         (cond ((member? "LOGIN" login-methods)
-               (auth-login username password))
+               (auth-login self username password))
               ((member? "PLAIN" login-methods)
-               (auth-plain username password))
+               (auth-plain self username password))
               (else
                (error "No supported login methods"))))))
   
   
-  (method override (destroy)
+  (method override (destroy self)
     (display "QUIT\n" port)
     (close-port port)
-    (nextmethod))
+    (nextmethod self))
   
   
-  (method (get-reply code (invalid #f))
+  (method (get-reply self code (invalid #f))
     (let ((reply (read-line port)))
       (if (eof-object? reply)
           (error "Unexpected end of file")
@@ -231,61 +239,61 @@
             (error "Expected {a}, received {a}" code reply)))
         (if (string-starts-with? reply (format "{a}-" code))
             (cons (substring reply 4 (string-length reply))
-                  (get-reply code invalid))
+                  (get-reply self code invalid))
           '()))))
   
   
-  (method (get-login-methods commands)
+  (method (get-login-methods self commands)
     (cdr (split (find commands "AUTH" test: (lambda (target str) (string-starts-with? str target)) return: 'item) " ")))
   
   
-  (method (auth-login username password)
+  (method (auth-login self username password)
     (display "AUTH LOGIN\n" port)
-    (get-reply "334")
+    (get-reply self "334")
     (display (ascii-string->base64-string username) port)
     (newline port)
-    (get-reply "334" (lambda () (error "Invalid username.")))
+    (get-reply self "334" (lambda () (error "Invalid username.")))
     (display (ascii-string->base64-string password) port)
     (newline port)
-    (get-reply "235" (lambda () (error "Invalid credentials."))))
+    (get-reply self "235" (lambda () (error "Invalid credentials."))))
   
   
-  (method (auth-plain username password)
+  (method (auth-plain self username password)
     (display "AUTH PLAIN\n" port)
-    (get-reply "334")
+    (get-reply self "334")
     (display (ascii-string->base64-string 
                (list->string
                  (append '(#\nul) (string->list username) '(#\nul) (string->list password)))) port)
     (newline port)
-    (get-reply "235" (lambda ()
+    (get-reply self "235" (lambda ()
                        (throw "Invalid credentials."))))
   
   
-  (method (send-email-message mail <MIME-Message>)
+  (method package (send-email-message self mail <MIME-Message>)
     (display "RSET\n" port)
-    (get-reply "250")
+    (get-reply self "250")
     
-    (display (format "MAIL FROM:<{a}>\n" (get-from~ mail)) port)
-    (get-reply "250" (lambda () (error (format "Error adding sender {a}." (get-from~ mail)))))
+    (display (format "MAIL FROM:<{a}>\n" (get-from mail)) port)
+    (get-reply self "250" (lambda () (error (format "Error adding sender {a}." (get-from mail)))))
       
     (for-each (lambda (recipient)
                 (display (format "RCPT TO: {a}\n" recipient) port)
-                (get-reply "250" (lambda () (error (format "Error adding recipient {a}." recipient)))))
-              (get-to~ mail))
+                (get-reply self "250" (lambda () (error (format "Error adding recipient {a}." recipient)))))
+              (get-to mail))
     
     (display "data\n" port)
-    (get-reply "354" (lambda () (error "Error sending the message. Server not accepting data.")))
+    (get-reply self "354" (lambda () (error "Error sending the message. Server not accepting data.")))
     
-    (send-on~ mail port)
+    (send-on mail port)
     
     (display "\n.\n" port)
-    (get-reply "250" (lambda () (error "Error sending the message.")))))
+    (get-reply self "250" (lambda () (error "Error sending the message.")))))
 
 
 (definition public (send-email message server (port-number: port-number 25) (username: username "") (password: password ""))
   (let ((client (new SMTP-Client server port-number: port-number username: username password: password)))
-    (send-email-message~ client message)
-    (close~ client)))
+    (send-email-message client message)
+    (close client)))
 
 
 (definition public (string->quoted-printable-string string)

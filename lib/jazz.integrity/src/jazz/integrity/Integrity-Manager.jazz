@@ -38,8 +38,11 @@
 (module protected jazz.integrity.Integrity-Manager jazz
 
 
-(import (jazz.descriptor)
-        (jazz.integrity))
+(import (jazz.component)
+        (jazz.component.descriptors)
+        (jazz.descriptor)
+        (jazz.integrity)
+        (jazz.reporter))
 
 
 ;;;
@@ -59,29 +62,29 @@
   (slot module-metadata initialize #f getter generate)
   
   
-  (method override (initialize manager root module-metadata editor context component property)
-    (set! manager~self manager)
-    (set! root~self root)
-    (set! editor~self editor)
-    (set! context~self context)
-    (set! component~self component)
-    (set! property~self property)
-    (set! module-metadata~self module-metadata))
+  (method override (initialize self manager root module-metadata editor context component property)
+    (set! self.manager manager)
+    (set! self.root root)
+    (set! self.editor editor)
+    (set! self.context context)
+    (set! self.component component)
+    (set! self.property property)
+    (set! self.module-metadata module-metadata))
   
   
-  (method public (add-violation (message: message #f))
+  (method public (add-violation self (message: message #f))
     (let ((violation (new Integrity-Violation
                        message: message
                        property: property)))
-      (add-violation~ manager violation component root editor)))
+      (add-violation manager violation component root editor)))
   
   
-  (method public (add-property-violation format-string . format-args)
-    (add-violation message: (apply format (cons (concatenate "Property '{a}': " format-string) (cons (field-name property) format-args)))))
+  (method public (add-property-violation self format-string . format-args)
+    (add-violation self message: (apply format (cons (concatenate "Property '{a}': " format-string) (cons (field-name property) format-args)))))
   
   
-  (method public (refine (component: component #f) (property: property #f))
-    (new Validation-Context manager root module-metadata editor context (or component component~self) (or property property~self)))
+  (method public (refine self (component: component #f) (property: property #f))
+    (new Validation-Context manager root module-metadata editor context (or component self.component) (or property self.property)))
   )
 
 
@@ -97,18 +100,18 @@
   (slot constraints     initialize '())
   
   
-  (method override (initialize (violation-adder: violation-adder #f))
+  (method override (initialize self (violation-adder: violation-adder #f))
     (define (setup-constraints)
       (set! constraints (new List-Factory))
-      (register-constraints)
-      (set! constraints (get-output~ constraints)))
+      (register-constraints self)
+      (set! constraints (get-output constraints)))
     
-    (nextmethod)
-    (set! violation-adder~self violation-adder)
+    (nextmethod self)
+    (set! self.violation-adder violation-adder)
     (setup-constraints))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (let ((entries (length constraints)))
@@ -122,12 +125,12 @@
   ;;;
   
   
-  (method public virtual (register-constraints)
+  (method public virtual (register-constraints self)
     )
   
   
-  (method public (register-constraint constraint model (root?: root? #f))
-    (put~ constraints (list constraint model root?)))
+  (method public (register-constraint self constraint model (root?: root? #f))
+    (put constraints (list constraint model root?)))
   
   
   ;;;
@@ -135,26 +138,26 @@
   ;;;
   
   
-  (method public (validate-integrity root module-metadata editor (context: context #f) (reporter: reporter #f))
-    (validate-all root module-metadata editor context reporter))
+  (method public (validate-integrity self root module-metadata editor (context: context #f) (reporter: reporter #f))
+    (validate-all self root module-metadata editor context reporter))
   
   
-  (method protected virtual (validate-all root module-metadata editor context reporter)
-    (validate-hierarchy root root module-metadata editor context reporter))
+  (method protected virtual (validate-all self root module-metadata editor context reporter)
+    (validate-hierarchy self root root module-metadata editor context reporter))
   
   
-  (method protected virtual (validate-hierarchy component root module-metadata editor context reporter)
+  (method protected virtual (validate-hierarchy self component root module-metadata editor context reporter)
     (when reporter
-      (report-progress component root reporter))
-    (unless (eq? (validate component root module-metadata editor context) 'stop-descent)
+      (report-progress self component root reporter))
+    (unless (eq? (validate self component root module-metadata editor context) 'stop-descent)
       (for-each (lambda (child)
-                  (validate-hierarchy child root module-metadata editor context reporter))
-                (get-children~ component))))
+                  (validate-hierarchy self child root module-metadata editor context reporter))
+                (get-children component))))
   
   
-  (method public (validate component root module-metadata editor context)
-    (let ((new-context (validation-context component root context)))
-      (if (eq? (validate-component~ component (new Validation-Context self root module-metadata editor context component #f))
+  (method public (validate self component root module-metadata editor context)
+    (let ((new-context (validation-context self component root context)))
+      (if (eq? (validate-component component (new Validation-Context self root module-metadata editor context component #f))
                'stop-descent)
           'stop-descent
         (continuation-capture
@@ -162,19 +165,19 @@
             (for-each (lambda (info)
                         (bind (constraint model root?) info
                           (when (and (or (null? model) (is? component model))
-                                     (or root? (branch-installed?~ root)))
-                            (when (eq? (validate~ constraint component root editor context self) 'stop-descent)
+                                     (or root? (branch-installed? root)))
+                            (when (eq? (validate constraint component root editor context self) 'stop-descent)
                               (continuation-return return 'stop-descent)))))
                       constraints))))))
   
   
-  (method protected virtual (validation-context component root context)
+  (method protected virtual (validation-context self component root context)
     context)
   
   
-  (method protected virtual (report-progress component root reporter)
-    (test-cancelled~ reporter)
-    (user-message~ reporter "Validating {a}..." (get-name~ component)))
+  (method protected virtual (report-progress self component root reporter)
+    (test-cancelled reporter)
+    (report-message reporter "Validating {a}..." (get-name component)))
   
   
   ;;;
@@ -182,15 +185,15 @@
   ;;;
   
   
-  (method public virtual (add-violation violation component root editor)
-    (let* ((trait (get-active-trait~ root))
-           (trait-name (and trait (get-name~ trait)))
+  (method public virtual (add-violation self violation component root editor)
+    (let* ((trait (get-active-trait root))
+           (trait-name (and trait (get-name trait)))
            (trait-presentation (and trait (get-presentation-property trait))))
-      (receive (path presentation) (present-path~ component root)
-        (set-trait~ violation trait-name)
-        (set-trait-presentation~ violation trait-presentation)
-        (set-path~ violation path)
-        (set-path-presentation~ violation (if trait (cons trait-presentation presentation) presentation))
+      (receive (path presentation) (present-path component root)
+        (set-trait violation trait-name)
+        (set-trait-presentation violation trait-presentation)
+        (set-path violation path)
+        (set-path-presentation violation (if trait (cons trait-presentation presentation) presentation))
         (if violation-adder
             (violation-adder violation component root editor)
-          (add-violation~ editor violation)))))))
+          (add-violation editor violation)))))))

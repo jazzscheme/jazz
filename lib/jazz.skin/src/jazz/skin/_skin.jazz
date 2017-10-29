@@ -38,7 +38,13 @@
 (module jazz.skin jazz
 
 
-(import (jazz.component)
+(hub get-title)
+(hub present)
+(hub set-title)
+
+
+(import (jazz.application)
+        (jazz.component)
         (jazz.process)
         (jazz.settings))
 
@@ -68,9 +74,9 @@
 
 @skin-convert
 (definition public (get-skins)
-  (let ((designer (get-skins-designer~ (get-application))))
+  (let ((designer (get-skins-designer (get-application))))
     (when designer
-      (get-reference~ designer))))
+      (get-reference designer))))
 
 
 ;;;
@@ -86,7 +92,7 @@
   (or (table-ref skin-cache name #f)
       (bind (skin-name . look-name) (split-reference name)
         (let ((skin (registered-skin skin-name)))
-          (let ((look (child~ skin look-name)))
+          (let ((look (child skin look-name)))
             (table-set! skin-cache name look)
             look)))))
 
@@ -113,7 +119,7 @@
 
 (definition public (registered-look name)
   (find-if (lambda (look)
-             (eq? (get-name~ look) name))
+             (eq? (get-name look) name))
            looks))
 
 (definition public (registered-looks)
@@ -137,22 +143,22 @@
 
 
 (definition public (set-look look)
-  (let ((trait (get-name~ look)))
+  (let ((trait (get-name look)))
     (iterate-table skins
       (lambda (name skin)
-        (set-active-trait~ skin trait))))
+        (set-active-trait skin trait))))
   (set! current-look look)
   (look-update))
 
 
 (definition package (look-update)
-  (let ((process (get-process)))
-    (when (and process (is-application?~ process))
-      (let ((status (find-status-bar~ process)))
+  (let ((process (current-process)))
+    (when (and process (is-application? process))
+      (let ((status (find-status-bar process)))
         (when status
-          (let ((label (locate-component~ status 'look)))
+          (let ((label (locate-component status 'look)))
             (when label
-              (set-title~ label (present~ (get-look))))))))))
+              (set-title label (present (get-look))))))))))
 
 
 ;;;
@@ -166,5 +172,5 @@
   (property title initialize #f accessors generate)
   
   
-  (method public virtual (present)
+  (method public virtual (present self)
     title)))

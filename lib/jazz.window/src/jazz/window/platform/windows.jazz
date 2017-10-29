@@ -237,15 +237,15 @@
 
 
 (definition package (window-parent window)
-  (let ((parent (get-parent~ window)))
+  (let ((parent (get-parent window)))
     (if parent
-        (get-handle~ parent)
+        (get-handle parent)
       NULL)))
 
 
 (definition package (window-default-parent window)
   (typecase window
-    ((Dialog) (get-toplevel))
+    ((Dialog) (current-toplevel))
     (else #f)))
 
 
@@ -328,10 +328,10 @@
       (WINDOWPLACEMENT-length-set! placement (WINDOWPLACEMENT-sizeof))
       (WINDOWPLACEMENT-showCmd-set! placement (state-symbolic->value state))
       (let ((rect (WINDOWPLACEMENT-rcNormalPosition-ref placement)))
-        (RECT-left-set! rect (get-h~ position))
-        (RECT-top-set! rect (get-v~ position))
-        (RECT-right-set! rect (+ (get-h~ position) (get-width~ size)))
-        (RECT-bottom-set! rect (+ (get-v~ position) (get-height~ size))))
+        (RECT-left-set! rect (get-h position))
+        (RECT-top-set! rect (get-v position))
+        (RECT-right-set! rect (+ (get-h position) (get-width size)))
+        (RECT-bottom-set! rect (+ (get-v position) (get-height size))))
       (SetWindowPlacement handle placement)
       (WINDOWPLACEMENT-free placement))))
 
@@ -374,7 +374,7 @@
     (lambda ()
       (let ((process (get-process)))
         (if process
-            (quit-process~ process)
+            (quit-process process)
           (quit)))))
   processed)
 
@@ -382,7 +382,7 @@
 (definition (dispatch-message window msg <int> wparam <int> lparam <int>)
   (let ((return (process-window-message window msg wparam lparam)))
     (if (eq? return unprocessed)
-        (DefWindowProc (get-handle~ window) msg wparam lparam)
+        (DefWindowProc (get-handle window) msg wparam lparam)
       (processed-result return))))
 
 
@@ -404,7 +404,7 @@
 
 (definition public platform-current-monitor
   (lambda ()
-    (new-monitor (MonitorFromWindow (get-handle~ (get-toplevel)) 0))))
+    (new-monitor (MonitorFromWindow (get-handle (current-toplevel)) 0))))
 
 
 (definition public platform-all-monitors
@@ -430,8 +430,8 @@
             (execute-event
               (lambda ()
                 (poll-events hwnd translate-shortcut))))
-          (let ((sleep (get-message-sleep))
-                (period (get-message-period))
+          (let ((sleep (message-sleep-get))
+                (period (message-period-get))
                 (duration (- (current-seconds) time)))
             (sleep period duration)))
         (when (thread-loop? thread)
@@ -458,7 +458,7 @@
   (let ((window (get-window hwnd)))
     (when (and (not window) (get-in-creation))
       (set! window (get-in-creation))
-      (set-handle~ window hwnd)
+      (set-handle window hwnd)
       (set-window hwnd window)
       (set-in-creation #f))
     (if (not window)
@@ -551,7 +551,7 @@
                 (= message WM_SYSKEYDOWN))
             (let ((key (key (MSG-wParam-ref msg))))
               (if key
-                  (dispatch-shortcut~ appl (new Shortcut (modifiers-keys) key))
+                  (dispatch-shortcut appl (new Shortcut (modifiers-keys) key))
                 #f))
           #f)))))
 
@@ -582,52 +582,52 @@
       (new Point 0 d)))
   
   (ecase msg
-    ((WM_ERASEBKGND)      (erase-background~ window wparam))
-    ((WM_PAINT)           (with ((region (platform-get-update-region (get-handle~ window))))
-                            (paint~ window region)))
-    ((WM_SETCURSOR)       (cursor-update~ window (= (loword lparam) HTCLIENT)))
-    ((WM_MOUSEMOVE)       (call-mouse-moved~ window (cast <fl> (get-x-lparam lparam)) (cast <fl> (get-y-lparam lparam))))
-    ((WM_MOUSEWHEEL)      (mouse-wheel~ window (get-x-lparam lparam) (get-y-lparam lparam) (wheel-point (quotient (get-wheel-delta-wparam wparam) 3))))
-    ((WM_LBUTTONDOWN)     (mouse-down~ window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_LBUTTONUP)       (mouse-up~ window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_LBUTTONDBLCLK)   (double-click~ window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_MBUTTONDOWN)     (middle-mouse-down~ window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_MBUTTONUP)       (middle-mouse-up~ window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_RBUTTONDOWN)     (right-mouse-down~ window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_RBUTTONUP)       (right-mouse-up~ window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_RBUTTONDBLCLK)   (right-double-click~ window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_CONTEXTMENU)     (let ((pos (acquire-point (get-handle~ window) (platform-get-desktop) (new Point (get-x-lparam lparam) (get-y-lparam lparam)))))
-                            (context-menu~ window (get-h~ pos) (get-v~ pos))))
-    ((WM_SYSKEYDOWN)      (if (= wparam VK_MENU) (system-key-down~ window) unprocessed))
-    ((WM_SYSKEYUP)        (if (= wparam VK_MENU) (system-key-up~ window) unprocessed))
-    ((WM_KEYDOWN)         (key-down~ window wparam))
-    ((WM_KEYUP)           (key-up~ window wparam))
-    ((WM_CHAR)            (call-key-press~ window (integer->char wparam)))
-    ((WM_MOVE)            (call-position-change~ window (get-x-lparam lparam) (get-y-lparam lparam)))
+    ((WM_ERASEBKGND)      (erase-background window wparam))
+    ((WM_PAINT)           (with ((region (platform-get-update-region (get-handle window))))
+                            (paint window region)))
+    ((WM_SETCURSOR)       (cursor-update window (= (loword lparam) HTCLIENT)))
+    ((WM_MOUSEMOVE)       (call-mouse-moved window (cast <fl> (get-x-lparam lparam)) (cast <fl> (get-y-lparam lparam))))
+    ((WM_MOUSEWHEEL)      (mouse-wheel window (get-x-lparam lparam) (get-y-lparam lparam) (wheel-point (quotient (get-wheel-delta-wparam wparam) 3))))
+    ((WM_LBUTTONDOWN)     (mouse-down window (get-x-lparam lparam) (get-y-lparam lparam)))
+    ((WM_LBUTTONUP)       (mouse-up window (get-x-lparam lparam) (get-y-lparam lparam)))
+    ((WM_LBUTTONDBLCLK)   (double-click window (get-x-lparam lparam) (get-y-lparam lparam)))
+    ((WM_MBUTTONDOWN)     (middle-mouse-down window (get-x-lparam lparam) (get-y-lparam lparam)))
+    ((WM_MBUTTONUP)       (middle-mouse-up window (get-x-lparam lparam) (get-y-lparam lparam)))
+    ((WM_RBUTTONDOWN)     (right-mouse-down window (get-x-lparam lparam) (get-y-lparam lparam)))
+    ((WM_RBUTTONUP)       (right-mouse-up window (get-x-lparam lparam) (get-y-lparam lparam)))
+    ((WM_RBUTTONDBLCLK)   (right-double-click window (get-x-lparam lparam) (get-y-lparam lparam)))
+    ((WM_CONTEXTMENU)     (let ((pos (acquire-point (get-handle window) (platform-get-desktop) (new Point (get-x-lparam lparam) (get-y-lparam lparam)))))
+                            (context-menu window (get-h pos) (get-v pos))))
+    ((WM_SYSKEYDOWN)      (if (= wparam VK_MENU) (system-key-down window) unprocessed))
+    ((WM_SYSKEYUP)        (if (= wparam VK_MENU) (system-key-up window) unprocessed))
+    ((WM_KEYDOWN)         (key-down window wparam))
+    ((WM_KEYUP)           (key-up window wparam))
+    ((WM_CHAR)            (call-key-press window (integer->char wparam)))
+    ((WM_MOVE)            (call-position-change window (get-x-lparam lparam) (get-y-lparam lparam)))
     ((WM_SIZE)            (let ((state (convert-state wparam)))
                             (and (neq? state 'minimized)
                                  (let ((width (get-x-lparam lparam))
                                        (height (get-y-lparam lparam)))
                                    (if (or (/= width 0) (/= height 0))
-                                       (call-size-change~ window state width height)
+                                       (call-size-change window state width height)
                                      unprocessed)))))
-    ((WM_MOUSELEAVE)      (mouse-leave~ window))
+    ((WM_MOUSELEAVE)      (mouse-leave window))
     ((WM_MOUSEACTIVATE)   (if (mouse-activate?~ window)
-                              (mouse-activate~ window)
+                              (mouse-activate window)
                             (list 'processed MA_NOACTIVATE)))
     ((WM_ACTIVATE)        (let ((kind (if (= (loword wparam) WA_INACTIVE) 'inactive 'active)))
-                            (activate~ window kind)))
+                            (activate window kind)))
     ((WM_ACTIVATEAPP)     (if (/= wparam 0)
-                              (activate-application~ window)
-                            (deactivate-application~ window)))
-    ((WM_CLOSE)           (close-window~ window))
-    ((WM_SETFOCUS)        (focus-gain~ window))
-    ((WM_KILLFOCUS)       (focus-lose~ window))
-    ((WM_DROPFILES)       (drop-files~ window wparam))
+                              (activate-application window)
+                            (deactivate-application window)))
+    ((WM_CLOSE)           (close-window window))
+    ((WM_SETFOCUS)        (focus-gain window))
+    ((WM_KILLFOCUS)       (focus-lose window))
+    ((WM_DROPFILES)       (drop-files window wparam))
     ((WM_SETTINGCHANGE)   (settings-change window wparam))
-    ((WM_TIMER)           (timer-pulse~ window wparam))
-    ((WM_USER)            (user-notification~ (get-application) wparam lparam))
-    (else                 (unprocessed-message~ window))))
+    ((WM_TIMER)           (timer-pulse window wparam))
+    ((WM_USER)            (user-notification (get-application) wparam lparam))
+    (else                 (unprocessed-message window))))
 
 
 (definition public (set-capture handle)
@@ -641,35 +641,35 @@
 (definition package (with-platform-painting window platform-data proc)
   (if (debug-painting?)
       (debugging-with-platform-painting window platform-data proc)
-    (let ((handle (get-handle~ window)))
+    (let ((handle (get-handle window)))
       (let ((ps (PAINTSTRUCT-make)))
         (let ((hdc (BeginPaint handle ps)))
           (let ((surface (new Surface (cairo_win32_surface_create hdc))))
             (unwind-protect
                 (proc surface)
-              (close~ surface)
+              (close surface)
               (EndPaint handle ps))))
         (PAINTSTRUCT-free ps)))
     processed))
 
 
 (definition (debugging-with-platform-painting window platform-data proc)
-  (let ((handle (get-handle~ window)))
+  (let ((handle (get-handle window)))
     (let ((hdc (GetDC handle)))
       (ValidateRgn handle NULL)
       (let ((surface (new Surface (cairo_win32_surface_create hdc))))
         (unwind-protect
             (proc surface)
-          (close~ surface)))))
+          (close surface)))))
   processed)
 
 
 (definition public (get-window-dc window)
-  (GetDC (get-handle~ window)))
+  (GetDC (get-handle window)))
 
 
 (definition public (with-window-surface window proc)
-  (let ((handle (get-handle~ window)))
+  (let ((handle (get-handle window)))
     (let ((hdc (GetDC handle)))
       (prog1 (proc (cairo_win32_surface_create hdc))
         (ReleaseDC handle hdc)))))
@@ -714,9 +714,9 @@
 
 
 (definition (get-toplevel-hwnd)
-  (let ((toplevel (get-toplevel)))
+  (let ((toplevel (current-toplevel)))
     (and toplevel
-         (get-handle~ toplevel))))
+         (get-handle toplevel))))
 
 
 ;;;
@@ -803,7 +803,7 @@
 
 
 (definition package (platform-set-frame-position handle pos)
-  (SetWindowPos handle NULL (get-h~ pos) (get-v~ pos) 0 0 (bitwise-ior SWP_NOSIZE SWP_NOZORDER SWP_NOACTIVATE)))
+  (SetWindowPos handle NULL (get-h pos) (get-v pos) 0 0 (bitwise-ior SWP_NOSIZE SWP_NOZORDER SWP_NOACTIVATE)))
 
 
 (definition package (platform-get-frame-size handle) <Dimension>
@@ -815,7 +815,7 @@
 
 
 (definition package (platform-set-frame-size handle size)
-  (SetWindowPos handle NULL 0 0 (get-width~ size) (get-height~ size) (bitwise-ior SWP_NOCOPYBITS SWP_NOMOVE SWP_NOZORDER SWP_NOACTIVATE)))
+  (SetWindowPos handle NULL 0 0 (get-width size) (get-height size) (bitwise-ior SWP_NOCOPYBITS SWP_NOMOVE SWP_NOZORDER SWP_NOACTIVATE)))
 
 
 (definition package (platform-get-frame-rect handle) <Rect>
@@ -826,7 +826,7 @@
 
 
 (definition package (platform-set-frame-rect handle rect)
-  (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
+  (SetWindowPos handle NULL (get-left rect) (get-top rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
 
 
 (definition package (platform-get-content-size handle) <Dimension>
@@ -863,8 +863,8 @@
 
 (definition package (platform-window-from-point point)
   (let ((pt (POINT-make)))
-    (POINT-x-set! pt (get-h~ point))
-    (POINT-y-set! pt (get-v~ point))
+    (POINT-x-set! pt (get-h point))
+    (POINT-y-set! pt (get-v point))
     (prog1 (WindowFromPoint pt)
       (POINT-free pt))))
 
@@ -903,7 +903,7 @@
   (let ((flags SW_INVALIDATE))
     (let ((rect (rect->RECT rect))
           (clip-rect (rect->RECT clip-rect)))
-      (prog1 (ScrollWindowEx handle (get-x~ delta) (get-y~ delta) rect clip-rect NULL NULL flags)
+      (prog1 (ScrollWindowEx handle (get-x delta) (get-y delta) rect clip-rect NULL NULL flags)
         (RECT-free rect)
         (RECT-free clip-rect)))))
 
@@ -921,7 +921,7 @@
   ;; is this test correct or was it a patch made during the port
   (when handle
     (invalidate-offscreen-region handle region)
-    (InvalidateRgn handle (get-handle~ region) #f)))
+    (InvalidateRgn handle (get-handle region) #f)))
 
 
 (definition package (platform-invalidate-window handle)
@@ -941,7 +941,7 @@
     ;; toplevel would redraw it's children. Hope it doesn't break any code...
     (let ((flags (bitwise-ior RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
       (let ((rect (if (not rect) NULL (rect->RECT rect))))
-        (prog1 (RedrawWindow handle rect (if region (get-handle~ region) NULL) flags)
+        (prog1 (RedrawWindow handle rect (if region (get-handle region) NULL) flags)
           (when rect
             (RECT-free rect)))))))
 
@@ -955,7 +955,7 @@
 
 (definition package (platform-get-update-region handle)
   (let ((region (new Region)))
-    (GetUpdateRgn handle (get-handle~ region) #f)
+    (GetUpdateRgn handle (get-handle region) #f)
     region))
 
 
@@ -1064,12 +1064,12 @@
   (define (cursor-name cursor)
     (if (number? cursor)
         cursor
-      (get-name~ cursor)))
+      (get-name cursor)))
   
   (define (load name)
     (if (number? name)
         (LoadCursorInt name)
-      (let ((path (parse~ (get-resource~ (get-application) 'cursor name))))
+      (let ((path (parse (get-resource (get-application) 'cursor name))))
         (LoadImage NULL path IMAGE_CURSOR 0 0 LR_LOADFROMFILE))))
   
   (let ((name (cursor-name cursor)))
@@ -1127,7 +1127,7 @@
     ;; reset it
     (ValidateRect hwnd NULL)
     ;; redraw the view only
-    (redraw-view~ view)
+    (redraw-view view)
     ;; reinvalidate the preserved update region
     (InvalidateRgn hwnd hrgn #f)
     (DeleteObject hrgn)))
@@ -1161,7 +1161,7 @@
                (DragQueryFile hdrop n buffer size)
                (let* ((filename (WCHAR-string buffer))
                       (pathname (new (case (pathname-type filename) ((directory) Directory) (else File)) (tokenise-windows filename))))
-                 (prog1 (anchorize~ pathname)
+                 (prog1 (anchorize pathname)
                    (WCHAR-array-free buffer)))))
            (naturals 0 count))))
   
@@ -1170,5 +1170,5 @@
           (pt (POINT-make)))
       (DragQueryPoint hdrop pt)
       (DragFinish hdrop)
-      (receive-files~ window (POINT->point pt) files)
+      (receive-files window (POINT->point pt) files)
       (POINT-free pt)))))

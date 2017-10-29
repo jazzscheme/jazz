@@ -49,6 +49,8 @@
         (jazz.menu)
         (jazz.resource)
         (jazz.runtime)
+        (jazz.tree)
+        (jazz.undoer)
         (jazz.view))
 
 
@@ -80,9 +82,9 @@
   ;;;
   
   
-  (method override (categorized-addable-classes component)
+  (method override (categorized-addable-classes self component)
     (or (component-categorized-toolbox-addable-classes component)
-        (nextmethod component)))
+        (nextmethod self component)))
   
   
   ;;;
@@ -90,17 +92,17 @@
   ;;;
   
   
-  (method (refresh-colors component)
-    (let* ((row (component-row component))
-           (data (and row (get-child~ row 0))))
+  (method (refresh-colors self component)
+    (let* ((row (component-row self component))
+           (data (and row (get-child row 0))))
       (unless (not data)
-        (for-each refresh-component (component-ancestry component (get-reference~ designer))))))
+        (for-each (~ refresh-component self) (component-ancestry component (get-reference designer))))))
   
   
-  (method override (on-designer evt)
-    (if (eq? (get-kind~ evt) ':property-change)
-        (refresh-colors (get-property~ evt component:))
-      (nextmethod evt)))
+  (method override (on-designer self evt)
+    (if (eq? (get-kind evt) ':property-change)
+        (refresh-colors self (get-property evt component:))
+      (nextmethod self evt)))
   
   
   ;;;
@@ -111,22 +113,22 @@
   @wait-for-traits
   (method (on-set-default-traits evt)
     (define (initialize manager)
-      (set-client~ manager (make-traits-toolbox~ (get-application) (class-of (selected-component))))
-      (on-synchronize~ manager #f)
-      (let ((references (get-default-traits~ (selected-component))))
+      (set-client manager (make-traits-toolbox (get-application) (class-of (selected-component))))
+      (on-synchronize manager #f)
+      (let ((references (get-default-traits (selected-component))))
         (when references
           (if (every? (lambda (obj) (is? obj Trait-Reference)) references)
-              (setup-traits~ manager (map make-locator references) (map get-reference-import references))
+              (setup-traits manager (map make-locator references) (map get-reference-import references))
             (designer-error "Some traits are not of the Trait-Reference class")))))
     
     (define (make-locator reference)
-      (cons (get-symbol~ reference) (get-parameters~ reference)))
+      (cons (get-symbol reference) (get-parameters reference)))
     
     (define (make-reference locator)
       (new Trait-Reference (car locator) (cdr locator)))
     
     (bind (locators imports) (get-modal Traits-Dialog application-select?: #f initialize: initialize)
-      (set-default-traits~ designer (selected-component) (map make-reference locators) imports: (remove-duplicates imports))))
+      (set-default-traits designer (selected-component) (map make-reference locators) imports: (remove-duplicates imports))))
   
   
   ;;;
@@ -134,31 +136,31 @@
   ;;;
   
   
-  (method (on-change-class evt)
-    (let* ((component (selected-component))
-           (reference (get-reference~ (get-context~ (get-form~ designer)) (category-name (class-of component)))))
+  (method (on-change-class self evt)
+    (let* ((component (selected-component self))
+           (reference (get-reference (get-context (get-form designer)) (category-name (class-of component)))))
       (bind (old-import old-symbol) (parse-runtime-reference reference)
-        (let* ((parent (get-parent~ component))
-               (child-descriptor (find (get-children~ (get-children-descriptor~ (get-class-descriptor~ (class-of parent))))
-                                       (get-name~ component)
-                                       key: get-target~
+        (let* ((parent (get-parent component))
+               (child-descriptor (find (get-children (get-children-descriptor (get-class-descriptor (class-of parent))))
+                                       (get-name component)
+                                       key: get-target
                                        test: eq?
                                        return: 'item))
                (references (if child-descriptor
-                               (get-classes~ child-descriptor)
+                               (get-classes child-descriptor)
                              (list (runtime-reference->reference (find (get-addable-classes parent) component key: resolve-runtime-reference test: is? return: 'item))))))
-          (bind (symbol import) (get-modal Class-Dialog-Toolbox initialize: (lambda (manager) (setup~ manager old-import old-symbol)) references: references)
+          (bind (symbol import) (get-modal Class-Dialog-Toolbox initialize: (lambda (manager) (setup manager old-import old-symbol)) references: references)
             (unless (and (eq? old-symbol symbol) (eq? old-import import))
-              (let ((next (and (not (eq? component (last-child~ parent)))
-                               (next-child~ parent component))))
-                (with-atomic-undo~ (get-undoer~ designer)
+              (let ((next (and (not (eq? component (last-child parent)))
+                               (next-child parent component))))
+                (with-atomic-undo (get-undoer designer)
                   (lambda ()
-                    (remove-child~ designer component)
+                    (remove-child designer component)
                     (let ((new-component (new (module-ref import symbol))))
-                      (add-child~ designer new-component parent name: (get-name~ component) import: import descendant?: #t)
+                      (add-child designer new-component parent name: (get-name component) import: import descendant?: #t)
                       (when next
-                        (send-before~ designer new-component next))
-                      (select-component new-component)))))))))))
+                        (send-before designer new-component next))
+                      (select-component self new-component)))))))))))
   
   
   ;;;
@@ -166,16 +168,16 @@
   ;;;
   
   
-  (method override (context-menu-class)
+  (method override (context-menu-class self)
     Descendants-Manager-Menu)
   
   
-  (method override (get-context-menu)
-    (let ((menu (nextmethod)))
-      (with-update-locked~ menu
+  (method override (get-context-menu self)
+    (let ((menu (nextmethod self)))
+      (with-update-locked menu
         (lambda ()
-          (set-visible?~ (locate~ menu 'change-class) (get-action-enabled? {Action descendants-manager-tree change-class}))
-          (layout-menu~ menu)
+          (set-visible? (locate menu 'change-class) (get-action-enabled? {Action descendants-manager-tree change-class}))
+          (layout-menu menu)
           menu))))
   
   
@@ -184,20 +186,20 @@
   ;;;
   
   
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'descendants-manager-tree)
-          (nextmethod)))
+          (nextmethod self)))
   
   
-  (method override (focus-update-actions)
-    (nextmethod)
-    (let ((component (selected-component)))
+  (method override (focus-update-actions self)
+    (nextmethod self)
+    (let ((component (selected-component self)))
       (when component
         (set-action-enabled? {Action components-tree open} #t)
         @wait-for-traits
         (set-action-enabled? {Action components-tree set-default-traits} #t)
-        (set-action-enabled? {Action descendants-manager-tree change-class} (and (boolean (get-parent~ component))
-                                                                                 (component-owned-by-reference?~ designer component))))))
+        (set-action-enabled? {Action descendants-manager-tree change-class} (and (boolean (get-parent component))
+                                                                                 (component-owned-by-reference? designer component))))))
 
 
   ;;;
@@ -205,9 +207,9 @@
   ;;;
 
 
-  (method override (client-update)
+  (method override (client-update self)
     (when editor
-      (update expand-state: (table-ref preserved-states client #f) selected-components: (get-selection~ editor))))
+      (update self expand-state: (table-ref preserved-states client #f) selected-components: (get-selection editor))))
   
   
   ;;;
@@ -215,13 +217,13 @@
   ;;;
   
   
-  (method override (transfer-state actual client)
-    (table-set! preserved-states client (get-expand-state))
+  (method override (transfer-state self actual client)
+    (table-set! preserved-states client (get-expand-state self))
     (table-clear preserved-states actual))
   
   
-  (method override (preserve-state client)
-    (table-set! preserved-states client (get-expand-state)))
+  (method override (preserve-state self client)
+    (table-set! preserved-states client (get-expand-state self)))
   
   
   ;;;
@@ -229,19 +231,19 @@
   ;;;
   
   
-  (method (owned-color)
+  (method (owned-color self)
     {Color Dark-Green})
   
   
-  (method (modify-color)
+  (method (modify-color self)
     {Color red: 1 green: 127 blue: 139})
   
   
-  (method (unowned-color)
+  (method (unowned-color self)
     {Color Dark-Gray})
   
   
-  (method override (component-font component owned-form)
+  (method override (component-font self component owned-form)
     (if owned-form
         (case (ownership-level owned-form)
           ((create modify) {Font Label-Bold})
@@ -249,22 +251,22 @@
       #f))
   
   
-  (method override (component-color component owned-form)
+  (method override (component-color self component owned-form)
     (if owned-form
         (case (ownership-level owned-form)
-          ((create) (owned-color))
-          ((modify) (modify-color))
-          ((traverse) (unowned-color)))
-      (unowned-color)))
+          ((create) (owned-color self))
+          ((modify) (modify-color self))
+          ((traverse) (unowned-color self)))
+      (unowned-color self)))
   
   
-  (method override (component-state component)
+  (method override (component-state self component)
     'collapsed)
   
   
-  (method override (insert-component row component rights update? level (image: image #f) (state: state #f))
-    (let ((subrow (nextmethod row component rights update? level image: image state: state)))
+  (method override (insert-component self row component rights update? level (image: image #f) (state: state #f))
+    (let ((subrow (nextmethod self row component rights update? level image: image state: state)))
       (when subrow
-        (when (component-owned component)
-          (ensure-expanded subrow))
+        (when (component-owned self component)
+          (ensure-expanded self subrow))
         subrow)))))

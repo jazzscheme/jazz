@@ -39,11 +39,13 @@
 
 
 (import (jazz.application)
+        (jazz.event)
         (jazz.geometry)
         (jazz.graphic)
         (jazz.handler)
         (jazz.jml)
         (jazz.locale)
+        (jazz.preferences)
         (jazz.ui)
         (jazz.ui.resizer)
         (jazz.view)
@@ -77,18 +79,18 @@
   ;;;
   
   
-  (method (get-stage)
+  (method package (get-stage self)
     parent)
   
   
-  (method public (get-maximized?)
+  (method public (get-maximized? self)
     maximized?)
   
   
-  (method public (set-maximized? value)
+  (method public (set-maximized? self value)
     (if value
-        (maximize)
-      (restore)))
+        (maximize self)
+      (restore self)))
   
   
   ;;;
@@ -96,8 +98,8 @@
   ;;;
   
   
-  (method override (adjust-title)
-    (invalidate-caption))
+  (method override (adjust-title self)
+    (invalidate-caption self))
 
   
   ;;;
@@ -105,18 +107,18 @@
   ;;;
   
   
-  (method override (size-change size)
-    (nextmethod size)
-    (invalidate-caption)
-    (invalidate-border insets: {Rect 4 4 4 4}))
+  (method override (size-change self size)
+    (nextmethod self size)
+    (invalidate-caption self)
+    (invalidate-border self insets: {Rect 4 4 4 4}))
   
   
-  (method protected virtual (on-maximize evt)
-    (maximize~ (get-stage)))
+  (method protected virtual (on-maximize self evt)
+    (maximize (get-stage self)))
   
   
-  (method protected virtual (on-close evt)
-    (close-host))
+  (method package virtual (on-close self evt)
+    (close-host self))
   
   
   ;;;
@@ -124,17 +126,17 @@
   ;;;
   
   
-  (method override (activate-frame)
-    (nextmethod)
-    (set-caption~ (get-toplevel) (and (get-maximized?~ (get-stage)) (get-title))))
+  (method override (activate-frame self)
+    (nextmethod self)
+    (set-caption (current-toplevel) (and (get-maximized? (get-stage self)) (get-title self))))
 
   
-  (method override (deactivate-frame)
-    (nextmethod)
-    (let ((stage (get-stage)))
-      (when (and (null? (get-views~ stage)) (get-player~ stage))
-        (stage-empty-activate~ stage)
-        (acquire-focus~ stage))))
+  (method override (deactivate-frame self)
+    (nextmethod self)
+    (let ((stage (get-stage self)))
+      (when (and (null? (get-views stage)) (get-player stage))
+        (stage-empty-activate stage)
+        (acquire-focus stage))))
     
 
   ;;;
@@ -142,10 +144,10 @@
   ;;;
   
   
-  (method override (close-host (confirm?: confirm? #t))
+  (method override (close-host self (confirm?: confirm? #t))
     (if confirm?
-        (close-with-confirm)
-      (close)))
+        (close-with-confirm self)
+      (close self)))
     
 
   ;;;
@@ -153,20 +155,20 @@
   ;;;
   
   
-  (method override (destroy)
+  (method override (destroy self)
     (define (determine-new-active)
       (let ((frame (second-frame)))
-        (and (and frame (eq? (get-player~ frame) player))
+        (and (and frame (eq? (get-player frame) player))
              frame)))
     
     (let ((was-active? (eq? self (active-frame))))
       (let ((new-active (and was-active? (determine-new-active))))
-        (nextmethod)
+        (nextmethod self)
         (when was-active?
-          (deactivate-frame)
+          (deactivate-frame self)
           (when new-active
-            (activate-frame~ new-active)
-            (focus-host~ new-active))))))
+            (activate-frame new-active)
+            (focus-host new-active))))))
 
 
   ;;;
@@ -174,10 +176,10 @@
   ;;;
   
   
-  (method override (set-title value)
-    (nextmethod value)
-    (when (and (eq? self (active-frame)) (get-maximized?~ (get-stage)))
-      (set-caption~ (get-toplevel) value)))
+  (method override (set-title self value)
+    (nextmethod self value)
+    (when (and (eq? self (active-frame)) (get-maximized? (get-stage self)))
+      (set-caption (current-toplevel) value)))
 
 
   ;;;
@@ -185,20 +187,20 @@
   ;;;
   
   
-  (method override (show)
-    (nextmethod)
-    (maximize/restore))
+  (method override (show self)
+    (nextmethod self)
+    (maximize/restore self))
   
   
-  (method protected (maximize/restore)
-    (let ((stage (get-stage)))
-      (cond ((get-maximized?~ stage)
-             (maximize)
-             (maximize-bounds (get-size~ stage))
-             (maximize~ guest))
+  (method package (maximize/restore self)
+    (let ((stage (get-stage self)))
+      (cond ((get-maximized? stage)
+             (maximize self)
+             (maximize-bounds self (get-size stage))
+             (maximize guest))
             (else
-             (restore)
-             (restore~ guest)))))
+             (restore self)
+             (restore guest)))))
 
 
   ;;;
@@ -206,28 +208,28 @@
   ;;;
   
 
-  (method public (select-workspace)
+  (method public (workspace-select self)
     (when guest
-      (let ((pref (get-workspace-preferences)))
+      (let ((pref (current-workspace-preferences)))
         (when pref
-          (let ((current (get-name~ pref))
-                (workspaces (effective-host-workspaces~ guest)))
+          (let ((current (get-name pref))
+                (workspaces (effective-host-workspaces guest)))
             (when (and (not-null? workspaces) (not (memq? current workspaces)))
               (let ((pref (find-workspace (car workspaces))))
                 (when pref
-                  (apply-preferences~ pref restore-focus?: #f)))))))))
+                  (apply-preferences pref restore-focus?: #f)))))))))
 
   
-  (method public (ensure-displayed)
-    (let ((outer (get-size~ parent))
-          (rect (get-rect)))
+  (method public (ensure-displayed self)
+    (let ((outer (get-size parent))
+          (rect (get-rect self)))
       (receive (new-position new-size) (fit-within outer rect padding: 8)
-        (set-size new-size)
-        (set-position new-position))))
+        (set-size self new-size)
+        (set-position self new-position))))
   
   
-  (method public (remember-workspace-stage)
-    (set! workspace-stages (cons (get-stage) (difference workspace-stages (get-active-stages)))))
+  (method public (remember-workspace-stage self)
+    (set! workspace-stages (cons (get-stage self) (difference workspace-stages (get-active-stages)))))
   
   
   ;;;
@@ -235,16 +237,16 @@
   ;;;
   
   
-  (method override (get-effective-position)
-    (if (get-maximized?)
-        (get-preserved-position)
-      (get-position)))
+  (method override (get-effective-position self)
+    (if (get-maximized? self)
+        (get-preserved-position self)
+      (get-position self)))
   
   
-  (method override (get-effective-size)
-    (if (get-maximized?)
-        (get-preserved-size)
-      (get-size)))
+  (method override (get-effective-size self)
+    (if (get-maximized? self)
+        (get-preserved-size self)
+      (get-size self)))
   
   
   ;;;
@@ -252,21 +254,21 @@
   ;;;
   
   
-  (method (caption-rect)
+  (method (caption-rect self)
     (let ((border (if maximized? 0 4)))
-      (new Rect border border (- (get-width) border) (+ border 20))))
+      (new Rect border border (- (get-width self) border) (+ border 20))))
   
   
-  (method protected (title-rect)
+  (method protected (title-rect self)
     (let ((border (if maximized? 0 4)))
-      (new Rect border border (- (get-width) border 40) (+ border 20))))
+      (new Rect border border (- (get-width self) border 40) (+ border 20))))
   
   
-  (method protected (maximize-rect top right)
+  (method protected (maximize-rect self top right)
     (new Rect (- right 37) (+ top 3) (- right 21) (+ top 17)))
   
   
-  (method protected (close-rect top right)
+  (method protected (close-rect self top right)
     (new Rect (- right 19) (+ top 3) (- right  3) (+ top 17)))
 
   
@@ -275,26 +277,26 @@
   ;;;
   
   
-  (method override (mouse-activate?)
+  (method override (mouse-activate? self)
     #t)
   
   
-  (method override (mouse-activate)
-    (bring-to-front)
-    (nextmethod))
+  (method override (mouse-activate self)
+    (bring-to-front self)
+    (nextmethod self))
   
   
-  (method override (activate-focus)
-    (nextmethod)
-    (invalidate-caption)
-    (let ((stage (get-stage)))
-      (when (in-player?~ stage)
+  (method override (activate-focus self)
+    (nextmethod self)
+    (invalidate-caption self)
+    (let ((stage (get-stage self)))
+      (when (in-player? stage)
         (set-current-stage stage))))
   
   
-  (method override (deactivate-focus)
-    (nextmethod)
-    (invalidate-caption))
+  (method override (deactivate-focus self)
+    (nextmethod self)
+    (invalidate-caption self))
   
   
   ;;;
@@ -302,32 +304,32 @@
   ;;;
   
   
-  (method override (maximize)
+  (method override (maximize self)
     (unless maximized?
-      (set! preserved-position (get-position))
-      (set! preserved-size (get-size)))
+      (set! preserved-position (get-position self))
+      (set! preserved-size (get-size self)))
     (set! maximized? #t)
-    (update-buttons))
+    (update-buttons self))
   
   
-  (method public (maximize-bounds size)
-    (set-position {Point 0 0})
-    (set-size size)
-    (layout-view)
-    (invalidate-view))
+  (method public (maximize-bounds self size)
+    (set-position self {Point 0 0})
+    (set-size self size)
+    (layout-view self)
+    (invalidate-view self))
   
   
-  (method override (restore)
+  (method override (restore self)
     ;; test necessary because of temporary-fix
     (when preserved-position
-      (set-position preserved-position))
+      (set-position self preserved-position))
     ;; test necessary because of temporary-fix
     (when preserved-size
-      (set-size preserved-size))
+      (set-size self preserved-size))
     (set! maximized? #f)
-    (update-buttons)
-    (layout-view)
-    (invalidate-view))
+    (update-buttons self)
+    (layout-view self)
+    (invalidate-view self))
     
 
   ;;;
@@ -335,28 +337,28 @@
   ;;;
   
   
-  (method override (layout)
-    (let* ((caption? (caption-visible?))
+  (method override (layout self)
+    (let* ((caption? (caption-visible? self))
            (border (if caption? 4 0))
-           (caption-rect (caption-rect))
+           (caption-rect (caption-rect self))
            (caption-height (rect-height caption-rect)))
-      (layout-buttons)
+      (layout-buttons self)
       (when content
-        (set-position~ content (new Point border (if caption? (+ border caption-height) 0)))
-        (set-size~ content (new Dimension (- (get-width) border border) (- (get-height) border border (if caption? caption-height 0)))))))
+        (set-position content (new Point border (if caption? (+ border caption-height) 0)))
+        (set-size content (new Dimension (- (get-width self) border border) (- (get-height self) border border (if caption? caption-height 0)))))))
   
   
-  (method protected virtual (layout-buttons)
-    (let* ((border (buttons-border))
+  (method protected virtual (layout-buttons self)
+    (let* ((border (buttons-border self))
            (top border)
-           (bounds (get-bounds))
-           (right (- (get-right~ bounds) border)))
-      (set-rect~ (locate 'maximize) (maximize-rect top right))
-      (set-rect~ (locate 'close) (close-rect top right))))
+           (bounds (get-bounds self))
+           (right (- (get-right bounds) border)))
+      (set-rect (locate self 'maximize) (maximize-rect self top right))
+      (set-rect (locate self 'close) (close-rect self top right))))
   
   
-  (method protected virtual (buttons-border)
-    (if (caption-visible?) 4 0))
+  (method protected virtual (buttons-border self)
+    (if (caption-visible? self) 4 0))
 
 
   ;;;
@@ -364,15 +366,15 @@
   ;;;
   
   
-  (method override (invalidate-caption)
+  (method override (invalidate-caption self)
     (unless maximized?
-      (invalidate-rect (caption-rect))))
+      (invalidate-rect self (caption-rect self))))
   
   
-  (method protected virtual (update-buttons)
-    (let ((visible? (caption-visible?)))
-      (set-visible?~ (locate 'maximize) visible?)
-      (set-visible?~ (locate 'close) visible?)))
+  (method package virtual (update-buttons self)
+    (let ((visible? (caption-visible? self)))
+      (set-visible? (locate self 'maximize) visible?)
+      (set-visible? (locate self 'close) visible?)))
 
 
   ;;;
@@ -380,23 +382,23 @@
   ;;;
   
   
-  (method (caption-icon)
-    (guest-icon~ guest))
+  (method (caption-icon self)
+    (guest-icon guest))
   
   
-  (method (caption-title)
-    (get-title))
+  (method (caption-title self)
+    (get-title self))
   
   
-  (method (caption-font)
+  (method (caption-font self)
     {Font Caption})
   
   
-  (method (caption-focused?)
+  (method (caption-focused? self)
     (eq? self (get-focused-host)))
   
   
-  (method (caption-visible?)
+  (method (caption-visible? self)
     (not maximized?))
 
 
@@ -405,15 +407,15 @@
   ;;;
   
   
-  (method override (container-focusable?)
-    (get-visible?))
+  (method override (container-focusable? self)
+    (get-visible? self))
   
   
-  (method override (ensure-container-focusable)
-    (select-workspace)
-    (set-visible? #t)
-    (bring-to-front)
-    (remember-workspace-stage))
+  (method override (ensure-container-focusable self)
+    (workspace-select self)
+    (set-visible? self #t)
+    (bring-to-front self)
+    (remember-workspace-stage self))
 
 
   ;;;
@@ -421,10 +423,10 @@
   ;;;
 
 
-  (method override (cursor-update evt)
-    (if (not (resizeable?))
+  (method override (cursor-update self evt)
+    (if (not (resizeable? self))
         (set-cursor :arrow)
-      (let ((part (and (not maximized?) (find-resize-part (get-position~ evt) (get-size) full?: #t))))
+      (let ((part (and (not maximized?) (find-resize-part (get-position evt) (get-size self) full?: #t))))
         (if (not part)
             (set-cursor :arrow)
           (set-cursor (get-resize-cursor part))))))
@@ -435,84 +437,84 @@
   ;;;
   
   
-  (method protected virtual (moveable?)
+  (method protected virtual (moveable? self)
     #t)
   
   
-  (method protected virtual (resizeable?)
+  (method protected virtual (resizeable? self)
     #t)
 
   
-  (method override (mouse-down evt)
-    (let ((pos (get-position~ evt)))
-      (let ((in-caption? (in-rect? pos (caption-rect))))
-        (if (and in-caption? (get-control?~ evt))
-            (send-to-back)
-          (when (moveable?)
-            (let ((part (find-resize-part pos (get-size) full?: #t)))
+  (method override (mouse-down self evt)
+    (let ((pos (get-position evt)))
+      (let ((in-caption? (in-rect? pos (caption-rect self))))
+        (if (and in-caption? (get-control? evt))
+            (send-to-back self)
+          (when (moveable? self)
+            (let ((part (find-resize-part pos (get-size self) full?: #t)))
               (when (or part in-caption?)
                 (set! dragging? #t)
-                (set! current-part (and (resizeable?) part))
-                (set! start-mouse (to-desktop pos))
-                (set! start-position (get-position))
-                (set! start-size (get-size))
-                (acquire-capture))))))))
+                (set! current-part (and (resizeable? self) part))
+                (set! start-mouse (to-desktop self pos))
+                (set! start-position (get-position self))
+                (set! start-size (get-size self))
+                (acquire-capture self))))))))
   
   
-  (method override (drag-move evt)
+  (method override (drag-move self evt)
     (when dragging?
-      (let* ((minimal (host-minimal-size~ guest))
-             (workspace-size (get-size~ (car workspace-stages)))
-             (desktop-pos (to-desktop (get-position~ evt)))
+      (let* ((minimal (host-minimal-size guest))
+             (workspace-size (get-size (car workspace-stages)))
+             (desktop-pos (to-desktop self (get-position evt)))
              (delta (point- desktop-pos start-mouse))
-             (dh (get-h~ delta))
-             (dv (get-v~ delta)))
+             (dh (get-h delta))
+             (dv (get-v delta)))
         (if (not current-part)
             (let ((new-position (nu+ start-position delta))
-                  (caption-width (- (get-right~ (caption-rect)) (get-left~ (caption-rect))))
-                  (caption-height (- (get-bottom~ (caption-rect)) (get-top~ (caption-rect))))
+                  (caption-width (- (get-right (caption-rect self)) (get-left (caption-rect self))))
+                  (caption-height (- (get-bottom (caption-rect self)) (get-top (caption-rect self))))
                   (minimum-border 50))
-              (cond ((< (+ (get-h~ new-position) caption-width) minimum-border)
-                     (set! new-position (new Point (- minimum-border caption-width) (get-v~ new-position))))
-                    ((< (- (get-width~ workspace-size) (get-h~ new-position)) minimum-border)
-                     (set! new-position (new Point (- (get-width~ workspace-size) minimum-border) (get-v~ new-position)))))
-              (cond ((< (get-v~ new-position) 0)
-                     (set! new-position (new Point (get-h~ new-position) 0)))
-                    ((< (- (get-height~ workspace-size) (get-v~ new-position)) caption-height)
-                     (set! new-position (new Point (get-h~ new-position) (- (get-height~ workspace-size) caption-height)))))
-              (let ((delta-position (nu- new-position (get-position)))
-                    (rect (get-rect)))
-                (set-position-noupdate new-position)
-                (scroll-view~ (get-parent) (point->distance delta-position) rect)
-                (update-window~ player)))
+              (cond ((< (+ (get-h new-position) caption-width) minimum-border)
+                     (set! new-position (new Point (- minimum-border caption-width) (get-v new-position))))
+                    ((< (- (get-width workspace-size) (get-h new-position)) minimum-border)
+                     (set! new-position (new Point (- (get-width workspace-size) minimum-border) (get-v new-position)))))
+              (cond ((< (get-v new-position) 0)
+                     (set! new-position (new Point (get-h new-position) 0)))
+                    ((< (- (get-height workspace-size) (get-v new-position)) caption-height)
+                     (set! new-position (new Point (get-h new-position) (- (get-height workspace-size) caption-height)))))
+              (let ((delta-position (nu- new-position (get-position self)))
+                    (rect (get-rect self)))
+                (set-position-noupdate self new-position)
+                (scroll-view (get-parent self) (point->distance delta-position) rect)
+                (update-window player)))
           (resize-client dh dv current-part
             (lambda (dh dv dwidth dheight)
               (let ((max-position (nu+ start-position (nu- start-size minimal)))
                     (new-position (nu+ start-position (new Dimension dh dv)))
                     (new-size (nu+ start-size (new Dimension dwidth dheight))))
                 (let ((effective-position (new Point
-                                            (min (get-h~ new-position) (get-h~ max-position))
-                                            (min (get-v~ new-position) (get-v~ max-position))))
+                                            (min (get-h new-position) (get-h max-position))
+                                            (min (get-v new-position) (get-v max-position))))
                       (effective-size (new Dimension
-                                        (max (get-width~ new-size) (get-width~ minimal))
-                                        (max (get-height~ new-size) (get-height~ minimal)))))
-                  (set-position effective-position)
-                  (set-size effective-size)
-                  (update-window~ player)))))))))
+                                        (max (get-width new-size) (get-width minimal))
+                                        (max (get-height new-size) (get-height minimal)))))
+                  (set-position self effective-position)
+                  (set-size self effective-size)
+                  (update-window player)))))))))
   
   
-  (method override (drag-up evt . rest)
+  (method override (drag-up self evt . rest)
     (when dragging?
-      (release-capture)
+      (release-capture self)
       (set! dragging? #f)))
   
   
-  (method override (double-click evt)
-    (let ((pos (get-position~ evt)))
-      (cond ((in-close-rect? pos)
-             (close-host))
-            ((in-rect? pos (caption-rect))
-             (toggle-maximized)))))
+  (method override (double-click self evt)
+    (let ((pos (get-position evt)))
+      (cond ((in-close-rect? self pos)
+             (close-host self))
+            ((in-rect? pos (caption-rect self))
+             (toggle-maximized self)))))
   
   
   (cond-expand
@@ -520,12 +522,12 @@
       (method (in-close-rect? pos)
         (in-rect? pos {Rect 6 6 22 22})))
     (else
-      (method (in-close-rect? pos)
+      (method (in-close-rect? self pos)
         #f)))
   
   
-  (method protected virtual (toggle-maximized)
-    (toggle-maximized~ (get-stage)))
+  (method package virtual (toggle-maximized self)
+    (toggle-maximized (get-stage self)))
 
 
   ;;;
@@ -540,45 +542,45 @@
     (list {Color red: 122 green: 150 blue: 223} {Color red: 157 green: 185 blue: 235}))
 
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (when (not maximized?)
-      (let ((bounds (get-bounds)))
-        (draw-edge~ surface bounds inner: 'raised outer: 'raised edges: 'rectangle)))
-    (when (caption-visible?)
-      (draw-caption surface context)))
+      (let ((bounds (get-bounds self)))
+        (draw-edge surface bounds inner: 'raised outer: 'raised edges: 'rectangle)))
+    (when (caption-visible? self)
+      (draw-caption self surface context)))
 
   
-  (method (draw-caption surface context)
-    (let ((rect (caption-rect)))
-      (let* ((icon (caption-icon))
-             (title (localize (caption-title)))
-             (font (caption-font))
-             (focused? (caption-focused?))
+  (method package (draw-caption self surface context)
+    (let ((rect (caption-rect self)))
+      (let* ((icon (caption-icon self))
+             (title (localize (caption-title self)))
+             (font (caption-font self))
+             (focused? (caption-focused? self))
              (colors (if focused? Active-Colors Inactive-Colors))
              (start (first colors))
              (end (second colors))
-             (width (get-width))
-             (height (get-height)))
-        (set-color~ surface {Color Light})
-        (set-line-width~ surface 1)
-        (line~ surface 1 1 (- width 3) 1)
-        (line~ surface 1 1 1 24)
+             (width (get-width self))
+             (height (get-height self)))
+        (set-color surface {Color Light})
+        (set-line-width surface 1)
+        (line surface 1 1 (- width 3) 1)
+        (line surface 1 1 1 24)
         (if (debug-paint?)
-            (fill-rect~ surface rect (cycle-debug-color!))
-          (gradient-fill-rect~ surface rect (list (list 0 end) (list 1 start)) direction: 'vertical))
+            (fill-rect surface rect (cycle-debug-color!))
+          (gradient-fill-rect surface rect (list (list 0 end) (list 1 start)) direction: 'vertical))
         (when icon
-          (let ((offset (icon-offset)))
-            (draw-image~ (get-images-portfolio~ (get-application)) surface context icon (+ (get-left~ rect) (get-h~ offset)) (+ (get-top~ rect) (get-v~ offset)))))
-        (set-font~ surface font)
-        (let ((offset (title-offset)))
-          (with-clip~ surface (title-rect)
+          (let ((offset (icon-offset self)))
+            (draw-image (get-images-portfolio (get-application)) surface context icon (+ (get-left rect) (get-h offset)) (+ (get-top rect) (get-v offset)))))
+        (set-font surface font)
+        (let ((offset (title-offset self)))
+          (with-clip surface (title-rect self)
             (lambda ()
-              (draw-text~ surface (+ (get-left~ rect) (get-h~ offset)) (+ (get-top~ rect) (get-v~ offset)) title {Color White})))))))
+              (draw-text surface (+ (get-left rect) (get-h offset)) (+ (get-top rect) (get-v offset)) title {Color White})))))))
   
   
-  (method protected virtual (icon-offset)
+  (method protected virtual (icon-offset self)
     {Point 2 2})
   
   
-  (method protected virtual (title-offset)
+  (method protected virtual (title-offset self)
     {Point 22 3})))

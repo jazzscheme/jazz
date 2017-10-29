@@ -43,6 +43,7 @@
         (jazz.io)
         (jazz.jml)
         (jazz.layout)
+        (jazz.outline)
         (jazz.text)
         (jazz.ui)
         (jazz.view))
@@ -63,7 +64,7 @@
         (<!>                       name: ok        title: "Save"))))
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Choose New File")
   
   
@@ -71,21 +72,21 @@
   (property default-extension initialize #f)
   
   
-  (method override (finish rest)
-    (nextmethod rest)
+  (method override (finish self rest)
+    (nextmethod self rest)
     (when initial-filename
-      (let ((text (locate 'filename)))
+      (let ((text (locate self 'filename)))
         (let ((content
                 (if (and default-extension (ends-with? initial-filename (concatenate "." default-extension)))
                     (subseq initial-filename 0 (- (cardinality initial-filename) (cardinality default-extension) 1))
                   initial-filename)))
-          (set-string-content~ text content)
-          (select-all~ text)))
-      (update-buttons)))
+          (set-string-content text content)
+          (select-all text)))
+      (update-buttons self)))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'filename)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'filename)))
   
   
   ;;;
@@ -93,10 +94,10 @@
   ;;;
   
   
-  (method override (get-tab-stops)
+  (method override (get-tab-stops self)
     (list
-      (get-tree)
-      (locate 'filename)))
+      (get-tree self)
+      (locate self 'filename)))
   
 
   ;;;
@@ -104,24 +105,24 @@
   ;;;
   
   
-  (method override (update-content)
-    (let ((directories (get-content~ directory nodes?: #t leaves?: #f))
-          (files (get-content~ directory nodes?: #f leaves?: #t)))
-      (let ((tree (get-tree)))
+  (method override (update-content self)
+    (let ((directories (get-content directory nodes?: #t leaves?: #f))
+          (files (get-content directory nodes?: #f leaves?: #t)))
+      (let ((tree (get-tree self)))
         (define (add pathname)
-          (add-pathname tree pathname))
+          (add-pathname self tree pathname))
         
-        (remove-every-row~ tree)
-        (with-update-locked~ tree
+        (remove-every-row tree)
+        (with-update-locked tree
           (lambda ()
             (for-each add directories)
             (for-each add files))))))
   
   
-  (method override (update-buttons)
-    (nextmethod)
-    (let ((text (locate 'filename)))
-      (set-enabled?~ (locate 'ok) (not (empty-string? (get-string-content~ text))))))
+  (method override (update-buttons self)
+    (nextmethod self)
+    (let ((text (locate self 'filename)))
+      (set-enabled? (locate self 'ok) (not (empty-string? (get-string-content text))))))
   
 
   ;;;
@@ -129,27 +130,27 @@
   ;;;
   
   
-  (method override (validate-dialog)
-    (let ((newfile (get-newfile)))
-      (when (exists?~ newfile)
-        (let ((code (message-box (format "{a} already exists. Do you want to replace it?" (parse~ newfile))
+  (method override (validate-dialog self)
+    (let ((newfile (get-newfile self)))
+      (when (exists? newfile)
+        (let ((code (message-box (format "{a} already exists. Do you want to replace it?" (parse newfile))
                                  type: 'confirmation)))
           (when (memq? code '(no cancel))
             (signal-cancel))))))
   
   
-  (method override (get-modal-result)
-    (set-current-directory directory)
-    (get-newfile))
+  (method override (get-modal-result self)
+    (current-directory-set! directory)
+    (get-newfile self))
   
   
-  (method (get-newfile)
-    (let ((content (get-string-content~ (locate 'filename))))
+  (method (get-newfile self)
+    (let ((content (get-string-content (locate self 'filename))))
       (let ((filename
               (if (and default-extension (not (search content ".")))
                   (concatenate content "." default-extension)
                 content)))
-        (anchorize (new-file~ directory filename)))))
+        (anchorize self (new-file directory filename)))))
   
 
   ;;;
@@ -157,20 +158,20 @@
   ;;;
   
   
-  (method override (selection-change)
-    (let ((pathname (selected-pathname)))
+  (method override (selection-change self)
+    (let ((pathname (selected-pathname self)))
       (when (file? pathname)
-        (set-string-content~ (locate 'filename) (get-name~ pathname))
-        (update-buttons))))
+        (set-string-content (locate self 'filename) (get-name pathname))
+        (update-buttons self))))
   
   
-  (method (on-content-change evt)
-    (update-buttons))
+  (method (on-content-change self evt)
+    (update-buttons self))
   
   
-  (method override (default-action)
-    (let ((pathname (selected-pathname)))
+  (method override (default-action self)
+    (let ((pathname (selected-pathname self)))
       (cond ((directory? pathname)
-             (down pathname))
-            ((ok-enabled?)
-             (end-modal~ (get-host) (get-modal-result))))))))
+             (down self pathname))
+            ((ok-enabled? self)
+             (end-modal (get-host self) (get-modal-result self))))))))

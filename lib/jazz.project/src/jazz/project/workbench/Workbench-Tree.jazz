@@ -55,138 +55,138 @@
     (<install> portfolio: :images draggable?: #t editable?: #f reorderable?: #t))
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'workbench-tree)
-          (nextmethod)))
+          (nextmethod self)))
   
   
-  (method (on-add-project evt)
-    (add-project~ (get-manager)))
+  (method (on-add-project self evt)
+    (add-project (get-manager self)))
   
   
-  (method (on-add-document evt)
-    (add-document~ (get-manager)))
+  (method (on-add-document self evt)
+    (add-document (get-manager self)))
   
   
-  (method (on-add-directory evt)
-    (add-directory~ (get-manager)))
+  (method (on-add-directory self evt)
+    (add-directory (get-manager self)))
   
   
-  (method (on-add-group evt)
-    (add-group~ (get-manager)))
+  (method (on-add-group self evt)
+    (add-group (get-manager self)))
   
   
-  (method (get-manager)
-    (get-guest~ (get-host)))
+  (method package (get-manager self)
+    (get-guest (get-host self)))
 
   
-  (method override (context-menu evt)
-    (let ((pos (get-position~ evt))
-          (manager (get-manager)))
-      (with-context-click pos
+  (method override (context-menu self evt)
+    (let ((pos (get-position evt))
+          (manager (get-manager self)))
+      (with-context-click self pos
         (lambda ()
-          (let ((menu (new-menu~ manager)))
+          (let ((menu (new-menu manager)))
             (when menu
-              (track-popup-menu menu pos)))))))
+              (track-popup-menu self menu pos)))))))
   
   
   ;; This is a big patch, to go around the fact that if a user copy pastes a Jazz-File, there is
   ;; not yet an advance test to check for name duplications so that the error is detected only partway
   ;; through the recursion and that leaves the workbench in an unstable state.
-  (method override (can-copy?)
+  (method override (can-copy? self)
     #f)
   
   
-  (method override (can-paste-properties?)
+  (method override (can-paste-properties? self)
     #f)
   
   
-  (method override (get-draggable?)
+  (method override (get-draggable? self)
     ;; until bug fix in the tree selection update
     #f)
   
   
-  (method override (delete-selection)
-    (delete-selection~ editor message: "Remove selected objects?"))
+  (method override (delete-selection self)
+    (delete-selection editor message: "Remove selected objects?"))
   
   
-  (method override (component-color component owned-form)
-    (let ((color (nextmethod component owned?)))
+  (method override (component-color self component owned-form)
+    (let ((color (nextmethod self component (~ owned? self))))
       (if (is? component Project)
-          (if (get-active?~ component)
+          (if (get-active? component)
               color
             {Color Medium-Gray})
         color)))
   
   
-  (method override (component-image component)
-    (let ((image (nextmethod component)))
+  (method override (component-image self component)
+    (let ((image (nextmethod self component)))
       (if (is? component Project)
-          (if (get-active?~ component)
+          (if (get-active? component)
               image
             (disabled-image-resource image))
         image)))
   
   
-  (method override (update-selection expand-state selected-components)
+  (method override (update-selection self expand-state selected-components)
     )
   
   
-  (method override (row-state component update? level)
-    (if (dynamic-component? component)
+  (method override (row-state self component update? level)
+    (if (dynamic-component? self component)
         'dynamic
       (if update?
           (if (< level 1) 'expanded 'collapsed)
         'collapsed)))
   
   
-  (method (dynamic-component? component)
+  (method package (dynamic-component? self component)
     (and (is? component Project-Directory)
          (not-null? (get-components component))
-         (get-parent~ component)
-         (is? (get-parent~ component) Project)
-         (get-dynamic?~ (get-parent~ component))))
+         (get-parent component)
+         (is? (get-parent component) Project)
+         (get-dynamic? (get-parent component))))
   
   
-  (method override (update-row row)
-    (let ((component (get-user-data~ row)))
-      (when (dynamic-component? component)
-        (let ((rights (get-rights))
+  (method override (update-row self row)
+    (let ((component (get-user-data row)))
+      (when (dynamic-component? self component)
+        (let ((rights (get-rights self))
               (update? #t)
-              (level (get-level~ row)))
-          (insert-component-list row component (get-components component) rights update? level)))))
+              (level (get-level row)))
+          (insert-component-list self row component (get-components component) rights update? level)))))
   
   
-  (method override (insert-components row component rights update? level)
-    (unless (dynamic-component? component)
-      (insert-component-list row component (get-components component) rights update? level)))
+  (method override (insert-components self row component rights update? level)
+    (unless (dynamic-component? self component)
+      (insert-component-list self row component (get-components component) rights update? level)))
   
   
-  (method override (double-click evt)
-    (let ((manager (get-manager))
-          (component (selected-component)))
+  (method override (double-click self evt)
+    (let ((manager (get-manager self))
+          (component (selected-component self)))
       (if (and (is? component Project)
-               (concrete?~ component))
-          (activate-selection~ manager)
-        (nextmethod evt)
+               (concrete? component))
+          (activate-selection manager)
+        (nextmethod self evt)
         (unless (or (is? component Project) (is? component Group))
-          (launch-selection~ manager)))))
+          (launch-selection manager)))))
   
   
-  (method override (return-press evt)
-    (let ((manager (get-manager))
-          (component (selected-component)))
+  (method override (return-press self evt)
+    (let ((manager (get-manager self))
+          (component (selected-component self)))
       (if (is? component Project)
-          (activate-selection~ manager)
+          (activate-selection manager)
         (unless (is? component Group)
-          (launch-selection~ manager)))))
+          (launch-selection manager)))))
   
   
-  (method override (receive-files pos pathnames)
-    (let* ((cell (view->tree pos))
-           (data (if (not cell) (get-workbench) (get-user-data~ (get-row (get-line~ cell)))))
-           (manager (get-manager)))
+  (method override (receive-files self pos pathnames)
+    (let* ((cell (view->tree self pos))
+           (data (if (not cell) (get-workbench) (get-user-data (get-row self (get-line cell)))))
+           (manager (get-manager self)))
       (if (or (is? data Project)
               (is? data Project-Group))
-          (import-pathnames~ manager (ascendant-project~ manager data) pathnames data)
+          (import-pathnames manager (ascendant-project manager data) pathnames data)
         (bell))))))

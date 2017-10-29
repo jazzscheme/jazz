@@ -40,6 +40,7 @@
 
 (import (jazz.application)
         (jazz.print)
+        (jazz.ui)
         (jazz.view)
         (jazz.window))
 
@@ -60,26 +61,26 @@
   ;;;
 
 
-  (method public (get-client)
+  (method public (get-client self)
     client)
 
 
-  (method public (set-client value)
+  (method public (set-client self value)
     (set! client value)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-no)
+  (method public (get-no self)
     no)
 
 
-  (method public (set-no value)
+  (method public (set-no self value)
     (set! no value)
-    (invalidate-view))
+    (invalidate-view self))
   
   
-  (method (get-pane)
-    (get-guest))
+  (method (get-pane self)
+    (get-guest self))
   
   
   ;;;
@@ -87,10 +88,10 @@
   ;;;
   
   
-  (method override (cursor-update evt)
-    (let* ((pane (get-pane))
-           (scrollee (locate~ pane 'scrollee)))
-      (if (or (vscroll-needed?~ scrollee) (hscroll-needed?~ scrollee))
+  (method override (cursor-update self evt)
+    (let* ((pane (get-pane self))
+           (scrollee (locate pane 'scrollee)))
+      (if (or (vscroll-needed? scrollee) (hscroll-needed? scrollee))
           (if (get-mouse-down?)
               (set-cursor :closed-hand)
             (set-cursor :opened-hand))
@@ -102,32 +103,32 @@
   ;;;
   
   
-  (method override (mouse-down evt)
+  (method override (mouse-down self evt)
     (set! dragging? #t)
-    (set! start-position (get-position~ evt))
-    (acquire-capture))
+    (set! start-position (get-position evt))
+    (acquire-capture self))
   
   
-  (method override (drag-move evt)
+  (method override (drag-move self evt)
     (when dragging?
-      (let* ((delta (nu- (get-position~ evt) start-position))
-             (pane (get-pane))
-             (scrollee (locate~ pane 'scrollee)))
-        (scroll~ scrollee delta))))
+      (let* ((delta (nu- (get-position evt) start-position))
+             (pane (get-pane self))
+             (scrollee (locate pane 'scrollee)))
+        (scroll scrollee delta))))
   
   
-  (method override (drag-up evt . rest)
+  (method override (drag-up self evt . rest)
     (when dragging?
-      (release-capture)
+      (release-capture self)
       (set! dragging? #f)))
   
   
-  (method override (double-click evt)
-    (let ((pane (get-pane))
-          (toplevel (get-toplevel)))
-      (set-zoom~ pane 1.)
-      (set-value~ (locate~ (find-docked~ toplevel Preview-Toolbar) 'zoom) 1.)
-      (set-start~ pane no)))
+  (method override (double-click self evt)
+    (let ((pane (get-pane self))
+          (toplevel (current-toplevel)))
+      (set-zoom pane 1.)
+      (set-value (locate (find-docked toplevel Preview-Toolbar) 'zoom) 1.)
+      (set-start pane no)))
   
   
   ;;;
@@ -135,8 +136,8 @@
   ;;;
   
   
-  (method override (draw surface context)
-    (let* ((pane (get-pane))
-           (job (get-job~ pane))
-           (page (get-page~ job no)))
-      (print-page~ job surface page no)))))
+  (method override (draw self surface context)
+    (let* ((pane (get-pane self))
+           (job (get-job pane))
+           (page (get-page job no)))
+      (print-page job surface page no)))))

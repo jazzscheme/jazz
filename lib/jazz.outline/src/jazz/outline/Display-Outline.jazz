@@ -54,19 +54,19 @@
   ;;;
   
   
-  (method override (get-row n)
+  (method override (get-row self n)
     (if (and first-displayed (>= n first-displayed-line))
-        (get-row-from first-displayed (- n first-displayed-line))
-      (nextmethod n)))
+        (get-row-from self first-displayed (- n first-displayed-line))
+      (nextmethod self n)))
   
   
-  (method override (call-with-v->line v scrolled proc)
+  (method override (call-with-v->line self v scrolled proc)
     (if first-displayed
         (let ((displayed? (>= v (- scrolled))))
           (if displayed?
-              (receive (line v height) (position-in-row (+ v scrolled) first-displayed first-displayed-line (- first-displayed-offset))
+              (receive (line v height) (position-in-row self (+ v scrolled) first-displayed first-displayed-line (- first-displayed-offset))
                 (proc line v height))
-            (nextmethod v scrolled proc)))
+            (nextmethod self v scrolled proc)))
       (proc #f #f #f)))
   
   
@@ -75,35 +75,35 @@
   ;;;
   
   
-  (method override (update-displayed display-v)
-    (let ((row (first-visible-son~ root-row))
+  (method override (update-displayed self display-v)
+    (let ((row (first-visible-son root-row))
           (line <fx> 0)
           (v display-v))
       (when row
-        (let ((bottom <fx> (- v (get-height~ row))))
+        (let ((bottom <fx> (- v (get-height row))))
           (while (> bottom 0)
-            (let ((next (get-next~ row)))
+            (let ((next (get-next row)))
               (if (not next)
                   (set! bottom 0)
                 (set! row next)
                 (increase! line)
                 (set! v (- bottom row-spacing))
-                (set! bottom (- v (get-height~ row))))))))
+                (set! bottom (- v (get-height row))))))))
       (set! first-displayed row)
       (set! first-displayed-line line)
       (set! first-displayed-offset (if row v 0))))
   
   
-  (method override (follow display-v v)
+  (method override (follow self display-v v)
     (define (follow-forward v)
       (while (> v 0)
-        (let* ((height (+ (get-height~ first-displayed) row-spacing))
+        (let* ((height (+ (get-height first-displayed) row-spacing))
                (remaining (- height first-displayed-offset)))
           (if (< v remaining)
               (begin
                 (increase! first-displayed-offset v)
                 (set! v 0))
-            (set! first-displayed (get-next~ first-displayed))
+            (set! first-displayed (get-next first-displayed))
             (increase! first-displayed-line)
             (decrease! v remaining)
             (set! first-displayed-offset 0))))
@@ -117,12 +117,12 @@
                 (begin
                   (decrease! first-displayed-offset v)
                   (set! v 0))
-              (set! first-displayed (get-previous~ first-displayed))
+              (set! first-displayed (get-previous first-displayed))
               (if (not first-displayed)
                   (continuation-return return #f)
                 (decrease! first-displayed-line)
                 (decrease! v (+ first-displayed-offset 1))
-                (set! first-displayed-offset (- (+ (get-height~ first-displayed) row-spacing) 1)))))
+                (set! first-displayed-offset (- (+ (get-height first-displayed) row-spacing) 1)))))
           #t)))
     
     ;; This is a patch for a complex bug
@@ -131,4 +131,4 @@
             (cond ((> v 0) (follow-forward v))
                   ((< v 0) (follow-backward (- v))))))
       (when (not succeeded?)
-        (update-displayed display-v))))))
+        (update-displayed self display-v))))))

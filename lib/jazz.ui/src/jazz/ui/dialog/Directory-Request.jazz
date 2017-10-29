@@ -40,6 +40,8 @@
 
 (import (jazz.io)
         (jazz.jml)
+        (jazz.outline)
+        (jazz.tree)
         (jazz.ui))
 
 
@@ -55,21 +57,21 @@
         (<!>     name: ok        title: "OK"))))
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Choose Directory")
   
   
-  (method override (prepare-directory)
+  (method override (prepare-directory self)
     (if selected-directory
-        (set! directory (get-parent~ selected-directory))
-      (nextmethod)))
+        (set! directory (get-parent selected-directory))
+      (nextmethod self)))
   
   
-  (method override (focus-default)
-    (nextmethod)
+  (method override (focus-default self)
+    (nextmethod self)
     (when selected-directory
-      (let ((tree (get-tree)))
-        (select-user-data-row~ tree selected-directory test: pathname=?))))
+      (let ((tree (get-tree self)))
+        (select-user-data-row tree selected-directory test: pathname=?))))
   
 
   ;;;
@@ -77,22 +79,22 @@
   ;;;
   
   
-  (method override (update-content)
-    (let ((directories (get-content~ directory nodes?: #t leaves?: #f)))
-      (let ((tree (get-tree)))
+  (method override (update-content self)
+    (let ((directories (get-content directory nodes?: #t leaves?: #f)))
+      (let ((tree (get-tree self)))
         (define (add pathname)
-          (add-pathname tree pathname))
+          (add-pathname self tree pathname))
         
-        (remove-every-row~ tree)
-        (with-update-locked~ tree
+        (remove-every-row tree)
+        (with-update-locked tree
           (lambda ()
             (for-each add directories))))))
   
   
-  (method override (update-buttons)
-    (nextmethod)
-    (let ((pathname (selected-pathname)))
-      (set-enabled?~ (locate 'ok) (directory? pathname))))
+  (method override (update-buttons self)
+    (nextmethod self)
+    (let ((pathname (selected-pathname self)))
+      (set-enabled? (locate self 'ok) (directory? pathname))))
   
 
   ;;;
@@ -100,13 +102,13 @@
   ;;;
   
   
-  (method override (default-action)
-    (let ((pathname (selected-pathname)))
+  (method override (default-action self)
+    (let ((pathname (selected-pathname self)))
       (cond ((directory? pathname)
-             (down pathname)))))
+             (down self pathname)))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (let ((dialog (get-host)))
-      (end-modal~ dialog (get-modal-result~ dialog))))))
+  (method override (on-return-press self evt)
+    (let ((dialog (get-host self)))
+      (end-modal dialog (get-modal-result dialog))))))

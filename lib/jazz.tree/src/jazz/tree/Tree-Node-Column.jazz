@@ -40,7 +40,9 @@
 
 (import (jazz.graphic)
         (jazz.locale)
+        (jazz.outline)
         (jazz.tree)
+        (jazz.ui)
         (jazz.view))
 
 
@@ -61,45 +63,45 @@
   ;;;
 
 
-  (method public (get-controls?)
+  (method public (get-controls? self)
     controls?)
 
 
-  (method public (set-controls? flag)
+  (method public (set-controls? self flag)
     (set! controls? flag)
-    (invalidate-view~ parent))
+    (invalidate-view parent))
 
 
-  (method public (get-toplevel-controls?)
+  (method public (get-toplevel-controls? self)
     toplevel-controls?)
 
 
-  (method public (set-toplevel-controls? flag)
+  (method public (set-toplevel-controls? self flag)
     (set! toplevel-controls? flag)
-    (invalidate-view~ parent))
+    (invalidate-view parent))
 
 
-  (method public (get-display-images?)
+  (method public (get-display-images? self)
     display-images?)
 
 
-  (method public (set-display-images? flag)
+  (method public (set-display-images? self flag)
     (set! display-images? flag)
-    (invalidate-view~ parent))
+    (invalidate-view parent))
 
 
-  (method public (get-display-levels?)
+  (method public (get-display-levels? self)
     display-levels?)
 
 
-  (method public (set-display-levels? flag)
+  (method public (set-display-levels? self flag)
     (set! display-levels? flag)
-    (invalidate-view~ parent))
+    (invalidate-view parent))
   
   
-  (method public (set-image-offset offset)
+  (method public (set-image-offset self offset)
     (set! image-offset offset)
-    (invalidate-view~ parent))
+    (invalidate-view parent))
   
   
   ;;;
@@ -107,7 +109,7 @@
   ;;;
   
   
-  (method override (cell-class)
+  (method override (cell-class self)
     Tree-Node)
   
 
@@ -116,15 +118,15 @@
   ;;;
   
   
-  (method override (column-mouse-down cell pos shift? control?)
-    (let ((row (get-row~ parent (get-line~ cell))))
-      (case (find-part cell pos)
-        ((control) (expand/collapse~ parent row))
-        ((content) (process-selection~ parent cell shift? control? 'mouse)))))
+  (method override (column-mouse-down self cell pos shift? control?)
+    (let ((row (get-row parent (get-line cell))))
+      (case (find-part self cell pos)
+        ((control) (expand/collapse parent row))
+        ((content) (process-selection parent cell shift? control? 'mouse)))))
   
   
-  (method override (double-click cell pos)
-    (expand/collapse~ parent (get-row~ parent (get-line~ cell))))
+  (method override (double-click self cell pos)
+    (expand/collapse parent (get-row parent (get-line cell))))
   
 
   ;;;
@@ -132,11 +134,11 @@
   ;;;
   
   
-  (method override (find-part cell pos)
-    (let ((h (get-h~ pos))
-          (v (get-v~ pos))
-          (level (get-level~ (get-row~ parent (get-line~ cell)))))
-      (let ((base (level-h level)))
+  (method override (find-part self cell pos)
+    (let ((h (get-h pos))
+          (v (get-v pos))
+          (level (get-level (get-row parent (get-line cell)))))
+      (let ((base (level-h self level)))
         (if (and controls? (or (> level 0) toplevel-controls?) (and (>= h (+ base 4)) (>= v 4) (< h (+ base 13)) (< v 13)))
             'control
           'content))))
@@ -147,18 +149,18 @@
   ;;;
   
   
-  (method protected (row-text-left row)
-    (- (text-h (get-level~ row)) 1))
+  (method package (row-text-left self row)
+    (- (text-h self (get-level row)) 1))
   
   
-  (method protected (text-rect row data width height force-node?)
-    (let* ((title (localize (get-title~ data)))
-           (h (- (text-h (get-level~ row)) 1))
+  (method package (text-rect self row data width height force-node?)
+    (let* ((title (localize (get-title data)))
+           (h (- (text-h self (get-level row)) 1))
            (max (- width h 2))
-           (font (or (get-font~ data) (effective-font~ parent))))
-      (let ((extent (text-extent~ font title)))
-        (let* ((title-width (get-width~ extent))
-               (width (min (if (or force-node? (<= (get-columns-count~ parent) 1)) title-width width) max)))
+           (font (or (get-font data) (effective-font parent))))
+      (let ((extent (text-extent font title)))
+        (let* ((title-width (get-width extent))
+               (width (min (if (or force-node? (<= (get-columns-count parent) 1)) title-width width) max)))
           (new Rect h 0 (+ h width 4) height)))))
   
 
@@ -167,18 +169,18 @@
   ;;;
   
   
-  (method protected (control-rect row top)
-    (let ((h (control-h (get-level~ row))))
+  (method package (control-rect self row top)
+    (let ((h (control-h self (get-level row))))
       (new Rect (+ h 4) (+ top 4) (+ h 13) (+ top 13))))
   
   
-  (method protected (plus/minus-rect row top)
-    (let ((h (control-h (get-level~ row))))
+  (method package (plus/minus-rect self row top)
+    (let ((h (control-h self (get-level row))))
       (new Rect (+ h 5) (+ top 5) (+ h 12) (+ top 12))))
   
   
-  (method protected (image-rect row top)
-    (let ((h (image-h (get-level~ row))))
+  (method package (image-rect self row top)
+    (let ((h (image-h self (get-level row))))
       (new Rect (+ h 0) (+ top 0) (+ h 16) (+ top 16))))
   
   
@@ -187,11 +189,11 @@
   ;;;
   
   
-  (method override (layout-cell row data h v width height)
+  (method override (layout-cell self row data h v width height)
     (when (is? data View)
-      (let ((offset (image-h (get-level~ row))))
-        (set-position~ data (new Point (+ h offset) v))
-        (set-size~ data (new Dimension (- width offset) height)))))
+      (let ((offset (image-h self (get-level row))))
+        (set-position data (new Point (+ h offset) v))
+        (set-size data (new Dimension (- width offset) height)))))
   
   
   ;;;
@@ -199,131 +201,131 @@
   ;;;
 
   
-  (method override (draw-data surface context row data width height)
-    (draw-background surface context row data width height)
-    (draw-level surface row data width height)
-    (draw-control surface row data width height)
-    (draw-image surface context row data width height)
-    (draw-title surface context row data 0 0 width height))
+  (method override (draw-data self surface context row data width height)
+    (draw-background self surface context row data width height)
+    (draw-level self surface row data width height)
+    (draw-control self surface row data width height)
+    (draw-image self surface context row data width height)
+    (draw-title self surface context row data 0 0 width height))
   
   
-  (method override (draw-background surface context row data width height)
-    (let ((background (or (get-cell-background~ parent) (get-background~ (get-skin~ parent)) (or (get-background~ row) {Color Tree-Background}))))
+  (method override (draw-background self surface context row data width height)
+    (let ((background (or (get-cell-background parent) (get-background (get-skin parent)) (or (get-background row) {Color Tree-Background}))))
       (let ((cell-rect (new Rect 0 0 width height)))
         (unless (eq? background 'none)
-          (fill-rect~ surface cell-rect (if (debug-paint?) (cycle-debug-color!) background)))
+          (fill-rect surface cell-rect (if (debug-paint?) (cycle-debug-color!) background)))
         (let ((selected? (getf context selected?:)))
-          (if (and selected? (cell-selected? context))
-              (let ((rect (text-rect row data width height #f)))
-                (let ((background (or (get-background~ (get-skin~ parent)) (get-background~ parent))))
+          (if (and selected? (cell-selected? self context))
+              (let ((rect (text-rect self row data width height #f)))
+                (let ((background (or (get-background (get-skin parent)) (get-background parent))))
                   (when (and background (neq? background 'none))
-                    (let ((r (new Rect 0 0 (get-left~ rect) height)))
-                      (fill-rect~ surface r background))))
-                (fill-background~ surface rect (selection-color~ parent))
-                (let ((border (selection-border~ parent)))
+                    (let ((r (new Rect 0 0 (get-left rect) height)))
+                      (fill-rect surface r background))))
+                (fill-background surface rect (selection-color parent))
+                (let ((border (selection-border parent)))
                   (when border
-                    (frame-rect~ surface rect border))))
-            (let ((background (get-background~ data)))
+                    (frame-rect surface rect border))))
+            (let ((background (get-background data)))
               (when background
-                (let ((rect (text-rect row data width height #t)))
+                (let ((rect (text-rect self row data width height #t)))
                   (if (pair? background)
-                      (apply gradient-fill-rect~ surface rect background)
-                    (fill-rect~ surface rect background))))))))
-      (let ((frame-color (get-frame-color~ data)))
+                      (apply gradient-fill-rect surface rect background)
+                    (fill-rect surface rect background))))))))
+      (let ((frame-color (get-frame-color data)))
         (when frame-color
-          (let ((rect (text-rect row data width height #t)))
-            (frame-rect~ surface rect frame-color))))))
+          (let ((rect (text-rect self row data width height #t)))
+            (frame-rect surface rect frame-color))))))
   
   
-  (method public (draw-level surface row data width <fx> height <fx>)
-    (let ((line-color (or (get-line-color~ (get-skin~ parent)) {Color Black})))
+  (method public (draw-level self surface row data width <fx> height <fx>)
+    (let ((line-color (or (get-line-color (get-skin parent)) {Color Black})))
       (when (and display-levels? (neq? line-color 'none))
-        (set-style~ surface 'alternate)
-        (set-color~ surface line-color)
-        (set-line-width~ surface 1)
-        (let ((level (get-level~ row))
-              (row-v (get-v~ (get-position~ row))))
+        (set-style surface 'alternate)
+        (set-color surface line-color)
+        (set-line-width surface 1)
+        (let ((level (get-level row))
+              (row-v (get-v (get-position row))))
           (loop (for n from level downto 1)
-                (let ((h (level-h n))
-                      (sf? (visible-sibling-follows?~ row)))
+                (let ((h (level-h self n))
+                      (sf? (visible-sibling-follows? row)))
                   (if (/= n level)
                       (when sf?
                         (let ((adjust (if (even? row-v) 0 1)))
-                          (line~ surface (+ h 8) adjust (+ h 8) (+ height adjust))))
+                          (line surface (+ h 8) adjust (+ h 8) (+ height adjust))))
                     (let* ((half (fxround/ height 2))
                            (top-adjusted (if (even? row-v) 0 -1))
                            (half-adjusted (+ half (if (and (odd? height) (odd? row-v)) 1 0)))
                            (horz-adjusted (+ half-adjusted (if (and (odd? row-v) (even? height)) 1 0))))
-                      (line~ surface (+ h 8) top-adjusted (+ h 8) (if sf? height half-adjusted))
-                      (line~ surface (+ h 8) horz-adjusted (+ h 19) horz-adjusted)))
-                  (set! row (get-father~ row)))))
-        (set-style~ surface 'solid)
-        (set-color~ surface {Color Black}))))
+                      (line surface (+ h 8) top-adjusted (+ h 8) (if sf? height half-adjusted))
+                      (line surface (+ h 8) horz-adjusted (+ h 19) horz-adjusted)))
+                  (set! row (get-father row)))))
+        (set-style surface 'solid)
+        (set-color surface {Color Black}))))
   
   
-  (method protected (draw-control surface row data width height)
-    (let* ((look (get-skin~ parent))
-           (level (get-level~ row))
+  (method package (draw-control self surface row data width height)
+    (let* ((look (get-skin parent))
+           (level (get-level row))
            (toplevel? (= level 0)))
-      (when (and (expandable?~ row) controls? (or (not toplevel?) toplevel-controls?))
-        (let ((h (control-h level))
-              (line-color (or (get-line-color~ look) {Color Black})))
+      (when (and (expandable? row) controls? (or (not toplevel?) toplevel-controls?))
+        (let ((h (control-h self level))
+              (line-color (or (get-line-color look) {Color Black})))
           (unless (eq? line-color 'none)
             (let ((rect (new Rect (+ h 4) 4 (+ h 13) 13)))
-              (frame-rect~ surface rect line-color))
-            (let ((background (or (get-background~ look) (get-background~ parent))))
+              (frame-rect surface rect line-color))
+            (let ((background (or (get-background look) (get-background parent))))
               (when (and background (neq? background 'none))
                 (let ((rect (new Rect (+ h 5) 5 (+ h 12) 12)))
-                  (fill-rect~ surface rect background))))
-            (set-color~ surface line-color)
-            (set-line-width~ surface 1)
-            (line~ surface (+ h 6) 8 (+ h 11) 8)
-            (when (neq? (get-state~ row) 'expanded)
-              (line~ surface (+ h 8) 6 (+ h 8) 11)))))))
+                  (fill-rect surface rect background))))
+            (set-color surface line-color)
+            (set-line-width surface 1)
+            (line surface (+ h 6) 8 (+ h 11) 8)
+            (when (neq? (get-state row) 'expanded)
+              (line surface (+ h 8) 6 (+ h 8) 11)))))))
   
   
-  (method (draw-image surface context row data width height)
-    (let ((h (image-h (get-level~ row)))
-          (image (get-image~ data)))
+  (method package (draw-image self surface context row data width height)
+    (let ((h (image-h self (get-level row)))
+          (image (get-image data)))
       (when (and display-images? image)
-        (let ((background (or (get-background~ (get-skin~ parent)) {Color Tree-Background})))
+        (let ((background (or (get-background (get-skin parent)) {Color Tree-Background})))
           (if (or (not background) (eq? background 'none))
-              (draw-image~ (get-portfolio~ parent) surface context image h 0)
-            (draw-opaque-image~ (get-portfolio~ parent) surface context image background h 0))))))
+              (draw-image (get-portfolio parent) surface context image h 0)
+            (draw-opaque-image (get-portfolio parent) surface context image background h 0))))))
   
   
-  (method override (draw-title surface context row data h v width height)
-    (let ((title (localize (or (get-title~ data) ""))))
-      (let ((h (text-h (get-level~ row)))
-            (v (get-v~ (title-position surface width height title)))
-            (font (or (get-font~ data) (effective-font~ parent))))
-        (set-font~ surface font)
-        (draw-text~ surface h v title (cell-color (get-color~ data) context)))))
+  (method override (draw-title self surface context row data h v width height)
+    (let ((title (localize (or (get-title data) ""))))
+      (let ((h (text-h self (get-level row)))
+            (v (get-v (title-position self surface width height title)))
+            (font (or (get-font data) (effective-font parent))))
+        (set-font surface font)
+        (draw-text surface h v title (cell-color self (get-color data) context)))))
   
   
-  (method override (header-title-offset look)
+  (method override (header-title-offset self look)
     2)
   
   
-  (method (level-h level)
-    (- (* level (get-indentation~ parent))
+  (method (level-h self level)
+    (- (* level (get-indentation parent))
        (if (or (= level 0) toplevel-controls?) 0 16)))
   
   
-  (method (control-h level)
-    (level-h level))
+  (method (control-h self level)
+    (level-h self level))
   
   
-  (method public (image-h level)
-    (+ (control-h level) (if (or (/= level 0) toplevel-controls?) 16 0) (if display-images? image-offset 0)))
+  (method public (image-h self level)
+    (+ (control-h self level) (if (or (/= level 0) toplevel-controls?) 16 0) (if display-images? image-offset 0)))
   
   
-  (method override (content-h level)
-    (+ (image-h level) (if display-images? 14 0)))
+  (method override (content-h self level)
+    (+ (image-h self level) (if display-images? 14 0)))
   
   
-  (method override (text-h level)
-    (+ (image-h level) (if display-images? 16 0) (if display-images? 3 4)))
+  (method override (text-h self level)
+    (+ (image-h self level) (if display-images? 16 0) (if display-images? 3 4)))
   
   
   ;;;
@@ -331,8 +333,8 @@
   ;;;
   
   
-  (method override (get-debugged cell pos)
-    (values cell (find-part cell pos)))
+  (method override (get-debugged self cell pos)
+    (values cell (find-part self cell pos)))
   
   
   ;;;
@@ -340,5 +342,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.tree.descriptors:Tree-Node-Descriptor))))

@@ -45,21 +45,32 @@
         (jazz.editor.jazz)
         (jazz.event)
         (jazz.feedback)
+        (jazz.ide)
         (jazz.io)
         (jazz.jrm)
         (jazz.network)
         (jazz.view)
+        (jazz.window)
         (jazz.workspace))
 
 
 (class Jazz-Debugger extends Debugger
 
   
-  (slot processes            initialize '())
-  (slot process-filenames    initialize (make-table test: process=? hash: process-hash))
-  (slot process-processes    initialize (make-table test: process=? hash: process-hash))
-  (slot process-properties   initialize (make-table test: process=? hash: process-hash))
-  (slot process-information? initialize (make-table test: process=? hash: process-hash))
+  (slot processes)
+  (slot process-filenames)
+  (slot process-processes)
+  (slot process-properties)
+  (slot process-information?)
+  
+  
+  (method override (initialize self)
+    (nextmethod self)
+    (set! processes            '())
+    (set! process-filenames    (make-table test: (~ process=? self) hash: process-hash))
+    (set! process-processes    (make-table test: (~ process=? self) hash: process-hash))
+    (set! process-properties   (make-table test: (~ process=? self) hash: process-hash))
+    (set! process-information? (make-table test: (~ process=? self) hash: process-hash)))
   
   
   ;;;
@@ -67,45 +78,45 @@
   ;;;
   
   
-  (method override (start-debugger)
+  (method override (start-debugger self)
     )
   
   
-  (method override (stop-debugger)
+  (method override (stop-debugger self)
     )
   
   
-  (method override (get-processes (validate-liveness?: validate-liveness? #f))
+  (method override (get-processes self (validate-liveness?: validate-liveness? #f))
     (when validate-liveness?
-      (validate-processes))
+      (validate-processes self))
     processes)
   
   
-  (method override (validate-processes)
+  (method override (validate-processes self)
     (define (live-process? process)
       (or (is? process Local-Proxy)
-          (live?~ process)))
+          (live? process)))
     
     (let ((valid (new-queue)))
       (for-each (lambda (process)
                   (if (live-process? process)
                       (enqueue valid process)
-                    (clear-runtime-information process)
-                    (detach-process~ (get-debugger-manager) (new Debugged-Process self process process))))
+                    (clear-runtime-information self process)
+                    (detach-process (get-debugger-manager) (new Debugged-Process self process process))))
                 processes)
       (set! processes (queue-list valid))))
   
   
-  (method override (detach-processes)
-    (validate-processes)
+  (method override (detach-processes self)
+    (validate-processes self)
     (let ((local-process (get-local-process)))
       (for-each (lambda (process)
                   (when (not (proxy=? process local-process))
-                    (detach-process~ process)))
+                    (detach-process process)))
                 processes)))
   
   
-  (method override (standard-process-image)
+  (method override (standard-process-image self)
     #f)
   
   
@@ -114,167 +125,167 @@
   ;;;
   
   
-  (method override (process=? x y)
+  (method override (process=? self x y)
     (and (proxy-server=? x y)
-         (equal? (get-id~ x) (get-id~ y))))
+         (equal? (get-id x) (get-id y))))
   
   
-  (method override (process-live? process)
-    (live?~ process))
+  (method override (process-live? self process)
+    (live? process))
   
   
-  (method override (process-title process)
-    (get-title~ process))
+  (method override (process-title self process)
+    (get-title process))
   
   
-  (method override (process-icon process)
-    (get-icon~ process))
+  (method override (process-icon self process)
+    (get-icon process))
   
   
-  (method override (process-threads process)
+  (method override (process-threads self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (get-threads~ process))))
+        (get-threads process))))
   
   
-  (method override (present-process process)
-    (present-process-title/traits (get-title~ process) (get-traits~ process)))
+  (method override (present-process self process)
+    (present-process-title/traits (get-title process) (get-traits process)))
   
   
-  (method override (reload-process process)
+  (method override (reload-process self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (reload-process~ process))))
+        (reload-process process))))
   
   
-  (method override (process-focusable? process)
+  (method override (process-focusable? self process)
     #t)
   
   
-  (method override (transmit-runtime-information process what)
+  (method override (transmit-runtime-information self process what)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (transmit-runtime-information~ process what))))
+        (transmit-runtime-information process what))))
   
   
-  (method override (evaluate-expressions process forms syntax str container line col evaluation-mode walk-debugger walk-cookie)
+  (method override (evaluate-expressions self process forms syntax str container line col evaluation-mode walk-debugger walk-cookie)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (evaluate-expressions~ process forms syntax str container line col evaluation-mode walk-debugger walk-cookie))))
+        (evaluate-expressions process forms syntax str container line col evaluation-mode walk-debugger walk-cookie))))
   
   
-  (method override (profiler-start process)
+  (method override (profiler-start self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (profiler-start~ process))))
+        (profiler-start process))))
   
   
-  (method override (profiler-stop process)
+  (method override (profiler-stop self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (profiler-stop~ process))))
+        (profiler-stop process))))
   
   
-  (method override (profiler-profiles process)
+  (method override (profiler-profiles self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (profiler-profiles~ process))))
+        (profiler-profiles process))))
   
   
-  (method override (profiler-selected-profile process)
+  (method override (profiler-selected-profile self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (profiler-selected-profile~ process))))
+        (profiler-selected-profile process))))
   
   
-  (method override (profiler-selected-profile-set! process name)
+  (method override (profiler-selected-profile-set! self process name)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (profiler-selected-profile-set!~ process name))))
+        (profiler-selected-profile-set! process name))))
   
   
-  (method override (profiler-profile process)
+  (method override (profiler-profile self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (profiler-profile~ process))))
+        (profiler-profile process))))
   
   
-  (method override (profile-reset process profiler depth all?)
+  (method override (profile-reset self process profiler depth all?)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (profile-reset~ process profiler depth all?))))
+        (profile-reset process profiler depth all?))))
   
   
-  (method override (tracker-start process)
+  (method override (tracker-start self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (tracker-start~ process))))
+        (tracker-start process))))
   
   
-  (method override (tracker-stop process)
+  (method override (tracker-stop self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (tracker-stop~ process))))
+        (tracker-stop process))))
   
   
-  (method override (tracker-trackings process)
+  (method override (tracker-trackings self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (tracker-trackings~ process))))
+        (tracker-trackings process))))
   
   
-  (method override (tracker-selected-tracking process)
+  (method override (tracker-selected-tracking self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (tracker-selected-tracking~ process))))
+        (tracker-selected-tracking process))))
   
   
-  (method override (tracker-selected-tracking-set! process name)
+  (method override (tracker-selected-tracking-set! self process name)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (tracker-selected-tracking-set!~ process name))))
+        (tracker-selected-tracking-set! process name))))
   
   
-  (method override (tracker-tracking process)
+  (method override (tracker-tracking self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (tracker-tracking~ process))))
+        (tracker-tracking process))))
   
   
-  (method override (tracking-reset process all?)
+  (method override (tracking-reset self process all?)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (tracking-reset~ process all?))))
+        (tracking-reset process all?))))
   
   
-  (method override (inspect-serial process serial max-content)
+  (method override (inspect-serial self process serial max-content)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (inspect-serial~ process serial max-content))))
+        (inspect-serial process serial max-content))))
   
   
-  (method override (present-serial process serial)
+  (method override (present-serial self process serial)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (present-serial~ process serial))))
+        (present-serial process serial))))
   
   
-  (method override (try-out process class)
+  (method override (try-out self process class)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (try-out~ process class))))
+        (try-out process class))))
   
   
-  (method override (process-detach process)
+  (method override (process-detach self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (detach-process~ process))))
+        (detach-process process))))
   
   
-  (method override (process-quit process)
+  (method override (process-quit self process)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (quit-process~ process))))
+        (quit-process process))))
   
   
   ;;;
@@ -282,58 +293,58 @@
   ;;;
   
   
-  (method override (thread=? x y)
+  (method override (thread=? self x y)
     (and (proxy-server=? x y)
-         (= (get-id~ x) (get-id~ y))))
+         (= (get-id x) (get-id y))))
   
   
-  (method override (thread-name process thread)
-    (get-name~ thread))
+  (method override (get-thread-name self process thread)
+    (get-name thread))
   
   
-  (method override (thread-state process thread)
-    (get-state~ thread))
+  (method override (get-thread-state self process thread)
+    (get-state thread))
   
   
-  (method override (thread-id process thread)
-    (get-id~ thread))
+  (method override (get-thread-id self process thread)
+    (get-id thread))
   
   
-  (method override (thread-stops process thread)
+  (method override (get-thread-stops self process thread)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (get-stops~ thread))))
+        (get-stops thread))))
   
   
-  (method override (thread-active-stop process thread)
-    (let ((stops (thread-stops process thread)))
+  (method override (get-thread-active-stop self process thread)
+    (let ((stops (get-thread-stops self process thread)))
       (if (null? stops)
           #f
         (last stops))))
   
   
-  (method override (break-thread process thread)
+  (method override (break-thread self process thread)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (break-thread~ process thread))))
+        (break-thread process thread))))
   
   
-  (method override (terminate-thread process thread preserve-console?)
+  (method override (terminate-thread self process thread preserve-console?)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (terminate-thread~ process thread preserve-console?))))
+        (terminate-thread process thread preserve-console?))))
   
   
-  (method override (kill-thread process thread)
+  (method override (kill-thread self process thread)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (kill-thread~ process thread))))
+        (kill-thread process thread))))
   
   
-  (method override (set-repl-frame process thread frame)
+  (method override (set-repl-frame self process thread frame)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (set-repl-frame~ thread frame))))
+        (set-repl-frame thread frame))))
     
   
   ;;;
@@ -341,27 +352,27 @@
   ;;;
   
   
-  (method override (restart=? x y)
+  (method override (restart=? self x y)
     (and (proxy-server=? x y)
-         (= (get-id~ x) (get-id~ y))))
+         (= (get-id x) (get-id y))))
   
   
-  (method override (restart-name process restart)
-    (get-name~ restart))
+  (method override (restart-name self process restart)
+    (get-name restart))
   
   
-  (method override (restart-message process restart)
-    (get-message~ restart))
+  (method override (restart-message self process restart)
+    (get-message restart))
 
   
-  (method override (restart-stop process restart)
+  (method override (restart-stop self process restart)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (restart-stop~ process restart))))
+        (restart-stop process restart))))
 
   
-  (method override (thread-debugged-continuation? thread)
-    (get-debugged-continuation?~ thread))
+  (method override (thread-debugged-continuation? self thread)
+    (get-debugged-continuation? thread))
   
   
   ;;;
@@ -369,51 +380,51 @@
   ;;;
   
   
-  (method override (stop=? x y)
+  (method override (stop=? self x y)
     (and (proxy-server=? x y)
-         (= (get-id~ x) (get-id~ y))))
+         (= (get-id x) (get-id y))))
   
   
-  (method override (stop-kind process stop)
-    (get-kind~ stop))
+  (method override (stop-kind self process stop)
+    (get-kind stop))
   
   
-  (method override (stop-reason process stop)
-    (get-reason~ stop))
+  (method override (stop-reason self process stop)
+    (get-reason stop))
   
   
-  (method override (stop-detail process stop)
+  (method override (stop-detail self process stop)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (get-detail~ stop))))
+        (get-detail stop))))
   
   
-  (method override (stop-location process stop)
-    (get-location~ stop))
+  (method override (stop-location self process stop)
+    (get-location stop))
   
   
-  (method override (stop-restarts process stop)
+  (method override (stop-restarts self process stop)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (get-restarts~ stop))))
+        (get-restarts stop))))
   
   
-  (method override (stop-frames process stop)
+  (method override (stop-frames self process stop)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (get-frames~ stop))))
+        (get-frames stop))))
   
   
-  (method override (continue-stop process stop)
+  (method override (continue-stop self process stop)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (continue-stop~ process stop))))
+        (continue-stop process stop))))
   
   
-  (method override (step-stop process stop command)
+  (method override (step-stop self process stop command)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (step-stop~ process stop command))))
+        (step-stop process stop command))))
   
   
   ;;;
@@ -421,33 +432,33 @@
   ;;;
   
   
-  (method override (frame=? x y)
+  (method override (frame=? self x y)
     (and (proxy-server=? x y)
-         (= (get-id~ x) (get-id~ y))))
+         (= (get-id x) (get-id y))))
   
   
-  (method override (frame-name process frame)
-    (get-name~ frame))
+  (method override (frame-name self process frame)
+    (get-name frame))
   
   
-  (method override (frame-interpreted? process frame)
-    (get-interpreted?~ frame))
+  (method override (frame-interpreted? self process frame)
+    (get-interpreted? frame))
   
   
-  (method override (frame-hidden? process frame)
-    (get-hidden?~ frame))
+  (method override (frame-hidden? self process frame)
+    (get-hidden? frame))
   
   
-  (method override (frame-location process frame)
+  (method override (frame-location self process frame)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (get-location~ frame))))
+        (get-location frame))))
   
   
-  (method override (frame-variables process frame kind)
+  (method override (frame-variables self process frame kind)
     (with-jrm-exception-handler (new Debugged-Process self process process)
       (lambda ()
-        (get-variables~ frame kind))))
+        (get-variables frame kind))))
   
   
   ;;;
@@ -455,22 +466,22 @@
   ;;;
   
   
-  (method public (inspect process info)
+  (method public (inspect-object self process info)
     (post-event
       (lambda ()
         (let ((debugged-process (new Debugged-Process self process process)))
-          (inspect-info debugged-process info)))))
+          (inspect-info self debugged-process info)))))
   
   
-  (method public (inspect-info debugged-process info)
+  (method public (inspect-info self debugged-process info)
     (let ((client (cons info :remote)))
       (new-frame Inspector-View process: debugged-process client: client)))
   
   
-  (method public (inspect-continuation debugged-process serial)
+  (method public (inspect-continuation self debugged-process serial)
     (with-jrm-exception-handler debugged-process
       (lambda ()
-        (inspect-continuation~ (get-process~ debugged-process) serial))))
+        (inspect-continuation (get-process debugged-process) serial))))
   
   
   ;;;
@@ -478,45 +489,45 @@
   ;;;
 
 
-  (method (attach-process process focus?)
-    (unless (member? process processes test: process=?)
+  (method package (attach-process self process focus?)
+    (unless (member? process processes test: (~ process=? self))
       (execute-event
         (lambda ()
           (set! processes (append! processes (list process)))
-          (attach-process~ (get-debugger-manager) (new Debugged-Process self process process) focus?)))))
+          (attach-process (get-debugger-manager) (new Debugged-Process self process process) focus?)))))
   
   
-  (method (ready-process process cookie)
+  (method package (ready-process self process cookie)
     (let ((debugged-process (new Debugged-Process self process process)))
-      (let ((what (if (process-needs-filenames?~ (get-debugger-manager) debugged-process)
+      (let ((what (if (process-needs-filenames? (get-debugger-manager) debugged-process)
                       'all
                     'properties)))
-        (transmit-runtime-information~ process what))
+        (transmit-runtime-information process what))
       (execute-event
         (lambda ()
           (when cookie
             (invoke-registered-cookie-procedures debugged-process cookie))))))
   
   
-  (method (update-process process)
+  (method package (update-process self process)
     (when (remote-proxy? process)
-      (let ((actual (find-in processes process test: process=?)))
+      (let ((actual (find-in processes process test: (~ process=? self))))
         (when (and actual (remote-proxy? actual))
-          (set-values~ actual (get-values~ process))
+          (set-values actual (get-values process))
           (execute-event
             (lambda ()
-              (update~ (get-processes-view))
-              (update-focused-process~ (find-status-bar~ (get-application)))
-              (update-console-buttons~ (get-console-manager))))))))
+              (update (get-processes-view))
+              (update-focused-process (find-status-bar (get-application)))
+              (update-console-buttons (get-console-manager-guest))))))))
 
 
-  (method (detach-process process)
-    (when (member? process processes test: process=?)
+  (method package (detach-process self process)
+    (when (member? process processes test: (~ process=? self))
       (execute-event
         (lambda ()
-          (set! processes (remove! process processes test: process=?))
-          (clear-runtime-information process)
-          (detach-process~ (get-debugger-manager) (new Debugged-Process self process process))))))
+          (set! processes (remove! process processes test: (~ process=? self)))
+          (clear-runtime-information self process)
+          (detach-process (get-debugger-manager) (new Debugged-Process self process process))))))
   
   
   ;;;
@@ -524,20 +535,20 @@
   ;;;
   
   
-  (method (unavailable-runtime-information process)
+  (method package (unavailable-runtime-information self process)
     (table-set! process-filenames process '())
     (table-set! process-processes process '())
     (table-set! process-properties process '())
     (table-set! process-information? process #f)
-    (process-evaluate-always~ (get-debugger-manager) (new Debugged-Process self process process))
+    (process-evaluate-always (get-debugger-manager) (new Debugged-Process self process process))
     (let ((processes-view (get-processes-view)))
       (when processes-view
         (execute-event
           (lambda ()
-            (update~ processes-view))))))
+            (update processes-view))))))
   
   
-  (method (receive-runtime-information process filenames processes properties)
+  (method package (receive-runtime-information self process filenames processes properties)
     (table-set! process-filenames process filenames)
     (table-set! process-processes process processes)
     (table-set! process-properties process properties)
@@ -546,14 +557,14 @@
       (when processes-view
         (execute-event
           (lambda ()
-            (update~ processes-view))))))
+            (update processes-view))))))
   
   
-  (method override (received-runtime-filenames? process)
+  (method override (received-runtime-filenames? self process)
     (table-ref process-filenames process #f))
   
   
-  (method override (add-filename-processes queue filename)
+  (method override (add-filename-processes self queue filename)
     ;; quick hack for mac/windows parallels debugging
     (define (mac/windows-filename=? mac windows)
       (let ((effective-mac (cond ((starts-with? mac "/Volumes/C")
@@ -579,7 +590,7 @@
     (for-each add-process processes))
   
   
-  (method override (clear-runtime-information process)
+  (method override (clear-runtime-information self process)
     (table-clear process-filenames process)
     (table-clear process-processes process)
     (table-clear process-properties process)
@@ -591,12 +602,12 @@
   ;;;
   
   
-  (method override (determine-process-processes process)
+  (method override (determine-process-processes self process)
     (or (table-ref process-processes process #f) '()))
   
   
-  (method override (determine-process-child? process child)
-    (member? child (determine-process-processes process) test: process=?))
+  (method override (determine-process-child? self process child)
+    (member? child (determine-process-processes self process) test: (~ process=? self)))
   
   
   ;;;
@@ -604,12 +615,12 @@
   ;;;
   
   
-  (method override (determine-process-properties process)
+  (method override (determine-process-properties self process)
     (table-ref process-properties process '()))
   
   
-  (method override (determine-process-property process property default)
-    (getf (determine-process-properties process) property not-found: default))
+  (method override (determine-process-property self process property default)
+    (getf (determine-process-properties self process) property not-found: default))
       
   
   ;;;
@@ -617,7 +628,7 @@
   ;;;
   
   
-  (method override (determine-process-information? process)
+  (method override (determine-process-information? self process)
     (table-ref process-information? process #f))
 
   
@@ -630,7 +641,7 @@
     #f)
   
   
-  (method (report-walk-problems process detail cookie)
+  (method package (report-walk-problems self process detail cookie)
     (when (or (not cookie) (not (eqv? cookie last-reported-cookie)))
       (set! last-reported-cookie cookie)
       (let ((problems-view (get-problems-view)))
@@ -644,8 +655,8 @@
                                        no: "Ignore")))
                 (case code
                   ((yes)
-                   (report-problems~ problems-view detail highlight?: #t)
-                   (ensure-focusable~ problems-view))))))))))
+                   (report-problems problems-view detail highlight?: #t)
+                   (ensure-focusable problems-view))))))))))
   
   
   ;;;
@@ -653,53 +664,53 @@
   ;;;
   
   
-  (method public (register-console process thread select?)
+  (method public (register-console self process thread select?)
     (call-event
       (lambda ()
-        (let ((actual (or (find-in processes process test: process=?) process)))
+        (let ((actual (or (find-in processes process test: (~ process=? self)) process)))
           (let ((debugged-process (new Debugged-Process self actual actual))
                 (debugged-thread (new Debugged-Thread self actual thread)))
-            (let ((text (register-console-text debugged-process debugged-thread select?)))
+            (let ((text (register-console-text self debugged-process debugged-thread select?)))
               (let ((console (new Debugger-Resource
                                debugged-process
                                debugged-thread
                                text
                                (lambda ()
-                                 (unregister-console-text text)))))
+                                 (unregister-console-text self text)))))
                 (register-debugger-resource debugged-process console)
                 (object->serial console))))))))
   
   
-  (method protected virtual (register-console-text debugged-process debugged-thread select?)
+  (method protected virtual (register-console-text self debugged-process debugged-thread select?)
     (register-debugger-console debugged-process debugged-thread select?))
   
   
-  (method protected virtual (unregister-console-text text)
+  (method protected virtual (unregister-console-text self text)
     (unregister-debugger-console text))
   
   
-  (method public (unregister-console resource)
-    (close-resource~ (serial->object resource)))
+  (method public (unregister-console self resource)
+    (close-resource (serial->object resource)))
   
   
-  (method public virtual (select-console resource)
-    (let ((text (get-reference~ (serial->object resource))))
-      (let ((console (get-console~ text)))
-        (select-console~ (get-console-manager) console))))
+  (method public virtual (select-console self resource)
+    (let ((text (get-reference (serial->object resource))))
+      (let ((console (get-console text)))
+        (select-console (get-console-manager-guest) console))))
   
   
-  (method public (persist-console resource)
-    (persist-resource~ (serial->object resource)))
+  (method public (persist-console self resource)
+    (persist-resource (serial->object resource)))
   
   
-  (method public virtual (console-output resource str)
-    (let ((text (get-reference~ (serial->object resource))))
+  (method public virtual (console-output self resource str)
+    (let ((text (get-reference (serial->object resource))))
       (debugger-console-output text str)))
   
   
-  (method public virtual (clear-console resource)
-    (let ((text (get-reference~ (serial->object resource))))
-      (clear-console~ text)))
+  (method public virtual (clear-console self resource)
+    (let ((text (get-reference (serial->object resource))))
+      (clear-console text)))
   
   
   ;;;
@@ -707,7 +718,7 @@
   ;;;
   
   
-  (method public (status-message message)
+  (method public (status-message self message)
     (user-message message))
   
   
@@ -716,8 +727,8 @@
   ;;;
   
   
-  (method public (get-toplevel-hwnd)
-    (get-handle~ (get-toplevel)))
+  (method public (get-toplevel-hwnd self)
+    (get-handle (current-toplevel)))
   
   
   ;;;
@@ -725,19 +736,19 @@
   ;;;
   
   
-  (method public (register-stop process thread stop (step?: step? #f))
+  (method public (register-stop self process thread stop (step?: step? #f))
     (let ((debugged-process (new Debugged-Process self process process))
           (debugged-thread (new Debugged-Thread self process thread))
           (debugged-stop (new Debugged-Stop self process stop)))
       (execute-event
         (lambda ()
-          (register-stop~ (get-debugger-manager) debugged-process debugged-thread debugged-stop step?: step?)))))
+          (register-stop (get-debugger-manager) debugged-process debugged-thread debugged-stop step?: step?)))))
   
   
-  (method public (unregister-stop process thread stop)
+  (method public (unregister-stop self process thread stop)
     (let ((debugged-process (new Debugged-Process self process process))
           (debugged-thread (new Debugged-Thread self process thread))
           (debugged-stop (new Debugged-Stop self process stop)))
       (execute-event
         (lambda ()
-          (unregister-stop~ (get-debugger-manager) debugged-process debugged-thread debugged-stop)))))))
+          (unregister-stop (get-debugger-manager) debugged-process debugged-thread debugged-stop)))))))

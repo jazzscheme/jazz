@@ -80,45 +80,45 @@
       (<Synchronize-Right-Column>  name: right  title: "Filesystem" width: 80 justification: center)))
   
   
-  (method (on-double-click evt)
-    (toggle-action))
+  (method (on-double-click self evt)
+    (toggle-action self))
   
   
-  (method (toggle-action)
-    (let ((selected (get-selected-rows)))
-      (let ((rows (if (null? selected) (collect-visible-rows) selected)))
+  (method (toggle-action self)
+    (let ((selected (get-selected-rows self)))
+      (let ((rows (if (null? selected) (collect-visible-rows self) selected)))
         (for-each (lambda (row)
-                    (let ((cell (new Cell (row->line row) 2)))
-                      (let ((data (get-cell-data cell)))
+                    (let ((cell (new Cell (row->line self row) 2)))
+                      (let ((data (get-cell-data self cell)))
                         (let ((action (car data)))
                           (if (eq? action 'none)
                               (bell)
                             (set-car! data (case action
                                              ((left) 'right)
                                              ((right) 'left)))
-                            (invalidate-cell cell))))))
+                            (invalidate-cell self cell))))))
                   rows))))
   
   
-  (method (set-actions action)
-    (let ((selected (get-selected-rows)))
-      (let ((rows (if (null? selected) (collect-visible-rows) selected)))
+  (method (set-actions self action)
+    (let ((selected (get-selected-rows self)))
+      (let ((rows (if (null? selected) (collect-visible-rows self) selected)))
         (for-each (lambda (row)
-                    (let ((cell (new Cell (row->line row) 2)))
-                      (let ((data (get-cell-data cell)))
+                    (let ((cell (new Cell (row->line self row) 2)))
+                      (let ((data (get-cell-data self cell)))
                         (set-car! data action)
-                        (invalidate-cell cell))))
+                        (invalidate-cell self cell))))
                   rows))))
   
   
-  (method (copy-right)
-    (set-actions 'right))
+  (method package (copy-right self)
+    (set-actions self 'right))
   
-  (method (no-action)
-    (set-actions 'none))
+  (method package (no-action self)
+    (set-actions self 'none))
   
-  (method (copy-left)
-    (set-actions 'left)))
+  (method package (copy-left self)
+    (set-actions self 'left)))
 
 
 ;;;
@@ -129,18 +129,18 @@
 (class Synchronize-Item-Column extends Tree-Column
   
   
-  (method override (draw-data surface context row data width height)
-    (draw-background surface context row data width height)
-    (when (present? data)
-      (let ((image (present-image data)))
-        (draw-image~ (get-images-portfolio~ (get-application)) surface context image (quotient (- width 16) 2) 0))))
+  (method override (draw-data self surface context row data width height)
+    (draw-background self surface context row data width height)
+    (when (present? self data)
+      (let ((image (present-image self data)))
+        (draw-image (get-images-portfolio (get-application)) surface context image (quotient (- width 16) 2) 0))))
   
   
-  (method abstract protected virtual (present? data)
+  (method abstract protected virtual (present? self data)
     )
   
   
-  (method abstract protected virtual (present-image data)
+  (method abstract protected virtual (present-image self data)
     ))
 
 
@@ -152,11 +152,11 @@
 (class Synchronize-Left-Column extends Synchronize-Item-Column
   
   
-  (method override (present? data)
+  (method override (present? self data)
     (eq? data :left))
   
   
-  (method override (present-image data)
+  (method override (present-image self data)
     {Image-Resource "Green"}))
 
 
@@ -168,8 +168,8 @@
 (class Synchronize-Action-Column extends Tree-Column
   
   
-  (method override (draw-data surface context row data width height)
-    (draw-background surface context row data width height)
+  (method override (draw-data self surface context row data width height)
+    (draw-background self surface context row data width height)
     (when data
       (bind (action . info) data
         (unless (eq? action 'none)
@@ -183,7 +183,7 @@
                           (case (car info)
                             ((:left) {Image-Resource "Execute"})
                             ((:right) {Image-Resource "DeleteRight"}))))))
-            (draw-image~ (get-images-portfolio~ appl) surface context image (+ (quotient (- width 16) 2) 1) 0)))))))
+            (draw-image (get-images-portfolio appl) surface context image (+ (quotient (- width 16) 2) 1) 0)))))))
 
 
 ;;;
@@ -194,9 +194,9 @@
 (class Synchronize-Right-Column extends Synchronize-Item-Column
   
   
-  (method override (present? data)
+  (method override (present? self data)
     (eq? data :right))
   
   
-  (method override (present-image data)
+  (method override (present-image self data)
     {Image-Resource "Blue"})))

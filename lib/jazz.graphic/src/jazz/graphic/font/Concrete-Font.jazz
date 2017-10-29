@@ -56,7 +56,7 @@
   (slot glyph-cache initialize #f)
   
   
-  (method override (initialize font)
+  (method override (initialize self font)
     (define (create-cairo-scaled-font font-face point-size bold? antialias subpixel hint-style hint-metrics)
       (define (cairo-antialias antialias)
         (case antialias
@@ -87,14 +87,14 @@
           ((off) CAIRO_HINT_METRICS_OFF)
           ((on) CAIRO_HINT_METRICS_ON)))
       
-      (let ((height (and point-size (calculate-height point-size)))
+      (let ((height (and point-size (calculate-height self point-size)))
             (matrix (cairo_matrix_t-make))
             (ctm (cairo_matrix_t-make))
             (options (cairo_font_options_create)))
-        (cairo_font_options_set_antialias options (cairo-antialias (or antialias (find-setting 'cairo.antialias (default-antialias)))))
-        (cairo_font_options_set_subpixel_order options (cairo-subpixel (or subpixel (find-setting 'cairo.subpixel (default-subpixel)))))
-        (cairo_font_options_set_hint_style options (cairo-hint-style (or hint-style (find-setting 'cairo.hint-style (default-hint-style)))))
-        (cairo_font_options_set_hint_metrics options (cairo-hint-metrics (or hint-metrics (find-setting 'cairo.hint-metrics (default-hint-metrics)))))
+        (cairo_font_options_set_antialias options (cairo-antialias (or antialias (find-setting 'cairo.antialias (default-antialias self)))))
+        (cairo_font_options_set_subpixel_order options (cairo-subpixel (or subpixel (find-setting 'cairo.subpixel (default-subpixel self)))))
+        (cairo_font_options_set_hint_style options (cairo-hint-style (or hint-style (find-setting 'cairo.hint-style (default-hint-style self)))))
+        (cairo_font_options_set_hint_metrics options (cairo-hint-metrics (or hint-metrics (find-setting 'cairo.hint-metrics (default-hint-metrics self)))))
         (if height
             (cairo_matrix_init_scale matrix height height)
           (cairo_matrix_init_identity matrix))
@@ -104,69 +104,69 @@
           (cairo_matrix_t-free ctm)
           (cairo_font_options_destroy options))))
     
-    (nextmethod)
-    (let ((font-name (get-font-name~ font))
-          (point-size (get-point-size~ font))
-          (bold? (get-bold?~ font))
-          (italic? (get-italic?~ font))
-          (underline? (get-underline?~ font))
-          (shadow (get-shadow~ font))
-          (antialias (get-antialias~ font))
-          (subpixel (get-subpixel~ font))
-          (hint-style (get-hint-style~ font))
-          (hint-metrics (get-hint-metrics~ font)))
-      (set! font~self font)
-      (set! local?~self (symbol? font-name))
-      (set! handle~self (create-font local? font-name: font-name point-size: point-size bold?: bold? italic?: italic? underline?: underline?))
-      (set! font-face~self (create-cairo-font-face local? handle~self))
-      (set! scaled-font~self (create-cairo-scaled-font font-face point-size bold? antialias subpixel hint-style hint-metrics))
-      (set! glyph-cache~self (make-vector 256 #f))))
+    (nextmethod self)
+    (let ((font-name (get-font-name font))
+          (point-size (get-point-size font))
+          (bold? (get-bold? font))
+          (italic? (get-italic? font))
+          (underline? (get-underline? font))
+          (shadow (get-shadow font))
+          (antialias (get-antialias font))
+          (subpixel (get-subpixel font))
+          (hint-style (get-hint-style font))
+          (hint-metrics (get-hint-metrics font)))
+      (set! self.font font)
+      (set! self.local? (symbol? font-name))
+      (set! self.handle (create-font self local? font-name: font-name point-size: point-size bold?: bold? italic?: italic? underline?: underline?))
+      (set! self.font-face (create-cairo-font-face self local? self.handle))
+      (set! self.scaled-font (create-cairo-scaled-font font-face point-size bold? antialias subpixel hint-style hint-metrics))
+      (set! self.glyph-cache (make-vector 256 #f))))
 
 
-  (method override (destroy)
+  (method override (destroy self)
     (cairo_scaled_font_destroy scaled-font)
-    (destroy-cairo-font-face font-face)
-    (destroy-font local? handle)
-    (nextmethod))
+    (destroy-cairo-font-face self font-face)
+    (destroy-font self local? handle)
+    (nextmethod self))
   
   
-  (method protected virtual (calculate-height point-size) <fl>
+  (method protected virtual (calculate-height self point-size) <fl>
     (cast <fl> point-size))
   
-  (method protected virtual (adjust-height-hack height)
+  (method protected virtual (adjust-height-hack self height)
     (+ 1 (fxceiling height)))
   
   
-  (method protected virtual (default-antialias)
+  (method protected virtual (default-antialias self)
     'default)
   
-  (method protected virtual (default-subpixel)
+  (method protected virtual (default-subpixel self)
     'default)
 
-  (method protected virtual (default-hint-style)
+  (method protected virtual (default-hint-style self)
     'slight)
 
-  (method protected virtual (default-hint-metrics)
+  (method protected virtual (default-hint-metrics self)
     'default)
   
   
-  (method protected virtual (create-font . rest)
+  (method protected virtual (create-font self . rest)
     )
   
   
-  (method protected virtual (destroy-font . rest)
+  (method protected virtual (destroy-font self . rest)
     )
   
   
-  (method protected virtual (create-cairo-font-face . rest)
+  (method protected virtual (create-cairo-font-face self . rest)
     )
   
   
-  (method protected virtual (destroy-cairo-font-face . rest)
+  (method protected virtual (destroy-cairo-font-face self . rest)
     )
   
   
-  (method protected virtual (cairo-glyph-index font char)
+  (method protected virtual (cairo-glyph-index self font char)
     )
   
   
@@ -185,28 +185,28 @@
     *font-surface*)
 
   
-  (method public (text-extent text)
-    (set-font~ (font-surface) font)
-    (get-text-extent~ (font-surface) text))
+  (method public (text-extent self text)
+    (set-font (font-surface) font)
+    (get-text-extent (font-surface) text))
 
   
-  (method public (text-width text)
+  (method public (text-width self text)
     (and text
          (begin
-           (set-font~ (font-surface) font)
-           (get-text-width~ (font-surface) text))))
+           (set-font (font-surface) font)
+           (get-text-width (font-surface) text))))
   
 
-  (method public (font-height)
-    (set-font~ (font-surface) font)
-    (get-font-height~ (font-surface)))
+  (method public (font-height self)
+    (set-font (font-surface) font)
+    (get-font-height (font-surface)))
   
   
-  (method public (glyph-index char)
+  (method public (glyph-index self char)
     (if (> char 255)
-        (cairo-glyph-index font char)
+        (cairo-glyph-index self font char)
       (or (vector-ref glyph-cache char)
-          (let ((index (cairo-glyph-index font char)))
+          (let ((index (cairo-glyph-index self font char)))
             (vector-set! glyph-cache char index)
             index))))
   
@@ -216,32 +216,32 @@
   ;;;
   
   
-  (method public (get-metrics)
+  (method public (get-metrics self)
     (unless metrics
       (set! metrics
             (begin
-              (set-font~ (font-surface) font)
-              (new Font-Metrics (get-text-metrics~ (font-surface)) (lambda (height) (adjust-height-hack height))))))
+              (set-font (font-surface) font)
+              (new Font-Metrics (get-text-metrics (font-surface)) (lambda (height) (adjust-height-hack self height))))))
     metrics)
 
   
-  (method public (get-all-widths)
+  (method public (get-all-widths self)
     (unless all-widths
       (set! all-widths
             (begin
-              (set-font~ (font-surface) font)
-              (get-char-widths~ (font-surface)))))
+              (set-font (font-surface) font)
+              (get-char-widths (font-surface)))))
     all-widths)
   
   
-  (method public (get-widths . rest)
-    (set-font~ (font-surface) font)
-    (get-char-widths~ (font-surface)))
+  (method public (get-widths self . rest)
+    (set-font (font-surface) font)
+    (get-char-widths (font-surface)))
   
   
-  (method public (get-char-width c)
+  (method public (get-char-width self c)
     (let ((n (char->integer c)))
       (if (< n 256)
-          (vector-ref (get-all-widths) n)
-        (set-font~ (font-surface) font)
-        (get-char-width~ (font-surface) n))))))
+          (vector-ref (get-all-widths self) n)
+        (set-font (font-surface) font)
+        (get-char-width (font-surface) n))))))

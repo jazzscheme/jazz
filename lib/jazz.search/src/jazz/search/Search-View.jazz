@@ -41,13 +41,18 @@
 (import (jazz.application)
         (jazz.catalog)
         (jazz.editor.jazz)
+        (jazz.editor.lisp)
         (jazz.graphic)
         (jazz.handler)
+        (jazz.ide)
         (jazz.ide.activity)
         (jazz.io)
         (jazz.jml)
+        (jazz.outline)
         (jazz.project)
+        (jazz.reporter)
         (jazz.search)
+        (jazz.text)
         (jazz.tree)
         (jazz.ui))
 
@@ -57,7 +62,7 @@
   
   (form
     (<install>
-      (<Push-Button>                   name: search          title: "Search" position: {Point 755 14} size: {Dimension 80 24} action-handler: {Event-Handler :form on-search} default?: #t)
+      (<Push-Button>                   name: search          title: "Search" position: {Point 755 14} size: {Dimension 80 24} action-handler: {Event-Handler :form on-start-search} default?: #t)
       (<Group-Box>                     name: domain          position: {Point 10 8} size: {Dimension 350 97})
       (<Splitter>                      name: vertical        position: {Point 362 8} size: {Dimension 6 97} move-handler: {Event-Handler :form on-splitter-move})
       (<Border-View>                   name: targets-border  position: {Point 370 14} size: {Dimension 373 91} border-type: edge style: ()
@@ -77,20 +82,20 @@
       (<Check-Box>                     name: expression?     title: "Expression" visible?: #f position: {Point 388 114} size: {Dimension 200 18})))
   
   
-  (method public (next-radio)
-    (let* ((domain (get-search-domain))
-           (domains (get-search-domains))
+  (method public (next-radio self)
+    (let* ((domain (get-search-domain self))
+           (domains (get-search-domains self))
            (pos (find domains domain)))
       (when pos
-        (set-search-domain (element domains (modulo (+ pos 1) (length domains)))))))
+        (set-search-domain self (element domains (modulo (+ pos 1) (length domains)))))))
   
   
-  (method public (next-tab)
-    (let* ((manager (get-manager))
-           (max-selection (length (get-children~ manager)))
-           (old-selection (get-selection~ manager))
+  (method public (next-tab self)
+    (let* ((manager (get-manager self))
+           (max-selection (length (get-children manager)))
+           (old-selection (get-selection manager))
            (new-selection (modulo (+ old-selection 1) max-selection)))
-      (set-selection~ manager new-selection)))
+      (set-selection manager new-selection)))
 
 
   ;;;
@@ -98,12 +103,12 @@
   ;;;
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (let ((tree (get-targets)))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (let ((tree (get-targets self)))
       (for-each (lambda (column)
-                  (set-justification~ column '(1 1)))
-                (get-columns~ tree))))
+                  (set-justification column '(1 1)))
+                (get-columns tree))))
 
 
   ;;;
@@ -111,8 +116,8 @@
   ;;;
   
   
-  (method (get-manager)
-    (find-ascendant Search-Manager))
+  (method package (get-manager self)
+    (find-ascendant self Search-Manager))
     
 
   ;;;
@@ -120,43 +125,43 @@
   ;;;
   
   
-  (method protected (get-results)
+  (method package (get-results self)
     (get-search-results))
   
   
-  (method public (get-targets)
-    (locate 'targets))
+  (method public (get-targets self)
+    (locate self 'targets))
   
   
-  (method public (get-search-targets)
-    (let* ((tree (get-targets))
-           (height (get-visible-count~ tree))
+  (method public (get-search-targets self)
+    (let* ((tree (get-targets self))
+           (height (get-visible-count tree))
            (fact (new List-Factory)))
       ;; to-convert temp patch
-      (if (in-edition?~ tree)
+      (if (in-edition? tree)
           '()
         (for-each (lambda (line)
-                    (let ((find (get-title~ (get-cell-data~ tree (new Cell line 0))))
-                          (repl (get-title~ (get-cell-data~ tree (new Cell line 1)))))
+                    (let ((find (get-title (get-cell-data tree (new Cell line 0))))
+                          (repl (get-title (get-cell-data tree (new Cell line 1)))))
                       (unless (and (empty-string? find) (empty-string? repl))
-                        (put~ fact (list find repl)))))
+                        (put fact (list find repl)))))
                   (naturals 0 height))
-        (get-output~ fact))))
+        (get-output fact))))
 
 
-  (method public (set-search-targets targets)
-    (let ((tree (get-targets))
+  (method public (set-search-targets self targets)
+    (let ((tree (get-targets self))
           (count (length targets)))
-      (ensure-visible-count~ tree count)
-      (let ((width (get-columns-count~ tree))
-            (height (get-visible-count~ tree)))
-        (with-update-locked~ tree
+      (ensure-visible-count tree count)
+      (let ((width (get-columns-count tree))
+            (height (get-visible-count tree)))
+        (with-update-locked tree
           (lambda ()
             (for-each (lambda (target line)
                         (for-each (lambda (target col)
                                     (let ((cell (new Cell line col)))
-                                      (set-cell-title~ tree cell target)
-                                      (invalidate-cell~ tree cell)))
+                                      (set-cell-title tree cell target)
+                                      (invalidate-cell tree cell)))
                                   target
                                   (naturals 0 (length target))))
                       targets
@@ -164,96 +169,96 @@
             (for-each (lambda (line)
                         (for-each (lambda (col)
                                     (let ((cell (new Cell line col)))
-                                      (set-cell-title~ tree cell "")
-                                      (invalidate-cell~ tree cell)))
+                                      (set-cell-title tree cell "")
+                                      (invalidate-cell tree cell)))
                                   (naturals 0 width)))
                       (naturals (length targets) height)))))))
   
   
-  (method public (get-find-targets)
-    (let ((whole-words? (get-whole-words?))
-          (ignore-case? (get-ignore-case?))
-          (regexp? (get-regexp?)))
+  (method public (get-find-targets self)
+    (let ((whole-words? (get-whole-words? self))
+          (ignore-case? (get-ignore-case? self))
+          (regexp? (get-regexp? self)))
       (->search-set
         (map (lambda (target)
                (make-search-context (first target)
                  whole-words?: whole-words?
                  ignore-case?: ignore-case?
                  regexp?: regexp?))
-             (get-search-targets)))))
+             (get-search-targets self)))))
   
   
-  (method (get-replace-targets)
-    (new Replace (map second (get-search-targets))
-         preserve-case?: (get-preserve-case?)
-         play-recording?: (get-play-recording?)))
+  (method (get-replace-targets self)
+    (new Replace (map second (get-search-targets self))
+         preserve-case?: (get-preserve-case? self)
+         play-recording?: (get-play-recording? self)))
   
   
-  (method public (get-search-domain)
-    (let ((group (get-content~ (locate 'domain))))
+  (method public (get-search-domain self)
+    (let ((group (get-content (locate self 'domain))))
       (find-if (lambda (name)
-                 (let ((radio (find-component~ group name)))
-                   (and radio (get-selected?~ radio)
+                 (let ((radio (find-component group name)))
+                   (and radio (get-selected? radio)
                      name)))
-               (get-search-domains))))
+               (get-search-domains self))))
   
   
-  (method public (set-search-domain domain)
-    (let* ((group (get-content~ (locate 'domain)))
-           (radio (find-component~ group domain)))
+  (method public (set-search-domain self domain)
+    (let* ((group (get-content (locate self 'domain)))
+           (radio (find-component group domain)))
       (when radio
         (for-each (lambda (child)
                     (when (is? child Radio-Button)
-                      (set-selected?~ child (eq? child radio))))
-                  (get-children~ group)))))
+                      (set-selected? child (eq? child radio))))
+                  (get-children group)))))
   
   
-  (method public (get-whole-words?)
-    (get-checked?~ (locate 'whole-words?)))
+  (method public (get-whole-words? self)
+    (get-checked? (locate self 'whole-words?)))
   
   
-  (method public (set-whole-words? flag)
-    (set-checked?~ (locate 'whole-words?) flag))
+  (method public (set-whole-words? self flag)
+    (set-checked? (locate self 'whole-words?) flag))
   
   
-  (method public (get-ignore-case?)
-    (get-checked?~ (locate 'ignore-case?)))
+  (method public (get-ignore-case? self)
+    (get-checked? (locate self 'ignore-case?)))
   
   
-  (method public (set-ignore-case? flag)
-    (set-checked?~ (locate 'ignore-case?) flag))
+  (method public (set-ignore-case? self flag)
+    (set-checked? (locate self 'ignore-case?) flag))
   
   
-  (method public (get-regexp?)
-    (get-checked?~ (locate 'regexp?)))
+  (method public (get-regexp? self)
+    (get-checked? (locate self 'regexp?)))
   
   
-  (method public (set-regexp? flag)
-    (set-checked?~ (locate 'regexp?) flag))
+  (method public (set-regexp? self flag)
+    (set-checked? (locate self 'regexp?) flag))
   
   
-  (method public (get-preserve-case?)
-    (get-checked?~ (locate 'preserve-case?)))
+  (method public (get-preserve-case? self)
+    (get-checked? (locate self 'preserve-case?)))
   
   
-  (method public (set-preserve-case? flag)
-    (set-checked?~ (locate 'preserve-case?) flag))
+  (method public (set-preserve-case? self flag)
+    (set-checked? (locate self 'preserve-case?) flag))
   
   
-  (method public (get-play-recording?)
-    (get-checked?~ (locate 'play-recording?)))
+  (method public (get-play-recording? self)
+    (get-checked? (locate self 'play-recording?)))
   
   
-  (method public (set-play-recording? flag)
-    (set-checked?~ (locate 'play-recording?) flag))
+  (method public (set-play-recording? self flag)
+    (set-checked? (locate self 'play-recording?) flag))
   
   
-  (method public (get-expression?)
-    (get-checked?~ (locate 'expression?)))
+  (method public (get-expression? self)
+    (get-checked? (locate self 'expression?)))
   
   
-  (method public (set-expression? flag)
-    (set-checked?~ (locate 'expression?) flag))
+  (method public (set-expression? self flag)
+    (set-checked? (locate self 'expression?) flag))
     
 
   ;;;
@@ -261,7 +266,7 @@
   ;;;
   
   
-  (method public virtual (get-search-domains)
+  (method public virtual (get-search-domains self)
     '())
 
 
@@ -270,33 +275,33 @@
   ;;;
   
   
-  (method package (on-search evt)
-    (search))
+  (method package (on-start-search self evt)
+    (start-search self))
 
 
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (move-figure~ (locate 'search) dh 0)
-    (size-figure~ (locate 'domain) 0 dv)
-    (size-figure~ (locate 'targets-border) dh dv)
-    (move-figure~ (locate 'whole-words?) 0 dv)
-    (move-figure~ (locate 'ignore-case?) 0 dv)
-    (move-figure~ (locate 'regexp?) 0 dv)
-    (move-figure~ (locate 'preserve-case?) 0 dv)
-    (move-figure~ (locate 'play-recording?) 0 dv)
-    (move-figure~ (locate 'expression?) 0 dv))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (move-figure (locate self 'search) dh 0)
+    (size-figure (locate self 'domain) 0 dv)
+    (size-figure (locate self 'targets-border) dh dv)
+    (move-figure (locate self 'whole-words?) 0 dv)
+    (move-figure (locate self 'ignore-case?) 0 dv)
+    (move-figure (locate self 'regexp?) 0 dv)
+    (move-figure (locate self 'preserve-case?) 0 dv)
+    (move-figure (locate self 'play-recording?) 0 dv)
+    (move-figure (locate self 'expression?) 0 dv))
   
   
-  (method (on-splitter-move evt)
-    (let ((delta (get-property~ evt delta:)))
-      (size-figure~ (locate 'domain) delta 0)
-      (move-figure~ (locate 'targets-border) delta 0)
-      (size-figure~ (locate 'targets-border) (- delta) 0)
-      (update-view)))
+  (method (on-splitter-move self evt)
+    (let ((delta (get-property evt delta:)))
+      (size-figure (locate self 'domain) delta 0)
+      (move-figure (locate self 'targets-border) delta 0)
+      (size-figure (locate self 'targets-border) (- delta) 0)
+      (update-view self)))
     
     
-  (method override (on-return-press evt)
-    (on-search evt))
+  (method override (on-return-press self evt)
+    (on-search self evt))
 
 
   ;;;
@@ -304,15 +309,15 @@
   ;;;
   
   
-  (method protected (get-search-reporter count)
+  (method protected (get-search-reporter self count)
     (let* ((manager (get-activity-manager))
-           (reporter (register-activity~ manager)))
-      (setup-search-reporter reporter count)
-      (show~ manager)
+           (reporter (register-activity manager)))
+      (setup-search-reporter self reporter count)
+      (show manager)
       reporter))
   
   
-  (method protected virtual (setup-search-reporter reporter count)
+  (method protected virtual (setup-search-reporter self reporter count)
     )
 
 
@@ -321,79 +326,79 @@
   ;;;
   
   
-  (method (search)
-    (hide~ (get-player))
+  (method (start-search self)
+    (hide (get-player self))
     ;; quick hack for cocoa bug
-    (acquire-focus~ (get-toplevel))
-    (end-edition~ (get-targets))
-    (let ((find (get-find-targets))
-          (replace (get-replace-targets)))
+    (acquire-focus (current-toplevel))
+    (end-edition (get-targets self))
+    (let ((find (get-find-targets self))
+          (replace (get-replace-targets self)))
       (if (null? find)
           (bell)
-        (search-targets find replace))))
+        (search-targets self find replace))))
   
   
-  (method protected virtual (search-targets find replace)
+  (method protected virtual (search-targets self find replace)
     )
 
 
-  (method (search-in-file search file resultset reporter)
-    (unless (and reporter (cancel-requested?~ reporter))
+  (method (search-in-file self search file resultset reporter)
+    (unless (and reporter (cancel-requested? reporter))
       (when reporter
-        (user-feedback~ reporter "Searching {a}" (get-name~ file))
-        (step-it~ reporter))
-      (let ((found (search-file file search)))
+        (report-feedback reporter "Searching {a}" (get-name file))
+        (step-it reporter))
+      (let ((found (search-file self file search)))
         (when found
-          (add-result~ resultset (new File-Search-Result resultset file))))))
+          (add-result resultset (new File-Search-Result resultset file))))))
   
   
-  (method protected (search-in-directories search directories extensions resultset reporter)
+  (method protected (search-in-directories self search directories extensions resultset reporter)
     (for-each (lambda (directory)
-                (search-in-directory search directory extensions resultset reporter))
+                (search-in-directory self search directory extensions resultset reporter))
               directories))
   
 
-  (method protected (search-in-directory search directory extensions resultset reporter)
+  (method protected (search-in-directory self search directory extensions resultset reporter)
     (let ((all-extensions? (equal? extensions '("*"))))
-      (iterate-project/directory directory
+      (iterate-project/directory self directory
         (lambda (file)
-          (let ((ext (get-extension~ file)))
-            (cond ((and all-extensions? (not (member? ext Binary-Extensions test: extension=?)) @convert (<= (get-size~ file) 512000))
-                   (search-in-file search file resultset reporter))
+          (let ((ext (get-extension file)))
+            (cond ((and all-extensions? (not (member? ext Binary-Extensions test: extension=?)) @convert (<= (get-size file) 512000))
+                   (search-in-file self search file resultset reporter))
                   ((member? ext extensions test: extension=?)
-                   (search-in-file search file resultset reporter))))))))
+                   (search-in-file self search file resultset reporter))))))))
 
 
-  (method (search-file file search)
-    (and (exists?~ file)
-         (let ((ext (get-extension~ file)))
-           (if (not (get-expression?~ search))
+  (method (search-file self file search)
+    (and (exists? file)
+         (let ((ext (get-extension file)))
+           (if (not (get-expression? search))
                (call-with-input-file (path-settings file char-encoding-errors: #f eol-encoding: 'cr-lf)
                  (lambda (input)
                    (let ((content (read-content-string input))
                          (match-test (extension-match-test ext))
                          (constituent-test (extension-constituent-test ext)))
-                     (regular-search content (get-find~ search) match-test: match-test constituent-test: constituent-test))))
+                     (regular-search content (get-find search) match-test: match-test constituent-test: constituent-test))))
              (let ((text (new Jazz-Text-View)))
-               (set-moniker~ text file)
-               (let* ((beginning (text-beginning~ text))
+               (set-moniker text file)
+               (let* ((beginning (text-beginning text))
                       (expl (new Jazz-Explorer text start: beginning end: beginning))
                       (mode (if (extension=? ext "jazz") 'code 'quotation)))
-                 (search-expressions~ expl mode search beginning)))))))
+                 (search-expressions expl mode search beginning)))))))
   
   
-  (method protected (iterate-project/directory project/directory proc)
-    (define (find-project name)
+  (method protected (iterate-project/directory self project/directory proc)
+    (define (find-project-named name)
       (let ((workbench (get-workbench)))
-        (or (find-project~ workbench project/directory error?: #f)
-            (find-project~ workbench project/directory include-inactives?: #t))))
+        (or (find-project workbench project/directory error?: #f)
+            (find-project workbench project/directory include-inactives?: #t))))
     
     (if (symbol? project/directory)
-        (for-each-project~ (find-project name)
+        (for-each-project (find-project-named name)
           (lambda (project)
-            (iterate-files~ project
+            (iterate-files project
               proc)))
-      (iterate-directory~ project/directory proc
+      (iterate-directory project/directory proc
         ignored-toplevel-dirnames: '(".git" ".hg" "bin" "build" "bootstrap" "deploy" "gambit"))))
 
 
@@ -402,9 +407,9 @@
   ;;;
 
 
-  (method public virtual (select-search)
-    (let ((targets (get-targets)))
-      (select-cell~ targets {Cell 0 0})))
+  (method public virtual (select-search self)
+    (let ((targets (get-targets self)))
+      (select-cell targets {Cell 0 0})))
   
   
   ;;;
@@ -412,31 +417,31 @@
   ;;;
   
   
-  (method (current-history-item)
-    (let ((tree (locate 'results)))
+  (method package (current-history-item self)
+    (let ((tree (locate self 'results)))
       (new History-Search-Item
-        (get-search-domain)
-        (get-search-targets)
-        (get-whole-words?)
-        (get-ignore-case?)
-        (get-preserve-case?)
-        (get-play-recording?)
-        (get-expression?)
-        (get-content~ tree)
-        (get-selection~ tree))))
+        (get-search-domain self)
+        (get-search-targets self)
+        (get-whole-words? self)
+        (get-ignore-case? self)
+        (get-preserve-case? self)
+        (get-play-recording? self)
+        (get-expression? self)
+        (get-content tree)
+        (get-selection tree))))
   
   
-  (method protected (install-history-item item)
-    (let ((tree (locate 'results)))
-      (set-search-domain (get-domain~ item))
-      (set-search-targets (get-targets~ item))
-      (set-whole-words? (get-whole-words?~ item))
-      (set-ignore-case? (get-ignore-case?~ item))
-      (set-preserve-case? (get-preserve-case?~ item))
-      (set-play-recording? (get-play-recording?~ item))
-      (set-expression? (get-expression?~ item))
-      (set-content~ tree (get-content~ item))
-      (set-selection~ tree (get-selection~ item)))))
+  (method package (install-history-item self item)
+    (let ((tree (locate self 'results)))
+      (set-search-domain self (get-domain item))
+      (set-search-targets self (get-targets item))
+      (set-whole-words? self (get-whole-words? item))
+      (set-ignore-case? self (get-ignore-case? item))
+      (set-preserve-case? self (get-preserve-case? item))
+      (set-play-recording? self (get-play-recording? item))
+      (set-expression? self (get-expression? item))
+      (set-content tree (get-content item))
+      (set-selection tree (get-selection item)))))
 
 
 ;;;
@@ -447,39 +452,39 @@
 (class Search-Targets extends Tree-View
   
   
-  (method override (mouse-down evt)
-    (let ((cell (view->tree (get-position~ evt) any?: #t uniform-height?: #t)))
+  (method override (mouse-down self evt)
+    (let ((cell (view->tree self (get-position evt) any?: #t uniform-height?: #t)))
       (if (not cell)
-          (nextmethod evt)
-        (select-cell cell))))
+          (nextmethod self evt)
+        (select-cell self cell))))
   
   
-  (method override (tab-stop-enter)
-    (select-cell {Cell 0 0}))
+  (method override (tab-stop-enter self)
+    (select-cell self {Cell 0 0}))
   
   
-  (method override (add-empty-row (father: father #f))
+  (method override (add-empty-row self (father: father #f))
     (let ((father (or father root-row))
-          (children (map new-empty-cell~ columns)))
-      (add-row father: father children: children)))
+          (children (map new-empty-cell columns)))
+      (add-row self father: father children: children)))
   
   
-  (method override (select-cell cell)
-    (end-edition)
-    (let* ((data (get-cell-data cell))
-           (left (if (= (get-col~ cell) 0) 3 0))
+  (method override (select-cell self cell)
+    (end-edition self)
+    (let* ((data (get-cell-data self cell))
+           (left (if (= (get-col cell) 0) 3 0))
            (editor (new Border-View border-type: 'solid border-color: {Color Medium}))
            (scroller (new Scroller-View parent: editor vscroll?: #f hscroll?: #f))
-           (text (new Tree-Embedded-Search-Text-View parent: (get-content~ scroller) left-padding: left top-padding: 0 font: font)))
+           (text (new Tree-Embedded-Search-Text-View parent: (get-content scroller) left-padding: left top-padding: 0 font: font)))
       (when data
-        (set-string-content~ text (get-title~ data)))
-      (ensure-row-exists (get-line~ cell))
-      (edit-cell cell
+        (set-string-content text (get-title data)))
+      (ensure-row-exists self (get-line cell))
+      (edit-cell self cell
                  editor: editor
                  after-end: (lambda (site)
-                              (set-title~ (get-site-data site) (get-string-content~ text))))
-      (set-client~ scroller text)
-      (set-tree~ text self)
-      (layout-scrollee~ text)
-      (acquire-focus~ text)
-      (select-all~ text)))))
+                              (set-title (get-site-data self site) (get-string-content text))))
+      (set-client scroller text)
+      (set-tree text self)
+      (layout-scrollee text)
+      (acquire-focus text)
+      (select-all text)))))

@@ -42,6 +42,7 @@
         (jazz.feedback)
         (jazz.ide)
         (jazz.jml)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -61,7 +62,7 @@
                 (<Tree-Node-Column> name: message  title: "Message" width: 300))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'output-log)
 
 
@@ -70,11 +71,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Spy"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Output Log")
   
   
@@ -83,9 +84,9 @@
   ;;;
   
   
-  (method public (log-line line (father: father #f) (state: state 'collapsed) (image: image #f) (user-data: user-data #f))
-    (let ((tree (get-tree)))
-      (add-row~ tree father: father state: state children: (list (new Tree-Node title: line image: image)) user-data: user-data)))
+  (method public (log-line self line (father: father #f) (state: state 'collapsed) (image: image #f) (user-data: user-data #f))
+    (let ((tree (get-tree self)))
+      (add-row tree father: father state: state children: (list (new Tree-Node title: line image: image)) user-data: user-data)))
 
   
   ;;;
@@ -93,29 +94,29 @@
   ;;;
   
 
-  (method override (edit-selection forward?)
-    (let* ((tree (get-tree))
-           (selection (get-single-selection~ tree)))
+  (method override (edit-selection self forward?)
+    (let* ((tree (get-tree self))
+           (selection (get-single-selection tree)))
       (when selection
-        (let ((info (get-user-data~ (get-row~ tree selection))))
+        (let ((info (get-user-data (get-row tree selection))))
           (cond ((null? info)
                  (bell))
                 ((is? info Loggable)
-                 (edit~ info))
+                 (edit info))
                 ((and (pair? info) (is? (car info) Loggable))
-                 (edit-child~ (car info) (cdr info)))
+                 (edit-child (car info) (cdr info)))
                 (else
                  (bind (file line msg) info
                    (when msg
                      (user-message "{a}" msg))
-                   (let ((frame (edit-document file line forward? #t)))
-                     (focus-host~ frame)))))))))
+                   (let ((frame (edit-document self file line forward? #t)))
+                     (focus-host frame)))))))))
 
 
-  (method (edit-document file line forward? focus?)
+  (method package (edit-document self file line forward? focus?)
     (with-cursor :wait
       (lambda ()
         (let* ((selection (and line (new Range$Cell$ (new Cell line 0) (new Cell (+ line 1) 0))))
-               (frame (edit-document~ (get-application) file selection: selection visible?: #f)))
-          (focus-host~ frame)
+               (frame (edit-document (get-application) file selection: selection visible?: #f)))
+          (focus-host frame)
           frame))))))

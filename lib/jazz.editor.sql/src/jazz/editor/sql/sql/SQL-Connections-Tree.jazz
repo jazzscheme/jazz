@@ -40,6 +40,7 @@
 
 (import (jazz.designer)
         (jazz.editor.sql)
+        (jazz.event)
         (jazz.graphic)
         (jazz.jml)
         (jazz.tree))
@@ -52,47 +53,48 @@
     (<install> portfolio: :images draggable?: #t reorderable?: #t highlight-edited?: #f editable?: #f))
       
   
-  (method override (form-model form)
-    (case (get-name~ form)
+  (method override (form-model self form)
+    (case (get-name form)
       ((descendant) Connection-Column)
-      (else (nextmethod form))))
+      (else (nextmethod self form))))
   
   
-  (method override (mouse-down evt)
-    (nextmethod evt)
-    (when (get-control?~ evt)
-      (let ((component (selected-component)))
+  (method override (mouse-down self evt)
+    (nextmethod self evt)
+    (when (get-control? evt)
+      (let ((component (selected-component self)))
         (if (not component)
             (bell)
-          (set-active-data-source~ SQL-Connections-Manager component)))))
+          @cant-find
+          (set-active-data-source SQL-Connections-Manager component)))))
 
   
-  (method override (context-menu evt)
-    (let ((pos (get-position~ evt))
-          (guest (get-guest~ (get-host))))
+  (method override (context-menu self evt)
+    (let ((pos (get-position evt))
+          (guest (get-guest (get-host self))))
       (when (is? guest SQL-Connections-Manager)
-        (with-context-click pos
+        (with-context-click self pos
           (lambda ()
-            (track-popup-menu (new-connections-menu~ guest) pos))))))
+            (track-popup-menu self (new-connections-menu guest) pos))))))
   
   
-  (method override (update-selection expand-state selected-components)
+  (method override (update-selection self expand-state selected-components)
     )
   
   
-  (method override (row-state component update? level)
+  (method override (row-state self component update? level)
     'expanded)
   
   
-  (method override (double-click evt)
-    (nextmethod evt)
-    (open-selection~ (get-guest)))
+  (method override (double-click self evt)
+    (nextmethod self evt)
+    (open-selection (get-guest self)))
 
 
-  (method override (return-press evt)
-    (case (get-key~ evt)
-      ((#\return) (open-selection~ (get-guest)))
-      (else (nextmethod evt)))))
+  (method override (return-press self evt)
+    (case (get-key evt)
+      ((#\return) (open-selection (get-guest self)))
+      (else (nextmethod self evt)))))
 
 
 ;;;
@@ -103,8 +105,8 @@
 (class Connection-Column extends Tree-Node-Column
   
   
-  (method override (draw-data surface context row data width height)
-    (nextmethod surface context row data width height)
+  (method override (draw-data self surface context row data width height)
+    (nextmethod self surface context row data width height)
     (let ((active (get-active-data-source)))
-      (when (eq? active (get-user-data~ row))
-        (frame-rect~ surface (text-rect row data width height #f) {Color Dark-Red}))))))
+      (when (eq? active (get-user-data row))
+        (frame-rect surface (text-rect self row data width height #f) {Color Dark-Red}))))))

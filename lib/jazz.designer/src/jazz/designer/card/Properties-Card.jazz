@@ -42,7 +42,8 @@
         (jazz.handler)
         (jazz.jml)
         (jazz.tree)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.view))
 
 
 (class undocumented Properties-Card extends Card
@@ -63,8 +64,8 @@
   ;;;
   
   
-  (method public (get-tree)
-    (locate 'tree))
+  (method public (get-tree self)
+    (locate self 'tree))
   
   
   ;;;
@@ -72,18 +73,18 @@
   ;;;
   
   
-  (method override (on-editor evt)
-    (case (get-kind~ evt)
+  (method override (on-editor self evt)
+    (case (get-kind evt)
       ;; waiting-a-bux-that-because-if-i-select-the-position-property-it-shows-the
       ;; wrong-value-then-the-save-will-save-a-wrong-value!
       ;; and-this-is-because-the-value-row-in-edition-is-not-update-correctly
       ;; when-the-dragging-changes-the-property
-      ((:selection-changing) (save-edition~ (get-tree)))
-      ((:selection-changed) (set-client (get-selection~ evt) force?: (get-force?~ evt)))
-      ((:branch-changing :saving) (save-edition~ (get-tree)))
-      ((:property-selected) (select-property~ (get-tree) (get-property~ evt property:)))
-      ((:saved) (reset-modified-properties~ (get-tree)))
-      (else (nextmethod evt))))
+      ((:selection-changing) (save-edition (get-tree self)))
+      ((:selection-changed) (set-client self (get-selection evt) force?: (get-force? evt)))
+      ((:branch-changing :saving) (save-edition (get-tree self)))
+      ((:property-selected) (select-property (get-tree self) (get-property evt property:)))
+      ((:saved) (reset-modified-properties (get-tree self)))
+      (else (nextmethod self evt))))
   
   
   ;;;
@@ -91,8 +92,8 @@
   ;;;
 
  
-  (method override (client-update)
-    (client-update~ (get-tree)))
+  (method override (client-update self)
+    (client-update (get-tree self)))
 
   
   ;;;
@@ -100,26 +101,26 @@
   ;;;
   
   
-  (method override (call-refresh evt)
-    (let ((component (get-property~ evt component:)))
+  (method override (call-refresh self evt)
+    (let ((component (get-property evt component:)))
       (when (and (not-null? client) (eq? component (car client)))
-        (case (get-property~ evt what:)
+        (case (get-property evt what:)
           ((all)
-           (refresh component))))))
+           (refresh self component))))))
   
   
-  (method override (refresh component)
-    (client-update))
+  (method override (refresh self component)
+    (client-update self))
   
   
-  (method override (call-property-change evt)
-    (let ((component (get-property~ evt component:)))
+  (method override (call-property-change self evt)
+    (let ((component (get-property evt component:)))
       (when (and (not-null? client) (eq? component (car client)))
-        (property-change component (get-property~ evt property:) (get-property~ evt value:)))))
+        (property-change self component (get-property evt property:) (get-property evt value:)))))
 
   
-  (method override (property-change component property value)
-    (property-change~ (get-tree) component property value))
+  (method override (property-change self component property value)
+    (property-change (get-tree self) component property value))
 
   
   ;;;
@@ -127,7 +128,7 @@
   ;;;
 
 
-  (method override (enter-value property value (imports: imports #f))
+  (method override (enter-value self property value (imports: imports #f))
     (for-each (lambda (component)
-                (safe-set-property~ designer component property value import: imports))
+                (safe-set-property designer component property value import: imports))
               client))))

@@ -39,6 +39,7 @@
 
 
 (import (jazz.application)
+        (jazz.document)
         (jazz.geometry)
         (jazz.graphic)
         (jazz.io)
@@ -57,31 +58,31 @@
 
 
 (definition public (pt obj (rect #f))
-  (define (pretty-print node)
-    (pretty-print~ (convert node) :console space-name?: #t))
+  (define (print node)
+    (print-node (convert node) :console space-name?: #t))
   
   (define (convert node)
     (bind (view draw? . nodes) node
       (let ((properties (list
-                          'name (get-name~ view)
+                          'name (get-name view)
                           'draw? (if draw? 'yes 'no)
-                          'position (let ((position (get-position~ view))) (list (get-h~ position) (get-v~ position)))
-                          'size (let ((size (get-size~ view))) (list (get-width~ size) (get-height~ size)))
-                          'background (get-background~ view)
-                          'opaque? (get-opaque?~ view)
+                          'position (let ((position (get-position view))) (list (get-h position) (get-v position)))
+                          'size (let ((size (get-size view))) (list (get-width size) (get-height size)))
+                          'background (get-background view)
+                          'opaque? (get-opaque? view)
                           'serial (format "#{a}" (object->serial view)))))
         (new JML-Element #f (category-name (class-of view)) properties: properties children: (map convert nodes)))))
   
-  (let ((root (if (is? obj View) (get-root~ obj) (get-root~ (get-toplevel)))))
+  (let ((root (if (is? obj View) (get-root obj) (get-root (current-toplevel)))))
     (let ((update (if (not obj)
                       {Rect 0 0 5000 5000}
                     (typecase obj
                       ((Rect) obj)
-                      ((View) (acquire~ (get-root~ obj) obj (rect-intersection (or rect (get-bounds~ obj)) (get-view-clipper~ obj))))))))
-      (with-transformation-surface~ root
+                      ((View) (acquire (get-root obj) obj (rect-intersection (or rect (get-bounds obj)) (get-view-clipper obj))))))))
+      (with-transformation-surface root
         (lambda (surface)
           (with ((region (new Region rect: update)))
-            (pretty-print (painting-tree~ root surface region))
+            (print (painting-tree root surface region))
             (unspecified)))))))
 
 
@@ -92,17 +93,17 @@
 
 @convert
 (method (debug-window pos)
-  (let ((view (find-drawing~ root pos)))
+  (let ((view (find-drawing root pos)))
     (if (not view)
         (nextmethod pos)
-      (view-debug~ view (acquire~ view root pos)))))
+      (view-debug view (acquire view root pos)))))
 
 
 @convert
 (method (describe-window pos)
-  (let ((view (find-drawing~ root pos)))
+  (let ((view (find-drawing root pos)))
     (when view
-      (view-describe~ view (acquire~ view root pos)))))
+      (view-describe view (acquire view root pos)))))
 
 
 ;;;
@@ -111,10 +112,10 @@
 
 
 (generic (view-debug (<View> view) pos)
-  (let* ((root (get-root~ view))
-         (host (get-host~ view))
-         (player (get-player~ view))
-         (guest (and host (is? host Host-View) (get-guest~ host))))
+  (let* ((root (get-root view))
+         (host (get-host view))
+         (player (get-player view))
+         (guest (and host (is? host Host-View) (get-guest host))))
     (set-% view)
     (set-%m pos)
     (set-%t root)
@@ -126,12 +127,12 @@
 (generic (view-describe (<View> view) pos)
   (list
     (list "Class" (category-identifier (class-of view)))
-    (list "Name" (get-name~ view))
-    (list "Title" (get-title~ view))
-    (list "Position" (get-position~ view))
-    (list "Size" (get-size~ view))
+    (list "Name" (get-name view))
+    (list "Title" (get-title view))
+    (list "Position" (get-position view))
+    (list "Size" (get-size view))
     (list "Mouse" pos)
-    (list "Action Handler" (get-action-handler~ view))
+    (list "Action Handler" (get-action-handler view))
     (list "Serial" (object->serial view))))
 
 
@@ -150,16 +151,16 @@
       (lambda (view level)
         (when (is? view View)
           (let ((type (category-identifier (class-of view)))
-                (position (get-position~ view))
-                (size (get-size~ view)))
-            (output~ classes type level)
-            (output~ properties (format "~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Dimension {a width: 4 justify: :right} {a width: 4 justify: :right}}"
-                                        (get-h~ position)
-                                        (get-v~ position)
-                                        (get-width~ size)
-                                        (get-height~ size)))
-            (newline~ display)))))
-    (print-to~ display (list classes properties) :console)
+                (position (get-position view))
+                (size (get-size view)))
+            (output classes type level)
+            (output properties (format "~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Dimension {a width: 4 justify: :right} {a width: 4 justify: :right}}"
+                                        (get-h position)
+                                        (get-v position)
+                                        (get-width size)
+                                        (get-height size)))
+            (newline display)))))
+    (print-to display (list classes properties) :console)
     (format :console "{%}")
     #f))
 
@@ -172,8 +173,8 @@
 (specific (view-describe (<Image-Tool> view) pos)
   (append (nextmethod view pos)
           (list
-            (list "Resource" (get-resource~ view))
-            (list "Disabled Resource" (get-disabled-resource~ view)))))
+            (list "Resource" (get-resource view))
+            (list "Disabled Resource" (get-disabled-resource view)))))
 
 
 ;;;
@@ -184,7 +185,7 @@
 (specific (view-describe (<Label-Item> view) pos)
   (append (nextmethod view pos)
           (list
-            (list "Icon" (get-icon~ view)))))
+            (list "Icon" (get-icon view)))))
 
 
 ;;;
@@ -194,20 +195,20 @@
 
 (specific (view-debug (<Outline-View> view) pos)
   (nextmethod view pos)
-  (let* ((v (get-v~ pos))
-         (l (v->line~ view v)))
+  (let* ((v (get-v pos))
+         (l (v->line view v)))
     (when l
-      (let ((row (get-row~ view l)))
+      (let ((row (get-row view l)))
         (set-%r row)))))
 
 
 (specific (view-describe (<Outline-View> view) pos)
   (append (nextmethod view pos)
-          (let ((model (get-model~ view)))
+          (let ((model (get-model view)))
             (list
-              (list "Visible Count" (get-visible-count~ model))
-              (list "Visible Width" (get-visible-width~ model))
-              (list "Visible Height" (get-visible-height~ model))))))
+              (list "Visible Count" (get-visible-count model))
+              (list "Visible Width" (get-visible-width model))
+              (list "Visible Height" (get-visible-height model))))))
 
 
 ;;;
@@ -217,15 +218,15 @@
 
 (specific (view-debug (<Text-View> view) pos)
   (nextmethod view pos)
-  (let* ((model (get-model~ view))
-         (syntax (get-syntax~ view))
-         (start (get-start~ view))
-         (end (get-end~ view))
-         (moniker (get-moniker~ view))
-         (paragraph (get-paragraph~ model (get-line~ end))))
+  (let* ((model (get-model view))
+         (syntax (get-syntax view))
+         (start (get-start view))
+         (end (get-end view))
+         (moniker (get-moniker view))
+         (paragraph (get-paragraph model (get-line end))))
     (define (git-filename path)
-      (let ((jazzdir (parse~ {Directory Jazz}))
-            (filename (parse~ path)))
+      (let ((jazzdir (parse {Directory Jazz}))
+            (filename (parse path)))
         (if (starts-with? filename jazzdir)
             (substring filename (string-length jazzdir) (string-length filename))
           filename)))
@@ -235,19 +236,19 @@
     (set-%m model)
     (set-%x syntax)
     (set-%p paragraph)
-    (set-%f (get-format~ paragraph))
-    (set-%n (get-line-at~ paragraph (get-col~ end)))
-    (set-%r (get-run-at~ model end))
-    (set-%y (get-style-at~ model end))
+    (set-%f (get-format paragraph))
+    (set-%n (get-line-at paragraph (get-col end)))
+    (set-%r (get-run-at model end))
+    (set-%y (get-style-at model end))
     (set-%i (and moniker (git-filename moniker)))
     (set-%k moniker)
-    (set-%c (get-document-controller~ view))))
+    (set-%c (get-document-controller view))))
 
 
 (specific (view-describe (<Text-View> view) pos)
   (append (nextmethod view pos)
           (list
-            (list "Selection" (format "{s} {s}" (get-start~ view) (get-end~ view))))))
+            (list "Selection" (format "{s} {s}" (get-start view) (get-end view))))))
 
 
 ;;;
@@ -257,15 +258,15 @@
 
 (specific (view-debug (<Tree-View> view) pos)
   (nextmethod view pos)
-  (let ((cell (view->tree~ view pos)))
+  (let ((cell (view->tree view pos)))
     (when cell
-      (let* ((pos (cell-coordinates~ view cell pos))
-             (column (get-column~ view (get-col~ cell)))
-             (row (get-row~ view (get-line~ cell)))
-             (node (car (get-children~ row)))
-             (user-data (get-user-data~ row)))
-        (receive (cell part) (get-debugged~ column cell pos)
-          (let ((data (get-cell-data~ view cell)))
+      (let* ((pos (cell-coordinates view cell pos))
+             (column (get-column view (get-col cell)))
+             (row (get-row view (get-line cell)))
+             (node (car (get-children row)))
+             (user-data (get-user-data row)))
+        (receive (cell part) (get-debugged column cell pos)
+          (let ((data (get-cell-data view cell)))
             (set-%c cell)
             (set-%d data)
             (set-%n node)
@@ -277,18 +278,18 @@
 
 (specific (view-describe (<Tree-View> view) pos)
   (append (nextmethod view pos)
-          (let ((cell (view->tree~ view pos)))
+          (let ((cell (view->tree view pos)))
             (if (not cell)
                 '()
-              (let* ((pos (cell-coordinates~ view cell pos))
-                     (column (get-column~ view (get-col~ cell)))
-                     (row (get-row~ view (get-line~ cell)))
-                     (node (car (get-children~ row)))
-                     (user-data (get-user-data~ row)))
-                (receive (cell part) (get-debugged~ column cell pos)
-                  (let ((data (get-cell-data~ view cell)))
+              (let* ((pos (cell-coordinates view cell pos))
+                     (column (get-column view (get-col cell)))
+                     (row (get-row view (get-line cell)))
+                     (node (car (get-children row)))
+                     (user-data (get-user-data row)))
+                (receive (cell part) (get-debugged column cell pos)
+                  (let ((data (get-cell-data view cell)))
                     (list
-                      (list "Node Column" (get-node-column~ view))
-                      (list "Columns Right" (get-columns-right~ view))
+                      (list "Node Column" (get-node-column view))
+                      (list "Columns Right" (get-columns-right view))
                       (list "User Data" user-data)
-                      (list "Image" (and (is? node Tree-Node) (get-image~ node))))))))))))
+                      (list "Image" (and (is? node Tree-Node) (get-image node))))))))))))

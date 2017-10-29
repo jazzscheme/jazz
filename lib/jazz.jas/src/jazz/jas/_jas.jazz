@@ -38,6 +38,53 @@
 (module jazz.jas jazz
 
 
+(hub add-directory)
+(hub add-file)
+(hub add-path)
+(hub branch-name)
+(hub branch?)
+(hub branches)
+(hub checkout)
+(hub commit)
+(hub commit-index)
+(hub commit?)
+(hub config-get)
+(hub config-set)
+(hub diff)
+(hub discard)
+(hub exists?)
+(hub find-entry)
+(hub get-changes)
+(hub get-directory)
+(hub get-entries)
+(hub get-file)
+(hub get-head)
+(hub get-index)
+(hub get-objects)
+(hub head-index)
+(hub init)
+(hub parse)
+(hub read-head)
+(hub remove-directory)
+(hub remove-file)
+(hub remove-path)
+(hub require-head)
+(hub reset)
+(hub resolve)
+(hub restore)
+(hub retrieve)
+(hub retrieve-blob)
+(hub save-to-file)
+(hub scan-directory)
+(hub scan-file)
+(hub staging-index)
+(hub staging-status)
+(hub staging-tree)
+(hub update)
+(hub working-index)
+(hub working-status)
+
+
 (import (jazz.io)
         (jazz.settings)
         (jazz.time)
@@ -59,106 +106,106 @@
 
 
 (definition public (jas-config-get repo key)
-  (config-get~ repo key))
+  (config-get repo key))
 
 
 (definition public (jas-config-set repo key value)
-  (config-set~ repo key value))
+  (config-set repo key value))
 
 
 (definition public (jas-staging-tree repo)
-  (staging-tree~ repo))
+  (staging-tree repo))
 
 
 (definition public (jas-commit repo author email message tree parent)
-  (commit~ repo author email message tree parent))
+  (commit repo author email message tree parent))
 
 
 (definition public (jas-discard repo)
-  (discard~ repo))
+  (discard repo))
 
 
 (definition public (jas-restore repo commit)
-  (restore~ repo commit))
+  (restore repo commit))
 
 
 (definition public (jas-reset repo commit)
-  (reset~ repo commit))
+  (reset repo commit))
 
 
 (definition public (jas-branches repo)
-  (branches~ repo))
+  (branches repo))
 
 
 (definition public (jas-checkout repo name (validate-clean?: validate-clean? #f) (create?: create? #f))
-  (checkout~ repo name validate-clean?: validate-clean? create?: create?))
+  (checkout repo name validate-clean?: validate-clean? create?: create?))
 
 
 (definition public (jas-read-head repo)
-  (read-head~ repo))
+  (read-head repo))
 
 
 (definition public (jas-require-head repo)
-  (require-head~ repo))
+  (require-head repo))
 
 
 (definition public (jas-add repo path)
-  (add~ repo path))
+  (add-path repo path))
 
 
 (definition public (jas-remove repo path)
-  (remove~ repo path))
+  (remove-path repo path))
 
 
 (definition public (jas-head-index repo)
-  (head-index~ repo))
+  (head-index repo))
 
 
 (definition public (jas-working-index repo)
-  (working-index~ repo))
+  (working-index repo))
 
 
 (definition public (jas-staging-index repo)
-  (staging-index~ repo))
+  (staging-index repo))
 
 
 (definition public (jas-commit-index repo commit)
-  (commit-index~ repo commit))
+  (commit-index repo commit))
 
 
 (definition public (jas-staging-status repo)
-  (staging-status~ repo))
+  (staging-status repo))
 
 
 (definition public (jas-working-status repo)
-  (working-status~ repo))
+  (working-status repo))
 
 
 (definition public (jas-diff repo from to)
-  (diff~ repo from to))
+  (diff repo from to))
 
 
 (definition public (jas-commit? repo ref)
-  (commit?~ repo ref))
+  (commit? repo ref))
 
 
 (definition public (jas-branch? repo ref)
-  (branch?~ repo ref))
+  (branch? repo ref))
 
 (definition public (jas-branch-name repo ref)
-  (branch-name~ repo ref))
+  (branch-name repo ref))
 
 
 (definition public (jas-resolve repo ref)
-  (resolve~ repo ref))
+  (resolve repo ref))
 
 
 (definition public (jas-parse repo rev)
-  (parse~ repo rev))
+  (parse repo rev))
 
 
 (definition public (jas-retrieve repo digest)
-  (retrieve~ repo digest))
+  (retrieve repo digest))
 
 
 ;;;
@@ -181,29 +228,29 @@
   (slot heads           getter generate)
   
   
-  (method override (initialize working (init?: init? #f))
+  (method override (initialize self working (init?: init? #f))
     (define (jas-directory)
-      (let ((dir (new-directory~ working ".jas")))
-        (cond ((exists?~ dir)
+      (let ((dir (new-directory working ".jas")))
+        (cond ((exists? dir)
                dir)
               (init?
-               (create-directories~ dir)
+               (create-directories dir)
                dir)
               (else
                (jas-exception "Not a jas repository")))))
     
     (initialize-aliases)
-    (set! working~self working)
-    (set! directory~self (jas-directory))
-    (set! head (new-file~ directory "HEAD"))
-    (set! index (new JAS-Index self working file: (new-file~ directory "index")))
-    (set! objects (new-directory~ directory "objects"))
-    (set! heads (new-directory~ directory '("refs" "heads")))
+    (set! self.working working)
+    (set! self.directory (jas-directory))
+    (set! head (new-file directory "HEAD"))
+    (set! index (new JAS-Index self working file: (new-file directory "index")))
+    (set! objects (new-directory directory "objects"))
+    (set! heads (new-directory directory '("refs" "heads")))
     (set! disregard '(".DS_Store"))
     (set! ignore '())
     (when init?
-      (init))
-    (register-configs))
+      (init self))
+    (register-configs self))
   
   
   ;;;
@@ -211,9 +258,9 @@
   ;;;
   
   
-  (method (init)
-    (create-directories~ objects)
-    (create-directories~ heads))
+  (method package (init self)
+    (create-directories objects)
+    (create-directories heads))
   
   
   ;;;
@@ -221,12 +268,12 @@
   ;;;
   
   
-  (method (register-configs)
+  (method (register-configs self)
     (let ((global {File Home ".jas"})
-          (local (new-file~ directory "config")))
+          (local (new-file directory "config")))
       (define (new-settings file)
-        (when (not (exists?~ file))
-          (create~ file))
+        (when (not (exists? file))
+          (create file))
         (let ((settings (new File-Settings file: file)))
           (register-settings settings)
           settings))
@@ -235,14 +282,14 @@
       (set! local-settings (new-settings local))))
   
   
-  (method (config-get key)
+  (method package (config-get self key)
     (find-setting key))
   
   
-  (method (config-set key value)
+  (method package (config-set self key value)
     (let ((settings local-settings))
-      (set-setting~ settings key value)
-      (save-content~ settings)))
+      (set-setting settings key value)
+      (save-content settings)))
   
   
   ;;;
@@ -250,8 +297,8 @@
   ;;;
   
   
-  (method (objects-file digest)
-    (new-file~ objects digest))
+  (method (objects-file self digest)
+    (new-file objects digest))
   
   
   ;;;
@@ -259,25 +306,25 @@
   ;;;
   
   
-  (method (write-tree tree)
-    (write-content tree))
+  (method (write-tree self tree)
+    (write-content self tree))
   
   
-  (method (write-content content)
+  (method (write-content self content)
     (let ((digest (digest-u8vector (object->u8vector content) 'SHA-1)))
-      (call-with-output-file (path-settings (objects-file digest))
+      (call-with-output-file (path-settings (objects-file self digest))
         (lambda (output)
           (pp content output)))
       digest))
   
   
-  (method (write-file file digest)
-    (write-blob (load-binary~ file) digest))
+  (method (write-file self file digest)
+    (write-blob self (load-binary file) digest))
   
   
-  (method (write-blob content digest)
-    (let ((objects-file (objects-file digest)))
-      (save-binary~ objects-file (zlib-deflate content))
+  (method (write-blob self content digest)
+    (let ((objects-file (objects-file self digest)))
+      (save-binary objects-file (zlib-deflate content))
       digest))
   
   
@@ -286,23 +333,23 @@
   ;;;
   
   
-  (method (exists? digest)
-    (exists?~ (objects-file digest)))
+  (method package (exists? self digest)
+    (exists? (objects-file self digest)))
   
   
-  (method (retrieve digest)
-    (call-with-input-file (path-settings (objects-file digest))
+  (method package (retrieve self digest)
+    (call-with-input-file (path-settings (objects-file self digest))
       read))
   
   
-  (method (retrieve-file digest file)
-    (create-directories~ file)
-    (save-binary~ file (retrieve-blob digest)))
+  (method (retrieve-file self digest file)
+    (create-directories file)
+    (save-binary file (retrieve-blob self digest)))
   
   
-  (method (retrieve-blob digest)
-    (let ((objects-file (objects-file digest)))
-      (zlib-inflate (load-binary~ objects-file))))
+  (method package (retrieve-blob self digest)
+    (let ((objects-file (objects-file self digest)))
+      (zlib-inflate (load-binary objects-file))))
   
   
   ;;;
@@ -310,34 +357,34 @@
   ;;;
   
   
-  (method (staging-tree)
-    (index->tree index))
+  (method package (staging-tree self)
+    (index->tree self index))
   
   
-  (method (commit author email message tree parent)
+  (method package (commit self author email message tree parent)
     (let ((time (date->string (system-date) "~a ~b ~d ~H:~M:~S ~Y ~z")))
       (let ((content (list author email message tree parent time)))
-        (let ((commit (write-content content))
-              (head (read-head)))
-          (cond ((branch? head)
-                 (write-branch (branch-name head) commit))
-                ((and (commit? head)
+        (let ((commit (write-content self content))
+              (head (read-head self)))
+          (cond ((branch? self head)
+                 (write-branch self (branch-name self head) commit))
+                ((and (commit? self head)
                       (equal? head parent))
-                 (write-head commit))
+                 (write-head self commit))
                 ((and (not head)
                       (not parent))
-                 (write-branch "master" commit)
-                 (write-head (make-branch "master"))))
+                 (write-branch self "master" commit)
+                 (write-head self (make-branch self "master"))))
           commit))))
   
   
-  (method (commit-tree commit)
-    (bind (author email message tree parent time) (retrieve commit)
+  (method (commit-tree self commit)
+    (bind (author email message tree parent time) (retrieve self commit)
       tree))
   
   
-  (method (commit-parent commit)
-    (bind (author email message tree parent time) (retrieve commit)
+  (method (commit-parent self commit)
+    (bind (author email message tree parent time) (retrieve self commit)
       parent))
   
   
@@ -346,25 +393,25 @@
   ;;;
   
   
-  (method (discard)
-    (let ((diff (diff (working-index) (staging-index))))
-      (discarding-directories
+  (method package (discard self)
+    (let ((diff (diff self (working-index self) (staging-index self))))
+      (discarding-directories self
         (lambda (discard-directory)
           (for-each (lambda (change)
                       (bind (what path . rest) change
-                        (let ((file (new-file~ working (tokenise-filename path))))
+                        (let ((file (new-file working (tokenise-filename path))))
                           (case what
                             ((added)
-                             (retrieve-file (car rest) file))
+                             (retrieve-file self (car rest) file))
                             ((removed)
-                             (delete-file~ file)
-                             (discard-directory (get-parent~ file)))
+                             (delete-file file)
+                             (discard-directory (get-parent file)))
                             ((modified)
-                             (retrieve-file (cadr rest) file))))))
-                    (get-changes~ diff))))))
+                             (retrieve-file self (cadr rest) file))))))
+                    (get-changes diff))))))
   
   
-  (method (discarding-directories proc)
+  (method (discarding-directories self proc)
     (let ((queue (new-queue)))
       (define (discard-directory dir)
         (unless (member? dir (queue-list queue) test: pathname=?)
@@ -373,9 +420,9 @@
       (define (directory-empty? dir)
         (continuation-capture
           (lambda (return)
-            (iterate-directory~ dir
+            (iterate-directory dir
               (lambda (path)
-                (unless (member? (get-name~ path) disregard)
+                (unless (member? (get-name path) disregard)
                   (continuation-return return #f)))
               files?: #t
               directories?: #t
@@ -386,7 +433,7 @@
       (prog1 (proc discard-directory)
         (for-each (lambda (dir)
                     (when (directory-empty? dir)
-                      (delete-directory~ dir)))
+                      (delete-directory dir)))
                   (queue-list queue)))))
   
   
@@ -395,17 +442,17 @@
   ;;;
   
   
-  (method (restore commit)
-    (let ((head (require-head)))
-      (if (equal? (resolve head) commit)
-          (discard)
-        (discard)
-        (checkout-commit commit)
-        (cond ((commit? head)
-               (write-head commit))
+  (method package (restore self commit)
+    (let ((head (require-head self)))
+      (if (equal? (resolve self head) commit)
+          (discard self)
+        (discard self)
+        (checkout-commit self commit)
+        (cond ((commit? self head)
+               (write-head self commit))
               (else
-               (let ((name (branch-name head)))
-                 (write-branch name commit)))))))
+               (let ((name (branch-name self head)))
+                 (write-branch self name commit)))))))
   
   
   ;;;
@@ -413,13 +460,13 @@
   ;;;
   
   
-  (method (reset commit)
-    (let ((head (require-head)))
-      (cond ((commit? head)
+  (method package (reset self commit)
+    (let ((head (require-head self)))
+      (cond ((commit? self head)
              (jas-exception "Unable to reset while in a detached HEAD state"))
             (else
-             (let ((name (branch-name head)))
-               (write-branch name commit))))))
+             (let ((name (branch-name self head)))
+               (write-branch self name commit))))))
   
   
   ;;;
@@ -427,52 +474,52 @@
   ;;;
   
   
-  (method (checkout name (validate-clean?: validate-clean? #f) (create?: create? #f))
+  (method package (checkout self name (validate-clean?: validate-clean? #f) (create?: create? #f))
     (when (and validate-clean?
-               (not-null? (get-changes~ (diff (working-index) (staging-index)))))
+               (not-null? (get-changes (diff self (working-index self) (staging-index self)))))
       (jas-exception "Please commit your changes before you can checkout"))
     (cond (create?
-           (let ((commit (resolve (require-head))))
-             (write-branch name commit)
-             (write-head (make-branch name))
+           (let ((commit (resolve self (require-head self))))
+             (write-branch self name commit)
+             (write-head self (make-branch self name))
              commit))
-          ((branch-exists? name)
-           (let ((ref (make-branch name)))
-             (checkout-commit (resolve ref))
-             (write-head ref)
+          ((branch-exists? self name)
+           (let ((ref (make-branch self name)))
+             (checkout-commit self (resolve self ref))
+             (write-head self ref)
              ref))
           (else
-           (let ((commit (resolve (parse name))))
-             (if (exists? commit)
+           (let ((commit (resolve self (parse self name))))
+             (if (exists? self commit)
                  (begin
-                   (checkout-commit commit)
-                   (write-head commit)
+                   (checkout-commit self commit)
+                   (write-head self commit)
                    commit)
                (jas-exception "Unable to checkout {a}" name))))))
   
   
-  (method (checkout-commit commit)
-    (let ((staging-index (staging-index))
-          (commit-index (commit-index commit)))
-      (let ((diff (diff staging-index commit-index)))
-        (discarding-directories
+  (method (checkout-commit self commit)
+    (let ((staging-index (staging-index self))
+          (commit-index (commit-index self commit)))
+      (let ((diff (diff self staging-index commit-index)))
+        (discarding-directories self
           (lambda (discard-directory)
             (for-each (lambda (change)
                         (bind (what path . rest) change
-                          (let ((file (new-file~ working (tokenise-filename path))))
+                          (let ((file (new-file working (tokenise-filename path))))
                             (case what
                               ((added)
-                               (retrieve-file (car rest) file)
-                               (add-file~ staging-index path file))
+                               (retrieve-file self (car rest) file)
+                               (add-file staging-index path file))
                               ((removed)
-                               (delete-file~ file)
-                               (discard-directory (get-parent~ file))
-                               (remove-file~ staging-index path file))
+                               (delete-file file)
+                               (discard-directory (get-parent file))
+                               (remove-file staging-index path file))
                               ((modified)
-                               (retrieve-file (cadr rest) file)
-                               (add-file~ staging-index path file))))))
-                      (get-changes~ diff))))
-        (save~ staging-index))))
+                               (retrieve-file self (cadr rest) file)
+                               (add-file staging-index path file))))))
+                      (get-changes diff))))
+        (save-to-file staging-index))))
   
   
   ;;;
@@ -480,30 +527,30 @@
   ;;;
   
   
-  (method (add path)
-    (let ((path (normalize-path path)))
+  (method package (add-path self path)
+    (let ((path (normalize-path self path)))
       (cond ((not path)
-             (add-directory~ index #f working))
+             (add-directory index #f working))
             ((ends-with? path "/")
-             (add-directory~ index path (new-directory~ working path)))
+             (add-directory index path (new-directory working path)))
             (else
-             (add-file~ index path (new-file~ working path))))))
+             (add-file index path (new-file working path))))))
   
   
-  (method (remove path)
-    (let ((path (normalize-path path)))
+  (method package (remove-path self path)
+    (let ((path (normalize-path self path)))
       (cond ((not path)
-             (remove-directory~ index #f working))
+             (remove-directory index #f working))
             ((ends-with? path "/")
-             (remove-directory~ index path (new-directory~ working path)))
+             (remove-directory index path (new-directory working path)))
             (else
-             (remove-file~ index path (new-file~ working path))))))
+             (remove-file index path (new-file working path))))))
   
   
-  (method (normalize-path path)
+  (method (normalize-path self path)
     (if (equal? path ".")
         #f
-      (let ((pathname (string-append (parse~ working) path)))
+      (let ((pathname (string-append (parse working) path)))
         (if (file-exists? pathname)
             (case (pathname-type pathname)
               ((file) path)
@@ -511,39 +558,39 @@
           (jas-exception "Unable to find {a}" path)))))
   
   
-  (method (head-index)
-    (let ((head (read-head)))
+  (method package (head-index self)
+    (let ((head (read-head self)))
       (if (not head)
           (new JAS-Index self #f)
-        (commit-index (resolve head)))))
+        (commit-index self (resolve self head)))))
   
   
-  (method (working-index)
-    (prog1 (new JAS-Index self working entries: (scan-directory #f working base: index))
-      (save~ index)))
+  (method package (working-index self)
+    (prog1 (new JAS-Index self working entries: (scan-directory self #f working base: index))
+      (save-to-file index)))
   
   
-  (method (staging-index)
+  (method package (staging-index self)
     index)
   
   
-  (method (commit-index commit)
-    (tree->index (commit-tree commit)))
+  (method package (commit-index self commit)
+    (tree->index self (commit-tree self commit)))
   
   
-  (method (tree->index tree)
-    (new JAS-Index self #f entries: (scan-tree tree)))
+  (method (tree->index self tree)
+    (new JAS-Index self #f entries: (scan-tree self tree)))
   
   
-  (method (scan-file path file (base: base #f))
-    (let ((seconds (get-modification-seconds~ file)))
-      (or (and base (let ((entry (find-entry~ base path)))
+  (method package (scan-file self path file (base: base #f))
+    (let ((seconds (get-modification-seconds file)))
+      (or (and base (let ((entry (find-entry base path)))
                       (and entry
                            (bind (entry-path entry-digest entry-seconds) entry
                              (and entry-seconds
                                   (if (= entry-seconds seconds)
                                       (list path entry-digest seconds)
-                                    (let ((digest (digest-file (parse~ file) 'SHA-1)))
+                                    (let ((digest (digest-file (parse file) 'SHA-1)))
                                       ;; update base entry seconds
                                       ;; we do not update the digest
                                       ;; we are only creating a fast test
@@ -551,19 +598,19 @@
                                       (when (equal? entry-digest digest)
                                         (set-third! entry seconds))
                                       (list path digest seconds))))))))
-          (list path (digest-file (parse~ file) 'SHA-1) seconds))))
+          (list path (digest-file (parse file) 'SHA-1) seconds))))
   
   
-  (method (scan-directory dirpath dir (base: base #f))
+  (method package (scan-directory self dirpath dir (base: base #f))
     (let ((entries (new-queue)))
-      (iterate-directory~ dir
+      (iterate-directory dir
         (lambda (path kind)
-          (let ((file (new-file~ dir path)))
-            (let ((name (get-name~ file)))
+          (let ((file (new-file dir path)))
+            (let ((name (get-name file)))
               (unless (or (member? name disregard)
                           (member? name ignore))
                 (let ((subpath (join path "/")))
-                  (enqueue entries (scan-file (if (not dirpath) subpath (string-append dirpath subpath)) file base: base)))))))
+                  (enqueue entries (scan-file self (if (not dirpath) subpath (string-append dirpath subpath)) file base: base)))))))
         full?: #f
         files?: #t
         directories?: #f
@@ -575,7 +622,7 @@
       (queue-list entries)))
   
   
-  (method (scan-tree tree)
+  (method (scan-tree self tree)
     (let ((entries (new-queue)))
       (define (scan prefix tree)
         (for-each (lambda (entry)
@@ -583,15 +630,15 @@
                       (case kind
                         ((blob) (enqueue entries (list (string-append prefix path) digest #f)))
                         ((tree) (scan (string-append prefix path "/") digest)))))
-                  (retrieve tree)))
+                  (retrieve self tree)))
       
       (scan "" tree)
       (queue-list entries)))
   
   
-  (method (index->tree index)
-    (let ((directory (get-directory~ index))
-          (entries (get-entries~ index)))
+  (method (index->tree self index)
+    (let ((directory (get-directory index))
+          (entries (get-entries index)))
       (define (gather prefix)
         (let ((len (string-length prefix))
               (queue (new-queue)))
@@ -602,22 +649,22 @@
           
           (let (iter)
             (if (null? entries)
-                (write-tree (queue-list queue))
+                (write-tree self (queue-list queue))
               (let ((entry (car entries)))
                 (bind (path digest seconds) entry
                   (if (starts-with? path prefix)
                       (let ((slash (search path "/" start: len)))
                         (if (not slash)
-                            (let ((file (new-file~ directory path)))
-                              (write-file file digest)
-                              (enqueue queue (list 'blob (get-name~ file) digest))
+                            (let ((file (new-file directory path)))
+                              (write-file self file digest)
+                              (enqueue queue (list 'blob (get-name file) digest))
                               (set! entries (cdr entries))
                               (iter))
                           (let ((name (substring path len slash))
                                 (new-prefix (substring path 0 (+ slash 1))))
                             (enqueue queue (list 'tree name (gather new-prefix)))
                             (iter))))
-                    (write-tree (queue-list queue)))))))))
+                    (write-tree self (queue-list queue)))))))))
       
       (assert directory)
       (gather "")))
@@ -628,7 +675,7 @@
   ;;;
   
   
-  (method (diff from to)
+  (method package (diff self from to)
     (let ((queue (new-queue)))
       (merge-ordered (lambda (what key left right)
                        (case what
@@ -637,12 +684,12 @@
                          ((:right)
                           (enqueue queue (list 'added key (second right))))
                          ((:same)
-                          (let ((from-digest (second (find-entry~ from key)))
-                                (to-digest (second (find-entry~ to key))))
+                          (let ((from-digest (second (find-entry from key)))
+                                (to-digest (second (find-entry to key))))
                             (unless (equal? from-digest to-digest)
                               (enqueue queue (list 'modified key from-digest to-digest)))))))
-                     (get-entries~ from)
-                     (get-entries~ to)
+                     (get-entries from)
+                     (get-entries to)
                      key: car
                      case-insensitive?: #t)
       (new JAS-Diff (queue-list queue))))
@@ -653,12 +700,12 @@
   ;;;
   
   
-  (method (staging-status)
-    (diff (head-index) (staging-index)))
+  (method package (staging-status self)
+    (diff self (head-index self) (staging-index self)))
   
   
-  (method (working-status)
-    (diff (staging-index) (working-index)))
+  (method package (working-status self)
+    (diff self (staging-index self) (working-index self)))
   
   
   ;;;
@@ -666,21 +713,21 @@
   ;;;
   
   
-  (method (write-head ref)
+  (method (write-head self ref)
     (call-with-output-file (path-settings head)
       (lambda (output)
         (write ref output)
         (newline output))))
   
   
-  (method (read-head)
-    (when (exists?~ head)
+  (method package (read-head self)
+    (when (exists? head)
       (call-with-input-file (path-settings head)
         read)))
   
   
-  (method (require-head)
-    (or (read-head)
+  (method package (require-head self)
+    (or (read-head self)
         (jas-exception-no-commits)))
   
   
@@ -689,35 +736,35 @@
   ;;;
   
   
-  (method (write-branch branch commit)
-    (let ((file (branch-file branch)))
+  (method (write-branch self branch commit)
+    (let ((file (branch-file self branch)))
       (call-with-output-file (path-settings file)
         (lambda (output)
           (write commit output)
           (newline output)))))
   
   
-  (method (read-branch name)
-    (let ((file (branch-file name)))
-      (when (exists?~ file)
+  (method (read-branch self name)
+    (let ((file (branch-file self name)))
+      (when (exists? file)
         (call-with-input-file (path-settings file)
           read))))
   
   
-  (method (branch-file name)
-    (new-file~ (branches-directory) name))
+  (method (branch-file self name)
+    (new-file (branches-directory self) name))
   
   
-  (method (branches-directory)
+  (method (branches-directory self)
     heads)
   
   
-  (method (branch-exists? name)
-    (exists?~ (branch-file name)))
+  (method (branch-exists? self name)
+    (exists? (branch-file self name)))
   
   
-  (method (branches)
-    (map get-name~ (collect-files~ (branches-directory)
+  (method package (branches self)
+    (map get-name (collect-files (branches-directory self)
                      (lambda (file)
                        #t))))
   
@@ -727,26 +774,26 @@
   ;;;
   
   
-  (method (commit? ref)
+  (method package (commit? self ref)
     (string? ref))
   
   
-  (method (branch? ref)
+  (method package (branch? self ref)
     (and (pair? ref)
          (eq? (car ref) branch:)))
   
-  (method (make-branch name)
+  (method (make-branch self name)
     (list branch: name))
   
-  (method (branch-name ref)
+  (method package (branch-name self ref)
     (cadr ref))
   
   
-  (method (resolve ref)
-    (cond ((commit? ref)
+  (method package (resolve self ref)
+    (cond ((commit? self ref)
            ref)
-          ((branch? ref)
-           (read-branch (branch-name ref)))
+          ((branch? self ref)
+           (read-branch self (branch-name self ref)))
           (else
            (jas-exception "Invalid reference: {a}" ref))))
   
@@ -756,17 +803,17 @@
   ;;;
   
   
-  (method (parse rev)
+  (method package (parse self rev)
     (cond ((starts-with? rev "HEAD" ignore-case?: #t)
            (let ((parents (substring rev (string-length "HEAD") (string-length rev))))
              (if (equal? parents (make-string (string-length parents) #\^))
-                 (let (iter (commit (resolve (require-head))) (count (string-length parents)))
+                 (let (iter (commit (resolve self (require-head self))) (count (string-length parents)))
                    (if (<= count 0)
                        commit
-                     (iter (commit-parent commit) (- count 1))))
+                     (iter (commit-parent self commit) (- count 1))))
                (jas-exception "Invalid revision: {a}" rev))))
           ((equal? rev "master")
-           (make-branch "master"))
+           (make-branch self "master"))
           (else
            rev))))
 
@@ -786,36 +833,36 @@
   (slot entries    getter generate)
   
   
-  (method override (initialize repository directory (file: file #f) (entries: entries #f))
-    (set! repository~self repository)
-    (set! directory~self directory)
-    (set! file~self file)
-    (set! paths~self (make-table test: equal?))
-    (set! entries~self (or entries (if (and file (exists?~ file))
-                                       (load)
+  (method override (initialize self repository directory (file: file #f) (entries: entries #f))
+    (set! self.repository repository)
+    (set! self.directory directory)
+    (set! self.file file)
+    (set! self.paths (make-table test: equal?))
+    (set! self.entries (or entries (if (and file (exists? file))
+                                       (load-from-file self)
                                      '())))
-    (setup-paths))
+    (setup-paths self))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (let ((len (length entries)))
           (format output "with {a} entr{a}" (format-cardinality len) (format-y/ies len))))))
   
   
-  (method (setup-paths)
+  (method (setup-paths self)
     (for-each (lambda (entry)
                 (table-set! paths (car entry) entry))
               entries))
   
   
-  (method (load)
+  (method (load-from-file self)
     (call-with-input-file (path-settings file)
       read-all))
   
   
-  (method (save)
+  (method package (save-to-file self)
     (call-with-output-file (path-settings file)
       (lambda (output)
         (for-each (lambda (entry)
@@ -823,7 +870,7 @@
                   entries))))
   
   
-  (method (updating path test proc)
+  (method (updating self path test proc)
     (let (iter (prev #f) (scan entries))
       (if (null? scan)
           (proc prev scan)
@@ -840,8 +887,8 @@
                  (proc prev scan)))))))))
   
   
-  (method (update path test added)
-    (updating path test
+  (method package (update self path test added)
+    (updating self path test
       (lambda (prev next)
         (cond ((not prev)
                (if (null? added)
@@ -856,27 +903,27 @@
     entries)
   
   
-  (method (add-file path file)
-    (update path ci=? (list (scan-file~ repository path file base: self)))
-    (save))
+  (method package (add-file self path file)
+    (update self path ci=? (list (scan-file repository path file base: self)))
+    (save-to-file self))
   
   
-  (method (add-directory path directory)
-    (update path (directory-test path) (scan-directory~ repository path directory base: self))
-    (save))
+  (method package (add-directory self path directory)
+    (update self path (directory-test self path) (scan-directory repository path directory base: self))
+    (save-to-file self))
   
   
-  (method (remove-file path file)
-    (update path ci=? '())
-    (save))
+  (method package (remove-file self path file)
+    (update self path ci=? '())
+    (save-to-file self))
   
   
-  (method (remove-directory path directory)
-    (update path (directory-test path) '())
-    (save))
+  (method package (remove-directory self path directory)
+    (update self path (directory-test self path) '())
+    (save-to-file self))
   
   
-  (method (directory-test path)
+  (method (directory-test self path)
     (if (not path)
         (lambda (entry-path path)
           #t)
@@ -884,7 +931,7 @@
         (starts-with? entry-path path ignore-case?: #t))))
   
   
-  (method (find-entry path)
+  (method package (find-entry self path)
     (table-ref paths path #f)))
 
 
@@ -899,11 +946,11 @@
   (slot changes getter generate)
   
   
-  (method override (initialize changes)
-    (set! changes~self changes))
+  (method override (initialize self changes)
+    (set! self.changes changes))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (let ((len (length changes)))
@@ -929,12 +976,12 @@
   (slot message)
   
   
-  (method override (initialize message)
-    (nextmethod)
-    (set! message~self message))
+  (method override (initialize self message)
+    (nextmethod self)
+    (set! self.message message))
   
   
-  (method override (get-message)
+  (method override (get-message self)
     message))
 
 
@@ -947,7 +994,7 @@
   (define (describe-index index)
     (for-each (lambda (entry)
                 (apply debug entry))
-              (get-entries~ index)))
+              (get-entries index)))
   
   (define (describe-diff diff)
     (for-each (lambda (change)
@@ -956,7 +1003,7 @@
                     ((added)    (format output "    \033[32madded:    {a}\033[39;49m{%}" path))
                     ((removed)  (format output "    \033[31mremoved:  {a}\033[39;49m{%}" path))
                     ((modified) (format output "    \033[36mmodified: {a}\033[39;49m{%}" path)))))
-              (get-changes~ diff)))
+              (get-changes diff)))
   
   (typecase obj
     ((JAS-Index)

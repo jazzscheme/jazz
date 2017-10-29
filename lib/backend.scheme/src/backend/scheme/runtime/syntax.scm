@@ -138,12 +138,12 @@
   (%%make-table test: eq?))
 
 
-(define (jazz:get-modules)
+(define (jazz:get-modules-table)
   jazz:Modules)
 
 
 (define (jazz:register-module name access exported-modules exported-symbols)
-  (let ((module (or (jazz:get-module name) (jazz:new-module name access))))
+  (let ((module (or (jazz:find-module name) (jazz:new-module name access))))
     (let ((exports (%%get-module-exports module)))
       (for-each (lambda (module-name)
                   (jazz:iterate-table (%%get-module-exports (jazz:require-module module-name))
@@ -159,22 +159,22 @@
       module)))
 
 
-(define (jazz:get-module name)
+(define (jazz:find-module name)
   (%%table-ref jazz:Modules name #f))
 
 
 (define (jazz:require-module name)
   (jazz:load-unit name)
-  (or (jazz:get-module name)
+  (or (jazz:find-module name)
       (jazz:error "Unknown module: {s}" name)))
 
 
 (define (jazz:get-module-entry module-name entry-name)
-  (let ((entries (%%get-module-entries (jazz:get-module module-name))))
+  (let ((entries (%%get-module-entries (jazz:find-module module-name))))
     (and entries (%%table-ref entries entry-name #f))))
 
 (define (jazz:set-module-entry module-name entry-name entry)
-  (let ((module (jazz:get-module module-name)))
+  (let ((module (jazz:find-module module-name)))
     (let ((entries (%%get-module-entries module)))
       (if entries
           (%%table-set! entries entry-name entry)

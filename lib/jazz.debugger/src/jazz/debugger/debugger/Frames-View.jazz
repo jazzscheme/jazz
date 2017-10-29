@@ -41,6 +41,7 @@
 (import (jazz.debugger)
         (jazz.handler)
         (jazz.jml)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -65,7 +66,7 @@
               (<Frames-Tree> name: frames     multiple-selection?: #f selection-mode: row always-select?: #t selection-handler: {Selection-Handler :form on-select-frame} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press})))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Frames)
   
   
@@ -74,11 +75,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Link"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Frames")
   
   
@@ -87,13 +88,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (locate 'frames)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (locate self 'frames)))
+      (acquire-focus tree)))
   
   
   ;;;
@@ -101,20 +102,20 @@
   ;;;
   
   
-  (method public (get-thread)
+  (method public (get-thread self)
     thread)
   
   
-  (method (show-hidden?)
-    (get-selected?~ (locate 'hidden)))
+  (method (show-hidden? self)
+    (get-selected? (locate self 'hidden)))
   
   
-  (method public (thread-changed new-thread)
-    (set! process (get-process~ (get-debugger-manager)))
+  (method public (thread-changed self new-thread)
+    (set! process (get-process (get-debugger-manager)))
     (set! thread new-thread)
-    (update-frames)
-    (when (view-visible?)
-      (select-first-frame)))
+    (update-frames self)
+    (when (view-visible? self)
+      (select-first-frame self)))
   
   
   ;;;
@@ -122,30 +123,30 @@
   ;;;
   
   
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (size-figure~ (locate 'scroller) dh dv))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (size-figure (locate self 'scroller) dh dv))
   
   
-  (method (on-show-hidden evt)
-    (update-frames))
+  (method (on-show-hidden self evt)
+    (update-frames self))
   
   
-  (method (on-select-frame evt)
-    (let ((user-origin (get-user-origin~ evt)))
-      (frame-changed~ (get-debugger-manager) (selected-frame) user-origin: user-origin)
+  (method (on-select-frame self evt)
+    (let ((user-origin (get-user-origin evt)))
+      (frame-changed (get-debugger-manager) (selected-frame self) user-origin: user-origin)
       ;; as a quick solution we let the previous call give the focus to the document
       ;; because a lot of framework behavior depends on a new document gaining focus
       (when user-origin
-        (acquire-focus~ (locate 'frames)))))
+        (acquire-focus (locate self 'frames)))))
   
   
-  (method (on-double-click evt)
-    (edit-frame~ (get-debugger-manager) (selected-frame) select?: #t))
+  (method (on-double-click self evt)
+    (edit-frame (get-debugger-manager) (selected-frame self) select?: #t))
   
   
-  (method override (on-return-press evt)
-    (edit-frame~ (get-debugger-manager) (selected-frame) select?: #t))
+  (method override (on-return-press self evt)
+    (edit-frame (get-debugger-manager) (selected-frame self) select?: #t))
   
   
   ;;;
@@ -153,9 +154,9 @@
   ;;;
   
   
-  (method (update-frames)
+  (method (update-frames self)
     (define (frame-title frame)
-      (let ((name (get-name~ frame)))
+      (let ((name (get-name frame)))
         (cond ((not name)
                "<lambda>")
               ((symbol? name)
@@ -167,24 +168,24 @@
                name))))
     
     (define (frame-image frame)
-      (if (get-interpreted?~ frame)
+      (if (get-interpreted? frame)
           {Image-Resource "Green"}
         {Image-Resource "Link"}))
     
     (with-system-exception-debugger
       (lambda ()
-        (let ((tree (locate 'frames)))
-          (with-preserved-selection~ tree
+        (let ((tree (locate self 'frames)))
+          (with-preserved-selection tree
             (lambda ()
-              (remove-every-row~ tree)
-              (with-update-locked~ tree
+              (remove-every-row tree)
+              (with-update-locked tree
                 (lambda ()
-                  (for-each-frame~ (get-debugger-manager)
+                  (for-each-frame (get-debugger-manager)
                     (lambda (frame)
                       (let ((title (frame-title frame))
                             (image (frame-image frame)))
-                        (when (or (show-hidden?) (not (get-hidden?~ frame)))
-                          (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: frame))))))))
+                        (when (or (show-hidden? self) (not (get-hidden? frame)))
+                          (add-row tree children: (list (new Tree-Node title: title image: image)) user-data: frame))))))))
             use: 'data
             test: debugged=?
             generate-event?: #t)))))
@@ -195,25 +196,25 @@
   ;;;
   
   
-  (method public (select-first-frame)
-    (let ((tree (locate 'frames)))
-      (let ((preferred-selection (min 2 (- (get-visible-count~ tree) 1))))
-        (when (and (not (get-single-selection~ tree)) (>= preferred-selection 0))
+  (method public (select-first-frame self)
+    (let ((tree (locate self 'frames)))
+      (let ((preferred-selection (min 2 (- (get-visible-count tree) 1))))
+        (when (and (not (get-single-selection tree)) (>= preferred-selection 0))
           ;; force?: #t user-origin: #t to test the stepper
-          (set-single-selection~ tree preferred-selection force?: #t)))))
+          (set-single-selection tree preferred-selection force?: #t)))))
   
   
-  (method public (selected-frame)
-    (let ((row (selected-row)))
+  (method public (selected-frame self)
+    (let ((row (selected-row self)))
       (and row
-           (get-user-data~ row))))
+           (get-user-data row))))
   
   
-  (method (selected-row)
-    (let* ((tree (locate 'frames))
-           (n (get-single-selection~ tree)))
+  (method (selected-row self)
+    (let* ((tree (locate self 'frames))
+           (n (get-single-selection tree)))
       (and n
-           (get-row~ tree n)))))
+           (get-row tree n)))))
 
 
 ;;;

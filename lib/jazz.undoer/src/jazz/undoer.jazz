@@ -38,6 +38,21 @@
 (module jazz.undoer jazz
 
 
+(hub can-redo?)
+(hub can-undo?)
+(hub end-atomic-undo)
+(hub redo)
+(hub register-undo)
+(hub reset)
+(hub reset-save-depth)
+(hub set-preserve-state)
+(hub set-reset-modified)
+(hub set-restore-state)
+(hub start-atomic-undo)
+(hub undo)
+(hub with-atomic-undo)
+
+
 (import (jazz.application))
 
 
@@ -56,13 +71,13 @@
   (slot save-depth     initialize 0)
   
   
-  (method override (initialize (preserve-state: preserve-state #f)
+  (method override (initialize self (preserve-state: preserve-state #f)
                                (restore-state: restore-state #f)
                                (reset-modified: reset-modified #f))
-    (nextmethod)
-    (set! preserve-state~self preserve-state)
-    (set! restore-state~self restore-state)
-    (set! reset-modified~self reset-modified))
+    (nextmethod self)
+    (set! self.preserve-state preserve-state)
+    (set! self.restore-state restore-state)
+    (set! self.reset-modified reset-modified))
 
 
   ;;;
@@ -70,11 +85,11 @@
   ;;;
   
   
-  (method public (reset-save-depth)
+  (method public (reset-save-depth self)
     (set! save-depth 0))
   
   
-  (method public (reset)
+  (method public (reset self)
     (set! undo-list      '())
     (set! redo-list      '())
     (set! undoing?       #f)
@@ -88,10 +103,10 @@
   ;;;
 
 
-  (method public (register-undo action (reset #f) (preserve? #t))
-    (let ((action (if preserve? (preserving-action action) action)))
+  (method public (register-undo self action (reset #f) (preserve? #t))
+    (let ((action (if preserve? (preserving-action self action) action)))
       (cond (atomic?
-              (register-atomic-action action))
+              (register-atomic-action self action))
             (undoing?
               (set! redo-list (cons action redo-list))
               (decrease! save-depth))
@@ -104,34 +119,34 @@
       (reset-modified)))
   
   
-  (method public (can-undo?)
+  (method public (can-undo? self)
     (not-null? undo-list))
   
   
-  (method public (can-redo?)
+  (method public (can-redo? self)
     (not-null? redo-list))
 
 
-  (method public (undo)
+  (method public (undo self)
     (when (not-null? undo-list)
       (let ((old undoing?)
             (action (car undo-list)))
         (unwind-protect
             (begin
               (set! undoing? #t)
-              (play-action action)
+              (play-action self action)
               (set! undo-list (cdr undo-list)))
           (set! undoing? old)))))
 
 
-  (method public (redo)
+  (method public (redo self)
     (when (not-null? redo-list)
       (let ((old redoing?)
             (action (car redo-list)))
         (unwind-protect
             (begin
               (set! redoing? #t)
-              (play-action action)
+              (play-action self action)
               (set! redo-list (cdr redo-list)))
           (set! redoing? old)))))
 
@@ -141,7 +156,7 @@
   ;;;
   
   
-  (method public virtual (play-action action)
+  (method public virtual (play-action self action)
     (action))
 
 
@@ -150,7 +165,7 @@
   ;;;
   
   
-  (method (preserving-action action)
+  (method (preserving-action self action)
     (if preserve-state
         (let ((state (preserve-state)))
           (lambda ()
@@ -164,33 +179,33 @@
   ;;;
   
   
-  (method public (with-atomic-undo proc)
+  (method public (with-atomic-undo self proc)
     (let ((preserved atomic?)
           (completed? #f))
       (unwind-protect
           (begin
-            (start-atomic-undo)
+            (start-atomic-undo self)
             (prog1 (proc)
               (set! completed? #t)))
-        (end-atomic-undo preserved completed?))))
+        (end-atomic-undo self preserved completed?))))
   
   
-  (method public (start-atomic-undo)
+  (method public (start-atomic-undo self)
     (prog1 atomic?
       (unless atomic?
         (set! atomic-actions '()))
       (set! atomic? #t)))
   
   
-  (method public (end-atomic-undo preserved (completed? #t))
+  (method public (end-atomic-undo self preserved (completed? #t))
     (define (register-atomic-actions actions)
       (when (not-null? actions)
-        (register-undo
+        (register-undo self
           (lambda ()
-            (with-atomic-undo
+            (with-atomic-undo self
               (lambda ()
                 (for-each (lambda (action)
-                            (play-action action))
+                            (play-action self action))
                           actions))))
           #f
           #f)))
@@ -202,8 +217,8 @@
         (when (and completed? (not atomic?))
           (register-atomic-actions actions)
           (let ((appl (get-application)))
-            (update-focus-actions~ appl))))))
+            (update-focus-actions appl))))))
   
   
-  (method (register-atomic-action action)
+  (method (register-atomic-action self action)
     (set! atomic-actions (cons action atomic-actions)))))

@@ -38,7 +38,8 @@
 (module protected jazz.search.Text-Search-View jazz
 
 
-(import (jazz.jml)
+(import (jazz.editor.lisp)
+        (jazz.jml)
         (jazz.preferences)
         (jazz.search)
         (jazz.text)
@@ -59,8 +60,8 @@
           (<Radio-Button> name: selection   title: "Selection" position: {Point 13 54} size: {Dimension 120 18} group: domain)))))
   
   
-  (method (preferences)
-    (get-preferences '(tools search-manager text)))
+  (method (preferences self)
+    (current-preferences '(tools search-manager text)))
   
 
   ;;;
@@ -68,7 +69,7 @@
   ;;;
 
   
-  (method override (get-search-domains)
+  (method override (get-search-domains self)
     '(window
       declaration
       selection))
@@ -79,7 +80,7 @@
   ;;;
   
   
-  (method override (search-targets find replace)
+  (method override (search-targets self find replace)
     (define (search-window)
       (let ((text (active-text)))
         (if (not text)
@@ -88,48 +89,48 @@
             (let ((resultset (new Search-Resultset search)))
               (let ((result (new Text-Search-Result resultset)))
                 (set-active-search-result result)
-                (set-caret~ text (get-start~ text))
-                (find-forward~ result client: text)
-                (acquire-focus~ text)))))))
+                (set-caret text (get-start text))
+                (find-forward result client: text)
+                (acquire-focus text)))))))
     
     (define (search-declaration)
       (let ((text (active-text)))
         (if (not text)
             (bell)
-          (let ((range (declaration-range~ text (get-start~ text))))
+          (let ((range (declaration-range text (get-start text))))
             (if (not range)
                 (message-box "Unable to determine declaration")
               (let ((search (new Text-Search find replace)))
                 (let ((resultset (new Search-Resultset search)))
-                  (let ((result (new Text-Search-Result resultset client: text beginning: (get-start~ range) ending: (get-end~ range))))
+                  (let ((result (new Text-Search-Result resultset client: text beginning: (get-start range) ending: (get-end range))))
                     (set-active-search-result result)
-                    (set-caret~ text (get-start~ text))
-                    (find-forward~ result client: text)
-                    (acquire-focus~ text)))))))))
+                    (set-caret text (get-start text))
+                    (find-forward result client: text)
+                    (acquire-focus text)))))))))
     
     (define (search-selection)
       (let ((text (active-text)))
         (if (not text)
             (bell)
-          (let ((range (get-selection~ text)))
-            (if (empty?~ range)
+          (let ((range (get-selection text)))
+            (if (empty? range)
                 (message-box "Selection is empty")
               (let ((search (new Text-Search find replace)))
                 (let ((resultset (new Search-Resultset search)))
-                  (let ((result (new Text-Search-Result resultset client: text beginning: (get-start~ range) ending: (get-end~ range))))
+                  (let ((result (new Text-Search-Result resultset client: text beginning: (get-start range) ending: (get-end range))))
                     (set-active-search-result result)
-                    (set-caret~ text (get-start~ text))
-                    (find-forward~ result client: text)
-                    (acquire-focus~ text)))))))))
+                    (set-caret text (get-start text))
+                    (find-forward result client: text)
+                    (acquire-focus text)))))))))
     
     (define (active-text)
       (let ((guest (current-document)))
         (and guest
-             (let ((text (get-text-view~ guest)))
+             (let ((text (get-text-view guest)))
                (and (is? text Text-View)
                     text)))))
     
-    (case (get-search-domain)
+    (case (get-search-domain self)
       ((window)
        (search-window))
       ((declaration)

@@ -39,7 +39,8 @@
 
 
 (import (jazz.editor)
-        (jazz.preferences))
+        (jazz.preferences)
+        (jazz.text))
 
 
 (class Diff-Syntax extends Code-Syntax
@@ -50,8 +51,8 @@
   ;;;
   
   
-  (method override (preferences)
-    (get-preferences '(documents diff-text)))
+  (method override (preferences self)
+    (current-preferences '(documents diff-text)))
 
   
   ;;;
@@ -64,18 +65,18 @@
       "diff "))
   
   
-  (method override (get-headers)
+  (method override (get-headers self)
     headers)
   
   
-  (method override (get-chapter-label string col from to)
+  (method override (get-chapter-label self string col from to)
     (let ((pos (find string #\/ reversed?: #t)))
       (if pos
           (subseq string (+ pos 1))
-        (nextmethod string col from to))))
+        (nextmethod self string col from to))))
   
   
-  (method override (get-first-special?)
+  (method override (get-first-special? self)
     #f)
 
   
@@ -84,27 +85,27 @@
   ;;;
   
   
-  (method override (colorize-syntax (colorizer?: colorizer? #t) (entries?: entries? #t))
+  (method override (colorize-syntax self (colorizer?: colorizer? #t) (entries?: entries? #t))
     (define (colorize-diff colorizer)
-      (for-each-paragraph~ model
+      (for-each-paragraph model
         (lambda (line paragraph)
-          (let ((str (get-string~ paragraph)))
+          (let ((str (get-string paragraph)))
             (let ((len (cardinality str)))
               (cond ((or (starts-with? str "From")
                          (starts-with? str "Date")
                          (starts-with? str "Subject")
                          (starts-with? str "diff ")
                          (starts-with? str "index "))
-                     (apply-coloring colorizer (new Cell line 0) (new Cell line len) 'File))
+                     (apply-coloring self colorizer (new Cell line 0) (new Cell line len) 'File))
                     ((starts-with? str "@@")
-                     (apply-coloring colorizer (new Cell line 0) (new Cell line len) 'Diff))
+                     (apply-coloring self colorizer (new Cell line 0) (new Cell line len) 'Diff))
                     ((starts-with? str "+")
-                     (apply-coloring colorizer (new Cell line 0) (new Cell line len) 'Add))
+                     (apply-coloring self colorizer (new Cell line 0) (new Cell line len) 'Add))
                     ((starts-with? str "-")
-                     (apply-coloring colorizer (new Cell line 0) (new Cell line len) 'Remove))
+                     (apply-coloring self colorizer (new Cell line 0) (new Cell line len) 'Remove))
                     (else
                      #f)))))))
     
-    (let ((colorizer (new-colorizer~ model)))
+    (let ((colorizer (new-colorizer model)))
       (colorize-diff colorizer)
-      (finish-current~ colorizer)))))
+      (finish-current colorizer)))))

@@ -38,8 +38,38 @@
 (module jazz.editor.sql jazz
 
 
+(hub add-history)
+(hub clear-table)
+(hub display-tables)
+(hub evaluate)
+(hub evaluate-statements)
+(hub get-completions)
+(hub get-current-request)
+(hub get-definition-style)
+(hub get-keyword-style)
+(hub get-keywords)
+(hub get-line-comment-style)
+(hub get-max-display)
+(hub get-max-load)
+(hub get-tabulate-text?)
+(hub get-text)
+(hub get-title-style)
+(hub get-tree)
+(hub new-connections-menu)
+(hub next-table)
+(hub on-clear)
+(hub on-open)
+(hub open-selection)
+(hub previous-table)
+(hub process-sql)
+(hub recordsets-update)
+(hub resize-center)
+(hub set-current-request)
+
+
 (export (jazz.editor.sql.autoload))
 (import (jazz.component)
+        (jazz.database)
         (jazz.io)
         (jazz.process)
         (jazz.schema)
@@ -64,18 +94,18 @@
   @convert-this-is-gui
   (let ((guest (get-sql-connections)))
     (when guest
-      (set-property~ (get-designer~ guest) (get-client~ guest) 'default-source (and data-source (get-name~ data-source)))
-      (invalidate-view~ (get-tree~ guest))
+      (set-property (get-designer guest) (get-client guest) 'default-source (and data-source (get-name data-source)))
+      (invalidate-view (get-tree guest))
       (get-active-connection))))
 
 
 (definition public (get-active-connection)
   (when Active-Data-Source
-    (let* ((name (get-name~ Active-Data-Source))
-           (connection (get-connection name data-source: Active-Data-Source)))
+    (let* ((name (get-name Active-Data-Source))
+           (connection (require-connection name data-source: Active-Data-Source)))
       ;; In case an external source closed the connection
-      (when (eq? (get-state~ connection) 'closed)
-        (open~ connection Active-Data-Source))
+      (when (eq? (get-state connection) 'closed)
+        (open connection Active-Data-Source))
       connection)))
 
 
@@ -92,7 +122,7 @@
   (assoc-value name Active-Connections #f))
 
 
-(definition public (get-connection name (data-source: data-source #f))
+(definition public (require-connection name (data-source: data-source #f))
   (or (find-connection name)
       (when data-source
         (let ((connection (new-connection data-source)))
@@ -100,14 +130,10 @@
           connection))))
 
 
-(definition public (new-connection data-source)
-  (new-connection~ data-source))
-
-
 (definition public (close-connections)
   (for-each (lambda (info)
               (bind (name . connection) info
-                (close~ connection)))
+                (close connection)))
             Active-Connections)
   (set! Active-Connections '())
   (set-active-data-source #f))
@@ -120,17 +146,17 @@
 (definition package (read-connections)
   (define (load-connections)
     (let ((file Connections-File))
-      (if (exists?~ file)
-          (let ((connections (instantiate~ (read-form file))))
-            (validate-duplicates~ connections (get-name~ file))
+      (if (exists? file)
+          (let ((connections (instantiate (read-form file))))
+            (validate-duplicates connections (get-name file))
             connections)
         (new Data-Sources))))
   
   (with-safe-execution "loading the connections"
     (lambda ()
-      (let ((process (get-process))
+      (let ((process (current-process))
             (connections (load-connections)))
-        (install-context~ process connections)
+        (install-context process connections)
         connections))
     continue-handler:
     (lambda (err)

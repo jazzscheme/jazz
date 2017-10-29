@@ -39,6 +39,7 @@
 
 
 (import (jazz.application)
+        (jazz.event)
         (jazz.geometry)
         (jazz.graphic)
         (jazz.handler)
@@ -65,10 +66,10 @@
       (<Layout-View> name: tools size: {Dimension 0 22} layout-type: flow)))
   
   
-  (method override (finish initargs)
-    (nextmethod initargs)
+  (method override (finish self initargs)
+    (nextmethod self initargs)
     (when (>= (length children) 2)
-      (set-guest (second children))))
+      (set-guest self (second children))))
   
   
   ;;;
@@ -76,10 +77,10 @@
   ;;;
   
   
-  (method override (size-change size)
-    (nextmethod size)
-    (invalidate-top)
-    (invalidate-border))
+  (method override (size-change self size)
+    (nextmethod self size)
+    (invalidate-top self)
+    (invalidate-border self))
   
   
   ;; This version which is not complete really closes the docked.
@@ -88,56 +89,56 @@
   @code-will-have-to-be-modified-for-this-to-work
   (method (on-close evt)
     (let* ((parent (get-parent))
-           (grand (get-parent~ parent)))
+           (grand (get-parent parent)))
       (with-locked-update
         (lambda ()
           (set-visible? #f)
-          (set-parent (get-toplevel))
+          (set-parent (current-toplevel))
           (cond ((is? parent Splitter-View)
-                 (let ((other (first-view~ parent)))
+                 (let ((other (first-view parent)))
                    (when other
                      (if (is? parent Workspace-Splitter)
                          (begin
-                           (set-mode~ parent 'zoom)
-                           (layout-view~ parent))
-                       (set-location~ other (get-location~ parent))
-                       (set-parent~ other grand)
-                       (close~ parent)
-                       (layout-view~ grand)))))
+                           (set-mode parent 'zoom)
+                           (layout-view parent))
+                       (set-location other (get-location parent))
+                       (set-parent other grand)
+                       (close parent)
+                       (layout-view grand)))))
                 ((is? parent Pad-View)
                  (close)
-                 (let ((other (first-child~ parent)))
-                   (set-location~ other 'selection)
-                   (layout-view~ parent))))))))
+                 (let ((other (first-child parent)))
+                   (set-location other 'selection)
+                   (layout-view parent))))))))
   
   
-  (method (on-close evt)
-    (hide-splitted))
+  (method package (on-close self evt)
+    (hide-splitted self))
   
   
-  (method public (hide-splitted)
-    (let* ((parent (get-parent))
-           (grand (get-parent~ parent)))
+  (method public (hide-splitted self)
+    (let* ((parent (get-parent self))
+           (grand (get-parent parent)))
       (with-locked-update
         (lambda ()
-          (set-visible? #f)
-          (set-parent (get-toplevel))
+          (set-visible? self #f)
+          (set-parent self (current-toplevel))
           (cond ((is? parent Splitter-View)
-                 (let ((other (first-view~ parent)))
+                 (let ((other (first-view parent)))
                    (when other
                      (if #f @ZOO (is? parent Workspace-Splitter)
                          (begin
-                           (set-mode~ parent 'zoom)
-                           (layout-view~ parent))
-                       (set-location~ other (get-location~ parent))
-                       (set-parent~ other grand)
-                       (close~ parent)
-                       (layout-view~ grand)))))
+                           (set-mode parent 'zoom)
+                           (layout-view parent))
+                       (set-location other (get-location parent))
+                       (set-parent other grand)
+                       (close parent)
+                       (layout-view grand)))))
                 ((is? parent Pad-View)
-                 (close)
-                 (let ((other (first-child~ parent)))
-                   (set-location~ other 'selection)
-                   (layout-view~ parent))))))))
+                 (close self)
+                 (let ((other (first-child parent)))
+                   (set-location other 'selection)
+                   (layout-view parent))))))))
 
   
   ;;;
@@ -145,18 +146,18 @@
   ;;;
   
   
-  (method override (mouse-activate?)
+  (method override (mouse-activate? self)
     #t)
   
   
-  (method override (activate-focus)
-    (nextmethod)
-    (invalidate-caption))
+  (method override (activate-focus self)
+    (nextmethod self)
+    (invalidate-caption self))
   
   
-  (method override (deactivate-focus)
-    (nextmethod)
-    (invalidate-caption))
+  (method override (deactivate-focus self)
+    (nextmethod self)
+    (invalidate-caption self))
 
   
   ;;;
@@ -164,54 +165,54 @@
   ;;;
   
   
-  (method override (install-tools)
-    (let* ((guest (get-guest))
-           (view (get-tools-view~ guest)))
+  (method override (install-tools self)
+    (let* ((guest (get-guest self))
+           (view (get-tools-view guest)))
       (when view
-        (let ((tools (get-children~ view))
-              (dest (locate 'tools)))
+        (let ((tools (get-children view))
+              (dest (locate self 'tools)))
           (for-each (lambda (tool)
-                      (set-location~ tool 'tail)
-                      (set-parent~ tool dest))
+                      (set-location tool 'tail)
+                      (set-parent tool dest))
                     tools)
-          (layout-view~ dest)
-          (set-visible?~ view #f)
-          (set-size~ dest (new Dimension (tools-width tools) 22))
-          (layout-view)
-          (layout-view~ guest)
-          (invalidate-view)))))
+          (layout-view dest)
+          (set-visible? view #f)
+          (set-size dest (new Dimension (tools-width tools) 22))
+          (layout-view self)
+          (layout-view guest)
+          (invalidate-view self)))))
   
   
-  (method public (add-tool tool)
-    (let ((tools (locate 'tools)))
-      (set-parent~ tool tools)
-      (layout-view~ tools)
-      (set-size~ tools (new Dimension (tools-width (get-children~ tools)) 22))
-      (layout-view)
-      (invalidate-view)))
+  (method public (add-tool self tool)
+    (let ((tools (locate self 'tools)))
+      (set-parent tool tools)
+      (layout-view tools)
+      (set-size tools (new Dimension (tools-width (get-children tools)) 22))
+      (layout-view self)
+      (invalidate-view self)))
   
   
-  (method public (remove-tool tool)
-    (let ((tools (locate 'tools)))
-      (set-parent~ tool #f)
-      (layout-view~ tools)
-      (set-size~ tools (new Dimension (tools-width (get-children~ tools)) 22))
-      (layout-view)
-      (invalidate-view)))
+  (method public (remove-tool self tool)
+    (let ((tools (locate self 'tools)))
+      (set-parent tool #f)
+      (layout-view tools)
+      (set-size tools (new Dimension (tools-width (get-children tools)) 22))
+      (layout-view self)
+      (invalidate-view self)))
   
   
-  (method package (refresh-tools)
-    (let ((tools (locate 'tools)))
-      (set-size~ tools (new Dimension (tools-width (get-children~ tools)) 22))
-      (layout-view)
-      (invalidate-view)))
+  (method package (refresh-tools self)
+    (let ((tools (locate self 'tools)))
+      (set-size tools (new Dimension (tools-width (get-children tools)) 22))
+      (layout-view self)
+      (invalidate-view self)))
   
   
   (definition (tools-width tools)
     (let ((total 0))
       (for-each (lambda (tool)
-                  (when (get-visible?~ tool)
-                    (increase! total (get-width~ (get-size~ tool)))))
+                  (when (get-visible? tool)
+                    (increase! total (get-width (get-size tool)))))
                 tools)
       total))
   
@@ -221,30 +222,30 @@
   ;;;
   
   
-  (method override (layout)
+  (method override (layout self)
     (define (layout-tools width)
-      (let* ((tools (locate 'tools))
-             (size (get-size~ tools)))
-        (set-position~ tools (new Point (max (- width 3 (get-width~ size)) 0)
+      (let* ((tools (locate self 'tools))
+             (size (get-size tools)))
+        (set-position tools (new Point (max (- width 3 (get-width size)) 0)
                                   2))))
     
     (when guest
-      (let ((width (get-width))
-            (height (get-height))
-            (tools (locate 'tools)))
+      (let ((width (get-width self))
+            (height (get-height self))
+            (tools (locate self 'tools)))
         (cond (fullscreen?
-               (set-visible?~ tools #f)
-               (set-position~ guest {Point 0 0})
-               (set-size~ guest (new Dimension width height)))
+               (set-visible? tools #f)
+               (set-position guest {Point 0 0})
+               (set-size guest (new Dimension width height)))
               (caption?
                (layout-tools width)
-               (set-visible?~ tools #t)
-               (set-position~ guest {Point 1 25})
-               (set-size~ guest (new Dimension (- width 2) (- height 26))))
+               (set-visible? tools #t)
+               (set-position guest {Point 1 25})
+               (set-size guest (new Dimension (- width 2) (- height 26))))
               (else
-               (set-visible?~ tools #f)
-               (set-position~ guest {Point 1 1})
-               (set-size~ guest (new Dimension (- width 2) (- height 2))))))))
+               (set-visible? tools #f)
+               (set-position guest {Point 1 1})
+               (set-size guest (new Dimension (- width 2) (- height 2))))))))
 
 
   ;;;
@@ -252,12 +253,12 @@
   ;;;
   
   
-  (method (caption-rect)
-    (new Rect 1 1 (- (get-width) 2) 24))
+  (method (caption-rect self)
+    (new Rect 1 1 (- (get-width self) 2) 24))
   
   
-  (method (top-rect)
-    (new Rect 1 1 (- (get-width) 2) 25))
+  (method (top-rect self)
+    (new Rect 1 1 (- (get-width self) 2) 25))
 
 
   ;;;
@@ -265,12 +266,12 @@
   ;;;
   
   
-  (method (invalidate-top)
-    (invalidate-rect (top-rect)))
+  (method (invalidate-top self)
+    (invalidate-rect self (top-rect self)))
   
   
-  (method override (invalidate-caption)
-    (invalidate-rect (caption-rect)))
+  (method override (invalidate-caption self)
+    (invalidate-rect self (caption-rect self)))
 
 
   ;;;
@@ -278,76 +279,76 @@
   ;;;
 
   
-  (method override (draw surface context)
-    (let ((bounds (get-bounds))
+  (method override (draw self surface context)
+    (let ((bounds (get-bounds self))
           (focused? (eq? self (get-focused-host)))
-          (all (collect-all))
-          (skin (get-skin)))
-      (let ((transparent? (eq? (get-background~ skin) 'none)))
+          (all (collect-all self))
+          (skin (get-skin self)))
+      (let ((transparent? (eq? (get-background skin) 'none)))
         (unless transparent?
-          (let ((rect (new Rect (get-left~ bounds) (get-top~ bounds) (get-right~ bounds) 24)))
+          (let ((rect (new Rect (get-left bounds) (get-top bounds) (get-right bounds) 24)))
             (if (debug-paint?)
-                (fill-rect~ surface rect (cycle-debug-color!))
-              (fill-background~ surface rect (if (debug-paint?) (cycle-debug-color!) (get-inactive-background~ skin)))))
-          (frame-rect~ surface bounds (get-frame-color~ skin)))
+                (fill-rect surface rect (cycle-debug-color!))
+              (fill-background surface rect (if (debug-paint?) (cycle-debug-color!) (get-inactive-background skin)))))
+          (frame-rect surface bounds (get-frame-color skin)))
         (let ((h 1)
               (first (first all))
-              (compact? (determine-compact?)))
+              (compact? (determine-compact? self)))
           (for-each (lambda (docked)
-                      (let ((title (get-title~ docked))
-                            (icon (or (get-icon~ docked) (host-icon~ (class-of (get-guest~ docked)))))
+                      (let ((title (get-title docked))
+                            (icon (or (get-icon docked) (host-icon (class-of (get-guest docked)))))
                             (first? (eq? docked first))
                             (selected? (eq? docked self)))
                         (let* ((left (- h .5))
                                (top .5)
                                (title? (or selected? (not compact?)))
-                               (width (if title? (+ (get-text-width~ surface title) 37) 24))
+                               (width (if title? (+ (get-text-width surface title) 37) 24))
                                (height 24)
                                (right (+ left width))
                                (bottom (+ top height)))
                           (when (and selected? focused?)
                             (unless transparent?
-                              (fill-background~ surface (new Rect h 1 (+ h width) 24) (if (debug-paint?) (cycle-debug-color!) (get-active-background~ skin)))
-                              (set-color~ surface (if focused? {Color Dark} {Color red: 230 green: 225 blue: 204}))
-                              (set-line-width~ surface 1)
+                              (fill-background surface (new Rect h 1 (+ h width) 24) (if (debug-paint?) (cycle-debug-color!) (get-active-background skin)))
+                              (set-color surface (if focused? {Color Dark} {Color red: 230 green: 225 blue: 204}))
+                              (set-line-width surface 1)
                               (when (not first?)
-                                (cairo-move-to~ surface left bottom)
-                                (cairo-line-to~ surface left 1)
-                                (stroke~ surface))
-                              (cairo-move-to~ surface right 1)
-                              (cairo-line-to~ surface right bottom)
-                              (stroke~ surface)))
+                                (cairo-move-to surface left bottom)
+                                (cairo-line-to surface left 1)
+                                (stroke surface))
+                              (cairo-move-to surface right 1)
+                              (cairo-line-to surface right bottom)
+                              (stroke surface)))
                           (unless transparent?
-                            (draw-image~ (get-images-portfolio~ (get-application)) surface context icon (+ h 3) 5))
+                            (draw-image (get-images-portfolio (get-application)) surface context icon (+ h 3) 5))
                           (when title?
-                            (set-font~ surface {Font Label})
-                            (draw-text~ surface (+ h (if transparent? 5 21)) (if transparent? 5 7)
+                            (set-font surface {Font Label})
+                            (draw-text surface (+ h (if transparent? 5 21)) (if transparent? 5 7)
                               title
                               (if transparent?
                                   (if selected? {Color red: .005 green: .796 blue: .918} {Color Medium-Gray})
-                                (if selected? (get-focused-text-color~ skin) (get-unfocused-text-color~ skin)))))
+                                (if selected? (get-focused-text-color skin) (get-unfocused-text-color skin)))))
                           (increase! h width))))
                     all))
-        (set-color~ surface (if transparent? {Color red: .308 green: .381 blue: .448} {Color Dark}))
-        (set-line-width~ surface 1)
+        (set-color surface (if transparent? {Color red: .308 green: .381 blue: .448} {Color Dark}))
+        (set-line-width surface 1)
         (let ((border (if transparent? 0 1))
               (v (if transparent? 23 24)))
-          (line~ surface border v (- (get-width) border) v)))))
+          (line surface border v (- (get-width self) border) v)))))
   
   
-  (method (determine-compact?)
+  (method (determine-compact? self)
     (define (full-width)
-      (let ((all (collect-all))
+      (let ((all (collect-all self))
             (h 0))
         (for-each (lambda (docked)
-                    (let ((title (get-title~ docked)))
-                      (let ((width (+ (text-width~ {Font Label} title) 37)))
+                    (let ((title (get-title docked)))
+                      (let ((width (+ (text-width {Font Label} title) 37)))
                         (increase! h width))))
                   all)
         h))
     
-    (let ((tools-width (get-width~ (locate 'tools))))
-      (> (full-width) (- (get-width) tools-width))))
+    (let ((tools-width (get-width (locate self 'tools))))
+      (> (full-width) (- (get-width self) tools-width))))
   
   
   ;;;
@@ -355,7 +356,7 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:docked))
 
   
@@ -364,8 +365,8 @@
   ;;;
   
   
-  (method override (get-opaque?)
-    (neq? (get-background~ (get-skin)) 'none))
+  (method override (get-opaque? self)
+    (neq? (get-background (get-skin self)) 'none))
   
 
   ;;;
@@ -373,56 +374,56 @@
   ;;;
 
   
-  (method override (mouse-down evt)
-    (let ((pos (get-position~ evt)))
-      (for-all
+  (method override (mouse-down self evt)
+    (let ((pos (get-position evt)))
+      (for-all self
         (lambda (docked rect)
           (when (in-rect? pos rect)
-            (let ((parent (get-parent)))
+            (let ((parent (get-parent self)))
               (when (is? parent Pad-View)
-                (set-selection~ parent docked))
+                (set-selection parent docked))
               (unless (focused-host? docked)
-                (focus-host~ docked))))))))
+                (focus-host docked))))))))
   
   
-  (method (toggle-docked pos)
-    (let ((parent (get-parent)))
+  (method (toggle-docked self pos)
+    (let ((parent (get-parent self)))
       (when (is? parent Pad-View)
-        (let* ((title (localize (get-title)))
+        (let* ((title (localize (get-title self)))
                (font {Font Label})
-               (h (+ 28 (text-width~ font title))))
-          (when (< (get-h~ pos) h)
+               (h (+ 28 (text-width font title))))
+          (when (< (get-h pos) h)
             (with-locked-update
               (lambda ()
-                (select-next~ parent))))))))
+                (select-next parent))))))))
   
   
-  (method override (double-click evt)
+  (method override (double-click self evt)
     (define (opposite-orientation orientation)
       (case orientation
         ((horz) 'vert)
         ((vert) 'horz)))
     
     (define (find-orientation view child orientation)
-      (if (and (is? view Splitter-View) (eq? (get-orientation~ view) orientation))
+      (if (and (is? view Splitter-View) (eq? (get-orientation view) orientation))
           (cons view child)
-        (let ((parent (get-parent~ view)))
+        (let ((parent (get-parent view)))
           (and parent (find-orientation parent view orientation)))))
     
     (when zoomable?
-      (let* ((parent (get-parent))
+      (let* ((parent (get-parent self))
              (target (if (is? parent Pad-View) parent self)))
-        (if (get-alt?~ evt)
-            (toggle-full-screen~ (get-application) target)
-          (let ((splitter (if (is? parent Pad-View) (get-parent~ parent) parent)))
+        (if (get-alt? evt)
+            (toggle-full-screen (get-application) target)
+          (let ((splitter (if (is? parent Pad-View) (get-parent parent) parent)))
             (when (is? splitter Splitter-View)
-              (if (get-shift?~ evt)
-                  (let ((found (find-orientation splitter target (opposite-orientation (get-orientation~ splitter)))))
+              (if (get-shift? evt)
+                  (let ((found (find-orientation splitter target (opposite-orientation (get-orientation splitter)))))
                     (if found
                         (bind (splitter . target) found
-                          (toggle-zoom~ splitter target))
+                          (toggle-zoom splitter target))
                       (bell)))
-                (toggle-zoom~ splitter target))))))))
+                (toggle-zoom splitter target))))))))
 
 
   ;;;
@@ -430,14 +431,14 @@
   ;;;
   
   
-  (method override (container-focusable?)
+  (method override (container-focusable? self)
     (or (is-not? parent Pad-View)
-        (eq? (get-selection~ parent) self)))
+        (eq? (get-selection parent) self)))
   
   
-  (method override (ensure-container-focusable)
+  (method override (ensure-container-focusable self)
     (when (is? parent Pad-View)
-      (set-selection~ parent self)))
+      (set-selection parent self)))
   
 
   ;;;
@@ -445,37 +446,37 @@
   ;;;
   
   
-  (method (for-all proc)
-    (let ((all (collect-all)))
+  (method (for-all self proc)
+    (let ((all (collect-all self)))
       (let ((h 0)
             (first (first all))
-            (compact? (determine-compact?)))
+            (compact? (determine-compact? self)))
         (for-each (lambda (docked)
-                    (let ((title (get-title~ docked))
+                    (let ((title (get-title docked))
                           (first? (eq? docked first))
                           (title? (or (eq? docked self) (not compact?))))
                       (let ((left (if first? (+ h 1) h))
                             (top 1)
-                            (width (if title? (+ (text-width~ {Font Label} title) 37) 24))
+                            (width (if title? (+ (text-width {Font Label} title) 37) 24))
                             (height 23))
                         (proc docked (new Rect left top (+ h width) (+ top height)))
                         (increase! h width))))
                   all))))
   
   
-  (method (collect-all)
-    (let ((pad (get-parent)))
+  (method (collect-all self)
+    (let ((pad (get-parent self)))
       (if (is? pad Pad-View)
-          (get-children~ pad)
+          (get-children pad)
         (list self))))
   
   
-  (method (collect-brothers)
-    (let ((pad (get-parent)))
+  (method (collect-brothers self)
+    (let ((pad (get-parent self)))
       (when (is? pad Pad-View)
         (collect-if (lambda (host)
                       (neq? host self))
-                    (get-children~ pad)))))
+                    (get-children pad)))))
   
 
   ;;;
@@ -483,24 +484,24 @@
   ;;;
   
   
-  (method (select-menu)
-    (let ((brothers (collect-brothers)))
+  (method (select-menu self)
+    (let ((brothers (collect-brothers self)))
       (when brothers
         (let ((menu (new Context-Menu)))
           (for-each (lambda (docked)
-                      (let* ((guest (get-guest~ docked))
-                             (title (get-title~ docked))
-                             (icon (host-icon~ (class-of guest))))
+                      (let* ((guest (get-guest docked))
+                             (title (get-title docked))
+                             (icon (host-icon (class-of guest))))
                         (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-select properties: (list host: docked)))))
                     brothers)
-          (layout-menu~ menu)
-          (track-popup-menu menu {Point 2 25})))))
+          (layout-menu menu)
+          (track-popup-menu self menu {Point 2 25})))))
   
   
-  (method (on-select evt)
-    (let ((pad (get-parent))
-          (host (get-property~ evt host:)))
+  (method (on-select self evt)
+    (let ((pad (get-parent self))
+          (host (get-property evt host:)))
       (with-locked-update
         (lambda ()
-          (set-selection~ pad host)
-          (focus-host~ host)))))))
+          (set-selection pad host)
+          (focus-host host)))))))

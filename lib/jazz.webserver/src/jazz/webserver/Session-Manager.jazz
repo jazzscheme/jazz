@@ -55,7 +55,7 @@
   (slot session-manager-lock initialize (make-mutex "session manager lock"))
   
 
-  (method public (new-session) ;; signature should be: (request port reply)
+  (method public (new-session self) ;; signature should be: (request port reply)
     (mutex-lock! session-manager-lock)
     (let ((session (new Session id-counter)))
       (set! sessions (cons session sessions))
@@ -64,20 +64,20 @@
       session))
 
 
-  (method public (end-session session)
+  (method public (end-session self session)
     (mutex-lock! session-manager-lock)
     (set! sessions (remove! session sessions))
     (mutex-unlock! session-manager-lock)
-    (end-session~ session)
+    (end-session session)
     #f)
 
 
-  (method public (get-session request port)
+  (method public (get-session self request port)
     (let ((session-id 0)) ;; fixme
       (let ((session (find-if (lambda (session)
-                                (= (get-id~ session) session-id))
+                                (= (get-id session) session-id))
                               sessions)))
         (when session
-          (if (expired?~ session)
-              (end-session session)
+          (if (expired? session)
+              (end-session self session)
               session)))))))

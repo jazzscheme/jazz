@@ -42,6 +42,7 @@
         (jazz.handler)
         (jazz.jml)
         (jazz.layout)
+        (jazz.outline)
         (jazz.project)
         (jazz.resource)
         (jazz.tree)
@@ -71,21 +72,21 @@
   (slot hierarchical? initialize #f)
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (update))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (update self))
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Select Project")
   
   
-  (method override (install-in-host host)
-    (select-active))
+  (method override (install-in-host self host)
+    (select-active self))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (get-tree)))
+  (method override (focus-default self)
+    (acquire-focus (get-tree self)))
   
 
   ;;;
@@ -93,8 +94,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'content))
+  (method package (get-tree self)
+    (locate self 'content))
   
 
   ;;;
@@ -102,22 +103,22 @@
   ;;;
   
   
-  (method (on-toggle-hierarchical evt)
+  (method (on-toggle-hierarchical self evt)
     (set! hierarchical? (not hierarchical?))
-    (set-toplevel-controls?~ (get-node-column~ (get-tree)) hierarchical?)
-    (with-preserved-selection~ (get-tree)
-      update
+    (set-toplevel-controls? (get-node-column (get-tree self)) hierarchical?)
+    (with-preserved-selection (get-tree self)
+      (~ update self)
       use: 'data)
-    (update-buttons))
+    (update-buttons self))
   
   
-  (method (on-selection-change evt)
-    (update-buttons))
+  (method package (on-selection-change self evt)
+    (update-buttons self))
   
   
-  (method (default-action)
-    (when (ok-enabled?)
-      (end-modal~ (get-host) (get-modal-result))))
+  (method (default-action self)
+    (when (ok-enabled? self)
+      (end-modal (get-host self) (get-modal-result self))))
   
 
   ;;;
@@ -125,12 +126,12 @@
   ;;;
   
   
-  (method (update)
-    (update-content)
-    (update-buttons))
+  (method package (update self)
+    (update-content self)
+    (update-buttons self))
   
   
-  (method (update-content)
+  (method (update-content self)
     (define (update-hierarchical tree)
       (let ((workbench (get-workbench))
             (rows (make-table test: eq?)))
@@ -138,12 +139,12 @@
           (or (table-ref rows file #f)
               (let ((title (get-presentation-property file))
                     (image (get-component-image file)))
-                (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: file)))
+                (let ((row (add-row tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: file)))
                   (table-set! rows file row)
                   row))))
         
         (define (insert project)
-          (let ((parent (get-parent~ project)))
+          (let ((parent (get-parent project)))
             (if (not parent)
                 (add project #f)
               (add project (insert parent)))))
@@ -155,27 +156,27 @@
         (for-each (lambda (project)
                     (let ((title (get-presentation-property project))
                           (image (get-component-image project)))
-                      (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: project)))
+                      (add-row tree children: (list (new Tree-Node title: title image: image)) user-data: project)))
                   (sort string<? (collect-concrete-projects workbench)
                     key: get-presentation-property))))
     
-    (let ((tree (get-tree)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+    (let ((tree (get-tree self)))
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (if hierarchical?
               (update-hierarchical tree)
             (update-flat tree))))))
   
   
-  (method (update-buttons)
-    (let ((project (selected-project)))
-      (set-enabled?~ (locate 'ok) project)))
+  (method package (update-buttons self)
+    (let ((project (selected-project self)))
+      (set-enabled? (locate self 'ok) project)))
   
   
-  (method (select-active)
-    (when (get-active-project)
-      (select-user-data-row~ (get-tree) (get-active-project) error?: #f)))
+  (method (select-active self)
+    (when (active-project)
+      (select-user-data-row (get-tree self) (active-project) error?: #f)))
   
 
   ;;;
@@ -183,27 +184,27 @@
   ;;;
   
   
-  (method override (get-modal-result)
-    (selected-project))
+  (method override (get-modal-result self)
+    (selected-project self))
   
   
-  (method (ok-enabled?)
-    (get-enabled?~ (locate 'ok)))
+  (method (ok-enabled? self)
+    (get-enabled? (locate self 'ok)))
   
   
-  (method (on-double-click evt)
-    (default-action))
-  
-  
-  ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (default-action))
+  (method (on-double-click self evt)
+    (default-action self))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))
+  (method override (on-return-press self evt)
+    (default-action self))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
   
 
   ;;;
@@ -211,8 +212,8 @@
   ;;;
   
   
-  (method (selected-project)
-    (let ((file (get-single-selected-data~ (get-tree))))
+  (method (selected-project self)
+    (let ((file (get-single-selected-data (get-tree self))))
       (when (and (is? file Project)
-                 (concrete?~ file))
+                 (concrete? file))
         file)))))

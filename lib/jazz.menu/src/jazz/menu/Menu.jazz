@@ -43,7 +43,8 @@
         (jazz.locale)
         (jazz.locator)
         (jazz.menu)
-        (jazz.view))
+        (jazz.view)
+        (jazz.window))
 
 
 (class Menu extends View
@@ -67,12 +68,12 @@
   ;;;
   
 
-  (method override (focus-actions)
-    (cons (menu-actions)
-          (nextmethod)))
+  (method override (focus-actions self)
+    (cons (menu-actions self)
+          (nextmethod self)))
   
   
-  (method protected virtual (menu-actions)
+  (method protected virtual (menu-actions self)
     (find-actions 'menu))
 
   
@@ -81,9 +82,9 @@
   ;;;
   
   
-  (method override (conclude rest)
-    (nextmethod rest)
-    (layout-menu))
+  (method override (conclude self rest)
+    (nextmethod self rest)
+    (layout-menu self))
 
   
   ;;;
@@ -91,27 +92,27 @@
   ;;;
   
   
-  (method protected (parent-menu)
-    (and item (get-parent~ item)))
+  (method package (parent-menu self)
+    (and item (get-parent item)))
   
   
-  (method protected (parent-menubar)
+  (method protected (parent-menubar self)
     (let (iter (menu self))
       (and menu
            (if (is? menu Menubar)
                menu
-             (iter (parent-menu~ menu))))))
+             (iter (parent-menu menu))))))
   
   
-  (method public (get-popped)
+  (method public (get-popped self)
     popped)
   
   
-  (method public (set-popped menu)
+  (method public (set-popped self menu)
     (when popped
-      (let ((initiator (popup-initiator~ popped)))
+      (let ((initiator (popup-initiator popped)))
         (when initiator
-          (invalidate-view~ initiator))))
+          (invalidate-view initiator))))
     (set! popped menu))
   
   
@@ -120,20 +121,20 @@
   ;;;
   
   
-  (method public (get-highlighted)
+  (method public (get-highlighted self)
     highlighted)
   
   
-  (method public (set-highlighted new)
+  (method public (set-highlighted self new)
     (let ((old highlighted))
       (set! highlighted new)
       (when old
-        (invalidate-view~ old))
+        (invalidate-view old))
       (when new
-        (invalidate-view~ new))))
+        (invalidate-view new))))
   
   
-  (method package (clear-highlighted)
+  (method package (clear-highlighted self)
     (set! highlighted #f))
   
   
@@ -142,8 +143,8 @@
   ;;;
   
   
-  (method override (focus-lose)
-    (set-highlighted #f))
+  (method override (focus-lose self)
+    (set-highlighted self #f))
   
   
   ;;;
@@ -151,77 +152,77 @@
   ;;;
   
   
-  (method (on-navigate-previous evt)
-    (navigate-previous))
+  (method (on-navigate-previous self evt)
+    (navigate-previous self))
   
   
-  (method (on-navigate-next evt)
-    (navigate-next))
+  (method (on-navigate-next self evt)
+    (navigate-next self))
   
   
-  (method (on-navigate-open evt)
-    (navigate-open))
+  (method (on-navigate-open self evt)
+    (navigate-open self))
   
   
-  (method (on-navigate-close evt)
-    (navigate-close))
+  (method (on-navigate-close self evt)
+    (navigate-close self))
   
   
-  (method (on-navigate-home evt)
-    (navigate-home))
+  (method (on-navigate-home self evt)
+    (navigate-home self))
   
   
-  (method (on-navigate-end evt)
-    (navigate-end))
+  (method (on-navigate-end self evt)
+    (navigate-end self))
 
 
-  (method override (key-press evt)
-    (enter~ locator (get-key~ evt)))
+  (method override (key-press self evt)
+    (enter locator (get-key evt)))
 
 
-  (method override (up-arrow-press modifiers)
-    (navigate-previous))
+  (method override (up-arrow-press self modifiers)
+    (navigate-previous self))
 
 
-  (method override (down-arrow-press modifiers)
-    (navigate-next))
+  (method override (down-arrow-press self modifiers)
+    (navigate-next self))
   
   
-  (method (navigate-to navigate)
-    (let ((items (navigable-items)))
+  (method (navigate-to self navigate)
+    (let ((items (navigable-items self)))
       (when (not-null? items)
-        (set-highlighted (navigate items highlighted)))))
+        (set-highlighted self (navigate items highlighted)))))
   
   
-  (method (navigable-items)
-    (collect-if item-navigable?~ (collect-type Item children)))
+  (method package (navigable-items self)
+    (collect-if item-navigable? (collect-type Item children)))
   
   
-  (method override (right-arrow-press modifiers)
-    (or (navigate-open)
-        (let ((menubar (parent-menubar)))
+  (method override (right-arrow-press self modifiers)
+    (or (navigate-open self)
+        (let ((menubar (parent-menubar self)))
           (when menubar
             (close-all-popups)
-            (navigate-next~ menubar)
-            (navigate-open~ menubar)))))
+            (navigate-next menubar)
+            (navigate-open menubar)))))
   
   
-  (method override (left-arrow-press modifiers)
-    (let ((parent (parent-menu)))
+  (method override (left-arrow-press self modifiers)
+    (let ((parent (parent-menu self)))
       (if (is? parent Menubar)
           (begin
             (close-all-popups)
-            (navigate-previous~ parent)
-            (navigate-open~ parent))
-        (navigate-close))))
+            (navigate-previous parent)
+            (navigate-open parent))
+        (navigate-close self))))
   
   
-  (method override (return-press evt)
-    (navigate-select))
+  (method override (return-press self evt)
+    (navigate-select self))
 
 
-  (method override (escape-press evt)
-    (navigate-close))
+  (method override (escape-press self evt)
+    (navigate-close self))
   
   
   ;;;
@@ -229,54 +230,54 @@
   ;;;
 
 
-  (method protected (navigate-previous)
-    (navigate-to previous-element))
+  (method package (navigate-previous self)
+    (navigate-to self previous-element))
 
 
-  (method protected (navigate-next)
-    (navigate-to next-element))
+  (method package (navigate-next self)
+    (navigate-to self next-element))
   
   
-  (method protected (navigate-home)
-    (navigate-to
+  (method protected (navigate-home self)
+    (navigate-to self
       (lambda (items highlighted)
         (first items))))
   
   
-  (method protected (navigate-end)
-    (navigate-to
+  (method protected (navigate-end self)
+    (navigate-to self
       (lambda (items highlighted)
         (last items))))
   
   
-  (method protected (navigate-select)
+  (method protected (navigate-select self)
     (when highlighted
-      (if (get-content~ highlighted)
-          (navigate-open)
+      (if (get-content highlighted)
+          (navigate-open self)
         (let ((item highlighted))
-          (close-popups~ player all?: #t)
-          (process-action~ item item)))))
+          (close-popups player all?: #t)
+          (process-action item item)))))
   
   
-  (method protected (navigate-open (highlight-last? #f))
+  (method package (navigate-open self (highlight-last? #f))
     (when highlighted
-      (let ((content (get-content~ highlighted)))
+      (let ((content (get-content highlighted)))
         (when content
-          (popup-content~ highlighted)
-          (set-highlighted~ content
+          (popup-content highlighted)
+          (set-highlighted content
             (if highlight-last?
-                (last-child~ content)
-              (first-child~ content)))
+                (last-child content)
+              (first-child content)))
           #t))))
   
   
-  (method protected (navigate-close)
-    (close-popup (get-player))
+  (method protected (navigate-close self)
+    (close-popup (get-player self))
     (when item
-      (let ((menu (get-parent~ item))
-            (focus (get-focus)))
+      (let ((menu (get-parent item))
+            (focus (active-focus)))
         (when (eq? focus menu)
-          (set-highlighted~ menu item)))))
+          (set-highlighted menu item)))))
   
   
   ;;;
@@ -284,7 +285,7 @@
   ;;;
   
   
-  (method override (inner? view)
+  (method override (inner? self view)
     (memq? view children))
 
   
@@ -293,11 +294,11 @@
   ;;;
   
   
-  (method override (invalidate-update)
-    (layout-menu))
+  (method override (invalidate-update self)
+    (layout-menu self))
   
   
-  (method public virtual (update)
+  (method public virtual (update self)
     )
   
   
@@ -306,20 +307,20 @@
   ;;;
   
   
-  (method public virtual (layout-menu . rest)
+  (method public virtual (layout-menu self . rest)
     (define (collect-maximums)
       (let ((prefix-max 0)
             (icon-max 0)
             (body-max 0)
             (shortcut-max 0)
             (arrow-max 0))
-        (for-each-view
+        (for-each-view self
           (lambda (view)
-            (let ((prefix (preferred-prefix-width~ view))
-                  (icon (preferred-icon-width~ view))
-                  (body (preferred-body-width~ view))
-                  (shortcut (if display-shortcuts? (preferred-shortcut-width~ view) 0))
-                  (arrow (preferred-arrow-width~ view)))
+            (let ((prefix (preferred-prefix-width view))
+                  (icon (preferred-icon-width view))
+                  (body (preferred-body-width view))
+                  (shortcut (if display-shortcuts? (preferred-shortcut-width view) 0))
+                  (arrow (preferred-arrow-width view)))
               (when (> prefix prefix-max) (set! prefix-max prefix))
               (when (> icon icon-max) (set! icon-max icon))
               (when (> body body-max) (set! body-max body))
@@ -328,28 +329,28 @@
         (values prefix-max icon-max body-max shortcut-max arrow-max)))
     
     (bind-keywords ((cleanup-separators? #t) (width #f)) rest
-      (when (get-finished?)
+      (when (get-finished? self)
         (when cleanup-separators?
-          (cleanup-separators))
+          (cleanup-separators self))
         (receive (prefix icon body shortcut arrow) (collect-maximums)
           (let ((width (max (+ prefix icon body shortcut arrow) (or width 0)))
                 (v 1)
                 (empty? #t))
-            (for-each-view
+            (for-each-view self
               (lambda (view)
-                (let ((height (preferred-height~ view)))
-                  (set-position~ view (new Point 1 v))
-                  (set-size~ view (new Dimension width height))
-                  (set-prefix-width~ view prefix)
-                  (set-icon-width~ view icon)
-                  (set-body-width~ view body)
-                  (set-shortcut-width~ view shortcut)
-                  (set-arrow-width~ view arrow)
+                (let ((height (preferred-height view)))
+                  (set-position view (new Point 1 v))
+                  (set-size view (new Dimension width height))
+                  (set-prefix-width view prefix)
+                  (set-icon-width view icon)
+                  (set-body-width view body)
+                  (set-shortcut-width view shortcut)
+                  (set-arrow-width view arrow)
                   (increase! v height)
                   (set! empty? #f))))
             (if empty?
-                (set-size {Dimension 120 300})
-              (set-size (new Dimension (+ width 2) (+ v 1)))))))))
+                (set-size self {Dimension 120 300})
+              (set-size self (new Dimension (+ width 2) (+ v 1)))))))))
   
   
   ;;;
@@ -357,21 +358,21 @@
   ;;;
   
   
-  (method public (cleanup-separators)
-    (let ((visibles (collect-if get-visible?~ children))
+  (method public (cleanup-separators self)
+    (let ((visibles (collect-if get-visible? children))
           (previous-separator? #t)
           (kept-separator #f))
       (for-each (lambda (item)
                   (let* ((separator? (is? item Separator-Item))
                          (consecutive? (and separator? previous-separator?)))
                     (if consecutive?
-                        (set-visible?~ item #f)
+                        (set-visible? item #f)
                       (when separator?
                         (set! kept-separator item))
                       (set! previous-separator? separator?))))
                 visibles)
       (when (and previous-separator? kept-separator)
-        (set-visible?~ kept-separator #f)))))
+        (set-visible? kept-separator #f)))))
 
 
 ;;;
@@ -385,23 +386,23 @@
   (slot menu)
   
   
-  (method override (initialize menu . rest)
-    (set! menu~self menu)
-    (apply nextmethod rest))
+  (method override (initialize self menu . rest)
+    (set! self.menu menu)
+    (apply nextmethod self rest))
   
   
-  (method override (iterate proc)
-    (let ((items (navigable-items~ menu))
-          (current (get-highlighted~ menu)))
+  (method override (iterate-entries self proc)
+    (let ((items (navigable-items menu))
+          (current (get-highlighted menu)))
       (when (not-null? items)
-        (let ((start (if (not current) 0 (get-rank (if prefix current (next-element items current)) items)))
+        (let ((start (if (not current) 0 (find-rank (if prefix current (next-element items current)) items)))
               (card (cardinality items)))
           (loop (for n from 0 below card)
                 (let ((rank (modulo (+ start n) card)))
                   (let ((item (element items rank)))             
-                    (proc (localize (get-title~ item)) rank))))))))
+                    (proc (localize (get-title item)) rank))))))))
   
   
-  (method override (select rank)
-    (let ((items (navigable-items~ menu)))
-      (set-highlighted~ menu (element items rank))))))
+  (method override (select-entry self rank)
+    (let ((items (navigable-items menu)))
+      (set-highlighted menu (element items rank))))))

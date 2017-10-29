@@ -52,7 +52,7 @@
         unwind-protect
         catch
         ~
-        &&&
+        ~
         local-context
         hook)
 
@@ -186,7 +186,7 @@
 
 
 ;; converted method references
-(define-syntax &&&
+(define-syntax ~
   (lambda (form-src usage-environment macro-environment)
     (let ((name (source-code (cadr (source-code form-src))))
           (object (car (cddr (source-code form-src)))))

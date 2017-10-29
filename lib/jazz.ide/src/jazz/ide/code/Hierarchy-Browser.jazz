@@ -47,13 +47,18 @@
         (jazz.component)
         (jazz.descriptor)
         (jazz.designer)
+        (jazz.document)
         (jazz.editor)
+        (jazz.editor.jazz)
+        (jazz.event)
         (jazz.handler)
         (jazz.ide)
         (jazz.io)
         (jazz.jml)
+        (jazz.outline)
         (jazz.preferences)
         (jazz.resource)
+        (jazz.text)
         (jazz.tree)
         (jazz.ui)
         (jazz.workspace))
@@ -86,7 +91,7 @@
                 (<Tree-Node-Column>                   title: "Hierarchy" width: 329))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Hierarchy)
 
 
@@ -95,20 +100,20 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Components"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Hierarchy")
   
   
-  (method override (client-activate)
+  (method override (client-activate self)
     (define (client-root guest)
       (and (is? guest Code-Text-View)
-           (let ((moniker (get-moniker~ (get-document-controller~ guest))))
+           (let ((moniker (get-moniker (get-document-controller guest))))
              (and moniker
-                  (let ((ext (get-extension~ moniker)))
+                  (let ((ext (get-extension moniker)))
                     (if (extension=? ext "jml")
                         (safe-read-form moniker)
                       (cache-file-entry moniker)))))))
@@ -116,18 +121,18 @@
     (let ((guest (current-document)))
       (let ((root (client-root guest)))
         (if (not root)
-            (set-client/root #f #f)
-          (set-client/root guest root)))))
+            (set-client/root self #f #f)
+          (set-client/root self guest root)))))
   
   
-  (method override (client-deactivate)
-    (set-client/root #f #f))
+  (method override (client-deactivate self)
+    (set-client/root self #f #f))
   
   
-  (method (tree-focus-gained)
+  (method package (tree-focus-gained self)
     (when client
-      (set! client-selection (get-selection~ client))
-      (set! client-position (get-scrolled-position~ client))))
+      (set! client-selection (get-selection client))
+      (set! client-position (get-scrolled-position client))))
  
 
   ;;;
@@ -135,13 +140,13 @@
   ;;;
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
   
   
-  (method override (focus-default)
-    (let ((tree (locate 'definitions)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (locate self 'definitions)))
+      (acquire-focus tree)))
  
 
   ;;;
@@ -149,12 +154,12 @@
   ;;;
   
   
-  (method (get-occurence?)
-    (get-selected?~ (locate 'occurence?)))
+  (method (get-occurence? self)
+    (get-selected? (locate self 'occurence?)))
   
   
-  (method (get-sorted?)
-    (not (get-occurence?)))
+  (method (get-sorted? self)
+    (not (get-occurence? self)))
   
   
   ;;;
@@ -162,9 +167,9 @@
   ;;;
   
 
-  (method override (guest-actions)
+  (method override (guest-actions self)
     (cons (find-actions 'hierarchy-browser)
-          (nextmethod)))
+          (nextmethod self)))
  
 
   ;;;
@@ -172,61 +177,61 @@
   ;;;
   
   
-  (method (on-toggle-occurence evt)
-    (set-sort?~ (locate 'definitions) (get-sorted?))
-    (update))
+  (method (on-toggle-occurence self evt)
+    (set-sort? (locate self 'definitions) (get-sorted? self))
+    (update self))
   
   
-  (method (on-update evt)
+  (method (on-update self evt)
     (define (reload-jml)
-      (let ((moniker (get-moniker~ (get-document-controller~ client))))
+      (let ((moniker (get-moniker (get-document-controller client))))
         (if moniker
             (set! client-root (safe-read-form moniker))
           (set! client-root #f))))
     
     (when (or (is? client-root Exception) (is? client-root Form))
       (reload-jml))
-    (update)
-    (highlight-selection))
+    (update self)
+    (highlight-selection self))
 
 
-  (method (on-selection-change evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method package (on-selection-change self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((definitions)
-         (selection-change sender #f)))))
+         (selection-change self sender #f)))))
 
 
-  (method (on-double-click evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method (on-double-click self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((definitions)
-         (selection-change sender #t)))))
+         (selection-change self sender #t)))))
   
   
-  (method override (on-return-press key)
-    (finish-focus))
+  (method override (on-return-press self key)
+    (finish-focus self))
   
   
-  (method override (on-escape-press key)
-    (cancel-focus))
+  (method override (on-escape-press self key)
+    (cancel-focus self))
   
   
-  (method (on-cancel evt)
-    (cancel-focus))
+  (method (on-cancel self evt)
+    (cancel-focus self))
   
   
-  (method (finish-focus)
+  (method (finish-focus self)
     (when client
-      (acquire-focus~ client)))
+      (acquire-focus client)))
   
   
-  (method (cancel-focus)
+  (method (cancel-focus self)
     (when client
       (when client-selection
-        (set-selection-safe~ client client-selection ensure-displayed?: #f)
-        (scroll-to~ client client-position))
-      (acquire-focus~ client)))
+        (set-selection-safe client client-selection ensure-displayed?: #f)
+        (scroll-to client client-position))
+      (acquire-focus client)))
   
   
   ;;;
@@ -234,33 +239,33 @@
   ;;;
 
  
-  (method public (set-client/root clt root)
+  (method public (set-client/root self clt root)
     (when (neq? root client-root)
       (when client
-        (preserve-state client)
-        (remove-text-listener~ client self))
+        (preserve-state self client)
+        (remove-text-listener client self))
       (set! client clt)
       (set! client-root root)
-      (update)
+      (update self)
       (when client
-        (restore-state client)
-        (when (get-highlight-hierarchy?~ (get-preferences 'documents))
-          (add-text-listener~ client (new Event-Handler execute: (lambda (evt) (highlight-selection))))))))
+        (restore-state self client)
+        (when (get-highlight-hierarchy? (current-preferences 'documents))
+          (add-text-listener client (new Event-Handler execute: (lambda (evt) (highlight-selection self))))))))
   
   
-  (method (update)
+  (method package (update self)
     (define (get-entry-title entry)
       (if (is? entry JML-Node)
           "JML"
-        (get-title~ entry)))
+        (get-title entry)))
     
     ;; All this should be abstracted into an Hierarchy-Client class
     ;; with Hierarchy-Catalog-Client and Hierarchy-JML-Client subclasses
     
     (define (insert-entry-definition tree entry)
       (if (is? entry JML-Node)
-          (insert-jml-definition tree #f 0 entry (get-sorted?))
-        (insert-definition entry tree #f 0 (get-sorted?))))
+          (insert-jml-definition tree #f 0 entry (get-sorted? self))
+        (insert-definition entry tree #f 0 (get-sorted? self))))
     
     (define (insert-jml-definition tree father level node sort?)
       (define (insert-definition father level node sort?)
@@ -270,14 +275,14 @@
       (define (insert-jml-self father level node)
         (let* ((model (get-jml-model father node))
                (image (if (and model (subtype? model Component)) (get-class-image model) {Image-Resource "Slot"}))
-               (title (cond ((get-property~ node 'title)) ((get-name~ node) => ->string) (else (->string (get-model~ node)))))
+               (title (cond ((get-property node 'title)) ((get-name node) => ->string) (else (->string (get-model node)))))
                (state (if (< level 1) 'expanded 'collapsed)))
-          (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: node)))
+          (add-row tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: node)))
       
       (define (get-jml-model father node)
         #f
         @convert-autoload
-        (let ((model (get-model~ node)))
+        (let ((model (get-model node)))
           (when (and model (get-autoload model))
             (autoload model))))
       
@@ -293,32 +298,32 @@
       (define (get-jml-named-children node)
         (define (named? node)
           (and (is? node JML-Element)
-               (or (get-name~ node)
-                   (get-property~ node 'title))))
+               (or (get-name node)
+                   (get-property node 'title))))
         
         (and (is? node JML-Element)
              (collect-if (lambda (child)
                            (and (is? child JML-Element)
                                 (or (named? child)
-                                    (some? named? (get-children~ child)))))
-                         (get-children~ node))))
+                                    (some? named? (get-children child)))))
+                         (get-children node))))
       
       (define (sort-jml-definitions definitions)
-        (sort string<? definitions key: (lambda (definition) (->string (get-name~ definition)))))
+        (sort string<? definitions key: (lambda (definition) (->string (get-name definition)))))
       
       (insert-definition father level node sort?))
     
-    (let ((tree (locate 'definitions)))
+    (let ((tree (locate self 'definitions)))
       (cond ((not client-root)
-             (set-title "Class Browser")
-             (remove-every-row~ tree))
+             (set-title self "Class Browser")
+             (remove-every-row tree))
             ((is? client-root Exception)
-             (remove-every-row~ tree)
-             (add-row~ tree children: (list (new Tree-Node title: (exception-reason client-root) image: {Image-Resource "Debugger"})) user-data: client-root))
+             (remove-every-row tree)
+             (add-row tree children: (list (new Tree-Node title: (exception-reason client-root) image: {Image-Resource "Debugger"})) user-data: client-root))
             (else
-             (set-title (format "Class {a}" (get-entry-title client-root)))
-             (remove-every-row~ tree)
-             (with-update-locked~ tree
+             (set-title self (format "Class {a}" (get-entry-title client-root)))
+             (remove-every-row tree)
+             (with-update-locked tree
                (lambda ()
                  (insert-entry-definition tree client-root)))))))
 
@@ -328,23 +333,23 @@
   ;;;
   
   
-  (method (highlight-selection)
+  (method (highlight-selection self)
     (when (is? client-root File-Entry)
-      (let ((start (get-start~ client)))
-        (let ((line (get-line~ start))
-              (col (get-col~ start)))
+      (let ((start (get-start client)))
+        (let ((line (get-line start))
+              (col (get-col start)))
           (when (or (not displayed-line) (/= line displayed-line))
-            (let ((tree (locate 'definitions))
-                  (file (get-file~ client-root)))
+            (let ((tree (locate self 'definitions))
+                  (file (get-file client-root)))
               (let ((entry (location->entry (list file line col))))
                 (when (neq? entry client-entry)
                   (set! client-entry entry)
                   (if (not entry)
-                      (set-selection~ tree '())
-                    (let ((row (user-data-row~ tree entry include-invisibles?: #t)))
+                      (set-selection tree '())
+                    (let ((row (user-data-row tree entry include-invisibles?: #t)))
                       (when row
-                        (ensure-expanded~ tree row)
-                        (set-single-selection~ tree (row->line~ tree row) generate-event?: #f)))))))
+                        (ensure-expanded tree row)
+                        (set-single-selection tree (row->line tree row) generate-event?: #f)))))))
             (set! displayed-line line))))))
   
   
@@ -353,19 +358,19 @@
   ;;;
   
   
-  (method (selection-change tree double-click?)
+  (method package (selection-change self tree double-click?)
     (define (same-file? definition moniker)
-      (and moniker (pathname=? (get-file~ (get-file-definition~ definition)) moniker)))
+      (and moniker (pathname=? (get-file (get-file-definition definition)) moniker)))
     
     (let ((guest (current-document)))
       (when guest
-        (let ((moniker (get-moniker~ (get-document-controller~ guest)))
-              (selection (get-single-selection~ tree)))
+        (let ((moniker (get-moniker (get-document-controller guest)))
+              (selection (get-single-selection tree)))
           (when selection
-            (let ((definition (get-user-data~ (get-row~ tree selection))))
+            (let ((definition (get-user-data (get-row tree selection))))
               (unless (is? definition Exception)
                 (when (and definition (or double-click? (is-not? definition Indexed-Entry) (same-file? definition moniker)))
-                  (edit-definitions definition double-click?)))))))))
+                  (edit-definitions self definition double-click?)))))))))
   
   
   ;;;
@@ -373,16 +378,16 @@
   ;;;
   
   
-  (method (edit-definitions definition double-click?)
+  (method package (edit-definitions self definition double-click?)
     (define (edit-jml-definition definition)
       (let* ((appl (get-application))
-             (moniker (get-origin~ client-root))
-             (frame (edit-document~ appl moniker visible?: #f))
-             (text (get-guest~ frame))
-             (location (append (get-location~ definition) (list 0)))
-             (range (location-range~ text location)))
-        (set-selection-safe~ text range ensure-displayed?: 'center-caret)
-        (focus-host~ frame)))
+             (moniker (get-origin client-root))
+             (frame (edit-document appl moniker visible?: #f))
+             (text (get-guest frame))
+             (location (append (get-location definition) (list 0)))
+             (range (location-range text location)))
+        (set-selection-safe text range ensure-displayed?: 'center-caret)
+        (focus-host frame)))
     
     (if (is? definition JML-Node)
         (edit-jml-definition definition)
@@ -394,14 +399,14 @@
   ;;;
   
   
-  (method (preserve-state client)
-    (table-set! preserved-states client (get-view-state~ (locate 'definitions) use: 'text)))
+  (method (preserve-state self client)
+    (table-set! preserved-states client (get-view-state (locate self 'definitions) use: 'text)))
   
   
-  (method (restore-state client)
+  (method package (restore-state self client)
     (let ((state (table-ref preserved-states client #f)))
       (when state
-        (set-view-state~ (locate 'definitions) state)))))
+        (set-view-state (locate self 'definitions) state)))))
 
 
 ;;;
@@ -412,6 +417,6 @@
 (class Hierarchy-Tree extends Code-Tree
   
   
-  (method override (focus-gained)
-    (nextmethod)
-    (tree-focus-gained~ (get-guest)))))
+  (method override (focus-gained self)
+    (nextmethod self)
+    (tree-focus-gained (get-guest self)))))

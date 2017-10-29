@@ -46,8 +46,10 @@
         (jazz.designer)
         (jazz.designer.view)
         (jazz.feedback)
+        (jazz.outline)
         (jazz.runtime)
         (jazz.tree)
+        (jazz.undoer)
         (jazz.view))
 
 
@@ -62,9 +64,9 @@
   ;;;
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'components-tree)
-          (nextmethod)))
+          (nextmethod self)))
 
 
   ;;;
@@ -72,30 +74,30 @@
   ;;;
   
   
-  (method (on-delete-selection evt)
-    (delete-selection))
+  (method (on-delete-selection self evt)
+    (delete-selection self))
   
   
-  (method (on-rename-component evt)
-    (rename-selection))
+  (method (on-rename-component self evt)
+    (rename-selection self))
   
   
-  (method (on-export-text evt)
-    (let ((component (selected-component)))
+  (method (on-export-text self evt)
+    (let ((component (selected-component self)))
       (if (not component)
           (bell)
         (with-cursor :wait
           (lambda ()
-            (export-text~ component)
+            (export-text component)
             (user-message "Done"))))))
   
   
-  (method override (on-properties evt)
-    (show-properties))
+  (method override (on-properties self evt)
+    (show-properties self))
   
   
-  (method virtual (on-open evt)
-    (let ((component (selected-component)))
+  (method package virtual (on-open self evt)
+    (let ((component (selected-component self)))
       (open-class (class-of component))))
   
   ;;;
@@ -103,14 +105,14 @@
   ;;;
 
 
-  (method override (focus-gained)
-    (nextmethod)
+  (method override (focus-gained self)
+    (nextmethod self)
     (when application-select?
-      (set-selected~ (get-application) (get-editor) (selected-components))))
+      (set-selected (get-application) (get-editor self) (selected-components self))))
   
   
-  (method override (focus-update-actions)
-    (set-action-enabled? {Action components-tree rename} (can-rename?))
+  (method override (focus-update-actions self)
+    (set-action-enabled? {Action components-tree rename} (can-rename? self))
     (set-action-enabled? {Action components-tree open} #f)
     @wait-form-traits
     (set-action-enabled? {Action components-tree set-default-traits} #f))
@@ -121,19 +123,19 @@
   ;;;
     
   
-  (method override (on-editor evt)
-    (case (get-kind~ evt)
-      ((:saving) (end-edition))
-      ((:branch-changed) (branch-changed))
-      ((:selection-changed) (selection-changed (get-selection~ evt) (get-old~ evt) (get-origin~ evt) (get-force-parent?~ evt) (get-user-origin~ evt)))
-      (else (nextmethod evt))))
+  (method override (on-editor self evt)
+    (case (get-kind evt)
+      ((:saving) (end-edition self))
+      ((:branch-changed) (branch-changed self))
+      ((:selection-changed) (selection-changed self (get-selection evt) (get-old evt) (get-origin evt) (get-force-parent? evt) (get-user-origin evt)))
+      (else (nextmethod self evt))))
   
   
-  (method protected virtual (branch-changed)
+  (method protected virtual (branch-changed self)
     )
   
   
-  (method protected virtual (selection-changed selection old origin force-parent? focus?)
+  (method protected virtual (selection-changed self selection old origin force-parent? focus?)
     )
 
 
@@ -142,9 +144,9 @@
   ;;;
 
 
-  (method override (client-update)
+  (method override (client-update self)
     (when editor
-      (update selected-components: (get-selection~ editor))))
+      (update self selected-components: (get-selection editor))))
   
   
   ;;;
@@ -152,15 +154,15 @@
   ;;;
   
   
-  (method override (set-designer dsg)
+  (method override (set-designer self dsg)
     (when (neq? dsg designer)
       (when designer
-        (unhighlight-edited (get-reference~ designer))
-        (uninstall-listener designer))
+        (unhighlight-edited self (get-reference designer))
+        (uninstall-listener self designer))
       (set! designer dsg)
       (when designer
-        (install-listener designer)
-        (highlight-edited (get-reference~ designer)))))
+        (install-listener self designer)
+        (highlight-edited self (get-reference designer)))))
   
   
   ;;;
@@ -168,11 +170,11 @@
   ;;;
   
   
-  (method protected virtual (highlight-edited component)
+  (method protected virtual (highlight-edited self component)
     )
   
   
-  (method protected virtual (unhighlight-edited component)
+  (method protected virtual (unhighlight-edited self component)
     )
   
 
@@ -181,23 +183,23 @@
   ;;;
   
   
-  (method protected virtual (component-presentation component)
+  (method protected virtual (component-presentation self component)
     (get-presentation-property component))
   
   
-  (method protected virtual (component-font component owned-form)
+  (method package virtual (component-font self component owned-form)
     #f)
   
   
-  (method protected virtual (component-color component owned-form)
+  (method package virtual (component-color self component owned-form)
     #f)
   
   
-  (method protected virtual (component-image component)
+  (method package virtual (component-image self component)
     (get-component-image component))
   
   
-  (method protected virtual (component-state component)
+  (method protected virtual (component-state self component)
     #f)
 
   
@@ -206,11 +208,11 @@
   ;;;
   
   
-  (method protected virtual (parent-relocation parent)
+  (method protected virtual (parent-relocation self parent)
     parent)
   
   
-  (method protected virtual (relocation-parent destination class)
+  (method protected virtual (relocation-parent self destination class)
     destination)
   
   
@@ -219,81 +221,81 @@
   ;;;
   
   
-  (method override (can-undo?)
+  (method override (can-undo? self)
     #f)
   
   
-  (method override (can-redo?)
+  (method override (can-redo? self)
     #f)
   
   
-  (method override (can-cut?)
-    (and editor (can-cut-selection?~ editor)))
+  (method override (can-cut? self)
+    (and editor (can-cut-selection? editor)))
   
   
-  (method override (can-copy?)
-    (and editor (can-copy-selection?~ editor)))
+  (method override (can-copy? self)
+    (and editor (can-copy-selection? editor)))
   
   
-  (method override (can-paste?)
-    (can-paste-components? (selected-components)))
+  (method override (can-paste? self)
+    (can-paste-components? (selected-components self)))
   
   
-  (method override (can-paste-properties?)
-    (let ((components (selected-components)))
+  (method override (can-paste-properties? self)
+    (let ((components (selected-components self)))
       (when components
         (when (clipboard-format-available? 'jazz-parcels)
           (let ((parcels (get-jazz-parcels)))
             (when (= (length parcels) 1)
               (let* ((parcel (car parcels))
-                     (parcel-model (get-master-model~ parcel)))
+                     (parcel-model (get-master-model parcel)))
                 (when parcel-model
                   (every? (lambda (component)
                             (subtype? (class-of component) parcel-model))
                           components)))))))))
   
   
-  (method override (can-delete?)
-    (and editor (can-delete-selection?~ editor)))
+  (method override (can-delete? self)
+    (and editor (can-delete-selection? editor)))
   
   
-  (method override (can-rename?)
-    (and editor (can-rename-selection?~ editor)))
+  (method override (can-rename? self)
+    (and editor (can-rename-selection? editor)))
   
   
-  (method override (can-select-all?)
+  (method override (can-select-all? self)
     #t)
   
   
-  (method override (cut-selection)
-    (cut-selection~ editor))
+  (method override (cut-selection self)
+    (cut-selection editor))
   
   
-  (method override (copy-selection)
-    (copy-selection~ editor))
+  (method override (copy-selection self)
+    (copy-selection editor))
   
   
   ;; This is a simplification from the old version see commit : e073f6cb308d78d5f3458eecda045e6076430745
-  (method override (paste-clipboard)
-    (let ((parent (or (selected-component) client))
+  (method override (paste-clipboard self)
+    (let ((parent (or (selected-component self) client))
           (parcels (get-jazz-parcels)))
       (for-each (lambda (info)
                   (bind (model . parcels) info
-                    (with-atomic-undo~ (get-undoer~ designer)
+                    (with-atomic-undo (get-undoer designer)
                       (lambda ()
-                        (let ((components (paste-parcels~ designer parcels (relocation-parent parent model))))
-                          (for-each (lambda (comp) (cascade-view-position~ designer comp {Point 0 0})) components)
-                          (select-components components))))))
-                (partition parcels key: (lambda (parcel) (let ((master (get-master~ parcel))) (get-model~ master)))))))
+                        (let ((components (paste-parcels designer parcels (relocation-parent self parent model))))
+                          (for-each (lambda (comp) (cascade-view-position designer comp {Point 0 0})) components)
+                          (select-components self components))))))
+                (partition parcels key: (lambda (parcel) (let ((master (get-master parcel))) (get-model master)))))))
   
   
-  (method override (paste-properties)
-    (let ((components (selected-components)))
-      (paste-properties~ designer components)))
+  (method override (paste-properties self)
+    (let ((components (selected-components self)))
+      (paste-properties designer components)))
   
   
-  (method override (delete-selection)
-    (delete-selection~ editor))
+  (method override (delete-selection self)
+    (delete-selection editor))
     
 
   
@@ -302,81 +304,81 @@
   ;;;
   
   
-  (method override (on-add-component evt)
-    (let ((components (selected-components)))
+  (method override (on-add-component self evt)
+    (let ((components (selected-components self)))
       (when (= (length components) 1)
-        (let ((classes (addable-classes (selected-component))))
+        (let ((classes (addable-classes self (selected-component self))))
           (when (= (length classes) 1)
             (let ((class (car classes)))
-              (add-component-class class)))))))
+              (add-component-class self class)))))))
   
   
-  (method override (categorized-addable-classes component)
+  (method override (categorized-addable-classes self component)
     (if (is? component Component)
-        (component-categorized-addable-classes component (parent-relocation (get-parent~ component)))
+        (component-categorized-addable-classes component (parent-relocation self (get-parent component)))
       '()))
   
   
-  (method override (add-component-class reference (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
+  (method override (add-component-class self reference (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
     (define (create-new-component class parent import creation-info extra-properties)
       (receive (presentation added-properties) creation-info
         (let ((name (and presentation (presentation->name class presentation))))
           (let ((child (new class parent: parent name: name))
-                (designer (get-designer)))
-            (with-update-locked
+                (designer (get-designer self)))
+            (with-update-locked self
               (lambda ()
-                (install-new-component designer child parent presentation added-properties extra-properties import: import)))
+                (install-new-component self designer child parent presentation added-properties extra-properties import: import)))
             child))))
     
-    (let* ((selected (selected-component))
+    (let* ((selected (selected-component self))
            (class (resolve-runtime-reference reference))
-           (parent (or parent (relocation-parent selected class) selected client))
+           (parent (or parent (relocation-parent self selected class) selected client))
            (extra-properties properties))
       (bind (import _) (parse-runtime-reference reference)
         ;; To support the new feature that it is now possible to
         ;; insert a parent's child directly from the child itself
         @creates-problems
         (when (not (memq? class (map resolve-runtime-reference (addable-classes parent))))
-          (set! parent (get-parent~ parent)))
-        (let* ((creation-info (if presentation (values presentation '()) (add-component-request class parent)))
+          (set! parent (get-parent parent)))
+        (let* ((creation-info (if presentation (values presentation '()) (add-component-request self class parent)))
                (child (create-new-component class parent import creation-info extra-properties)))
           (when select?
-            (select-component child))
+            (select-component self child))
           child))))
   
   
-  (method override (add-named-child name reference)
+  (method override (add-named-child self name reference)
     (bind (import _) (parse-runtime-reference reference)
-      (add-child~ designer (new (resolve-runtime-reference reference)) (selected-component) name: name import: import)))
+      (add-child designer (new (resolve-runtime-reference reference)) (selected-component self) name: name import: import)))
   
   
-  (method protected virtual (add-component-request class parent)
-    (values (component-presentation-request class (get-children~ parent))
-            (component-properties-request class)))
+  (method protected virtual (add-component-request self class parent)
+    (values (component-presentation-request self class (get-children parent))
+            (component-properties-request self class)))
   
   
-  (method protected virtual (component-presentation-request class brothers (initial-value: initial-value #f))
+  (method protected virtual (component-presentation-request self class brothers (initial-value: initial-value #f))
     (request-component-presentation class brothers initial-value: initial-value))
   
   
-  (method protected virtual (component-properties-request class)
+  (method protected virtual (component-properties-request self class)
     '())
   
   
-  (method protected virtual (install-new-component designer child parent presentation added-properties extra-properties (import: import #f) (descendant?: descendant? #f))
-    (add-child~ designer child parent import: import descendant?: descendant?)
+  (method package virtual (install-new-component self designer child parent presentation added-properties extra-properties (import: import #f) (descendant?: descendant? #f))
+    (add-child designer child parent import: import descendant?: descendant?)
     (when presentation
       (set-presentation-property child designer presentation))
-    (install-new-properties designer child added-properties extra-properties))
+    (install-new-properties self designer child added-properties extra-properties))
   
   
-  (method protected virtual (install-new-properties designer child added-properties extra-properties)
-    (add-properties child (append added-properties extra-properties)))
+  (method protected virtual (install-new-properties self designer child added-properties extra-properties)
+    (add-properties self child (append added-properties extra-properties)))
   
   
-  (method protected virtual (add-properties component properties)
+  (method package virtual (add-properties self component properties)
     (for-each-property (lambda (property value)
-                         (set-property~ designer component property value))
+                         (set-property designer component property value))
                        properties))
   
   ;;;
@@ -384,32 +386,32 @@
   ;;;
   
   
-  (method override (rename-selection)
-    (let ((component (selected-component)))
+  (method override (rename-selection self)
+    (let ((component (selected-component self)))
       (when component
-        (rename-component component))))
+        (rename-component self component))))
   
 
-  (method public (rename-component component)
-    (let ((row (component-row component)))
+  (method public (rename-component self component)
+    (let ((row (component-row self component)))
       (when row
-        (ensure-expanded row)
-        (let* ((presentation (component-presentation-request (class-of component) (get-brothers~ component) initial-value: (get-presentation-property component)))
-               (line (row->line row))
+        (ensure-expanded self row)
+        (let* ((presentation (component-presentation-request self (class-of component) (get-brothers component) initial-value: (get-presentation-property component)))
+               (line (row->line self row))
                (cell (new Cell line 0)))
-          (end-rename component cell presentation)))))
+          (end-rename self component cell presentation)))))
   
   
-  (method (end-rename component cell presentation)
-    (with-update-locked
+  (method (end-rename self component cell presentation)
+    (with-update-locked self
       (lambda ()
-        (set-title~ (get-cell-data cell) presentation)
+        (set-title (get-cell-data self cell) presentation)
         (set-presentation-property component designer presentation)
-        (let ((parent (get-parent~ component)))
+        (let ((parent (get-parent component)))
           (when (and parent (sort-component-components? parent))
-            (reorder-component component)))))
-    (acquire-focus)
-    (select-component component))
+            (reorder-component self component)))))
+    (acquire-focus self)
+    (select-component self component))
     
 
   ;;;
@@ -417,63 +419,63 @@
   ;;;
   
   
-  (method (relocate-components source target)
-    (let* ((designer (get-designer))
-           (components (get-selected-data~ (get-view~ source)))
-           (dst (get-row~ target))
-           (part (get-part~ target))
-           (destination (get-user-data~ dst)))
-      (with-update-locked
+  (method package (relocate-components self source target)
+    (let* ((designer (get-designer self))
+           (components (get-selected-data (get-view source)))
+           (dst (get-row target))
+           (part (get-part target))
+           (destination (get-user-data dst)))
+      (with-update-locked self
         (lambda ()
           (if (eq? part 'row)
-              (let ((parent (uniform components key: (lambda (component) (relocation-parent destination (class-of component))))))
+              (let ((parent (uniform components key: (lambda (component) (relocation-parent self destination (class-of component))))))
                 (if (not parent)
                     (bell)
-                  (with-atomic-undo~ (get-undoer~ designer)
+                  (with-atomic-undo (get-undoer designer)
                     (lambda ()
-                      (relocate-components~ designer components parent)
-                      (for-each (lambda (comp) (cascade-view-position~ designer comp {Point 0 0})) components)
-                      (select-components components)))))
-            (let* ((father (get-father~ dst))
-                   (sons (get-sons~ father))
-                   (rank (son-rank~ father dst))
+                      (relocate-components designer components parent)
+                      (for-each (lambda (comp) (cascade-view-position designer comp {Point 0 0})) components)
+                      (select-components self components)))))
+            (let* ((father (get-father dst))
+                   (sons (get-sons father))
+                   (rank (son-rank father dst))
                    (position (case part ((before) rank) ((after) (+ rank 1))))
                    (target (if (< position (cardinality sons)) (element sons position) #f))
-                   (target-data (and target (get-user-data~ target))))
+                   (target-data (and target (get-user-data target))))
               (for-each (lambda (component)
-                          (send-before~ designer component (and target (send-component-before component target-data))))
+                          (send-before designer component (and target (send-component-before self component target-data))))
                         components))
-            (select-components components))))))
+            (select-components self components))))))
   
   
-  (method (relocate-component-row row father (position: position #f))
-    (unless (and (eq? (get-father~ row) father) (= 1 (cardinality (get-sons~ father))))
-      (let* ((source (get-user-data~ row))
-             (destination (or (get-user-data~ father) client))
+  (method (relocate-component-row self row father (position: position #f))
+    (unless (and (eq? (get-father row) father) (= 1 (cardinality (get-sons father))))
+      (let* ((source (get-user-data row))
+             (destination (or (get-user-data father) client))
              (sort? (sort-component-components? destination)))
-        (move-row row father
+        (move-row self row father
           position: (or position (lambda ()
                                    (if (not sort?)
                                        #f
-                                     (find-component-position source row father))))))))
+                                     (find-component-position self source row father))))))))
   
   
-  (method public (reorder-component component)
-    (let ((row (find-row component)))
+  (method public (reorder-component self component)
+    (let ((row (find-row self component)))
       (when row
-        (relocate-component-row row (get-father~ row)))))
+        (relocate-component-row self row (get-father row)))))
   
   
-  (method protected virtual (find-component-position component row father)
-    (find-ordered-position (get-presentation-property component) father))
+  (method protected virtual (find-component-position self component row father)
+    (find-ordered-position self (get-presentation-property component) father))
   
   
-  (method protected virtual (find-component-insertion parent-row component target)
+  (method protected virtual (find-component-insertion self parent-row component target)
     (when target
-      (son-rank~ parent-row (find-row target))))
+      (son-rank parent-row (find-row self target))))
   
   
-  (method protected virtual (send-component-before component before)
+  (method protected virtual (send-component-before self component before)
     before)
         
 
@@ -482,38 +484,38 @@
   ;;;
   
   
-  (method override (get-row-reorder-target drag-drop row quarter)
-    (let* ((src-selection (get-selection~ (get-view~ (get-source~ drag-drop))))
+  (method override (get-row-reorder-target self drag-drop row quarter)
+    (let* ((src-selection (get-selection (get-view (get-source drag-drop))))
            (src-range (contiguous-range src-selection))
-           (src (map (lambda (n) (get-user-data~ (get-row n))) src-selection))
+           (src (map (lambda (n) (get-user-data (get-row self n))) src-selection))
            (src-types (remove-duplicates (map class-of src)))
-           (src-parent (uniform src key: (lambda (component) (parent-relocation (get-parent~ component)))))
-           (dst (get-user-data~ row))
-           (dst-father (get-father~ row))
-           (dst-line (row->line row))
-           (dst-parent (parent-relocation (get-parent~ dst)))
+           (src-parent (uniform src key: (lambda (component) (parent-relocation self (get-parent component)))))
+           (dst (get-user-data row))
+           (dst-father (get-father row))
+           (dst-line (row->line self row))
+           (dst-parent (parent-relocation self (get-parent dst)))
            (before? (eq? src-parent dst-parent))
-           (before-last (row->line (last (get-sons~ dst-father))))
+           (before-last (row->line self (last (get-sons dst-father))))
            (before-rank (and before? (if (memq? quarter '(1 2)) dst-line (if (eq? dst-line before-last) #f (+ dst-line 1)))))
-           (before (and before-rank (if (< before-rank visible-count) (get-row before-rank) #f)))
-           (move? (and (not (memq? dst src)) (or (not dst) (and (or (not src-parent) (neq? src-parent dst)) (every? (lambda (src) (and (not (has-parent?~ dst src)) (addable-class? dst (class-of src)))) src)))))
+           (before (and before-rank (if (< before-rank visible-count) (get-row self before-rank) #f)))
+           (move? (and (not (memq? dst src)) (or (not dst) (and (or (not src-parent) (neq? src-parent dst)) (every? (lambda (src) (and (not (has-parent? dst src)) (addable-class? dst (class-of src)))) src)))))
            (before? (and before? (not (memq? before-rank src-selection)) (or (not src-range) (/= (or before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before? src-parent src-types dst-father before)))
            (part (cond ((and move? (or (memq? quarter '(2 3)) (and (not before?) (memq? quarter '(1 4))))) 'row)
                        ((and before? (or (= quarter 1) (and (not move?) (= quarter 2)))) 'before)
-                       ((and before? (not (expanded?~ row)) (or (= quarter 4) (and (not move?) (= quarter 3)))) 'after)
+                       ((and before? (not (expanded? row)) (or (= quarter 4) (and (not move?) (= quarter 3)))) 'after)
                        (else #f))))
       (when part
         (new Tree-Drop-Target view: self row: row part: part))))
   
   
-  (method override (get-row-target drag-drop row)
-    (let* ((source (get-source~ drag-drop))
-           (view (get-view~ source)))
+  (method override (get-row-target self drag-drop row)
+    (let* ((source (get-source drag-drop))
+           (view (get-view source)))
       (typecase view
         ((Toolbox-Tree)
-         (let* ((tool (selected-component~ view))
-                (class (get-class~ tool))
-                (component (get-user-data~ row))
+         (let* ((tool (selected-component view))
+                (class (get-class tool))
+                (component (get-user-data row))
                 (missing-named-classes (map (lambda (element)
                                               (resolve-runtime-reference (cadr element)))
                                             (missing-named-children component))))
@@ -527,22 +529,22 @@
          #f))))
   
   
-  (method override (receive-drop sender pos drag-drop)
+  (method override (receive-drop self sender pos drag-drop)
     (define (receive-model target)
-      (let* ((tool (selected-component~ sender))
-             (ref (get-reference~ tool))
-             (parent (get-user-data~ (get-row~ target)))
-             (named-child (find (missing-named-children parent) (get-class~ tool) test: subclass? key: (lambda (element) (resolve-runtime-reference (cadr element))) return: 'item)))
-        (with-update-locked
+      (let* ((tool (selected-component sender))
+             (ref (get-reference tool))
+             (parent (get-user-data (get-row target)))
+             (named-child (find (missing-named-children parent) (get-class tool) test: subclass? key: (lambda (element) (resolve-runtime-reference (cadr element))) return: 'item)))
+        (with-update-locked self
           (lambda ()
             (if named-child
-                (add-component-class ref presentation: (symbol->string (car named-child)) parent: parent)
-              (add-component-class ref parent: parent))))))
+                (add-component-class self ref presentation: (symbol->string (car named-child)) parent: parent)
+              (add-component-class self ref parent: parent))))))
     
-    (let ((source (get-source~ drag-drop))
-          (target (get-target~ drag-drop)))
+    (let ((source (get-source drag-drop))
+          (target (get-target drag-drop)))
       (if (eq? sender self)
-          (relocate-components source target)
+          (relocate-components self source target)
         (typecase sender
           ((Toolbox-Tree)
            (receive-model target))))))
@@ -553,9 +555,9 @@
   ;;;
   
   
-  (method public virtual (show-properties)
+  (method public virtual (show-properties self)
     (when editor
-      (show-properties~ editor)))
+      (show-properties editor)))
 
   
   ;;;
@@ -563,23 +565,23 @@
   ;;;
   
   
-  (method virtual (on-selection-change evt)
-    (when (and editor (eq? editor (get-selected-owner~ (get-application))))
-      (set-selection~ editor (selected-components) origin: self focus?: #f)))
+  (method package virtual (on-selection-change self evt)
+    (when (and editor (eq? editor (get-selected-owner (get-application))))
+      (set-selection editor (selected-components self) origin: self focus?: #f)))
   
   
-  (method public (select-component component)
-    (let ((row (component-visible-row component)))
+  (method public (select-component self component)
+    (let ((row (component-visible-row self component)))
       ;; if row is #f, then the row must be collapsed and I should expand it...
       (when row
-        (set-single-selection row))))
+        (set-single-selection self row))))
   
   
-  (method public (select-components components)
-    (let ((rows (remove-false (map component-visible-row components))))
+  (method public (select-components self components)
+    (let ((rows (remove-false (map (~ component-visible-row self) components))))
       ;; if a row is #f, then the row must be collapsed and I should expand it...
-      (set-selection rows)))
+      (set-selection self rows)))
   
   
-  (method protected virtual (find-row component)
-    (component-row component))))
+  (method protected virtual (find-row self component)
+    (component-row self component))))

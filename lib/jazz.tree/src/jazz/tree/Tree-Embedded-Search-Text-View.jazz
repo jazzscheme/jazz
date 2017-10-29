@@ -40,7 +40,10 @@
 
 (import (jazz.action)
         (jazz.event)
-        (jazz.ide))
+        (jazz.ide)
+        (jazz.outline)
+        (jazz.search)
+        (jazz.tree))
 
 
 (class undocumented Tree-Embedded-Search-Text-View extends IDE-Text-View
@@ -54,13 +57,13 @@
   ;;;
   
   
-  (method (get-cell)
-    (site->cell~ tree (get-edited-site~ tree)))
+  (method (get-cell self)
+    (site->cell tree (get-edited-site tree)))
   
   
-  (method (get-cell-values)
-    (let ((cell (get-cell)))
-      (values (get-line~ cell) (get-col~ cell))))
+  (method (get-cell-values self)
+    (let ((cell (get-cell self)))
+      (values (get-line cell) (get-col cell))))
   
 
   ;;;
@@ -68,14 +71,14 @@
   ;;;
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'tree-embedded-search-text)
-          (nextmethod)))
+          (nextmethod self)))
   
   
   ;; delegate the shortcut
-  (method override (upward-compound)
-    (toggle-play-recording~ (get-guest)))
+  (method override (upward-compound self)
+    (toggle-play-recording (get-guest self)))
   
   
   ;;;
@@ -83,38 +86,38 @@
   ;;;
   
   
-  (method override (focus-lose)
-    (nextmethod)
+  (method override (focus-lose self)
+    (nextmethod self)
     (delay-event
       (lambda ()
-        (end-edition))))
+        (end-edition self))))
   
   
-  (method override (return-press evt)
-    (let ((guest (get-guest)))
-      (end-edition)
-      (let ((search (get-search~ guest)))
-        (if (null? (get-contexts~ (get-find-targets~ search)))
+  (method override (return-press self evt)
+    (let ((guest (get-guest self)))
+      (end-edition self)
+      (let ((search (get-search guest)))
+        (if (null? (get-contexts (get-find-targets search)))
             (bell)
-          (on-search~ search evt)))))
+          (on-search search evt)))))
   
   
-  (method (on-end-edition key)
-    (end-edition))
+  (method (on-end-edition self key)
+    (end-edition self))
   
   
-  (method override (tab-press evt)
-    (let ((shift? (get-shift?~ evt)))
-      (if (and (has-completion?) (not shift?))
-          (end-completion)
-        (let* ((tab-manager (find-tab-manager~ tree))
-               (to-view (navigated-view~ tab-manager tree shift?))
+  (method override (tab-press self evt)
+    (let ((shift? (get-shift? evt)))
+      (if (and (has-completion? self) (not shift?))
+          (end-completion self)
+        (let* ((tab-manager (find-tab-manager tree))
+               (to-view (navigated-view tab-manager tree shift?))
                (to-navigable? (and to-view (neq? to-view tree)))
-               (width (get-columns-count~ tree))
-               (height (get-visible-count~ tree)))
-          (receive (line col) (get-cell-values)
+               (width (get-columns-count tree))
+               (height (get-visible-count tree)))
+          (receive (line col) (get-cell-values self)
             (if (and to-navigable? shift? (= line 0) (= col 0))
-                (navigate-tab~ tab-manager tree shift?)
+                (navigate-tab tab-manager tree shift?)
               (let* ((max-col (- width 1))
                      (row-direction (cond ((and shift? (= col 0)) -1)
                                           ((and (not shift?) (= col max-col)) 1)
@@ -123,31 +126,31 @@
                      (col (modulo (+ col width (if shift? -1 1)) width))
                      (cell (new Cell line col)))
               (if (and to-navigable? (not shift?) (= line 0) (= col 0))
-                  (navigate-tab~ tab-manager tree shift?)
-                (when (select-cell~ tree cell)
-                  (end-edition))))))))))
+                  (navigate-tab tab-manager tree shift?)
+                (when (select-cell tree cell)
+                  (end-edition self))))))))))
   
   
-  (method override (left-arrow-move extend? word?)
+  (method override (left-arrow-move self extend? word?)
     (if word?
-        (select-left~ tree (get-cell))
-      (nextmethod extend? word?)))
+        (select-left tree (get-cell self))
+      (nextmethod self extend? word?)))
   
   
-  (method override (right-arrow-move extend? word?)
+  (method override (right-arrow-move self extend? word?)
     (if word?
-        (select-right~ tree (get-cell))
-      (nextmethod extend? word?)))
+        (select-right tree (get-cell self))
+      (nextmethod self extend? word?)))
   
   
-  (method override (up-arrow-move extend? scroll?)
-    (select-up~ tree (get-cell)))
+  (method override (up-arrow-move self extend? scroll?)
+    (select-up tree (get-cell self)))
   
   
-  (method override (down-arrow-move extend? scroll?)
-    (select-down~ tree (get-cell) #f))
+  (method override (down-arrow-move self extend? scroll?)
+    (select-down tree (get-cell self) #f))
   
   
-  (method (end-edition)
+  (method package (end-edition self)
     (when player
-      (end-edition~ tree)))))
+      (end-edition tree)))))

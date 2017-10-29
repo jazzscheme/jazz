@@ -41,7 +41,9 @@
 (import (jazz.automata)
         (jazz.catalog)
         (jazz.editor)
+        (jazz.event)
         (jazz.io)
+        (jazz.outline)
         (jazz.platform)
         (jazz.text))
 
@@ -54,7 +56,7 @@
   ;;;
 
 
-  (method override (explorer-class)
+  (method override (explorer-class self)
     Code-Explorer)
 
   
@@ -63,18 +65,18 @@
   ;;;
   
   
-  (method protected virtual (get-readtable)
+  (method package virtual (get-readtable self)
     (current-readtable))
   
   
-  (method protected (read-text-form range (string: string #f) (readtable: readtable (get-readtable)))
-    (let ((string (or string (get-string~ model range))))
+  (method package (read-text-form self range (string: string #f) (readtable: readtable (get-readtable self)))
+    (let ((string (or string (get-string model range))))
       (call-with-input-string (list init: string readtable: readtable)
         read)))
   
   
-  (method protected (read-text-forms range (string: string #f) (readtable: readtable (get-readtable)))
-    (let ((string (or string (get-string~ model range))))
+  (method package (read-text-forms self range (string: string #f) (readtable: readtable (get-readtable self)))
+    (let ((string (or string (get-string model range))))
       (call-with-input-string (list init: string readtable: readtable)
         read-all)))
 
@@ -84,11 +86,11 @@
   ;;;
 
 
-  (method override (tabulate text)
-    (if (has-selection?~ text)
-        (let ((selection (get-selection~ text))
-              (lines (selected-lines~ text))
-              (proc (if (shift-down?) untabulate-line tabulate-line)))
+  (method override (tabulate self text)
+    (if (has-selection? text)
+        (let ((selection (get-selection text))
+              (lines (selected-lines text))
+              (proc (if (shift-down?) (~ untabulate-line self) (~ tabulate-line self))))
           (let ((first-line (first lines))
                 (last-line (last lines)))
             (let ((first-delta #f)
@@ -98,43 +100,43 @@
                             (cond ((eq? line first-line) (set! first-delta delta))
                                   ((eq? line last-line) (set! last-delta delta)))))
                         lines)
-              (let ((start (get-start~ selection))
-                    (end (get-end~ selection)))
+              (let ((start (get-start selection))
+                    (end (get-end selection)))
                 (define (adjust pos inc)
                   (if (not inc)
                       pos
-                    (let ((adjusted (cond ((> inc 0) (next-pos~ model pos inc))
-                                          ((< inc 0) (previous-pos~ model pos (- inc)))
+                    (let ((adjusted (cond ((> inc 0) (next-pos model pos inc))
+                                          ((< inc 0) (previous-pos model pos (- inc)))
                                           (else pos))))
-                      (if (= (get-line~ adjusted) (get-line~ pos))
+                      (if (= (get-line adjusted) (get-line pos))
                           adjusted
                         pos))))
                 
-                (set-selection-safe~ text (new Range$Cell$ (adjust start first-delta) (adjust end last-delta)))))))
-      (let* ((pos (get-start~ text))
-             (line (get-line~ pos))
-             (col (get-col~ pos)))
+                (set-selection-safe text (new Range$Cell$ (adjust start first-delta) (adjust end last-delta)))))))
+      (let* ((pos (get-start text))
+             (line (get-line pos))
+             (col (get-col pos)))
         (when (and (> line 0) (= col 0))
-          (let* ((str (paragraph-string~ model (- line 1)))
+          (let* ((str (paragraph-string model (- line 1)))
                  (rank (find-if (lambda (c) (not (whitespace? c))) str return: 'position)))
             (if (not rank)
-                (insert-string~ text str)
-              (insert-string~ text (subseq str 0 rank))))))))
+                (insert-string text str)
+              (insert-string text (subseq str 0 rank))))))))
   
   
-  (method override (tabulate-line text line)
-    (replace-text~ text
+  (method override (tabulate-line self text line)
+    (replace-text text
       (new Range$Cell$ (new Cell line 0) (new Cell line 0))
       (list (string #\tab)))
     1)
   
   
-  (method override (untabulate-line text line)
+  (method override (untabulate-line self text line)
     (define (space/tab? c)
       (memq? c '(#\space #\tab)))
     
-    (when (space/tab? (get-char~ model (new Cell line 0)))
-      (replace-text~ text
+    (when (space/tab? (get-char model (new Cell line 0)))
+      (replace-text text
         (new Range$Cell$ (new Cell line 0) (new Cell line 1))
         (list ""))
       -1))
@@ -145,65 +147,65 @@
   ;;;
   
   
-  (method public (recolorize-syntax)
-    (uncolorize-all)
-    (colorize-syntax colorizer?: #f))
+  (method public (recolorize-syntax self)
+    (uncolorize-all self)
+    (colorize-syntax self colorizer?: #f))
 
 
-  (method (uncolorize-all)
-    (for-each uncolorize-row (naturals 0 (get-length~ model))))
+  (method (uncolorize-all self)
+    (for-each (~ uncolorize-row self) (naturals 0 (get-length model))))
   
   
-  (method protected virtual (syntax-targets)
+  (method protected virtual (syntax-targets self)
     #f)
   
   
-  (method protected virtual (syntax-automata)
+  (method protected virtual (syntax-automata self)
     #f)
   
   
-  (method protected virtual (compute-syntax-targets)
+  (method protected virtual (compute-syntax-targets self)
     )
   
   
-  (method protected virtual (compute-syntax-automata)
-    (let ((targets (syntax-targets)))
+  (method protected virtual (compute-syntax-automata self)
+    (let ((targets (syntax-targets self)))
       (when targets
         (build-search-automata targets #t #f c-constituent?))))
   
   
-  (method override (colorize-syntax (colorizer?: colorizer? #t) (entries?: entries? #t))
-    (colorize-range (text-beginning~ model) (text-ending~ model) colorizer?: colorizer?)
+  (method override (colorize-syntax self (colorizer?: colorizer? #t) (entries?: entries? #t))
+    (colorize-range self (text-beginning model) (text-ending model) colorizer?: colorizer?)
     (when entries?
-      (colorize-entries)))
+      (colorize-entries self)))
 
   
-  (method override (colorize-range start end (colorizer?: colorizer? #t))
-    (let ((automata (syntax-automata)))
+  (method override (colorize-range self start end (colorizer?: colorizer? #t))
+    (let ((automata (syntax-automata self)))
       (when automata
-        (let ((colorizer (and colorizer? (new-colorizer~ model))))
-          (let (iter (found (automata-search automata (new TextTape (get-paragraphs~ model) start end))))
+        (let ((colorizer (and colorizer? (new-colorizer model))))
+          (let (iter (found (automata-search automata (new TextTape (get-paragraphs model) start end))))
             (when (not-null? found)
               (let ((info (car found)))
                 (bind ((target type) line col) info
                   (let ((start (new Cell line col))
                         (end (new Cell line (+ col (string-length target)))))
-                    (iter (colorize-type found type start end colorizer #f)))))))
+                    (iter (colorize-type self found type start end colorizer #f)))))))
           (when colorizer
-            (finish-current~ colorizer))))))
+            (finish-current colorizer))))))
   
   
-  (method protected (apply-coloring colorizer start end style-name)
+  (method protected (apply-coloring self colorizer start end style-name)
     (if (not colorizer)
-        (apply-style~ model style-name start end)
-      (apply-style~ colorizer start end style-name)))
+        (apply-style model style-name start end)
+      (apply-style colorizer start end style-name)))
   
   
-  (method protected virtual (colorize-type found type start end colorizer recolorize?)
+  (method protected virtual (colorize-type self found type start end colorizer recolorize?)
     (error "Unknown type: {s}" type))
   
   
-  (method protected virtual (colorize-balanced-comment found start end colorizer style)
+  (method protected virtual (colorize-balanced-comment self found start end colorizer style)
     (continuation-capture
       (lambda (return)
         (while (not-null? found)
@@ -211,13 +213,13 @@
             (bind ((target type) line col) info
               (if (eq? type 'balanced-comment-backward)
                   (let ((end (new Cell line (+ col 2))))
-                    (apply-coloring colorizer start end style)
+                    (apply-coloring self colorizer start end style)
                     (continuation-return return (cdr found)))
                 (set! found (cdr found))))))
         found)))
   
   
-  (method protected (colorize-balanced-comment-backward found start end colorizer style recolorize? (open: open "/*") (close: close "*/"))
+  (method protected (colorize-balanced-comment-backward self found start end colorizer style recolorize? (open: open "/*") (close: close "*/"))
     (cdr found)
     @irregex-to-convert
     (when recolorize?
@@ -229,28 +231,28 @@
               (cdr found)))))))
   
   
-  (method protected (colorize-line-comment found start end colorizer line-style title-style title-char)
-    (let ((title? (and title-char (eqv? (get-char~ model (next-pos~ model start 2)) title-char))))
+  (method protected (colorize-line-comment self found start end colorizer line-style title-style title-char)
+    (let ((title? (and title-char (eqv? (get-char model (next-pos model start 2)) title-char))))
       (if (not title?)
-          (apply-coloring colorizer start (new Cell (get-line~ start) (paragraph-length~ model (get-line~ start))) line-style)
-        (apply-coloring colorizer start (nu+ start 3) line-style)
-        (apply-coloring colorizer (nu+ start 3) (new Cell (get-line~ start) (paragraph-length~ model (get-line~ start))) title-style))
-      (let ((line (get-line~ start)))
+          (apply-coloring self colorizer start (new Cell (get-line start) (paragraph-length model (get-line start))) line-style)
+        (apply-coloring self colorizer start (nu+ start 3) line-style)
+        (apply-coloring self colorizer (nu+ start 3) (new Cell (get-line start) (paragraph-length model (get-line start))) title-style))
+      (let ((line (get-line start)))
         (set! found (cdr found))
         (while (and (not-null? found) (= (second (car found)) line))
           (set! found (cdr found)))
         found)))
   
   
-  (method protected (colorize-keyword found start end colorizer style)
-    (apply-coloring colorizer start end style)
+  (method protected (colorize-keyword self found start end colorizer style)
+    (apply-coloring self colorizer start end style)
     (cdr found))
   
   
-  (method (find-specifier-end start)
-    (let* ((line (get-line~ start))
-           (col (get-col~ start))
-           (str (paragraph-string~ model line)))
+  (method (find-specifier-end self start)
+    (let* ((line (get-line start))
+           (col (get-col start))
+           (str (paragraph-string model line)))
       (unless (>= (+ col 1) (cardinality str))
         (let ((nxt (element str (+ col 1))))
           (unless (or (eqv? nxt #\space) (eqv? nxt #\=))
@@ -259,49 +261,49 @@
                 (new Cell line (+ col 1)))))))))
   
   
-  (method override (recolorize-range syntax-style start end)
+  (method override (recolorize-range self syntax-style start end)
     (let ((range (new Range$Cell$ start end)))
-      (stylize-range~ model range (get-default-style~ model) #f)
-      (colorize-range start end)
+      (stylize-range model range (get-default-style model) #f)
+      (colorize-range self start end)
       (when syntax-style
-        (push-style~ model range syntax-style))))
+        (push-style model range syntax-style))))
 
   
-  (method override (recolorize-text syntax-style start end-line)
-    (let ((start (new Cell (get-line~ start) 0))
-          (end (new Cell end-line (paragraph-length~ model end-line))))
-      (recolorize-range syntax-style start end)))
+  (method override (recolorize-text self syntax-style start end-line)
+    (let ((start (new Cell (get-line start) 0))
+          (end (new Cell end-line (paragraph-length model end-line))))
+      (recolorize-range self syntax-style start end)))
   
   
-  (method public virtual (colorize-entries)
-    (let ((entries (get-parsed-entries)))
+  (method public virtual (colorize-entries self)
+    (let ((entries (get-parsed-entries self)))
       (when entries
-        (for-each colorize-entry entries))))
+        (for-each (~ colorize-entry self) entries))))
   
   
-  (method protected virtual (get-parsed-entries)
+  (method protected virtual (get-parsed-entries self)
     #f)
 
   
-  (method (colorize-entry entry)
-    (let* ((name (get-name~ entry))
-           (line (get-line~ entry))
-           (column (get-column~ entry))
+  (method (colorize-entry self entry)
+    (let* ((name (get-name entry))
+           (line (get-line entry))
+           (column (get-column entry))
            (start (new Cell line column))
            (end (new Cell line (+ column (string-length name)))))
       ;; until the time test of the previous method becomes functional
-      (when (<= line (get-limit~ model))
-        (stylize~ model 'Definition start end)
+      (when (<= line (get-limit model))
+        (stylize model 'Definition start end)
         @cannot-work-yet
         (when (equal? Class-Entry (class-of entry))
-          (colorize-entry (get-extends~ entry))
-          (colorize-entry (get-implements~ entry)))
-        (for-each colorize-entry (get-definitions~ entry)))))
+          (colorize-entry (get-extends entry))
+          (colorize-entry (get-implements entry)))
+        (for-each (~ colorize-entry self) (get-definitions entry)))))
   
   
-  (method public (recolorize-entries)
-    (let ((entries (get-parsed-entries)))
+  (method public (recolorize-entries self)
+    (let ((entries (get-parsed-entries self)))
       (when entries
-        (uncolorize-all)
-        (colorize-syntax entries?: #f)
-        (for-each colorize-entry entries))))))
+        (uncolorize-all self)
+        (colorize-syntax self entries?: #f)
+        (for-each (~ colorize-entry self) entries))))))

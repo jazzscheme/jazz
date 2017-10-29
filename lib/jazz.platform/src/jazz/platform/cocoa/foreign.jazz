@@ -41,7 +41,8 @@
 (import (jazz.event)
         (jazz.foreign)
         (jazz.platform.requests)
-        (jazz.platform.types))
+        (jazz.platform.types)
+        (jazz.window.hubs))
 
 
 ;;;
@@ -405,8 +406,8 @@ ___EXT(___release_scmobj)(dst); }
 
 
 (definition public (point->NSPoint point)
-  (new-NSPoint (cast <fl> (get-h~ point))
-               (cast <fl> (get-v~ point))))
+  (new-NSPoint (cast <fl> (get-h point))
+               (cast <fl> (get-v point))))
 
 
 (definition public (new-NSSize width <fl> height <fl>)
@@ -431,8 +432,8 @@ ___EXT(___release_scmobj)(dst); }
 
 
 (definition public (dimension->NSSize dim)
-  (new-NSSize (cast <fl> (get-width~ dim))
-              (cast <fl> (get-height~ dim))))
+  (new-NSSize (cast <fl> (get-width dim))
+              (cast <fl> (get-height dim))))
 
 
 (definition public (new-NSRect x <fl> y <fl> width <fl> height <fl>)
@@ -455,10 +456,10 @@ ___EXT(___release_scmobj)(dst); }
 
 
 (definition public (rect->NSRect rect)
-  (let ((l (get-left~ rect))
-        (t (get-top~ rect))
-        (r (get-right~ rect))
-        (b (get-bottom~ rect)))
+  (let ((l (get-left rect))
+        (t (get-top rect))
+        (r (get-right rect))
+        (b (get-bottom rect)))
     (new-NSRect (cast <fl> l)
                 (cast <fl> t)
                 (cast <fl> (- r l))
@@ -3923,11 +3924,11 @@ void platformPlaySound(char* filename, double volume)
 ;;;
 
 
-(definition get-window
+(definition registered-window
   #f)
 
-(definition public (set-get-window proc)
-  (set! get-window proc))
+(definition public (set-registered-window proc)
+  (set! registered-window proc))
 
 
 (define translate-shortcut
@@ -3969,26 +3970,26 @@ void platformPlaySound(char* filename, double volume)
 
 
 (c-callback (paint-callback handle rect) (platformwindow NSRect*) void "paint_callback" "" #f
-  (when get-window
-    (let ((window (get-window handle))
+  (when registered-window
+    (let ((window (registered-window handle))
           (context (platformCurrentGraphics)))
       ;; the mac can call this before the window is registered
       (when window
-        (paint-cocoa~ window context rect)))))
+        (paint-cocoa window context rect)))))
 
 
 (c-callback (reshape-callback handle width height) (platformwindow int int) void "reshape_callback" "" #f
-  (when get-window
-    (let ((window (get-window handle)))
-      (call-size-change~ window 'restored width height))))
+  (when registered-window
+    (let ((window (registered-window handle)))
+      (call-size-change window 'restored width height))))
 
 
 (c-callback (close-callback handle) (platformwindow) void "close_callback" "" #f
   (delay-event
     (lambda ()
-      (when get-window
-        (let ((window (get-window handle)))
-          (close-window~ window))))))
+      (when registered-window
+        (let ((window (registered-window handle)))
+          (close-window window))))))
 
 
 (definition modifier-keys
@@ -4003,58 +4004,58 @@ void platformPlaySound(char* filename, double volume)
 
 
 (c-callback (key-press-callback handle key action) (platformwindow int int) int "key_press_callback" "" 1
-  (if (and get-window
+  (if (and registered-window
            (catch (Cancel-Signal exc
                     #t)
-             (let ((window (get-window handle)))
+             (let ((window (registered-window handle)))
                (let ((char (integer->char key)))
                  (if (eq? action PLATFORM_PRESS)
                      (begin
-                       (key-down~ window char)
+                       (key-down window char)
                        (and (not (memv? key modifier-keys))
                             (translate-shortcut char)))
-                   (key-up~ window char)
+                   (key-up window char)
                    #f)))))
       1
     0))
 
 
 (c-callback (char-callback handle c) (platformwindow int) void "char_callback" "" #f
-  (when get-window
+  (when registered-window
     (catch (Cancel-Signal exc)
-      (let ((window (get-window handle))
+      (let ((window (registered-window handle))
             (c (integer->char c)))
-        (call-key-press~ window c)))))
+        (call-key-press window c)))))
 
 
 (c-callback (button-callback handle x y button click-count action) (platformwindow int int int int int) void "button_callback" "" #f
-  (when get-window
+  (when registered-window
     (catch (Cancel-Signal exc)
-      (let ((window (get-window handle)))
+      (let ((window (registered-window handle)))
         (ecase button
           ((PLATFORM_MOUSE_BUTTON_LEFT)
            (ecase action
              ((PLATFORM_PRESS) (case click-count
-                                 ((1) (mouse-down~ window x y))
-                                 ((2) (double-click~ window x y))
-                                 (else (multiple-click~ window click-count x y))))
-             ((PLATFORM_RELEASE) (mouse-up~ window x y))))
+                                 ((1) (mouse-down window x y))
+                                 ((2) (double-click window x y))
+                                 (else (multiple-click window click-count x y))))
+             ((PLATFORM_RELEASE) (mouse-up window x y))))
           ((PLATFORM_MOUSE_BUTTON_RIGHT)
            (ecase action
-             ((PLATFORM_PRESS) (right-mouse-down~ window x y) (context-menu~ window x y))
-             ((PLATFORM_RELEASE) (right-mouse-up~ window x y)))))))))
+             ((PLATFORM_PRESS) (right-mouse-down window x y) (context-menu window x y))
+             ((PLATFORM_RELEASE) (right-mouse-up window x y)))))))))
 
 
 (c-callback (moved-callback handle x y) (platformwindow double double) void "moved_callback" "" #f
-  (when get-window
-    (let ((window (get-window handle)))
-      (call-mouse-moved~ window x y))))
+  (when registered-window
+    (let ((window (registered-window handle)))
+      (call-mouse-moved window x y))))
 
 
 (c-callback (wheel-callback handle x y) (platformwindow double double) void "wheel_callback" "" #f
-  (when get-window
-    (let ((window (get-window handle)))
-      (mouse-wheel~ window #f #f (new Point (fxround (* 30. x)) (fxround (* 30. y)))))))
+  (when registered-window
+    (let ((window (registered-window handle)))
+      (mouse-wheel window #f #f (new Point (fxround (* 30. x)) (fxround (* 30. y)))))))
 
 
 (c-callback (file-callback filename) (NSString*) void "file_callback" "" #f
@@ -4065,37 +4066,37 @@ void platformPlaySound(char* filename, double volume)
 
 
 (c-callback (drop-callback handle filenames) (platformwindow NSArray*) void "drop_callback" "" #f
-  (when get-window
-    (let ((window (get-window handle)))
-      (drop-files~ window filenames))))
+  (when registered-window
+    (let ((window (registered-window handle)))
+      (drop-files window filenames))))
 
 
 (c-callback (entered-callback handle) (platformwindow) void "entered_callback" "" #f
-  (when get-window
-    (let ((window (get-window handle)))
-      (mouse-enter~ window))))
+  (when registered-window
+    (let ((window (registered-window handle)))
+      (mouse-enter window))))
 
 
 (c-callback (exited-callback handle) (platformwindow) void "exited_callback" "" #f
-  (when get-window
-    (let ((window (get-window handle)))
-      (mouse-leave~ window))))
+  (when registered-window
+    (let ((window (registered-window handle)))
+      (mouse-leave window))))
 
 
 (c-callback (activate-callback handle) (platformwindow) void "activate_callback" "" #f
-  (when get-window
-    (let ((window (get-window handle)))
+  (when registered-window
+    (let ((window (registered-window handle)))
       (when window
-        (focus-gain~ window)
-        (activate-application~ window)))))
+        (focus-gain window)
+        (activate-application window)))))
 
 
 (c-callback (deactivate-callback handle) (platformwindow) void "deactivate_callback" "" #f
-  (when get-window
-    (let ((window (get-window handle)))
+  (when registered-window
+    (let ((window (registered-window handle)))
       (when window
-        (deactivate-application~ window)
-        (focus-lose~ window)))))
+        (deactivate-application window)
+        (focus-lose window)))))
 
 
 (c-callback (terminate-callback) () void "terminate_callback" "" #f

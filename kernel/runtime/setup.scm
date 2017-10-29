@@ -71,6 +71,8 @@ c-end
 (jazz:define-variable jazz:custom-compile-unit-internal)
 (jazz:define-variable jazz:build-unit-internal)
 (jazz:define-variable jazz:get-subunit-names-internal)
+(jazz:define-variable jazz:manifest-ignore?)
+(jazz:define-variable jazz:manifest-valid?)
 
 
 (define (jazz:compile-unit . rest)
@@ -657,7 +659,7 @@ c-end
                    (setup-build)
                    (jazz:load-unit 'foundation)
                    (jazz:load-unit 'dialect.development)
-                   ((jazz:global-ref 'jazz:expand) (%%string->symbol expand)))
+                   ((jazz:global-ref 'jazz:expand-to) (%%string->symbol expand)))
                   (check
                    (setup-build)
                    (jazz:load-unit 'foundation)

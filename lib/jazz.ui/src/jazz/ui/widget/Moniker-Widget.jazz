@@ -74,24 +74,24 @@
   ;;;
  
   
-  (method (on-browse evt)
-    (browse-moniker))
+  (method (on-browse self evt)
+    (browse-moniker self))
   
   
-  (method override (on-return-press evt)
+  (method override (on-return-press self evt)
     (when return-press-handler
       (invoke-handler self return-press-handler evt)))
   
   
-  (method (on-receive-files evt)
-    (let ((pos (get-property~ evt position:))
-          (files (get-property~ evt files:)))
+  (method (on-receive-files self evt)
+    (let ((pos (get-property evt position:))
+          (files (get-property evt files:)))
       (if receive-files-handler
           ;; correct sender in event
           (invoke-handler self receive-files-handler (make-event Event :receive-files self position: pos files: files))
         (let ((handler (get-protocol-handler protocol)))
           (if (and (= (length files) 1) (is? (car files) handler))
-              (set-moniker (car files))
+              (set-moniker self (car files))
             (bell))))))
     
   
@@ -100,22 +100,22 @@
   ;;;
 
 
-  (method public (get-mode)
+  (method public (get-mode self)
     mode)
 
 
-  (method public (set-mode value)
+  (method public (set-mode self value)
     (set! mode value)
-    (let ((browse (get-pick)))
+    (let ((browse (get-pick self)))
       (case mode
-        ((open) (set-resource~ browse {Image-Resource "Open"}))
-        ((save) (set-resource~ browse {Image-Resource "Save"})))))
+        ((open) (set-resource browse {Image-Resource "Open"}))
+        ((save) (set-resource browse {Image-Resource "Save"})))))
 
   
-  (method public (call-moniker-update)
+  (method public (call-moniker-update self)
     (if moniker-update-handler
         (invoke-handler self moniker-update-handler (make-event Event :update self))
-      (moniker-update)))
+      (moniker-update self)))
   
   
   ;;;
@@ -123,19 +123,19 @@
   ;;;
   
   
-  (method public (browse-moniker)
+  (method public (browse-moniker self)
     (define (get-moniker-safe)
       (catch (Parse-Error err
-               (message-box (get-message~ err))
+               (message-box (get-message err))
                (signal-cancel))
-        (get-moniker)))
+        (get-moniker self)))
     
     (let* ((handler (get-protocol-handler protocol))
            (actual (get-moniker-safe))
            (arguments (augment mode: mode actual: actual parameters))
            (moniker (apply moniker-modal handler arguments)))
-      (set-moniker moniker)
-      (focus-body)))
+      (set-moniker self moniker)
+      (focus-body self)))
     
   
   ;;;
@@ -143,64 +143,64 @@
   ;;;
 
   
-  (method public (get-moniker)
+  (method public (get-moniker self)
     (define (parse-protocol string)
-      (if (not (protocol-displayed?))
+      (if (not (protocol-displayed? self))
           (values protocol string)
         (let ((pos (find string #\:)))
           (assert pos
             (values protocol (substring string (+ pos 1) (string-length string)))))))
     
-    (let ((string (get-content)))
+    (let ((string (get-content self)))
       (and (not (empty-string? string))
-           (if (not (alias-displayed?))
+           (if (not (alias-displayed? self))
                (let ((handler (get-protocol-handler protocol))
                      (parts (list (tokenise-filename string))))
-                 (anchorize~ (moniker-new handler parts) anchors: anchors))
+                 (anchorize (moniker-new handler parts) anchors: anchors))
              (receive (protocol arguments) (parse-protocol string)
                (let ((handler (get-protocol-handler protocol))
                      (parts (read-delimited-string arguments #\,)))
                  (let ((moniker (moniker-new handler parts)))
                    (typecase moniker
                      ((Directory-Group) moniker)
-                     ((Pathname) (anchorize~ moniker anchors: anchors))
+                     ((Pathname) (anchorize moniker anchors: anchors))
                      (else moniker)))))))))
   
   
-  (method public (set-moniker moniker (generate-event?: generate-event? #t))
-    (set-content (if (not moniker) "" (present-moniker moniker)))
+  (method public (set-moniker self moniker (generate-event?: generate-event? #t))
+    (set-content self (if (not moniker) "" (present-moniker self moniker)))
     (when generate-event?
-      (call-moniker-update)))
+      (call-moniker-update self)))
   
   
-  (method protected virtual (moniker-update)
+  (method protected virtual (moniker-update self)
     )
   
   
-  (method public (present-moniker moniker)
+  (method public (present-moniker self moniker)
     (cond ((not moniker)
            "{}")
-          ((not (alias-displayed?))
+          ((not (alias-displayed? self))
            (if (is? moniker Pathname)
-               (parse~ moniker)
+               (parse moniker)
              (->string moniker)))
-          ((not (protocol-displayed?))
-           (present~ moniker))
+          ((not (protocol-displayed? self))
+           (present moniker))
           (else
            (format "{a}: {a}"
-                   (get-protocol~ (class-of moniker))
-                   (present~ moniker)))))
+                   (get-protocol (class-of moniker))
+                   (present moniker)))))
   
   
-  (method (alias-displayed?)
+  (method (alias-displayed? self)
     (if (unspecified? display-logical?)
-        (display-aliases?~ (get-application))
+        (display-aliases? (get-application))
       display-logical?))
   
   
-  (method (protocol-displayed?)
+  (method (protocol-displayed? self)
     (if (unspecified? display-protocol?)
-        (display-protocol?~ (get-application))
+        (display-protocol? (get-application))
       display-protocol?))
   
   
@@ -209,7 +209,7 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Moniker-Widget-Descriptor)))
 
 

@@ -49,18 +49,18 @@
   (slot children   initialize '() accessors generate)
   
   
-  (method override (initialize parent tag (properties: properties '()) (children: children '()))
-    (nextmethod parent)
-    (set! tag~self tag)
-    (set! properties~self properties)
-    (set! children~self children)
+  (method override (initialize self parent tag (properties: properties '()) (children: children '()))
+    (nextmethod self parent)
+    (set! self.tag tag)
+    (set! self.properties properties)
+    (set! self.children children)
     (when (not-null? children)
       (for-each (lambda (child)
-                  (set-parent-value~ child self))
+                  (set-parent-value child self))
                 children)))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (if (null? properties)
@@ -68,10 +68,10 @@
           (format output "{s} {s}" tag properties)))))
   
   
-  (method public (clone (parent: parent #f) (children: children '()))
+  (method public (clone self (parent: parent #f) (children: children '()))
     (let ((clone (new JML-Element parent tag)))
-      (set-properties~ clone properties)
-      (set-children~ clone children)
+      (set-properties clone properties)
+      (set-children clone children)
       clone))
   
   
@@ -80,13 +80,13 @@
   ;;;
   
   
-  (method public (has-property? property)
+  (method public (has-property? self property)
     (let ((symbol (symbolize-property property))
           (not-found {Box}))
       (neq? (getf properties symbol key: symbolize-property not-found: not-found) not-found)))
   
   
-  (method public (get-property property (not-found #f))
+  (method public (get-property self property (not-found #f))
     (let ((symbol (symbolize-property property)))
       (let (iterate (scan properties))
         (if (null? scan)
@@ -97,7 +97,7 @@
               (iterate (cddr scan))))))))
   
   
-  (method public (set-property property value)
+  (method public (set-property self property value)
     (let ((symbol (symbolize-property property)))
       (let (iterate (scan properties))
         (if (null? scan)
@@ -108,18 +108,18 @@
               (iterate (cddr scan))))))))
   
   
-  (method public (remove-property target)
+  (method public (remove-property self target)
     (let ((symbol (symbolize-property target))
           (fact (new List-Factory)))
       (for-each-property (lambda (property value)
                            (when (neq? symbol (symbolize-property property))
-                             (put~ fact property)
-                             (put~ fact value)))
+                             (put fact property)
+                             (put fact value)))
                          properties)
-      (set! properties (get-output~ fact))))
+      (set! properties (get-output fact))))
   
   
-  (method public (rename-property old new)
+  (method public (rename-property self old new)
     (let ((old (symbolize-property old))
           (new (symbolize-property new)))
       (let (iterate (scan properties))
@@ -130,8 +130,8 @@
               (iterate (cddr scan))))))))
   
   
-  (method public (add-properties properties)
-    (for-each-property set-property properties))
+  (method public (add-properties self properties)
+    (for-each-property (~ set-property self) properties))
   
   
   ;;;
@@ -143,67 +143,71 @@
     '(div img input span))
   
   
-  (method public (first-child)
+  (method public (first-child self)
     (if (null? children)
         #f
       (car children)))
   
   
-  (method public virtual (remove-child node)
+  (method public virtual (remove-child self node)
     (set! children (remove! node children)))
   
   
-  (method public virtual (add-child node)
+  (method public virtual (add-child self node)
     (set! children (append! children (list node))))
   
   
-  (method public (composite?)
-    (not (simple?)))
+  (method public virtual (append-child self node)
+    (set! children (append! children (list node))))
   
   
-  (method public (simple?)
-    (let ((children (effective-children)))
+  (method public (composite? self)
+    (not (simple? self)))
+  
+  
+  (method public (simple? self)
+    (let ((children (effective-children self)))
       (or (and (= 1 (length children))
                (let ((child (car children)))
                  (and (is? child JML-Element)
-                      (memq? (get-tag~ child) Flattened-Tags)
-                      (simple?~ child))))
+                      (memq? (get-tag child) Flattened-Tags)
+                      (simple? child))))
           (every? (lambda (sub)
                     (is? sub JML-Text))
                   children))))
   
   
-  (method (effective-children)
+  (method (effective-children self)
     children)
   
   
-  (method public (find-by predicate)
+  (method public (find-by self predicate)
     (find-if predicate children))
   
   
-  (method public (find-node tag)
-    (find-by
+  (method public (find-node self tag)
+    (find-by self
       (lambda (child)
         (and (is? child JML-Element)
-             (eq? (get-tag~ child) tag)))))
+             (eq? (get-tag child) tag)))))
   
   
-  (method public virtual (find-name name)
-    (find-by
+  (method public virtual (find-name self name)
+    (find-by self
       (lambda (child)
         (and (is? child JML-Element)
-             (eq? (get-property~ child 'name) name)))))
+             (eq? (get-property child 'name) name)))))
   
   
-  (method public (find-property property value)
-    (find-by
+  (method public (find-property self property value)
+    (find-by self
       (lambda (child)
         (and (is? child JML-Element)
-             (equal? (get-property~ child property) value)))))
+             (equal? (get-property child property) value)))))
   
   
-  (method public (get-child-text)
-    (get-text~ (first-child)))
+  (method public (get-child-text self)
+    (get-text (first-child self)))
   
   
   ;;;
@@ -211,10 +215,10 @@
   ;;;
   
   
-  (method override (get-child-location child)
+  (method override (get-child-location self child)
     (list (+ 1
              (length properties)
-             (get-rank child children))))
+             (find-rank child children))))
   
   
   ;;;
@@ -222,27 +226,27 @@
   ;;;
   
   
-  (method override (->jml)
-    `(,(tag->jml) ,@(properties->jml) ,@(children->jml)))
+  (method override (->jml self)
+    `(,(tag->jml self) ,@(properties->jml self) ,@(children->jml self)))
   
   
-  (method public (tag->jml)
+  (method public (tag->jml self)
     (string->symbol (format "<{a}>" tag)))
   
   
-  (method public (properties->jml)
+  (method public (properties->jml self)
     (define (property->jml property)
       (symbol->keyword property))
     
     (let ((fact (new List-Factory)))
       (for-each-property (lambda (property value)
-                           (put~ fact (property->jml property))
-                           (put~ fact value))
+                           (put fact (property->jml property))
+                           (put fact value))
                          properties)
-      (get-output~ fact)))
+      (get-output fact)))
   
   
-  (method public (children->jml)
+  (method public (children->jml self)
     (map (lambda (child)
-           (->jml~ child))
+           (->jml child))
          children))))

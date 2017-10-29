@@ -258,23 +258,23 @@
         ((jazz:add-final-method)
          `(begin
             ,@(if unsafe-locator
-                  `((define (,unsafe-locator self ,@signature-emit)
+                  `((define (,unsafe-locator ,@signature-emit)
                       ,body-emit)
-                    (define (,method-locator self ,@signature-emit)
+                    (define (,method-locator ,@signature-emit)
                       ,@signature-casts
-                      (,unsafe-locator self ,@(map jazz:get-lexical-binding-name (jazz:get-signature-positional unsafe-signature)))))
-                `((define (,method-locator self ,@signature-emit)
+                      (,unsafe-locator ,@(map jazz:get-lexical-binding-name (jazz:get-signature-positional unsafe-signature)))))
+                `((define (,method-locator ,@signature-emit)
                     ,@(jazz:add-signature-casts signature-casts body-emit))))
             (,add-method-proc ,class-locator ',name ,method-locator)
             ,@(jazz:declaration-result)))
         ((jazz:add-virtual-method)
          `(begin
             ,@(if body-emit
-                  `((define (,method-locator self ,@signature-emit)
+                  `((define (,method-locator ,@signature-emit)
                       ,@(jazz:add-signature-casts signature-casts body-emit)))
                 (if (eq? abstraction 'abstract)
-                    `((define (,method-locator self . rest)
-                        (jazz:call-into-abstract ',class-locator ',name self rest)))
+                    `((define (,method-locator . rest)
+                        (jazz:call-into-abstract ',class-locator ',name rest)))
                   '()))
             (define ,method-rank-locator
               (,add-method-proc ,class-locator ',name
@@ -286,7 +286,7 @@
          (let ((node (jazz:generate-symbol "node")))
            `(begin
               ,@(if body-emit
-                    `((define (,method-locator self ,@signature-emit)
+                    `((define (,method-locator ,@signature-emit)
                         ,@signature-casts
                         (let ((nextmethod (%%get-method-node-next-implementation ,method-node-locator)))
                           ,body-emit)))
@@ -392,6 +392,37 @@
             source))))))
 
 
+(define (jazz:emit-inlined-final-dispatch-call source declaration object arguments source-declaration environment backend)
+  ;; mostly copy/pasted and adapted from method declaration. need to unify the code
+  (if (%%eq? (jazz:get-method-declaration-expansion declaration) 'inline)
+      (receive (dispatch-type method-declaration) (jazz:method-dispatch-info declaration)
+        (case dispatch-type
+          ((final)
+           (let ((signature (jazz:get-method-declaration-signature declaration))
+                 (body (jazz:get-method-declaration-body declaration)))
+             (if (jazz:only-positional-signature? signature)
+                 ;; the +1 is for the self that is now part of the method signature
+                 (if (%%fx= (jazz:get-signature-mandatory signature) (%%fx+ 1 (%%length arguments)))
+                     (jazz:with-annotated-frame (jazz:annotate-signature signature)
+                       (lambda (frame)
+                         (let ((augmented-environment (%%cons frame environment)))
+                           (let ((body-code (jazz:emit-expression body source-declaration augmented-environment backend)))
+                             (jazz:new-code
+                               `(let ,(map (lambda (parameter argument)
+                                             `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
+                                               ,(jazz:emit-type-check argument (jazz:get-lexical-binding-type parameter) source-declaration environment backend)))
+                                           (jazz:get-signature-positional signature)
+                                           (%%cons object arguments))
+                                  ,(jazz:sourcify-deep-if (jazz:desourcify-all (jazz:get-code-form body-code)) source))
+                               (jazz:call-return-type (jazz:get-lexical-binding-type declaration))
+                               #f)))))
+                   (jazz:error "Wrong number of arguments passed to {s}" (jazz:get-lexical-binding-name declaration)))
+               (jazz:error "Only positional parameters are supported in inlining: {s}" (jazz:get-lexical-binding-name declaration)))))
+          (else
+           #f)))
+    #f))
+
+
 ;;;
 ;;;; Dispatch Reference
 ;;;
@@ -468,17 +499,8 @@
   (jazz:get-declaration-locator declaration))
 
 
-(jazz:define-emit (method-reference (scheme backend) declaration source-declaration environment self dispatch-code)
-  `(lambda rest
-     (apply ,(jazz:sourcified-form dispatch-code) ,(jazz:sourcified-form self) rest)))
-
-
 (jazz:define-emit (nextmethod-variable-reference (scheme backend) binding)
-  (let ((name (jazz:get-lexical-binding-name binding))
-        (self (jazz:*self*)))
-    (if self
-        `(lambda rest (apply ,name ,(jazz:sourcified-form self) rest))
-      name)))
+  (jazz:get-lexical-binding-name binding))
 
 
 (jazz:define-emit (self-reference (scheme backend) declaration source-declaration)
@@ -515,20 +537,10 @@
         (jazz:get-expression-source expression)))))
 
 
-(jazz:define-emit (method-call (scheme backend) binding binding-src dispatch-code self arguments)
-  `(,(jazz:sourcified-form dispatch-code)
-    ,(jazz:sourcified-form self)
-    ,@arguments))
-
-
-(jazz:define-emit (nextmethod-call (scheme backend) binding binding-src self arguments)
+(jazz:define-emit (nextmethod-call (scheme backend) binding binding-src arguments)
   (let ((name (jazz:get-lexical-binding-name binding)))
-    (if self
-        `(,name
-           ,(jazz:sourcified-form self)
-           ,@(jazz:codes-forms arguments))
-      `(,name
-         ,@(jazz:codes-forms arguments)))))
+    `(,name
+       ,@(jazz:codes-forms arguments))))
 
 
 ;;;
@@ -808,7 +820,7 @@
                        (let ((expression (and (%%pair? least-mismatch) (%%car least-mismatch))))
                          (jazz:warning "Warning: In {a}{a}: Unmatched call to primitive {a}"
                                        (jazz:get-declaration-locator declaration)
-                                       (jazz:present-expression-location (jazz:get-expression-source expression) (jazz:get-expression-source operator))
+                                       (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
                                        (jazz:reference-name locator))))
                      #f)
                  (jazz:bind (name function-type) (%%car scan)
@@ -866,7 +878,7 @@
                                       (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
                                         (jazz:warning "Warning: In {a}{a}: Unmatched call to typed definition {a}"
                                                       (jazz:get-declaration-locator declaration)
-                                                      (jazz:present-expression-location (jazz:get-expression-source expression) (jazz:get-expression-source operator))
+                                                      (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
                                                       (jazz:reference-name locator))))
                                     #f)))))))
                     ((%%class-is? binding jazz:Internal-Define-Variable)
@@ -887,7 +899,7 @@
                                     (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
                                       (jazz:unsafe-warning "Unsafe: In {a}{a}: Unmatched call to typed internal define {a}"
                                                            (jazz:get-declaration-locator declaration)
-                                                           (jazz:present-expression-location (jazz:get-expression-source expression) (jazz:get-expression-source operator))
+                                                           (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
                                                            (jazz:get-lexical-binding-name binding))
                                       #; ;; waiting for warning tooltip
                                       (display (jazz:format "  Unsafe: {l}{%}" (%%apply append (map (lambda (arg type)

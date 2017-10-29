@@ -44,14 +44,18 @@
         (jazz.catalog.edit)
         (jazz.component)
         (jazz.designer)
+        (jazz.editor)
         (jazz.editor.jazz)
         (jazz.editor.lisp)
+        (jazz.ide)
         (jazz.ide.activity)
         (jazz.io)
         (jazz.jml)
         (jazz.profile)
         (jazz.project)
         (jazz.search)
+        (jazz.text)
+        (jazz.undoer)
         (jazz.view)
         (jazz.workspace)
         (time))
@@ -65,17 +69,17 @@
   ;;;
   
   
-  (method (add-missing-imports import (units: units #f) (targets: targets #f))
+  (method (add-missing-imports self import (units: units #f) (targets: targets #f))
     (let ((cataloguer (get-cataloguer))
           (processed 0))
       (define (add-import unit)
-        (let ((definitions (get-definitions~ cataloguer unit)))
+        (let ((definitions (get-definitions cataloguer unit)))
           (if (/= (length definitions) 1)
               (debug 'ambiguous unit)
             (user-message "Processing {a}..." unit)
-            (let ((text (get-guest~ (edit-entry (car definitions)))))
-              (let ((expl (new (explorer-class~ text) (get-model~ text))))
-                (insert-import-invoice~ expl import)))
+            (let ((text (get-guest (edit-entry (car definitions)))))
+              (let ((expl (new (explorer-class text) (get-model text))))
+                (insert-import-invoice expl import)))
             (increase! processed))))
       
       (let ((all (call-with-input-file "~/walk-unresolved.jazz" read-all)))
@@ -90,17 +94,17 @@
       (user-message "Processed {a} unit{a}" processed (format-plural processed))))
   
   
-  (method (remove-unreferenced-imports (units: units #f) (targets: targets #f))
+  (method (remove-unreferenced-imports self (units: units #f) (targets: targets #f))
     (let ((cataloguer (get-cataloguer)))
       (define (remove-import unit import)
-        (let ((definitions (get-definitions~ cataloguer unit)))
+        (let ((definitions (get-definitions cataloguer unit)))
           (case (length definitions)
             ((0)
              (debug 'cant 'find unit))
             ((1)
-             (let ((text (get-guest~ (edit-entry (car definitions)))))
-               (let ((expl (new (explorer-class~ text) (get-model~ text))))
-                 (unless (remove-import-invoice~ expl import)
+             (let ((text (get-guest (edit-entry (car definitions)))))
+               (let ((expl (new (explorer-class text) (get-model text))))
+                 (unless (remove-import-invoice expl import)
                    (debug 'unable 'to 'remove import)))))
             (else
              (debug 'ambiguous unit)))))
@@ -134,33 +138,33 @@
     (* 7 day))
   
   
-  (method (recent-files . rest)
+  (method (recent-files self . rest)
     (bind-keywords ((directory {Directory Jazz}) (elapse #f)) rest
       (let ((results (get-search-results))
             (resultset (new Search-Resultset (new Search '() #f)))
             (from (subtract-duration (current-time) (make-time time-duration 0 (or elapse 3600))))
             (ignored-toplevel-dirnames '("Crashes" "Devel" "Release" "Work" "bin" "build" "bootstrap" "deploy" "gambit" ".git"))
             (ignored-extensions Binary-Extensions)
-            (directory-feedback (make-directory-feedback)))
-        (iterate-directory~ directory
+            (directory-feedback (make-directory-feedback self)))
+        (iterate-directory directory
           (lambda (file)
             (directory-feedback file)
-            (when (and (not (member? (get-extension~ file) ignored-extensions test: extension=?))
-                       (time>? (get-modification-time~ file) from))
-              (add-result~ resultset (new File-Search-Result resultset file))))
+            (when (and (not (member? (get-extension file) ignored-extensions test: extension=?))
+                       (time>? (get-modification-time file) from))
+              (add-result resultset (new File-Search-Result resultset file))))
           ignored-toplevel-dirnames: ignored-toplevel-dirnames)
-        (let ((count (length (get-results~ resultset))))
+        (let ((count (length (get-results resultset))))
           (user-feedback "Found {a} file{a}" count (format-plural count))
-          (select-results~ results resultset)))))
+          (select-results results resultset)))))
   
   
-  (method (search-licenseless-files)
+  (method (search-licenseless-files self)
     (let ((results (get-search-results))
           (resultset (new Search-Resultset (new Search '() #f)))
-          (directory-feedback (make-directory-feedback)))
-      (iterate-directory~ {Directory Jazz}
+          (directory-feedback (make-directory-feedback self)))
+      (iterate-directory {Directory Jazz}
         (lambda (file)
-          (let ((ext (get-extension~ file)))
+          (let ((ext (get-extension file)))
             (when (member? ext '("jazz") test: extension=?)
               (directory-feedback file)
               (call-with-input-file (path-settings file eol-encoding: 'cr-lf readtable: jazz-readtable)
@@ -168,27 +172,27 @@
                   (let ((line (read-line port)))
                     (when (and (not (eof-object? line))
                                (not (equal? line ";;;==============")))
-                      (add-result~ resultset (new File-Search-Result resultset file))))))))))
-      (let ((count (length (get-results~ resultset))))
+                      (add-result resultset (new File-Search-Result resultset file))))))))))
+      (let ((count (length (get-results resultset))))
         (user-feedback "Found {a} file{a}" count (format-plural count))
-        (select-results~ results resultset))))
+        (select-results results resultset))))
   
   
-  (method (search-trailing-whitespace . rest)
+  (method (search-trailing-whitespace self . rest)
     (bind-keywords ((directory {Directory Jazz})) rest
       (let ((results (get-search-results))
             (resultset (new Search-Resultset (new Search '() #f)))
             (ignored-toplevel-dirnames '("Crashes" "Devel" "Release" "Work" "bin" "build" "bootstrap" "deploy" "gambit" ".git"))
             (ignored-extensions Binary-Extensions)
             (extensions (effective-extensions :textual))
-            (directory-feedback (make-directory-feedback)))
-        (iterate-directory~ directory
+            (directory-feedback (make-directory-feedback self)))
+        (iterate-directory directory
           (lambda (file)
-            (let ((extension (get-extension~ file)))
+            (let ((extension (get-extension file)))
               (when (and (member? extension extensions test: extension=?)
                          (not (member? extension ignored-extensions test: extension=?)))
                 (directory-feedback file)
-                (let ((lines (load-lines~ file char-encoding-errors: #f)))
+                (let ((lines (load-lines file char-encoding-errors: #f)))
                   (for-each (lambda (line rank)
                               (continuation-capture
                                 (lambda (done)
@@ -199,28 +203,28 @@
                                                     (set! trailing-whitespace #t)
                                                   (when trailing-whitespace
                                                     (let ((pos (new Cell rank (+ n 1))))
-                                                      (add-result~ resultset (new File-Search-Result resultset file position: pos))))
+                                                      (add-result resultset (new File-Search-Result resultset file position: pos))))
                                                   (continuation-return done #f)))))))))
                             lines
                             (naturals 0 (length lines)))))))
           ignored-toplevel-dirnames: ignored-toplevel-dirnames)
-        (let ((count (length (get-results~ resultset))))
+        (let ((count (length (get-results resultset))))
           (user-feedback "Found {a} file{a}" count (format-plural count))
-          (select-results~ results resultset)))))
+          (select-results results resultset)))))
   
   
-  (method (inspect-binary file)
+  (method (inspect-binary self file)
     (call-with-input-file (path-settings file)
       (lambda (port)
         (debug (read-all port read-u8)))))
   
   
-  (method (make-directory-feedback)
+  (method (make-directory-feedback self)
     (let ((directory #f))
       (lambda (file)
-        (let ((dir (get-parent~ file)))
+        (let ((dir (get-parent file)))
           (when (or (not directory) (not (pathname=? dir directory)))
-            (let ((expanded (expand~ dir)))
+            (let ((expanded (expand dir)))
               (let ((len (length expanded)))
                 (user-message "Searching {l detail: :human}..." (subseq expanded (max 0 (- len 3)) len))
                 (set! directory dir))))))))
@@ -231,25 +235,25 @@
   ;;;
   
   
-  (method override (console-command command arguments)
+  (method override (console-command self command arguments)
     (case command
       ;; Documentation
-      ((:doc) (edit-documentation (car arguments)))
+      ((:doc) (edit-documentation self (car arguments)))
       ;; Macro
-      ((:expand) (expand (car arguments)))
-      ((:expand-scheme) (expand-scheme (car arguments)))
+      ((:expand) (expand self (car arguments)))
+      ((:expand-scheme) (expand-scheme self (car arguments)))
       ;; Various
-      ((:compile) (compile arguments))
+      ((:compile) (compile self arguments))
       ((:quit) (quit) #t)
-      (else (nextmethod command arguments))))
+      (else (nextmethod self command arguments))))
   
   
-  (method (edit-documentation name)
+  (method package (edit-documentation self name)
     (let ((appl (get-application)))
-      (edit-documentation~ appl name)))
+      (edit-documentation appl name)))
 
   
-  (method (expand form)
+  (method package (expand self form)
     (unimplemented)
     @convert
     (bind (name . arguments) form
@@ -266,7 +270,7 @@
             #t)))))
   
   
-  (method (expand-scheme form)
+  (method (expand-scheme self form)
     (unimplemented)
     @convert
     (bind (name . arguments) form
@@ -277,7 +281,7 @@
         #t)))
   
   
-  (method (compile classes)
+  (method (compile self classes)
     (unimplemented)
     @convert
     (compile-classes classes))
@@ -288,7 +292,7 @@
   ;;;
   
   
-  (method (utf8 text)
+  (method (utf8 self text)
     (let ((count 1))
       (for-each (lambda (line)
                   (when (some? (lambda (char)
@@ -296,19 +300,19 @@
                                line)
                     (debug count line (map char->integer (coerce line List))))
                   (increase! count))
-                (get-content~ text))))
+                (get-content text))))
     
   
-  (method (remove-trailing-whitespace text)
+  (method (remove-trailing-whitespace self text)
     (let ((count 0))
-      (for-each-paragraph~ text
+      (for-each-paragraph text
         (lambda (line row)
-          (let ((str (paragraph-string~ text line)))
+          (let ((str (paragraph-string text line)))
             (unless (whitespace? str)
               (let ((trailer (extract-trailer str whitespace?)))
                 (unless (empty-string? trailer)
                   (let ((end (cardinality str)))
-                    (delete-range~ text (new Range$Cell$ (new Cell line (- end (cardinality trailer))) (new Cell line end)))
+                    (delete-range text (new Range$Cell$ (new Cell line (- end (cardinality trailer))) (new Cell line end)))
                     (increase! count))))))))
       (user-feedback "Removed {a} trailing whitespace" (format-cardinality count))))
 
@@ -318,14 +322,14 @@
   ;;;
   
   
-  (method override (test9)
-    (let ((text (get-focus)))
+  (method override (test9 self)
+    (let ((text (active-focus)))
       (if (is-not? text Jazz-Text-View)
           (bell)
-        (internal-tabulate text))))
+        (internal-tabulate self text))))
   
   
-  (method (internal-tabulate text)
+  (method (internal-tabulate self text)
     (define (collect-maxes explorer)
       (let* ((maxes '())
              (update-maxes
@@ -333,37 +337,37 @@
                  (set! maxes (if (null? maxes)
                                  sizes
                                (map max maxes sizes))))))
-        (while (enter-composite~ explorer)
+        (while (enter-composite explorer)
           (let ((sizes (new List-Factory)))
-            (while (forward-expr~ explorer)
-              (let ((size (- (get-col~ (get-end~ explorer)) (get-col~ (get-start~ explorer)))))
-                (put~ sizes size)))
-            (update-maxes (get-output~ sizes)))
-          (exit-composite~ explorer))
+            (while (forward-expr explorer)
+              (let ((size (- (get-col (get-end explorer)) (get-col (get-start explorer)))))
+                (put sizes size)))
+            (update-maxes (get-output sizes)))
+          (exit-composite explorer))
         maxes))
     
     (define (tabulate-columns text explorer maxes)
-      (let ((undoer (get-undoer~ text)))
-        (with-atomic-undo~ undoer
+      (let ((undoer (get-undoer text)))
+        (with-atomic-undo undoer
           (lambda ()
-            (while (enter-composite~ explorer)
+            (while (enter-composite explorer)
               (let ((maxes maxes))
-                (while (forward-expr~ explorer)
+                (while (forward-expr explorer)
                   (let* ((max (car maxes))
-                         (size (- (get-col~ (get-end~ explorer)) (get-col~ (get-start~ explorer))))
+                         (size (- (get-col (get-end explorer)) (get-col (get-start explorer))))
                          (diff (- max size)))
                     (when (> diff 0)
-                      (let ((end (get-end~ explorer)))
-                        (replace-text~ text (new Range$Cell$ end end)
+                      (let ((end (get-end explorer)))
+                        (replace-text text (new Range$Cell$ end end)
                           (list (make-string diff #\space)))))
                     (set! maxes (cdr maxes)))))
-              (exit-composite~ explorer))))))
+              (exit-composite explorer))))))
     
-    (let* ((pos (get-start~ text))
+    (let* ((pos (get-start text))
            (range (new Range$Cell$ pos pos))
            (explorer (new Jazz-Explorer text range: range))
            (maxes (collect-maxes explorer)))
-      (set-range~ explorer range)
+      (set-range explorer range)
       (tabulate-columns text explorer maxes)))
   
   
@@ -372,59 +376,59 @@
   ;;;
   
   
-  (method (reprint-toplevel-form (text: text #f) (space-tag?: space-tag? #t) (space-name?: space-name? #t))
+  (method (reprint-toplevel-form self (text: text #f) (space-tag?: space-tag? #t) (space-name?: space-name? #t))
     (let ((text (or text (current-document))))
       (if (is-not? text Jazz-Text-View)
           (bell)
-        (let* ((range (toplevel-expr~ text (get-end~ text)))
-               (str (get-string~ text range))
+        (let* ((range (toplevel-expr text (get-end text)))
+               (str (get-string text range))
                (form (jml->form (with-jazz-readtable (lambda () (read-string-element str))))))
           (if (is-not? form Form)
               (bell)
             (let* ((designer (new Former form: form))
-                   (output (saved-form~ designer 0 space-tag?: space-tag? space-name?: space-name?)))
+                   (output (saved-form designer 0 space-tag?: space-tag? space-name?: space-name?)))
               (if (string=? str output)
                   (user-message "No changes to toplevel form")
-                (with-update-locked~ text
+                (with-update-locked text
                   (lambda ()
-                    (set-selection~ text range)
-                    (insert-string~ text output)
+                    (set-selection text range)
+                    (insert-string text output)
                     (user-message "Toplevel form reprinted"))))))))))
   
   
-  (method (reprint-selected-form (text: text #f) (space-tag?: space-tag? #t) (space-name?: space-name? #t))
+  (method (reprint-selected-form self (text: text #f) (space-tag?: space-tag? #t) (space-name?: space-name? #t))
     (let ((text (or text (current-document))))
       (if (is-not? text Jazz-Text-View)
           (bell)
-        (let* ((range (get-selection~ text))
-               (str (get-string~ text range))
+        (let* ((range (get-selection text))
+               (str (get-string text range))
                (form (jml->form (with-jazz-readtable (lambda () (read-string-element str))))))
           (if (is-not? form Form)
               (bell)
             (let* ((designer (new Former form: form))
-                   (output (saved-form~ designer 0 include-form?: #f space-tag?: space-tag? space-name?: space-name?)))
+                   (output (saved-form designer 0 include-form?: #f space-tag?: space-tag? space-name?: space-name?)))
               (if (string=? str output)
                   (user-message "No changes to selected form")
-                (with-update-locked~ text
+                (with-update-locked text
                   (lambda ()
-                    (set-selection~ text range)
-                    (insert-string~ text output)
+                    (set-selection text range)
+                    (insert-string text output)
                     (user-message "Selected form reprinted"))))))))))
   
   
-  (method (reprint-form (space-tag?: space-tag? #t) (space-name?: space-name? #t))
+  (method (reprint-form self (space-tag?: space-tag? #t) (space-name?: space-name? #t))
     (define (form-range text)
-      (let ((expl (new (explorer-class~ text) text range: (get-selection~ text))))
+      (let ((expl (new (explorer-class text) text range: (get-selection text))))
         (with-safe-explore
           (lambda ()
-            (outer-expr~ expl)
+            (outer-expr expl)
             (let (iterate)
-              (let ((range (get-range~ expl))
-                    (marked (get-marked~ expl)))
+              (let ((range (get-range expl))
+                    (marked (get-marked expl)))
                 (when (or (starts-with? marked "(<")
                           (starts-with? marked "<"))
-                  (outer-expr~ expl)
-                  (or (when (> (get-col~ (get-start~ range)) 0)
+                  (outer-expr expl)
+                  (or (when (> (get-col (get-start range)) 0)
                         (iterate))
                       range))))))))
     
@@ -432,17 +436,17 @@
       (let ((range (and (is? text Jazz-Text-View) (form-range text))))
         (if (not range)
             (bell)
-          (let ((string (get-string~ text range))
-                (level (quotient (get-col~ (get-start~ range)) 2)))
+          (let ((string (get-string text range))
+                (level (quotient (get-col (get-start range)) 2)))
             (let ((form (jml->form (with-jazz-readtable (lambda () (read-string-element string))))))
               (if (is-not? form Form)
                   (bell)
                 (let* ((designer (new Former form: form))
-                       (output (saved-form~ designer level space-tag?: space-tag? space-name?: space-name? indent-first?: #f)))
-                  (with-update-locked~ text
+                       (output (saved-form designer level space-tag?: space-tag? space-name?: space-name? indent-first?: #f)))
+                  (with-update-locked text
                     (lambda ()
-                      (set-selection~ text range)
-                      (insert-string~ text output)
+                      (set-selection text range)
+                      (insert-string text output)
                       (user-message "Selected form reprinted")))))))))))
 
   
@@ -451,11 +455,11 @@
   ;;;
   
   
-  (method (clear-activities)
+  (method (clear-activities self)
     (let* ((manager (get-activity-manager))
-           (reporters (get-reporters~ manager)))
+           (reporters (get-reporters manager)))
       (for-each (lambda (reporter)
-                  (unregister-activity~ manager reporter))
+                  (unregister-activity manager reporter))
                 reporters)))
 
   
@@ -464,26 +468,26 @@
   ;;;
   
   
-  (method (determine-dead-code project-names)
+  (method (determine-dead-code self project-names)
     (define (collect-potentials)
       (let ((workbench (get-workbench))
             (cataloguer (get-cataloguer))
             (potentials '()))
         (define (process-project project-name)
           (user-feedback "Processing {a}..." project-name)
-          (let ((catalog (get-catalog~ (require-project~ workbench project-name))))
-            (iterate-definitions~ catalog
+          (let ((catalog (get-catalog (require-project workbench project-name))))
+            (iterate-definitions catalog
               (lambda (name entries)
-                (let ((references (get-references~ cataloguer name)))
+                (let ((references (get-references cataloguer name)))
                   (let ((count (count-if (lambda (ref)
                                            (not (and (is? ref Lisp-Entry)
-                                                     (eq? (get-kind~ ref) 'export))))
+                                                     (eq? (get-kind ref) 'export))))
                                          references)))
                     (when (= count 0)
                       (for-each (lambda (entry)
-                                  (let ((locator (->locator~ entry)))
+                                  (let ((locator (->locator entry)))
                                     (when (consider-declaration? locator)
-                                      (set! potentials (cons (cons (get-kind~ entry) locator) potentials)))))
+                                      (set! potentials (cons (cons (get-kind entry) locator) potentials)))))
                                 entries))))))))
         
         (define (consider-declaration? locator)
@@ -534,7 +538,7 @@
       (let ((count (length potentials)))
         (user-feedback "Found {a} potential dead code" (if (= count 0) "no" count))
         (when (> count 0)
-          (edit-document~ (get-application) {File Home "potentials.jazz"})))))
+          (edit-document (get-application) {File Home "potentials.jazz"})))))
 
   
   ;;;
@@ -551,10 +555,10 @@
   @wait
   (method (output-tables tables (name: name #f) (select?: select? #t))
     (let ((text (get-sql-console-text)))
-      (output-tables~ text tables name))
+      (output-tables text tables name))
     (when select?
       (let ((appl (get-application)))
-        (select-workspace~ appl 'sql))))
+        (select-named-workspace appl 'sql))))
   
   
   @wait
@@ -569,7 +573,7 @@
   
   @wait
   (method (log-table table)
-    (log-entry name: (get-name~ table) data: table))
+    (log-entry name: (get-name table) data: table))
   
   
   ;;;
@@ -580,7 +584,7 @@
   @wait
   (method (glue n (kind 1))
     (let* ((appl (get-application))
-           (stack (get-clipboard-ring~ appl))
+           (stack (get-clipboard-ring appl))
            (lst (map get-text~ (cons (get-clipboard) (subseq stack 0 (- n 1)))))
            (glued (case kind
                     ((1) (format "{l}" lst))
@@ -594,11 +598,11 @@
   ;;;
   
   
-  (method (collect-extensions dir)
+  (method (collect-extensions self dir)
     (let ((extensions '()))
-      (iterate-directory~ dir
+      (iterate-directory dir
         (lambda (file)
-          (let ((ext (get-extension~ file)))
+          (let ((ext (get-extension file)))
             (when (and ext (not (member? ext extensions test: extension=?)))
               (set! extensions (cons (downcase ext) extensions))))))
       (sort string<? extensions)))
@@ -609,7 +613,7 @@
   ;;;
   
   
-  (method (report-aliases)
+  (method (report-aliases self)
     (let* ((table (get-aliases))
            (aliases (table-keys/values table)))
       (newline)
@@ -617,7 +621,7 @@
                   (bind (key . value) info
                     (format :console "{s} : {l}{%}" key value)))
                 (sort < aliases key: car)))
-    (fresh-prompt~ (get-application)))
+    (fresh-prompt (get-application)))
 
 
   ;;;
@@ -639,12 +643,12 @@
           (lambda (return)
             (for-each (lambda (frame)
                         (when (is? frame Frame-Host)
-                          (let ((guest (get-guest~ frame)))
+                          (let ((guest (get-guest frame)))
                             (when (is? guest Document)
-                              (let ((moniker (get-moniker~ (get-document-controller~ guest))))
+                              (let ((moniker (get-moniker (get-document-controller guest))))
                                 (when moniker
-                                  (let ((base (get-base~ moniker))
-                                        (ext (get-extension~ moniker)))
+                                  (let ((base (get-base moniker))
+                                        (ext (get-extension moniker)))
                                     (when (and (= base target)
                                                (extension=? ext "jazz"))
                                       (continuation-return return moniker)))))))))
@@ -658,7 +662,7 @@
       (continuation-capture
         (lambda (return)
           (for-each (lambda (dir)
-                      (let ((file (new-file~ dir name)))
+                      (let ((file (new-file dir name)))
                         (when (exists?~ file)
                           (continuation-return return file))))
                     (source-directories))

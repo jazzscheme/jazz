@@ -73,20 +73,20 @@
   ;;;
   
   
-  (method override (render jml output)
-    (render-jml '() jml #f #f #f 0 output))
+  (method override (render self jml output)
+    (render-jml self '() jml #f #f #f 0 output))
   
   
-  (method (render-jml context jml simple? mix? inside-pre? level output)
+  (method (render-jml self context jml simple? mix? inside-pre? level output)
     (typecase jml
       ((JML-Text)
-       (render-text context jml output))
+       (render-text self context jml output))
       (else
-       (render-node context jml simple? mix? inside-pre? level output))))
+       (render-node self context jml simple? mix? inside-pre? level output))))
 
 
-  (method virtual (render-text context jml output)
-    (let ((text (get-text~ jml)))
+  (method virtual (render-text self context jml output)
+    (let ((text (get-text jml)))
       (iterate text
                (lambda (c)
                  (let ((n (char->integer c)))
@@ -98,69 +98,69 @@
                        (else (format output "{c}" c)))))))))
   
   
-  (method override (render-node context jml simple? mix? inside-pre? level output)
+  (method override (render-node self context jml simple? mix? inside-pre? level output)
     (if (is-not? jml JML-Node)
-        (render~ jml self context simple? mix? inside-pre? level output)
-      (let ((tag (get-tag~ jml)))
-        (render-tag context jml tag simple? mix? inside-pre? level output))))
+        (render jml self context simple? mix? inside-pre? level output)
+      (let ((tag (get-tag jml)))
+        (render-tag self context jml tag simple? mix? inside-pre? level output))))
   
   
-  (method (render-tag context jml tag simple? parent-mix? inside-pre? level output)
-    (let* ((tab (get-tab-size~ preferences))
-           (composite? (composite?~ jml))
+  (method (render-tag self context jml tag simple? parent-mix? inside-pre? level output)
+    (let* ((tab (get-tab-size preferences))
+           (composite? (composite? jml))
            (mix? (memq? tag Mix-Tags))
            (pre? (memq? tag Pre-Tags))
            (inside-pre? (or pre? inside-pre?)))
       (when (and (memq? tag Separated-Tags) (not inside-pre?))
-        (output-text context output "{%}"))
+        (output-text self context output "{%}"))
       (unless (or simple? parent-mix? inside-pre?)
-        (output-text context output "{_ :v}" (* level tab)))
-      (output-text context output "<{a}" tag)
+        (output-text self context output "{_ :v}" (* level tab)))
+      (output-text self context output "<{a}" tag)
       (for-each-property (lambda (property value)
                            (if (null? value)
-                               (output-text context output " {a}" property)
+                               (output-text self context output " {a}" property)
                              (if (and (pair? value) (eq? (car value) :string))
-                                 (render-string context output property value)
-                               (render-value context output property value))))
-                         (get-properties~ jml))
+                                 (render-string self context output property value)
+                               (render-value self context output property value))))
+                         (get-properties jml))
       (if (memq? tag Empty-Tags)
-          (output-text context output "/>")
-        (output-text context output ">")
+          (output-text self context output "/>")
+        (output-text self context output ">")
         (when (and composite? (not inside-pre?))
-          (output-text context output "{%}"))
+          (output-text self context output "{%}"))
         (let ((new-level
                (case tag
                  ((html body) level)
                  (else (+ level 1)))))
-          (render-children context jml (not composite?) mix? inside-pre? new-level output))
+          (render-children self context jml (not composite?) mix? inside-pre? new-level output))
         (when (and composite? (not mix?) (not inside-pre?))
-          (output-text context output "{_ :v}" (* level tab)))
+          (output-text self context output "{_ :v}" (* level tab)))
         (when (and (memq? tag Separated2-Tags) (not inside-pre?))
-          (output-text context output "{%}"))
-        (output-text context output "{a}" (end-tag tag)))
+          (output-text self context output "{%}"))
+        (output-text self context output "{a}" (end-tag tag)))
       (unless (or simple? parent-mix? inside-pre?)
-        (output-text context output "{%}"))))
+        (output-text self context output "{%}"))))
   
   
-  (method virtual (render-string context output property value)
-    (output-text context output " {a}=\"" property)
+  (method virtual (render-string self context output property value)
+    (output-text self context output " {a}=\"" property)
     (for-each (lambda (string)
-                (output-text context output "{a}" string))
+                (output-text self context output "{a}" string))
               (cdr value))
-    (output-text context output "\""))
+    (output-text self context output "\""))
   
   
-  (method virtual (render-value context output property value)
-    (output-text context output " {a}=\"{a}\"" property value))
+  (method virtual (render-value self context output property value)
+    (output-text self context output " {a}=\"{a}\"" property value))
   
   
-  (method (render-children context jml simple? mix? inside-pre? level output)
+  (method (render-children self context jml simple? mix? inside-pre? level output)
     (for-each (lambda (sub)
-                (render-jml context sub simple? mix? inside-pre? level output))
-              (get-children~ jml)))
+                (render-jml self context sub simple? mix? inside-pre? level output))
+              (get-children jml)))
   
   
-  (method (output-text context output format-string . parameters)
+  (method (output-text self context output format-string . parameters)
     (when output
       (let ((text (apply format format-string parameters)))
         (format output "{a}" text))))

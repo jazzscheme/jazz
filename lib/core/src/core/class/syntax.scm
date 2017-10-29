@@ -627,5 +627,7 @@ end-of-c-code
   (jazz:expand-define-virtual signature))
 
 
-(jazz:define-macro (jazz:define-method signature . body)
-  (jazz:expand-define-method signature body)))
+(jazz:define-syntax jazz:define-method
+  (lambda (src)
+    (jazz:bind (signature . body) (%%cdr (%%source-code src))
+      (jazz:expand-define-method (%%desourcify signature) body)))))

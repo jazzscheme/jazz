@@ -61,7 +61,7 @@
   (slot bars  initialize 0)
   
   
-  (method override (default-size)
+  (method override (default-size self)
     {Dimension 100 20})
   
   
@@ -70,37 +70,37 @@
   ;;;
 
 
-  (method public (get-pos)
+  (method public (get-pos self)
     pos)
   
   
-  (method public (set-pos p)
+  (method public (set-pos self p)
     (set! pos p)
-    (invalidate-bars))
+    (invalidate-bars self))
   
   
-  (method public (delta-pos increment)
+  (method public (delta-pos self increment)
     (increase! pos increment)
     (when infinite?
-      (set! pos (modulo pos (get-end~ range))))
-    (invalidate-bars))
+      (set! pos (modulo pos (get-end range))))
+    (invalidate-bars self))
   
   
-  (method public (step-it)
-    (delta-pos step))
+  (method public (step-it self)
+    (delta-pos self step))
   
   
-  (method public (set-done)
-    (set-pos (get-end~ range)))
+  (method public (set-done self)
+    (set-pos self (get-end range)))
   
   
-  (method public (get-range)
+  (method public (get-range self)
     range)
   
   
-  (method public (set-range rng)
+  (method public (set-range self rng)
     (set! range rng)
-    (invalidate-bars))
+    (invalidate-bars self))
   
   
   ;;;
@@ -108,21 +108,21 @@
   ;;;
   
   
-  (method (invalidate-bars)
+  (method (invalidate-bars self)
     (define (calculate-bars)
-      (let ((start (get-start~ range))
-            (end (get-end~ range)))
+      (let ((start (get-start range))
+            (end (get-end range)))
         (if (= start end)
             0
-          (let* ((bounds (get-bounds))
-                 (width (- (get-width) 2))
+          (let* ((bounds (get-bounds self))
+                 (width (- (get-width self) 2))
                  (right (+ (fxceiling/ (* pos width) (- end start)) 1)))
             (quotient right (+ Bar-Width Bar-Spacing))))))
     
     (let ((n (calculate-bars)))
       (when (/= n bars)
         (set! bars n)
-        (invalidate-view))))
+        (invalidate-view self))))
   
   
   ;;;
@@ -130,10 +130,10 @@
   ;;;
   
   
-  (method override (draw surface context)
-    (draw-edge~ surface (get-bounds) outer: 'sunken edges: 'rectangle)
-    (let* ((width (get-width))
-           (height (get-height))
+  (method override (draw self surface context)
+    (draw-edge surface (get-bounds self) outer: 'sunken edges: 'rectangle)
+    (let* ((width (get-width self))
+           (height (get-height self))
            (left 2)
            (top 2)
            (max-right (- width 3))
@@ -141,7 +141,7 @@
       (for-each (lambda (n)
                   (let ((right (+ left Bar-Width)))
                     (when (or (not infinite?) (= n last))
-                      (fill-rect~ surface (new Rect (min left max-right) top (min right max-right) (- height 2)) {Color Focused-Selection})))
+                      (fill-rect surface (new Rect (min left max-right) top (min right max-right) (- height 2)) {Color Focused-Selection})))
                   (increase! left (+ Bar-Width Bar-Spacing)))
                 (naturals 0 bars))))
   
@@ -151,5 +151,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Progress-Bar-Descriptor))))

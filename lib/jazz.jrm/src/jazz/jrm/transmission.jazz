@@ -87,12 +87,12 @@
   (slot reason getter generate)
   
   
-  (method override (initialize rs)
-    (nextmethod)
+  (method override (initialize self rs)
+    (nextmethod self)
     (set! reason rs))
   
   
-  (method override (print printer readably)
+  (method override (print self printer readably)
     (print-unreadable self printer
       (lambda (printer)
         (format printer "{a}" reason)))))
@@ -116,12 +116,12 @@
   (slot exception getter generate)
   
   
-  (method override (initialize exc)
-    (nextmethod)
+  (method override (initialize self exc)
+    (nextmethod self)
     (set! exception exc))
   
   
-  (method override (print printer readably)
+  (method override (print self printer readably)
     (print-unreadable self printer
       (lambda (printer)
         (format printer "{a}" (exception-reason exception))))))
@@ -150,13 +150,13 @@
 ;;;
 
 
-(definition public (write-header application-code version port)
+(definition public (write-application-header application-code version port)
   (if binary-communication?
       (write-binary-header application-code version port)
     (write-text-header application-code version port)))
 
 
-(definition public (read-header port)
+(definition public (read-application-header port)
   (if binary-communication?
       (read-binary-header port)
     (read-text-header port)))
@@ -213,7 +213,7 @@
 
 (definition public (write-binary-header application-code version port)
   (receive (b1 b2 b3 b4) (32-bit-integer->bytes application-code)
-    (receive (b5 b6 b7 b8 b9 b10 b11 b12) (64-bit-integer->bytes (->64-bit-integer~ version))
+    (receive (b5 b6 b7 b8 b9 b10 b11 b12) (64-bit-integer->bytes (->64-bit-integer version))
       (write-u8 b1 port)
       (write-u8 b2 port)
       (write-u8 b3 port)
@@ -294,12 +294,12 @@
   (slot message-text)
   
   
-  (method override (initialize text)
-    (nextmethod)
+  (method override (initialize self text)
+    (nextmethod self)
     (set! message-text text))
   
   
-  (method override (get-message)
+  (method override (get-message self)
     message-text))
 
 
@@ -314,9 +314,9 @@
 
 @wait
 (definition public (validate-application-version remote-version (server-side?: server-side? #t))
-  (let ((local-version (process-version~ (get-process))))
+  (let ((local-version (process-version (get-process))))
     (unless (compatible?~ local-version remote-version)
       (throw (new Protocol-Exception
                (format "Client version {a} is incompatible with server version {a}."
-                       (present~ (if server-side? remote-version local-version))
-                       (present~ (if server-side? local-version remote-version)))))))))
+                       (present (if server-side? remote-version local-version))
+                       (present (if server-side? local-version remote-version)))))))))

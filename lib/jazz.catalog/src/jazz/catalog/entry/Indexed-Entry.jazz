@@ -53,38 +53,38 @@
   (slot references getter generate)
   
   
-  (method override (initialize name line column end-line end-column definitions references)
-    (nextmethod)
-    (set! name~self name)
-    (set! line~self line)
-    (set! column~self column)
-    (set! end-line~self end-line)
-    (set! end-column~self end-column)
-    (set! definitions~self definitions)
-    (set! references~self references)
+  (method override (initialize self name line column end-line end-column definitions references)
+    (nextmethod self)
+    (set! self.name name)
+    (set! self.line line)
+    (set! self.column column)
+    (set! self.end-line end-line)
+    (set! self.end-column end-column)
+    (set! self.definitions definitions)
+    (set! self.references references)
     (for-each (lambda (definition)
-                (set-parent~ definition self))
+                (set-parent definition self))
               definitions))
 
 
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{a}" name))))
   
   
-  (method public virtual (print-catalog level output)
+  (method public virtual (print-catalog self level output)
     (format output "{%}{_ :v}~{{s} {s} {s} {s}"
             (* level 2)
             (category-name (class-of self))
             name line column)
-    (print-definitions level output)
+    (print-definitions self level output)
     (format output "}"))
   
   
-  (method (print-definitions level output)
+  (method (print-definitions self level output)
     (for-each (lambda (definition)
-                (print-catalog~ definition (+ level 1) output))
+                (print-catalog definition (+ level 1) output))
               definitions))
 
 
@@ -93,105 +93,105 @@
   ;;;
 
 
-  (method override (get-file)
-    (get-file~ file-definition))
+  (method override (get-file self)
+    (get-file file-definition))
 
 
-  (method override (get-moniker)
-    (get-moniker~ (or root-definition file-definition)))
+  (method override (get-moniker self)
+    (get-moniker (or root-definition file-definition)))
 
 
-  (method override (get-title)
+  (method override (get-title self)
     name)
 
 
-  (method override (get-location-name)
-    (get-location-name~ (or root-definition file-definition)))
+  (method override (get-location-name self)
+    (get-location-name (or root-definition file-definition)))
 
 
-  (method override (get-name)
+  (method override (get-name self)
     name)
 
 
-  (method override (get-line)
+  (method override (get-line self)
     line)
 
 
-  (method override (get-column)
+  (method override (get-column self)
     column)
   
   
-  (method override (get-start)
+  (method override (get-start self)
     (new Cell line column))
   
   
-  (method override (get-end-line)
+  (method override (get-end-line self)
     end-line)
   
   
-  (method override (get-end-column)
+  (method override (get-end-column self)
     end-column)
   
   
-  (method override (get-end)
+  (method override (get-end self)
     (new Cell end-line end-column))
   
   
-  (method override (get-range)
-    (new Range$Cell$ (get-start) (get-end)))
+  (method override (get-range self)
+    (new Range$Cell$ (get-start self) (get-end self)))
   
   
-  (method override (get-definitions)
+  (method override (get-definitions self)
     definitions)
   
   
-  (method public (find-definition name)
+  (method public (find-definition self name)
     (find-if (lambda (def)
-               (equal? (get-name~ def) name))
+               (equal? (get-name def) name))
              definitions))
   
   
-  (method public (child path)
+  (method public (child self path)
     (if (null? path)
         self
-      (let ((def (find-definition (symbol->string (car path)))))
+      (let ((def (find-definition self (symbol->string (car path)))))
         (if def
-            (child~ def (cdr path))
+            (child def (cdr path))
           #f))))
   
   
-  (method public (add-definition definition)
+  (method public (add-definition self definition)
     (set! definitions (append! definitions (list definition))))
 
 
-  (method public (add-reference reference)
+  (method public (add-reference self reference)
     (unless (member? reference references)
       (set! references (cons reference references))))
 
 
-  (method public (get-catalog)
-    (get-catalog~ file-definition))
+  (method public (get-catalog self)
+    (get-catalog file-definition))
 
 
-  (method override (set-root-definition def)
-    (nextmethod def)
+  (method override (set-root-definition self def)
+    (nextmethod self def)
     (for-each (lambda (definition)
-                (set-root-definition~ definition def))
+                (set-root-definition definition def))
               definitions))
 
 
-  (method override (set-file-definition def)
-    (nextmethod def)
+  (method override (set-file-definition self def)
+    (nextmethod self def)
     (for-each (lambda (definition)
-                (set-file-definition~ definition def))
+                (set-file-definition definition def))
               definitions))
   
   
-  (method override (for-each-descendant-entry proc (include-self?: include-self? #t))
+  (method override (for-each-descendant-entry self proc (include-self?: include-self? #t))
     (when include-self?
       (proc self))
     (let (iter (entry self))
-      (loop (for child in (get-definitions~ entry))
+      (loop (for child in (get-definitions entry))
             (proc child)
             (iter child))))
   
@@ -201,14 +201,14 @@
   ;;;
   
   
-  (method override (update-indexes definitions-index references-index)
-    (update-index definitions-index name)
+  (method override (update-indexes self definitions-index references-index)
+    (update-index self definitions-index name)
     (for-each (lambda (definition)
-                (update-indexes~ definition definitions-index references-index))
+                (update-indexes definition definitions-index references-index))
               definitions))
 
 
-  (method protected (update-index index key)
+  (method protected (update-index self index key)
     (when key
       (table-add index key self)))
 
@@ -218,17 +218,17 @@
   ;;;
 
 
-  (method override (present)
-    (present-name)
+  (method override (present self)
+    (present-name self)
     @old
     (case mode
       ((definitions) (get-location-name))
       ((references) (format "{a}.{a}" (get-location-name) (present-name)))))
 
 
-  (method override (present-name)
-    (or (get-name) (present-noname)))
+  (method override (present-name self)
+    (or (get-name self) (present-noname self)))
   
   
-  (method protected virtual (present-noname)
+  (method protected virtual (present-noname self)
     "<static>")))

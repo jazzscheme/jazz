@@ -38,12 +38,194 @@
 (module jazz.debugger jazz
 
 
+(hub add-filename-processes)
+(hub attach-process)
+(hub break-thread)
+(hub clear-problems)
+(hub clear-runtime-information)
+(hub close-resource)
+(hub collect-always-processes)
+(hub continue-stop)
+(hub debugged-visited?)
+(hub detach)
+(hub detach-process)
+(hub detach-processes)
+(hub determine-process-information?)
+(hub determine-process-processes)
+(hub edit)
+(hub edit-frame)
+(hub edit-location)
+(hub effective-filename-processes)
+(hub evaluate-always-process)
+(hub evaluate-expressions)
+(hub evaluate-filename-expressions)
+(hub evaluate-known-process)
+(hub evaluate-never-process)
+(hub find-live-process)
+(hub focus-process)
+(hub focus-selected-process)
+(hub focusable?)
+(hub for-each-frame)
+(hub for-each-process)
+(hub for-each-thread)
+(hub frame-changed)
+(hub frame-hidden?)
+(hub frame-interpreted?)
+(hub frame-location)
+(hub frame-name)
+(hub frame-variables)
+(hub frame=?)
+(hub get-active-stop)
+(hub get-address)
+(hub get-alive?)
+(hub get-client)
+(hub get-date)
+(hub get-debugger)
+(hub get-description)
+(hub get-detail)
+(hub get-evaluate-when)
+(hub get-exception)
+(hub get-focused-mode?)
+(hub get-focused-process)
+(hub get-frame)
+(hub get-frames)
+(hub get-hidden?)
+(hub get-icon)
+(hub get-id)
+(hub get-image)
+(hub get-inspector)
+(hub get-interpreted?)
+(hub get-kind)
+(hub get-location)
+(hub get-message)
+(hub get-name)
+(hub get-parameters)
+(hub get-process)
+(hub get-processes)
+(hub get-reason)
+(hub get-reference)
+(hub get-restarts)
+(hub get-state)
+(hub get-stopped-frame-color)
+(hub get-stops)
+(hub get-thread)
+(hub get-thread-active-stop)
+(hub get-thread-id)
+(hub get-thread-name)
+(hub get-thread-state)
+(hub get-thread-stops)
+(hub get-threads)
+(hub get-title)
+(hub get-toplevel-monitor)
+(hub get-toplevel-position)
+(hub get-toplevel-size)
+(hub get-toplevel-state)
+(hub get-tree)
+(hub get-variables)
+(hub get-visited-highlight-color)
+(hub inspect-continuation)
+(hub inspect-serial)
+(hub kill-thread)
+(hub live?)
+(hub on-backward)
+(hub on-clear)
+(hub on-forward)
+(hub on-refresh)
+(hub on-selection-change)
+(hub open-snapshot)
+(hub persist-resource)
+(hub present)
+(hub present-process)
+(hub present-serial)
+(hub process-changed)
+(hub process-evaluate-always)
+(hub process-evaluate-known)
+(hub process-evaluate-never)
+(hub process-evaluate-when)
+(hub process-focusable?)
+(hub process-icon)
+(hub process-live?)
+(hub process-needs-filenames?)
+(hub process-quit)
+(hub process-received-filenames?)
+(hub process-threads)
+(hub process-title)
+(hub process=?)
+(hub profile-reset)
+(hub profiler-profile)
+(hub profiler-profiles)
+(hub profiler-selected-profile)
+(hub profiler-selected-profile-set!)
+(hub profiler-start)
+(hub profiler-stop)
+(hub quit-process)
+(hub quit-selected-process)
+(hub received-runtime-filenames?)
+(hub refresh-selected-process)
+(hub register-stop)
+(hub reload-process)
+(hub report-problems)
+(hub require-focused-process)
+(hub restart-message)
+(hub restart-name)
+(hub restart-stop)
+(hub restart=?)
+(hub same?)
+(hub selected-frame)
+(hub selected-process)
+(hub selected-thread)
+(hub set-alive?)
+(hub set-client)
+(hub set-code)
+(hub set-date)
+(hub set-exception)
+(hub set-info)
+(hub set-process)
+(hub set-repl-frame)
+(hub set-selected-process)
+(hub set-selected-thread)
+(hub shared-process?)
+(hub standard-process-image)
+(hub start-debugger)
+(hub step-stop)
+(hub stop-detail)
+(hub stop-frames)
+(hub stop-kind)
+(hub stop-location)
+(hub stop-reason)
+(hub stop-restarts)
+(hub stop=?)
+(hub terminate-thread)
+(hub thread-changed)
+(hub thread-debugged-continuation?)
+(hub thread=?)
+(hub toggle-focused-mode)
+(hub tracker-selected-tracking)
+(hub tracker-selected-tracking-set!)
+(hub tracker-start)
+(hub tracker-stop)
+(hub tracker-tracking)
+(hub tracker-trackings)
+(hub tracking-reset)
+(hub transmit-runtime-information)
+(hub try-out)
+(hub unregister-stop)
+(hub update)
+(hub update-focused-mode)
+(hub update-highlight)
+(hub update-status)
+(hub validate-processes)
+(hub visit-debugged)
+
+
 (export (jazz.debugger.autoload))
 
-(import (jazz.debugger.autoload)
+(import (jazz.debuggee)
+        (jazz.debugger.autoload)
         (jazz.console)
         (jazz.event)
         (jazz.jrm.transmission)
+        (jazz.text)
         (jazz.view))
 
 
@@ -62,11 +244,11 @@
       (lambda ()
         (message-box (format "Connection to remote process failed{%}{%}{a}" exc))
         (when process
-          (set-alive?~ (get-debugger-manager) process #f))
+          (set-alive? (get-debugger-manager) process #f))
         (signal-cancel))))
   
   (and (not (and process
-                 (not (get-alive?~ (get-debugger-manager) process))
+                 (not (get-alive? (get-debugger-manager) process))
                  (abort-connect?)))
        (catch (connection-problem? exc
                 (process-jrm-exception exc))
@@ -154,10 +336,10 @@
   (or (and (not x) (not y))
       (and x
            y
-           (let ((dx (get-debugger~ x))
-                 (dy (get-debugger~ y)))
+           (let ((dx (get-debugger x))
+                 (dy (get-debugger y)))
              (and (eq? dx dy)
-                  (same?~ x y))))))
+                  (same? x y))))))
 
 
 (definition public (debugged-hash debugged <Debugged+>)
@@ -166,9 +348,9 @@
       0
     0
     @must-be-recursive ; eq?-hash fails
-    (fxwrap+ (eq?-hash (get-debugger~ debugged))
-             (eq?-hash (get-process~ debugged))
-             (eq?-hash (get-reference~ debugged)))))
+    (fxwrap+ (eq?-hash (get-debugger debugged))
+             (eq?-hash (get-process debugged))
+             (eq?-hash (get-reference debugged)))))
 
 
 ;;;
@@ -182,7 +364,7 @@
                 (for-each (lambda (process)
                             (let ((debugged (new Debugged-Process debugger process process)))
                               (enqueue queue debugged)))
-                          (get-processes~ debugger validate-liveness?: #t)))
+                          (get-processes debugger validate-liveness?: #t)))
               (get-debuggers))
     (queue-list queue)))
 
@@ -247,7 +429,7 @@
 (definition public (registered-process-live? configuration)
   (let ((processes (registered-processes configuration)))
     (some? (lambda (process)
-             (find-live-process~ (get-debugger-manager) process))
+             (find-live-process (get-debugger-manager) process))
            processes)))
 
 
@@ -286,10 +468,10 @@
   (continuation-capture
     (lambda (return)
       (let ((manager (get-debugger-manager)))
-        (for-each-process~ manager
+        (for-each-process manager
           (lambda (debugger process live? focused?)
             (for-each (lambda (resource)
-                        (let ((reference (get-reference~ resource)))
+                        (let ((reference (get-reference resource)))
                           (when (eq? reference target)
                             (continuation-return return resource))))
                       (get-debugger-resources process)))))
@@ -297,7 +479,7 @@
 
 
 (definition package (close-process-debugger-resources process)
-  (for-each close-resource~ (get-debugger-resources process))
+  (for-each close-resource (get-debugger-resources process))
   (table-clear *debugger-resources* process))
 
 
@@ -311,7 +493,7 @@
     (let ((queue (new-queue)))
       (for-each-detail detail
                        (lambda (detail)
-                         (when (null? (get-children~ detail))
+                         (when (null? (get-children detail))
                            (enqueue queue detail))))
       (queue-list queue)))
   
@@ -319,7 +501,7 @@
     (proc detail)
     (for-each (lambda (child)
                 (for-each-detail child proc))
-              (get-children~ detail)))
+              (get-children detail)))
   
   (let ((max 8)
         (problems (collect-problems)))
@@ -327,7 +509,7 @@
       `(<span>
          "Walk problems encountered"
          ,@(map (lambda (problem)
-                  `(<bulleted> ,(->string (get-title~ problem))))
+                  `(<bulleted> ,(->string (get-title problem))))
                 effective-problems)
          ,@(if (> (length problems) max)
                '((<bulleted> "..."))
@@ -375,8 +557,8 @@
 (definition public (register-debugger-console debugged-process debugged-thread select?)
   (define (setup-debugger-console-ports text process-proxy thread-proxy)
     (receive (head tail) (open-string-pipe (list permanent-close: #f))
-      (set-console-port~ text head)
-      (set-console-pump~ text (start-debugger-console-pump tail process-proxy thread-proxy))))
+      (set-console-port text head)
+      (set-console-pump text (start-debugger-console-pump tail process-proxy thread-proxy))))
   
   (define (start-debugger-console-pump port process-proxy thread-proxy)
     (thread-start!
@@ -386,32 +568,32 @@
                       (lambda (str)
                         (with-jrm-exception-handler debugged-process
                           (lambda ()
-                            (console-input~ process-proxy thread-proxy str))))))
+                            (console-input process-proxy thread-proxy str))))))
         'debugger-pump)))
   
-  (let ((manager (get-console-manager))
-        (process-proxy (get-reference~ debugged-process))
-        (thread-proxy (get-reference~ debugged-thread)))
+  (let ((manager (get-console-manager-guest))
+        (process-proxy (get-reference debugged-process))
+        (thread-proxy (get-reference debugged-thread)))
     (bind (title traits thread) (process-information process-proxy thread-proxy)
-      (let ((text (register-console~ manager (present-process-title/traits/thread title traits thread) select? process-title: title process-traits: traits process-thread: thread)))
+      (let ((text (register-console manager (present-process-title/traits/thread title traits thread) select? process-title: title process-traits: traits process-thread: thread)))
         (setup-debugger-console-ports text process-proxy thread-proxy)
         text))))
 
 
 (definition public (unregister-debugger-console text)
-  (let ((pump (get-console-pump~ text)))
+  (let ((pump (get-console-pump text)))
     (when pump
       (exit-thread pump)))
   (execute-event
     (lambda ()
-      (unregister-console~ (get-console-text-manager text) text))))
+      (unregister-console (get-console-text-manager text) text))))
 
 
 (definition public (debugger-console-output text str)
   (execute-event
     (lambda ()
-      (set-caret~ text (text-ending~ text))
-      (insert-formatted-line~ text str))))
+      (set-caret text (text-ending text))
+      (insert-formatted-line text str))))
 
 
 (definition public (present-process-title process-proxy thread-proxy)
@@ -439,15 +621,15 @@
 
 
 (definition public (process-information process-proxy thread-proxy)
-  (let ((thread-name (and thread-proxy (get-name~ thread-proxy))))
+  (let ((thread-name (and thread-proxy (get-name thread-proxy))))
     (case thread-name
       ((local-repl)
        (list "Local"
              #f
              #f))
       (else
-       (list (get-title~ process-proxy)
-             (get-traits~ process-proxy)
+       (list (get-title process-proxy)
+             (get-traits process-proxy)
              thread-name)))))
 
 
@@ -468,19 +650,19 @@
 
 
 (definition public (on-call-step-into evt)
-  (if (get-shift?~ evt)
+  (if (get-shift? evt)
       (on-step-into-function evt)
     (on-step-into evt)))
 
 
 (definition public (on-call-step-out evt)
-  (if (get-shift?~ evt)
+  (if (get-shift? evt)
       (on-step-outside-function evt)
     (on-step-out evt)))
 
 
 (definition public (on-call-run-to evt)
-  (if (get-shift?~ evt)
+  (if (get-shift? evt)
       (on-run-to-result evt)
     (on-run-to-cursor evt)))
 
@@ -491,7 +673,7 @@
 
 
 (definition public (on-restart evt)
-  (restart))
+  (restart-loop))
 
 
 (definition public (on-break evt)
@@ -500,48 +682,48 @@
 
 
 (definition public (on-continue evt)
-  (if (not (debugging?))
+  (if (not (debugging-loop?))
       (bell)
-    (continue)))
+    (continue-loop)))
 
 
 (definition public (on-step-over evt)
   @convert
-  (if (not (debugging?))
+  (if (not (debugging-loop?))
       (bell)
-    (continue)
+    (continue-loop)
     (step-over)))
 
 
 (definition public (on-step-into evt)
   @convert
-  (if (not (debugging?))
+  (if (not (debugging-loop?))
       (bell)
-    (continue)
+    (continue-loop)
     (step-into)))
 
 
 (definition public (on-step-into-function evt)
   @convert
-  (if (not (debugging?))
+  (if (not (debugging-loop?))
       (bell)
-    (continue)
+    (continue-loop)
     (step-into-function)))
 
 
 (definition public (on-step-out evt)
   @convert
-  (if (not (debugging?))
+  (if (not (debugging-loop?))
       (bell)
-    (continue)
+    (continue-loop)
     (step-out)))
 
 
 (definition public (on-step-outside-function evt)
   @convert
-  (if (not (debugging?))
+  (if (not (debugging-loop?))
       (bell)
-    (continue)
+    (continue-loop)
     (step-outside-function)))
 
 
@@ -553,19 +735,19 @@
   )
 
 
-(definition public (restart)
+(definition public (restart-loop)
   @convert
-  (restart~ (get-loop~ (get-application))))
+  (restart (get-loop (get-application))))
 
 
-(definition public (continue)
+(definition public (continue-loop)
   @convert
-  (continue~ (get-loop~ (get-application))))
+  (continue (get-loop (get-application))))
 
 
-(definition public (debugging?)
+(definition public (debugging-loop?)
   @convert
-  (/= (get-level~ (get-loop~ (get-application))) 0))
+  (/= (get-level (get-loop (get-application))) 0))
 
 
 ;;;
@@ -574,28 +756,28 @@
 
 
 (definition public (get-processes-view)
-  (get-guest~ (singleton-docked Processes-View)))
+  (get-guest (singleton-docked Processes-View)))
 
 
 (definition public (get-threads-view)
-  (get-guest~ (singleton-docked Threads-View)))
+  (get-guest (singleton-docked Threads-View)))
 
 
 (definition public (get-frames-view)
-  (get-guest~ (singleton-docked Frames-View)))
+  (get-guest (singleton-docked Frames-View)))
 
 
 (definition public (get-restarts-view)
-  (get-guest~ (singleton-docked Restarts-View)))
+  (get-guest (singleton-docked Restarts-View)))
 
 
 (definition public (get-exception-view)
-  (get-guest~ (singleton-docked Exception-View)))
+  (get-guest (singleton-docked Exception-View)))
 
 
 (definition public (get-problems-view)
-  (get-guest~ (singleton-docked Problems-View)))
+  (get-guest (singleton-docked Problems-View)))
 
 
 (definition public (get-variables-view)
-  (get-guest~ (singleton-docked Variables-View))))
+  (get-guest (singleton-docked Variables-View))))

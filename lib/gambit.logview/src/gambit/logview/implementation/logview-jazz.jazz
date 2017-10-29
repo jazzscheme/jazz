@@ -11,7 +11,8 @@
 (import (jazz.graphic)
         (jazz.foreign)
         (jazz.platform)
-        (jazz.platform.types))
+        (jazz.platform.types)
+        (jazz.view))
 
 
 (define current-view
@@ -29,10 +30,10 @@
 
 
 (c-definition package (call-box r g b x y w h) (int int int int int int int) void "call_g_box" "static"
-  (let ((height (get-height~ current-view)))
+  (let ((height (get-height current-view)))
     (let ((rect (new Rect x (- height y) (+ x w) (- (- height y) h)))
           (color (if (and (= r 255) (= g 255) (= b 255)) {Color Gray} (new Color red: r green: g blue: b))))
-      (fill-rect~ (current-surface) rect color))))
+      (fill-rect (current-surface) rect color))))
 
 
 (c-definition package (call-text r g b where x y str) (int int int int int int char-string) void "call_g_text" "static"
@@ -40,17 +41,17 @@
         (LEFT   1)
         (RIGHT  2)
         (surf (current-surface)))
-    (let ((width (get-text-width~ surf str)))
+    (let ((width (get-text-width surf str)))
       (let ((offset (cond ((= where CENTER) (- (quotient width 2)))
                           ((= where LEFT) 0)
                           ((= where RIGHT) (- width)))))
-        (let ((height (get-height~ current-view))
+        (let ((height (get-height current-view))
               (color (if (and (= r 255) (= g 255) (= b 255)) {Color Gray} (new Color red: r green: g blue: b))))
-          (draw-text~ surf (+ x offset) (- height y 8) str color))))))
+          (draw-text surf (+ x offset) (- height y 8) str color))))))
 
 
 (c-definition package (call-invalidate) () void "call_g_invalidate" "static"
-  (invalidate-view~ current-view))
+  (invalidate-view current-view))
 
 
 (c-declare logview #/C/
@@ -79,7 +80,7 @@
 
 
 (definition public (plot-move x y)
-  (let ((height (get-height~ current-view)))
+  (let ((height (get-height current-view)))
     (let ((y (- height y)))
       ((c-lambda plot_move (int int) void
          "plot_move(___arg1, ___arg2);")
@@ -87,7 +88,7 @@
 
 
 (definition public (plot-click x1 y1 x2 y2)
-  (let ((height (get-height~ current-view)))
+  (let ((height (get-height current-view)))
     (let ((y1 (- height y1))
           (y2 (- height y2)))
       ((c-lambda plot_click (int int int int) void

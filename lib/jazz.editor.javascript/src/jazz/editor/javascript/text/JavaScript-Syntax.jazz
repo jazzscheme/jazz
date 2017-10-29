@@ -40,8 +40,11 @@
 
 (import (jazz.automata)
         (jazz.editor)
+        (jazz.editor.clike)
         (jazz.editor.javascript)
-        (jazz.preferences))
+        (jazz.exemplar)
+        (jazz.preferences)
+        (jazz.text))
 
 
 (class JavaScript-Syntax extends Code-Syntax
@@ -52,8 +55,8 @@
   ;;;
 
   
-  (method override (preferences)
-    (get-preferences '(documents javascript-text)))
+  (method override (preferences self)
+    (current-preferences '(documents javascript-text)))
   
   
   ;;;
@@ -61,7 +64,7 @@
   ;;;
       
   
-  (method override (get-constituent-test)
+  (method override (get-constituent-test self)
     javascript-constituent?)
 
   
@@ -70,11 +73,11 @@
   ;;;
   
   
-  (method override (favorite-completions)
-    (get-completions~ (preferences)))
+  (method override (favorite-completions self)
+    (get-completions (preferences self)))
   
   
-  (method override (symbol-completions name)
+  (method override (symbol-completions self name)
     '())
 
 
@@ -83,7 +86,7 @@
   ;;;
 
 
-  (method override (explorer-class)
+  (method override (explorer-class self)
     JavaScript-Explorer)
  
   
@@ -92,9 +95,9 @@
   ;;;
   
   
-  (method override (name-at range)
+  (method override (name-at self range)
     (when range
-      (let ((name (get-string~ model range)))
+      (let ((name (get-string model range)))
         (when (> (cardinality name) 0)
           (if (eqv? (element name 0) #\open-brace)
               (read-string-element name)
@@ -111,11 +114,11 @@
       "/// "))
   
   
-  (method override (get-headers)
+  (method override (get-headers self)
     headers)
   
   
-  (method override (get-first-special?)
+  (method override (get-first-special? self)
     #f)
 
   
@@ -128,7 +131,7 @@
     '())
   
   
-  (method (get-definitions)
+  (method package (get-definitions self)
     Definitions)
 
   
@@ -161,7 +164,7 @@
       "function"))
   
   
-  (method protected virtual (get-keywords)
+  (method package virtual (get-keywords self)
     Keywords)
 
   
@@ -177,49 +180,49 @@
     #f)
   
   
-  (method override (syntax-targets)
+  (method override (syntax-targets self)
     (unless Syntax-Targets
-      (set! Syntax-Targets (compute-syntax-targets)))
+      (set! Syntax-Targets (compute-syntax-targets self)))
     Syntax-Targets)
   
   
-  (method override (syntax-automata)
+  (method override (syntax-automata self)
     (unless Syntax-Automata
-      (set! Syntax-Automata (compute-syntax-automata)))
+      (set! Syntax-Automata (compute-syntax-automata self)))
     Syntax-Automata)
   
   
-  (method override (compute-syntax-targets)
+  (method override (compute-syntax-targets self)
     (append (list (list "/*" 'balanced-comment #f))
             (list (list "*/" 'balanced-comment-backward #f))
             (list (list "//" 'line-comment #f))
-            (map (lambda (str) (list str 'definition)) (get-definitions))
-            (map (lambda (str) (list str 'keyword)) (get-keywords))))
+            (map (lambda (str) (list str 'definition)) (get-definitions self))
+            (map (lambda (str) (list str 'keyword)) (get-keywords self))))
         
   
-  (method override (compute-syntax-automata)
-    (build-search-automata (syntax-targets) #t #t javascript-constituent?))
+  (method override (compute-syntax-automata self)
+    (build-search-automata (syntax-targets self) #t #t javascript-constituent?))
   
   
-  (method override (colorize-type found type start end colorizer recolorize?)
+  (method override (colorize-type self found type start end colorizer recolorize?)
     (case type
-      ((balanced-comment)          (colorize-balanced-comment          found start end colorizer 'Balanced-Comment))
-      ((balanced-comment-backward) (colorize-balanced-comment-backward found start end colorizer 'Balanced-Comment recolorize?))
-      ((line-comment)              (colorize-line-comment              found start end colorizer 'Line-Comment 'Title #\slash))
-      ((definition)                (colorize-definition                found start end colorizer 'Keyword 'Definition))
-      ((keyword)                   (colorize-keyword                   found start end colorizer 'Keyword))))
+      ((balanced-comment)          (colorize-balanced-comment self          found start end colorizer 'Balanced-Comment))
+      ((balanced-comment-backward) (colorize-balanced-comment-backward self found start end colorizer 'Balanced-Comment recolorize?))
+      ((line-comment)              (colorize-line-comment self              found start end colorizer 'Line-Comment 'Title #\slash))
+      ((definition)                (colorize-definition self                found start end colorizer 'Keyword 'Definition))
+      ((keyword)                   (colorize-keyword self                   found start end colorizer 'Keyword))))
   
   
-  (method (colorize-definition found start end colorizer keyword-style definition-style)
-    (apply-coloring colorizer start end keyword-style)
-    (let* ((line (get-line~ end))
-           (col (get-col~ end))
-           (str (paragraph-string~ model line))
-           (len (paragraph-length~ model line))
+  (method (colorize-definition self found start end colorizer keyword-style definition-style)
+    (apply-coloring self colorizer start end keyword-style)
+    (let* ((line (get-line end))
+           (col (get-col end))
+           (str (paragraph-string model line))
+           (len (paragraph-length model line))
            (open (search str "{" start: col))
            (close (search str "}" start: col)))
       (when (and open close (> close open))
-        (apply-coloring colorizer (new Cell line (+ open 1)) (new Cell line close) definition-style)))
+        (apply-coloring self colorizer (new Cell line (+ open 1)) (new Cell line close) definition-style)))
     (cdr found))
   
   
@@ -232,7 +235,7 @@
     '(Title Line-Comment))
   
   
-  (method override (comment-style? style)
+  (method override (comment-style? self style)
     (some? (lambda (style-name)
-             (inherits?~ style style-name))
+             (inherits? style style-name))
            Comment-Styles))))

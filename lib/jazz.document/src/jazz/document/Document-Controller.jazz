@@ -39,6 +39,8 @@
 
 
 (import (jazz.application)
+        (jazz.component)
+        (jazz.document)
         (jazz.io)
         (jazz.locale)
         (jazz.preferences)
@@ -62,11 +64,11 @@
   (slot moniker-time   initialize #f getter generate)
 
 
-  (method override (initialize document (tool?: tool? #f) (console?: console? #f))
-    (nextmethod)
-    (set! document~self document)
-    (set! tool?~self tool?)
-    (set! console?~self console?))
+  (method override (initialize self document (tool?: tool? #f) (console?: console? #f))
+    (nextmethod self)
+    (set! self.document document)
+    (set! self.tool? tool?)
+    (set! self.console? console?))
   
   
   ;;;
@@ -74,33 +76,33 @@
   ;;;
   
   
-  (method public (install-in-host host)
-    (install-container)
-    (position-host host)
-    (update-status)
-    (when (get-visible?~ host)
-      (focus-document~ document)))
+  (method public (install-in-host self host)
+    (install-container self)
+    (position-host self host)
+    (update-status self)
+    (when (get-visible? host)
+      (focus-document document)))
   
   
-  (method protected virtual (install-container)
-    (when (install-scroller?~ document)
-      (install-scroller)))
+  (method protected virtual (install-container self)
+    (when (install-scroller? document)
+      (install-scroller self)))
   
   
-  (method protected (install-scroller)
-    (let* ((host (get-host~ document))
+  (method protected (install-scroller self)
+    (let* ((host (get-host document))
            (scroller (new Scroller-View parent: host vscroll?: #t hscroll?: #t)))
-      (set-parent~ document (get-content~ scroller))
-      (set-client~ scroller document)
-      (set-content~ host scroller)))
+      (set-parent document (get-content scroller))
+      (set-client scroller document)
+      (set-content host scroller)))
 
   
-  (method (position-host host)
+  (method (position-host self host)
     (when (is? host Internal-Frame-Host)
-      (let* ((parent-size (get-size~ (get-parent~ host)))
-             (width (get-default-width~ (get-preferences 'documents)))
-             (size (new Dimension width (- (get-height~ parent-size) 100))))
-        (set-size~ host size))))
+      (let* ((parent-size (get-size (get-parent host)))
+             (width (get-default-width (current-preferences 'documents)))
+             (size (new Dimension width (- (get-height parent-size) 100))))
+        (set-size host size))))
 
 
   ;;;
@@ -108,18 +110,18 @@
   ;;;
     
   
-  (method public virtual (confirm-close)
-    (when (get-modified?)
-      (let ((code (message-box (format "Save changes to {a}?" (name-status))
+  (method public virtual (confirm-close self)
+    (when (get-modified? self)
+      (let ((code (message-box (format "Save changes to {a}?" (name-status self))
                                type: 'confirmation)))
         (case code
-          ((yes) (save-all))
+          ((yes) (save-all self))
           ((no))
           ((cancel) (signal-cancel))))))
   
   
-  (method public (close-on-close-all?)
-    (not (get-tool?)))
+  (method public (close-on-close-all? self)
+    (not (get-tool? self)))
 
 
   ;;;
@@ -127,69 +129,69 @@
   ;;;
   
   
-  (method (effective-newname)
+  (method (effective-newname self)
     (or newname (localize "New")))
   
   
-  (method public (get-moniker)
+  (method public (get-moniker self)
     moniker)
 
 
-  (method public (set-moniker mnk)
+  (method public (set-moniker self mnk)
     (when #t @parameterized-fix-me (/= mnk moniker)
       (set! moniker mnk)
-      (load-content~ document moniker)))
+      (load-content document moniker)))
   
   
-  (method public (change-moniker mnk)
+  (method public (change-moniker self mnk)
     (set! moniker mnk))
   
   
-  (method public virtual (save)
+  (method public virtual (save self)
     (if (not moniker)
-        (save-as)
-      (when (write-allowed?)
-        (save-content moniker))))
+        (save-as self)
+      (when (write-allowed? self)
+        (save-content self moniker))))
   
   
-  (method public virtual (save-as)
-    (let* ((extension (default-extension~ document))
-           (extensions (extensions~ document))
-           (moniker (choose-new-file initial-filename: (if (not moniker) (effective-newname) (get-name~ moniker)) default-extension: extension extensions: extensions)))
-      (when (and (exists?~ moniker) (read-only?~ moniker))
-        (set-read/write~ moniker))
-      (save-to moniker)))
+  (method public virtual (save-as self)
+    (let* ((extension (default-extension document))
+           (extensions (extensions document))
+           (moniker (choose-new-file initial-filename: (if (not moniker) (effective-newname self) (get-name moniker)) default-extension: extension extensions: extensions)))
+      (when (and (exists? moniker) (jazz.io:read-only? moniker))
+        (set-read/write moniker))
+      (save-to self moniker)))
   
   
-  (method public (save-to mnk)
-    (save-content mnk)
+  (method public (save-to self mnk)
+    (save-content self mnk)
     (set! moniker mnk)
-    (update-status))
+    (update-status self))
   
   
-  (method public (save-all)
-    (save))
+  (method public (save-all self)
+    (save self))
   
   
-  (method (save-content moniker)
-    (save-content~ document moniker))
+  (method package (save-content self moniker)
+    (save-content document moniker))
   
   
-  (method public (revert-saved)
+  (method public (revert-saved self)
     (if (not moniker)
         (bell)
       (let ((code (message-box "Resert to saved and lose changes?"
                                type: 'confirmation)))
         (case code
-          ((yes) (reload-moniker~ document moniker))
+          ((yes) (reload-moniker document moniker))
           ((no))
           ((cancel) (signal-cancel))))))
   
   
-  (method public (compare-saved)
+  (method public (compare-saved self)
     (if (not moniker)
         (bell)
-      (compare-moniker~ document moniker)))
+      (compare-moniker document moniker)))
 
 
   ;;;
@@ -197,16 +199,16 @@
   ;;;
 
 
-  (method public virtual (get-modified?)
+  (method public virtual (get-modified? self)
     (if console?
         #f
       modified?))
 
 
-  (method public virtual (set-modified? state)
+  (method public virtual (set-modified? self state)
     (when (neq? state modified?)
       (set! modified? state)
-      (update-status)))
+      (update-status self)))
 
 
   ;;;
@@ -214,7 +216,7 @@
   ;;;
   
   
-  (method public virtual (dependent-document?)
+  (method public virtual (dependent-document? self)
     #f)
 
 
@@ -223,14 +225,14 @@
   ;;;
   
   
-  (method public (set-caption title)
-    (let ((host (get-host~ document)))
-      (set-title~ host title)
-      (when (get-visible?~ host)
-        (if (and (is? host Internal-Frame-Host) (get-maximized?~ host))
-            (when (front-view?~ host)
-              (set-caption~ (get-toplevel) title))
-          (invalidate-caption~ host)))))
+  (method public (set-caption self title)
+    (let ((host (get-host document)))
+      (set-title host title)
+      (when (get-visible? host)
+        (if (and (is? host Internal-Frame-Host) (get-maximized? host))
+            (when (front-view? host)
+              (set-caption (current-toplevel) title))
+          (invalidate-caption host)))))
 
 
   ;;;
@@ -238,49 +240,49 @@
   ;;;
 
 
-  (method public virtual (update-status)
-    (update-state)
-    (update-caption))
+  (method public virtual (update-status self)
+    (update-state self)
+    (update-caption self))
   
   
-  (method public virtual (update-caption)
-    (let ((host (get-host~ document)))
-      (when (and (is? host Host-View) (eq? (get-guest~ host) document))
-        (set-caption (document-status)))))
+  (method public virtual (update-caption self)
+    (let ((host (get-host document)))
+      (when (and (is? host Host-View) (eq? (get-guest host) document))
+        (set-caption self (document-status self)))))
   
   
-  (method public virtual (document-status)
+  (method public virtual (document-status self)
     (format "{a}{a}{a}{a}"
-            (name-status)
-            (modified-status)
-            (directory-status)
-            (read/write-status)))
+            (name-status self)
+            (modified-status self)
+            (directory-status self)
+            (read/write-status self)))
   
   
-  (method public virtual (name-status)
+  (method public virtual (name-status self)
     (if (not moniker)
-        (effective-newname)
+        (effective-newname self)
       (if tool?
-          (get-base~ moniker)
-        (get-name~ moniker))))
+          (get-base moniker)
+        (get-name moniker))))
     
   
-  (method (modified-status)
-    (if (get-modified?)
+  (method (modified-status self)
+    (if (get-modified? self)
         " *"
       ""))
   
   
-  (method (directory-status)
+  (method (directory-status self)
     (if (or (not moniker) tool?)
         ""
-      (let ((parent (get-parent~ moniker)))
+      (let ((parent (get-parent moniker)))
         (if (not parent)
             ""
-          (format " ~{{a}}" (present-location~ parent))))))
+          (format " ~{{a}}" (present-location parent))))))
 
   
-  (method (read/write-status)
+  (method (read/write-status self)
     (if (or (not moniker) tool?)
         ""
       (if read-only?
@@ -293,22 +295,22 @@
   ;;;
   
   
-  (method public (update-state)
-    (if (or (not moniker) (not (exists?~ moniker)))
+  (method public (update-state self)
+    (if (or (not moniker) (not (exists? moniker)))
         (set! read-only? #f)
-      (set! read-only? (read-only?~ moniker))))
+      (set! read-only? (jazz.io:read-only? moniker))))
   
   
-  (method public virtual (update-moniker-time moniker)
-    (set! moniker-digest (digest-file (parse~ moniker) 'SHA-1))
-    (set! moniker-time (get-modification-time~ moniker)))
+  (method public virtual (update-moniker-time self moniker)
+    (set! moniker-digest (digest-file (parse moniker) 'SHA-1))
+    (set! moniker-time (get-modification-time moniker)))
   
   
-  (method public (verify-reload (delay-event?: delay-event? #f) (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
+  (method public (verify-reload self (delay-event?: delay-event? #f) (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
     (define (propose)
-      (propose-reload propose-reload?: propose-reload? cancel-edition?: cancel-edition?))
+      (propose-reload self propose-reload?: propose-reload? cancel-edition?: cancel-edition?))
     
-    (when (needs-reload?)
+    (when (needs-reload? self)
       (propose)
       @until-this-very-hard-to-debug-crash-is-solved
       (if delay-event?
@@ -316,37 +318,37 @@
         (propose))))
   
   
-  (method public virtual (needs-reload?)
+  (method public virtual (needs-reload? self)
     (and moniker moniker-time
-         (exists?~ moniker)
-         (/= (time->seconds (get-modification-time~ moniker)) (time->seconds moniker-time))
-         (not (equal? (digest-file (parse~ moniker) 'SHA-1) moniker-digest))))
+         (exists? moniker)
+         (/= (time->seconds (get-modification-time moniker)) (time->seconds moniker-time))
+         (not (equal? (digest-file (parse moniker) 'SHA-1) moniker-digest))))
 
   
-  (method meta public virtual (propose-multiple-reloads)
+  (method meta public virtual (propose-multiple-reloads self)
     (message-box (format "Files have been modified. Do you want to reload them?")
                  title: "File Status"
                  type: 'question))
   
   
-  (method public virtual (propose-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
+  (method public virtual (propose-reload self (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
     (let ((code (if (not propose-reload?)
                     'yes
-                  (message-box (format "File {s} has been modified. Do you want to reload it?" (get-moniker))
+                  (message-box (format "File {s} has been modified. Do you want to reload it?" (get-moniker self))
                                title: "File Status"
                                type: 'question))))
-      (propose-reload-action code cancel-edition?: cancel-edition?)))
+      (propose-reload-action self code cancel-edition?: cancel-edition?)))
   
   
-  (method protected virtual (propose-reload-action code (cancel-edition?: cancel-edition? #f))
+  (method package virtual (propose-reload-action self code (cancel-edition?: cancel-edition? #f))
     (case code
       ((yes)
-       (reload-moniker~ document moniker)
+       (reload-moniker document moniker)
        (when cancel-edition?
          (signal-cancel)))
       ((no)
-       (update-moniker-time moniker)
-       (update-status))))
+       (update-moniker-time self moniker)
+       (update-status self))))
   
 
   ;;;
@@ -354,27 +356,27 @@
   ;;;
   
   
-  (method public (write-allowed?)
-    (not (get-read-only?)))
+  (method public (write-allowed? self)
+    (not (get-read-only? self)))
   
   
-  (method (in-write-allowed? moniker)
+  (method (in-write-allowed? self moniker)
     (let ((code (ensure-read/write moniker)))
       (case code
-        ((read/write) (update-status) #t)
+        ((read/write) (update-status self) #t)
         ((read-only) #f)
         ((no-action) #t))))
   
   
-  (method (out-write-allowed? moniker)
+  (method (out-write-allowed? self moniker)
     (let ((code (message-box
-                  (format "File {s} is read-only. Overwrite read-only status?" (get-name~ moniker))
+                  (format "File {s} is read-only. Overwrite read-only status?" (get-name moniker))
                   title: "File Status"
                   type: 'confirmation)))
       (case code
         ((yes)
-         (set-read/write~ moniker)
-         (update-status)
+         (set-read/write moniker)
+         (update-status self)
          #t)
         ((no))
         ((cancel)
@@ -386,24 +388,24 @@
   ;;;
 
 
-  (method public (get-tool?)
+  (method public (get-tool? self)
     tool?)
 
 
-  (method public (set-tool? flag)
+  (method public (set-tool? self flag)
     (when (neq? flag tool?)
       (set! tool? flag)
-      (tool-update~ document tool?)))
+      (tool-update document tool?)))
 
 
-  (method public (get-console?)
+  (method public (get-console? self)
     console?)
 
 
-  (method public (set-console? flag)
+  (method public (set-console? self flag)
     (when (neq? flag console?)
       (set! console? flag)
-      (console-update~ document console?)))
+      (console-update document console?)))
   
   
   ;;;
@@ -411,17 +413,17 @@
   ;;;
   
   
-  (method public virtual (select-next search-context . rest)
+  (method public virtual (select-next self search-context . rest)
     )
   
   
-  (method public virtual (select-previous search-context . rest)
+  (method public virtual (select-previous self search-context . rest)
     )
 
 
-  (method public virtual (select-expr search-context)
+  (method public virtual (select-expr self search-context)
     )
 
 
-  (method public virtual (select-expr-backward search-context)
+  (method public virtual (select-expr-backward self search-context)
     )))

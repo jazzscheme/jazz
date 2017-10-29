@@ -38,6 +38,17 @@
 (module jazz.log jazz
 
 
+(hub clear)
+(hub get-file)
+(hub get-name)
+(hub get-toplevel-nodes)
+(hub log-log-entry)
+(hub log-log-node)
+(hub log-with-node)
+(hub new-entry)
+(hub reload)
+
+
 (import (jazz.io)
         (jazz.jml))
 
@@ -59,20 +70,20 @@
   (slot keep-nodes?    initialize #f)
   
   
-  (method override (initialize (name: name #f) (file: file #f) (load?: load? #f) (keep-nodes?: keep-nodes? #f))
-    (nextmethod)
-    (set! name~self name)
-    (set! file~self file)
+  (method override (initialize self (name: name #f) (file: file #f) (load?: load? #f) (keep-nodes?: keep-nodes? #f))
+    (nextmethod self)
+    (set! self.name name)
+    (set! self.file file)
     (when file
-      (create-directories~ file))
-    (set! current-node~self #f)
-    (set! toplevel-nodes~self (new List-Factory))
-    (set! keep-nodes?~self keep-nodes?)
+      (create-directories file))
+    (set! self.current-node #f)
+    (set! self.toplevel-nodes (new List-Factory))
+    (set! self.keep-nodes? keep-nodes?)
     (when load?
-      (load-toplevel-nodes)))
+      (load-toplevel-nodes self)))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{?{s}~}"
@@ -84,8 +95,8 @@
   ;;;
   
   
-  (method public (get-toplevel-nodes)
-    (get-list~ toplevel-nodes))
+  (method public (get-toplevel-nodes self)
+    (get-list toplevel-nodes))
   
   
   ;;;
@@ -93,14 +104,14 @@
   ;;;
   
   
-  (method public (reload)
+  (method public (reload self)
     (if (not file)
         (error "Log {s} has no associated file" name)
-      (load-toplevel-nodes)))
+      (load-toplevel-nodes self)))
   
   
-  (method (load-toplevel-nodes)
-    (reset~ toplevel-nodes)
+  (method (load-toplevel-nodes self)
+    (reset toplevel-nodes)
     (with-jazz-readtable
       (lambda ()
         (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
@@ -109,7 +120,7 @@
               (let ((expr (read port)))
                 (when (not (eof-object? expr))
                   (let ((node (parse-jml expr)))
-                    (put~ toplevel-nodes node))
+                    (put toplevel-nodes node))
                   (iterate)))))))))
   
   
@@ -128,7 +139,7 @@
       
       (if (and read-error? (= (get-mark-position last-mark)
                               (get-mark-position current-mark)))
-          (let ((file-path (parse~ file))
+          (let ((file-path (parse file))
                 (line (+ 1 (get-mark-line current-mark)))
                 (column (+ 1 (get-mark-column current-mark))))
             (message-box (format "Cannot process log file {a}{%}at line {a}, column {a}" file-path line column)))
@@ -147,7 +158,7 @@
               (if (eof-object? expr)
                   (set! done? #t)
                 (let ((node (parse-jml expr)))
-                  (put~ toplevel-nodes node)))))
+                  (put toplevel-nodes node)))))
           (set! read-error? #f))
         (set! last-mark current-mark))))
   
@@ -157,16 +168,16 @@
   ;;;
   
   
-  (method (add-toplevel-node node)
+  (method (add-toplevel-node self node)
     (when (or keep-nodes? (not file))
-      (put~ toplevel-nodes node)))
+      (put toplevel-nodes node)))
   
   
-  (method (output-toplevel-node node)
+  (method (output-toplevel-node self node)
     (when file
       (call-with-output-file (path-settings file append: #t @convert sharing: @convert 'read)
         (lambda (port)
-          (pretty-print~ node port)
+          (pretty-print node port)
           (newline port)
           (force-output port)))))
   
@@ -176,47 +187,47 @@
   ;;;
   
   
-  (method public (with-node node proc)
+  (method public (log-with-node self node proc)
     (let ((parent current-node)
           (preserved current-node))
       (when (not parent)
-        (add-toplevel-node node))
+        (add-toplevel-node self node))
       (prog1 (unwind-protect
                  (begin
-                   (set-parent~ node parent)
+                   (set-parent node parent)
                    (set! current-node node)
                    (proc node))
                (set! current-node preserved))
         (when (not parent)
-          (output-toplevel-node node)))))
+          (output-toplevel-node self node)))))
   
   
-  (method public (log-node node)
+  (method public (log-log-node self node)
     (let ((parent current-node))
-      (set-parent~ node parent)
+      (set-parent node parent)
       (when (not parent)
-        (add-toplevel-node node)
-        (output-toplevel-node node))
+        (add-toplevel-node self node)
+        (output-toplevel-node self node))
       node))
   
   
-  (method public (log-entry tag name message (class: class #f) (data: data #f) (location: location #f) (properties: properties #f))
-    (log-node (new-entry tag name message class: class data: data location: location properties: properties)))
+  (method public (log-log-entry self tag name message (class: class #f) (data: data #f) (location: location #f) (properties: properties #f))
+    (log-log-node self (new-entry self tag name message class: class data: data location: location properties: properties)))
   
   
-  (method public (new-entry tag name message (class: class #f) (data: data #f) (location: location #f) (properties: properties #f))
+  (method public (new-entry self tag name message (class: class #f) (data: data #f) (location: location #f) (properties: properties #f))
     (let ((entry (new JML-Element #f (or tag 'entry))))
-      (set-property~ entry 'name name)
-      (set-property~ entry 'message message)
-      (set-property~ entry 'class class)
-      (set-property~ entry 'data data)
-      (set-property~ entry 'location location)
+      (set-property entry 'name name)
+      (set-property entry 'message message)
+      (set-property entry 'class class)
+      (set-property entry 'data data)
+      (set-property entry 'location location)
       (when properties
-        (add-properties~ entry properties))
+        (add-properties entry properties))
       entry))
   
   
-  (method public (clear)
+  (method public (clear self)
     ;; clear memory and file content
     (unimplemented 'clear)))
 
@@ -231,7 +242,7 @@
 
 
 (definition package (get-logs)
-  (get-list~ Logs))
+  (get-list Logs))
 
 
 (definition package (timestamped-log (prefix #f))
@@ -250,7 +261,7 @@
   (with-add-log-mutex
     (lambda ()
       (unless (memq? log (get-logs))
-        (put~ Logs log)))))
+        (put Logs log)))))
 
 
 (definition package (effective-log)
@@ -272,22 +283,22 @@
 (definition public (with-log log thunk (name: name #f) (file: file #f))
   (parameterize ((current-log log))
     (thunk))
-  (let ((name (get-name~ log)))
+  (let ((name (get-name log)))
     (when (and name (not file))
       (add-log log))))
 
 
 (definition public (with-node proc (node: node #f) (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
-  (let ((node (or node (new-entry~ log tag name message data: data))))
-    (with-node~ log node proc)))
+  (let ((node (or node (new-entry log tag name message data: data))))
+    (log-with-node log node proc)))
 
 
 (definition public (log-node node (log: log (effective-log)))
-  (log-node~ log node))
+  (log-log-node log node))
 
 
 (definition public (log-entry (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
-  (log-entry~ log tag name message data: data))
+  (log-log-entry log tag name message data: data))
 
 
 (definition public (log-properties properties (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
@@ -304,7 +315,7 @@
 
 
 (definition public (new-log-node (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
-  (new-entry~ log tag name message data: data))
+  (new-entry log tag name message data: data))
 
 
 ;;;
@@ -322,7 +333,7 @@
         (set! result (proc node))
         (log-profile name: 'after log: log)
         result))
-    node: (or node (new-entry~ log tag name message data: data))))
+    node: (or node (new-entry log tag name message data: data))))
 
 
 @wait

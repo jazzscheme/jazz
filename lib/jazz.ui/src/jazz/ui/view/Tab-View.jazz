@@ -38,14 +38,16 @@
 (module protected jazz.ui.view.Tab-View jazz
 
 
-(import (jazz.geometry)
+(import (jazz.event)
+        (jazz.geometry)
         (jazz.graphic)
         (jazz.handler)
         (jazz.locale)
         (jazz.menu)
         (jazz.skin)
         (jazz.ui)
-        (jazz.view))
+        (jazz.view)
+        (jazz.window))
 
 
 (class Tab-View extends View
@@ -68,7 +70,7 @@
   (slot close-button-enter  initialize #f   accessors generate)
   
   
-  (method override (default-size)
+  (method override (default-size self)
     {Dimension 400 200})
   
   
@@ -77,17 +79,17 @@
   ;;;
   
   
-  (method public (get-orientation)
+  (method public (get-orientation self)
     orientation)
   
   
-  (method public (set-orientation o)
+  (method public (set-orientation self o)
     (set! orientation o)
-    (invalidate-view))
+    (invalidate-view self))
 
 
-  (method public (get-content)
-    (locate 'content))
+  (method public (get-content self)
+    (locate self 'content))
 
 
   ;;;
@@ -95,52 +97,52 @@
   ;;;
   
   
-  (method override (mouse-down evt)
-    (let ((pos (get-position~ evt)))
-      (let ((header (find-tab-sheet pos)))
+  (method override (mouse-down self evt)
+    (let ((pos (get-position evt)))
+      (let ((header (find-tab-sheet self pos)))
         (when header
-          (if (and (selected-sheet? header) (in-close-button?~ header pos))
-              (close-button-down~ header)
-            (set-selection (find-header pos) user-origin: #t))))))
+          (if (and (selected-sheet? self header) (in-close-button? header pos))
+              (close-button-down header)
+            (set-selection self (find-header self pos) user-origin: #t))))))
   
   
-  (method override (mouse-up evt)
-    (let ((pos (get-position~ evt)))
-      (let ((header (find-tab-sheet pos)))
+  (method override (mouse-up self evt)
+    (let ((pos (get-position evt)))
+      (let ((header (find-tab-sheet self pos)))
         (when header
-          (when (and (selected-sheet? header)
-                     (in-close-button?~ header pos)
-                     (get-close-button-down?~ header)
+          (when (and (selected-sheet? self header)
+                     (in-close-button? header pos)
+                     (get-close-button-down? header)
                      (or (not keep-one-sheet?)
                          (and keep-one-sheet?
                               (> (length children) 1))))
-            (close-button-up~ header)
-            (remove-child header))))))
+            (close-button-up header)
+            (remove-child self header))))))
   
   
-  (method override (mouse-move evt)
-    (let ((pos (get-position~ evt)))
-      (let ((header (find-tab-sheet pos)))
+  (method override (mouse-move self evt)
+    (let ((pos (get-position evt)))
+      (let ((header (find-tab-sheet self pos)))
         (if header
-            (if (and (selected-sheet? header) (in-close-button?~ header pos))
+            (if (and (selected-sheet? self header) (in-close-button? header pos))
                 (unless (and close-button-enter
                              (eq? close-button-enter header))
                   (when close-button-enter
-                    (close-button-leave~ close-button-enter))
-                  (close-button-enter~ header))
+                    (close-button-leave close-button-enter))
+                  (close-button-enter header))
               (when close-button-enter
-                (close-button-leave~ close-button-enter)))
+                (close-button-leave close-button-enter)))
           (when close-button-enter
-            (close-button-leave~ close-button-enter))))))
+            (close-button-leave close-button-enter))))))
   
   
-  (method override (drag-move evt)
-    (mouse-move evt))
+  (method override (drag-move self evt)
+    (mouse-move self evt))
 
 
-  (method override (mouse-leave)
+  (method override (mouse-leave self)
     (when close-button-enter
-      (close-button-leave~ close-button-enter)))
+      (close-button-leave close-button-enter)))
 
 
   ;;;
@@ -148,19 +150,19 @@
   ;;;
   
   
-  (method override (context-menu evt)
-    (let ((pos (get-position~ evt)))
-      (with-context-click pos
+  (method override (context-menu self evt)
+    (let ((pos (get-position evt)))
+      (with-context-click self pos
         (lambda ()
-          (when (get-control?~ evt)
+          (when (get-control? evt)
             (let ((menu (new Context-Menu)))
-              (make-condensed-menu~ menu
-                (enabled-sheets)
+              (make-condensed-menu menu
+                (enabled-sheets self)
                 (lambda (user-data title parent)
-                  (new Label-Item parent: parent title: title action-handler: (new Event-Handler execute: (lambda (evt) (set-selection (sheet->rank user-data) user-origin: #t)))))
-                key: get-title~)
-              (layout-menu~ menu)
-              (track-popup-menu menu pos)))))))
+                  (new Label-Item parent: parent title: title action-handler: (new Event-Handler execute: (lambda (evt) (set-selection self (sheet->rank self user-data) user-origin: #t)))))
+                key: get-title)
+              (layout-menu menu)
+              (track-popup-menu self menu pos)))))))
 
 
   ;;;
@@ -168,9 +170,9 @@
   ;;;
 
   
-  (method package (update-borders)   ;; Quick fix : a little scaling if the tabs go beyond the width of the view.
-    (let ((view-width (get-width))   ;; No text clipping, no "...", all the text will still be printed.
-          (transparent? (eq? (get-background~ (get-skin)) 'none)))
+  (method package (update-borders self)   ;; Quick fix : a little scaling if the tabs go beyond the width of the view.
+    (let ((view-width (get-width self))   ;; No text clipping, no "...", all the text will still be printed.
+          (transparent? (eq? (get-background (get-skin self)) 'none)))
       (let ((padding (if transparent? 5 padding)))
         (let loop ((n 0)
                    (h 2)
@@ -179,12 +181,12 @@
                    (chx-out (list)))
              (if (pair? chx-in)
                  (let* ((header (car chx-in))
-                        (title (localize (get-title~ header)))
-                        (closable? (and (get-closable?~ header)
+                        (title (localize (get-title header)))
+                        (closable? (and (get-closable? header)
                                         (or (not keep-one-sheet?)
                                             (and keep-one-sheet?
                                                  (> (length children) 1)))))
-                        (next (+ h padding (if title (+ (get-width~ (text-extent~ (effective-font) title))
+                        (next (+ h padding (if title (+ (get-width (text-extent (effective-font self) title))
                                                         (if closable? 8 0)) 10) padding)))
                    (loop (+ n 1) next (cons (cons h next) borders) (cdr chx-in) (cons header chx-out)))
                (when (pair? chx-out)
@@ -194,20 +196,20 @@
                                        (lambda (border) 
                                          (cons (inexact->exact (round (* r (car border))))
                                                (inexact->exact (round (* r (cdr border)))))))))
-                         (for-each (lambda (header border) (set-borders~ header (scale border)))
+                         (for-each (lambda (header border) (set-borders header (scale border)))
                                    chx-out borders))
-                     (for-each set-borders~ chx-out borders)))))))))
+                     (for-each set-borders chx-out borders)))))))))
 
   
-  (method (find-header pt)
-    (let ((h (get-h~ pt))
-          (v (get-v~ pt)))
-      (and (< v (effective-headers-height))
+  (method package (find-header self pt)
+    (let ((h (get-h pt))
+          (v (get-v pt)))
+      (and (< v (effective-headers-height self))
            (continuation-capture
              (lambda (return)
                (for-each (lambda (header n)
-                           (when (is-enabled?~ header)
-                             (bind (left . right) (get-borders~ header)
+                           (when (is-enabled? header)
+                             (bind (left . right) (get-borders header)
                                (when (and (>= h left) (< h right))
                                  (continuation-return return n)))))
                          children
@@ -215,16 +217,16 @@
                #f)))))
 
 
-  (method (find-tab-sheet pt)
-    (let ((rank (find-header pt)))
+  (method (find-tab-sheet self pt)
+    (let ((rank (find-header self pt)))
       (if rank
           (list-ref children rank)
         #f)))
   
   
-  (method (get-close-button-borders header)
-    (bind (lf . rg) (get-borders~ header)
-      (let ((selected? (eq? header (selected-sheet))))
+  (method package (get-close-button-borders self header)
+    (bind (lf . rg) (get-borders header)
+      (let ((selected? (eq? header (selected-sheet self))))
         (let ((left (if selected? 4 2))
               (top (if selected? 0 2)))
           (offset-rect (new Rect (+ rg close-border-left) close-border-top (+ rg close-border-right) close-border-bottom)
@@ -237,32 +239,32 @@
   ;;;
   
   
-  (method override (add-child child)
+  (method override (add-child self child)
     (let* ((empty? (null? children)))
-      (nextmethod child)
+      (nextmethod self child)
       (when (not empty?)
-        (set-visible?~ child #f))
-      (update-borders)
-      (layout-view)
+        (set-visible? child #f))
+      (update-borders self)
+      (layout-view self)
       (when empty?
-        (set-selection 0 focus?: #f))))
+        (set-selection self 0 focus?: #f))))
   
   
-  (method override (remove-child child)
-    (if (destroying?)
-        (nextmethod child)
+  (method override (remove-child self child)
+    (if (destroying? self)
+        (nextmethod self child)
       (when (and (> selection 0)
-                 (>= selection (child-rank child)))
+                 (>= selection (child-rank self child)))
         (set! selection (- selection 1)))
       (when (= (length children) 1)
-        (invalidate-header selection)
-        (set-visible?~ (sheet-ranked selection) #f)
+        (invalidate-header self selection)
+        (set-visible? (sheet-ranked self selection) #f)
         (set! selection #f))
-      (nextmethod child)
-      (update-borders)
-      (layout-view)
-      (invalidate-view)
-      (set-selection selection force?: #t focus?: #f)))
+      (nextmethod self child)
+      (update-borders self)
+      (layout-view self)
+      (invalidate-view self)
+      (set-selection self selection force?: #t focus?: #f)))
   
   
   ;;;
@@ -270,64 +272,64 @@
   ;;;
   
   
-  (method public (get-selection)
+  (method public (get-selection self)
     selection)
   
   
-  (method public virtual (set-selection sel (focus?: focus? #t) (force?: force? #f) (user-origin: user-origin #f))
+  (method public virtual (set-selection self sel (focus?: focus? #t) (force?: force? #f) (user-origin: user-origin #f))
     (let ((old selection))
       (when (or force? (not (eqv? sel old)))
         (when old
-          (let ((sheet (sheet-ranked old)))
-            (set-visible?~ sheet #f)))
+          (let ((sheet (sheet-ranked self old)))
+            (set-visible? sheet #f)))
         (set! selection sel)
         (when sel
-          (let ((sheet (sheet-ranked sel)))
-            (set-visible?~ sheet #t)
+          (let ((sheet (sheet-ranked self sel)))
+            (set-visible? sheet #t)
             (when focus?
-              (focus-host~ sheet))))
+              (focus-host sheet))))
         (when old
-          (invalidate-header old))
+          (invalidate-header self old))
         (when selection
-          (invalidate-header selection))
-        (call-selection-handler old selection force? user-origin)
+          (invalidate-header self selection))
+        (call-selection-handler self old selection force? user-origin)
         (when player
-          (simulate-mouse-move~ player)))))
+          (simulate-mouse-move player)))))
 
 
-  (method public (invalidate-header n)
-    (bind (lf . rg) (get-borders~ (sheet-ranked n))
-      (invalidate-rect (new Rect (- lf 2) 0 (+ rg 2) (effective-headers-height)))))
+  (method public (invalidate-header self n)
+    (bind (lf . rg) (get-borders (sheet-ranked self n))
+      (invalidate-rect self (new Rect (- lf 2) 0 (+ rg 2) (effective-headers-height self)))))
   
   
-  (method public (invalidate-headers)
-    (invalidate-rect (new Rect 0 0 (get-width) (effective-headers-height))))
+  (method public (invalidate-headers self)
+    (invalidate-rect self (new Rect 0 0 (get-width self) (effective-headers-height self))))
 
 
-  (method public (get-selection-name)
-    (get-name~ (selected-sheet)))
+  (method public (get-selection-name self)
+    (get-name (selected-sheet self)))
   
   
-  (method public (set-selection-name name (focus?: focus? #t))
-    (let* ((sheet (child name))
-           (rank (child-rank sheet)))
-      (set-selection rank focus?: focus?)))
+  (method public (set-selection-name self name (focus?: focus? #t))
+    (let* ((sheet (child self name))
+           (rank (child-rank self sheet)))
+      (set-selection self rank focus?: focus?)))
   
   
-  (method public (selected-sheet? sheet)
-    (eq? sheet (selected-sheet)))
+  (method public (selected-sheet? self sheet)
+    (eq? sheet (selected-sheet self)))
   
   
-  (method public (selected-sheet)
-    (and selection (sheet-ranked selection)))
+  (method public (selected-sheet self)
+    (and selection (sheet-ranked self selection)))
   
   
-  (method public (sheet->rank sheet)
+  (method public (sheet->rank self sheet)
     (find children sheet))
   
   
-  (method (sheet-ranked n)
-    (child-ranked n))
+  (method (sheet-ranked self n)
+    (child-ranked self n))
   
   
   ;;;
@@ -335,16 +337,16 @@
   ;;;
   
   
-  (method public (all-sheets)
+  (method public (all-sheets self)
     children)
   
   
-  (method public (enabled-sheets)
-    (collect-if is-enabled?~ children))
+  (method public (enabled-sheets self)
+    (collect-if is-enabled? children))
   
   
-  (method public (remove-every-sheet)
-    (close-children))
+  (method public (remove-every-sheet self)
+    (close-children self))
   
   
   ;;;
@@ -352,17 +354,17 @@
   ;;;
   
   
-  (method override (layout)
-    (let ((size (get-size)))
+  (method override (layout self)
+    (let ((size (get-size self)))
       (for-each (lambda (child)
                   (when (is? child Tab-Sheet)
-                    (set-position~ child {Point 0 0})
-                    (set-size~ child size)))
+                    (set-position child {Point 0 0})
+                    (set-size child size)))
                 children)))
   
   
-  (method (effective-headers-height)
-    (let ((transparent? (eq? (get-background~ (get-skin)) 'none)))
+  (method (effective-headers-height self)
+    (let ((transparent? (eq? (get-background (get-skin self)) 'none)))
       (if (and transparent? separator?)
           (+ headers-height 4)
         headers-height)))
@@ -373,49 +375,49 @@
   ;;;
 
   
-  (method override (draw-children surface nodes context)
+  (method override (draw-children self surface nodes context)
     (define (draw-top surface clipper size)
       (let ((left    0)
             (top     0)
-            (right   (get-width~ size))
-            (bottom  (get-height~ size))
-            (transparent? (eq? (get-background~ (get-skin)) 'none)))
-        (let ((content (if (null? children) top (+ top (effective-headers-height) -1))))
+            (right   (get-width size))
+            (bottom  (get-height size))
+            (transparent? (eq? (get-background (get-skin self)) 'none)))
+        (let ((content (if (null? children) top (+ top (effective-headers-height self) -1))))
           (unless (and transparent? (not separator?))
             (let ((content-rect (new Rect left content right bottom)))
               (unless (rect-inside-border? clipper content-rect {Rect 1 1 2 2})
-                (set-font~ surface {Font Label})
-                (set-color~ surface (if transparent? {Color red: .308 green: .381 blue: .448} {Color Light}))
-                (set-line-width~ surface 1)
+                (set-font surface {Font Label})
+                (set-color surface (if transparent? {Color red: .308 green: .381 blue: .448} {Color Light}))
+                (set-line-width surface 1)
                 (unless transparent?
-                  (draw-edge~ surface content-rect inner: 'raised outer: 'raised edges: '(right bottom))
-                  (set-color~ surface {Color Light})
-                  (move-to~ surface 0 content)
-                  (line-to~ surface 0 bottom)
-                  (set-color~ surface {Color Light}))
+                  (draw-edge surface content-rect inner: 'raised outer: 'raised edges: '(right bottom))
+                  (set-color surface {Color Light})
+                  (move-to surface 0 content)
+                  (line-to surface 0 bottom)
+                  (set-color surface {Color Light}))
                 (if (null? children)
-                    (line~ surface 0 0 right 0)
-                  (let ((h (cdr (get-borders~ (last children)))))
-                    (line~ surface h content (if transparent? right (- right 1)) content))))))
-          (when (< (get-top~ clipper) content)
-            (let ((left-clip (get-left~ clipper))
-                  (right-clip (get-right~ clipper)))
+                    (line surface 0 0 right 0)
+                  (let ((h (cdr (get-borders (last children)))))
+                    (line surface h content (if transparent? right (- right 1)) content))))))
+          (when (< (get-top clipper) content)
+            (let ((left-clip (get-left clipper))
+                  (right-clip (get-right clipper)))
               (let (iter (headers children) (n 0))
                 (when (not-null? headers)
                   (let ((header (car headers))
                         (selected? (= n selection)))
-                    (bind (lf . rg) (get-borders~ header)
+                    (bind (lf . rg) (get-borders header)
                       (unless transparent?
                         (when selected?
                           (decrease! lf 2)
                           (increase! rg 2)))
                       (when (< lf right-clip)
                         (when (> rg left-clip)
-                          (let* ((title (localize (get-title~ header)))
-                                 (title-color (get-title-color~ header))
-                                 (border-color (get-border-color~ header))
-                                 (header-color (get-header-color~ header))
-                                 (header-end-color (get-header-end-color~ header))
+                          (let* ((title (localize (get-title header)))
+                                 (title-color (get-title-color header))
+                                 (border-color (get-border-color header))
+                                 (header-color (get-header-color header))
+                                 (header-end-color (get-header-end-color header))
                                  (previous? (= (+ n 1) selection))
                                  (next? (= (- n 1) selection))
                                  (top (if selected? 0 2))
@@ -424,57 +426,57 @@
                             (unless transparent?
                               (cond ((debug-paint?)
                                      (let ((rect (new Rect (+ lf 1) (+ top 1) (- rg 2) content)))
-                                       (fill-rect~ surface rect (cycle-debug-color!))))
+                                       (fill-rect surface rect (cycle-debug-color!))))
                                     (header-color
                                       (let ((rect (new Rect (+ lf (if next? 3 1) 2) (+ top 2 1) (- rg 3) content)))
-                                        (gradient-fill-rect~ surface rect (list (list 0 header-color) (list 1 header-end-color)) direction: 'vertical)))
+                                        (gradient-fill-rect surface rect (list (list 0 header-color) (list 1 header-end-color)) direction: 'vertical)))
                                     ((not selected?)
                                      (let ((rect (new Rect (+ lf 1) (+ top 1) (- rg 2) content)))
-                                       (fill-rect~ surface rect background)))))
+                                       (fill-rect surface rect background)))))
                             ;; border
                             (unless transparent?
                               (when border-color
-                                (set-color~ surface border-color)
-                                (move-to~ surface (+ lf 2) (+ top 2))
-                                (line-to-preserve~ surface (- rg 4) (+ top 2))
-                                (line-to-preserve~ surface (- rg 4) (- content 2))
-                                (line-to-preserve~ surface (+ lf 2) (- content 2))
-                                (line-to~ surface (+ lf 2) (+ top 2))))
+                                (set-color surface border-color)
+                                (move-to surface (+ lf 2) (+ top 2))
+                                (line-to-preserve surface (- rg 4) (+ top 2))
+                                (line-to-preserve surface (- rg 4) (- content 2))
+                                (line-to-preserve surface (+ lf 2) (- content 2))
+                                (line-to surface (+ lf 2) (+ top 2))))
                             ;; right
                             (unless transparent?
                               (unless previous?
-                                (draw-edge~ surface (new Rect lf (+ top 2) rg content) inner: 'raised outer: 'raised edges: '(right))
-                                (set-color~ surface background)
-                                (move-to~ surface (- rg 2) (+ top 1))
-                                (line-to~ surface (- rg 1) (+ top 2))))
+                                (draw-edge surface (new Rect lf (+ top 2) rg content) inner: 'raised outer: 'raised edges: '(right))
+                                (set-color surface background)
+                                (move-to surface (- rg 2) (+ top 1))
+                                (line-to surface (- rg 1) (+ top 2))))
                             ;; top
                             (unless transparent?
-                              (set-color~ surface (if selected? {Color Light} {Color red: 243 green: 243 blue: 241}))
-                              (move-to~ surface (- rg 2) top)
-                              (line-to-preserve~ surface (+ lf (if next? 1 2)) top))
+                              (set-color surface (if selected? {Color Light} {Color red: 243 green: 243 blue: 241}))
+                              (move-to surface (- rg 2) top)
+                              (line-to-preserve surface (+ lf (if next? 1 2)) top))
                             ;; left
                             (unless transparent?
                               (unless next?
-                                (line-to-preserve~ surface lf (+ top 2))
-                                (line-to~ surface lf content)))
+                                (line-to-preserve surface lf (+ top 2))
+                                (line-to surface lf content)))
                             ;; bottom
                             (unless (and transparent? (not separator?))
                               (unless selected?
                                 (when transparent?
-                                  (set-color~ surface {Color red: .308 green: .381 blue: .448}))
-                                (move-to~ surface (if transparent? (- lf 2) lf) content)
-                                (line-to~ surface rg content)))
+                                  (set-color surface {Color red: .308 green: .381 blue: .448}))
+                                (move-to surface (if transparent? (- lf 2) lf) content)
+                                (line-to surface rg content)))
                             ;; title
                             (when title
-                              (draw-text~ surface (+ lf 5) (if transparent? 5 (+ top 3)) title (if transparent? (if selected? {Color red: .005 green: .796 blue: .918} {Color Medium-Gray}) (or title-color {Color Black}))))
+                              (draw-text surface (+ lf 5) (if transparent? 5 (+ top 3)) title (if transparent? (if selected? {Color red: .005 green: .796 blue: .918} {Color Medium-Gray}) (or title-color {Color Black}))))
                             ;; close
-                            (when (and (get-closable?~ header)
+                            (when (and (get-closable? header)
                                        selected?
                                        (or (not keep-one-sheet?)
                                            (and keep-one-sheet?
                                                 (> (length children) 1))))
-                              (let ((rect (get-close-button-borders header)))
-                                (draw-caption~ surface rect 'close (get-close-button-down?~ header) (get-close-button-enter?~ header))))))
+                              (let ((rect (get-close-button-borders self header)))
+                                (draw-caption surface rect 'close (get-close-button-down? header) (get-close-button-enter? header))))))
                         (iter (cdr headers)
                               (+ n 1))))))))))))
     
@@ -482,9 +484,9 @@
       ;; todo
       )
     
-    (nextmethod surface nodes context)
-    (let ((clipper (get-clipper~ surface))
-          (size (get-size)))
+    (nextmethod self surface nodes context)
+    (let ((clipper (get-clipper surface))
+          (size (get-size self)))
       (case orientation
         ((top) (draw-top surface clipper size))
         ((bottom) (draw-bottom surface clipper size)))))
@@ -495,7 +497,7 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:tab))
   
   
@@ -504,5 +506,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Tab-View-Descriptor))))

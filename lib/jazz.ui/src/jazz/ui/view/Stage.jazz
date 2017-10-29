@@ -41,7 +41,9 @@
 (import (jazz.application)
         (jazz.graphic)
         (jazz.jml)
+        (jazz.ui)
         (jazz.view)
+        (jazz.window)
         (jazz.workspace))
 
 
@@ -57,7 +59,7 @@
     (<install> background: {Color Dark}))
                 
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'stage)
   
   
@@ -66,7 +68,7 @@
   ;;;
   
   
-  (method public (get-border)
+  (method public (get-border self)
     parent)
   
   
@@ -75,18 +77,18 @@
   ;;;
   
   
-  (method public virtual (stage-activate)
-    (set-caption?~ (get-toplevel) maximized?))
+  (method public virtual (stage-activate self)
+    (set-caption? (current-toplevel) maximized?))
   
   
-  (method public virtual (stage-empty-activate)
-    (assert (get-player))
-    (for-each-docked
-      client-deactivate~)
-    (set-caption~ (get-toplevel) #f))
+  (method public virtual (stage-empty-activate self)
+    (assert (get-player self))
+    (for-each-window-docked
+      client-deactivate)
+    (set-caption (current-toplevel) #f))
   
   
-  (method override (focus-gained)
+  (method override (focus-gained self)
     (unless (workspace-activation?)
       (set-current-stage self)))
   
@@ -96,56 +98,56 @@
   ;;;
   
   
-  (method public (get-maximized?)
+  (method public (get-maximized? self)
     maximized?)
   
   
-  (method public (set-maximized? value)
+  (method public (set-maximized? self value)
     (if value
-        (maximize)
-      (restore)))
+        (maximize self)
+      (restore self)))
   
   
-  (method public (toggle-maximized)
-    (set-maximized? (not maximized?)))
+  (method public (toggle-maximized self)
+    (set-maximized? self (not maximized?)))
   
   
-  (method override (maximize)
-    (let* ((border (get-border))
-           (toplevel (get-toplevel))
-           (player (get-player))
+  (method override (maximize self)
+    (let* ((border (get-border self))
+           (toplevel (current-toplevel))
+           (player (get-player self))
            (appl (get-application))
-           (menubar (find-menubar~ appl))
-           (current (first-view)))
+           (menubar (find-menubar appl))
+           (current (first-view self)))
       (set! maximized? #t)
-      (set-caption?~ toplevel #t)
+      (set-caption? toplevel #t)
       (for-each (lambda (frame)
-                  (when (get-visible?~ frame)
-                    (maximize~ (get-host~ frame))
-                    (maximize~ (get-guest~ frame))))
+                  (when (get-visible? frame)
+                    (maximize (get-host frame))
+                    (maximize (get-guest frame))))
                 children)
-      (maximize~ border)
+      (maximize border)
       (when menubar
-        (maximize~ menubar))
+        (maximize menubar))
       (when current
-        (set-caption~ toplevel (get-title~ current)))))
+        (set-caption toplevel (get-title current)))))
   
   
-  (method override (restore)
-    (let* ((border (get-border))
-           (toplevel (get-toplevel))
+  (method override (restore self)
+    (let* ((border (get-border self))
+           (toplevel (current-toplevel))
            (appl (get-application))
-           (menubar (find-menubar~ appl)))
+           (menubar (find-menubar appl)))
       (set! maximized? #f)
-      (set-caption?~ toplevel #f)
+      (set-caption? toplevel #f)
       (for-each (lambda (frame)
-                  (when (get-visible?~ frame)
-                    (restore~ (get-host~ frame))
-                    (restore~ (get-guest~ frame))))
+                  (when (get-visible? frame)
+                    (restore (get-host frame))
+                    (restore (get-guest frame))))
                 children)
-      (restore~ border)
+      (restore border)
       (when menubar
-        (restore~ menubar))))
+        (restore menubar))))
   
   
   ;;;
@@ -153,15 +155,15 @@
   ;;;
   
   
-  (method public (get-fullscreen?)
+  (method public (get-fullscreen? self)
     fullscreen?)
   
   
-  (method public (set-fullscreen? value)
+  (method public (set-fullscreen? self value)
     (when (neq? value fullscreen?)
       (set! fullscreen? value)
-      (let ((border (get-border)))
-        (layout-stage~ border (get-size~ border)))))
+      (let ((border (get-border self)))
+        (layout-stage border (get-size border)))))
   
   
   ;;;
@@ -169,7 +171,7 @@
   ;;;
 
 
-  (method public virtual (install-wallpaper)
+  (method public virtual (install-wallpaper self)
     )
   
   
@@ -178,15 +180,15 @@
   ;;;
   
   
-  (method override (size-change size)
+  (method override (size-change self size)
     (define (layout-frames)
       (when maximized?
         (for-each (lambda (frame)
-                    (when (get-visible?~ frame)
-                      (maximize-bounds~ (get-host~ frame) size)))
+                    (when (get-visible? frame)
+                      (maximize-bounds (get-host frame) size)))
                   children)))
     
-    (nextmethod size)
+    (nextmethod self size)
     (layout-frames))
   
   
@@ -195,5 +197,5 @@
   ;;;
   
   
-  (method override (mouse-down evt)
-    (acquire-focus))))
+  (method override (mouse-down self evt)
+    (acquire-focus self))))

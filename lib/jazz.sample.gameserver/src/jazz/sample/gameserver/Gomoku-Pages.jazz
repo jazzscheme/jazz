@@ -49,11 +49,11 @@
 (class Gomoku-Pages extends Game-Pages
 
   
-  (method override (initialize)
-    (set! page-name~self "/Gomoku"))
+  (method override (initialize self)
+    (set! self.page-name "/Gomoku"))
 
   
-  (method override (render-game request)
+  (method override (render-game self request)
     (define (new-game size)
       (case size
         ((small) (new Gomoku-Game rows: 9 columns: 9))
@@ -86,22 +86,22 @@
             ((nu=? players "ch") (list (new Gomoku-AI game BLACK) (new Gomoku-Human game WHITE)))
             ((nu=? players "cc") (list (new Gomoku-AI game BLACK) (new Gomoku-AI game WHITE)))))
     
-    (let ((size (effective-size (get-parameter~ request "size")))
-          (players (effective-players (get-parameter~ request "players")))
-          (current (effective-current (get-parameter~ request "current"))))
+    (let ((size (effective-size (get-parameter request "size")))
+          (players (effective-players (get-parameter request "players")))
+          (current (effective-current (get-parameter request "current"))))
       (let ((game (new-game size)))
-        (let ((goto (effective-goto game (get-parameter~ request "goto"))))
-          (register-players~ game (create-players game players))
+        (let ((goto (effective-goto game (get-parameter request "goto"))))
+          (register-players game (create-players game players))
             (deserialize-game request game goto current)
-            (let ((move (effective-move game (get-parameter~ request "move")))
-                  (all-computers? (every? computer?~ (get-players~ game))))
-              (when (and (not goto) (or (not all-computers?) (not-null? (get-backward-moves~ game)) (memq? move '(one all))))
+            (let ((move (effective-move game (get-parameter request "move")))
+                  (all-computers? (every? computer?~ (get-players game))))
+              (when (and (not goto) (or (not all-computers?) (not-null? (get-backward-moves game)) (memq? move '(one all))))
                 (play-players game move)))
-            (let ((status (get-status~ game))
-                  (backward (get-backward-moves~ game))
-                  (forward (get-forward-moves~ game))
-                  (next-player (get-next-player~ game))
-                  (second-player (get-second-player~ game))
+            (let ((status (get-status game))
+                  (backward (get-backward-moves game))
+                  (forward (get-forward-moves game))
+                  (next-player (get-next-player game))
+                  (second-player (get-second-player game))
                   (prefix (case size
                             ((small) "large")
                             ((medium) "medium")
@@ -136,8 +136,8 @@
                        (<td>)
                        (<td> valign: "top"
                          (<table> cellspacing: "0" cellpadding: "0"
-                           ,@(let ((last-row (- (get-board-rows~ game) 1))
-                                   (last-col (- (get-board-columns~ game) 1)))
+                           ,@(let ((last-row (- (get-board-rows game) 1))
+                                   (last-col (- (get-board-columns game) 1)))
                                (loop (for row from 0 to last-row)
                                      (for vert = (cond ((= row 0) "top")
                                                        ((= row last-row) "bottom")
@@ -150,8 +150,8 @@
                                                                           ((= col last-col) "right")
                                                                           (else "center")))
                                                         (collect
-                                                          (let* ((square (get-square~ game row col))
-                                                                 (token (get-token~ square))
+                                                          (let* ((square (get-square game row col))
+                                                                 (token (get-token square))
                                                                  (name (if (and (moku-square? size row col) (= token EMPTY)) "moku" (format "{a}{a}" vert horz)))
                                                                  (image (format "images/gomoku/{a}/{a}_{a}{a}.png"
                                                                                 prefix
@@ -169,14 +169,14 @@
                                                                   `(<img> src: ,image)))))))))))
                            (<tr>
                              (<td>)
-                             ,@(loop (for col from 0 below (get-board-columns~ game))
+                             ,@(loop (for col from 0 below (get-board-columns game))
                                      (collect
                                        `(<td> align: "center" valign: "top" ,(present-col game col)))))
                            (<tr>
-                             (<td> align: "center" colspan: ,(->string (+ 1 (get-board-columns~ game)))
+                             (<td> align: "center" colspan: ,(->string (+ 1 (get-board-columns game)))
                                ,@(case status
                                    ((win)
-                                    `((<h2> class: "status" ,(format "{a} wins!!!" (present~ (get-winner~ game))))))
+                                    `((<h2> class: "status" ,(format "{a} wins!!!" (present (get-winner game))))))
                                    ((draw)
                                     `((<h2> class: "status" "Draw!")))
                                    (else
@@ -270,14 +270,14 @@
   ;;;
   
   
-  (method override (serialize-move move)
-    (let ((line (get-line~ move))
-          (col (get-col~ move)))
+  (method override (serialize-move self move)
+    (let ((line (get-line move))
+          (col (get-col move)))
       (format "{s},{s}" line col)))
   
   
-  (method override (deserialize-move game value)
+  (method override (deserialize-move self game value)
     (let ((pos (search value ",")))
       (let ((row (string->number (substring value 0 pos)))
             (col (string->number (substring value (+ pos 1) (cardinality value)))))
-        (get-square~ game row col))))))
+        (get-square game row col))))))

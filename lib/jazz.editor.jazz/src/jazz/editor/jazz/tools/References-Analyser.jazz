@@ -39,12 +39,15 @@
 
 
 (import (jazz.application)
+        (jazz.event)
         (jazz.feedback)
         (jazz.handler)
         (jazz.ide)
         (jazz.jml)
+        (jazz.outline)
         (jazz.resource)
         (jazz.runtime)
+        (jazz.text)
         (jazz.tree)
         (jazz.ui)
         (jazz.view))
@@ -70,7 +73,7 @@
                   (<Tree-Label-Column> name: info                title: "Info" width: 419)))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'references-analyser)
 
   
@@ -79,20 +82,20 @@
   ;;;
     
 
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Class"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "References Analyser")
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 395 600})
 
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'repository)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'repository)))
   
   
   ;;;
@@ -100,8 +103,8 @@
   ;;;
   
   
-  (method public (get-repositories)
-    (let ((content (get-string-content~ (locate 'repository))))
+  (method public (get-repositories self)
+    (let ((content (get-string-content (locate self 'repository))))
       (if (empty-string? content)
           #f
         (let ((repository (find-repository (string->symbol content))))
@@ -114,30 +117,30 @@
   ;;;
 
 
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (move-figure~ (locate 'browse) dh 0)
-    (size-figure~ (locate 'declarations-border) dh dv))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (move-figure (locate self 'browse) dh 0)
+    (size-figure (locate self 'declarations-border) dh dv))
   
   
-  (method (on-find-dead-code evt)
+  (method (on-find-dead-code self evt)
     (with-cursor :wait
       (lambda ()
-        (find-dead-code))))
+        (find-dead-code self))))
   
   
-  (method override (on-return-press evt)
-    (on-find-dead-code evt))
+  (method override (on-return-press self evt)
+    (on-find-dead-code self evt))
   
   
-  (method (on-double-click evt)
-    (let* ((tree (get-sender~ evt))
-           (selection (get-single-selection~ tree)))
+  (method (on-double-click self evt)
+    (let* ((tree (get-sender evt))
+           (selection (get-single-selection tree)))
       (when selection
-        (let* ((row (get-row~ tree selection))
-               (type (get-user-data~ row))
+        (let* ((row (get-row tree selection))
+               (type (get-user-data row))
                (appl (get-application)))
-          (edit-definitions~ appl (category-name type))))))
+          (edit-definitions appl (category-name type))))))
 
   
   ;;;
@@ -145,10 +148,10 @@
   ;;;
   
   
-  (method (find-dead-code)
+  (method (find-dead-code self)
     (define (analyse)
       (parameterize ((analysis-mode? #t))
-        (iterate-units walk-unit repositories: (get-repositories) feedback: feedback)))
+        (iterate-units walk-unit repositories: (get-repositories self) feedback: feedback)))
     
     (define (feedback unit-name)
       (user-message "Walking {a}..." unit-name))
@@ -157,20 +160,20 @@
       (and (is? declaration Class-Declaration)
            (table-ref (get-core-classes) (category-name declaration) #f)))
     
-    (let ((tree (locate 'declarations)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+    (let ((tree (locate self 'declarations)))
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (analyse)
           (iterate-table analysis-data
             (lambda (locator data)
-              (let ((autoload-reference (get-autoload-reference~ data)))
+              (let ((autoload-reference (get-autoload-reference data)))
                 (let ((declaration (resolve-binding autoload-reference)))
-                  (let ((hits (get-hits~ autoload-reference))
-                        (declaration-hits (get-hits~ declaration)))
+                  (let ((hits (get-hits autoload-reference))
+                        (declaration-hits (get-hits declaration)))
                     (when (not declaration-hits)
                       (let ((table (make-table test: eq?)))
-                        (set-hits~ declaration table)
+                        (set-hits declaration table)
                         (set! declaration-hits table)))
                     (iterate-table hits
                       (lambda (name decl)
@@ -179,18 +182,18 @@
             (lambda (unit-name)
               (let ((declaration (get-catalog-entry unit-name)))
                 (when (is? declaration Module-Declaration)
-                  ;;(debug (get-name~ declaration) (get-hits~ declaration))
+                  ;;(debug (get-name declaration) (get-hits declaration))
                   (for-each (lambda (declaration)
                               (when (is? declaration Category-Declaration)
-                                (let ((hits (get-hits~ declaration)))
+                                (let ((hits (get-hits declaration)))
                                   (when (and (not hits) (not (exception-declaration? declaration)))
-                                    (let ((name (symbol->string (get-name~ declaration)))
+                                    (let ((name (symbol->string (get-name declaration)))
                                           (info ""))
-                                      (add-row~ tree children: (list (new Tree-Node title: name)
+                                      (add-row tree children: (list (new Tree-Node title: name)
                                                                      (new Tree-Label title: info))
                                         user-data: declaration))))))
-                            (queue-list (get-children~ declaration)))))))))
-      (user-feedback "Found {a}" (get-row-count~ tree))))
+                            (queue-list (get-children declaration)))))))))
+      (user-feedback "Found {a}" (get-row-count tree))))
 
   
   ;;;
@@ -198,9 +201,9 @@
   ;;;
   
   
-  (method (selected-declarations)
-    (let* ((tree (locate 'declarations))
-           (selection (get-selection~ tree)))
+  (method (selected-declarations self)
+    (let* ((tree (locate self 'declarations))
+           (selection (get-selection tree)))
       (map (lambda (rank)
-             (get-user-data~ (get-row~ tree rank)))
+             (get-user-data (get-row tree rank)))
            selection)))))

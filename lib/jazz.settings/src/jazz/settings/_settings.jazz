@@ -38,6 +38,13 @@
 (module jazz.settings jazz
 
 
+(hub get-file)
+(hub get-setting)
+(hub save-content)
+(hub set-file)
+(hub set-setting)
+
+
 (import (jazz.io))
 
 
@@ -76,7 +83,7 @@
 ;;;
 
 
-(definition public (get-parameter arg arg-parser setting setting-parser (default (unspecified)))
+(definition public (parse-parameter arg arg-parser setting setting-parser (default (unspecified)))
   (let ((arg-value (and arg (command-argument arg))))
     (if arg-value
         (arg-parser arg-value)
@@ -91,19 +98,19 @@
 
 
 (definition public (boolean-parameter arg setting (default (unspecified)))
-  (get-parameter arg parse-boolean setting identity default))
+  (parse-parameter arg parse-boolean setting identity default))
 
 
 (definition public (integer-parameter arg setting (default (unspecified)))
-  (get-parameter arg parse-integer setting identity default))
+  (parse-parameter arg parse-integer setting identity default))
 
 
 (definition public (string-parameter arg setting (default (unspecified)))
-  (get-parameter arg identity setting identity default))
+  (parse-parameter arg identity setting identity default))
 
 
 (definition public (symbol-parameter arg setting (default (unspecified)))
-  (get-parameter arg read-string-element setting identity default))
+  (parse-parameter arg read-string-element setting identity default))
 
 
 @convert
@@ -120,18 +127,18 @@
 (definition public (file-parameter arg setting extension (default (unspecified)))
   (define (parse-file str)
     (let ((file (new File (tokenise-filename str))))
-      (if (/= (get-extension~ file) extension)
+      (if (/= (get-extension file) extension)
           (error "Argument /{a} is not of the expected .{a} type" arg extension)
         file)))
   
-  (get-parameter arg parse-file setting identity default))
+  (parse-parameter arg parse-file setting identity default))
 
 
 (definition public (directory-parameter arg setting (default (unspecified)))
   (define (parse-directory str)
     (new Directory (tokenise-filename str)))
   
-  (get-parameter arg parse-directory setting identity default))
+  (parse-parameter arg parse-directory setting identity default))
 
 
 (definition public (host-parameter . rest)
@@ -166,13 +173,13 @@
             (assert (integer? v)
               (new Point h v)))))))
   
-  (get-parameter arg parse-point setting identity default))
+  (parse-parameter arg parse-point setting identity default))
 
 
 (definition public (point->argument point)
   (format "{a}x{a}"
-          (get-h~ point)
-          (get-v~ point)))
+          (get-h point)
+          (get-v point)))
 
 
 (definition public (dimension-parameter arg setting (default (unspecified)))
@@ -185,13 +192,13 @@
             (assert (integer? height)
               (new Dimension width height)))))))
   
-  (get-parameter arg parse-dimension setting identity default))
+  (parse-parameter arg parse-dimension setting identity default))
 
 
 (definition public (dimension->argument dimension)
   (format "{a}x{a}"
-          (get-width~ dimension)
-          (get-height~ dimension)))
+          (get-width dimension)
+          (get-height dimension)))
 
 
 ;;;
@@ -202,7 +209,7 @@
 (interface Settings-Provider
   
   
-  (method public virtual abstract (get-setting setting (default #f))
+  (method public virtual abstract (get-setting self setting (default #f))
     ))
   
 
@@ -214,25 +221,25 @@
   (slot modified? initialize #f)
   
   
-  (method override (initialize (file: file #f))
-    (nextmethod)
-    (set-file file))
+  (method override (initialize self (file: file #f))
+    (nextmethod self)
+    (set-file self file))
   
 
-  (method override (get-setting setting (default #f))
+  (method override (get-setting self setting (default #f))
     (table-ref content setting default))
   
   
-  (method public (set-setting setting value)
+  (method public (set-setting self setting value)
     (table-set! content setting value)
     (set! modified? #t))
   
   
-  (method public (get-file)
+  (method public (get-file self)
     file)
 
 
-  (method public (set-file value)
+  (method public (set-file self value)
     (set! file value)
     (when file
       (with-jazz-readtable
@@ -243,7 +250,7 @@
       (set! modified? #f)))
   
   
-  (method public (save-content)
+  (method public (save-content self)
     (define (find-longest list)
       (apply max (map (lambda (info)
                         (cardinality (symbol->string (car info))))
@@ -271,7 +278,7 @@
   '())
 
 
-(definition public (get-settings)
+(definition public (all-settings)
   *settings*)
 
 
@@ -290,7 +297,7 @@
   (continuation-capture
     (lambda (return)
       (for-each (lambda (settings)
-                  (let ((value (get-setting~ settings name Not-Found)))
+                  (let ((value (get-setting settings name Not-Found)))
                     (when (neq? value Not-Found)
                       (continuation-return return value))))
                 *settings*)

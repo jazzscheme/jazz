@@ -41,6 +41,7 @@
 (import (jazz.editor.jazz)
         (jazz.event)
         (jazz.jml)
+        (jazz.outline)
         (jazz.resource)
         (jazz.tree))
 
@@ -102,11 +103,11 @@
   ;;;
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Event Spy")
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 736 339})
 
   
@@ -115,43 +116,43 @@
   ;;;
   
   
-  (method override (spy-domain)
+  (method override (spy-domain self)
     'views)
 
 
-  (method override (spy client)
+  (method override (spy self client)
     (when (is? client Event-Consumer)
-      (set! old-consumer (get-event-consumer~ client))
-      (set-event-consumer~ client (new Spyer self client))))
+      (set! old-consumer (get-event-consumer client))
+      (set-event-consumer client (new Spyer self client))))
 
 
-  (method override (unspy client)
+  (method override (unspy self client)
     (when (is? client Event-Consumer)
-      (set-event-consumer~ client old-consumer)))
+      (set-event-consumer client old-consumer)))
 
 
-  (method (incoming-event level window client evt)
+  (method package (incoming-event self level window client evt)
     (let* ((type (category-name (class-of evt)))
            (info (find-in Event-Classes type key: car))
            (cat  (if info (second info) 'unknown)))
       (when (or (eq? category 'all) (eq? category cat))
-        (let* ((tree (get-tree))
+        (let* ((tree (get-tree self))
                (image (cdr (assq cat Event-Categories)))
-               (properties (format "{l}" (get-properties~ evt)))
+               (properties (format "{l}" (get-properties evt)))
                (c0 (new Tree-Node  title: type image: image))
-               (c1 (new Tree-Label title: (get-kind~ evt)))
+               (c1 (new Tree-Label title: (get-kind evt)))
                (c2 (new Tree-Label title: properties))
                (c3 (new Tree-Label title: (format "{a}{s}" (make-string (* level 5) #\space) window)))
-               (item (get-visible-count~ tree)))
-          (add-row~ tree children: (list c0 c1 c2 c3))
-          (ensure-at-end~ tree)
-          (update-view)
+               (item (get-visible-count tree)))
+          (add-row tree children: (list c0 c1 c2 c3))
+          (ensure-at-end tree)
+          (update-view self)
           (when slowdown?
             (sleep slowdown-quantum))
           item))))
 
 
-  (method (incoming-result level item result)
+  (method (incoming-result self level item result)
     ))
 
 
@@ -168,18 +169,18 @@
   (slot client)
   
   
-  (method override (get-event-consumer));;abstract
-  (method override (set-event-consumer consumer));;abstract
+  (method override (get-event-consumer self));;abstract
+  (method override (set-event-consumer self consumer));;abstract
   
   
-  (method override (initialize wnd clt)
-    (nextmethod)
+  (method override (initialize self wnd clt)
+    (nextmethod self)
     (set! spy-window wnd)
     (set! client clt))
   
   
-  (method override (deliver-event handler target proc evt)
-    (incoming-event~ spy-window level client target evt)
+  (method override (deliver-event self handler target proc evt)
+    (incoming-event spy-window level client target evt)
     (increase! level)
     (proc target evt)
     (decrease! level))))

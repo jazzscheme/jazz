@@ -64,21 +64,21 @@
   (slot mutex)
   
   
-  (method override (initialize name file directories extensions char-encoding heuristics references?)
-    (nextmethod name)
-    (set! file~self file)
-    (set! loaded?~self #f)
-    (set! modified?~self #f)
-    (set! directories~self directories)
-    (set! extensions~self extensions)
-    (set! char-encoding~self char-encoding)
-    (set! heuristics~self heuristics)
-    (set! references?~self references?)
-    (set! content-index~self (make-table test: equal?))
-    (set! definitions-index~self (make-table test: equal?))
-    (set! references-index~self (make-table test: equal?))
-    (set! completions-index~self (make-table test: equal?))
-    (set! mutex~self (make-mutex 'catalog)))
+  (method override (initialize self name file directories extensions char-encoding heuristics references?)
+    (nextmethod self name)
+    (set! self.file file)
+    (set! self.loaded? #f)
+    (set! self.modified? #f)
+    (set! self.directories directories)
+    (set! self.extensions extensions)
+    (set! self.char-encoding char-encoding)
+    (set! self.heuristics heuristics)
+    (set! self.references? references?)
+    (set! self.content-index (make-table test: equal?))
+    (set! self.definitions-index (make-table test: equal?))
+    (set! self.references-index (make-table test: equal?))
+    (set! self.completions-index (make-table test: equal?))
+    (set! self.mutex (make-mutex 'catalog)))
   
   
   ;;;
@@ -86,59 +86,59 @@
   ;;;
   
   
-  (method public virtual (get-extensions)
+  (method public virtual (get-extensions self)
     extensions)
   
   
-  (method public virtual (get-char-encoding)
+  (method public virtual (get-char-encoding self)
     char-encoding)
   
   
-  (method public virtual (get-heuristics)
+  (method public virtual (get-heuristics self)
     heuristics)
   
   
-  (method public (iterate-content proc)
+  (method public (iterate-content self proc)
     (iterate-table content-index proc))
   
   
-  (method public (iterate-definitions proc)
+  (method public (iterate-definitions self proc)
     (iterate-table definitions-index proc))
   
   
-  (method public (iterate-references proc)
+  (method public (iterate-references self proc)
     (iterate-table references-index proc))
   
   
-  (method public (get-file-definitions name)
-    (with-mutex
+  (method public (get-file-definitions self name)
+    (with-mutex self
       (lambda ()
-        (%%get-file-definitions name))))
+        (%%get-file-definitions self name))))
   
   
-  (method (%%get-file-definitions name)
+  (method (%%get-file-definitions self name)
     (table-ref content-index name '()))
   
   
-  (method public (for-each-file-entry proc)
-    (iterate-content
+  (method public (for-each-file-entry self proc)
+    (iterate-content self
       (lambda (name file-entries)
         (for-each proc file-entries))))
   
   
-  (method override (get-file-entry file)
-    (with-mutex
+  (method override (get-file-entry self file)
+    (with-mutex self
       (lambda ()
-        (%%get-file-entry file))))
+        (%%get-file-entry self file))))
   
   
-  (method (%%get-file-entry file)
+  (method (%%get-file-entry self file)
     (find-if (lambda (definition)
-               (pathname=? (get-file~ definition) file))
-             (%%get-file-definitions (get-base~ file))))
+               (pathname=? (get-file definition) file))
+             (%%get-file-definitions self (get-base file))))
   
   
-  (method public (get-statistics)
+  (method public (get-statistics self)
     (define (count-file-entries content-index)
       (let ((count 0))
         (iterate-table content-index
@@ -146,7 +146,7 @@
             (increase! count (length file-entries))))
         count))
     
-    (with-mutex
+    (with-mutex self
       (lambda ()
         (let ((f (count-file-entries content-index))
               (d (table-length definitions-index))
@@ -162,7 +162,7 @@
   ;;;
   
   
-  (method (with-mutex thunk)
+  (method package (with-mutex self thunk)
     (mutex-lock! mutex)
     (prog1 (thunk)
       (mutex-unlock! mutex)))
@@ -173,21 +173,21 @@
   ;;;
   
   
-  (method public (load-content (report?: report? #t))
+  (method public (load-content self (report?: report? #t))
     (define (update-catalog-indexes report?)
       (when report?
         (user-feedback "Updating Indexes..."))
       (iterate-table content-index
         (lambda (name definitions)
           (for-each (lambda (file-definition)
-                      (set-catalog~ file-definition self)
-                      (update-indexes~ file-definition definitions-index references-index))
+                      (set-catalog file-definition self)
+                      (update-indexes file-definition definitions-index references-index))
                     definitions))))
     
-    (with-mutex
+    (with-mutex self
       (lambda ()
         (when (not loaded?)
-          (when (exists?~ file)
+          (when (exists? file)
             (when report?
               (user-feedback "Loading {a}..." name))
             (with-jazz-readtable
@@ -196,17 +196,17 @@
                   (lambda (port)
                     (let ((version (read port)))
                       (when (and (is? version Version)
-                                 (compatible?~ version catalog-version))
+                                 (compatible? version catalog-version))
                         (table-load content-index port #t)))))))
             (update-catalog-indexes report?)
-            (setup-contexts)
-            (update-completions-index)
+            (setup-contexts self)
+            (update-completions-index self)
             (when report?
               (user-feedback "Done")))
           (set! loaded? #t)))))
   
   
-  (method protected virtual (setup-contexts)
+  (method protected virtual (setup-contexts self)
     )
   
   
@@ -215,15 +215,15 @@
   ;;;
   
   
-  (method protected virtual (save?)
+  (method package virtual (save? self)
     #t)
   
   
-  (method public (save)
+  (method public (save self)
     (define (save-content)
       (let* ((all (table-keys/values content-index))
              (sorted (sort string<? all key: car)))
-        (create-directories~ file)
+        (create-directories file)
         (call-with-output-file (path-settings file)
           (lambda (output)
             (format output "{s}{%}{%}" catalog-version)
@@ -234,18 +234,18 @@
                             (format output " (")
                             (let ((first? #t))
                               (for-each (lambda (definition)
-                                          (print-catalog~ definition first? output)
+                                          (print-catalog definition first? output)
                                           (set! first? #f))
                                         definitions))
                             (format output "){%}"))))
                       sorted)))))
     
-    (with-mutex
+    (with-mutex self
       (lambda ()
         (when modified?
           (user-feedback "Saving {a}..." name)
           (save-content)
-          (set-modified? #f)
+          (set-modified? self #f)
           (user-feedback "Done")))))
   
   
@@ -254,50 +254,50 @@
   ;;;
   
   
-  (method public (update (report?: report? #t))
-    (load-content report?: report?)
+  (method public (update self (report?: report? #t))
+    (load-content self report?: report?)
     (when report?
       (user-feedback "Updating {a}..." name))
     
-    (let ((exceptions/entries (scan report?: report?)))
+    (let ((exceptions/entries (scan self report?: report?)))
       (receive (exceptions entries) (partition-binary exceptions/entries exception?)
-        (with-mutex
+        (with-mutex self
           (lambda ()
             (when (not-null? entries)
-              (set-modified? #t)
-              (for-each update-entry entries))
-            (sweep)
-            (update-completions-index)))
+              (set-modified? self #t)
+              (for-each (~ update-entry self) entries))
+            (sweep self)
+            (update-completions-index self)))
         (when (not-null? exceptions)
           (post-event
             (lambda ()
               (for-each debug (map exception-reason exceptions))))))))
   
   
-  (method public (update-file file)
-    (load-content report?: #t)
-    (let ((exception/entry (scan-file file #f)))
+  (method public (update-file self file)
+    (load-content self report?: #t)
+    (let ((exception/entry (scan-file self file #f)))
       (when exception/entry
         (if (exception? exception/entry)
-            (let ((line (if (is? exception/entry Source-Error) (format " at line {a}" (+ (get-line~ (get-start~ exception/entry)) 1)) "")))
+            (let ((line (if (is? exception/entry Source-Error) (format " at line {a}" (+ (get-line (get-start exception/entry)) 1)) "")))
               (user-message "Error{a}: {a}" line (exception-reason exception/entry))
               (bell))
-          (with-mutex
+          (with-mutex self
             (lambda ()
-              (set-modified? #t)
-              (update-entry exception/entry)
-              (sweep)
-              (update-completions-index)))))))
+              (set-modified? self #t)
+              (update-entry self exception/entry)
+              (sweep self)
+              (update-completions-index self)))))))
   
   
-  (method (update-entry entry)
-    (let ((file (get-file~ entry)))
-      (let ((actual (%%get-file-entry file)))
+  (method (update-entry self entry)
+    (let ((file (get-file entry)))
+      (let ((actual (%%get-file-entry self file)))
         (when actual
-          (set-marked?~ actual #f)))
-      (let ((name (get-base~ file)))
-        (set-marked?~ entry #t)
-        (update-indexes~ entry definitions-index references-index)
+          (set-marked? actual #f)))
+      (let ((name (get-base file)))
+        (set-marked? entry #t)
+        (update-indexes entry definitions-index references-index)
         (table-add content-index name entry))))
   
   
@@ -306,10 +306,10 @@
   ;;;
   
   
-  (method protected virtual (iterate-files proc)
-    (iterate-directory~ directories
+  (method package virtual (iterate-files self proc)
+    (iterate-directory directories
       (lambda (file)
-        (when (scan-file? file)
+        (when (scan-file? self file)
           (proc file)))
       files?: #t
       directories?: #f
@@ -324,43 +324,43 @@
   ;; This section is entirely functional and so should not lock the catalog mutex
   
   
-  (method protected (scan (report?: report? #t))
-    (reset)
+  (method package (scan self (report?: report? #t))
+    (reset self)
     (let ((queue (new-queue)))
-      (iterate-files
+      (iterate-files self
         (lambda (file)
-          (let ((entry (scan-file file report?)))
+          (let ((entry (scan-file self file report?)))
             (when entry
               (enqueue queue entry)))))
       (queue-list queue)))
   
   
-  (method protected (scan-file? file)
-    (let ((extension (get-extension~ file))
-          (extensions (effective-catalog-extensions (get-extensions))))
+  (method protected (scan-file? self file)
+    (let ((extension (get-extension file))
+          (extensions (effective-catalog-extensions (get-extensions self))))
       (and (or (not extensions) (member? extension extensions test: extension=?))
            (get-parser-class (get-parser-dialect extension)))))
   
   
-  (method protected (scan-file file report?)
+  (method package (scan-file self file report?)
     (define (scan file digest report?)
       (when report?
         (user-feedback "Parsing {a}" file))
-      (let ((dialect (get-parser-dialect (get-extension~ file))))
-        (parse~ (get-parser dialect) file digest dialect)))
+      (let ((dialect (get-parser-dialect (get-extension file))))
+        (parse (get-parser self dialect) file digest dialect)))
     
-    (and (scan-file? file)
-         (if (exists?~ file)
-             (let ((actual-entry (get-file-entry file)))
-               (let ((actual-digest (and actual-entry (get-digest~ actual-entry))))
+    (and (scan-file? self file)
+         (if (exists? file)
+             (let ((actual-entry (get-file-entry self file)))
+               (let ((actual-digest (and actual-entry (get-digest actual-entry))))
                  (let ((updated-digest (file-digest file actual-digest)))
                    (cond ((and actual-digest (nu=? actual-digest updated-digest))
-                          (set-marked?~ actual-entry #t)
+                          (set-marked? actual-entry #t)
                           #f)
-                         ((and actual-digest (string=? (get-hash~ actual-digest) (get-hash~ updated-digest)))
-                          (set-digest~ actual-entry updated-digest)
-                          (set-modified? #t)
-                          (set-marked?~ actual-entry #t)
+                         ((and actual-digest (string=? (get-hash actual-digest) (get-hash updated-digest)))
+                          (set-digest actual-entry updated-digest)
+                          (set-modified? self #t)
+                          (set-marked? actual-entry #t)
                           #f)
                          (else
                           (with-exception-filter
@@ -370,7 +370,7 @@
                               (wrap-exception exc))
                             (lambda ()
                               (scan file updated-digest report?))))))))
-           (console-feedback "{%}Unable to catalog inexistant file: {a}" (parse~ file))
+           (console-feedback "{%}Unable to catalog inexistant file: {a}" (parse file))
            #f)))
   
   
@@ -379,10 +379,10 @@
   ;;;
   
   
-  (method (get-parser dialect)
+  (method (get-parser self dialect)
     (let ((class (get-parser-class dialect)))
       (and class
-           (new class self char-encoding: char-encoding heuristics: (get-heuristics) references?: references?))))
+           (new class self char-encoding: char-encoding heuristics: (get-heuristics self) references?: references?))))
   
   
   ;;;
@@ -390,15 +390,15 @@
   ;;;
   
   
-  (method (reset)
+  (method package (reset self)
     (iterate-table content-index
       (lambda (name definitions)
         (for-each (lambda (file-definition)
-                    (set-marked?~ file-definition #f))
+                    (set-marked? file-definition #f))
                   definitions))))
   
   
-  (method (sweep)
+  (method (sweep self)
     (define (sweep-table table marked? reset?)
       (iterate-table table
         (lambda (name definitions)
@@ -412,18 +412,18 @@
                         (set! previous list)
                         (set! list (cdr list)))
                     (when reset?
-                      (set-marked?~ definition #f))
+                      (set-marked? definition #f))
                     (set-cdr! previous (cddr previous))
                     (set! list (cdr previous))))))
             (when (not (marked? (car definitions)))
-              (set-modified? #t)
+              (set-modified? self #t)
               (let ((lst (cdr definitions)))
                 (if (null? lst)
                     (table-clear table name)
                   (table-set! table name lst))))))))
     
     (define (marked? definition)
-      (get-marked?~ (get-file-definition~ definition)))
+      (get-marked? (get-file-definition definition)))
     
     (sweep-table content-index marked? #t)
     (sweep-table definitions-index marked? #f)
@@ -435,45 +435,45 @@
   ;;;
   
   
-  (method override (get-definitions name)
-    (with-mutex
+  (method override (get-definitions self name)
+    (with-mutex self
       (lambda ()
-        (%%get-definitions name))))
+        (%%get-definitions self name))))
   
   
-  (method (%%get-definitions name)
+  (method (%%get-definitions self name)
     (table-ref definitions-index (canonicalize-name name) '()))
   
   
-  (method (search-definitions search-set)
-    (with-mutex
+  (method package (search-definitions self search-set)
+    (with-mutex self
       (lambda ()
         (let ((fact (new List-Factory)))
           (iterate-table definitions-index
             (lambda (name definitions)
               (when (regular-search (->string name) search-set)
-                (put-sequence~ fact definitions))))
-          (get-output~ fact)))))
+                (put-sequence fact definitions))))
+          (get-output fact)))))
   
   
-  (method (search-references search-set)
-    (with-mutex
+  (method package (search-references self search-set)
+    (with-mutex self
       (lambda ()
         (let ((fact (new List-Factory)))
           (iterate-table references-index
             (lambda (name references)
               (when (regular-search (->string name) search-set)
-                (put-sequence~ fact references))))
-          (remove-duplicates (get-output~ fact))))))
+                (put-sequence fact references))))
+          (remove-duplicates (get-output fact))))))
   
   
-  (method override (get-references name)
-    (with-mutex
+  (method override (get-references self name)
+    (with-mutex self
       (lambda ()
-        (%%get-references name))))
+        (%%get-references self name))))
   
   
-  (method (%%get-references name)
+  (method (%%get-references self name)
     (table-ref references-index (canonicalize-name name) '()))
   
   
@@ -486,7 +486,7 @@
   ;;;
   
   
-  (method (update-completions-index)
+  (method (update-completions-index self)
     (define (process-table table)
       (iterate-table table
         (lambda (name value)
@@ -501,7 +501,7 @@
     (process-table references-index))
   
   
-  (method override (add-completions dest target)
+  (method override (add-completions self dest target)
     (let ((len (cardinality target)))
       (when (>= len 2)
         (let ((key (substring target 0 2)))

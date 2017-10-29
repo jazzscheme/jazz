@@ -245,11 +245,11 @@
   
   
   (method override (initialize state message row column statement)
-    (set! state~self state)
-    (set! message~self message)
-    (set! row~self row)
-    (set! column~self column)
-    (set! statement~self statement))
+    (set! self.state state)
+    (set! self.message message)
+    (set! self.row row)
+    (set! self.column column)
+    (set! self.statement statement))
   
   
   (method override (print output readably)
@@ -265,7 +265,7 @@
   
   
   (method override (initialize records)
-    (set! records~self records))
+    (set! self.records records))
   
   
   (method override (print output readably)
@@ -273,15 +273,15 @@
       (lambda (output)
         (let ((record (car records))
               (more? (> 1 (length records))))
-          (format output "{?:More records, ~} {a} column {a} row {a} : {a}" more? (get-state~ record) (get-column~ record) (get-row~ record) (get-message~ record))))))
+          (format output "{?:More records, ~} {a} column {a} row {a} : {a}" more? (get-state record) (get-column record) (get-row record) (get-message record))))))
   
   
   (method (get-state)
-    (get-state~ (car records)))
+    (get-state (car records)))
   
   
   (method override (get-message)
-    (get-message~ (car records))))
+    (get-message (car records))))
 
 ;;;
 ;;;; Error Handling
@@ -305,9 +305,9 @@
     (let ((records (fetch-diagnostic-records HandleType Handle)))
       (for-each (lambda (record)
                   (debug-line "ODBC SQL Warning")
-                  (debug-line (format "Row {a}, Column {a}" (get-row~ record) (get-column~ record)))
-                  (debug-line (format "{a} - {a}" (get-state~ record) (get-message~ record)))
-                  (debug-line (get-statement~ record)))
+                  (debug-line (format "Row {a}, Column {a}" (get-row record) (get-column record)))
+                  (debug-line (format "{a} - {a}" (get-state record) (get-message record)))
+                  (debug-line (get-statement record)))
                 records))))
 
 
@@ -551,18 +551,18 @@
   
   
   (method override (initialize hstmt index name type-name datatype column-length c-type)
-    (set! index~self index)
-    (set! name~self name)
-    (set! type-name~self type-name)
-    (set! datatype~self datatype)
+    (set! self.index index)
+    (set! self.name name)
+    (set! self.type-name type-name)
+    (set! self.datatype datatype)
     (set! size-buffer (SQLLEN*-alloc 1))
-    (set! hstmt~self hstmt)
+    (set! self.hstmt hstmt)
     (let ((buffer-length (calculate-buffer-length column-length))
           (datatype-size (SQLServer-datatype-size datatype)))
       ;; For fixed length types, the size is ignored by ODBC
       (set! value-buffer-size (if datatype-size (* datatype-size buffer-length) 1))
       (set! value-buffer ((SQLServer-datatype-alloc datatype) buffer-length)))
-    (set! c-type~self c-type)
+    (set! self.c-type c-type)
     (set! datatype-size (SQLServer-datatype-size datatype))
     (set! convert (SQLServer-datatype-convert datatype))
     (set! data-append (SQLServer-datatype-append datatype)))
@@ -647,9 +647,9 @@
   
   
   (method override (initialize connection statement-text (strategy: strategy 'mixed) (timeout: timeout 60))
-    (set! strategy~self strategy)
-    (set! hstmt (SQLAllocHandleStd SQL_HANDLE_STMT (get-hdbc~ connection)))
-    (set! statement-text~self statement-text)
+    (set! self.strategy strategy)
+    (set! hstmt (SQLAllocHandleStd SQL_HANDLE_STMT (get-hdbc connection)))
+    (set! self.statement-text statement-text)
     (SQLSetStmtAttr hstmt SQL_ATTR_QUERY_TIMEOUT timeout 0))
   
   
@@ -755,11 +755,11 @@
              (let (loop (i 0))
                (let ((row (get-row)))
                  (when row
-                   (put~ rows row)
+                   (put rows row)
                    (loop (+ i 1)))))
              (clean-resultset)
              (list (vector-map get-name~ columns)
-                   (get-output~ rows))))))
+                   (get-output rows))))))
   
   
   (method (more-results)
@@ -772,10 +772,10 @@
       (let (loop)
         (let ((resultset (load-single-resultset)))
           (when resultset
-            (put~ sets resultset)))
+            (put sets resultset)))
         (if (more-results)
             (loop)
-          (get-output~ sets))))))
+          (get-output sets))))))
 )
   (else))
 )

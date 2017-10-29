@@ -50,7 +50,7 @@
   (property dsn      initialize #f     accessors generate)
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'sqlserver)
   
   
@@ -60,7 +60,7 @@
   
   
   ;; need a cache!?
-  (method override (get-provider)
+  (method override (get-provider self)
     (new SQLServer-Provider))
   
   
@@ -79,24 +79,24 @@
   ;;;
   
   
-  (method (get-driver-name)
+  (method (get-driver-name self)
     (case backend
       ((adodb) "SQL Server")
       ((odbc)  "SQL Server Native Client 10.0")))
   
   
-  (method override (get-connection-string)
+  (method override (get-connection-string self)
     (if dsn
         (format "DSN={a};" dsn)
       (format "driver=~{{a}};server={a};database={a};uid={a};pwd={a}"
-              (get-driver-name)
+              (get-driver-name self)
               server
               database
               (or username "")
               (or password ""))))
   
   
-  (method override (get-connection-properties)
+  (method override (get-connection-properties self)
     (list server:   server
           database: database
           username: username
@@ -108,7 +108,7 @@
   ;;;
   
   
-  (method override (convert-symbolic-sql symbolic-sql)
+  (method override (convert-symbolic-sql self symbolic-sql)
     (bind (operator . rest) symbolic-sql
       (case operator
         ((string-concatenate)
@@ -126,7 +126,7 @@
         ((into-temporary-table)
          (format "INTO #{a}" (car rest)))
         (else
-         (nextmethod symbolic-sql)))))
+         (nextmethod self symbolic-sql)))))
   
   
   ;;;
@@ -134,13 +134,13 @@
   ;;;
   
   
-  (method override (present)
+  (method override (present self)
     (if dsn
         (format "{a} (SQLServer)" dsn)
       (format "{a}:{a} (SQLServer)" server database)))
   
   
-  (method override (present-detailed)
+  (method override (present-detailed self)
     `(<span>
        "SQLServer Database"
        (<bulleted> ,(format "Server: {a}" server))
@@ -152,5 +152,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.database.sqlserver.descriptors:SQLServer-Data-Source-Descriptor))))

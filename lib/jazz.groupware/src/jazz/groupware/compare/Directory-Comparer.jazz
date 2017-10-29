@@ -55,59 +55,59 @@
   ;;;
   
   
-  (method override (create-item moniker)
-    (make-item moniker (get-name~ moniker) (get-modification-time~ moniker)))
+  (method override (create-item self moniker)
+    (make-item self moniker (get-name moniker) (get-modification-time moniker)))
   
   
-  (method override (get-item-type item)
-    (typecase (get-moniker~ item)
+  (method override (get-item-type self item)
+    (typecase (get-moniker item)
       ((Directory) 'node)
       ((File) 'leaf)))
   
   
-  (method override (get-item-content item kind)
-    (let* ((parent (get-moniker~ item))
-           (content (get-content~ parent nodes?: (eq? kind 'nodes) leaves?: (eq? kind 'leaves))))
+  (method override (get-item-content self item kind)
+    (let* ((parent (get-moniker item))
+           (content (get-content parent nodes?: (eq? kind 'nodes) leaves?: (eq? kind 'leaves))))
       (if (is? parent Directory-Group)
           (map (lambda (moniker index)
-                 (make-item moniker (string-append (->string kind) " " (->string index)) (get-modification-time~ moniker)))
+                 (make-item self moniker (string-append (->string kind) " " (->string index)) (get-modification-time moniker)))
                content
                (naturals 0 (length content)))
-        (map create-item content))))
+        (map (~ create-item self) content))))
   
   
-  (method override (compare-leaf-values parent leaf1 content1 leaf2 content2 ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)
-    (leaf-feedback leaf1 leaf2 feedback)
-    (let ((value1 (get-value~ leaf1))
-          (value2 (get-value~ leaf2)))
+  (method override (compare-leaf-values self parent leaf1 content1 leaf2 content2 ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)
+    (leaf-feedback self leaf1 leaf2 feedback)
+    (let ((value1 (get-value leaf1))
+          (value2 (get-value leaf2)))
       (and leaf1 leaf2
-        (cond ((different? leaf1 leaf2 check-algorithm)
+        (cond ((different? self leaf1 leaf2 check-algorithm)
                (set-car! has-differences? #t)
-               (new-entry parent 'leaf leaf1 value1 leaf2 value2))
-              ((and (not (different? leaf1 leaf2 'timestamp))
+               (new-entry self parent 'leaf leaf1 value1 leaf2 value2))
+              ((and (not (different? self leaf1 leaf2 'timestamp))
                     (or (not scanned-date)
-                        (> (time->seconds (get-value~ leaf1)) (time->seconds scanned-date))))
-               (set! scanned-date (get-value~ leaf1))
+                        (> (time->seconds (get-value leaf1)) (time->seconds scanned-date))))
+               (set! scanned-date (get-value leaf1))
                #f)
               (else
                #f)))))
     
   
-  (method override (different? leaf1 leaf2 check-algorithm)
+  (method override (different? self leaf1 leaf2 check-algorithm)
     (case (or check-algorithm 'timestamp)
-      ((timestamp) (different-times? (get-value~ leaf1) (get-value~ leaf2)))
+      ((timestamp) (different-times? (get-value leaf1) (get-value leaf2)))
       ;; Have to think if this is the right approach to first check the timestamp and just then
       ;; check the content (using this approach it is possible to use 'content on large directories...)
       ((content) (and ;; need this for git and mercurial that don't keep the dates
-                   ;; (different-times? (get-value~ leaf1) (get-value~ leaf2))
-                   (different-file-contents? (get-moniker~ leaf1) (get-moniker~ leaf2))))
-      ((whitespace) (different-file-contents-no-whitespace? (get-moniker~ leaf1) (get-moniker~ leaf2)))
+                   ;; (different-times? (get-value leaf1) (get-value leaf2))
+                   (different-file-contents? (get-moniker leaf1) (get-moniker leaf2))))
+      ((whitespace) (different-file-contents-no-whitespace? (get-moniker leaf1) (get-moniker leaf2)))
       (else
        (if (procedure? check-algorithm)
-           (and (different-times? (get-value~ leaf1) (get-value~ leaf2))
-                (check-algorithm (get-moniker~ leaf1) (get-moniker~ leaf2)))
+           (and (different-times? (get-value leaf1) (get-value leaf2))
+                (check-algorithm (get-moniker leaf1) (get-moniker leaf2)))
          (error "Invalid check-algorithm {a}" check-algorithm)))))
   
   
-  (method override (scanned-values)
+  (method override (scanned-values self)
     scanned-date)))

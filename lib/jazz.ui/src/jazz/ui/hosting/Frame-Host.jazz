@@ -54,10 +54,10 @@
   ;;;
   
   
-  (method override (conclude rest)
-    (nextmethod rest)
-    (destroy-mandatory)
-    (register-frame self))
+  (method override (conclude self rest)
+    (nextmethod self rest)
+    (destroy-mandatory self)
+    (register-active-frame self))
 
   
   ;;;
@@ -65,21 +65,21 @@
   ;;;
   
   
-  (method protected virtual (activate-frame)
-    (close-popups)
+  (method package virtual (activate-frame self)
+    (close-popups self)
     (set-active-frame self)
     (bring-frame-to-front self)
-    (for-each-docked
-      client-activate~)
-    (update-windowing-actions~ (get-application))
-    (when (get-player)
-      (simulate-mouse-move~ (get-player)))
+    (for-each-window-docked
+      client-activate)
+    (update-windowing-actions (get-application))
+    (when (get-player self)
+      (simulate-mouse-move (get-player self)))
     (when (and guest (is? guest Document))
-      (let ((controller (get-document-controller~ guest)))
-        (verify-reload~ controller delay-event?: #t))))
+      (let ((controller (get-document-controller guest)))
+        (verify-reload controller delay-event?: #t))))
 
   
-  (method protected virtual (deactivate-frame)
+  (method package virtual (deactivate-frame self)
     (set-active-frame #f))
   
 
@@ -88,14 +88,14 @@
   ;;;
   
   
-  (method protected virtual (close-host (confirm?: confirm? #t))
+  (method package virtual (close-host self (confirm?: confirm? #t))
     )
 
 
-  (method override (close-with-confirm)
-    (close-popups)
-    (confirm-close)
-    (nextmethod))
+  (method override (close-with-confirm self)
+    (close-popups self)
+    (confirm-close self)
+    (nextmethod self))
   
 
   ;;;
@@ -103,12 +103,12 @@
   ;;;
   
   
-  (method override (destroy)
-    (nextmethod)
-    (when (and remove-surrogate! (get-surrogate))
+  (method override (destroy self)
+    (nextmethod self)
+    (when (and remove-surrogate! (get-surrogate self))
       (remove-surrogate! self))
-    (unregister-frame self)
-    (update-windowing-actions~ (get-application)))
+    (unregister-active-frame self)
+    (update-windowing-actions (get-application)))
 
 
   ;;;
@@ -116,6 +116,6 @@
   ;;;
 
   
-  (method override (confirm-close . rest)
+  (method override (confirm-close self . rest)
     (when guest
-      (confirm-close~ guest)))))
+      (confirm-close guest)))))

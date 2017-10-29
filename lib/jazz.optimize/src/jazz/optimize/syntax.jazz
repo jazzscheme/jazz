@@ -74,7 +74,7 @@
 ;; !~ let let* ...
 ;; !~ if cond case ...
 ;; - (cast <fx> <fl> ...)
-;; - (get-slot~ obj)
+;; - (get-slot obj)
 ;; - (fn a b c)
 ;; ! (for (init test update) body)
 ;; ! f64vector-ref f64vector-set! ...
@@ -207,7 +207,8 @@
 (definition (emit-optimize body declaration environment backend (defoptimize? #f))
   (let ((globals '())
         (inputs '())
-        (bailout? #f))
+        (bailout? #f)
+        (bailout-expr #f))
     (define (emit-list lst env tail?)
       (cond ((null? lst)
              '())
@@ -222,7 +223,6 @@
         ((Constant) (emit-constant expr env tail?))
         ((Binding-Reference) (emit-reference expr env tail?))
         ((Call) (emit-call expr env tail?))
-        ((Dispatch-Call) (emit-dispatch-call expr env tail?))
         ((Let) (emit-let expr env tail?))
         ((Letstar) (emit-letstar expr env tail?))
         ((Body) (emit-body expr env tail?))
@@ -239,49 +239,49 @@
         (else (emit-unsupported expr))))
     
     (define (emit-constant expr env tail?)
-      (let ((value (source-code (unquote-expr (get-expansion~ expr)))))
+      (let ((value (source-code (unquote-expr (get-expansion expr)))))
         (emit-tail (cond ((eq? value #f) 0 @wait-correct-boolean '___FAL)
                          ((eq? value #t) 1 @wait-correct-boolean '___TRU)
                          (else value))
                    tail?)))
     
     (define (emit-reference expr env tail?)
-      (let ((binding (get-binding~ expr)))
+      (let ((binding (get-binding expr)))
         (cond ((is? binding Variable)
-               (let ((lisp-name (get-name~ binding)))
+               (let ((lisp-name (get-name binding)))
                  (let ((name (name->c lisp-name)))
                    (when (find-annotated binding environment)
                      (register-input (list lisp-name (find-annotated-type binding environment) name)))
                    (emit-tail name tail?))))
               ((is? binding Definition-Optimize-Declaration)
-               (if (is? (get-value~ binding) Constant)
-                   (name->c (get-name~ binding))
+               (if (is? (get-value binding) Constant)
+                   (name->c (get-name binding))
                  (bailout `(unsupported-reference ,binding))))
               ((is? binding Definition-Declaration)
-               (let ((lisp-name (get-name~ binding)))
+               (let ((lisp-name (get-name binding)))
                  (let ((name (name->c lisp-name)))
-                   (register-global/input (list (get-locator~ binding) (get-type~ binding) name))
+                   (register-global/input (list (get-locator binding) (get-type binding) name))
                    (emit-tail name tail?))))
               ((is? binding Slot-Declaration)
-               (register-input (list 'self 'category @too-much (get-parent~ binding) 'self))
+               (register-input (list 'self 'category @too-much (get-parent binding) 'self))
                (emit-slot-reference binding 'self env tail?))
               (else
                (bailout `(unsupported-reference ,binding))))))
     
     (define (emit-slot-reference binding object env tail?)
-      (let ((name (get-name~ binding)))
+      (let ((name (get-name binding)))
         (let ((c-name (string->symbol (string-append (symbol->string (name->c name)) "_offset"))))
-          (let ((offset-locator (compose-helper (get-locator~ binding) 'offset)))
+          (let ((offset-locator (compose-helper (get-locator binding) 'offset)))
             (register-global/input (list offset-locator Fixnum c-name))
-            (emit-tail (safe-lisp->c (get-type~ binding) `(vector-ref (___BODY ,object) ,c-name)) tail?)))))
+            (emit-tail (safe-lisp->c (get-type binding) `(vector-ref (___BODY ,object) ,c-name)) tail?)))))
     
     (define (emit-slot-assignment binding object value env tail?)
-      (let ((name (get-name~ binding)))
+      (let ((name (get-name binding)))
         ;; the _set is a mega quick hack around duplication problems because of no linking yet
         (let ((c-name (string->symbol (string-append (symbol->string (name->c name)) "_offset_set"))))
-          (let ((offset-locator (compose-helper (get-locator~ binding) 'offset)))
+          (let ((offset-locator (compose-helper (get-locator binding) 'offset)))
             (register-global/input (list offset-locator Fixnum c-name))
-            (emit-tail `(vector-set! (___BODY ,object) ,c-name ,(argument->lisp (get-type~ binding) value)) tail?)))))
+            (emit-tail `(vector-set! (___BODY ,object) ,c-name ,(argument->lisp (get-type binding) value)) tail?)))))
     
     (define (emit-call expr env tail?)
       (define (emit-export-call binding arguments env tail?)
@@ -293,15 +293,15 @@
                 (else
                  #f)))
         
-        (let ((symbol (get-symbol~ binding)))
+        (let ((symbol (get-symbol binding)))
           (case symbol
             ((jazz:continuation-capture)
              (let ((lambda (car arguments)))
                (if (is? lambda Lambda)
-                   `(%begin ,@(emit-body (get-body~ lambda) env tail?))
+                   `(%begin ,@(emit-body (get-body lambda) env tail?))
                  (bailout `(non-lambda-continuation-capture ,lambda)))))
             ((jazz:continuation-return)
-             (let ((name (get-name~ (get-binding~ (car arguments)))))
+             (let ((name (get-name (get-binding (car arguments)))))
                (case name
                  ((return)
                   (if (null? (cdr arguments))
@@ -316,7 +316,7 @@
             (else
              ;; quick try to generalize
              (if (eq? symbol 'vector-set!)
-                 (emit-tail `(vector-set! ,(emit (car arguments) env #f) ,(emit (cadr arguments) env #f) ,(convert (get-type~ (call-emit-expression (caddr arguments) declaration env backend)) Object (emit (caddr arguments) env #f))) tail?)
+                 (emit-tail `(vector-set! ,(emit (car arguments) env #f) ,(emit (cadr arguments) env #f) ,(convert (get-type (call-emit-expression (caddr arguments) declaration env backend)) Object (emit (caddr arguments) env #f))) tail?)
                (let ((caller (or (primitive-reference symbol)
                                  (vector-reference symbol))))
                  (if caller
@@ -328,52 +328,81 @@
                    (bailout `(export-call-not-implemented ,symbol)))))))))
       
       (define (emit-defoptimize-call binding arguments env tail?)
-        (emit-tail `(,(name->c (get-name~ binding)) ,@(emit-list arguments env #f)) tail?))
+        (emit-tail `(,(name->c (get-name binding)) ,@(emit-list arguments env #f)) tail?))
       
       (define (emit-definition-call binding arguments env tail?)
         (define (emit-inline-call binding arguments env tail?)
-          (let ((signature (get-signature~ binding))
-                (value (get-value~ binding)))
+          (let ((signature (get-signature binding))
+                (value (get-value binding)))
             (let ((bindings (map (lambda (parameter argument)
                                    (cons parameter argument))
-                                 (get-positional~ signature)
+                                 (get-positional signature)
                                  arguments))
-                  (body (get-body~ value)))
+                  (body (get-body value)))
               (emit (new Let bindings body) env tail?))))
         
         (define (emit-onsite-call binding arguments env tail?)
-          (let ((name (get-name~ binding))
-                (signature (get-signature~ binding))
-                (value (get-value~ binding)))
+          (let ((name (get-name binding))
+                (signature (get-signature binding))
+                (value (get-value binding)))
             (let ((c-name (name->c name)))
-              (register-input (list (get-locator~ binding) Procedure c-name))
+              (register-input (list (get-locator binding) Procedure c-name))
               (let ((caller (emit-caller arguments)))
                 (if #f @wait-no-onsite-call-for-now caller
-                    (emit-result (get-type~ value) `(,caller ,c-name ,@(emit-arguments arguments)))
+                    (emit-result (get-type value) `(,caller ,c-name ,@(emit-arguments arguments)))
                   (bailout `(unsupported-definition-call ,name)))))))
         
-        (let ((name (get-name~ binding)))
+        (let ((name (get-name binding)))
           (let ((primitive (primitive-reference name)))
             (if primitive
                 (emit-tail `(,primitive ,@(emit-list arguments env #f)) tail?)
-              (let ((value (get-value~ binding)))
+              (let ((value (get-value binding)))
                 (if #f @nice-try-but-doesnt-work-as-is-with-c-but-could-try-and-use-gnus-statement-expr
                     (and (is? value Lambda)
                          #f
                          @fix-me-was-working-in-c++
-                         (eq? (get-expansion~ binding) 'inline))
+                         (eq? (get-expansion binding) 'inline))
                     (emit-inline-call binding arguments env tail?)
                   (emit-onsite-call binding arguments env tail?)))))))
       
+      (define (emit-hub-call binding arguments env tail?)
+        (or (let ((name (get-name binding)))
+              (let ((object-argument (car arguments))
+                    (rest-arguments (cdr arguments)))
+                (let ((object-type (get-type (call-emit-expression object-argument declaration env backend)))
+                      (str (symbol->string name)))
+                  (cond ;; quick solution for getter
+                        ((and (starts-with? str "get-") (null? rest-arguments))
+                         (let ((slot-name (string->symbol (substring str 4 (string-length str)))))
+                           (if (is? object-type Namespace-Declaration)
+                               (let ((slot-declaration (find-declaration-child object-type slot-name)))
+                                 (if (is? slot-declaration Slot-Declaration)
+                                     (emit-slot-reference slot-declaration (emit object-argument env #f) env tail?)
+                                   #f))
+                             #f)))
+                        ;; quick solution for setter
+                        ((and (starts-with? str "set-") (not-null? rest-arguments) (null? (cdr rest-arguments)))
+                         (let ((slot-name (string->symbol (substring str 4 (string-length str)))))
+                           (if (is? object-type Namespace-Declaration)
+                               (let ((slot-declaration (find-declaration-child object-type slot-name)))
+                                 (if (is? slot-declaration Slot-Declaration)
+                                     (let ((value-argument (car rest-arguments)))
+                                       (emit-slot-assignment slot-declaration (emit object-argument env #f) (emit value-argument env #f) env tail?))
+                                   #f))
+                             #f)))
+                        (else
+                         #f)))))
+            (bailout `(todo-dispatch ,(get-name expr)))))
+      
       (define (emit-variable-call binding arguments env tail?)
-        (let ((name (get-name~ binding)))
+        (let ((name (get-name binding)))
           (let ((c-name (name->c name)))
-            (register-input (list (get-name~ binding) Procedure c-name))
+            (register-input (list (get-name binding) Procedure c-name))
             (let ((caller (emit-caller arguments)))
               (if caller
-                  (let ((type (get-type~ binding)))
+                  (let ((type (get-type binding)))
                     (if (is? type Function-Type)
-                        (emit-result (get-result~ type) `(,caller ,c-name ,@(emit-arguments arguments)))
+                        (emit-result (get-result type) `(,caller ,c-name ,@(emit-arguments arguments)))
                       (bailout `(unsupported-variable-call-return ,name ,type))))
                 (bailout `(unsupported-variable-call-arity ,name)))))))
       
@@ -385,7 +414,7 @@
       
       (define (emit-arguments arguments)
         (map (lambda (arg)
-               (let ((type (get-type~ (call-emit-expression arg declaration env backend))))
+               (let ((type (get-type (call-emit-expression arg declaration env backend))))
                  (let ((code (argument->lisp type (emit arg env #f))))
                    (or code
                        (bailout `(unsupported-argument-type ,type))))))
@@ -405,69 +434,33 @@
               (cdr pair)
             #f)))
       
-      (let ((operator (get-operator~ expr))
-            (arguments (get-arguments~ expr)))
-        (let ((binding (and (is? operator Binding-Reference) (get-binding~ operator))))
+      (let ((operator (get-operator expr))
+            (arguments (get-arguments expr)))
+        (let ((binding (and (is? operator Binding-Reference) (get-binding operator))))
           (cond ((is? binding Export-Declaration)
                  (emit-export-call binding arguments env tail?))
                 ((is? binding Definition-Optimize-Declaration)
                  (emit-defoptimize-call binding arguments env tail?))
                 ((is? binding Definition-Declaration)
                  (emit-definition-call binding arguments env tail?))
+                ((is? binding Hub-Declaration)
+                 (emit-hub-call binding arguments env tail?))
                 ((is? binding Variable)
                  (emit-variable-call binding arguments env tail?))
                 (else
                  (bailout `(unsupported-call ,operator)))))))
     
-    (define (emit-dispatch-call expr env tail?)
-      (or (let ((name (get-name~ expr))
-                (arguments (get-arguments~ expr)))
-            (let ((object-argument (car arguments))
-                  (rest-arguments (cdr arguments)))
-              (let ((object-type (get-type~ (call-emit-expression object-argument declaration env backend)))
-                    (str (symbol->string name)))
-                (cond ;; quick solution for getter
-                      ((and (starts-with? str "get-") (null? rest-arguments))
-                       (let ((slot-name (string->symbol (substring str 4 (string-length str)))))
-                         (if (is? object-type Namespace-Declaration)
-                             (let ((slot-declaration (find-declaration-child object-type slot-name)))
-                               (if (is? slot-declaration Slot-Declaration)
-                                   (emit-slot-reference slot-declaration (emit object-argument env #f) env tail?)
-                                 #f))
-                           #f)))
-                      ;; quick solution for setter
-                      ((and (starts-with? str "set-") (not-null? rest-arguments) (null? (cdr rest-arguments)))
-                       (let ((slot-name (string->symbol (substring str 4 (string-length str)))))
-                         (if (is? object-type Namespace-Declaration)
-                             (let ((slot-declaration (find-declaration-child object-type slot-name)))
-                               (if (is? slot-declaration Slot-Declaration)
-                                   (let ((value-argument (car rest-arguments)))
-                                     (emit-slot-assignment slot-declaration (emit object-argument env #f) (emit value-argument env #f) env tail?))
-                                 #f))
-                           #f)))
-                      (else
-                       #f)))))
-          (bailout `(todo-dispatch ,(get-name~ expr))))
-      @todo
-      (let ((object-argument (car (get-arguments~ expr))))
-        (let ((object-type (get-type~ (call-emit-expression object-argument declaration env backend))))
-          (let ((optimize (find-class-optimize object-type)))
-            (if (not optimize)
-                (bailout `(not-class-optimize ,(get-name~ object-type)))
-              (debug optimize)
-              (bailout `(todo ,expr)))))))
-    
     (define (emit-let expr env tail?)
       (annotate-let expr declaration env backend
         (lambda (augmented-environment)
-          (let ((bindings (get-bindings~ expr))
-                (body (get-body~ expr)))
+          (let ((bindings (get-bindings expr))
+                (body (get-body expr)))
             `(%begin
                ,@(map (lambda (binding)
                         (let ((variable (car binding))
                               (value (cdr binding)))
                           (let ((type (find-annotated-type variable augmented-environment)))
-                            `(%var ,(safe-type->c type) ,(name->c (get-name~ variable)) ,(emit value augmented-environment #f)))))
+                            `(%var ,(safe-type->c type) ,(name->c (get-name variable)) ,(emit value augmented-environment #f)))))
                       bindings)
                ,@(emit body augmented-environment tail?))))))
     
@@ -475,27 +468,27 @@
       (bailout `(todo-let*)))
     
     (define (emit-body expr env tail?)
-      (let ((expressions (get-expressions~ expr)))
+      (let ((expressions (get-expressions expr)))
         (emit-list expressions env tail?)))
     
     (define (emit-begin expr env tail?)
-      (let ((expressions (get-expressions~ expr)))
+      (let ((expressions (get-expressions expr)))
         `(%begin ,@(emit-list expressions env tail?))))
     
     (define (emit-unspecific expr env tail?)
-      (let ((expressions (get-expressions~ expr)))
+      (let ((expressions (get-expressions expr)))
         `(%begin ,@(emit-list expressions env tail?))))
     
     (define (emit-and expr env tail?)
-      `(%and ,@(emit-list (get-expressions~ expr) env tail?)))
+      `(%and ,@(emit-list (get-expressions expr) env tail?)))
     
     (define (emit-or expr env tail?)
-      `(%or ,@(emit-list (get-expressions~ expr) env tail?)))
+      `(%or ,@(emit-list (get-expressions expr) env tail?)))
     
     (define (emit-if expr env tail?)
-      (let ((test (get-test~ expr))
-            (yes (get-yes~ expr))
-            (no (get-no~ expr)))
+      (let ((test (get-test expr))
+            (yes (get-yes expr))
+            (no (get-no expr)))
         `(if ,(emit test env #f)
              ,(emit yes env tail?)
            ,@(if no
@@ -503,7 +496,7 @@
                '()))))
     
     (define (emit-cond expr env tail?)
-      `(%cond ,@(let ((clauses (get-clauses~ expr)))
+      `(%cond ,@(let ((clauses (get-clauses expr)))
                   (map (lambda (clause)
                          (bind (test arrow? . body) clause
                            `(,(if (not test) #t (emit test env #f))
@@ -514,35 +507,35 @@
                        clauses))))
     
     (define (emit-inline expr env tail?)
-      `(%inline ,(get-code~ expr)))
+      `(%inline ,(get-code expr)))
     
     (define (emit-for expr env tail?)
-      (let ((variable (get-variable~ expr)))
+      (let ((variable (get-variable expr)))
         (if (not variable)
-            (let ((body (emit-list (get-body~ expr) env #f)))
+            (let ((body (emit-list (get-body expr) env #f)))
               `(while 1
                  ,@body))
-          (let ((var (name->c (get-name~ variable)))
-                (type (get-type~ (call-emit-expression (get-init~ expr) declaration env backend))))
-            (let ((init (emit (get-init~ expr) env #f)))
+          (let ((var (name->c (get-name variable)))
+                (type (get-type (call-emit-expression (get-init expr) declaration env backend))))
+            (let ((init (emit (get-init expr) env #f)))
               (with-annotated-frame (list (new Annotated-Variable variable Fixnum Fixnum))
                 (lambda (frame)
                   (let ((augmented-environment (cons frame env)))
-                    (let ((test (emit (get-test~ expr) augmented-environment #f))
-                          (update (emit (get-update~ expr) augmented-environment #f))
-                          (body (emit-list (get-body~ expr) augmented-environment #f)))
+                    (let ((test (emit (get-test expr) augmented-environment #f))
+                          (update (emit (get-update expr) augmented-environment #f))
+                          (body (emit-list (get-body expr) augmented-environment #f)))
                       `(%begin
                          (%var ,(safe-type->c type) ,var)
                          (for (= ,var ,init) ,test ,update
                            ,@body)))))))))))
     
     (define (emit-assignment expr env tail?)
-      (let ((binding (get-binding~ expr))
-            (value (get-value~ expr)))
-        `(= ,(name->c (get-name~ binding)) ,(emit value env #f))))
+      (let ((binding (get-binding expr))
+            (value (get-value expr)))
+        `(= ,(name->c (get-name binding)) ,(emit value env #f))))
     
     (define (emit-cast expr env tail?)
-      `(%cast ,(type->c (get-type~ expr)) ,(emit (get-expression~ expr) env tail?)))
+      `(%cast ,(type->c (get-type expr)) ,(emit (get-expression expr) env tail?)))
     
     (define (emit-tail expr tail?)
       (if (and tail? (not defoptimize?))
@@ -567,6 +560,7 @@
     
     (define (bailout expr)
       (set! bailout? #t)
+      (set! bailout-expr expr)
       expr)
     
     (define (safe-type->lisp type)
@@ -596,7 +590,7 @@
                        ,@code)))
           (let ((code (c-expr/sexp expr))
                 (statements-code (emit-statements-code body declaration environment backend)))
-            (let ((return-type (get-type~ statements-code)))
+            (let ((return-type (get-type statements-code)))
               (let ((lisp-return-type (or (type->lisp return-type) 'void))
                     (lisp-types (map (lambda (input)
                                        (bind (argument type name) input
@@ -605,11 +599,13 @@
                 (when (and (or (debug-optimize?) bailout?) (not disable-optimize?))
                   (when bailout?
                     (display '***BAILOUT***)
+                    (display " ")
+                    (display bailout-expr)
                     (newline))
                   ;(pp expr) (newline)
                   (when (debug-lambda?)
                     (display "// ")
-                    (display (get-name~ declaration))
+                    (display (get-name declaration))
                     (newline)
                     (display "((")
                     (display 'c-lambda)
@@ -623,7 +619,7 @@
                   (fmt #t code) (newline))
                 (prog1
                     (if (or bailout? disable-optimize?)
-                        `(begin ,@(get-form~ statements-code))
+                        `(begin ,@(get-form statements-code))
                       `((c-lambda ,lisp-types ,lisp-return-type
                           ,(fmt #f "" code))
                         ,@(map (lambda (input)
@@ -644,13 +640,13 @@
     
     (let ((code (emit-list body environment #t)))
       (if defoptimize?
-          (values bailout? (reverse globals) code)
+          (values bailout? bailout-expr (reverse globals) code)
         (wrap code)))))
 
 
 (definition (emit-defoptimize-constant locator name type constant declaration environment backend)
   (let ((name (name->c name))
-        (value (source-code (unquote-expr (get-expansion~ constant)))))
+        (value (source-code (unquote-expr (get-expansion constant)))))
     (define (extract)
       (cond ((flonum? value)
              `(%var double ,name ,value))
@@ -669,22 +665,22 @@
               (fmt #t code) (newline))
             `(begin
                (c-declare ,(fmt #f "" code))
-               (define ,locator ,(get-form~ (call-emit-expression constant declaration environment backend)))))
+               (define ,locator ,(get-form (call-emit-expression constant declaration environment backend)))))
         (error "Unsupported optimize constant: {s}" value)))))
 
 
 (definition (emit-defoptimize-function name signature return-type body expansion declaration environment backend)
-  (receive (bailout? globals body) (emit-optimize (get-expressions~ body) declaration environment backend #t)
+  (receive (bailout? bailout-expr globals body) (emit-optimize (get-expressions body) declaration environment backend #t)
     (let ((arguments (map (lambda (parameter)
-                            (list (type->c (get-type~ parameter)) (name->c (get-name~ parameter))))
-                          (get-positional~ signature)))
+                            (list (type->c (get-type parameter)) (name->c (get-name parameter))))
+                          (get-positional signature)))
           (return-type (type->c return-type)))
       (let ((expr `(%fun ,return-type ,(name->c name) ,arguments ,@body)))
         (let ((expr (if #f @fix-me-was-working-in-c++ (eq? expansion 'inline) `(inline ,expr) expr)))
           (let ((code (c-expr/sexp expr)))
             (when (and (or (debug-optimize?) bailout?) (not disable-optimize?))
               (when bailout?
-                (debug '***BAILOUT***))
+                (debug '***BAILOUT*** bailout-expr))
               ;(pp expr) (newline)
               (for-each (lambda (global)
                           (bind (argument type name) global
@@ -890,24 +886,24 @@
 (class Definition-Optimize-Declaration extends Definition-Declaration
   
   
-  (method override (emit-declaration environment backend)
+  (method override (emit-declaration self environment backend)
     (let ((expression (emit-expression value self environment backend)))
       (cond ((is? value Constant)
-             (emit-defoptimize-constant locator name (get-type~ value) value self environment backend))
+             (emit-defoptimize-constant locator name (get-type value) value self environment backend))
             ((is? value Lambda)
-             (let ((signature (get-signature~ value))
-                   (body (get-body~ value)))
+             (let ((signature (get-signature value))
+                   (body (get-body value)))
                ;; warning for a really sneaky bug
-               (let ((expressions (get-expressions~ body)))
+               (let ((expressions (get-expressions body)))
                  (when (= (length expressions) 1)
                    (let ((expr (car expressions)))
                      (when (and (is? expr Constant)
-                                (string? (source-code (get-expansion~ expr))))
+                                (string? (source-code (get-expansion expr))))
                        (format :console "Warning: defoptimize {a} is missing an inline{%}" name)))))
                (with-annotated-frame (annotate-signature signature)
                  (lambda (frame)
                    (let ((augmented-environment (cons frame environment)))
-                     (emit-defoptimize-function name signature (get-type~ value) body expansion self augmented-environment backend))))))
+                     (emit-defoptimize-function name signature (get-type value) body expansion self augmented-environment backend))))))
             (else
              (error "Unsupported optimize: {s}" value))))))
 
@@ -937,13 +933,13 @@
   (slot body   getter generate)
   
   
-  (method override (initialize debug? body . rest)
-    (apply nextmethod rest)
-    (set! debug?~self debug?)
-    (set! body~self body))
+  (method override (initialize self debug? body . rest)
+    (apply nextmethod self rest)
+    (set! self.debug? debug?)
+    (set! self.body body))
   
   
-  (method override (emit-expression declaration environment backend)
+  (method override (emit-expression self declaration environment backend)
     (new-code
       (if debug?
           (parameterize ((debug-optimize? #t)
@@ -978,13 +974,13 @@
   (slot expansion getter generate)
   
   
-  (method override (initialize code expansion . rest)
-    (apply nextmethod rest)
-    (set! code~self code)
-    (set! expansion~self expansion))
+  (method override (initialize self code expansion . rest)
+    (apply nextmethod self rest)
+    (set! self.code code)
+    (set! self.expansion expansion))
   
   
-  (method override (emit-expression declaration environment backend)
+  (method override (emit-expression self declaration environment backend)
     (call-emit-expression expansion declaration environment backend)))
 
 
@@ -1013,17 +1009,17 @@
   (slot expansion getter generate)
   
   
-  (method override (initialize variable init test update body expansion . rest)
-    (apply nextmethod rest)
-    (set! variable~self variable)
-    (set! init~self init)
-    (set! test~self test)
-    (set! update~self update)
-    (set! body~self body)
-    (set! expansion~self expansion))
+  (method override (initialize self variable init test update body expansion . rest)
+    (apply nextmethod self rest)
+    (set! self.variable variable)
+    (set! self.init init)
+    (set! self.test test)
+    (set! self.update update)
+    (set! self.body body)
+    (set! self.expansion expansion))
   
   
-  (method override (emit-expression declaration environment backend)
+  (method override (emit-expression self declaration environment backend)
     (call-emit-expression expansion declaration environment backend)))
 
 

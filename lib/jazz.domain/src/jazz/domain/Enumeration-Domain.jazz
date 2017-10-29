@@ -40,7 +40,8 @@
 
 (import (jazz.domain)
         (jazz.jml)
-        (jazz.locale))
+        (jazz.locale)
+        (jazz.reference))
 
 
 (class Enumeration-Domain extends Domain
@@ -62,15 +63,15 @@
   ;;;
   
   
-  (method override (validate-value value (validation-context #f))
-    (or (nextmethod value validation-context)
+  (method override (validate-value self value (validation-context #f))
+    (or (nextmethod self value validation-context)
         (boolean choices-handler)
         (let ((values (map car choices)))
           (if strict?
               (unless (member? value values)
-                (add-violation "must be one of: {a}" (join (map ->string (if nullable? (cons #f values) values)) ", ")))
+                (add-violation self "must be one of: {a}" (join (map ->string (if nullable? (cons #f values) values)) ", ")))
             (when (and limit (< limit (string-length (->string value))))
-              (add-violation "{a}" (contextual-locales {Locales english: "This field can't contain more than {limit} characters" french: "Ce champ ne peut contenir plus de {limit} caractères"} (local-context limit))))))))
+              (add-violation self "{a}" (contextual-locales {Locales english: "This field can't contain more than {limit} characters" french: "Ce champ ne peut contenir plus de {limit} caractères"} (local-context limit))))))))
   
   
   ;;;
@@ -78,7 +79,7 @@
   ;;;
   
   
-  (method override (present-value value)
+  (method override (present-value self value)
     (let ((pair (assq value choices)))
       (if pair
           (cadr pair)
@@ -90,25 +91,25 @@
   ;;;
   
   
-  (method protected (collect-choices client)
+  (method protected (collect-choices self client)
     (if choices-handler
-        (let* ((choices ((resolve-reference~ choices-handler) client))
+        (let* ((choices ((reference-resolve choices-handler) client))
                (sorted-choices (sort string<=? (if nullable? (cons #f choices) choices) key: (compose ->string localize))))
           (zip sorted-choices
                (map (lambda (value)
-                      (if value (->string value) (localize (get-nil-presentation))))
+                      (if value (->string value) (localize (get-nil-presentation self))))
                     sorted-choices)))
       (let ((choices (map (lambda (pair)
                             (list (car pair) (localize (cadr pair))))
                           choices)))
         (if nullable?
-            (cons (list #f (localize (get-nil-presentation))) choices)
+            (cons (list #f (localize (get-nil-presentation self))) choices)
           choices))))
     
   
-  (method override (setup-entry view client)
-    (let ((entry (new jazz.designer:Enumeration-Entry parent: view size: (get-size~ view) domain: self)))
-      (let ((combo (locate~ entry 'combo)))
-        (set-condensed?~ combo condensed?)
-        (set-choices~ combo (collect-choices client)))
+  (method override (setup-entry self view client)
+    (let ((entry (new jazz.designer:Enumeration-Entry parent: view size: (get-size view) domain: self)))
+      (let ((combo (locate entry 'combo)))
+        (set-condensed? combo condensed?)
+        (set-choices combo (collect-choices self client)))
       entry))))

@@ -55,6 +55,7 @@
         (jazz.syntax (phase syntax))
         (jazz.ui)
         (jazz.window.autoload)
+        (jazz.window.hubs)
         (jazz.window.platform.independent))
 
 
@@ -71,12 +72,12 @@
   (make-table test: eqv?))
 
 
-(definition public inline (get-window hwnd)
+(definition public inline (registered-window hwnd)
   (let ((hwnd (if (foreign? hwnd) (foreign-address hwnd) hwnd)))
     (table-ref Windows-Table hwnd #f)))
 
 
-(definition public inline (set-window hwnd window)
+(definition public inline (register-window hwnd window)
   (table-set! Windows-Table (foreign-address hwnd) window))
 
 
@@ -89,15 +90,15 @@
 
 
 (definition package (window-parent window)
-  (let ((parent (get-parent~ window)))
+  (let ((parent (get-parent window)))
     (if parent
-        (get-handle~ parent)
+        (get-handle parent)
       #f)))
 
 
 (definition package (window-default-parent window)
   (typecase window
-    ((Popup) (get-toplevel))
+    ((Popup) (current-toplevel))
     (else #f)))
 
 
@@ -141,7 +142,7 @@
         (closable? (window-closable? window rest))
         (miniaturizable? (window-miniaturizable? window rest))
         (resizable? (window-resizable? window rest))
-        (opengl? (opengl?~ window)))
+        (opengl? (opengl? window)))
     (platformCreateWindow 600 400 mode kind "Jazz" closable? miniaturizable? resizable? opengl?)))
 
 
@@ -154,9 +155,9 @@
 
 
 (definition package (close-requested)
-  (let ((process (get-process)))
+  (let ((process (current-process)))
     (if process
-        (quit-process~ process)
+        (quit-process process)
       (quit))))
 
 
@@ -178,8 +179,8 @@
           (execute-event
             (lambda ()
               (poll-events))))
-        (let ((sleep (get-message-sleep))
-              (period (get-message-period))
+        (let ((sleep (message-sleep-get))
+              (period (message-period-get))
               (duration (- (current-seconds) time)))
           (sleep period duration)))
       (when (thread-loop? (current-thread))
@@ -202,7 +203,7 @@
 
 
 (definition package (show-maximized handle)
-  (let ((rect (get-content-rect~ (main-screen))))
+  (let ((rect (get-content-rect (main-screen))))
     (platform-set-frame-position handle (rect-position rect))
     (platform-set-frame-size handle (rect-size rect))
     (show-window handle)))
@@ -304,7 +305,7 @@
         #f
       (let ((symbolic (table-ref Symbolic-Keys key key)))
         (let ((shortcut (new Shortcut (modifiers-keys) symbolic)))
-          (dispatch-shortcut~ appl shortcut))))))
+          (dispatch-shortcut appl shortcut))))))
 
 
 (definition public (symbolic-key->code key)
@@ -320,7 +321,7 @@
 ;;;
 
 
-(set-get-window get-window)
+(set-registered-window registered-window)
 (set-translate-shortcut translate-shortcut)
 (set-debug-primordial
   (lambda (msg)
@@ -334,10 +335,10 @@
 ;;;
 
 
-(definition (get-toplevel-hwnd)
-  (let ((toplevel (get-toplevel)))
+(definition (current-toplevel-hwnd)
+  (let ((toplevel (current-toplevel)))
     (and toplevel
-         (get-handle~ toplevel))))
+         (get-handle toplevel))))
 
 
 ;;;
@@ -368,10 +369,10 @@
 
 (definition package (with-platform-painting window platform-data proc)
   (let* ((context (car platform-data))
-         (surface (new Surface (cairo_quartz_surface_create_for_cg_context context (get-width~ window) (get-height~ window)))))
+         (surface (new Surface (cairo_quartz_surface_create_for_cg_context context (get-width window) (get-height window)))))
     (unwind-protect
         (proc surface)
-      (close~ surface))))
+      (close surface))))
 
 
 (definition public (with-window-surface window proc)
@@ -379,7 +380,7 @@
   @wait
   (let* ((screen-no (XDefaultScreen x11-default-display))
          (visual    (XDefaultVisual x11-default-display screen-no)))
-    (cairo_xlib_surface_create x11-default-display (get-handle~ window) visual (get-width~ window) (get-height~ window))))
+    (cairo_xlib_surface_create x11-default-display (get-handle window) visual (get-width window) (get-height window))))
 
 
 (definition (set-alpha-blending handle n)
@@ -426,8 +427,8 @@
 
 
 (definition public (acquire-rect to-handle from-handle shape)
-  (let ((left-top (acquire-point to-handle from-handle (new Point (get-left~ shape) (get-top~ shape))))
-        (right-bottom (acquire-point to-handle from-handle (new Point (get-right~ shape) (get-bottom~ shape)))))
+  (let ((left-top (acquire-point to-handle from-handle (new Point (get-left shape) (get-top shape))))
+        (right-bottom (acquire-point to-handle from-handle (new Point (get-right shape) (get-bottom shape)))))
     (corners->rect left-top right-bottom)))
 
 
@@ -440,10 +441,10 @@
 
 
 (definition (window-pos->cartesian screen-height rect-height pos)
-  (let ((top (get-v~ pos)))
+  (let ((top (get-v pos)))
     (let ((bottom (+ top rect-height)))
       (new-NSPoint
-        (fl (get-h~ pos))
+        (fl (get-h pos))
         (- screen-height (fl bottom))))))
 
 
@@ -464,10 +465,10 @@
 
 (definition (window-rect->cartesian handle rect)
   (let ((height (platformGetWindowScreenFrameHeight handle))
-        (l (get-left~ rect))
-        (t (get-top~ rect))
-        (r (get-right~ rect))
-        (b (get-bottom~ rect)))
+        (l (get-left rect))
+        (t (get-top rect))
+        (r (get-right rect))
+        (b (get-bottom rect)))
     (new-NSRect (cast <fl> l)
                 (cast <fl> (- height b))
                 (cast <fl> (- r l))
@@ -496,8 +497,8 @@
 
 (definition package (platform-set-frame-size handle size)
   (let ((rect (platform-get-frame-rect handle)))
-    (set-right~ rect (+ (get-left~ rect) (get-width~ size)))
-    (set-bottom~ rect (+ (get-top~ rect) (get-height~ size)))
+    (set-right rect (+ (get-left rect) (get-width size)))
+    (set-bottom rect (+ (get-top rect) (get-height size)))
     (platform-set-frame-rect handle rect)))
 
 
@@ -530,8 +531,8 @@
 
 (definition package (platform-set-content-size handle size)
   (let ((rect (platform-get-content-rect handle)))
-    (set-right~ rect (+ (get-left~ rect) (get-width~ size)))
-    (set-bottom~ rect (+ (get-top~ rect) (get-height~ size)))
+    (set-right rect (+ (get-left rect) (get-width size)))
+    (set-bottom rect (+ (get-top rect) (get-height size)))
     (platform-set-content-rect handle rect)))
 
 
@@ -570,7 +571,7 @@
 
 (definition package (platform-window-from-point point)
   ;; quick hack
-  (get-toplevel-hwnd))
+  (current-toplevel-hwnd))
 
 
 (definition package (platform-move-window handle x y cx cy)
@@ -579,7 +580,7 @@
 
 (definition package (platform-enter-modal handle overlapped)
   (when overlapped
-    (mouse-leave~ (get-window overlapped))
+    (mouse-leave (registered-window overlapped))
     (platform-disable-window overlapped))
   (platformEnterModal handle))
 
@@ -596,8 +597,8 @@
 (definition package (platform-exit-modal handle overlapped)
   (when overlapped
     (platform-enable-window overlapped)
-    (mouse-enter~ (get-window overlapped))
-    (simulate-mouse-move~ (get-window overlapped)))
+    (mouse-enter (registered-window overlapped))
+    (simulate-mouse-move (registered-window overlapped)))
   (platformExitModal handle))
 
 
@@ -611,7 +612,7 @@
 
 (definition package (platform-get-client-rect handle)
   (let ((size (platform-get-content-size handle)))
-    (new Rect 0 0 (get-width~ size) (get-height~ size))))
+    (new Rect 0 0 (get-width size) (get-height size))))
 
 
 (definition package (platform-scroll-window handle delta rect clip-rect)
@@ -627,7 +628,7 @@
 
 
 (definition package (platform-invalidate-region handle region)
-  (iterate-rectangles~ region
+  (iterate-rectangles region
     (lambda (rect)
       (platform-invalidate-rect handle rect))))
 
@@ -651,7 +652,7 @@
 
 
 (definition package (platform-redraw-view-only view handle)
-  (let ((rct (acquire~ (get-root~ view) view (get-bounds~ view))))
+  (let ((rct (acquire (get-root view) view (get-bounds view))))
     (platform-invalidate-rect handle rct)))
 
 
@@ -659,7 +660,7 @@
   @wait
   (when handle
     (let* ((size (platform-get-content-size handle))
-           (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
+           (rct (new Rect 0 0 (get-width size) (get-height size))))
       (platform-invalidate-rect handle rct))))
 
 
@@ -706,7 +707,7 @@
 
 
 (definition package (platform-mouse-copy-down? evt)
-  (or (get-alt?~ evt) (get-meta?~ evt)))
+  (or (get-alt? evt) (get-meta? evt)))
 
 
 ;;;
@@ -748,7 +749,7 @@
     (if (number? id/resource)
         (platformGetSystemCursor id/resource)
       (bind (resource . hotspot) id/resource
-        (let ((path (parse~ (get-resource~ (get-application) 'cursor (get-name~ resource)))))
+        (let ((path (parse (get-resource (get-application) 'cursor (get-name resource)))))
           (with-NSPoint hotspot
             (lambda (pos)
               (platformMakeCursor path pos)))))))
@@ -802,7 +803,7 @@
 (definition package (platform-create-desktop)
   (let ((screen (primary-screen))
         (desktop (new Desktop)))
-    (platform-set-frame-rect (get-handle~ desktop) (get-frame-rect~ screen))
+    (platform-set-frame-rect (get-handle desktop) (get-frame-rect screen))
     desktop))
 
 
@@ -820,9 +821,9 @@
     (map (lambda (id)
            (let ((filename (id->string id)))
              (let ((pathname (new (case (pathname-type filename) ((directory) Directory) (else File)) (tokenise-filename filename))))
-               (anchorize~ pathname))))
+               (anchorize pathname))))
          (nsarray->list filenames)))
   
   (let ((pos {Point 0 0}) ;; quicky
         (files (received-files)))
-    (receive-files~ window pos files))))
+    (receive-files window pos files))))

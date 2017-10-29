@@ -39,6 +39,9 @@
 
 
 (import (jazz.action)
+        (jazz.console)
+        (jazz.event)
+        (jazz.exemplar)
         (jazz.ide)
         (jazz.jml)
         (jazz.locale)
@@ -60,37 +63,37 @@
   (slot partial-line   initialize #f)
 
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'console-text)
 
 
-  (method override (default-tool?)
+  (method override (default-tool? self)
     #t)
 
 
-  (method override (default-console?)
+  (method override (default-console? self)
     #t)
   
   
-  (method override (new-model)
+  (method override (new-model self)
     (new Text-Model base-style: {Text-Style Code-Base} wrap?: #t left-padding: 2))
 
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set-propagate-styles?~ model #f)
-    (set-colorize?~ syntax #f)
-    (let ((pref (preferences)))
-      (add-style 'Banner  (get-banner-style~ pref))
-      (add-style 'Prompt  (get-prompt-style~ pref))
-      (add-style 'Entry   (get-entry-style~ pref))
-      (add-style 'Input   (get-input-style~ pref))
-      (add-style 'Output  (get-output-style~ pref))
-      (add-style 'Comment (get-comment-style~ pref))))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (set-propagate-styles? model #f)
+    (set-colorize? syntax #f)
+    (let ((pref (preferences self)))
+      (add-style self 'Banner  (get-banner-style pref))
+      (add-style self 'Prompt  (get-prompt-style pref))
+      (add-style self 'Entry   (get-entry-style pref))
+      (add-style self 'Input   (get-input-style pref))
+      (add-style self 'Output  (get-output-style pref))
+      (add-style self 'Comment (get-comment-style pref))))
 
   
-  (method override (preferences)
-    (get-preferences '(documents console-text)))
+  (method override (preferences self)
+    (current-preferences '(documents console-text)))
 
 
   ;;;
@@ -98,11 +101,11 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Console"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Console")
 
   
@@ -111,8 +114,8 @@
   ;;;
   
   
-  (method (get-console)
-    (get-parent~ (get-parent)))
+  (method package (get-console self)
+    (get-parent (get-parent self)))
 
 
   ;;;
@@ -120,9 +123,9 @@
   ;;;
   
 
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'console-text)
-          (nextmethod)))
+          (nextmethod self)))
 
 
   ;;;
@@ -130,65 +133,65 @@
   ;;;
   
   
-  (method (on-fresh-prompt evt)
-    (fresh-prompt))
+  (method (on-fresh-prompt self evt)
+    (fresh-prompt self))
   
   
-  (method (on-console-evaluate evt)
-    (let ((block (block-at (get-end))))
+  (method (on-console-evaluate self evt)
+    (let ((block (block-at self (get-end self))))
       (cond ((empty-block? block)
-             (set-caret (text-ending)))
-            ((nu=? block (last-block))
-             (console-evaluate))
+             (set-caret self (text-ending self)))
+            ((nu=? block (last-block self))
+             (console-evaluate self))
             (else
-             (set-caret (text-ending))
-             (insert-string (remove-enclosing #\newline (get-string block)))))))
+             (set-caret self (text-ending self))
+             (insert-string self (remove-enclosing #\newline (get-string self block)))))))
   
   
-  (method (on-insert-previous evt)
-    (insert-previous-block))
+  (method (on-insert-previous self evt)
+    (insert-previous-block self))
   
   
-  (method (on-insert-next evt)
-    (insert-next-block))
+  (method (on-insert-next self evt)
+    (insert-next-block self))
 
 
-  (method override (tab-press evt)
-    (cond ((has-completion?)
-           (end-completion))
-          ((not (get-auto-complete?~ (preferences)))
-           (complete-at (get-start) auto-complete?: #t))
-          ((get-shift?~ evt)
-           (insert-next-block))
+  (method override (tab-press self evt)
+    (cond ((has-completion? self)
+           (end-completion self))
+          ((not (get-auto-complete? (preferences self)))
+           (complete-at self (get-start self) auto-complete?: #t))
+          ((get-shift? evt)
+           (insert-next-block self))
           (else
-           (insert-previous-block))))
+           (insert-previous-block self))))
   
   
-  (method override (delete-char)
+  (method override (delete-char self)
     (define (send-end-of-file)
       (close-port console-port))
     
-    (if (at-end?)
+    (if (at-end? self)
         (send-end-of-file)
-      (nextmethod)))
+      (nextmethod self)))
   
   
-  (method override (scrollee-width)
-    (get-display-width))
+  (method override (scrollee-width self)
+    (get-display-width self))
 
 
-  (method override (context-menu evt)
-    (let ((pos (get-position~ evt)))
-      (receive (shift? control? alt? meta?) (get-down~ evt)
+  (method override (context-menu self evt)
+    (let ((pos (get-position evt)))
+      (receive (shift? control? alt? meta?) (get-down evt)
         (if (and (not control?) (not shift?) (not alt?))
             (begin
-              (context-menu-click pos)
-              (track-popup-menu (new Console-Menu) pos))
-          (nextmethod evt)))))
+              (context-menu-click self pos)
+              (track-popup-menu self (new Console-Menu) pos))
+          (nextmethod self evt)))))
   
   
-  (method override (set-selection range . rest)
-    (apply nextmethod range rest)
+  (method override (set-selection self range . rest)
+    (apply nextmethod self range rest)
     (set! inserted-where #f))
 
 
@@ -197,26 +200,26 @@
   ;;;
   
   
-  (method (console-evaluate)
-    (set-caret (text-ending))
-    (eval-from-prompt))
+  (method (console-evaluate self)
+    (set-caret self (text-ending self))
+    (eval-from-prompt self))
 
   
-  (method protected virtual (eval-from-prompt)
-    (insert-newline)
-    (let ((range (current-command)))
-      (let ((command (get-string range)))
+  (method protected virtual (eval-from-prompt self)
+    (insert-newline self)
+    (let ((range (current-command self)))
+      (let ((command (get-string self range)))
         (unless (empty-string? command)
           (display command console-port)
           (force-output console-port)
-          (stylize-range~ model range (locate-style 'Input))
-          (reset-inserted)))))
+          (stylize-range model range (locate-style self 'Input))
+          (reset-inserted self)))))
   
   
-  (method (current-command)
-    (select-style (text-ending)
+  (method (current-command self)
+    (select-style self (text-ending self)
       (lambda (style)
-        (inherits?~ style 'Entry))))
+        (inherits? style 'Entry))))
 
 
   ;;;
@@ -224,16 +227,16 @@
   ;;;
 
 
-  (method override (get-modified?)
+  (method override (get-modified? self)
     #f)
   
   
-  (method override (get-tooltip-context pos)
+  (method override (get-tooltip-context self pos)
     #f)
   
   
-  (method override (home-column row col)
-    (let ((str (paragraph-string row)))
+  (method override (home-column self row col)
+    (let ((str (paragraph-string self row)))
       (let ((pos (find str #\>)))
         (if pos
             (let ((end (+ pos 2)))
@@ -251,9 +254,9 @@
   ;;;
   
   
-  (method override (insert-formatted-line line)
+  (method override (insert-formatted-line self line)
     (let ((line (if partial-line (string-append partial-line line) line)))
-      (nextmethod
+      (nextmethod self
         (call-with-input-string line
           (lambda (input)
             (let (iterate (pos 0)
@@ -281,7 +284,7 @@
   ;;;
   
   
-  (method override (current-history-item)
+  (method override (current-history-item self)
     #f)
   
 
@@ -290,24 +293,24 @@
   ;;;
 
   
-  (method override (process-formatted-directive directive input)
+  (method override (process-formatted-directive self directive input)
     (case directive
       ((banner)
-       (with-formatted-range input
+       (with-formatted-range self input
          (lambda (range)
-           (stylize-range~ model range (locate-style 'Banner))
-           (set! banner (get-string range)))))
+           (stylize-range model range (locate-style self 'Banner))
+           (set! banner (get-string self range)))))
       ((banner-prompt)
-       (with-formatted-range input
+       (with-formatted-range self input
          (lambda (range)
-           (stylize-range~ model range (locate-style 'Prompt))
-           (set! banner-prompt (get-string range)))))
+           (stylize-range model range (locate-style self 'Prompt))
+           (set! banner-prompt (get-string self range)))))
       ((prompt)
-       (with-formatted-range input
+       (with-formatted-range self input
          (lambda (range)
-           (stylize-range~ model range (locate-style 'Prompt)))))
+           (stylize-range model range (locate-style self 'Prompt)))))
       (else
-       (nextmethod directive input))))
+       (nextmethod self directive input))))
 
 
   ;;;
@@ -315,22 +318,22 @@
   ;;;
   
   
-  (method protected (backward-style pos predicate)
-    (let ((explorer (new (explorer-class) model start: pos end: pos)))
-      (backward-style~ explorer predicate)
-      (get-range~ explorer)))
+  (method package (backward-style self pos predicate)
+    (let ((explorer (new (explorer-class self) model start: pos end: pos)))
+      (backward-style explorer predicate)
+      (get-range explorer)))
   
   
-  (method protected (forward-style pos predicate)
-    (let ((explorer (new (explorer-class) model start: pos end: pos)))
-      (forward-style~ explorer predicate)
-      (get-range~ explorer)))
+  (method package (forward-style self pos predicate)
+    (let ((explorer (new (explorer-class self) model start: pos end: pos)))
+      (forward-style explorer predicate)
+      (get-range explorer)))
   
   
-  (method protected (select-style pos predicate)
-    (let ((explorer (new (explorer-class) model start: pos end: pos)))
-      (select-style~ explorer predicate)
-      (get-range~ explorer)))
+  (method package (select-style self pos predicate)
+    (let ((explorer (new (explorer-class self) model start: pos end: pos)))
+      (select-style explorer predicate)
+      (get-range explorer)))
     
 
   ;;;
@@ -338,26 +341,26 @@
   ;;;
 
   
-  (method public virtual (display-banner banner)
+  (method public virtual (display-banner self banner)
     (when banner
-      (insert-styled banner 'Banner)))
+      (insert-styled self banner 'Banner)))
   
   
-  (method public virtual (determine-banner)
-    (let ((range (forward-style (text-beginning) (lambda (style)
-                                                   (or (inherits?~ style 'Banner)
-                                                       (inherits?~ style 'Prompt)
-                                                       (inherits?~ style 'Output))))))
+  (method public virtual (determine-banner self)
+    (let ((range (forward-style self (text-beginning self) (lambda (style)
+                                                   (or (inherits? style 'Banner)
+                                                       (inherits? style 'Prompt)
+                                                       (inherits? style 'Output))))))
       (when range
-        (get-string range))))
+        (get-string self range))))
   
   
-  (method public (clear-console)
-    (clear-all)
+  (method public (clear-console self)
+    (clear-all self)
     (when banner
-      (display-banner banner)
+      (display-banner self banner)
       (when banner-prompt
-        (insert-styled banner-prompt 'Prompt))))
+        (insert-styled self banner-prompt 'Prompt))))
 
 
   ;;;
@@ -365,16 +368,16 @@
   ;;;
   
   
-  (method public (fresh-prompt)
-    (stylize-range~ model (block-at (get-end)) (locate-style 'Comment))
-    (let ((end (text-ending)))
-      (set-caret end)
-      (let ((prompt-range (last-prompt)))
-        (when (and prompt-range (nu/=? (get-end~ prompt-range) end))
-          (let ((prompt (get-string prompt-range)))
-            (when (/= (get-col~ end) 0)
-              (insert-newline)
-              (insert-styled prompt 'Prompt)))))))
+  (method public (fresh-prompt self)
+    (stylize-range model (block-at self (get-end self)) (locate-style self 'Comment))
+    (let ((end (text-ending self)))
+      (set-caret self end)
+      (let ((prompt-range (last-prompt self)))
+        (when (and prompt-range (nu/=? (get-end prompt-range) end))
+          (let ((prompt (get-string self prompt-range)))
+            (when (/= (get-col end) 0)
+              (insert-newline self)
+              (insert-styled self prompt 'Prompt)))))))
   
   
   ;;;
@@ -382,100 +385,100 @@
   ;;;
   
   
-  (method (reset-inserted)
+  (method (reset-inserted self)
     (set! inserted-rank #f)
     (set! inserted-where #f))
   
   
   (definition (text-style? style)
-    (or (inherits?~ style 'Banner)
-        (inherits?~ style 'Prompt)
-        (inherits?~ style 'Output)))
+    (or (inherits? style 'Banner)
+        (inherits? style 'Prompt)
+        (inherits? style 'Output)))
   
   
   (definition (user-style? style)
     (not (text-style? style)))
   
   
-  (method (block-at pos)
-    (new-range
-      (get-start~ (backward-style pos user-style?))
-      (get-end~ (forward-style pos user-style?))))
+  (method package (block-at self pos)
+    (new-range self
+      (get-start (backward-style self pos user-style?))
+      (get-end (forward-style self pos user-style?))))
   
   
-  (method (next-block block)
-    (let* ((next-start (get-end~ (forward-style (get-end~ block) text-style?)))
-           (next-end (get-end~ (forward-style next-start user-style?))))
-      (new-range next-start next-end)))
+  (method (next-block self block)
+    (let* ((next-start (get-end (forward-style self (get-end block) text-style?)))
+           (next-end (get-end (forward-style self next-start user-style?))))
+      (new-range self next-start next-end)))
   
   
-  (method (previous-block block)
-    (let* ((previous-end (get-start~ (backward-style (get-start~ block) text-style?)))
-           (previous-start (get-start~ (backward-style previous-end user-style?))))
-      (new-range previous-start previous-end)))
+  (method (previous-block self block)
+    (let* ((previous-end (get-start (backward-style self (get-start block) text-style?)))
+           (previous-start (get-start (backward-style self previous-end user-style?))))
+      (new-range self previous-start previous-end)))
   
   
-  (method (last-block)
-    (let ((ending (text-ending)))
-      (backward-style ending user-style?)))
+  (method package (last-block self)
+    (let ((ending (text-ending self)))
+      (backward-style self ending user-style?)))
   
   
-  (method (last-prompt)
+  (method (last-prompt self)
     (define (prompt-style? style)
-      (inherits?~ style 'Prompt))
+      (inherits? style 'Prompt))
     
     (define (prompt range)
-      (if (empty?~ range)
+      (if (empty? range)
           #f
-        (let ((start (get-start~ range))
-              (end (get-end~ range)))
-          (if (= (get-line~ start)
-                 (get-line~ end))
+        (let ((start (get-start range))
+              (end (get-end range)))
+          (if (= (get-line start)
+                 (get-line end))
               range
-            (new Range$Cell$ (new Cell (get-line~ end) 0) end)))))
+            (new Range$Cell$ (new Cell (get-line end) 0) end)))))
     
-    (let ((ending (text-ending)))
-      (let ((range (backward-style ending (lambda (style) (not (prompt-style? style))))))
-        (prompt (backward-style (get-start~ range) (lambda (style) (prompt-style? style)))))))
+    (let ((ending (text-ending self)))
+      (let ((range (backward-style self ending (lambda (style) (not (prompt-style? style))))))
+        (prompt (backward-style self (get-start range) (lambda (style) (prompt-style? style)))))))
   
   
-  (method (find-block rank)
-    (let (iterate (block (last-block)) (n rank))
+  (method (find-block self rank)
+    (let (iterate (block (last-block self)) (n rank))
       (if (<= n 0)
           block
-        (iterate (previous-block block) (- n 1)))))
+        (iterate (previous-block self block) (- n 1)))))
   
   
   (definition (empty-block? block)
-    (nu=? (get-start~ block)
-          (get-end~ block)))
+    (nu=? (get-start block)
+          (get-end block)))
 
   
-  (method (insert-previous-block)
+  (method (insert-previous-block self)
     (let* ((current (or inserted-rank 0))
            (previous (+ current 1))
-           (block (find-block previous)))
+           (block (find-block self previous)))
       (unless (empty-block? block)
         (when inserted-where
-          (set-selection inserted-where))
-        (let ((start (get-start)))
-          (insert-string (remove-enclosing #\newline (get-string block)))
+          (set-selection self inserted-where))
+        (let ((start (get-start self)))
+          (insert-string self (remove-enclosing #\newline (get-string self block)))
           (set! inserted-rank previous)
-          (set! inserted-where (new-range start (get-start)))))))
+          (set! inserted-where (new-range self start (get-start self)))))))
 
   
-  (method (insert-next-block)
+  (method (insert-next-block self)
     (let* ((current (or inserted-rank 0))
            (next (- current 1)))
       (when (> next 0)
-        (let ((block (find-block next)))
+        (let ((block (find-block self next)))
           (unless (empty-block? block)
             (when inserted-where
-              (set-selection inserted-where))
-            (let ((start (get-start)))
-              (insert-string (remove-enclosing #\newline (get-string (find-block next))))
+              (set-selection self inserted-where))
+            (let ((start (get-start self)))
+              (insert-string self (remove-enclosing #\newline (get-string self (find-block self next))))
               (set! inserted-rank next)
-              (set! inserted-where (new-range start (get-start))))))))))
+              (set! inserted-where (new-range self start (get-start self))))))))))
 
 
 ;;;

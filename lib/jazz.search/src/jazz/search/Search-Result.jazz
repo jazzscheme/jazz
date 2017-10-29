@@ -39,8 +39,12 @@
 
 
 (import (jazz.application)
+        (jazz.recorder)
         (jazz.search)
-        (irregex))
+        (irregex)
+        (jazz.text)
+        (jazz.ui)
+        (jazz.view))
 
 
 (class Search-Result extends Object
@@ -52,12 +56,12 @@
   (slot ending    accessors generate)
   
   
-  (method override (initialize resultset (beginning: beginning #f) (ending: ending #f))
-    (nextmethod)
-    (set! resultset~self resultset)
-    (set! search~self (get-search~ resultset))
-    (set! beginning~self beginning)
-    (set! ending~self ending))
+  (method override (initialize self resultset (beginning: beginning #f) (ending: ending #f))
+    (nextmethod self)
+    (set! self.resultset resultset)
+    (set! self.search (get-search resultset))
+    (set! self.beginning beginning)
+    (set! self.ending ending))
   
   
   ;;;
@@ -65,23 +69,23 @@
   ;;;
   
   
-  (method protected virtual (get-icon)
-    (get-icon~ search))
+  (method package virtual (get-icon self)
+    (get-icon search))
   
   
-  (method protected virtual (present)
-    (present~ search))
+  (method package virtual (present self)
+    (present search))
   
   
-  (method protected virtual (present-name)
+  (method package virtual (present-name self)
     )
   
   
-  (method protected virtual (present-location)
+  (method package virtual (present-location self)
     )
   
   
-  (method protected virtual (present-type)
+  (method package virtual (present-type self)
     )
     
   
@@ -90,8 +94,8 @@
   ;;;
   
   
-  (method protected virtual (location-sort-value)
-    (present-location))
+  (method package virtual (location-sort-value self)
+    (present-location self))
 
   
   ;;;
@@ -99,11 +103,11 @@
   ;;;
   
   
-  (method protected virtual (edit select (visible?: visible? #t) (activate-focus?: activate-focus? #t))
+  (method package virtual (edit self select (visible?: visible? #t) (activate-focus?: activate-focus? #t))
     #f)
   
   
-  (method protected virtual (drill-down)
+  (method package virtual (drill-down self)
     )
   
   
@@ -112,11 +116,11 @@
   ;;;
   
   
-  (method public virtual (effective-client)
-    (let ((info (edit #f visible?: #f activate-focus?: #f)))
+  (method public virtual (effective-client self)
+    (let ((info (edit self #f visible?: #f activate-focus?: #f)))
       (and info
            (receive (frame new?) info
-             (get-text-view~ (get-guest~ frame))))))
+             (get-text-view (get-guest frame))))))
   
   
   ;;;
@@ -124,7 +128,7 @@
   ;;;
   
   
-  (method public (get-boundaries)
+  (method public (get-boundaries self)
     (and beginning ending
       (new Range$Cell$ beginning ending)))
   
@@ -134,53 +138,53 @@
   ;;;
   
   
-  (method protected (find-forward (client: client #f) (follow?: follow? #t))
-    (let ((client (or client (effective-client))))
-      (if (and client (find-next client))
+  (method package (find-forward self (client: client #f) (follow?: follow? #t))
+    (let ((client (or client (effective-client self))))
+      (if (and client (find-next self client))
           #t
         (and follow?
-             (follow-forward)))))
+             (follow-forward self)))))
   
   
-  (method protected (find-backward (client: client #f) (follow?: follow? #t))
-    (let ((client (or client (effective-client))))
-      (if (and client (find-previous client))
+  (method package (find-backward self (client: client #f) (follow?: follow? #t))
+    (let ((client (or client (effective-client self))))
+      (if (and client (find-previous self client))
           #t
         (and follow?
-             (follow-backward)))))
+             (follow-backward self)))))
   
   
-  (method protected (find-next client)
-    (select-next~ client (get-find~ search) end: ending))
+  (method protected (find-next self client)
+    (select-next client (get-find search) end: ending))
   
   
-  (method protected (find-previous client)
-    (select-previous~ client (get-find~ search) end: beginning))
+  (method protected (find-previous self client)
+    (select-previous client (get-find search) end: beginning))
   
   
-  (method protected (follow-forward)
-    (let ((results (get-results)))
-      (and (same-search? results)
-           (edit-next~ results))))
+  (method package (follow-forward self)
+    (let ((results (get-results self)))
+      (and (same-search? self results)
+           (edit-next results))))
   
   
-  (method protected (follow-backward)
-    (let ((results (get-results)))
-      (and (same-search? results)
-           (edit-previous~ results))))
+  (method package (follow-backward self)
+    (let ((results (get-results self)))
+      (and (same-search? self results)
+           (edit-previous results))))
   
   
-  (method protected virtual (install-indicators beginning-indicator ending-indicator)
-    (reset~ beginning-indicator)
-    (reset~ ending-indicator))
+  (method package virtual (install-indicators self beginning-indicator ending-indicator)
+    (reset beginning-indicator)
+    (reset ending-indicator))
   
   
-  (method protected (get-results)
+  (method package (get-results self)
     (get-search-results))
   
   
-  (method protected (same-search? results)
-    (eq? (get-current-resultset~ results) resultset))
+  (method protected (same-search? self results)
+    (eq? (get-current-resultset results) resultset))
   
   
   ;;;
@@ -188,15 +192,15 @@
   ;;;
   
   
-  (method protected (replace-selection (client: client #f))
-    (let ((find (get-find~ search))
-          (replace (get-replace~ search))
-          (expression? (get-expression?~ search)))
-      (let ((find-list (get-contexts~ find))
-            (repl-list (get-replace-list~ replace))
-            (preserve-case? (get-preserve-case?~ replace))
-            (play-recording? (get-play-recording?~ replace))
-            (client (or client (effective-client))))
+  (method package (replace-selection self (client: client #f))
+    (let ((find (get-find search))
+          (replace (get-replace search))
+          (expression? (get-expression? search)))
+      (let ((find-list (get-contexts find))
+            (repl-list (get-replace-list replace))
+            (preserve-case? (get-preserve-case? replace))
+            (play-recording? (get-play-recording? replace))
+            (client (or client (effective-client self))))
         (define (determine-case str)
           (if (or (empty-string? str) (lower-case? (element str 0)))
               'lower-case
@@ -215,7 +219,7 @@
                (pair? repl-list)
                (let ((m (irregex-match (search-context-regexp (car find-list)) str)))
                  (if m
-                     (if (get-regexp?~ (car find-list))
+                     (if (get-regexp? (car find-list))
                          (expand-replacement str m (car repl-list))
                        (car repl-list))
                    (get-replacement str (cdr find-list) (cdr repl-list))))))
@@ -237,26 +241,26 @@
                            (collect))))
                     (else (lp from (+ i 1) res))))))
         
-        (let* ((str (get-selected-string~ client))
+        (let* ((str (get-selected-string client))
                (repl (and str repl-list (if expression? (car repl-list) (get-replacement str find-list repl-list)))))
           (if (not play-recording?)
               (and repl
                    (begin
-                     (insert-string~ client (if preserve-case? (convert-case repl (determine-case str)) repl))
+                     (insert-string client (if preserve-case? (convert-case repl (determine-case str)) repl))
                      #t))
             ;; temp... should not be necessary. play-recording should be
             ;; made to work even if the window doesn't have the focus.
-            (acquire-focus~ client)
-            (play-current-recording~ (get-recorder~ (get-application)))
+            (acquire-focus client)
+            (play-current-recording (get-recorder (get-application)))
             #t)))))
   
   
-  (method protected (replace-selection&find-forward (client: client #f) (follow?: follow? #t))
-    (replace-selection client: client)
-    (find-forward client: client follow?: follow?))
+  (method package (replace-selection&find-forward self (client: client #f) (follow?: follow? #t))
+    (replace-selection self client: client)
+    (find-forward self client: client follow?: follow?))
   
   
-  (method protected (replace-all (client: client #f))
-    (replace-selection client: client)
-    (while (find-forward client: client follow?: #f)
-      (replace-selection client: client)))))
+  (method package (replace-all self (client: client #f))
+    (replace-selection self client: client)
+    (while (find-forward self client: client follow?: #f)
+      (replace-selection self client: client)))))

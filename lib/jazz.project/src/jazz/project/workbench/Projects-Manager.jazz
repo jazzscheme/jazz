@@ -43,7 +43,9 @@
         (jazz.descriptor)
         (jazz.event)
         (jazz.handler)
+        (jazz.ide)
         (jazz.jml)
+        (jazz.outline)
         (jazz.project)
         (jazz.resource)
         (jazz.tree)
@@ -72,7 +74,7 @@
                   (<Tree-Label-Column> name: statistics      title: "Statistics" width: 350)))))))))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'projects-manager)
   
   
@@ -81,8 +83,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'projects))
+  (method package (get-tree self)
+    (locate self 'projects))
   
   
   ;;;
@@ -90,11 +92,11 @@
   ;;;
 
   
-  (method override (finish initargs)
-    (nextmethod initargs)
-    (set-hierarchical? hierarchical?)
-    (view-projects)
-    (update-buttons))
+  (method override (finish self initargs)
+    (nextmethod self initargs)
+    (set-hierarchical? self hierarchical?)
+    (view-projects self)
+    (update-buttons self))
     
   
   ;;;
@@ -102,28 +104,28 @@
   ;;;
     
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Catalog"})
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Projects Manager")
   
   
-  (method meta override (host-position)
+  (method meta override (host-position self)
     {Point 90 70})
   
   
-  (method meta override (host-size)
+  (method meta override (host-size self)
     {Dimension 850 550})
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(home))
   
   
-  (method override (focus-default)
-    (acquire-focus~ (get-tree)))
+  (method override (focus-default self)
+    (acquire-focus (get-tree self)))
   
   
   ;;;
@@ -131,26 +133,26 @@
   ;;;
 
 
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (move-figure~ (locate 'update) dh 0)
-    (size-figure~ (locate 'projects-border) dh dv))
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (move-figure (locate self 'update) dh 0)
+    (size-figure (locate self 'projects-border) dh dv))
   
   
-  (method (on-flat/hierarchical evt)
-    (set-hierarchical? (not hierarchical?))
-    (view-projects))
+  (method (on-flat/hierarchical self evt)
+    (set-hierarchical? self (not hierarchical?))
+    (view-projects self))
   
   
-  (method (set-hierarchical? flag)
+  (method (set-hierarchical? self flag)
     (set! hierarchical? flag)
-    (let ((node-column (get-node-column~ (get-tree))))
-      (set-toplevel-controls?~ (get-node-column~ (get-tree)) flag)
-      (set-display-images?~ node-column flag)))
+    (let ((node-column (get-node-column (get-tree self))))
+      (set-toplevel-controls? (get-node-column (get-tree self)) flag)
+      (set-display-images? node-column flag)))
   
   
-  (method (on-selection-change evt)
-    (update-buttons))
+  (method package (on-selection-change self evt)
+    (update-buttons self))
   
   
   ;;;
@@ -158,107 +160,107 @@
   ;;;
 
 
-  (method public (view-projects)
+  (method public (view-projects self)
     (define (insert-workbench tree)
       (insert-project tree #f (get-workbench) 0))
     
     (define (insert-project tree row project level)
-      (let ((catalog (get-catalog~ project)))
+      (let ((catalog (get-catalog project)))
         (let ((state (if (= level 0) 'expanded 'collapsed))
-              (c0 (new Check-Box title: (get-presentation-property project) checked?: (get-active?~ project)))
-              (c1 (new Tree-Label title: (if catalog (get-statistics~ catalog) ""))))
-          (let ((row (add-row~ tree father: row state: state children: (list c0 c1) user-data: project)))
+              (c0 (new Check-Box title: (get-presentation-property project) checked?: (get-active? project)))
+              (c1 (new Tree-Label title: (if catalog (get-statistics catalog) ""))))
+          (let ((row (add-row tree father: row state: state children: (list c0 c1) user-data: project)))
             (define (content-change evt)
-              (set-active? tree row project (get-checked?~ (get-sender~ evt))))
+              (set-active? tree row project (get-checked? (get-sender evt))))
             
-            (set-content-change-handler~ c0 (new Event-Handler execute: content-change))
+            (set-content-change-handler c0 (new Event-Handler execute: content-change))
             (insert-children tree row project (+ level 1))))))
     
     (define (insert-children tree row component level)
       (for-each (lambda (child)
                   (cond ((and (is? child Project)
-                              (has-content?~ child))
+                              (has-content? child))
                          (insert-project tree row child level))
                         ((and (is? child Project-Group)
                               (is-not? child Project-Directory))
-                         (let ((row (add-row~ tree father: row state: 'expanded children: (list (new Tree-Node title: (->string (catalog-name~ child)) image: {Image-Resource "OpenedFolder"}) (new Tree-Label title: "")))))
+                         (let ((row (add-row tree father: row state: 'expanded children: (list (new Tree-Node title: (->string (catalog-name child)) image: {Image-Resource "OpenedFolder"}) (new Tree-Label title: "")))))
                            (insert-children tree row child level)))))
-                (get-children~ component)))
+                (get-children component)))
     
     (define (set-active? tree row project flag)
-      (let ((workbench-manager (get-workbench-manager~ (get-application))))
+      (let ((workbench-manager (get-workbench-manager (get-application))))
         (when workbench-manager
           (with-cursor :wait
             (lambda ()
-              (set-project-active?~ workbench-manager project flag)
-              (for-each-subproject tree row
+              (set-project-active? workbench-manager project flag)
+              (for-each-subproject self tree row
                 (lambda (project row line)
-                  (update-statistics tree project row line))))))))
+                  (update-statistics self tree project row line))))))))
     
-    (let ((tree (get-tree)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+    (let ((tree (get-tree self)))
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (insert-workbench tree)))))
   
   
-  (method (for-each-subproject tree row proc)
+  (method (for-each-subproject self tree row proc)
     (let ((root row))
-      (for-each-descendant-row~ tree row (row->line~ tree row)
+      (for-each-descendant-row tree row (row->line tree row)
         (lambda (row line)
-          (let ((project (get-user-data~ row)))
+          (let ((project (get-user-data row)))
             (when (is? project Project)
               (when (or (eq? row root)
-                        (get-active?~ project))
+                        (get-active? project))
                 (proc project row line)))))
         stop-test: (lambda (row)
-                     (let ((project (get-user-data~ row)))
+                     (let ((project (get-user-data row)))
                        (and (is? project Project)
-                            (not (get-active?~ project))))))))
+                            (not (get-active? project))))))))
 
 
-  (method package (on-update evt)
+  (method package (on-update self evt)
     (with-cursor :wait
       (lambda ()
-        (update-selection))))
+        (update-selection self))))
   
   
-  (method (on-double-click evt)
-    (let ((sender (get-sender~ evt)))
-      (case (get-name~ sender)
+  (method (on-double-click self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
         ((projects)
          (with-cursor :wait
            (lambda ()
-             (update-selection)))))))
+             (update-selection self)))))))
   
   
-  (method (update-selection)
-    (let ((tree (get-tree)))
-      (let ((workbench-row (get-row~ tree 0)))
+  (method package (update-selection self)
+    (let ((tree (get-tree self)))
+      (let ((workbench-row (get-row tree 0)))
         (post-catalog
           (lambda ()
-            (for-each-subproject tree workbench-row
+            (for-each-subproject self tree workbench-row
               (lambda (project row line)
                 (execute-event
                   (lambda ()
-                    (update-statistics tree project row line))))))))))
+                    (update-statistics self tree project row line))))))))))
   
   
-  (method (update-statistics tree project row line)
-    (let ((row (or row (user-data-row~ tree project include-invisibles?: #t))))
+  (method (update-statistics self tree project row line)
+    (let ((row (or row (user-data-row tree project include-invisibles?: #t))))
       (when row
-        (let ((catalog (get-catalog~ project))
-              (data (second (get-children~ row))))
-          (set-title~ data (if catalog (get-statistics~ catalog) "")))
+        (let ((catalog (get-catalog project))
+              (data (second (get-children row))))
+          (set-title data (if catalog (get-statistics catalog) "")))
         (when line
           (let ((cell (new Cell line 1)))
-            (invalidate-cell~ tree cell))))))
+            (invalidate-cell tree cell))))))
   
   
-  (method (update-buttons)
-    (let ((tree (get-tree)))
-      (let ((count (get-row-count~ tree)))
-        (set-enabled?~ (locate 'update) (> count 0)))))
+  (method package (update-buttons self)
+    (let ((tree (get-tree self)))
+      (let ((count (get-row-count tree)))
+        (set-enabled? (locate self 'update) (> count 0)))))
   
 
   ;;;
@@ -266,14 +268,14 @@
   ;;;
   
   
-  (method override (confirm-close . rest)
-    (save-session))
+  (method override (confirm-close self . rest)
+    (save-session self))
   
   
-  (method override (save-session)
+  (method override (save-session self)
     @to-convert
     (let ((info
            (list (external-name)
                  position: (get-position)
                  size:     (get-size))))
-      (push-property~ properties 'Opened-Windows info)))))
+      (push-property properties 'Opened-Windows info)))))

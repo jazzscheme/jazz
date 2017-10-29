@@ -6,14 +6,19 @@
 ;;;
 
 
-(module jazz.designer.editor.Traits-Dialog jazz
+(module protected jazz.designer.editor.Traits-Dialog jazz
 
 
 (import (jazz.designer)
         (jazz.designer.view)
         (jazz.graphic)
+        (jazz.handler)
         (jazz.jml)
-        (jazz.ui))
+        (jazz.layout)
+        (jazz.outline)
+        (jazz.tree)
+        (jazz.ui)
+        (jazz.view))
 
 
 (class Traits-Dialog extends Toolbox-Manager
@@ -47,31 +52,33 @@
         (<Separator>                                     size: {Dimension 5 0} location: tail))))
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Choose Traits")
   
   
-  (method override (form-model form)
-    (case (get-name~ form)
+  (method override (form-model self form)
+    @fix-me
+    (case (get-name form)
       ((descendants) Dialog-Toolbox-Editor)
       (else (nextmethod form))))
   
   
-  (method (setup-traits locators imports)
+  (method (setup-traits self locators imports)
+    @fix-me
     (for-each (lambda (locator import)
-                (let ((model (find-model~ client locator import)))
+                (let ((model (find-model client locator import)))
                   (if model
-                      (add-trait model)
+                      (add-trait self model)
                     (designer-error "Unknown trait {a} in module {a}" locator import))))
               locators
               imports))
   
   
-  (method (add-trait addable)
-    (remove-child~ designer addable)
-    (with-update-locked~ (locate 'list)
+  (method (add-trait self addable)
+    (remove-child designer addable)
+    (with-update-locked (locate self 'list)
       (lambda ()
-        (add-row~ (locate 'list) children: (list (new Tree-Label title: (get-title~ addable))) user-data: addable))))
+        (add-row (locate self 'list) children: (list (new Tree-Label title: (get-title addable))) user-data: addable))))
   
   
   ;;;
@@ -79,26 +86,26 @@
   ;;;
   
   
-  (method (on-add evt)
-    (let ((selected (selected-addable~ (get-tree))))
+  (method (on-add self evt)
+    (let ((selected (selected-addable (get-tree self))))
       (when selected
-        (add-trait selected))))
+        (add-trait self selected))))
   
   
-  (method (on-remove evt)
-    (let* ((list-tree (locate 'list))
-           (selected (get-single-selected-data~ list-tree)))
+  (method (on-remove self evt)
+    (let* ((list-tree (locate self 'list))
+           (selected (get-single-selected-data list-tree)))
       (when selected
-        (with-update-locked~ list-tree
+        (with-update-locked list-tree
           (lambda ()
-            (remove-row~ list-tree (get-selected-row~ list-tree))))
-        (let ((module-name (get-unit~ selected)))
-          (add-child~ designer selected (find-toolbox-module module-name) form: (get-form~ selected))))))
+            (remove-row list-tree (get-selected-row list-tree))))
+        (let ((module-name (get-unit selected)))
+          (add-child designer selected (find-toolbox-module module-name) form: (get-form selected))))))
   
   
-  (method (on-ok evt)
-    (set! models (map get-user-data~ (collect-visible-rows~ (locate 'list))))
-    (on-ok~ (get-host) evt))
+  (method package (on-ok self evt)
+    (set! models (map get-user-data (collect-visible-rows (locate self 'list))))
+    (on-ok (get-host self) evt))
   
   
   ;;;
@@ -106,7 +113,5 @@
   ;;;
     
   
-  (method override (get-modal-result)
-    (list (map get-model~ models) (map get-unit~ models)))
-  )
-)
+  (method override (get-modal-result self)
+    (list (map get-model models) (map get-unit models)))))

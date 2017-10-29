@@ -39,7 +39,8 @@
 
 
 (import (jazz.catalog)
-        (jazz.editor.c))
+        (jazz.editor.c)
+        (jazz.io))
 
 
 (class C-Parser extends File-Parser
@@ -50,7 +51,7 @@
   ;;;
   
   
-  (method meta override (get-constituent-test)
+  (method meta override (get-constituent-test self)
     c-constituent?)
   
   
@@ -59,23 +60,23 @@
   ;;;
   
   
-  (method override (parse file digest dialect)
+  (method override (parse self file digest dialect)
     (define (parse-definitions)
-      (let ((lines (list->vector (load-lines~ file char-encoding: char-encoding char-encoding-errors: #f)))
+      (let ((lines (list->vector (load-lines file char-encoding: char-encoding char-encoding-errors: #f)))
             (fact (new List-Factory))
-            (find-function (if (eq? (get-heuristic 'c-function) 'gambit)
+            (find-function (if (eq? (get-heuristic self 'c-function) 'gambit)
                                find-gambit-function
                              find-open-brace-function)))
-      (when (member? (get-extension~ file) '("c" "cpp" "m"))
-        (put~ fact (new C-Category-Entry (get-base~ file))))
+      (when (member? (get-extension file) '("c" "cpp" "m"))
+        (put fact (new C-Category-Entry (get-base file))))
       (loop (for n from 0 below (cardinality lines))
             (do
               (let* ((line (vector-ref lines n))
                      (item (or (find-sharp-define line n)
                                (find-sharp-include line n)
                                (find-function lines line n))))
-                (when item (put~ fact item)))))
-      (get-output~ fact)))
+                (when item (put fact item)))))
+      (get-output fact)))
     
     ;;;
     ;;;; Sharp Define

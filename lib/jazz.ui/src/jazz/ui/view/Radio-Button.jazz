@@ -65,7 +65,7 @@
   (slot inside?   initialize #f)
   
   
-  (method override (default-size)
+  (method override (default-size self)
     {Dimension 100 16})
 
   
@@ -74,11 +74,11 @@
   ;;;
 
 
-  (method override (get-group)
+  (method override (get-group self)
     group)
 
 
-  (method override (set-group value)
+  (method override (set-group self value)
     (set! group value))
 
   
@@ -87,46 +87,46 @@
   ;;;
 
 
-  (method override (get-selected?)
+  (method override (get-selected? self)
     selected?)
   
 
-  (method override (set-selected? flag)
+  (method override (set-selected? self flag)
     (when (neq? flag selected?)
-      (let ((current (get-current-selection)))
-        (set-selected-state flag)
+      (let ((current (get-current-selection self)))
+        (set-selected-state self flag)
         (when current
-          (set-selected-state~ current (not flag))))))
+          (set-selected-state current (not flag))))))
   
   
-  (method override (unselect)
+  (method override (unselect self)
     (when selected?
-      (set-selected-state #f)))
+      (set-selected-state self #f)))
   
   
-  (method (get-current-selection)
+  (method (get-current-selection self)
     (continuation-capture
       (lambda (return)
-        (for-each-button
+        (for-each-button self
           (lambda (button)
-            (when (get-selected?~ button)
+            (when (get-selected? button)
               (continuation-return return button))))
         #f)))
   
   
-  (method (for-each-button proc)
+  (method (for-each-button self proc)
     (for-each (lambda (child)
                 (when (and (is? child Radio-Button)
-                           (eqv? group (get-group~ child)))
+                           (eqv? group (get-group child)))
                   (proc child)))
               (if set
-                  (get-members~ set)
-                (get-children~ parent))))
+                  (get-members set)
+                (get-children parent))))
   
   
-  (method (set-selected-state flag)
+  (method package (set-selected-state self flag)
     (set! selected? flag)
-    (invalidate-view))
+    (invalidate-view self))
   
   
   ;;;
@@ -134,12 +134,12 @@
   ;;;
   
   
-  (method (process-change-state)
-    (set-selected? #t)
-    (set-modified? #t)
+  (method (process-change-state self)
+    (set-selected? self #t)
+    (set-modified? self #t)
     (if (not outline-view)
-        (process-action self)
-      (process-action~ outline-view self)))
+        (process-action self self)
+      (process-action outline-view self)))
 
   
   ;;;
@@ -147,21 +147,21 @@
   ;;;
   
   
-  (method override (preferred-size)
+  (method override (preferred-size self)
     (let ((title (localize title)))
       (if (not title)
-          (default-size)
-        (let ((extent (text-extent~ (effective-font) title)))
+          (default-size self)
+        (let ((extent (text-extent (effective-font self) title)))
           (new Dimension
-            (+ 20 (get-width~ extent))
-            (max 18 (get-height~ extent)))))))
+            (+ 20 (get-width extent))
+            (max 18 (get-height extent)))))))
   
   
-  (method (box-rect)
+  (method (box-rect self)
     (let* ((title (or (localize title) ""))
-           (height (if (or (not title) (empty-string? title)) 13 (get-height~ (text-extent~ (effective-font) title))))
+           (height (if (or (not title) (empty-string? title)) 13 (get-height (text-extent (effective-font self) title))))
            (h 18)
-           (v (quotient (- (get-height) height) 2)))
+           (v (quotient (- (get-height self) height) 2)))
       (new Rect 0 (+ v 1) box-size (+ v box-size 1))))
   
   
@@ -170,32 +170,32 @@
   ;;;
   
   
-  (method override (draw surface context)
+  (method override (draw self surface context)
     (define (effective-selected?)
       (if (not outline-view)
           (getf context selected?:)
-        (cell-selected?~ (outline-column) context)))
+        (cell-selected? (outline-column self) context)))
     
     (let* ((title (or (localize title) ""))
-           (extent (get-text-extent~ surface title))
-           (height (if (or (not title) (empty-string? title)) 13 (get-height~ extent)))
+           (extent (get-text-extent surface title))
+           (height (if (or (not title) (empty-string? title)) 13 (get-height extent)))
            (h 18)
-           (v (quotient (- (get-height) height) 2)))
-      (let ((enabled? (view-enabled?)))
-        (draw-radio-button~ surface (new Rect 0 (+ v 1) box-size (+ v box-size 1)) selected?: selected? inactive?: (or (not enabled?) (and tracking? inside?)) radio-background: radio-background)
+           (v (quotient (- (get-height self) height) 2)))
+      (let ((enabled? (view-enabled? self)))
+        (draw-radio-button surface (new Rect 0 (+ v 1) box-size (+ v box-size 1)) selected?: selected? inactive?: (or (not enabled?) (and tracking? inside?)) radio-background: radio-background)
         (let* ((selected? (effective-selected?))
                (box-h 0)
-               (box-v (quotient (- (get-height) (if extent (get-height~ extent) box-size)) 2))
+               (box-v (quotient (- (get-height self) (if extent (get-height extent) box-size)) 2))
                (text-h (+ 18 box-h))
                (text-v box-v))
           (when selected?
-            (let ((color (if (is? outline-view Tree-View) (selection-color~ outline-view) {Color Focused-Selection}))
+            (let ((color (if (is? outline-view Tree-View) (selection-color outline-view) {Color Focused-Selection}))
                   (rect
-                   (if (and (is? outline-view Tree-View) (eq? (get-selection-mode~ outline-view) 'cell))
-                       (new Rect (- text-h 3) (- text-v 2) (get-width) (+ text-v (get-height~ extent) 2))
-                     (new Rect (- text-h 3) (- text-v 2) (+ text-h (get-width~ extent) 3) (+ text-v (get-height~ extent) 2)))))
-              (fill-rect~ surface rect color)))
-          (draw-text~ surface h v title (text-color selected?) enabled?: enabled?)))))
+                   (if (and (is? outline-view Tree-View) (eq? (get-selection-mode outline-view) 'cell))
+                       (new Rect (- text-h 3) (- text-v 2) (get-width self) (+ text-v (get-height extent) 2))
+                     (new Rect (- text-h 3) (- text-v 2) (+ text-h (get-width extent) 3) (+ text-v (get-height extent) 2)))))
+              (fill-rect surface rect color)))
+          (draw-text surface h v title (text-color self selected?) enabled?: enabled?)))))
   
   
   ;;;
@@ -203,15 +203,15 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:radio))
   
   
-  (method (text-color selected?)
-    (let ((skin (get-skin)))
-      (or (get-text-color~ skin)
+  (method (text-color self selected?)
+    (let ((skin (get-skin self)))
+      (or (get-text-color skin)
           (if enabled?
-              (or (determine-color~ {Color Black} enabled? selected?)
+              (or (determine-color {Color Black} enabled? selected?)
                   {Color White})
             {Color Dark}))))
 
@@ -221,16 +221,16 @@
   ;;;
 
 
-  (method override (focus-gained)
-    (nextmethod)
+  (method override (focus-gained self)
+    (nextmethod self)
     (when outline-view
-      (focus-gained~ outline-view)))
+      (focus-gained outline-view)))
 
 
-  (method override (focus-lost)
-    (nextmethod)
+  (method override (focus-lost self)
+    (nextmethod self)
     (when outline-view
-      (focus-lost~ outline-view)))
+      (focus-lost outline-view)))
   
   
   ;;;
@@ -238,28 +238,28 @@
   ;;;
   
   
-  (method override (key-press evt)
-    (case (get-key~ evt)
+  (method override (key-press self evt)
+    (case (get-key evt)
       ((#\space)
-       (process-change-state))
+       (process-change-state self))
       (else
        (when outline-view
-         (call-key-press~ outline-view evt)))))
+         (call-key-press outline-view evt)))))
   
   
-  (method override (arrow-press evt)
+  (method override (arrow-press self evt)
     (when outline-view
-      (call-arrow-press~ outline-view evt)))
+      (call-arrow-press outline-view evt)))
   
   
-  (method override (return-press evt)
+  (method override (return-press self evt)
     (when outline-view
-      (call-return-press~ outline-view evt)))
+      (call-return-press outline-view evt)))
   
   
-  (method override (escape-press evt)
+  (method override (escape-press self evt)
     (when outline-view
-      (call-escape-press~ outline-view evt)))
+      (call-escape-press outline-view evt)))
   
   
   ;;;
@@ -267,30 +267,30 @@
   ;;;
   
   
-  (method override (mouse-down evt)
+  (method override (mouse-down self evt)
     (when outline-view
-      (outline-select))
-    (when (and (view-enabled?) editable? (or (not outline-view) (in-rect? (get-position~ evt) (box-rect))))
+      (outline-select self))
+    (when (and (view-enabled? self) editable? (or (not outline-view) (in-rect? (get-position evt) (box-rect self))))
       (set! tracking? #t)
       (set! inside? #t)
-      (acquire-capture)
-      (invalidate-view)))
+      (acquire-capture self)
+      (invalidate-view self)))
   
   
-  (method override (drag-move evt)
+  (method override (drag-move self evt)
     (when tracking?
-      (let ((over? (over-view? (get-position~ evt))))
+      (let ((over? (over-view? self (get-position evt))))
         (when (neq? over? inside?)
           (set! inside? over?)
-          (invalidate-view)))))
+          (invalidate-view self)))))
   
   
-  (method override (drag-up evt . rest)
+  (method override (drag-up self evt . rest)
     (when tracking?
-      (release-capture)
+      (release-capture self)
       (set! tracking? #f)
       (when inside?
-        (process-change-state))))
+        (process-change-state self))))
   
   
   ;;;
@@ -298,5 +298,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Radio-Button-Descriptor))))

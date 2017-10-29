@@ -38,13 +38,15 @@
 (module protected jazz.menu.Label-Item jazz
 
 
-(import (jazz.application)
+(import (jazz.action)
+        (jazz.application)
         (jazz.geometry)
         (jazz.graphic)
         (jazz.locale)
         (jazz.menu)
         (jazz.resource)
         (jazz.skin)
+        (jazz.ui)
         (jazz.view)
         (jazz.window))
 
@@ -59,7 +61,7 @@
   (property content       initialize #f accessors explicit)
   
   
-  (method override (mouse-activate?)
+  (method override (mouse-activate? self)
     #f)
 
   
@@ -68,10 +70,10 @@
   ;;;
   
   
-  (method override (component-alias name)
+  (method override (component-alias self name)
     (case name
       ((content) content)
-      (else (nextmethod name))))
+      (else (nextmethod self name))))
 
   
   ;;;
@@ -79,9 +81,9 @@
   ;;;
   
   
-  (method override (shortcut-update action-item)
-    (let ((all (all-shortcuts~ action-item)))
-      (set-shortcut (and (not-null? all) (car all)))))
+  (method override (shortcut-update self action-item)
+    (let ((all (all-shortcuts action-item)))
+      (set-shortcut self (and (not-null? all) (car all)))))
   
   
   ;;;
@@ -89,17 +91,17 @@
   ;;;
   
   
-  (method override (add-child child)
-    (set-content child))
+  (method override (add-child self child)
+    (set-content self child))
   
   
-  (method public (get-content)
+  (method public (get-content self)
     content)
   
   
-  (method public (set-content menu)
+  (method public (set-content self menu)
     (set! content menu)
-    (set-item~ menu self))
+    (set-item menu self))
 
 
   ;;;
@@ -107,37 +109,37 @@
   ;;;
   
   
-  (method override (get-title)
+  (method override (get-title self)
     (or title
         (and content
-             (get-title~ content))))
+             (get-title content))))
 
 
-  (method public (get-icon)
+  (method public (get-icon self)
     icon)
 
 
-  (method public (set-icon icn)
+  (method public (set-icon self icn)
     (set! icon icn)
-    (layout-menu cleanup-separators?: #f))
+    (layout-menu self cleanup-separators?: #f))
 
 
-  (method public (get-disabled-icon)
+  (method public (get-disabled-icon self)
     disabled-icon)
 
 
-  (method public (set-disabled-icon icn)
+  (method public (set-disabled-icon self icn)
     (set! disabled-icon icn)
-    (layout-menu cleanup-separators?: #f))
+    (layout-menu self cleanup-separators?: #f))
 
 
-  (method public (get-shortcut)
+  (method public (get-shortcut self)
     shortcut)
 
 
-  (method public (set-shortcut shc)
+  (method public (set-shortcut self shc)
     (set! shortcut shc)
-    (layout-menu cleanup-separators?: #f))
+    (layout-menu self cleanup-separators?: #f))
 
 
   ;;;
@@ -145,43 +147,43 @@
   ;;;
   
   
-  (method override (default-size)
+  (method override (default-size self)
     {Dimension 100 17})
   
   
-  (method override (preferred-icon-width)
+  (method override (preferred-icon-width self)
     (let ((left 4))
       (if icon (+ left 16 left) 0)))
   
   
-  (method override (preferred-body-width)
-    (let* ((font (effective-font))
-           (title (localize (get-title)))
-           (extent (text-extent~ font title))
-           (left (if (menubar-label?) 6 10)))
-      (+ left (get-width~ extent) left)))
+  (method override (preferred-body-width self)
+    (let* ((font (effective-font self))
+           (title (localize (get-title self)))
+           (extent (text-extent font title))
+           (left (if (menubar-label? self) 6 10)))
+      (+ left (get-width extent) left)))
   
   
-  (method override (preferred-shortcut-width)
+  (method override (preferred-shortcut-width self)
     (if (not shortcut)
         0
-      (let* ((font (effective-font))
-             (extent (text-extent~ font (present-shortcut~ shortcut)))
+      (let* ((font (effective-font self))
+             (extent (text-extent font (present-shortcut shortcut)))
              (left 6)
              (right 12))
-        (+ left (get-width~ extent) right))))
+        (+ left (get-width extent) right))))
   
   
-  (method override (preferred-arrow-width)
-    (if (and content (not (menubar-label?)))
+  (method override (preferred-arrow-width self)
+    (if (and content (not (menubar-label? self)))
         10
       0))
   
   
-  (method override (preferred-height)
-    (let* ((font (effective-font))
-           (title (localize (get-title)))
-           (height (font-height~ font)))
+  (method override (preferred-height self)
+    (let* ((font (effective-font self))
+           (title (localize (get-title self)))
+           (height (font-height font)))
       (+ height 4)))
   
   
@@ -204,119 +206,119 @@
     Default-Label-Font)
   
   
-  (method override (effective-font)
-    (or (get-text-font~ (get-skin))
+  (method override (effective-font self)
+    (or (get-text-font (get-skin self))
         (if default?
             (get-default-label-font)
           (get-label-font))))
   
   
-  (method override (draw-background surface context)
-    (when (item-selected?)
-      (let ((highlight (get-highlight~ (find-skin 'ui:menubar))))
+  (method override (draw-background self surface context)
+    (when (item-selected? self)
+      (let ((highlight (get-highlight (find-skin 'ui:menubar))))
         (when highlight
-          (fill-background~ surface (get-bounds) highlight)))))
+          (fill-background surface (get-bounds self) highlight)))))
   
   
-  (method override (draw surface context)
-    (draw-highlight surface)
-    (draw-prefix surface context)
-    (draw-icon surface context)
-    (draw-body surface)
-    (draw-shortcut surface)
-    (draw-arrow surface))
+  (method override (draw self surface context)
+    (draw-highlight self surface)
+    (draw-prefix self surface context)
+    (draw-icon self surface context)
+    (draw-body self surface)
+    (draw-shortcut self surface)
+    (draw-arrow self surface))
   
   
-  (method (draw-highlight surface)
-    (when (item-selected?)
-      (let ((bounds (get-bounds)))
-        (if (menubar-label?)
-            (draw-edge~ surface bounds inner: (if (highlight-flag) #f 'raised) outer: (if (highlight-flag) 'sunken #f) edges: 'rectangle)
-          (let ((highlight (get-highlight~ (get-skin))))
-            (fill-background~ surface bounds (or highlight {Color Focused-Selection})))))))
+  (method (draw-highlight self surface)
+    (when (item-selected? self)
+      (let ((bounds (get-bounds self)))
+        (if (menubar-label? self)
+            (draw-edge surface bounds inner: (if (highlight-flag self) #f 'raised) outer: (if (highlight-flag self) 'sunken #f) edges: 'rectangle)
+          (let ((highlight (get-highlight (get-skin self))))
+            (fill-background surface bounds (or highlight {Color Focused-Selection})))))))
   
   
-  (method protected virtual (draw-prefix surface context)
+  (method protected virtual (draw-prefix self surface context)
     )
   
   
-  (method (draw-icon surface context)
+  (method (draw-icon self surface context)
     (when icon
       (let* ((appl (get-application))
              (left (+ prefix-width 9))
-             (portfolio (get-images-portfolio~ appl)))
-        (if (not (view-enabled?))
+             (portfolio (get-images-portfolio appl)))
+        (if (not (view-enabled? self))
             (let ((disabled-icon (or disabled-icon (default-disabled-resource icon))))
-              (draw-image~ portfolio surface context disabled-icon left 0))
-          (draw-image~ portfolio surface context icon left 0)))))
+              (draw-image portfolio surface context disabled-icon left 0))
+          (draw-image portfolio surface context icon left 0)))))
   
   
-  (method (draw-body surface)
+  (method (draw-body self surface)
     (define (align-horizontal title)
-      (and (eq? (get-background~ (get-skin)) 'none)
-           (justify (get-width~ (get-text-extent~ surface title))
-                    (get-width)
+      (and (eq? (get-background (get-skin self)) 'none)
+           (justify (get-width (get-text-extent surface title))
+                    (get-width self)
                     'center)))
     
-    (let ((title (localize (get-title))))
+    (let ((title (localize (get-title self))))
       (when title
-        (let* ((height (get-font-height~ surface))
-               (left (if (menubar-label?) 6 10))
-               (top (if (menubar-label?) 0 1))
+        (let* ((height (get-font-height surface))
+               (left (if (menubar-label? self) 6 10))
+               (top (if (menubar-label? self) 0 1))
                (h (or (align-horizontal title) (+ prefix-width icon-width left)))
-               (v (- (quotient (- (get-height) height) 2) top)))
-          (set-font~ surface (effective-font))
-          (draw-text~ surface h v title (text-color) enabled?: (text-enabled?))))))
+               (v (- (quotient (- (get-height self) height) 2) top)))
+          (set-font surface (effective-font self))
+          (draw-text surface h v title (text-color self) enabled?: (text-enabled? self))))))
   
   
-  (method (draw-shortcut surface)
-    (when (and shortcut (get-display-shortcuts?~ parent))
-      (let* ((text (present-shortcut~ shortcut))
-             (height (get-font-height~ surface))
+  (method (draw-shortcut self surface)
+    (when (and shortcut (get-display-shortcuts? parent))
+      (let* ((text (present-shortcut shortcut))
+             (height (get-font-height surface))
              (left 6)
              (top 1)
              (h (+ prefix-width icon-width body-width left))
-             (v (- (quotient (- (get-height) height) 2) top)))
-        (draw-text~ surface h v text (text-color) enabled?: (text-enabled?)))))
+             (v (- (quotient (- (get-height self) height) 2) top)))
+        (draw-text surface h v text (text-color self) enabled?: (text-enabled? self)))))
   
   
-  (method (draw-arrow surface)
-    (when (and content (not (menubar-label?)))
-      (let ((width (get-width)))
-        (set-color~ surface (tip-color))
-        (draw-arrow-tip~ surface (- width 10) 5 4 'right))))
+  (method (draw-arrow self surface)
+    (when (and content (not (menubar-label? self)))
+      (let ((width (get-width self)))
+        (set-color surface (tip-color self))
+        (draw-arrow-tip surface (- width 10) 5 4 'right))))
   
   
-  (method (item-selected?)
+  (method (item-selected? self)
     (and (not surrogate)
-         (eq? (get-highlighted~ parent) self)))
+         (eq? (get-highlighted parent) self)))
   
   
-  (method (menubar-label?)
+  (method (menubar-label? self)
     (is? parent Menubar))
   
   
-  (method (in-menubar?)
+  (method (in-menubar? self)
     (is-not? parent Context-Menu))
   
   
-  (method (highlight-flag)
-    (and content (eq? (get-popped~ parent) content)))
+  (method (highlight-flag self)
+    (and content (eq? (get-popped parent) content)))
   
   
-  (method (tip-color)
-    (if (item-selected?) {Color White} {Color Black}))
+  (method (tip-color self)
+    (if (item-selected? self) {Color White} {Color Black}))
   
   
-  (method (text-enabled?)
-    (or (view-enabled?) (item-selected?)))
+  (method (text-enabled? self)
+    (or (view-enabled? self) (item-selected? self)))
   
   
-  (method (text-color)
-    (let ((skin (get-skin)))
-      (cond ((not (view-enabled?)) (or (get-disabled-text-color~ skin) {Color Dark}))
-            ((and (item-selected?) (not (menubar-label?))) (or (get-selected-text-color~ skin) {Color White}))
-            (else (or (get-text-color~ skin) {Color Black})))))
+  (method (text-color self)
+    (let ((skin (get-skin self)))
+      (cond ((not (view-enabled? self)) (or (get-disabled-text-color skin) {Color Dark}))
+            ((and (item-selected? self) (not (menubar-label? self))) (or (get-selected-text-color skin) {Color White}))
+            (else (or (get-text-color skin) {Color Black})))))
   
   
   ;;;
@@ -324,7 +326,7 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:menu))
   
   
@@ -333,51 +335,51 @@
   ;;;
   
   
-  (method override (mouse-enter)
-    (nextmethod)
-    (when (item-navigable?)
-      (unless (menubar-label?)
-        (let ((popped (get-popped~ parent)))
+  (method override (mouse-enter self)
+    (nextmethod self)
+    (when (item-navigable? self)
+      (unless (menubar-label? self)
+        (let ((popped (get-popped parent)))
           (when popped
-            (track-hovering)
-            (invalidate-view~ (popup-initiator~ popped)))))
+            (track-hovering self)
+            (invalidate-view (popup-initiator popped)))))
       (when content
-        (if (menubar-label?)
-            (when (get-popped~ parent)
-              (close-other-popups)
-              (unless (popped?)
-                (popup-content)))
-          (track-hovering)))))
+        (if (menubar-label? self)
+            (when (get-popped parent)
+              (close-other-popups self)
+              (unless (popped? self)
+                (popup-content self)))
+          (track-hovering self)))))
   
   
-  (method override (mouse-leave)
-    (nextmethod)
-    (when (not (menubar-label?))
-      (cancel-hovering)))
+  (method override (mouse-leave self)
+    (nextmethod self)
+    (when (not (menubar-label? self))
+      (cancel-hovering self)))
   
   
-  (method override (mouse-hover pos)
-    (close-other-popups)
-    (when (and content (not (popped?)) (not surrogate))
-      (popup-content)))
+  (method override (mouse-hover self pos)
+    (close-other-popups self)
+    (when (and content (not (popped? self)) (not surrogate))
+      (popup-content self)))
   
   
-  (method override (mouse-down evt)
-    (let ((popped (get-popped~ parent))
-          (menubar? (menubar-label?)))
-      (close-popups exclude: (if popped (list popped) #f) initiator: self)
+  (method override (mouse-down self evt)
+    (let ((popped (get-popped parent))
+          (menubar? (menubar-label? self)))
+      (close-popups self exclude: (if popped (list popped) #f) initiator: self)
       (when menubar?
         (push-focus parent))
       (when (and content (or (not popped) (neq? popped content)))
-        (popup-content))))
+        (popup-content self))))
   
   
-  (method override (mouse-up evt)
+  (method override (mouse-up self evt)
     (when (and (eq? self (get-mouse-in)) (not content))
-      (close-popups~ player all?: #t)
+      (close-popups player all?: #t)
       (pop-all-focuses)
-      (when (view-enabled?)
-        (process-action self))))
+      (when (view-enabled? self)
+        (process-action self self))))
   
   
   ;;;
@@ -385,34 +387,34 @@
   ;;;
   
   
-  (method (popup-content)
+  (method package (popup-content self)
     (define (popup-menu menu position alternate)
-      (popup menu position class: Menu-Transient fade-speed: 3. close-behavior: 'detach-root alternate-position: alternate))
+      (popup self menu position class: Menu-Transient fade-speed: 3. close-behavior: 'detach-root alternate-position: alternate))
     
-    (let ((menu (get-content)))
-      (update~ menu)
-      (when (get-children~ menu)
-        (clear-highlighted~ menu)
-        (let* ((size (get-size))
-               (menu-size (get-size~ menu))
-               (position (if (menubar-label?) (new Point 0 (get-height)) (new Point (- (get-width~ size) 3) -2)))
-               (alternate (if (menubar-label?)
-                              (new Point (- (get-width) (get-width~ menu-size)) (- (get-height~ menu-size)))
-                            (new Point (- 3 (get-width~ menu-size)) (- -2 (get-height~ menu-size))))))
-          (set-popped~ parent menu)
-          (invalidate-view)
+    (let ((menu (get-content self)))
+      (update menu)
+      (when (get-children menu)
+        (clear-highlighted menu)
+        (let* ((size (get-size self))
+               (menu-size (get-size menu))
+               (position (if (menubar-label? self) (new Point 0 (get-height self)) (new Point (- (get-width size) 3) -2)))
+               (alternate (if (menubar-label? self)
+                              (new Point (- (get-width self) (get-width menu-size)) (- (get-height menu-size)))
+                            (new Point (- 3 (get-width menu-size)) (- -2 (get-height menu-size))))))
+          (set-popped parent menu)
+          (invalidate-view self)
           (popup-menu menu position alternate)
           (push-focus menu)))))
   
   
-  (method override (close-popups (event: event #f) (all?: all? #f) (exclude: exclude #f) (initiator: initiator #f))
+  (method override (close-popups self (event: event #f) (all?: all? #f) (exclude: exclude #f) (initiator: initiator #f))
     (unless (memq? event '(mouse-down double-click))
-      (nextmethod event: event all?: all? exclude: exclude initiator: initiator)
-      (invalidate-view)))
+      (nextmethod self event: event all?: all? exclude: exclude initiator: initiator)
+      (invalidate-view self)))
   
   
-  (method override (popup-destroy popup)
-    (set-popped~ parent #f))
+  (method override (popup-destroy self popup)
+    (set-popped parent #f))
   
   
   ;;;
@@ -420,5 +422,5 @@
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
+  (method meta override (get-class-descriptor self (context: context #f))
     (new jazz.ui.descriptors:Label-Item-Descriptor))))

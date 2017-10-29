@@ -40,21 +40,22 @@
 
 (import (jazz.action)
         (jazz.skin)
-        (jazz.text))
+        (jazz.text)
+        (jazz.ui))
 
 
 (class undocumented Combo-Text-View extends Text-View
   
   
-  (method override (new-model)
+  (method override (new-model self)
     (let ((model (new Text-Model base-style: {Text-Style Text-Base} left-padding: 2 top-padding: 2))
           (skin (find-skin 'ui:combo)))
-      (let ((left (get-left-padding~ skin))
-            (top (get-top-padding~ skin)))
+      (let ((left (get-left-padding skin))
+            (top (get-top-padding skin)))
         (when left
-          (set-left-padding~ model left))
+          (set-left-padding model left))
         (when top
-          (set-top-padding~ model top)))
+          (set-top-padding model top)))
       model))
   
   
@@ -63,8 +64,8 @@
   ;;;
   
   
-  (method (get-combo)
-    (get-parent~ (get-parent~ parent)))
+  (method package (get-combo self)
+    (get-parent (get-parent parent)))
     
 
   ;;;
@@ -72,14 +73,14 @@
   ;;;
   
   
-  (method override (focus-actions)
+  (method override (focus-actions self)
     (cons (find-actions 'combo-text)
-          (nextmethod)))
+          (nextmethod self)))
   
   
-  (method (on-push-button evt)
-    (let ((combo (get-combo)))
-      (push-button~ combo)))
+  (method (on-push-button self evt)
+    (let ((combo (get-combo self)))
+      (push-button combo)))
 
   
   ;;;
@@ -87,8 +88,8 @@
   ;;;
   
   
-  (method override (return-press evt)
-    (call-content-change~ (get-combo) 'return))
+  (method override (return-press self evt)
+    (call-content-change (get-combo self) 'return))
 
   
   ;;;
@@ -96,38 +97,38 @@
   ;;;
   
   
-  (method override (mouse-activate?)
+  (method override (mouse-activate? self)
     selectable?)
   
   
-  (method override (mouse-enter)
+  (method override (mouse-enter self)
     (if selectable?
-        (nextmethod)
+        (nextmethod self)
       (unless surrogate
-        (let ((combo (get-combo)))
-          (enter-child~ combo (get-pick~ combo))))))
+        (let ((combo (get-combo self)))
+          (enter-child combo (get-pick combo))))))
   
   
-  (method override (mouse-leave)
+  (method override (mouse-leave self)
     (if selectable?
-        (nextmethod)
+        (nextmethod self)
       (unless surrogate
-        (let ((combo (get-combo)))
-          (leave-child~ combo (get-pick~ combo))))))
+        (let ((combo (get-combo self)))
+          (leave-child combo (get-pick combo))))))
   
   
-  (method override (mouse-down evt)
+  (method override (mouse-down self evt)
     (if selectable?
-        (nextmethod evt)
-      (let ((combo (get-combo)))
-        (child-down~ combo (get-pick~ combo)))))
+        (nextmethod self evt)
+      (let ((combo (get-combo self)))
+        (child-down combo (get-pick combo)))))
 
 
-  (method override (drag-up evt . rest)
+  (method override (drag-up self evt . rest)
     (if selectable?
-        (nextmethod evt)
-      (let ((combo (get-combo)))
-        (child-up~ combo (get-pick~ combo)))))
+        (nextmethod self evt)
+      (let ((combo (get-combo self)))
+        (child-up combo (get-pick combo)))))
   
   
   ;;;
@@ -135,10 +136,10 @@
   ;;;
   
   
-  (method override (close-popups (event: event #f) (all?: all? #f) (exclude: exclude #f) (initiator: initiator #f))
-    (when (or (neq? (get-state~ (get-combo)) 'choose) (not (memq? event '(mouse-down double-click))))
-      (nextmethod event: event all?: all? exclude: exclude initiator: initiator)
-      (invalidate-view)))
+  (method override (close-popups self (event: event #f) (all?: all? #f) (exclude: exclude #f) (initiator: initiator #f))
+    (when (or (neq? (get-state (get-combo self)) 'choose) (not (memq? event '(mouse-down double-click))))
+      (nextmethod self event: event all?: all? exclude: exclude initiator: initiator)
+      (invalidate-view self)))
   
   
   ;;;
@@ -146,29 +147,29 @@
   ;;;
   
   
-  (method override (auto-complete?)
-    (get-complete?~ (get-combo)))
+  (method override (auto-complete? self)
+    (get-complete? (get-combo self)))
 
 
-  (method override (completion-name pos)
-    (unless (text-constituent?~ syntax (get-char (if (has-selection?) (get-end) pos)))
-      (let ((prev (previous-cell pos)))
+  (method override (completion-name self pos)
+    (unless (text-constituent? syntax (get-char self (if (has-selection? self) (get-end self) pos)))
+      (let ((prev (previous-cell self pos)))
         (when prev
-          (let ((line (get-line~ pos)))
-            (get-string (new Range$Cell$ (new Cell line 0) pos)))))))
+          (let ((line (get-line pos)))
+            (get-string self (new Range$Cell$ (new Cell line 0) pos)))))))
   
   
-  (method override (complete-name? size)
+  (method override (complete-name? self size)
     (>= size 1))
   
   
-  (method override (symbol-completions name)
-    (let* ((combo (get-combo))
-           (choices (get-choices~ combo))
-           (domain (map (lambda (choice) (present-choice~ combo choice)) choices))
+  (method override (symbol-completions self name)
+    (let* ((combo (get-combo self))
+           (choices (get-choices combo))
+           (domain (map (lambda (choice) (present-choice combo choice)) choices))
            (completer (new Symbol-Completer domain)))
-      (complete~ completer name test: di=?)))
+      (complete completer name test: di=?)))
   
   
-  (method override (completions-prefix completions)
+  (method override (completions-prefix self completions)
     (prefix completions test: di=?))))

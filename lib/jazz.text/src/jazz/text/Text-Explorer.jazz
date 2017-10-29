@@ -62,20 +62,20 @@
   (slot line-hook  <procedure+>  initialize #f accessors generate)
   
   
-  (method override (initialize mdl <Text-Model> (direction: direction 'forward) (start: start #f) (end: end #f) (range: range #f))
-    (nextmethod)
+  (method override (initialize self mdl <Text-Model> (direction: direction 'forward) (start: start #f) (end: end #f) (range: range #f))
+    (nextmethod self)
     (set! model mdl)
-    (set! syntax (get-syntax~ model))
-    (set! paragraphs (get-paragraphs~ model))
-    (set! limit (get-limit~ model))
-    (set! beginning (text-beginning~ model))
-    (set! ending (text-ending~ model))
-    (set-direction direction)
+    (set! syntax (get-syntax model))
+    (set! paragraphs (get-paragraphs model))
+    (set! limit (get-limit model))
+    (set! beginning (text-beginning model))
+    (set! ending (text-ending model))
+    (set-direction self direction)
     (if range
-        (set-range range)
+        (set-range self range)
       (when (or start end)
-        (set-start (or start end))
-        (set-end (or end start)))))
+        (set-start self (or start end))
+        (set-end self (or end start)))))
 
 
   ;;;
@@ -83,72 +83,72 @@
   ;;;
 
 
-  (method override (goto-beginning) <void>
-    (set-start beginning))
+  (method override (goto-beginning self) <void>
+    (set-start self beginning))
 
 
-  (method (goto-ending) <void>
-    (set-end ending))
+  (method (goto-ending self) <void>
+    (set-end self ending))
 
 
-  (method public (at-beginning?) <bool>
+  (method public (at-beginning? self) <bool>
     (<= start beginning))
 
 
-  (method public (at-ending?) <bool>
+  (method public (at-ending? self) <bool>
     (>= end ending))
   
   
-  (method public (get-start) <Cell>
+  (method public (get-start self) <Cell>
     (copy start))
 
 
-  (method public (set-start pos <Cell>) <void>
-    (set-line~ start (get-line~ pos))
-    (set-col~ start (get-col~ pos)))
+  (method public (set-start self pos <Cell>) <void>
+    (set-line start (get-line pos))
+    (set-col start (get-col pos)))
 
 
-  (method public (get-end) <Cell>
+  (method public (get-end self) <Cell>
     (copy end))
 
 
-  (method public (set-end pos <Cell>) <void>
-    (set-line~ end (get-line~ pos))
-    (set-col~ end (get-col~ pos)))
+  (method public (set-end self pos <Cell>) <void>
+    (set-line end (get-line pos))
+    (set-col end (get-col pos)))
 
 
-  (method public (get-range) <Range$Cell$>
+  (method public (get-range self) <Range$Cell$>
     (new Range$Cell$ (copy start) (copy end)))
 
 
-  (method public (set-range range <Range$Cell$>) <void>
-    (set-start (get-start~ range))
-    (set-end (get-end~ range)))
+  (method public (set-range self range <Range$Cell$>) <void>
+    (set-start self (get-start range))
+    (set-end self (get-end range)))
   
   
-  (method public (set-pos pos <Cell+>) <void>
-    (set-start pos)
-    (set-end pos))
+  (method public (set-pos self pos <Cell+>) <void>
+    (set-start self pos)
+    (set-end self pos))
   
   
-  (method protected (call-line-hook)
+  (method protected (call-line-hook self)
     (when line-hook
       (line-hook self)))
 
   
-  (method public (looking-at? str <string>)
+  (method public (looking-at? self str <string>)
     (let ((len (string-length str)))
       (let (lp (i 0))
         (cond ((>= i len) #t)
-              ((not (eqv? (string-ref str i) (char-forward i))) #f)
+              ((not (eqv? (string-ref str i) (char-forward self i))) #f)
               (else (lp (+ i 1)))))))
   
   
-  (method public (looking-back? str <string>)
+  (method public (looking-back? self str <string>)
     (let ((len (string-length str)))
       (let (lp (i 0))
         (cond ((>= i len) #t)
-              ((not (eqv? (string-ref str (- len i 1)) (char-backward i))) #f)
+              ((not (eqv? (string-ref str (- len i 1)) (char-backward self i))) #f)
               (else (lp (+ i 1)))))))
 
   
@@ -157,75 +157,75 @@
   ;;;
 
 
-  (method public inline (get-kind) <symbol>
+  (method public inline (get-kind self) <symbol>
     kind)
 
 
-  (method protected inline (set-kind knd <symbol+>) <void>
+  (method package inline (set-kind self knd <symbol+>) <void>
     (set! kind knd))
   
 
-  (method inline (get-paragraph n <fx>) <Paragraph>
+  (method package inline (get-paragraph self n <fx>) <Paragraph>
     (element paragraphs n))
 
 
-  (method inline (paragraph-string n <fx>) <string>
-    (get-string~ (get-paragraph n)))
+  (method package inline (paragraph-string self n <fx>) <string>
+    (get-string (get-paragraph self n)))
 
 
-  (method inline (paragraph-length n <fx>) <fx>
-    (cardinality (paragraph-string n)))
+  (method package inline (paragraph-length self n <fx>) <fx>
+    (cardinality (paragraph-string self n)))
   
   
-  (method public (get-char pos <Cell>) <char>
-    (let ((line (get-line~ pos))
-          (col (get-col~ pos)))
-      (let ((string (get-string~ (get-paragraph line))))
+  (method public (get-char self pos <Cell>) <char>
+    (let ((line (get-line pos))
+          (col (get-col pos)))
+      (let ((string (get-string (get-paragraph self line))))
         (if (< col (cast <fx> (cardinality string)))
             (element string col)
           #\newline))))
 
 
-  (method public (get-range-string start <Cell> end <Cell>) <string>
-    (get-string~ model (new Range$Cell$ start end)))
+  (method public (get-range-string self start <Cell> end <Cell>) <string>
+    (get-string model (new Range$Cell$ start end)))
   
   
-  (method public (get-marked) <string>
-    (get-range-string start end))
+  (method public (get-marked self) <string>
+    (get-range-string self start end))
   
   
-  (method public (read-marked)
-    (read-string-element (get-marked)))
+  (method public (read-marked self)
+    (read-string-element (get-marked self)))
   
   
   ;; a quicky for now: will skip the quote in front of a symbol
   ;; the right thing would probably for backward-expr not to include the quote
-  (method public (get-symbol-string) <string>
-    (if (eqv? (get-char start) #\quote)
-        (get-range-string (+ start 1) end)
-      (get-marked)))
+  (method public (get-symbol-string self) <string>
+    (if (eqv? (get-char self start) #\quote)
+        (get-range-string self (+ start 1) end)
+      (get-marked self)))
   
   
-  (method public (find-marked-symbol) <symbol+>
-    (find-symbol (get-marked)))
+  (method public (find-marked-symbol self) <symbol+>
+    (find-symbol (get-marked self)))
   
   
-  (method public (intern-marked-symbol) <symbol>
-    (string->symbol (get-marked)))
+  (method public (intern-marked-symbol self) <symbol>
+    (string->symbol (get-marked self)))
 
 
-  (method public (get-range-symbol start end) <symbol+>
-    (find-symbol (get-range-string start end)))
+  (method public (get-range-symbol self start end) <symbol+>
+    (find-symbol (get-range-string self start end)))
   
   
-  (method public (get-mark)
-    (new Explorer-Mark (get-kind) (get-range)))
+  (method public (get-mark self)
+    (new Explorer-Mark (get-kind self) (get-range self)))
   
   
-  (method public (specifier-marked?)
+  (method public (specifier-marked? self)
     (and (eq? kind 'symbol)
-         (eqv? (get-char start) #\<)
-         (eqv? (get-char (- end 1)) #\>)))
+         (eqv? (get-char self start) #\<)
+         (eqv? (get-char self (- end 1)) #\>)))
 
 
   ;;;
@@ -233,161 +233,161 @@
   ;;;
 
 
-  (method (next! pos <Cell>) <bool>
-    (let ((line (get-line~ pos))
-          (col (get-col~ pos)))
-      (cond ((< col (paragraph-length line))
-             (increase-col~ pos)
+  (method (next! self pos <Cell>) <bool>
+    (let ((line (get-line pos))
+          (col (get-col pos)))
+      (cond ((< col (paragraph-length self line))
+             (increase-col pos)
              #t)
             ((< line limit)
-             (set-line~ pos (+ line 1))
-             (set-col~ pos 0)
+             (set-line pos (+ line 1))
+             (set-col pos 0)
              #t)
             (else
              #f))))
 
 
-  (method (previous! pos <Cell>) <bool>
-    (let ((line (get-line~ pos))
-          (col (get-col~ pos)))
+  (method (previous! self pos <Cell>) <bool>
+    (let ((line (get-line pos))
+          (col (get-col pos)))
       (cond ((> col 0)
-             (increase-col~ pos -1)
+             (increase-col pos -1)
              #t)
           ((> line 0)
            (let ((previous-line (- line 1)))
-             (set-line~ pos previous-line)
-             (set-col~ pos (paragraph-length previous-line)))
+             (set-line pos previous-line)
+             (set-col pos (paragraph-length self previous-line)))
            #t)
           (else
            #f))))
 
 
-  (method (next-cell! pos <Cell>)
-    (and (next! pos)
+  (method (next-cell! self pos <Cell>)
+    (and (next! self pos)
          pos))
 
 
-  (method (previous-cell! pos <Cell>)
-    (and (previous! pos)
+  (method (previous-cell! self pos <Cell>)
+    (and (previous! self pos)
          pos))
   
   
-  (method (next-pos pos <Cell> offset <fx>) <Cell+>
+  (method package (next-pos self pos <Cell> offset <fx>) <Cell+>
     (let ((pos (copy pos)))
       (let (iterate (offset offset))
         (cond ((<= offset 0)
                pos)
-              ((next! pos)
+              ((next! self pos)
                (iterate (- offset 1)))
               (else
                #f)))))
   
   
-  (method (previous-pos pos <Cell> offset <fx>) <Cell+>
+  (method package (previous-pos self pos <Cell> offset <fx>) <Cell+>
     (let ((pos (copy pos)))
       (let (iterate (offset offset))
         (cond ((<= offset 0)
                pos)
-              ((previous! pos)
+              ((previous! self pos)
                (iterate (- offset 1)))
               (else
                #f)))))
 
   
-  (method override (forward)
-    (next! end))
+  (method override (forward self)
+    (next! self end))
   
   
-  (method (forward-n offset <fx>)
-    (do ((i 0 (+ i 1))) ((>= i offset)) (forward)))
+  (method (forward-n self offset <fx>)
+    (do ((i 0 (+ i 1))) ((>= i offset)) (forward self)))
   
   
-  (method override (backward)
-    (previous! start))
+  (method override (backward self)
+    (previous! self start))
   
 
-  (method (backward-n offset <fx>)
-    (do ((i 0 (+ i 1))) ((>= i offset)) (backward)))
+  (method package (backward-n self offset <fx>)
+    (do ((i 0 (+ i 1))) ((>= i offset)) (backward self)))
 
   
-  (method public (next-char pos <Cell> offset <fx>) <char+>
+  (method public (next-char self pos <Cell> offset <fx>) <char+>
     (define (next-in-text? pos <Cell>) <bool>
-      (let ((line (get-line~ pos))
-            (col (get-col~ pos)))
+      (let ((line (get-line pos))
+            (col (get-col pos)))
         (if (< line limit)
             (in-text? pos)
-          (and (= line limit) (< col (paragraph-length line))))))
+          (and (= line limit) (< col (paragraph-length self line))))))
     
     (define (in-text? pos <Cell>) <bool>
-      (let ((line (get-line~ pos))
-            (col (get-col~ pos)))
-        (and (>= line 0) (>= col 0) (or (< line limit) (and (= line limit) (<= col (paragraph-length line)))))))
+      (let ((line (get-line pos))
+            (col (get-col pos)))
+        (and (>= line 0) (>= col 0) (or (< line limit) (and (= line limit) (<= col (paragraph-length self line)))))))
     
-    (let ((pos (next-pos pos offset)))
+    (let ((pos (next-pos self pos offset)))
       (and pos (next-in-text? pos)
-        (get-char pos))))
+        (get-char self pos))))
   
   
-  (method public inline (char-forward offset <fx>) <char+>
-    (next-char end offset))
+  (method public inline (char-forward self offset <fx>) <char+>
+    (next-char self end offset))
   
 
-  (method public (previous-char pos <Cell> offset <fx>) <char+>
-    (let ((pos (previous-pos pos (+ offset 1))))
+  (method public (previous-char self pos <Cell> offset <fx>) <char+>
+    (let ((pos (previous-pos self pos (+ offset 1))))
       (and pos
-           (get-char pos))))
+           (get-char self pos))))
   
   
-  (method public inline (char-backward offset <fx>) <char+>
-    (previous-char start offset))
+  (method public inline (char-backward self offset <fx>) <char+>
+    (previous-char self start offset))
   
   
-  (method public (forward-while predicate <procedure>)
+  (method public (forward-while self predicate <procedure>)
     (let (iterate)
-      (let ((c (char-forward 0)))
+      (let ((c (char-forward self 0)))
         (if (not c)
             #f
           (if (predicate c)
-              (if (forward)
+              (if (forward self)
                   (iterate)
                 #f)
             #t)))))
   
   
-  (method public (backward-while predicate <procedure>)
+  (method public (backward-while self predicate <procedure>)
     (let (iterate)
-      (let ((c (char-backward 0)))
+      (let ((c (char-backward self 0)))
         (if (not c)
             #f
           (if (predicate c)
-              (if (backward)
+              (if (backward self)
                   (iterate)
                 #f)
             #t)))))
   
   
-  (method public (forward-until predicate <procedure>)
-    (forward-while (lambda (c) (not (predicate c)))))
+  (method public (forward-until self predicate <procedure>)
+    (forward-while self (lambda (c) (not (predicate c)))))
   
   
-  (method public (backward-until predicate <procedure>)
-    (backward-while (lambda (c) (not (predicate c)))))
+  (method public (backward-until self predicate <procedure>)
+    (backward-while self (lambda (c) (not (predicate c)))))
   
   
-  (method public (forward-to char)
-    (forward-until (lambda (c) (eqv? c char))))
+  (method public (forward-to self char)
+    (forward-until self (lambda (c) (eqv? c char))))
   
   
-  (method public (backward-to char)
-    (backward-until (lambda (c) (eqv? c char))))
+  (method public (backward-to self char)
+    (backward-until self (lambda (c) (eqv? c char))))
   
   
-  (method public (forward-whitespaces)
-    (forward-while whitespace?))
+  (method public (forward-whitespaces self)
+    (forward-while self whitespace?))
   
   
-  (method public (backward-whitespaces)
-    (backward-while whitespace?))
+  (method public (backward-whitespaces self)
+    (backward-while self whitespace?))
 
 
   ;;;
@@ -395,81 +395,81 @@
   ;;;
   
   
-  (method public (forward-word)
+  (method public (forward-word self)
     (let (iterate)
-      (let ((c (char-forward 0)))
+      (let ((c (char-forward self 0)))
         (if (or (not c) (not (alphanumeric? c)))
             #t
-          (forward)
+          (forward self)
           (iterate)))))
   
   
-  (method public (forward-non-word)
+  (method public (forward-non-word self)
     (let (iterate)
-      (let ((c (char-forward 0)))
+      (let ((c (char-forward self 0)))
         (if (or (not c) (alphanumeric? c))
             #t
-          (forward)
+          (forward self)
           (iterate)))))
   
   
-  (method public (backward-word)
+  (method public (backward-word self)
     (let (iterate)
-      (let ((c (char-backward 0)))
+      (let ((c (char-backward self 0)))
         (if (or (not c) (not (alphanumeric? c)))
             #t
-          (backward)
+          (backward self)
           (iterate)))))
   
   
-  (method public (backward-non-word)
+  (method public (backward-non-word self)
     (let (iterate)
-      (let ((c (char-backward 0)))
+      (let ((c (char-backward self 0)))
         (if (or (not c) (alphanumeric? c))
             #t
-          (backward)
+          (backward self)
           (iterate)))))
 
   
-  (method protected virtual (forward-constituent)
+  (method protected virtual (forward-constituent self)
     (let ((last #f))
       (let (iterate)
-        (let ((c (char-forward 0)))
+        (let ((c (char-forward self 0)))
           (cond ((eqv? c #\backslash)
-                 (forward)
-                 (forward)
+                 (forward self)
+                 (forward self)
                  (set! last c)
                  (iterate))
-                ((or (not c) (not (text-constituent? c)))
+                ((or (not c) (not (text-constituent? self c)))
                  (set! kind 'symbol)
                  kind)
                 (else
-                 (forward)
+                 (forward self)
                  (set! last c)
                  (iterate)))))))
 
   
-  (method protected virtual (backward-constituent)
+  (method protected virtual (backward-constituent self)
     (let ((last #f))
       (let (iterate)
-        (let ((c (char-backward 0)))
-          (cond ((eqv? (char-backward 1) #\backslash)
-                 (backward)
-                 (backward)
+        (let ((c (char-backward self 0)))
+          (cond ((eqv? (char-backward self 1) #\backslash)
+                 (backward self)
+                 (backward self)
                  (set! last c)
                  (iterate))
-                ((or (not c) (not (text-constituent? c)))
+                ((or (not c) (not (text-constituent? self c)))
                  (set! kind 'symbol)
                  kind)
                 (else
-                 (backward)
+                 (backward self)
                  (set! last c)
                  (iterate)))))))
 
 
-  (method public virtual (outer-expr . rest)
-    (forward-constituent)
-    (backward-constituent))
+  (method public virtual (outer-expr self . rest)
+    (forward-constituent self)
+    (backward-constituent self))
 
 
   ;;;
@@ -477,8 +477,8 @@
   ;;;
   
   
-  (method public (text-constituent? char)
-    (text-constituent?~ syntax char))
+  (method public (text-constituent? self char)
+    (text-constituent? syntax char))
 
 
   ;;;
@@ -486,26 +486,26 @@
   ;;;
 
 
-  (method public (paragraph-start)
-    (set-col~ start 0))
+  (method public (paragraph-start self)
+    (set-col start 0))
   
   
-  (method public (paragraph-end)
-    (set-col~ end (paragraph-length (get-line~ end))))
+  (method public (paragraph-end self)
+    (set-col end (paragraph-length self (get-line end))))
 
 
-  (method public (previous-paragraph)
-    (increase-line~ start -1)
-    (set-col~ start 0))
+  (method public (previous-paragraph self)
+    (increase-line start -1)
+    (set-col start 0))
 
 
-  (method public (next-paragraph)
-    (increase-line~ end)
-    (set-col~ end 0))
+  (method public (next-paragraph self)
+    (increase-line end)
+    (set-col end 0))
   
   
-  (method public (paragraph-column)
-    (forward-while (lambda (c) (eqv? c #\space))))
+  (method public (paragraph-column self)
+    (forward-while self (lambda (c) (eqv? c #\space))))
 
 
   ;;;
@@ -513,28 +513,28 @@
   ;;;
   
   
-  (method public (backward-style predicate (strict?: strict? #f))
+  (method public (backward-style self predicate (strict?: strict? #f))
     (let (iterate)
-      (let ((run (get-run-at~ model start)))
+      (let ((run (get-run-at model start)))
         (when (if strict?
-                  (and run (predicate (get-style~ run)))
-                (or (not run) (predicate (get-style~ run))))
-          (when (backward)
+                  (and run (predicate (get-style run)))
+                (or (not run) (predicate (get-style run))))
+          (when (backward self)
             (iterate))))))
   
   
-  (method public (forward-style predicate (strict?: strict? #f))
+  (method public (forward-style self predicate (strict?: strict? #f))
     (let (iterate)
-      (let ((next (next-pos end 1)))
+      (let ((next (next-pos self end 1)))
         (when next
-          (let ((run (get-run-at~ model next)))
+          (let ((run (get-run-at model next)))
             (when (if strict?
-                      (and run (predicate (get-style~ run)))
-                    (or (not run) (predicate (get-style~ run))))
-              (when (forward)
+                      (and run (predicate (get-style run)))
+                    (or (not run) (predicate (get-style run))))
+              (when (forward self)
                 (iterate))))))))
   
   
-  (method public (select-style predicate (strict?: strict? #f))
-    (backward-style predicate strict?: strict?)
-    (forward-style predicate strict?: strict?))))
+  (method public (select-style self predicate (strict?: strict? #f))
+    (backward-style self predicate strict?: strict?)
+    (forward-style self predicate strict?: strict?))))

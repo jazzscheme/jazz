@@ -44,6 +44,7 @@
         (jazz.jml)
         (jazz.locale)
         (jazz.media)
+        (jazz.outline)
         (jazz.resource)
         (jazz.text)
         (jazz.ui)
@@ -70,9 +71,9 @@
             (<Message-Text-View> name: text     background: #f left-padding: 2 top-padding: 0 selectable?: #f editable?: #f))))))
   
   
-  (method override (finish initargs)
-    (nextmethod initargs)
-    (set-client~ (locate 'text) self))
+  (method override (finish self initargs)
+    (nextmethod self initargs)
+    (set-client (locate self 'text) self))
 
   
   ;;;
@@ -80,8 +81,8 @@
   ;;;
   
   
-  (method override (focus-default)
-    (acquire-focus~ (locate 'text)))
+  (method override (focus-default self)
+    (acquire-focus (locate self 'text)))
   
   
   ;;;
@@ -111,47 +112,47 @@
   ;;;
 
 
-  (method override (resize dh dv)
-    (nextmethod dh dv)
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
     ;; a quicky so that resizing only starts after process-box has had a chance to layout every object...
-    (when (eq? (get-host) (current-modal))
-      (bind (first-dh second-dh) (resize-parts (get-width) dh 2)
-        (size-figure~ (locate 'border) dh dv)
+    (when (eq? (get-host self) (current-modal))
+      (bind (first-dh second-dh) (resize-parts (get-width self) dh 2)
+        (size-figure (locate self 'border) dh dv)
         (when user-content
-          (size-figure~ user-content dh dv))
+          (size-figure user-content dh dv))
         (for-each (lambda (button)
-                    (move-figure~ button first-dh dv))
+                    (move-figure button first-dh dv))
                   action-buttons))))
   
   
-  (method protected virtual (process-return)
-    (let ((dialog (get-host)))
+  (method package virtual (process-return self)
+    (let ((dialog (get-host self)))
       (end-modal-dialog default-button)))
   
   
-  (method protected virtual (process-escape)
+  (method package virtual (process-escape self)
     (bind (default-title default-icon default-sound default-yes default-no default-cancel cancelable? close-result) (type-info type)
       (when cancelable?
-        (let ((dialog (get-host)))
+        (let ((dialog (get-host self)))
           (end-modal-dialog close-result)))))
   
   
-  (method protected virtual (process-key key)
+  (method package virtual (process-key self key)
     (when process-keys?
-      (let ((button (find-button key)))
+      (let ((button (find-button self key)))
         (when button
-          (end-modal-dialog (get-name~ button))))))
+          (end-modal-dialog (get-name button))))))
   
   
-  (method (find-button key)
+  (method (find-button self key)
     (continuation-capture
       (lambda (return)
-        (let ((dialog (get-host)))
+        (let ((dialog (get-host self)))
           (define (try-button button)
-            (when (get-visible?~ button)
-              (bind (title name . optional) (get-user-data~ button)
+            (when (get-visible? button)
+              (bind (title name . optional) (get-user-data button)
                 (let ((shortcut-key (if (null? optional) #f (car optional)))
-                      (title (localize (get-title~ button))))
+                      (title (localize (get-title button))))
                   (let ((first (or shortcut-key (element title 0))))
                     (when (ci=? first key)
                       (continuation-return return button)))))))
@@ -160,8 +161,8 @@
           #f))))
   
   
-  (method (on-select evt)
-    (let ((button (get-property~ evt button:)))
+  (method (on-select self evt)
+    (let ((button (get-property evt button:)))
       (end-modal-dialog button)))
   
   
@@ -170,7 +171,7 @@
   ;;;
   
   
-  (method public (process-box text
+  (method public (process-box self text
                               (type: type 'message)
                               (title: title #f)
                               (size: size #f)
@@ -189,9 +190,9 @@
                               (process-modal?: process-modal? #t))
     (define (layout-dialog dialog title size)
       (let ((position (position-dialog size)))
-        (set-title~ dialog title)
-        (set-position~ dialog position)
-        (set-size~ dialog size)))
+        (set-title dialog title)
+        (set-position dialog position)
+        (set-size dialog size)))
     
     (define (icon-resource icon)
       (case icon
@@ -201,11 +202,11 @@
         (else {Image-Resource "Information"})))
     
     (bind (default-title default-icon default-sound default-yes default-no default-cancel cancelable? close-result) (type-info type)
-      (set! type~self type)
-      (set! process-keys?~self process-keys?)
-      (set! user-content~self content)
-      (let ((dialog (get-player))
-            (host (get-host))
+      (set! self.type type)
+      (set! self.process-keys? process-keys?)
+      (set! self.user-content content)
+      (let ((dialog (get-player self))
+            (host (get-host self))
             (title (or title default-title))
             (icon (if (eq? icon 'none) #f (or icon default-icon)))
             (sound (if (eq? sound 'default) default-sound sound))
@@ -219,21 +220,21 @@
         (when (and yes (not (member? 'yes actions key: second)))
           (set! actions (cons (list (localize yes) 'yes) actions)))
         (if icon
-            (set-resource~ (locate 'icon) (icon-resource icon))
-          (set-visible?~ (locate 'icon) #f)
-          (set-position~ (locate 'border) {Point 29 12}))
+            (set-resource (locate self 'icon) (icon-resource icon))
+          (set-visible? (locate self 'icon) #f)
+          (set-position (locate self 'border) {Point 29 12}))
         (let* ((default-button (or default-button (second (first actions))))
-               (dialog-size (layout-box (and text (localize text)) selection (and title (localize title)) size icon content content-spacing actions execute default-button)))
+               (dialog-size (layout-box self (and text (localize text)) selection (and title (localize title)) size icon content content-spacing actions execute default-button)))
           (if (not process-modal?)
               dialog-size
             (layout-dialog dialog (and title (localize title)) dialog-size)
-            (focus-box)
+            (focus-box self)
             (when sound
               (play-sound sound))
-            (process-modal~ host))))))
+            (process-modal host))))))
   
   
-  (method protected virtual (focus-box)
+  (method protected virtual (focus-box self)
     )
   
   
@@ -255,7 +256,7 @@
     6)
   
   
-  (method protected virtual (layout-box text selection title size icon content content-spacing actions execute default)
+  (method protected virtual (layout-box self text selection title size icon content content-spacing actions execute default)
     (define (setup-buttons actions default)
       (let ((buttons-width 0)
             (size (new Dimension 80 24))
@@ -266,58 +267,58 @@
             (increase! count)
             (let* ((handler (if execute (new Event-Handler execute: execute properties: (list button: button-name)) (new Event-Handler target-name: :guest method-name: 'on-select properties: (list button: button-name))))
                    (button (new Push-Button name: button-name parent: self position: (new Point (* count 75) 72) size: size user-data: action action-handler: handler default?: (eq? button-name default))))
-              (set-title~ button (localize title))
-              (let* ((size (preferred-size~ button))
-                     (width (max (get-width~ size) 80)))
-                (set-size~ button (new Dimension width (get-height~ size)))
+              (set-title button (localize title))
+              (let* ((size (preferred-size button))
+                     (width (max (get-width size) 80)))
+                (set-size button (new Dimension width (get-height size)))
                 (when (/= buttons-width 0)
                   (increase! buttons-width Buttons-Spacing))
                 (increase! buttons-width width))
-              (put~ fact button))))
+              (put fact button))))
         
         (for-each setup-button actions)
-        (set! action-buttons (get-output~ fact))
+        (set! action-buttons (get-output fact))
         (set! default-button default)
         buttons-width))
     
     (define (position-buttons action-buttons h v)
       (define (position-button button)
-        (when (get-visible?~ button)
-          (set-position~ button (new Point h v))
-          (set! h (+ h (get-width~ button) Buttons-Spacing))))
+        (when (get-visible? button)
+          (set-position button (new Point h v))
+          (set! h (+ h (get-width button) Buttons-Spacing))))
       
       (for-each position-button action-buttons))
     
     (let* (@wait (icon-view (locate 'icon))
-           (text-view (locate 'text))
-           (text-model (get-model~ text-view))
-           (border-view (locate 'border))
+           (text-view (locate self 'text))
+           (text-model (get-model text-view))
+           (border-view (locate self 'border))
            (size-border
             (lambda (width height)
-              (set-size~ border-view (new Dimension (+ width 1 Left-Padding 1) (+ height 1 Top-Padding 1)))))
+              (set-size border-view (new Dimension (+ width 1 Left-Padding 1) (+ height 1 Top-Padding 1)))))
            (buttons-width (setup-buttons actions default)))
-      (set-text~ text-model (localize text))
+      (set-text text-model (localize text))
       (when selection
-        (set-selection~ text-view selection))
-      (let ((width (if size (get-width~ size) (min (max (compute-width~ text-model) (max buttons-width 208)) 500))))
+        (set-selection text-view selection))
+      (let ((width (if size (get-width size) (min (max (compute-width text-model) (max buttons-width 208)) 500))))
         (size-border width 100)
-        (let ((text-height (get-visible-height~ text-model))
-              (height (if size (get-height~ size) (min (max (get-visible-height~ text-model) (if content 0 36)) 200))))
+        (let ((text-height (get-visible-height text-model))
+              (height (if size (get-height size) (min (max (get-visible-height text-model) (if content 0 36)) 200))))
           (size-border width height)
-          (let ((bottom (get-bottom~ border-view)))
+          (let ((bottom (get-bottom border-view)))
             (when content
               (let ((spacing (or content-spacing Content-Spacing)))
-                (set-parent~ content self)
-                (set-position~ content (new Point (get-left~ border-view) (+ bottom spacing)))
-                (set! width (max width (get-width~ content)))
-                (increase! height (+ spacing (get-height~ content)))
-                (set! bottom (+ (get-bottom~ content) 2))))
+                (set-parent content self)
+                (set-position content (new Point (get-left border-view) (+ bottom spacing)))
+                (set! width (max width (get-width content)))
+                (increase! height (+ spacing (get-height content)))
+                (set! bottom (+ (get-bottom content) 2))))
             (let ((dialog-width (+ width 68))
                   (dialog-height (+ height 58)))
-              @wait (set-icon~ icon-view icon)
+              @wait (set-icon icon-view icon)
               (let ((overflow? (> text-height height)))
                 (when overflow?
-                  (set-border-type~ border-view 'solid)))
+                  (set-border-type border-view 'solid)))
               (let ((h (+ (center buttons-width dialog-width) 1))
                     (v (+ bottom (if icon 10 15))))
                 (position-buttons action-buttons h v))
@@ -335,21 +336,21 @@
   (property client accessors generate)
     
   
-  (method override (new-model)
+  (method override (new-model self)
     (new Formatted-Text-Model wrap?: #t))
 
   
-  (method override (get-context-menu)
-    (new-text-context-menu))
+  (method override (get-context-menu self)
+    (new-text-context-menu self))
   
   
-  (method override (return-press evt)
-    (process-return~ client))
+  (method override (return-press self evt)
+    (process-return client))
   
   
-  (method override (escape-press evt)
-    (process-escape~ client))
+  (method override (escape-press self evt)
+    (process-escape client))
   
   
-  (method override (key-press evt)
-    (process-key~ client (get-key~ evt)))))
+  (method override (key-press self evt)
+    (process-key client (get-key evt)))))

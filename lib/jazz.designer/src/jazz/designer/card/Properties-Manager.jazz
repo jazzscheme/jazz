@@ -45,6 +45,8 @@
         (jazz.handler)
         (jazz.jml)
         (jazz.resource)
+        (jazz.text)
+        (jazz.tree)
         (jazz.ui)
         (jazz.workspace))
 
@@ -59,13 +61,13 @@
           (<!> name: header   style: tool)))))
   
   
-  (method override (destroy)
+  (method override (destroy self)
     (let ((appl (get-application)))
-      (close-selected~ appl self))
-    (nextmethod))
+      (close-selected appl self))
+    (nextmethod self))
     
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'Properties)
 
   
@@ -74,46 +76,46 @@
   ;;;
   
   
-  (method meta override (host-icon)
+  (method meta override (host-icon self)
     {Image-Resource "Properties"})
   
 
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Properties")
   
   
-  (method override (host-install)
+  (method override (host-install self)
     (let ((appl (get-application)))
-      (add-selected-listener~ appl (new Event-Handler target: self method-name: 'on-selected-change))))
+      (add-selected-listener appl (new Event-Handler target: self method-name: 'on-selected-change))))
   
   
-  (method override (host-uninstall)
+  (method override (host-uninstall self)
     (let ((appl (get-application)))
-      (remove-selected-listener~ appl self)))
+      (remove-selected-listener appl self)))
   
   
-  (method override (client-activate)
-    (close-auto-expanded~ (get-tree))
+  (method override (client-activate self)
+    (close-auto-expanded (get-tree self))
     (let ((guest (current-document)))
       (typecase guest
         ((Text-Editor)
-         (set-client #f)
-         (set-designer #f)
-         (set-editor #f))
+         (set-client self #f)
+         (set-designer self #f)
+         (set-editor self #f))
         ((Component-Editor)
-         (set-editor guest)
-         (set-designer (get-designer~ guest))
-         (set-client (get-selection~ guest)))
+         (set-editor self guest)
+         (set-designer self (get-designer guest))
+         (set-client self (get-selection guest)))
         (else
-         (set-client #f)
-         (set-designer #f)
-         (set-editor #f)))))
+         (set-client self #f)
+         (set-designer self #f)
+         (set-editor self #f)))))
   
   
-  (method override (client-deactivate)
-    (set-client #f)
-    (set-designer #f)
-    (set-editor #f))
+  (method override (client-deactivate self)
+    (set-client self #f)
+    (set-designer self #f)
+    (set-editor self #f))
   
   
   ;;;
@@ -121,13 +123,13 @@
   ;;;
   
   
-  (method override (focus-default)
-    (let ((tree (get-tree)))
-      (acquire-focus~ tree)))
+  (method override (focus-default self)
+    (let ((tree (get-tree self)))
+      (acquire-focus tree)))
   
   
-  (method override (get-tools-view)
-    (locate 'tools))
+  (method override (get-tools-view self)
+    (locate self 'tools))
     
   
   ;;;
@@ -135,12 +137,12 @@
   ;;;
   
   
-  (method override (install-in-host host)
-    (nextmethod host)
+  (method override (install-in-host self host)
+    (nextmethod self host)
     (when (is? host Docked-Host)
-      (set-flat?~ (locate 'scroller) #t)
-      (set-flat?~ (locate 'header) #t)
-      (set-filter~ (locate 'tree) 'standard)))
+      (set-flat? (locate self 'scroller) #t)
+      (set-flat? (locate self 'header) #t)
+      (set-filter (locate self 'tree) 'standard)))
   
   
   ;;;
@@ -148,9 +150,9 @@
   ;;;
   
 
-  (method override (guest-actions)
+  (method override (guest-actions self)
     (cons (find-actions 'properties-manager)
-          (nextmethod)))
+          (nextmethod self)))
     
   
   ;;;
@@ -158,71 +160,71 @@
   ;;;
   
   
-  (method virtual (on-selected-change evt)
-    (close-auto-expanded~ (get-tree))
-    (let ((owner (get-owner~ evt)))
+  (method virtual (on-selected-change self evt)
+    (close-auto-expanded (get-tree self))
+    (let ((owner (get-owner evt)))
       (typecase owner
         ((Designer)
          (let ((editor #f)
                (designer owner)
-               (client (get-selected~ evt))
-               (force? (get-force?~ evt)))
-           (set-editor editor)
-           (set-designer designer)
-           (set-client client force?: force?)))
+               (client (get-selected evt))
+               (force? (get-force? evt)))
+           (set-editor self editor)
+           (set-designer self designer)
+           (set-client self client force?: force?)))
         ((Text-Editor)
-         (set-editor #f)
-         (set-designer #f)
-         (set-client #f))
+         (set-editor self #f)
+         (set-designer self #f)
+         (set-client self #f))
         ((Component-Editor)
          (let* ((editor owner)
-                (designer (get-designer~ editor))
-                (client (get-selected~ evt))
-                (force? (get-force?~ evt)))
-           (set-editor editor)
-           (set-designer designer)
-           (set-client client force?: force?)))
+                (designer (get-designer editor))
+                (client (get-selected evt))
+                (force? (get-force? evt)))
+           (set-editor self editor)
+           (set-designer self designer)
+           (set-client self client force?: force?)))
         (else
-         (set-editor #f)
-         (set-designer #f)
-         (set-client #f)))))
+         (set-editor self #f)
+         (set-designer self #f)
+         (set-client self #f)))))
   
   
-  (method (on-present-documentation evt)
+  (method (on-present-documentation self evt)
     (define (determine-class client property)
       (let (iter (class (class-of (car client))))
         (cond ((not class)
                #f)
-              ((memq? property (get-slots~ class))
+              ((memq? property (get-slots class))
                class)
               (else
-               (iter (get-ascendant~ class))))))
+               (iter (get-ascendant class))))))
     
-    (let ((tree (get-tree)))
-      (let ((client (get-client~ tree))
-            (property (selected-property~ tree)))
+    (let ((tree (get-tree self)))
+      (let ((client (get-client tree))
+            (property (selected-property tree)))
         (when (and client (not-null? client) property)
-          (let ((frame (show-help~ (get-application))))
+          (let ((frame (show-help (get-application))))
             (when frame
-              (let ((text (get-guest~ frame))
+              (let ((text (get-guest frame))
                     (class (determine-class client property)))
                 (when class
                   (let ((class-title (->string (category-name class)))
-                        (property-title (->string (get-name~ property))))
-                    (let (iter (scan (get-chapters~ text)) (class-level #f) (class-pos #f))
+                        (property-title (->string (get-name property))))
+                    (let (iter (scan (get-chapters text)) (class-level #f) (class-pos #f))
                       (if (null? scan)
                           (if class-pos
-                              (select-chapter~ text class-pos)
-                            (set-caret~ text (text-beginning~ text))
+                              (select-chapter text class-pos)
+                            (set-caret text (text-beginning text))
                             (user-message "Property {a} not found in documentation" property-title))
                         (bind (level pos header title) (car scan)
                           (cond ((and class-level (<= level class-level))
-                                 (select-chapter~ text class-pos))
+                                 (select-chapter text class-pos))
                                 ((equal? title class-title)
                                  (iter (cdr scan) level pos))
                                 ((equal? title property-title)
                                  (if class-pos
-                                     (select-chapter~ text pos)
+                                     (select-chapter text pos)
                                    (iter (cdr scan) class-level class-pos)))
                                 (else
                                  (iter (cdr scan) class-level class-pos)))))))))))))))
@@ -233,8 +235,8 @@
   ;;;
   
   
-  (method override (on-editor evt)
-    (case (get-kind~ evt)
+  (method override (on-editor self evt)
+    (case (get-kind evt)
       ;; application selected event will take care of this
       ((:selection-changed))
-      (else (nextmethod evt))))))
+      (else (nextmethod self evt))))))

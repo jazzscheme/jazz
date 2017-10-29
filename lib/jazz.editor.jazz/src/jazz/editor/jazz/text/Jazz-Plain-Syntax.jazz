@@ -39,6 +39,7 @@
 
 
 (import (jazz.editor.jazz)
+        (jazz.editor.lisp)
         (jazz.text))
 
 
@@ -58,11 +59,11 @@
     (string-append (make-string 4 #\semi-colon) " "))
   
   
-  (method override (comment-string)
+  (method override (comment-string self)
     Comment)
   
   
-  (method override (title-comment-string)
+  (method override (title-comment-string self)
     Title-Comment)
   
   
@@ -71,55 +72,55 @@
   ;;;
   
   
-  (method override (colorize-syntax (colorizer?: colorizer? #t))
+  (method override (colorize-syntax self (colorizer?: colorizer? #t))
     (define (colorize proc)
-      (let ((expl <Text-Explorer> (new (explorer-class) model start: (text-beginning~ model) end: (text-beginning~ model)))
-            (colorizer (and colorizer? (new-colorizer~ model))))
+      (let ((expl <Text-Explorer> (new (explorer-class self) model start: (text-beginning model) end: (text-beginning model)))
+            (colorizer (and colorizer? (new-colorizer model))))
         (proc expl colorizer)
         (when colorizer
-          (finish-current~ colorizer))))
+          (finish-current colorizer))))
     
-    (nextmethod)
-    (colorize colorize-comments))
+    (nextmethod self)
+    (colorize (~ colorize-comments self)))
 
   
-  (method override (colorize-comments . rest)
-    (when (eq? (type-heuristic) 'jazz)
-      (let ((expl (new Jazz-Explorer model end: (text-beginning~ model))))
-        (for-each-comment~ expl
+  (method override (colorize-comments self . rest)
+    (when (eq? (type-heuristic self) 'jazz)
+      (let ((expl (new Jazz-Explorer model end: (text-beginning model))))
+        (for-each-comment expl
           (lambda (start <Cell> end <Cell> title?)
             (if (not title?)
-                (stylize~ model 'Comment start)
-              (stylize~ model 'Comment start (+ start 4))
-              (stylize~ model 'Title (+ start 4))))))))
+                (stylize model 'Comment start)
+              (stylize model 'Comment start (+ start 4))
+              (stylize model 'Title (+ start 4))))))))
 
 
-  (method override (recolorize-text syntax-style start end-line)
+  (method override (recolorize-text self syntax-style start end-line)
     (define (recolorize-row line)
       (recolorize-comments line))
     
     (define (recolorize-comments line)
-      (let* ((str (paragraph-string~ model line))
+      (let* ((str (paragraph-string model line))
              (len (cardinality str))
-             (title-comment-str (title-comment-string))
+             (title-comment-str (title-comment-string self))
              (title-comment-size (string-length title-comment-str))
-             (comment-str (comment-string))
+             (comment-str (comment-string self))
              (comment (search str comment-str)))
         (when (and comment (<= comment 20))
           (let ((title-end (+ comment title-comment-size)))
             (if (and (< title-end len) (nu=? (subseq str comment title-end) title-comment-str))
                 (begin
-                  (stylize~ model 'Comment (new Cell line comment) (new Cell line title-end))
-                  (stylize~ model 'Title (new Cell line title-end)))
-              (stylize~ model 'Comment (new Cell line comment)))))))
+                  (stylize model 'Comment (new Cell line comment) (new Cell line title-end))
+                  (stylize model 'Title (new Cell line title-end)))
+              (stylize model 'Comment (new Cell line comment)))))))
     
-    (when (eq? (type-heuristic) 'jazz)
-      (let ((range (naturals (get-line~ start) (+ end-line 1))))
+    (when (eq? (type-heuristic self) 'jazz)
+      (let ((range (naturals (get-line start) (+ end-line 1))))
         (for-each recolorize-row range))))
   
   
-  (method (type-heuristic)
-    (let ((first-line (paragraph-string~ model 0)))
+  (method (type-heuristic self)
+    (let ((first-line (paragraph-string model 0)))
       (if (starts-with? first-line ";;;")
           'jazz
         'c)))))

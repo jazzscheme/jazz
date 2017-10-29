@@ -40,7 +40,9 @@
 
 (import (jazz.component)
         (jazz.domain)
-        (jazz.locale))
+        (jazz.locale)
+        (jazz.reference)
+        (jazz.tree))
 
 
 (class Domain extends Component
@@ -60,44 +62,44 @@
   ;;;
   
 
-  (method public (valid? text)
-    (null? (collect-violations text)))
+  (method public (valid? self text)
+    (null? (collect-violations self text)))
   
 
-  (method public (valid-presentation? text)
-    (boolean (presentation-violation text)))
+  (method public (valid-presentation? self text)
+    (boolean (presentation-violation self text)))
   
   
-  (method public (valid-value? value)
-    (null? (collect-value-violations value #f)))
+  (method public (valid-value? self value)
+    (null? (collect-value-violations self value #f)))
   
   
-  (method public (collect-violations text (validation-context #f))
-    (receive (value violation) (strict-parse text)
+  (method public (collect-violations self text (validation-context #f))
+    (receive (value violation) (strict-parse self text)
       (if violation
           (list violation)
-        (collect-value-violations value validation-context))))
+        (collect-value-violations self value validation-context))))
   
   
-  (method public (collect-value-violations value (validation-context #f))
+  (method public (collect-value-violations self value (validation-context #f))
     (set! data-violations '())
-    (validate-value value validation-context)
+    (validate-value self value validation-context)
     (prog1 data-violations
       (set! data-violations '())))
   
   
-  (method public (presentation-violation text)
-    (receive (value violation) (strict-parse text)
+  (method public (presentation-violation self text)
+    (receive (value violation) (strict-parse self text)
       violation))
   
   
-  (method virtual (validate-value value (validation-context #f))
+  (method package virtual (validate-value self value (validation-context #f))
     (and (not value)
          (or nullable?
-             (add-violation~ self (localize {Locales english: "Value required" french: "Valeur requise"})))))
+             (add-violation self (localize {Locales english: "Value required" french: "Valeur requise"})))))
   
   
-  (method (add-violation format-string . rest)
+  (method package (add-violation self format-string . rest)
     (let ((violation (new Violation message: (apply format (cons format-string rest)))))
       (set! data-violations (cons violation data-violations))
       violation))
@@ -108,7 +110,7 @@
   ;;;
   
   
-  (method public virtual (get-multi-domains client)
+  (method public virtual (get-multi-domains self client)
     #f)
   
   
@@ -117,20 +119,20 @@
   ;;; 
   
   
-  (method public virtual (get-nil-presentation)
+  (method public virtual (get-nil-presentation self)
     nil-presentation)
   
   
-  (method public (present value)
+  (method public (present self value)
     (localize (cond ((not value)
-                     (get-nil-presentation))
+                     (get-nil-presentation self))
                     ((not value->presentation-handler)
-                     (present-value value))
+                     (present-value self value))
                     (else
-                     ((resolve-reference~ value->presentation-handler) value)))))
+                     ((reference-resolve value->presentation-handler) value)))))
   
   
-  (method virtual (present-value value)
+  (method virtual (present-value self value)
     (error "{t} class does not define a present-value method" (category-name (class-of self))))
   
   
@@ -139,7 +141,7 @@
   ;;;
  
   
-  (method virtual (gather-properties)
+  (method virtual (gather-properties self)
     `((category-name ,@(category-name (class-of self)))
       (nullable? ,@nullable?)))
   
@@ -149,42 +151,42 @@
   ;;;
   
 
-  (method virtual (parse-presentation text)
+  (method virtual (parse-presentation self text)
     (error "{t} class does not define a parse-presentation method" (category-name (class-of self))))
   
   
-  (method virtual (make-parse-error-message exception)
+  (method virtual (make-parse-error-message self exception)
     #f)
   
   
-  (method public (parse text)
-    (receive (value violation) (parse-with text #f (lambda (exception) #f))
+  (method public (parse self text)
+    (receive (value violation) (parse-with self text #f (lambda (exception) #f))
       value))
   
   
-  (method (parse-with text <String> nullable-violation exception-catcher)
+  (method (parse-with self text <String> nullable-violation exception-catcher)
     (let ((value #f))
-      (let ((violation (if (and (get-nil-presentation)
-                                (string=? text (localize (get-nil-presentation))))
+      (let ((violation (if (and (get-nil-presentation self)
+                                (string=? text (localize (get-nil-presentation self))))
                            (and (not nullable?)
                                 nullable-violation)
                          (with-exception-catcher
                            exception-catcher
                            (lambda ()
                              (set! value (if presentation->value-handler
-                                             ((resolve-reference~ presentation->value-handler) text)
-                                           (parse-presentation text)))
+                                             ((reference-resolve presentation->value-handler) text)
+                                           (parse-presentation self text)))
                              #f)))))
         (values value violation))))
   
   
-  (method (strict-parse text)
-    (parse-with text
+  (method (strict-parse self text)
+    (parse-with self text
                 (new Violation message: "This field is not nullable")
                 (lambda (exception)
-                  (new Violation message: (or (make-parse-error-message exception)
+                  (new Violation message: (or (make-parse-error-message self exception)
                                               (and (is? exception Exception)
-                                                   (get-message~ exception))
+                                                   (get-message exception))
                                               (->string exception))))))
   
   
@@ -193,8 +195,8 @@
   ;;;
   
   
-  (method public virtual (draw-data surface context value column row data width height)
-    (draw-at~ column surface context row data 0 0 width height))
+  (method public virtual (draw-data self surface context value column row data width height)
+    (draw-at column surface context row data 0 0 width height))
   
   
   ;;;
@@ -202,8 +204,8 @@
   ;;;
   
   
-  (method public virtual (setup-entry view client)
-    (new jazz.designer:Text-Entry parent: view size: (get-size~ view) domain: self)))
+  (method public virtual (setup-entry self view client)
+    (new jazz.designer:Text-Entry parent: view size: (get-size view) domain: self)))
 
 
 ;;;
@@ -214,5 +216,5 @@
 @fix-creates-a-dependency-to-designer
 (specific (validate-component (<Domain> domain) validation-context)
   (nextmethod domain validation-context)
-  (when (and nullable? (not (get-nil-presentation~ domain)))
-    (add-violation~ validation-context message: (format "Nil presentation must be set in a nullable domain")))))
+  (when (and nullable? (not (get-nil-presentation domain)))
+    (add-violation validation-context message: (format "Nil presentation must be set in a nullable domain")))))

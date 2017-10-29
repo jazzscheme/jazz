@@ -48,12 +48,12 @@
   (slot values)
   
   
-  (method override (initialize table state values)
-    (nextmethod table state)
-    (set! values~self (or values (map (lambda (column) #f) (get-columns~ table)))))
+  (method override (initialize self table state values)
+    (nextmethod self table state)
+    (set! self.values (or values (map (lambda (column) #f) (get-columns table)))))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{s}" values))))
@@ -64,7 +64,7 @@
   ;;;
   
   
-  (method override (get-values)
+  (method override (get-values self)
     values)
   
   
@@ -73,29 +73,29 @@
   ;;;
   
   
-  (method override (get name/rank)
+  (method override (get self name/rank)
     (cond ((integer? name/rank)
            (element values name/rank))
           ((string? name/rank)
            (continuation-capture
              (lambda (return)
-               (let ((columns (get-columns~ table)))
+               (let ((columns (get-columns table)))
                  (for-each (lambda (column value)
-                             (when (ci=? (get-name~ column) name/rank)
+                             (when (ci=? (get-name column) name/rank)
                                (continuation-return return value)))
                            columns
                            values))
                (error "Unknown column: {t}" name/rank))))
           (else
-           (map get name/rank))))
+           (map (~ get self) name/rank))))
   
   
-  (method public (set name value)
-    (let (iterate (columns (get-columns~ table))
+  (method public (set self name value)
+    (let (iterate (columns (get-columns table))
                   (scan values))
       (if (or (null? columns) (null? scan))
           (error "Unknown column: {t}" name)
         (let ((column (car columns)))
-          (if (ci=? (get-name~ column) name)
+          (if (ci=? (get-name column) name)
               (set-car! scan value)
             (iterate (cdr columns) (cdr scan)))))))))

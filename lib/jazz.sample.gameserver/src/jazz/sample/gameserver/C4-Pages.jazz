@@ -48,22 +48,22 @@
 (class C4-Pages extends Game-Pages
   
   
-  (method override (initialize)
-    (set! page-name~self "/C4"))
+  (method override (initialize self)
+    (set! self.page-name "/C4"))
    
   
-  (method (create-players game players)
+  (method (create-players self game players)
       (cond ((nu=? players "hh") (list (new C4-Human game RED) (new C4-Human game GREEN)))
             ((nu=? players "hc") (list (new C4-Human game RED) (new C4-AI game GREEN)))
             ((nu=? players "ch") (list (new C4-AI game RED) (new C4-Human game GREEN)))
             ((nu=? players "cc") (list (new C4-AI game RED) (new C4-AI game GREEN)))))
   
   
-  (method (new-game)
+  (method (new-game self)
     (new C4-Game))
   
 
-  (method override (render-game request)
+  (method override (render-game self request)
     (define (effective-move game value)
       (cond ((or (not value) (empty-string? value))
              #f)
@@ -72,23 +72,23 @@
             ((equal? value "all")
              'all)
             (else
-             (available-move~ game (deserialize-col game value)))))
+             (available-move game (deserialize-col game value)))))
     
-    (let ((players (effective-players (get-parameter~ request "players")))
-          (current (effective-current (get-parameter~ request "current"))))
+    (let ((players (effective-players (get-parameter request "players")))
+          (current (effective-current (get-parameter request "current"))))
       (let ((game (new-game)))
-        (let ((goto (effective-goto game (get-parameter~ request "goto"))))
-          (register-players~ game (create-players game players))
+        (let ((goto (effective-goto game (get-parameter request "goto"))))
+          (register-players game (create-players game players))
           (deserialize-game request game goto current)
-          (let ((move (effective-move game (get-parameter~ request "move")))
-                (all-computers? (every? computer?~ (get-players~ game))))
-            (when (and (not goto) (or (not all-computers?) (not-null? (get-backward-moves~ game)) (memq? move '(one all))))
+          (let ((move (effective-move game (get-parameter request "move")))
+                (all-computers? (every? computer?~ (get-players game))))
+            (when (and (not goto) (or (not all-computers?) (not-null? (get-backward-moves game)) (memq? move '(one all))))
               (play-players game move)))
-          (let ((status (get-status~ game))
-                (backward (get-backward-moves~ game))
-                (forward (get-forward-moves~ game))
-                (next-player (get-next-player~ game))
-                (second-player (get-second-player~ game)))
+          (let ((status (get-status game))
+                (backward (get-backward-moves game))
+                (forward (get-forward-moves game))
+                (next-player (get-next-player game))
+                (second-player (get-second-player game)))
             `(<html>
                (<head>
                  (<link> type: "text/css" href: "css/c4.css" rel: "stylesheet")
@@ -116,14 +116,14 @@
                        (<td>)
                        (<td> valign: "top"
                          (<table> cellspacing: "0" cellpadding: "0"
-                           ,@(loop (for row from 0 below (get-board-rows~ game))
+                           ,@(loop (for row from 0 below (get-board-rows game))
                                    (collect
                                      `(<tr>
                                         ,@(cons `(<td> ,(present-line game row))
-                                                (loop (for col from 0 below (get-board-columns~ game))
+                                                (loop (for col from 0 below (get-board-columns game))
                                                       (collect
-                                                        (let* ((square (get-square~ game row col))
-                                                               (token (get-token~ square))
+                                                        (let* ((square (get-square game row col))
+                                                               (token (get-token square))
                                                                (image (format "images/c4/{a}.png"
                                                                               (cond ((= token EMPTY) "empty")
                                                                                     ((= token GREEN) "green")
@@ -135,14 +135,14 @@
                                                                 `(<img> src: ,image))))))))))
                            (<tr>
                              (<td>)
-                             ,@(loop (for col from 0 below (get-board-columns~ game))
+                             ,@(loop (for col from 0 below (get-board-columns game))
                                      (collect
                                        `(<td> align: "center" valign: "top" ,(present-col game col)))))
                            (<tr>
                              (<td> align: "center" colspan: "8"
                                ,@(case status
                                    ((win)
-                                    `((<h2> class: "status" ,(format "{a} wins!!!" (present~ (get-winner~ game))))))
+                                    `((<h2> class: "status" ,(format "{a} wins!!!" (present (get-winner game))))))
                                    ((draw)
                                     `((<h2> class: "status" "Draw!")))
                                    (else
@@ -224,14 +224,14 @@
     (string->number value))
   
   
-  (method override (serialize-move move)
-    (let ((line (get-line~ move))
-          (col (get-col~ move)))
+  (method override (serialize-move self move)
+    (let ((line (get-line move))
+          (col (get-col move)))
       (format "{s},{s}" line col)))
   
   
-  (method override (deserialize-move game value)
+  (method override (deserialize-move self game value)
     (let ((pos (search value ",")))
       (let ((row (string->number (substring value 0 pos)))
             (col (string->number (substring value (+ pos 1) (cardinality value)))))
-        (get-square~ game row col))))))
+        (get-square game row col))))))

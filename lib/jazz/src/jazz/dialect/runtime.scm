@@ -50,7 +50,7 @@
 
 
 (define (jazz:new-definition-declaration name type access compatibility attributes parent expansion signature)
-  (let ((new-declaration (jazz:allocate-definition-declaration name type #f access compatibility attributes #f parent #f #f expansion signature #f)))
+  (let ((new-declaration (jazz:allocate-definition-declaration name type #f access compatibility attributes #f parent #f #f #f expansion signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -149,6 +149,7 @@
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Definition-Declaration declaration) down up here seed environment)
+  (here declaration seed environment)
   (jazz:tree-fold (jazz:get-definition-declaration-value declaration) down up here seed environment))
 
 
@@ -191,7 +192,7 @@
 
 
 (define (jazz:new-generic-declaration name type access compatibility attributes parent dispatch-types signature)
-  (let ((new-declaration (jazz:allocate-generic-declaration name type #f access compatibility attributes #f parent #f #f dispatch-types signature #f)))
+  (let ((new-declaration (jazz:allocate-generic-declaration name type #f access compatibility attributes #f parent #f #f #f dispatch-types signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -221,6 +222,8 @@
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Generic-Declaration declaration) down up here seed environment)
+  (here declaration seed environment)
+  (jazz:tree-fold-list (jazz:get-signature-expressions (jazz:get-generic-declaration-signature declaration)) down up here seed environment)
   (jazz:tree-fold (jazz:get-generic-declaration-body declaration) down up here seed environment))
 
 
@@ -241,7 +244,7 @@
 
 
 (define (jazz:new-specific-declaration name type access compatibility attributes parent generic signature root?)
-  (let ((new-declaration (jazz:allocate-specific-declaration name type #f access compatibility attributes #f parent #f #f generic signature #f root?)))
+  (let ((new-declaration (jazz:allocate-specific-declaration name type #f access compatibility attributes #f parent #f #f #f generic signature #f root?)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -267,6 +270,8 @@
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Specific-Declaration declaration) down up here seed environment)
+  (here declaration seed environment)
+  (jazz:tree-fold-list (jazz:get-signature-expressions (jazz:get-specific-declaration-signature declaration)) down up here seed environment)
   (jazz:tree-fold (jazz:get-specific-declaration-body declaration) down up here seed environment))
 
 
@@ -301,7 +306,7 @@
 
 
 (define (jazz:new-class-declaration name type access compatibility attributes parent implementor metaclass metaclass-explicit? ascendant ascendant-relation ascendant-base interfaces)
-  (let ((new-declaration (jazz:allocate-class-declaration name type #f access compatibility attributes #f parent #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass metaclass-explicit? ascendant ascendant-relation ascendant-base interfaces)))
+  (let ((new-declaration (jazz:allocate-class-declaration name type #f access compatibility attributes #f parent #f #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass metaclass-explicit? ascendant ascendant-relation ascendant-base interfaces)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -519,7 +524,7 @@
 
 
 (define (jazz:new-interface-declaration name type access compatibility attributes parent implementor metaclass metaclass-explicit? ascendants)
-  (let ((new-declaration (jazz:allocate-interface-declaration name type #f access compatibility attributes #f parent #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass metaclass-explicit? ascendants)))
+  (let ((new-declaration (jazz:allocate-interface-declaration name type #f access compatibility attributes #f parent #f #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass metaclass-explicit? ascendants)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -618,7 +623,7 @@
 
 
 (define (jazz:new-slot-declaration name type access compatibility attributes parent initialize getter-name setter-name)
-  (let ((new-declaration (jazz:allocate-slot-declaration name type #f access compatibility attributes #f parent #f #f initialize getter-name setter-name)))
+  (let ((new-declaration (jazz:allocate-slot-declaration name type #f access compatibility attributes #f parent #f #f #f initialize getter-name setter-name)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -690,7 +695,7 @@
 
 
 (define (jazz:new-property-declaration name type access compatibility attributes parent initialize getter-name setter-name)
-  (let ((new-declaration (jazz:allocate-property-declaration name type #f access compatibility attributes #f parent #f #f initialize getter-name setter-name #f #f)))
+  (let ((new-declaration (jazz:allocate-property-declaration name type #f access compatibility attributes #f parent #f #f #f initialize getter-name setter-name #f #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -734,7 +739,7 @@
 
 
 (define (jazz:new-method-declaration name type access compatibility attributes parent root propagation abstraction expansion remote synchronized signature)
-  (let ((new-declaration (jazz:allocate-method-declaration name type #f access compatibility attributes #f parent #f #f root propagation abstraction expansion remote synchronized signature #f)))
+  (let ((new-declaration (jazz:allocate-method-declaration name type #f access compatibility attributes #f parent #f #f #f root propagation abstraction expansion remote synchronized signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -782,7 +787,7 @@
                           (%%neq? (jazz:get-method-declaration-expansion method-declaration) 'inline)
                           ;; safe first iteration simplification
                           (jazz:only-positional-function-type? type)
-                          (jazz:typed-function-type? type))
+                          (jazz:typed-function-type? type #t))
                      (let ((types (jazz:codes-types arguments-codes)))
                        (let ((mismatch (jazz:signature-mismatch arguments types type)))
                          (if (or (%%not mismatch)
@@ -794,7 +799,7 @@
                                (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
                                  (jazz:warning "Warning: In {a}{a}: Unmatched call to typed method {a}"
                                                (jazz:get-declaration-locator declaration)
-                                               (jazz:present-expression-location (jazz:get-expression-source expression) operator-src)
+                                               (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) operator-src)
                                                (jazz:reference-name (jazz:get-declaration-locator declaration)))))
                              `(%%final-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,implementation-locator)))))
                    `(%%final-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,implementation-locator))))
@@ -819,63 +824,25 @@
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Method-Declaration declaration) source-declaration environment backend)
-  (let ((self (jazz:*self*)))
-    (if self
-        (let ((dispatch-code (jazz:emit-method-dispatch self #f #f #f declaration source-declaration environment backend)))
-          (jazz:new-code
-            (jazz:emit backend 'method-reference declaration source-declaration environment self dispatch-code)
-            (jazz:get-code-type dispatch-code)
-            #f))
-      (jazz:error "Methods can only be called directly from inside a method: {a} in {a}" (jazz:get-lexical-binding-name declaration) (jazz:get-declaration-locator source-declaration)))))
+  (let ((name (jazz:get-lexical-binding-name declaration)))
+    (jazz:emit backend 'dispatch-reference name #f declaration environment)))
 
 
 (jazz:define-method (jazz:walk-binding-validate-call (jazz:Method-Declaration declaration) walker resume source-declaration operator arguments form-src)
-  (let ((signature (jazz:get-method-declaration-signature declaration)))
-    (if signature
-        (jazz:validate-arguments walker resume source-declaration declaration signature arguments form-src))))
-
-
-(jazz:define-method (jazz:emit-inlined-binding-call (jazz:Method-Declaration declaration) arguments call source-declaration environment backend)
-  ;; mostly copy/pasted and adapted from definition declaration. need to unify the code
-  (if (%%eq? (jazz:get-method-declaration-expansion declaration) 'inline)
-      (receive (dispatch-type method-declaration) (jazz:method-dispatch-info declaration)
-        (case dispatch-type
-          ((final)
-           (let ((signature (jazz:get-method-declaration-signature declaration))
-                 (body (jazz:get-method-declaration-body declaration)))
-             (if (jazz:only-positional-signature? signature)
-                 (if (%%fx= (jazz:get-signature-mandatory signature) (%%length arguments))
-                     (jazz:with-annotated-frame (jazz:annotate-signature signature)
-                       (lambda (frame)
-                         (let ((augmented-environment (%%cons frame environment)))
-                           (let ((body-code (jazz:emit-expression body source-declaration augmented-environment backend)))
-                             (jazz:new-code
-                               `(let ,(map (lambda (parameter argument)
-                                             `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
-                                               ,(jazz:emit-type-check argument (jazz:get-lexical-binding-type parameter) source-declaration environment backend)))
-                                           (jazz:get-signature-positional signature)
-                                           arguments)
-                                  ,(jazz:sourcify-deep-if (jazz:desourcify-all (jazz:get-code-form body-code)) (jazz:get-expression-source call)))
-                               (jazz:call-return-type (jazz:get-lexical-binding-type declaration))
-                               #f)))))
-                   (jazz:error "Wrong number of arguments passed to {s}" (jazz:get-lexical-binding-name declaration)))
-               (jazz:error "Only positional parameters are supported in inlining: {s}" (jazz:get-lexical-binding-name declaration)))))
-          (else
-           #f)))
-    #f))
+  ;; GAZOUM the self test is a quick hack
+  (if (%%null? arguments)
+      (jazz:walk-error walker resume source-declaration form-src "Not enough arguments for: {a}" (jazz:get-lexical-binding-name declaration))
+    (%%when (%%eq? (%%car arguments) 'self)
+      (let ((signature (jazz:get-method-declaration-signature declaration)))
+        (if signature
+            (jazz:validate-arguments walker resume source-declaration declaration signature arguments form-src))))))
 
 
 (jazz:define-method (jazz:emit-binding-call (jazz:Method-Declaration declaration) binding-src arguments arguments-codes source-declaration environment backend)
-  (let ((self (jazz:*self*)))
-    (if self
-        (let ((type (jazz:get-lexical-binding-type declaration))
-              (arguments-codes (jazz:codes-forms arguments-codes))
-              (dispatch-code (jazz:emit-method-dispatch self binding-src arguments arguments-codes declaration source-declaration environment backend)))
-          (jazz:new-code
-            (jazz:emit backend 'method-call declaration binding-src dispatch-code self arguments-codes)
-            (jazz:get-code-type dispatch-code)
-            #f))
-      (jazz:error "Methods can only be called directly from inside a method: {a} in {a}" (jazz:get-lexical-binding-name declaration) (jazz:get-declaration-locator source-declaration)))))
+  (let ((others-arguments (%%cdr arguments))
+        (object-code (%%car arguments-codes))
+        (others-codes (%%cdr arguments-codes)))
+    (jazz:emit backend 'dispatch-call (jazz:get-lexical-binding-name declaration) binding-src source-declaration environment object-code others-arguments others-codes)))
 
 
 (jazz:define-method (jazz:get-nextmethod-signature (jazz:Method-Declaration declaration))
@@ -920,15 +887,16 @@
                                       (%%neq? (jazz:get-method-declaration-expansion declaration) 'inline)
                                       ;; safe first iteration simplification
                                       (jazz:only-positional-signature? signature)
-                                      (jazz:typed-signature? signature)))
+                                      (jazz:typed-signature? signature #t)))
                (unsafe-signature (and generate-unsafe? signature)))
           (jazz:emit backend 'method declaration environment signature-emit signature-casts body-emit unsafe-signature))))))
 
 
-(jazz:define-method (jazz:tree-fold (jazz:Method-Declaration expression) down up here seed environment)
-  (let ((body (jazz:get-method-declaration-body expression)))
-    (if (%%not body)
-        (here expression seed environment)
+(jazz:define-method (jazz:tree-fold (jazz:Method-Declaration declaration) down up here seed environment)
+  (here declaration seed environment)
+  (jazz:tree-fold-list (jazz:get-signature-expressions (jazz:get-method-declaration-signature declaration)) down up here seed environment)
+  (let ((body (jazz:get-method-declaration-body declaration)))
+    (%%when body
       (jazz:tree-fold body down up here seed environment))))
 
 
@@ -974,15 +942,15 @@
   (jazz:allocate-jazz-walker #f #f '() '() '() (jazz:new-queue) (jazz:new-queue) (%%make-table test: eq?) (%%make-table test: eq?) '()))
 
 
-(jazz:define-virtual-syntax (jazz:jazz-walker-supports-tilde? (jazz:Jazz-Walker walker)))
+(jazz:define-virtual-syntax (jazz:jazz-walker-supports-selfdot? (jazz:Jazz-Walker walker)))
 (jazz:define-virtual-syntax (jazz:jazz-walker-supports-composite? (jazz:Jazz-Walker walker)))
 
 
-(jazz:define-virtual (jazz:jazz-walker-supports-tilde? (jazz:Jazz-Walker walker)))
+(jazz:define-virtual (jazz:jazz-walker-supports-selfdot? (jazz:Jazz-Walker walker)))
 (jazz:define-virtual (jazz:jazz-walker-supports-composite? (jazz:Jazz-Walker walker)))
 
 
-(jazz:define-method (jazz:jazz-walker-supports-tilde? (jazz:Jazz-Walker walker))
+(jazz:define-method (jazz:jazz-walker-supports-selfdot? (jazz:Jazz-Walker walker))
   #t)
 
 (jazz:define-method (jazz:jazz-walker-supports-composite? (jazz:Jazz-Walker walker))
@@ -1078,34 +1046,19 @@
   (let ((symbol (jazz:unwrap-syntactic-closure symbol-src)))
     (if (jazz:enumerator? symbol)
         (jazz:walk-enumerator walker symbol)
-      (jazz:split-tilde symbol
-        (lambda (tilde? name self/class-name)
-          (if (and tilde? (jazz:jazz-walker-supports-tilde? walker))
-              (cond ((and name self/class-name)
-                     (if (%%eq? self/class-name 'self)
-                         (let ((slot-declaration (jazz:lookup-declaration (jazz:find-class-declaration declaration) name jazz:private-access declaration)))
-                           (%%assertion (%%class-is? slot-declaration jazz:Slot-Declaration) (jazz:error "Slot expected: {s}~~self" name)
-                             (jazz:new-binding-reference symbol-src slot-declaration)))
-                       (jazz:walk-error walker resume declaration symbol-src "Ill-formed expression: {s}" symbol)))
-                    ((and name (not self/class-name))
-                     (let ((method-name (jazz:dispatch->symbol (jazz:unwrap-syntactic-closure symbol-src))))
-                       (jazz:new-dispatch-reference symbol-src method-name)))
-                    ((and (not name) self/class-name)
-                     (jazz:walk-error walker resume declaration symbol-src "Ill-formed expression: {s}" symbol))
-                    (else
-                     (nextmethod walker resume declaration environment symbol-src)))
-            (nextmethod walker resume declaration environment symbol-src)))))))
+      (let ((name (jazz:extract-selfdot symbol)))
+        (if name
+            (let ((slot-declaration (jazz:lookup-declaration (jazz:find-class-declaration declaration) name jazz:private-access declaration)))
+              (%%assertion (%%class-is? slot-declaration jazz:Slot-Declaration) (jazz:error "Slot expected: self.{s}" name)
+                (jazz:new-binding-reference symbol-src slot-declaration)))
+          (nextmethod walker resume declaration environment symbol-src))))))
 
 
-(define (jazz:split-tilde symbol proc)
+(define (jazz:extract-selfdot symbol)
   (let ((str (%%symbol->string symbol)))
-    (let ((n (jazz:string-find-reversed str #\~)))
-      (if (%%not n)
-          (proc #f #f #f)
-        (let ((len (%%string-length str)))
-          (proc #t
-                (if (%%fx> n 0) (%%string->symbol (%%substring str 0 n)) #f)
-                (if (%%fx< (%%fx+ n 1) len) (%%string->symbol (%%substring str (%%fx+ n 1) len)) #f)))))))
+    (if (jazz:string-starts-with? str "self.")
+        (%%string->symbol (%%substring str 5 (%%string-length str)))
+      #f)))
 
 
 (jazz:define-method (jazz:lookup-environment (jazz:Jazz-Walker walker) resume declaration environment symbol-src symbol)
@@ -1144,27 +1097,12 @@
 
 
 (jazz:define-method (jazz:walk-symbol-assignment (jazz:Jazz-Walker walker) resume declaration environment symbol-src value)
-  (jazz:split-tilde (jazz:source-code symbol-src)
-    (lambda (tilde? name self/class-name)
-      (if (and tilde? (jazz:jazz-walker-supports-tilde? walker))
-          (if (and name (%%eq? self/class-name 'self))
-              (let ((slot-declaration (jazz:lookup-declaration (jazz:find-class-declaration declaration) name jazz:private-access declaration)))
-                (%%assertion (%%class-is? slot-declaration jazz:Slot-Declaration) (jazz:error "Slot expected: {s}~~self" name)
-                  (jazz:new-assignment slot-declaration (jazz:walk walker resume declaration environment value))))
-            (jazz:walk-error walker resume declaration symbol-src "Ill-formed set! variable: {s}" (%%desourcify symbol-src)))
-        (nextmethod walker resume declaration environment symbol-src value)))))
-
-
-;;;
-;;;; Form
-;;;
-
-
-(jazz:define-method (jazz:walk-form (jazz:Jazz-Walker walker) resume declaration environment form-src)
-  (let ((procedure-expr (jazz:source-code (%%car (jazz:source-code form-src)))))
-    (if (and (jazz:dispatch? procedure-expr) (jazz:jazz-walker-supports-tilde? walker))
-        (jazz:walk-dispatch-call walker resume declaration environment form-src)
-      (nextmethod walker resume declaration environment form-src))))
+  (let ((name (jazz:extract-selfdot (jazz:source-code symbol-src))))
+    (if (and name (jazz:jazz-walker-supports-selfdot? walker))
+        (let ((slot-declaration (jazz:lookup-declaration (jazz:find-class-declaration declaration) name jazz:private-access declaration)))
+          (%%assertion (%%class-is? slot-declaration jazz:Slot-Declaration) (jazz:error "Slot expected: self.{s}" name)
+            (jazz:new-assignment slot-declaration (jazz:walk walker resume declaration environment value) symbol-src)))
+        (nextmethod walker resume declaration environment symbol-src value))))
 
 
 ;;;
@@ -1192,8 +1130,7 @@
 
 
 (jazz:define-method (jazz:tree-fold (jazz:With-Self expression) down up here seed environment)
-  (let ((aug-env environment #; (cons 'self environment)
-          )
+  (let ((aug-env environment #; (cons 'self environment))
         (seed1 (down expression seed environment)))
     (up expression seed (jazz:tree-fold (jazz:get-with-self-body expression) down up here seed1 aug-env) environment)))
 
@@ -1494,103 +1431,6 @@
 
 
 ;;;
-;;;; Dispatch Call
-;;;
-
-
-(jazz:define-class jazz:Dispatch-Call jazz:Expression (constructor: jazz:allocate-dispatch-call)
-  ((name      getter: generate)
-   (arguments getter: generate)))
-
-
-(define (jazz:new-dispatch-call source name arguments)
-  (jazz:allocate-dispatch-call #f source name arguments))
-
-
-(jazz:define-method (jazz:emit-expression (jazz:Dispatch-Call expression) declaration environment backend)
-  (jazz:emit-dispatch-call expression declaration environment backend))
-
-
-(define (jazz:emit-dispatch-call expression declaration environment backend)
-  (let ((name (jazz:get-dispatch-call-name expression))
-        (arguments (jazz:get-dispatch-call-arguments expression))
-        (source (jazz:get-expression-source expression)))
-    (let ((object-argument (%%car arguments))
-          (others-arguments (%%cdr arguments)))
-      (let ((object-code (jazz:emit-expression object-argument declaration environment backend))
-            (others-codes (jazz:emit-expressions others-arguments declaration environment backend)))
-        (jazz:emit backend 'dispatch-call name source declaration environment object-code others-arguments others-codes)))))
-
-
-(define (jazz:emit-inlined-final-dispatch-call source declaration object arguments source-declaration environment backend)
-  ;; mostly copy/pasted and adapted from method declaration. need to unify the code
-  (if (%%eq? (jazz:get-method-declaration-expansion declaration) 'inline)
-      (receive (dispatch-type method-declaration) (jazz:method-dispatch-info declaration)
-        (case dispatch-type
-          ((final)
-           (let ((signature (jazz:get-method-declaration-signature declaration))
-                 (body (jazz:get-method-declaration-body declaration)))
-             (if (jazz:only-positional-signature? signature)
-                 (if (%%fx= (jazz:get-signature-mandatory signature) (%%length arguments))
-                     (jazz:with-annotated-frame (jazz:annotate-signature signature)
-                       (lambda (frame)
-                         (let ((augmented-environment (%%cons frame environment)))
-                           (let ((body-code (jazz:emit-expression body source-declaration augmented-environment backend)))
-                             (jazz:new-code
-                               `(let ,(%%cons `(self ,(jazz:sourcified-form object))
-                                              (map (lambda (parameter argument)
-                                                     `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
-                                                       ,(jazz:emit-type-check argument (jazz:get-lexical-binding-type parameter) source-declaration environment backend)))
-                                                   (jazz:get-signature-positional signature)
-                                                   arguments))
-                                  ,(jazz:sourcify-deep-if (jazz:desourcify-all (jazz:get-code-form body-code)) source))
-                               (jazz:call-return-type (jazz:get-lexical-binding-type declaration))
-                               #f)))))
-                   (jazz:error "Wrong number of arguments passed to {s}" (jazz:get-lexical-binding-name declaration)))
-               (jazz:error "Only positional parameters are supported in inlining: {s}" (jazz:get-lexical-binding-name declaration)))))
-          (else
-           #f)))
-    #f))
-
-
-(define (jazz:walk-dispatch-call walker resume declaration environment form-src)
-  (let ((name (jazz:dispatch->symbol (jazz:unwrap-syntactic-closure (%%car (jazz:source-code form-src)))))
-        (arguments (%%cdr (jazz:source-code form-src))))
-    (%%assertion (%%not (%%null? arguments)) (jazz:walk-error walker resume declaration form-src "Dispatch call must contain at least one argument: {s}" (%%desourcify form-src))
-      (jazz:new-dispatch-call form-src name
-        (jazz:walk-list walker resume declaration environment arguments)))))
-
-
-(jazz:define-method (jazz:tree-fold (jazz:Dispatch-Call expression) down up here seed environment)
-  (up expression
-      seed
-      (jazz:tree-fold-list
-        (jazz:get-dispatch-call-arguments expression) down up here
-        (down expression seed environment)
-        environment)
-      environment))
-
-
-;;;
-;;;; Dispatch Reference
-;;;
-
-
-(jazz:define-class jazz:Dispatch-Reference jazz:Expression (constructor: jazz:allocate-dispatch-reference)
-  ((name getter: generate)))
-
-
-(define (jazz:new-dispatch-reference source name)
-  (jazz:allocate-dispatch-reference #f source name))
-
-
-(jazz:define-method (jazz:emit-expression (jazz:Dispatch-Reference expression) declaration environment backend)
-  (let ((name (jazz:get-dispatch-reference-name expression))
-        (source (jazz:get-expression-source expression)))
-    (jazz:emit backend 'dispatch-reference name source declaration environment)))
-
-
-;;;
 ;;;; Hub
 ;;;
 
@@ -1612,7 +1452,7 @@
 
 
 (define (jazz:new-hub-declaration name type access compatibility attributes parent)
-  (let ((new-declaration (jazz:allocate-hub-declaration name type #f access compatibility attributes #f parent #f #f '())))
+  (let ((new-declaration (jazz:allocate-hub-declaration name type #f access compatibility attributes #f parent #f #f #f '())))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -1637,10 +1477,12 @@
 
 
 (jazz:define-method (jazz:emit-binding-call (jazz:Hub-Declaration declaration) binding-src arguments arguments-codes source-declaration environment backend)
-  (let ((others-arguments (%%cdr arguments))
-        (object-code (%%car arguments-codes))
-        (others-codes (%%cdr arguments-codes)))
-    (jazz:emit backend 'dispatch-call (jazz:get-lexical-binding-name declaration) binding-src source-declaration environment object-code others-arguments others-codes)))
+  (if (%%null? arguments)
+      (jazz:error "Ill-formed hub call: ({a})" (jazz:get-lexical-binding-name declaration))
+    (let ((others-arguments (%%cdr arguments))
+          (object-code (%%car arguments-codes))
+          (others-codes (%%cdr arguments-codes)))
+      (jazz:emit backend 'dispatch-call (jazz:get-lexical-binding-name declaration) binding-src source-declaration environment object-code others-arguments others-codes))))
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Hub-Declaration declaration) meta)
@@ -1671,6 +1513,11 @@
       new-declaration)))
 
 
+(jazz:define-variable-override jazz:manifest-ignore?
+  (lambda (obj)
+    (%%is? obj jazz:Hub-Declaration)))
+
+
 ;;;
 ;;;; Node
 ;;;
@@ -1692,7 +1539,7 @@
 
 
 (define (jazz:new-node-declaration name type access compatibility attributes parent hub-name signature)
-  (let ((new-declaration (jazz:allocate-node-declaration name type #f access compatibility attributes #f parent #f #f hub-name signature)))
+  (let ((new-declaration (jazz:allocate-node-declaration name type #f access compatibility attributes #f parent #f #f #f hub-name signature)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -1748,11 +1595,13 @@
 (define (jazz:parse-definition walker resume declaration rest)
   (receive (access compatibility expansion rest) (jazz:parse-modifiers walker resume declaration jazz:definition-modifiers rest)
     (if (%%symbol? (jazz:unwrap-syntactic-closure (%%car rest)))
-        (let ((name (jazz:unwrap-syntactic-closure (%%car rest))))
+        (let ((name (jazz:unwrap-syntactic-closure (%%car rest)))
+              (name-src (%%car rest)))
           (jazz:parse-specifier (%%cdr rest)
             (lambda (specifier rest)
-              (values name specifier access compatibility expansion (if (%%null? rest) (%%list 'unspecified) (%%car rest)) #f))))
+              (values name name-src specifier access compatibility expansion (if (%%null? rest) (%%list 'unspecified) (%%car rest)) #f))))
       (let* ((name (jazz:source-code (%%car (jazz:unwrap-syntactic-closure (%%car rest)))))
+             (name-src (%%car (jazz:unwrap-syntactic-closure (%%car rest))))
              (parameters (%%cdr (jazz:source-code (%%car rest)))))
         (jazz:parse-specifier (%%cdr rest)
           (lambda (specifier body)
@@ -1761,11 +1610,11 @@
               (let ((value
                      `(lambda ,parameters ,@specifier-list
                         ,@effective-body)))
-                (values name specifier access compatibility expansion value parameters)))))))))
+                (values name name-src specifier access compatibility expansion value parameters)))))))))
 
 
 (define (jazz:walk-extended-definition-declaration walker resume declaration environment form-src new-definition-declaration)
-  (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name name-src specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((type (jazz:specifier->type walker resume declaration environment specifier)))
         (let ((signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
@@ -1773,6 +1622,7 @@
             (let ((new-declaration (or (jazz:find-declaration-child-of-type jazz:Definition-Declaration declaration name)
                                        (new-definition-declaration name effective-type access compatibility '() declaration expansion signature))))
               (jazz:set-declaration-source new-declaration form-src)
+              (jazz:set-declaration-name-source new-declaration name-src)
               (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
                 (%%when (%%eq? expansion 'inline)
                   (let ((new-environment (%%cons effective-declaration environment)))
@@ -1783,7 +1633,7 @@
 
 
 (define (jazz:walk-extended-definition walker resume declaration environment form-src)
-  (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name name-src specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((new-declaration (jazz:require-declaration-of-type jazz:Definition-Declaration declaration name)))
         (%%when (%%neq? expansion 'inline)
@@ -1800,6 +1650,7 @@
                                      (%%cons new-declaration environment))))
             (jazz:set-definition-declaration-value new-declaration (jazz:walk walker resume new-declaration new-environment value))))
         (jazz:set-declaration-source new-declaration form-src)
+        (jazz:set-declaration-name-source new-declaration name-src)
         new-declaration))))
 
 
@@ -1883,14 +1734,15 @@
   (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:generic-modifiers rest)
     (let ((signature (jazz:source-code (%%car rest))))
       (let ((name (jazz:source-code (%%car signature)))
+            (name-src (%%car signature))
             (parameters (%%cdr signature)))
         (jazz:parse-specifier (%%cdr rest)
           (lambda (specifier body)
-            (values name specifier access compatibility parameters body)))))))
+            (values name name-src specifier access compatibility parameters body)))))))
 
 
 (define (jazz:walk-generic-declaration walker resume declaration environment form-src)
-  (receive (name specifier access compatibility parameters body) (jazz:parse-generic walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name name-src specifier access compatibility parameters body) (jazz:parse-generic walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Module-Declaration) (jazz:walk-error walker resume declaration form-src "Generics can only be defined at the module level: {s}" name)
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
             (dispatch-type-declarations (map (lambda (dynamic-parameter-type)
@@ -1899,12 +1751,13 @@
             (signature (jazz:walk-parameters walker resume declaration environment parameters #t #f)))
         (let ((new-declaration (jazz:new-generic-declaration name type access compatibility '() declaration dispatch-type-declarations signature)))
           (jazz:set-declaration-source new-declaration form-src)
+          (jazz:set-declaration-name-source new-declaration name-src)
           (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
             effective-declaration))))))
 
 
 (define (jazz:walk-generic walker resume declaration environment form-src)
-  (receive (name specifier access compatibility parameters body) (jazz:parse-generic walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name name-src specifier access compatibility parameters body) (jazz:parse-generic walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Module-Declaration) (jazz:walk-error walker resume declaration form-src "Generics can only be defined at the module level: {s}" name)
       (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
         (let ((new-declaration (jazz:require-declaration declaration name)))
@@ -1912,6 +1765,7 @@
           (jazz:set-generic-declaration-body new-declaration
                                           (jazz:walk-body walker resume new-declaration augmented-environment body))
           (jazz:set-declaration-source new-declaration form-src)
+          (jazz:set-declaration-name-source new-declaration name-src)
           new-declaration)))))
 
 
@@ -1926,12 +1780,13 @@
 
 (define (jazz:parse-specific walker resume declaration rest)
   (receive (rest) (jazz:parse-modifiers walker resume declaration jazz:specific-modifiers rest)
-    (let* ((signature (jazz:desourcify (%%car rest)))
+    (let* ((signature (jazz:source-code (%%car rest)))
+           (name (jazz:source-code (%%car signature)))
+           (name-src (%%car signature))
+           (parameters (%%cdr signature))
            (body (%%cdr rest))
-           (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body))
-           (name (%%car signature))
-           (parameters (%%cdr signature)))
-      (values name parameters effective-body))))
+           (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
+      (values name name-src parameters effective-body))))
 
 
 (define (jazz:walk-specific walker resume declaration environment form-src)
@@ -1959,7 +1814,7 @@
                 (else
                  root?))))))
   
-  (receive (name parameters body) (jazz:parse-specific walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name name-src parameters body) (jazz:parse-specific walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Module-Declaration) (jazz:walk-error walker resume declaration form-src "Specifics can only be defined at the module level: {s}" name)
       (let ((generic-declaration (jazz:lookup-declaration declaration name jazz:private-access declaration)))
         (if (%%class-is? generic-declaration jazz:Generic-Declaration)
@@ -1970,6 +1825,7 @@
                 (jazz:set-specific-declaration-body new-declaration
                                                  (jazz:walk-body walker resume new-declaration body-environment body))
                 (jazz:set-declaration-source new-declaration form-src)
+                (jazz:set-declaration-name-source new-declaration name-src)
                 new-declaration))
           (jazz:walk-error walker resume declaration form-src "Cannot find generic declaration for {s}" (%%cons name parameters)))))))
 
@@ -1999,104 +1855,6 @@
           (values name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body))))))
 
 
-(define jazz:gazoum-methods
-  '(%%get-position
-    %%set-position
-    bind
-    can-relocate-component?
-    clear-console
-    debugging?
-    dequeue
-    dispatch
-    empty?
-    enqueue
-    expand
-    external-name
-    find-object
-    flatten
-    get-active-project
-    get-active-results
-    get-alias
-    get-bindings
-    get-catalog
-    get-console-manager
-    get-console-port
-    get-coordinates
-    get-environment
-    get-focus
-    get-focus-actions
-    get-guest-actions
-    get-locale-tree
-    get-model
-    get-module
-    get-modules
-    get-mouse-down-view
-    get-option
-    get-output-log
-    get-parameter
-    get-position
-    get-rank
-    get-repositories
-    get-service
-    get-settings
-    get-toplevel
-    get-toolbox-modules
-    get-window
-    get-workspace
-    git-add
-    git-branch
-    git-checkout
-    git-commit
-    git-diff
-    git-export
-    git-extract
-    git-history
-    git-import
-    git-log
-    git-merge
-    git-pull
-    git-push
-    git-remove
-    git-rename
-    git-rollback
-    git-show
-    git-status
-    git-tag
-    inspect
-    iterate
-    jump
-    load
-    load-object
-    localize
-    log-entry
-    log-node
-    mouse-down?
-    mouse-view
-    newline
-    open-form
-    persist-console
-    prepare-merge
-    pretty-print
-    print
-    quit
-    reference
-    remove-up-roll
-    resolve-reference
-    rotate-upon
-    save-form
-    scale
-    search
-    select-console
-    select-workspace
-    set-default-focus
-    set-position
-    split
-    thread-name
-    thread-state
-    transform-jml
-    with-node))
-
-
 (define (jazz:expand-class walker resume declaration environment form-src)
   (define (preprocess-meta name body)
     (let ((metaclass (jazz:new-queue))
@@ -2117,7 +1875,6 @@
                       (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'method)
                       (%%pair? (%%cdr (jazz:source-code expr)))
                       (or 
-                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'node) ;; FOR TESTS
                         (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'public)
                         (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'package)))
                  (jazz:enqueue class expr)
@@ -2126,11 +1883,9 @@
                    (let ((signature (jazz:source-code (%%car rest))))
                      (let ((method-name (jazz:source-code (%%car signature)))
                            (parameters (%%cdr signature)))
-                       (%%when ;; FOR TESTS
-                           (%%not (%%memq method-name jazz:gazoum-methods))
-                         ;; QUICKY FOR TESTS AS PARAMETERS ARE NOT NEEDED AT THE MOMENT AND BREAK SOME CODE IN jazz.locale
+                         ;; quicky for tests as parameters are not needed at the moment and break some code in jazz.locale
                          (set! parameters '())
-                         (jazz:enqueue nodes `(node (,method-name (,(jazz:name->specifier name) self) ,@parameters))))))))
+                         (jazz:enqueue nodes `(node (,method-name (,(jazz:name->specifier name) self) ,@parameters)))))))
                 (else
                  (jazz:enqueue class expr)))))
       
@@ -2387,7 +2142,7 @@
         (receive (default-access default-propagation default-abstraction default-expansion default-generation) (parse-accessors accessors access)
           (receive (getter-access getter-propagation getter-abstraction getter-expansion getter-generation getter-name) (parse-accessor name default-access default-propagation default-abstraction default-expansion default-generation getter "get-")
             (receive (setter-access setter-propagation setter-abstraction setter-expansion setter-generation setter-name) (parse-accessor name default-access default-propagation default-abstraction default-expansion default-generation setter "set-")
-              (let ((name-self (%%string->symbol (%%string-append (%%symbol->string name) "~self")))
+              (let ((name-self (%%string->symbol (%%string-append "self." (%%symbol->string name))))
                     (generate-getter? (%%eq? getter-generation 'generate))
                     (generate-setter? (%%eq? setter-generation 'generate))
                     (specifier-list (if specifier (%%list specifier) '())))
@@ -2396,11 +2151,11 @@
                       `(,symbol ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
                       form-src)
                    ,@(if generate-getter?
-                         `((method ,(or getter-access 'public) ,getter-propagation ,getter-abstraction ,getter-expansion (,getter-name) ,@specifier-list
+                         `((method ,(or getter-access 'public) ,getter-propagation ,getter-abstraction ,getter-expansion (,getter-name self) ,@specifier-list
                              ,name-self))
                        '())
                    ,@(if generate-setter?
-                         `((method ,(or setter-access 'protected) ,setter-propagation ,setter-abstraction ,setter-expansion (,setter-name value ,@specifier-list) <void>
+                         `((method ,(or setter-access 'protected) ,setter-propagation ,setter-abstraction ,setter-expansion (,setter-name self value ,@specifier-list) <void>
                              (set! ,name-self value)))
                        '()))))))))))
 
@@ -2442,7 +2197,7 @@
                   (cond (getter-name
                          `(lambda (self)
                             (with-self
-                              (,getter-name))))
+                              (,getter-name self))))
                         (allocate?
                          `(lambda (self)
                             (with-self ,name)))
@@ -2454,7 +2209,7 @@
                     (cond (setter-name
                            `(lambda (self ,value)
                               (with-self
-                                (,setter-name ,value))))
+                                (,setter-name self ,value))))
                           (allocate?
                            `(lambda (self ,value)
                               (with-self
@@ -2471,7 +2226,7 @@
 
 
 (define jazz:method-modifiers
-  '(((private protected package public node) . protected) ;; node is FOR TESTS GAZOUM
+  '(((private protected package public) . protected)
     ((deprecated undocumented uptodate) . uptodate)
     ((final virtual chained override) . final)
     ((abstract concrete core) . concrete)
@@ -2485,7 +2240,8 @@
   (receive (access compatibility propagation abstraction expansion remote synchronized rest) (jazz:parse-modifiers walker resume declaration jazz:method-modifiers rest)
     (%%assertion (and (%%pair? rest) (%%pair? (jazz:source-code (%%car rest)))) (jazz:walk-error walker resume declaration #f "Ill-formed method in {a}: {s}" (jazz:get-lexical-binding-name (jazz:get-declaration-toplevel declaration)) (%%cons 'method (jazz:desourcify-all rest)))
       (let ((name (jazz:source-code (%%car (jazz:source-code (%%car rest)))))
-            (parameters (jazz:wrap-parameters declaration (%%cdr (%%desourcify (%%car rest))))))
+            (name-src (%%car (jazz:source-code (%%car rest))))
+            (parameters (jazz:wrap-parameters declaration (%%cdr (jazz:source-code (%%car rest))))))
         (jazz:parse-specifier (%%cdr rest)
           (lambda (specifier body)
             (let ((effective-body
@@ -2493,7 +2249,20 @@
                         (and (%%eq? abstraction 'concrete)
                              (%%list (%%list 'unspecified)))
                       body)))
-              (values name specifier access compatibility propagation abstraction expansion remote synchronized parameters effective-body))))))))
+              (values name name-src specifier access compatibility propagation abstraction expansion remote synchronized parameters effective-body))))))))
+
+
+(define (jazz:walk-method-parameters walker resume declaration environment name parameters extended? walk? form-src)
+  (define (first-positional-parameter parameter specifier)
+    (%%assert (%%not specifier)
+      (jazz:new-self-parameter parameter declaration #f)))
+  
+  (cond ((%%null? parameters)
+         (jazz:walk-error walker resume declaration form-src "Missing self for method {a}" name))
+        ((%%not (%%eq? (%%car parameters) 'self))
+         (jazz:walk-error walker resume declaration form-src "Missing self for method {a}" name))
+        (else
+         (jazz:walk-parameters walker resume declaration environment parameters extended? walk? first-positional-parameter))))
 
 
 (define (jazz:walk-method-declaration walker resume declaration environment form-src)
@@ -2504,21 +2273,22 @@
           #f
         root-declaration)))
   
-  (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz:parse-method walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name name-src specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz:parse-method walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Category-Declaration) (jazz:walk-error walker resume declaration form-src "Methods can only be defined inside categories: {s}" name)
       (let ((inline? (and (%%eq? expansion 'inline) body)))
         (receive (signature augmented-environment)
             ;; yuck. to clean
             (if inline?
-                (jazz:walk-parameters walker resume declaration environment parameters #t #t)
+                (jazz:walk-method-parameters walker resume declaration environment name parameters #t #t form-src)
               (values
-                (jazz:walk-parameters walker resume declaration environment parameters #t #f)
+                (jazz:walk-method-parameters walker resume declaration environment name parameters #t #f form-src)
                 (jazz:unspecified)))
           (let* ((type (jazz:signature->function-type signature (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any)))
                  (root-declaration (find-root-declaration name))
                  (new-declaration (or (jazz:find-declaration-child declaration name)
                                       (jazz:new-method-declaration name type access compatibility '() declaration root-declaration propagation abstraction expansion remote synchronized signature))))
             (jazz:set-declaration-source new-declaration form-src)
+            (jazz:set-declaration-name-source new-declaration name-src)
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
               (%%when inline?
                 (jazz:set-method-declaration-signature effective-declaration signature)
@@ -2529,7 +2299,7 @@
 
 
 (define (jazz:walk-method walker resume declaration environment form-src)
-  (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz:parse-method walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name name-src specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz:parse-method walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Category-Declaration) (jazz:walk-error walker resume declaration form-src "Methods can only be defined inside categories: {s}" name)
       (let* ((new-declaration (jazz:lookup-declaration declaration name jazz:private-access declaration))
              (category-declaration (jazz:get-declaration-parent new-declaration))
@@ -2553,7 +2323,7 @@
                         (%%eq? (jazz:get-method-declaration-propagation new-declaration) 'final))
                    (let ((data (jazz:get-analysis-data (jazz:get-declaration-locator new-declaration))))
                      (jazz:set-analysis-data-declaration-references data '())))
-               (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
+               (receive (signature augmented-environment) (jazz:walk-method-parameters walker resume declaration environment name parameters #t #t form-src)
                  (let ((with-self-body
                          (if (%%class-is? category-declaration jazz:Interface-Declaration)
                              body
@@ -2572,10 +2342,11 @@
                        (jazz:set-method-declaration-signature new-declaration signature)
                        (jazz:set-method-declaration-body new-declaration body-expression))
                      (jazz:set-declaration-source new-declaration form-src)
+                     (jazz:set-declaration-name-source new-declaration name-src)
                      new-declaration)))))))))
 
 
-;; quick not elegant solution to wrap with-self around parameter code
+;; quick not elegant solution to wrap with-self around optional and named parameter code
 (define (jazz:wrap-parameters declaration parameters)
   (if (%%class-is? declaration jazz:Interface-Declaration)
       parameters
@@ -2589,7 +2360,7 @@
                     (if (%%pair? parameter)
                         (if (jazz:specifier? (jazz:source-code (%%car parameter)))
                             (jazz:enqueue queue parameter)
-                          (if (%%keyword? (%%car parameter))
+                          (if (%%keyword? (jazz:source-code (%%car parameter)))
                               (jazz:parse-specifier (%%cddr parameter)
                                 (lambda (specifier rest)
                                   (let ((specifier-list (if specifier (%%list specifier) '())))
@@ -2634,9 +2405,26 @@
   (let ((type (jazz:get-lexical-binding-type binding))
         (self (jazz:*self*)))
     (jazz:new-code
-      (jazz:emit backend 'nextmethod-call binding binding-src self arguments-codes)
+      (jazz:emit backend 'nextmethod-call binding binding-src arguments-codes)
       (jazz:call-return-type type)
       #f)))
+
+
+;;;
+;;;; Self Parameter
+;;;
+
+
+(jazz:define-class jazz:Self-Parameter jazz:Parameter (constructor: jazz:allocate-self-parameter)
+  ())
+
+
+(define (jazz:new-self-parameter name type source)
+  (jazz:allocate-self-parameter name type #f #f source 0))
+
+
+(jazz:define-method (jazz:emit-check? (jazz:Self-Parameter parameter))
+  #f)
 
 
 ;;;

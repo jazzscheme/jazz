@@ -38,6 +38,33 @@
 (module jazz.git jazz
 
 
+(hub get-credentials-callback)
+(hub get-directory)
+(hub get-download-callback)
+(hub git)
+(hub git-add)
+(hub git-branch)
+(hub git-checkout)
+(hub git-commit)
+(hub git-diff)
+(hub git-export)
+(hub git-extract)
+(hub git-history)
+(hub git-import)
+(hub git-log)
+(hub git-merge)
+(hub git-pull)
+(hub git-push)
+(hub git-remove)
+(hub git-rename)
+(hub git-rollback)
+(hub git-show)
+(hub git-status)
+(hub git-tag)
+(hub on-selection-change)
+(hub update)
+
+
 (import (jazz.feedback)
         (jazz.io))
 
@@ -60,17 +87,17 @@
 
 
 (definition public (determine-file-depot file)
-  (let (iter (dir (get-parent~ file)) (path (list (get-name~ file))))
+  (let (iter (dir (get-parent file)) (path (list (get-name file))))
     (if (not (directory? dir))
         (values #f #f)
       (if (depot-directory? dir)
           (values (new Git-Depot dir) (join path "/"))
-        (iter (get-parent~ dir) (cons (get-name~ dir) path))))))
+        (iter (get-parent dir) (cons (get-name dir) path))))))
 
 
 (definition public (depot-directory? dir)
-  (or (exists?~ (new-directory~ dir ".git"))
-      (exists?~ (new-file~ dir ".git"))))
+  (or (exists? (new-directory dir ".git"))
+      (exists? (new-file dir ".git"))))
 
 
 ;;;
@@ -79,94 +106,94 @@
 
 
 (definition public (git-clone address destination)
-  (let ((parent (get-parent~ destination))
-        (name (get-name~ destination)))
-    (create-directories~ parent)
+  (let ((parent (get-parent destination))
+        (name (get-name destination)))
+    (create-directories parent)
     (git-command (list "clone" address name) parent)
     (new Git-Depot destination)))
 
 
-(definition public (git-add path)
-  (git-add~ (git-depot) path))
+(definition public (git-depot-add path)
+  (git-add (git-depot) path))
 
 
-(definition public (git-remove)
-  (git-remove~ (git-depot)))
+(definition public (git-depot-remove)
+  (git-remove (git-depot)))
 
 
-(definition public (git-rename)
-  (git-rename~ (git-depot)))
+(definition public (git-depot-rename)
+  (git-rename (git-depot)))
 
 
-(definition public (git-export)
-  (git-export~ (git-depot)))
+(definition public (git-depot-export)
+  (git-export (git-depot)))
 
 
-(definition public (git-import)
-  (git-import~ (git-depot)))
+(definition public (git-depot-import)
+  (git-import (git-depot)))
 
 
-(definition public (git-branch)
-  (git-branch~ (git-depot)))
+(definition public (git-depot-branch)
+  (git-branch (git-depot)))
 
 
-(definition public (git-checkout)
-  (git-checkout~ (git-depot)))
+(definition public (git-depot-checkout)
+  (git-checkout (git-depot)))
 
 
-(definition public (git-commit)
-  (git-commit~ (git-depot)))
+(definition public (git-depot-commit)
+  (git-commit (git-depot)))
 
 
-(definition public (git-diff)
-  (git-diff~ (git-depot)))
+(definition public (git-depot-diff)
+  (git-diff (git-depot)))
 
 
-(definition public (git-log)
-  (git-log~ (git-depot)))
+(definition public (git-depot-log)
+  (git-log (git-depot)))
 
 
-(definition public (git-status)
-  (git-status~ (git-depot)))
+(definition public (git-depot-status)
+  (git-status (git-depot)))
 
 
-(definition public (git-rollback)
-  (git-rollback~ (git-depot)))
+(definition public (git-depot-rollback)
+  (git-rollback (git-depot)))
 
 
-(definition public (git-tag)
-  (git-tag~ (git-depot)))
+(definition public (git-depot-tag)
+  (git-tag (git-depot)))
 
 
-(definition public (git-merge)
-  (git-merge~ (git-depot)))
+(definition public (git-depot-merge)
+  (git-merge (git-depot)))
 
 
-(definition public (git-pull)
-  (git-pull~ (git-depot)))
+(definition public (git-depot-pull)
+  (git-pull (git-depot)))
 
 
-(definition public (git-push)
-  (git-push~ (git-depot)))
+(definition public (git-depot-push)
+  (git-push (git-depot)))
 
 
-(definition public (git-history path)
-  (git-history~ (git-depot) path))
+(definition public (git-depot-history path)
+  (git-history (git-depot) path))
 
 
 ;; to think about how to nicely do this
-(definition public (git-extract path)
-  (git-extract~ (git-depot) path))
+(definition public (git-depot-extract path)
+  (git-extract (git-depot) path))
 
 
-(definition public (git-show object (output (current-output-port)))
-  (git-show~ (git-depot) object output))
+(definition public (git-depot-show object (output (current-output-port)))
+  (git-show (git-depot) object output))
 
 
 (definition (git-command arguments directory (output (current-output-port)))
   @wait-need-to-both-grab-output-and-validate-return-code
-  (call-process (list path: "git" arguments: arguments directory: (parse~ directory) show-console: #f))
-  (let ((port (open-process (list path: "git" arguments: arguments directory: (parse~ directory) show-console: #f))))
+  (call-process (list path: "git" arguments: arguments directory: (parse directory) show-console: #f))
+  (let ((port (open-process (list path: "git" arguments: arguments directory: (parse directory) show-console: #f))))
     (if (not output)
         port
       (pipe port output)
@@ -269,15 +296,15 @@
   (slot directory getter generate)
   
   
-  (method override (initialize dir)
-    (nextmethod)
+  (method override (initialize self dir)
+    (nextmethod self)
     (set! directory dir))
   
   
-  (method override (print output detail)
+  (method override (print self output detail)
     (print-unreadable self output
       (lambda (output)
-        (format output "{a}" (last (get-list~ directory))))))
+        (format output "{a}" (last (get-list directory))))))
   
   
   ;;;
@@ -285,7 +312,7 @@
   ;;;
   
   
-  (method (git arguments (output (current-output-port)))
+  (method package (git self arguments (output (current-output-port)))
     (git-command arguments directory output))
   
   
@@ -294,36 +321,36 @@
   ;;;
   
   
-  (method public (git-add path)
-    (git (list "add" path)))
+  (method public (git-add self path)
+    (git self (list "add" path)))
   
   
-  (method public (git-remove)
+  (method public (git-remove self)
     #f)
   
   
-  (method public (git-rename)
+  (method public (git-rename self)
     #f)
   
   
-  (method public (git-commit)
+  (method public (git-commit self)
     #f)
   
   
-  (method public (git-rollback)
-    (git (list "reset" "--hard" "HEAD~1")))
+  (method public (git-rollback self)
+    (git self (list "reset" "--hard" "HEAD~1")))
   
   
-  (method public (git-tag)
-    (git (list "tag")))
+  (method public (git-tag self)
+    (git self (list "tag")))
   
   
-  (method public (git-log)
-    (git (list "log" "--decorate")))
+  (method public (git-log self)
+    (git self (list "log" "--decorate")))
   
   
-  (method public (git-status)
-    (git (list "status")))
+  (method public (git-status self)
+    (git self (list "status")))
   
   
   ;;;
@@ -331,11 +358,11 @@
   ;;;
   
   
-  (method public (git-branch)
+  (method public (git-branch self)
     #f)
   
   
-  (method public (git-checkout)
+  (method public (git-checkout self)
     #f)
   
   
@@ -344,56 +371,56 @@
   ;;;
   
   
-  (method public (git-import)
-    (git (list "am")))
+  (method public (git-import self)
+    (git self (list "am")))
   
   
-  (method public (git-export)
-    (git (list "format-patch")))
+  (method public (git-export self)
+    (git self (list "format-patch")))
   
   
-  (method public (git-diff)
+  (method public (git-diff self)
     #f)
   
   
-  (method public (git-merge)
+  (method public (git-merge self)
     #f)
   
   
-  (method public (git-history path)
+  (method public (git-history self path)
     (let ((output (open-output-string)))
-      (git (list "rev-list" "HEAD" path) output)
+      (git self (list "rev-list" "HEAD" path) output)
       (let ((commits (get-output-string output)))
         (collect-if (lambda (str)
                       (not (empty-string? str)))
                     (split-lines commits)))))
   
   
-  (method public (git-extract path)
-    (let ((history (git-history path))
+  (method public (git-extract self path)
+    (let ((history (git-history self path))
           (version 1))
       (for-each (lambda (commit)
                   (user-message "Extracting {a}..." commit)
                   (let ((base (extract-base path))
                         (extension (extract-extension path)))
                     (let ((file (new File (list 'Home "merge" (string-append base "_v" (format "{a width: 3 justify: :right padding: #\\0}" (number->string version)) "_" commit "." extension)))))
-                      (create-directories~ file)
+                      (create-directories file)
                       (call-with-output-file (path-settings file)
                         (lambda (output)
-                          (git-show (string-append commit ":" path) output)))))
+                          (git-show self (string-append commit ":" path) output)))))
                   (increase! version))
                 (reverse history))
       (user-message "Done")))
   
   
-  (method public (git-show object (output (current-output-port)))
-    (git (list "show" object) output))
+  (method public (git-show self object (output (current-output-port)))
+    (git self (list "show" object) output))
   
   
-  (method public (prepare-merge merge-dir)
-    (iterate-directory~ merge-dir
+  (method public (prepare-merge self merge-dir)
+    (iterate-directory merge-dir
       (lambda (file)
-        (let ((ext (get-extension~ file)))
+        (let ((ext (get-extension file)))
           (when (extension=? ext "patch")
             (parse-patch-file file
               (lambda (base-name base-index right-name right-index deltas)
@@ -401,35 +428,35 @@
                   (let ((name-path (split name "/")))
                     (define (setup-base)
                       (when base-name
-                        (let ((base-file (new-file~ merge-dir (cons "base" name-path))))
-                          (unless (exists?~ base-file)
+                        (let ((base-file (new-file merge-dir (cons "base" name-path))))
+                          (unless (exists? base-file)
                             (user-message "Extracting base/{a}..." base-name)
-                            (create-directories~ base-file)
+                            (create-directories base-file)
                             (call-with-output-file (path-settings base-file)
                               (lambda (output)
-                                (git-show base-index output)))))))
+                                (git-show self base-index output)))))))
                     
                     (define (setup-left)
-                      (let ((working-file (new-file~ directory name-path)))
-                        (if (not (exists?~ working-file))
+                      (let ((working-file (new-file directory name-path)))
+                        (if (not (exists? working-file))
                             (debug (format "Unable to find working file: {a}" name-path))
-                          (let ((left-file (new-file~ merge-dir (cons "left" name-path))))
-                            (unless (exists?~ left-file)
+                          (let ((left-file (new-file merge-dir (cons "left" name-path))))
+                            (unless (exists? left-file)
                               (user-message "Copying left/{a}..." name)
-                              (create-directories~ left-file)
-                              (copy-file~ working-file left-file))))))
+                              (create-directories left-file)
+                              (copy-file working-file left-file))))))
                     
                     (define (setup-right)
-                      (let ((right-file (new-file~ merge-dir (cons "right" name-path))))
+                      (let ((right-file (new-file merge-dir (cons "right" name-path))))
                         (cond ;; deleted
                               ((not right-name)
-                               (when (exists?~ right-file)
+                               (when (exists? right-file)
                                  (user-message "Deleting right/{a}..." name)
-                                 (delete-file~ right-file)))
+                                 (delete-file right-file)))
                               ;; new
                               ((not base-name)
                                (user-message "Adding right/{a}..." name)
-                               (create-directories~ right-file)
+                               (create-directories right-file)
                                (call-with-output-file (path-settings right-file)
                                  (lambda (output)
                                    (let ((lines (fifth (car deltas))))
@@ -440,17 +467,17 @@
                               ;; modified
                               (else
                                (user-message "Modifying right/{a}..." name)
-                               (create-directories~ right-file)
-                               (let ((base-file (new-file~ merge-dir (cons "base" name-path))))
+                               (create-directories right-file)
+                               (let ((base-file (new-file merge-dir (cons "base" name-path))))
                                  ;; first time
-                                 (when (not (exists?~ right-file))
-                                   (copy-file~ base-file right-file))
+                                 (when (not (exists? right-file))
+                                   (copy-file base-file right-file))
                                  ;; apply diff
                                  (apply-diff right-file deltas))))))
                     
                     (define (apply-diff target-file deltas)
-                      (let ((merged-file (new-brother~ target-file (let ((base (get-base~ target-file))
-                                                                         (ext (get-extension~ target-file)))
+                      (let ((merged-file (new-brother target-file (let ((base (get-base target-file))
+                                                                         (ext (get-extension target-file)))
                                                                      (format "{a}_merged.{a}" base ext)))))
                         (call-with-input-file (path-settings target-file eol-encoding: 'cr-lf)
                           (lambda (target-input)
@@ -481,8 +508,8 @@
                                     (when line
                                       (write-line line merged-output)
                                       (iterate))))))
-                            (delete-file~ target-file)
-                            (move-pathname~ merged-file target-file)))))
+                            (delete-file target-file)
+                            (move-pathname merged-file target-file)))))
                     
                     (setup-base)
                     (setup-left)
@@ -498,9 +525,9 @@
   ;;;
   
   
-  (method public (git-pull)
+  (method public (git-pull self)
     #f)
   
   
-  (method public (git-push)
+  (method public (git-push self)
     #f)))

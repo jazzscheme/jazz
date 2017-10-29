@@ -43,6 +43,8 @@
         (jazz.handler)
         (jazz.jml)
         (jazz.layout)
+        (jazz.outline)
+        (jazz.project)
         (jazz.tree)
         (jazz.ui))
 
@@ -69,18 +71,18 @@
         (<Separator>                                         size: {Dimension 5 0} location: tail))))
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (set-title~ (locate 'invite) (format "Select configuration for {a}" (project-title~ project)))
-    (update))
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (set-title (locate self 'invite) (format "Select configuration for {a}" (project-title project)))
+    (update self))
   
   
-  (method meta override (host-title)
+  (method meta override (host-title self)
     "Select Configuration")
   
   
-  (method override (focus-default)
-    (acquire-focus~ (get-tree)))
+  (method override (focus-default self)
+    (acquire-focus (get-tree self)))
   
 
   ;;;
@@ -88,8 +90,8 @@
   ;;;
   
   
-  (method (get-tree)
-    (locate 'content))
+  (method package (get-tree self)
+    (locate self 'content))
   
 
   ;;;
@@ -97,48 +99,48 @@
   ;;;
   
   
-  (method (update)
-    (update-content))
+  (method package (update self)
+    (update-content self))
   
   
-  (method (update-content)
-    (let ((tree (get-tree))
-          (default (listify (get-default-traits~ project))))
+  (method (update-content self)
+    (let ((tree (get-tree self))
+          (default (listify (get-default-traits project))))
       (define (update-configurations tree)
         (for-each (lambda (component)
                     (when (is? component Trait)
                       (insert-configuration tree component)))
-                  (get-children~ project)))
+                  (get-children project)))
       
       (define (insert-configuration tree trait)
-        (let ((children (get-children~ trait)))
+        (let ((children (get-children trait)))
           (if (null? children)
               (insert-inclusive tree trait)
             (insert-exclusive tree #f trait (new Radio-Set)))))
       
       (define (insert-inclusive tree trait)
         (let ((title (get-presentation-property trait))
-              (checked? (memq? (trait-fullname~ project trait) default)))
-          (add-row~ tree children: (list (new Check-Box title: title checked?: checked? outline-view: tree user-data: trait)))))
+              (checked? (memq? (trait-fullname project trait) default)))
+          (add-row tree children: (list (new Check-Box title: title checked?: checked? outline-view: tree user-data: trait)))))
       
       (define (insert-exclusive tree father trait set)
         (let ((title (get-presentation-property trait))
-              (children (get-children~ trait)))
+              (children (get-children trait)))
           (if (null? children)
-              (let ((selected? (memq? (trait-fullname~ project trait) default)))
+              (let ((selected? (memq? (trait-fullname project trait) default)))
                 (let ((button (new Radio-Button title: title outline-view: tree user-data: trait)))
-                  (add-member~ set button)
-                  (set-set~ button set)
-                  (set-selected?~ button selected?)
-                  (add-row~ tree father: father children: (list button))))
-            (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title)))))
+                  (add-member set button)
+                  (set-set button set)
+                  (set-selected? button selected?)
+                  (add-row tree father: father children: (list button))))
+            (let ((row (add-row tree father: father state: 'expanded children: (list (new Tree-Node title: title)))))
               (for-each (lambda (child)
                           (when (is? child Trait)
                             (insert-exclusive tree row child set)))
                         children)))))
       
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
+      (remove-every-row tree)
+      (with-update-locked tree
         (lambda ()
           (update-configurations tree)))))
   
@@ -148,31 +150,31 @@
   ;;;
   
   
-  (method override (get-modal-result)
+  (method override (get-modal-result self)
     (let ((queue (new-queue)))
       (define (add-trait trait)
-        (enqueue queue (trait-fullname~ project trait)))
+        (enqueue queue (trait-fullname project trait)))
       
-      (for-each-visible-row~ (get-tree)
+      (for-each-visible-row (get-tree self)
         (lambda (row line)
-          (let ((node (first-child~ row)))
+          (let ((node (first-child row)))
             (typecase node
               ((Check-Box)
-               (when (get-checked?~ node)
-                 (add-trait (get-user-data~ node))))
+               (when (get-checked? node)
+                 (add-trait (get-user-data node))))
               ((Radio-Button)
-               (when (get-selected?~ node)
-                 (add-trait (get-user-data~ node))))))))
+               (when (get-selected? node)
+                 (add-trait (get-user-data node))))))))
       (queue-list queue)))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-return-press evt)
-    (let ((dialog (get-host)))
-      (end-modal~ dialog (get-modal-result~ dialog))))
+  (method override (on-return-press self evt)
+    (let ((dialog (get-host self)))
+      (end-modal dialog (get-modal-result dialog))))
   
   
   ;; Should really be generic in the Dialog class
-  (method override (on-escape-press evt)
-    (let ((dialog (get-host)))
-      (cancel-modal~ dialog)))))
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))))

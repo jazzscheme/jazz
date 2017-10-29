@@ -38,7 +38,8 @@
 (module protected jazz.schema.data.Data-Table jazz
 
 
-(import (jazz.schema))
+(import (jazz.database)
+        (jazz.schema))
 
 
 (class Data-Table extends Data-Entity
@@ -54,27 +55,27 @@
   (slot missing?    initialize #f  accessors generate)
   
   
-  (method override (initialize (owner: owner #f) (name: name #f) (parent: parent #f) (properties: properties '()) (request: request #f) (primary-key: primary-key #f) (columns: columns #f) (column-names: column-names '()) (indexes: indexes '()) (triggers: triggers '()) (constraints: constraints '()) (rows: rows '()))
+  (method override (initialize self (owner: owner #f) (name: name #f) (parent: parent #f) (properties: properties '()) (request: request #f) (primary-key: primary-key #f) (columns: columns #f) (column-names: column-names '()) (indexes: indexes '()) (triggers: triggers '()) (constraints: constraints '()) (rows: rows '()))
     (define (create-columns column-names)
       (map (lambda (name)
              (new Data-Column name: name))
            column-names))
     
-    (nextmethod)
-    (set! owner~self owner)
-    (set! name~self name)
-    (set! parent~self parent)
-    (set! properties~self properties)
-    (set! request~self request)
-    (set-primary-key primary-key)
-    (set-columns (or columns (create-columns column-names)))
-    (set-indexes indexes)
-    (set-triggers triggers)
-    (set-constraints constraints)
-    (set! rows~self rows))
+    (nextmethod self)
+    (set! self.owner owner)
+    (set! self.name name)
+    (set! self.parent parent)
+    (set! self.properties properties)
+    (set! self.request request)
+    (set-primary-key self primary-key)
+    (set-columns self (or columns (create-columns column-names)))
+    (set-indexes self indexes)
+    (set-triggers self triggers)
+    (set-constraints self constraints)
+    (set! self.rows rows))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (let ((length (length rows)))
@@ -89,12 +90,12 @@
   ;;;
   
   
-  (method protected (print-schema output)
+  (method package (print-schema self output)
     (define (print-primary-key output)
       (format output "   ")
       (if (null? primary-key)
           (format output "#f")
-        (print-schema~ primary-key output))
+        (print-schema primary-key output))
       (format output "{%}"))
     
     (define (print-columns output)
@@ -104,8 +105,8 @@
                     (if first?
                         (set! first? #f)
                       (format output "{%}{_ 4}"))
-                    (print-schema~ column output))
-                  (sort < columns key: get-name~)))
+                    (print-schema column output))
+                  (sort < columns key: get-name)))
       (format output "){%}"))
     
     (define (print-indexes output)
@@ -115,8 +116,8 @@
                     (if first?
                         (set! first? #f)
                       (format output "{%}{_ 4}"))
-                    (print-schema~ index output))
-                  (sort < indexes key: get-name~)))
+                    (print-schema index output))
+                  (sort < indexes key: get-name)))
       (format output "){%}"))
     
     (define (print-triggers output)
@@ -126,8 +127,8 @@
                     (if first?
                         (set! first? #f)
                       (format output "{%}{_ 4}"))
-                    (print-schema~ trigger output))
-                  (sort < triggers key: get-name~)))
+                    (print-schema trigger output))
+                  (sort < triggers key: get-name)))
       (format output ")"))
     
     (define (print-constraints output)
@@ -137,8 +138,8 @@
                     (if first?
                         (set! first? #f)
                       (format output "{%}{_ 4}"))
-                    (print-schema~ constraint output))
-                  (sort < constraints key: get-name~)))
+                    (print-schema constraint output))
+                  (sort < constraints key: get-name)))
       (format output ")"))
     
     (format output "~{{s} {s} {s list?: #t}{%}"
@@ -158,7 +159,7 @@
   ;;;
   
   
-  (method override (get-kind)
+  (method override (get-kind self)
     'table)
   
   
@@ -167,7 +168,7 @@
   ;;;
   
   
-  (method override (create kind name)
+  (method override (create self kind name)
     (case kind
       ((primary-key) (new Data-Primary-Key name: name))
       ((column) (new Data-Column name: name))
@@ -176,13 +177,13 @@
       ((constraint) (new Data-Constraint name: name))))
   
   
-  (method override (add kind object)
+  (method override (add self kind object)
     (case kind
-      ((primary-key) (add-primary-key object))
-      ((column) (add-column object))
-      ((index) (add-index object))
-      ((trigger) (add-trigger object))
-      ((constraint) (add-constraint object))))
+      ((primary-key) (add-primary-key self object))
+      ((column) (add-column self object))
+      ((index) (add-index self object))
+      ((trigger) (add-trigger self object))
+      ((constraint) (add-constraint self object))))
   
   
   ;;;
@@ -190,23 +191,23 @@
   ;;;
   
   
-  (method override (get-children)
+  (method override (get-children self)
     (append (if primary-key (list primary-key) '()) columns indexes triggers constraints))
   
   
-  (method override (get-categorized-children)
+  (method override (get-categorized-children self)
     (let ((fact (new List-Factory)))
       (when primary-key
-        (put~ fact primary-key))
-      (put-sequence~ fact (sort < columns     key: get-name~))
-      (put-sequence~ fact (sort < indexes     key: get-name~))
-      (put-sequence~ fact (sort < triggers    key: get-name~))
-      (put-sequence~ fact (sort < constraints key: get-name~))
-      (get-output~ fact)))
+        (put fact primary-key))
+      (put-sequence fact (sort < columns     key: get-name))
+      (put-sequence fact (sort < indexes     key: get-name))
+      (put-sequence fact (sort < triggers    key: get-name))
+      (put-sequence fact (sort < constraints key: get-name))
+      (get-output fact)))
   
   
-  (method override (property-names)
-    (if (get-property linked?:)
+  (method override (property-names self)
+    (if (get-property self linked?:)
         '(connect source-table-name)
       '(validation-rule validation-text description)))
   
@@ -216,19 +217,19 @@
   ;;;
   
   
-  (method public (get-primary-key)
+  (method public (get-primary-key self)
     primary-key)
   
   
-  (method public (set-primary-key value)
+  (method public (set-primary-key self value)
     (set! primary-key value)
     (when primary-key
-      (set-parent~ primary-key self)))
+      (set-parent primary-key self)))
   
   
-  (method public (add-primary-key primary-key)
-    (set-primary-key primary-key)
-    set-primary-key)
+  (method public (add-primary-key self primary-key)
+    (set-primary-key self primary-key)
+    (~ set-primary-key self))
   
   
   ;;;
@@ -236,20 +237,20 @@
   ;;;
   
   
-  (method public (get-columns)
+  (method public (get-columns self)
     columns)
   
   
-  (method public (set-columns value)
+  (method public (set-columns self value)
     (set! columns value)
     (for-each (lambda (column)
-                (set-parent~ column self))
+                (set-parent column self))
               columns))
   
   
-  (method public (get-columns-sql (prefix: prefix #f))
+  (method public (get-columns-sql self (prefix: prefix #f))
     (join (map (lambda (column)
-                 (let ((name (get-name~ column)))
+                 (let ((name (get-name column)))
                    (if (not prefix)
                        name
                      (append prefix name))))
@@ -257,18 +258,18 @@
           ", "))
   
   
-  (method public (add-column column)
+  (method public (add-column self column)
     (set! columns (cons column columns))
-    (set-parent~ column self)
+    (set-parent column self)
     column)
   
   
-  (method public (find-column name)
+  (method public (find-column self name)
     (continuation-capture
       (lambda (return)
         (loop (for rank from 0)
               (for column in columns)
-              (do (when (string=? (get-name~ column) name)
+              (do (when (string=? (get-name column) name)
                     (continuation-return return (values column rank)))))
         (values #f #f))))
   
@@ -278,20 +279,20 @@
   ;;;
   
   
-  (method public (get-indexes)
+  (method public (get-indexes self)
     indexes)
   
   
-  (method public (set-indexes value)
+  (method public (set-indexes self value)
     (set! indexes value)
     (for-each (lambda (index)
-                (set-parent~ index self))
+                (set-parent index self))
               indexes))
   
   
-  (method public (add-index index)
+  (method public (add-index self index)
     (set! indexes (cons index indexes))
-    (set-parent~ index self)
+    (set-parent index self)
     index)
   
   
@@ -300,20 +301,20 @@
   ;;;
   
   
-  (method public (get-triggers)
+  (method public (get-triggers self)
     triggers)
   
   
-  (method public (set-triggers value)
+  (method public (set-triggers self value)
     (set! triggers value)
     (for-each (lambda (trigger)
-                (set-parent~ trigger self))
+                (set-parent trigger self))
               triggers))
   
   
-  (method public (add-trigger trigger)
+  (method public (add-trigger self trigger)
     (set! triggers (cons trigger triggers))
-    (set-parent~ trigger self)
+    (set-parent trigger self)
     trigger)
   
   
@@ -322,20 +323,20 @@
   ;;;
   
   
-  (method public (get-constraints)
+  (method public (get-constraints self)
     constraints)
   
   
-  (method public (set-constraints value)
+  (method public (set-constraints self value)
     (set! constraints value)
     (for-each (lambda (constraint)
-                (set-parent~ constraint self))
+                (set-parent constraint self))
               constraints))
   
   
-  (method public (add-constraint constraint)
+  (method public (add-constraint self constraint)
     (set! constraints (cons constraint constraints))
-    (set-parent~ constraint self)
+    (set-parent constraint self)
     constraint)
   
   
@@ -344,33 +345,33 @@
   ;;;
 
 
-  (method public (get-count)
+  (method public (get-count self)
     (length rows))
   
   
-  (method public (remove-row row)
+  (method public (remove-row self row)
     (set! rows (remove! row rows)))
   
   
-  (method public (remove-rows)
+  (method public (remove-rows self)
     (set! rows '()))
   
   
-  (method public (add-row row)
+  (method public (add-row self row)
     (set! rows (cons row rows))
     row)
   
   
-  (method public (append-row row)
+  (method public (append-row self row)
     (set! rows (append rows (list row)))
     row)
   
   
-  (method public (new-row (state: state #f) (values: values #f))
-    (add-row (new Data-Row self state values)))
+  (method public (new-row self (state: state #f) (values: values #f))
+    (add-row self (new Data-Row self state values)))
   
   
-  (method public (get-row rank)
+  (method public (get-row self rank)
     (element rows rank))
   
   
@@ -379,9 +380,9 @@
   ;;;
   
   
-  (method public (load-request command connection (max-load: max-load #t))
-    (let ((request (new-request~ connection)))
-      (receive (columns new-rows rows-missing?) (load-rows~ request command self max-load: max-load)
+  (method public (load-request self command connection (max-load: max-load #t))
+    (let ((request (new-request connection)))
+      (receive (columns new-rows rows-missing?) (load-rows request command self max-load: max-load)
         (set! rows (append! rows new-rows))
         (set! missing? rows-missing?)
         new-rows)))
@@ -392,28 +393,28 @@
   ;;;
   
   
-  (method public (find-row name value)
+  (method public (find-row self name value)
     (continuation-capture
       (lambda (return)
         (for-each (lambda (row)
-                    (let ((actual (get~ row name)))
+                    (let ((actual (get row name)))
                       (when (= actual value)
                         (continuation-return return row))))
                   rows)
         #f)))
   
   
-  (method public (find-rows name value)
+  (method public (find-rows self name value)
     (collect-if (lambda (row)
-                  (= (get~ row name) value))
+                  (= (get row name) value))
                 rows))
   
   
-  (method public (find-row-by predicate)
+  (method public (find-row-by self predicate)
     (find-if predicate rows))
   
   
-  (method public (find-rows-by predicate)
+  (method public (find-rows-by self predicate)
     (collect-if predicate rows))
   
   
@@ -422,7 +423,7 @@
   ;;;
   
   
-  (method public (filter! predicate)
+  (method public (filter! self predicate)
     (when rows
       (let ((scan rows))
         (while (cdr scan)
@@ -439,6 +440,6 @@
   ;;;
   
   
-  (method public (sort-by name (ascending?: ascending? #t))
+  (method public (sort-by self name (ascending?: ascending? #t))
     (let ((fn (if ascending? < >)))
-      (set! rows (sort fn rows key: (lambda (row) (get~ row name))))))))
+      (set! rows (sort fn rows key: (lambda (row) (get row name))))))))

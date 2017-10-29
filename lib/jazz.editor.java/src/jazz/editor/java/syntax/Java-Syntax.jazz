@@ -39,17 +39,21 @@
 
 
 (import (jazz.catalog)
+        (jazz.digest)
+        (jazz.document)
         (jazz.editor.clike)
         (jazz.editor.java)
+        (jazz.exemplar)
         (jazz.io)
+        (jazz.outline)
         (jazz.preferences))
 
 
 (class Java-Syntax extends CLike-Syntax
   
   
-  (method override (preferences)
-    (get-preferences '(documents java-text)))
+  (method override (preferences self)
+    (current-preferences '(documents java-text)))
   
   
   ;;;
@@ -57,7 +61,7 @@
   ;;;
   
   
-  (method override (get-constituent-test)
+  (method override (get-constituent-test self)
     c-constituent?)
   
   
@@ -66,15 +70,15 @@
   ;;;
   
   
-  (method override (auto-complete-char? key last)
+  (method override (auto-complete-char? self key last)
     (or (eqv? key #\_)
         (and (upper-case? key)
              (and last (lower-case? last)))
-        (not (text-constituent? key))))
+        (not (text-constituent? self key))))
 
 
-  (method override (favorite-completions)
-    (get-completions~ (preferences)))
+  (method override (favorite-completions self)
+    (get-completions (preferences self)))
 
 
   ;;;
@@ -82,7 +86,7 @@
   ;;;
 
 
-  (method override (explorer-class)
+  (method override (explorer-class self)
     Java-Explorer)
 
   
@@ -144,7 +148,7 @@
       "double"))
   
   
-  (method override (get-keywords)
+  (method override (get-keywords self)
     Keywords)
     
   
@@ -153,16 +157,16 @@
   ;;;
 
   
-  (method override (get-profile-macros profile)
-    (get-macros~ (get-preferences '(documents java-text))))
+  (method override (get-profile-macros self profile)
+    (get-macros (current-preferences '(documents java-text))))
 
   
-  (method override (get-profile-keywords profile)
-    (get-keywords~ (get-preferences '(documents java-text))))
+  (method override (get-profile-keywords self profile)
+    (get-keywords (current-preferences '(documents java-text))))
 
   
-  (method override (get-profile-types profile)
-    (get-types~ (get-preferences '(documents java-text))))
+  (method override (get-profile-types self profile)
+    (get-types (current-preferences '(documents java-text))))
 
   
   ;;;
@@ -177,29 +181,29 @@
     #f)
   
   
-  (method override (syntax-targets)
+  (method override (syntax-targets self)
     (unless Syntax-Targets
-      (set! Syntax-Targets (compute-syntax-targets)))
+      (set! Syntax-Targets (compute-syntax-targets self)))
     Syntax-Targets)
   
   
-  (method override (syntax-automata)
+  (method override (syntax-automata self)
     (unless Syntax-Automata
-      (set! Syntax-Automata (compute-syntax-automata)))
+      (set! Syntax-Automata (compute-syntax-automata self)))
     Syntax-Automata)
   
   
-  (method override (get-parsed-entries)
-    (let ((text (single-client~ model)))
+  (method override (get-parsed-entries self)
+    (let ((text (single-client model)))
       (when text
-        (let ((moniker (get-moniker~ text)))
-          (when (and moniker (file? moniker) (not (get-modified?~ text)))
+        (let ((moniker (get-moniker text)))
+          (when (and moniker (file? moniker) (not (get-modified? text)))
             (let ((cataloguer (get-cataloguer)))
               (when cataloguer
                 (let ((file-entry (cache-file-entry moniker)))
                   (when file-entry
-                    (when (string=? (get-hash~ (get-digest~ file-entry)) (get-moniker-digest~ (get-document-controller~ text)))
-                      (collect-type Java-Entry (get-definitions~ file-entry))))))))))))
+                    (when (string=? (get-hash (get-digest file-entry)) (get-moniker-digest (get-document-controller text)))
+                      (collect-type Java-Entry (get-definitions file-entry))))))))))))
   
   
   ;;;
@@ -211,7 +215,7 @@
     '(Title Line-Comment Balanced-Comment))
   
   
-  (method override (comment-style? style)
+  (method override (comment-style? self style)
     (some? (lambda (style-name)
-             (inherits?~ style style-name))
+             (inherits? style style-name))
            Comment-Styles))))

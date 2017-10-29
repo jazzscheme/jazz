@@ -46,31 +46,32 @@
         (jazz.locale)
         (jazz.menu)
         (jazz.preferences)
-        (jazz.resource))
+        (jazz.resource)
+        (jazz.text))
 
 
 (class SQL-Text-View extends Code-Text-View
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    (let ((pref (preferences)))
-      (add-style 'Title        (get-title-style~ pref))
-      (add-style 'Line-Comment (get-line-comment-style~ pref))
-      (add-style 'Definition   (get-definition-style~ pref))
-      (add-style 'Keyword      (get-keyword-style~ pref))))
+  (method override (install self rest)
+    (nextmethod self rest)
+    (let ((pref (preferences self)))
+      (add-style self 'Title        (get-title-style pref))
+      (add-style self 'Line-Comment (get-line-comment-style pref))
+      (add-style self 'Definition   (get-definition-style pref))
+      (add-style self 'Keyword      (get-keyword-style pref))))
   
   
-  (method override (new-syntax)
+  (method override (new-syntax self)
     (new SQL-Syntax model))
   
   
-  (method meta override (external-name . rest)
+  (method meta override (external-name self . rest)
     'sql-text)
 
   
-  (method override (preferences)
-    (get-preferences '(documents sql-text)))
+  (method override (preferences self)
+    (current-preferences '(documents sql-text)))
 
   
   ;;;
@@ -78,7 +79,7 @@
   ;;;
   
   
-  (method override (host-workspaces)
+  (method override (host-workspaces self)
     '(sql))
   
   
@@ -87,7 +88,7 @@
   ;;;
   
   
-  (method override (get-context-menu)
+  (method override (get-context-menu self)
     (new SQL-Text-Menu))
 
   
@@ -96,9 +97,9 @@
   ;;;
 
 
-  (method override (return-press evt)
-    (nextmethod evt)
-    (tabulate))
+  (method override (return-press self evt)
+    (nextmethod self evt)
+    (tabulate self))
   
   
   ;;;
@@ -106,19 +107,19 @@
   ;;;
   
   
-  (method override (evaluate-selection)
+  (method override (evaluate-selection self)
     (define (statement-range)
       (let* ((pos (statement-pos))
-             (start (text-search~ model ";" start: pos reversed?: #t))
-             (end (text-search~ model ";" start: pos)))
+             (start (text-search model ";" start: pos reversed?: #t))
+             (end (text-search model ";" start: pos)))
         (new Range$Cell$
-          (if start (next-pos start 1) (text-beginning))
-          (if end end (text-ending)))))
+          (if start (next-pos self start 1) (text-beginning self))
+          (if end end (text-ending self)))))
     
     (define (statement-pos)
-      (let* ((start (get-start))
-             (previous (previous-pos start 1)))
-        (if (and previous (eqv? (get-char previous) #\semi-colon))
+      (let* ((start (get-start self))
+             (previous (previous-pos self start 1)))
+        (if (and previous (eqv? (get-char self previous) #\semi-colon))
             previous
           start)))
     
@@ -129,14 +130,14 @@
               line
             (subseq line 0 pos))))
       
-      (let ((lines (range-strings range)))
+      (let ((lines (range-strings self range)))
         (join-lines (map uncommented-line lines))))
     
-    (let* ((range (if (has-selection?) (get-selection) (statement-range)))
+    (let* ((range (if (has-selection? self) (get-selection self) (statement-range)))
            (string (uncommented-string range))
            (statements (collect-if (lambda (statement) (not (whitespace? statement))) (split string ";")))
            (console (get-sql-console-text)))
-      (evaluate-statements~ console statements #f))))
+      (evaluate-statements console statements #f))))
 
 
 ;;;

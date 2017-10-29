@@ -52,7 +52,7 @@
   (property selected? initialize #f accessors explicit)
 
   
-  (method override (default-size)
+  (method override (default-size self)
     {Dimension 22 22})
 
   
@@ -61,10 +61,10 @@
   ;;;
   
   
-  (method override (preferred-size)
+  (method override (preferred-size self)
     (if (not title)
-        (default-size)
-      (new Dimension (+ (text-width~ (effective-font) (localize title)) 24) 21)))
+        (default-size self)
+      (new Dimension (+ (text-width (effective-font self) (localize title)) 24) 21)))
   
   
   ;;;
@@ -72,30 +72,30 @@
   ;;;
 
 
-  (method override (draw-frame surface)
-    (if (and selected? (memq? (get-state) '(inactive highlighted out-pushed)))
-        (draw-pushed surface)
-      (nextmethod surface)))
+  (method override (draw-frame self surface)
+    (if (and selected? (memq? (get-state self) '(inactive highlighted out-pushed)))
+        (draw-pushed self surface)
+      (nextmethod self surface)))
 
 
-  (method override (draw-tool surface context)
-    (let ((offset (if title 0 (if (or selected? (eq? (get-state) 'pushed)) 2 1))))
+  (method override (draw-tool self surface context)
+    (let ((offset (if title 0 (if (or selected? (eq? (get-state self) 'pushed)) 2 1))))
       (if (not title)
-          (draw-image surface context offset offset)
+          (draw-image self surface context offset offset)
         (let ((title (localize title))
-              (center (justify-lazy (lambda () (get-text-extent~ surface title))
-                                    (lambda () (get-size))
+              (center (justify-lazy (lambda () (get-text-extent surface title))
+                                    (lambda () (get-size self))
                                     '(center center)))
-              (color (or (get-focused-text-color~ (get-skin)) {Color Black})))
-          (draw-text~ surface (+ offset (get-h~ center)) (+ offset (get-v~ center)) title color enabled?: (view-enabled?))))))
+              (color (or (get-focused-text-color (get-skin self)) {Color Black})))
+          (draw-text surface (+ offset (get-h center)) (+ offset (get-v center)) title color enabled?: (view-enabled? self))))))
   
   
-  (method override (draw-background surface context)
+  (method override (draw-background self surface context)
     (if selected?
-        (let ((bounds (get-bounds))
+        (let ((bounds (get-bounds self))
               (color (if title {Color White} {Color Light-Background})))
-          (fill-rect~ surface (expand-rect bounds 1 1 -1 -1) color))
-      (nextmethod surface context)))
+          (fill-rect surface (expand-rect bounds 1 1 -1 -1) color))
+      (nextmethod self surface context)))
   
   
   ;;;
@@ -103,7 +103,7 @@
   ;;;
   
   
-  (method override (get-skin)
+  (method override (get-skin self)
     (find-skin 'ui:tool))
   
   
@@ -112,13 +112,13 @@
   ;;;
 
 
-  (method override (up)
-    (when (and (eq? (get-state) 'pushed) (not selected?))
-      (let ((pushed (find-pushed)))
+  (method override (up self)
+    (when (and (eq? (get-state self) 'pushed) (not selected?))
+      (let ((pushed (find-pushed self)))
         (when pushed
-          (set-selected?~ pushed #f)))
-      (set-selected? #t)
-      (process-action self)))
+          (set-selected? pushed #f)))
+      (set-selected? self #t)
+      (process-action self self)))
   
   
   ;;;
@@ -126,23 +126,23 @@
   ;;;
 
 
-  (method override (get-group)
+  (method override (get-group self)
     group)
 
 
-  (method override (set-group value)
+  (method override (set-group self value)
     (set! group value))
 
 
-  (method (radio-group)
+  (method (radio-group self)
     (collect-if (lambda (component)
                   (and (is? component Radio-Tool)
-                       (eq? (get-group~ component) group)))
-                (get-children~ parent)))
+                       (eq? (get-group component) group)))
+                (get-children parent)))
 
 
-  (method (find-pushed)
-    (find-if get-selected?~ (radio-group)))
+  (method (find-pushed self)
+    (find-if get-selected? (radio-group self)))
   
   
   ;;;
@@ -150,23 +150,23 @@
   ;;;
 
 
-  (method override (get-selected?)
+  (method override (get-selected? self)
     selected?)
   
 
-  (method override (set-selected? flag)
+  (method override (set-selected? self flag)
     (when (neq? flag selected?)
-      (let ((current (find-pushed)))
-        (set-selected-state flag)
+      (let ((current (find-pushed self)))
+        (set-selected-state self flag)
         (when current
-          (set-selected-state~ current (not flag))))))
+          (set-selected-state current (not flag))))))
   
   
-  (method override (unselect)
+  (method override (unselect self)
     (when selected?
-      (set-selected-state #f)))
+      (set-selected-state self #f)))
   
   
-  (method (set-selected-state flag)
+  (method package (set-selected-state self flag)
     (set! selected? flag)
-    (invalidate-view))))
+    (invalidate-view self))))

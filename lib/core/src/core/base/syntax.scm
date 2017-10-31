@@ -184,36 +184,39 @@
 ;         (%%list a b c r)))))
 
 
-(jazz:define-macro (jazz:bind bindings tree . body)
-
-  (define (expand-car bindings tree body)
-    (let ((car-binding (%%car bindings)))
-      (cond ((%%symbol? car-binding)
-             `((let ((,car-binding (%%car ,tree)))
-                 ,@(expand-cdr bindings tree body))))
-            ((%%pair? car-binding)
-             (let ((car-symbol (jazz:generate-symbol "car")))
-               `((if (%%null? ,tree)
-                     (jazz:error "Unable to bind")
-                   (let ((,car-symbol (%%car ,tree)))
-                     ,@(expand-car car-binding car-symbol
-                         (expand-cdr bindings tree body))))))))))
-
-  (define (expand-cdr bindings tree body)
-    (let ((cdr-binding (%%cdr bindings)))
-      (cond ((%%null? cdr-binding)
-             body)
-            ((%%symbol? cdr-binding)
-             `((let ((,cdr-binding (%%cdr ,tree)))
-                 ,@body)))
-            ((%%pair? cdr-binding)
-             (let ((cdr-symbol (jazz:generate-symbol "cdr")))
-               `((let ((,cdr-symbol (%%cdr ,tree)))
-                   ,@(expand-car cdr-binding cdr-symbol body))))))))
-  
-  (let ((tree-symbol (jazz:generate-symbol "tree")))
-    `(let ((,tree-symbol ,tree))
-       ,@(expand-car bindings tree-symbol body))))
+(jazz:define-syntax jazz:bind
+  (lambda (src)
+    (define (expand-car bindings tree body)
+      (let ((car-binding (%%car bindings)))
+        (cond ((%%symbol? car-binding)
+               `((let ((,car-binding (%%car ,tree)))
+                   ,@(expand-cdr bindings tree body))))
+              ((%%pair? car-binding)
+               (let ((car-symbol (jazz:generate-symbol "car")))
+                 `((if (%%null? ,tree)
+                       (jazz:error "Unable to bind")
+                     (let ((,car-symbol (%%car ,tree)))
+                       ,@(expand-car car-binding car-symbol
+                           (expand-cdr bindings tree body))))))))))
+    
+    (define (expand-cdr bindings tree body)
+      (let ((cdr-binding (%%cdr bindings)))
+        (cond ((%%null? cdr-binding)
+               body)
+              ((%%symbol? cdr-binding)
+               `((let ((,cdr-binding (%%cdr ,tree)))
+                   ,@body)))
+              ((%%pair? cdr-binding)
+               (let ((cdr-symbol (jazz:generate-symbol "cdr")))
+                 `((let ((,cdr-symbol (%%cdr ,tree)))
+                     ,@(expand-car cdr-binding cdr-symbol body))))))))
+    
+    (let ((bindings (%%desourcify (%%cadr (jazz:source-code src))))
+          (tree (%%desourcify (%%caddr (jazz:source-code src))))
+          (body (%%cdddr (jazz:source-code src))))
+      (let ((tree-symbol (jazz:generate-symbol "tree")))
+        `(let ((,tree-symbol ,tree))
+           ,@(expand-car bindings tree-symbol body))))))
 
 
 ;;;

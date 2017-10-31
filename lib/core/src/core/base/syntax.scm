@@ -211,12 +211,13 @@
                  `((let ((,cdr-symbol (%%cdr ,tree)))
                      ,@(expand-car cdr-binding cdr-symbol body))))))))
     
-    (let ((bindings (%%desourcify (%%cadr (jazz:source-code src))))
-          (tree (%%desourcify (%%caddr (jazz:source-code src))))
-          (body (%%cdddr (jazz:source-code src))))
-      (let ((tree-symbol (jazz:generate-symbol "tree")))
-        `(let ((,tree-symbol ,tree))
-           ,@(expand-car bindings tree-symbol body))))))
+    (let ((form (%%cdr (jazz:source-code src))))
+      (let ((bindings (%%desourcify (%%car form)))
+            (tree (%%desourcify (%%cadr form)))
+            (body (%%cddr form)))
+        (let ((tree-symbol (jazz:generate-symbol "tree")))
+          `(let ((,tree-symbol ,tree))
+             ,@(expand-car bindings tree-symbol body)))))))
 
 
 ;;;

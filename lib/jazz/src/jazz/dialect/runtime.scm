@@ -1216,11 +1216,14 @@
 
 
 (define (jazz:walk-cast walker resume declaration environment form-src)
-  (let ((form (jazz:source-code form-src)))
-    (let ((specifier (jazz:source-code (%%cadr form)))
-          (expression (%%car (%%cddr form))))
-      (jazz:new-cast (jazz:walk-specifier walker resume declaration environment specifier)
-                     (jazz:walk walker resume declaration environment expression)))))
+  (let ((form (%%cdr (jazz:source-code form-src))))
+    (if (and (%%pair? form)
+             (%%pair? (%%cdr form)))
+        (let ((specifier (jazz:source-code (%%car form)))
+              (expression (%%cadr form)))
+          (jazz:new-cast (jazz:walk-specifier walker resume declaration environment specifier)
+                         (jazz:walk walker resume declaration environment expression)))
+      (jazz:walk-error walker resume declaration form-src "Ill-formed cast"))))
 
 
 ;;;

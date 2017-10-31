@@ -44,6 +44,7 @@
 
 
 (jazz:define-virtual-syntax (jazz:dialect-walker (jazz:Dialect dialect)))
+(jazz:define-virtual-syntax (jazz:dialect-wrap (jazz:Dialect dialect) body))
 
 
 ;;;

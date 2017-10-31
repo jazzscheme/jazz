@@ -910,7 +910,7 @@
   `(method ,@meta
            ,(jazz:get-declaration-access declaration)
            ,@(generate-propagation-list)
-           (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-method-declaration-signature declaration)))
+           (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-method-declaration-signature declaration) #t))
            ,@(jazz:outline-generate-type-list (jazz:get-function-type-result (jazz:get-lexical-binding-type declaration)))))
 
 

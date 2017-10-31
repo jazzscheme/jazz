@@ -72,10 +72,15 @@
 
 
 (jazz:define-virtual (jazz:dialect-walker (jazz:Dialect dialect)))
+(jazz:define-virtual (jazz:dialect-wrap (jazz:Dialect dialect) body))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Dialect dialect))
   #f)
+
+
+(jazz:define-method (jazz:dialect-wrap (jazz:Dialect dialect) body)
+  body)
 
 
 ;;;
@@ -480,12 +485,18 @@
                    declarations))
 
 
-(define (jazz:outline-generate-signature signature)
+(define (jazz:outline-generate-signature signature #!optional (method? #f))
   (if (not signature)
       #f
-    (let ((queue (jazz:new-queue)))
+    (let ((queue (jazz:new-queue))
+          (first-positional? #t))
       (define (add-positional parameter)
-        (jazz:enqueue-list queue `(,(jazz:get-lexical-binding-name parameter) ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type parameter)))))
+        (let ((name (jazz:get-lexical-binding-name parameter)))
+          (if (and method? first-positional?)
+              (begin
+                (jazz:enqueue queue name)
+                (set! first-positional? #f))
+            (jazz:enqueue-list queue `(,name ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type parameter)))))))
       
       ;; adding (unspecified) is a quick solution
       (define (add-optional parameter)
@@ -512,7 +523,7 @@
 
 (define (jazz:outline-generate-type-list type)
   (if (and type (%%is-not? type jazz:Any-Class))
-      (list (jazz:type->specifier type))
+      (%%list (jazz:type->specifier type))
     '()))
 
 
@@ -1353,6 +1364,7 @@
                (backend (and backend-name (jazz:require-backend backend-name)))
                (resume #f)
                (actual (jazz:get-catalog-entry name))
+               (body (jazz:dialect-wrap dialect body))
                (declaration (jazz:call-with-catalog-entry-lock name
                               (lambda ()
                                 (let ((declaration (jazz:walk-module-declaration walker actual name access dialect-name dialect-invoice body)))

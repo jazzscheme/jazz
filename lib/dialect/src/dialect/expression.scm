@@ -167,7 +167,7 @@
                                              (jazz:get-function-type-result function-type)
                                              #f)))
                                    (iter (%%cdr scan) (if (or (%%not least-mismatch)
-                                                              (%%eq? least-mismatch #t)
+                                                              (%%symbol? least-mismatch)
                                                               (and (%%pair? mismatch)
                                                                    (%%fx< (%%length mismatch) (%%length least-mismatch))))
                                                           mismatch

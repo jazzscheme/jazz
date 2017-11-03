@@ -39,6 +39,325 @@
 
 
 ;;;
+;;;; Box
+;;;
+
+
+(native box)
+(native box?)
+(native set-box!)
+(native unbox)
+
+
+;;;
+;;;; Command
+;;;
+
+
+(native command-line)
+
+
+;;;
+;;;; Compile
+;;;
+
+
+(native compile-file)
+(native compile-file-to-target)
+(native link-flat)
+(native link-incremental)
+
+
+;;;
+;;;; Condition
+;;;
+
+
+(native condition-variable-broadcast!)
+(native condition-variable-name)
+(native condition-variable-signal!)
+(native condition-variable-specific)
+(native condition-variable-specific-set!)
+(native condition-variable?)
+(native make-condition-variable)
+
+
+;;;
+;;;; Continuation
+;;;
+
+
+;;conflict;;(native continuation-capture)
+;;conflict;;(native continuation-graft)
+;;conflict;;(native continuation-return)
+;;conflict;;(native continuation?)
+
+
+;;;
+;;;; Debugging
+;;;
+
+
+;;conflict;;(native break)
+;;conflict;;(native display-continuation-backtrace)
+(native display-continuation-dynamic-environment)
+(native display-continuation-environment)
+(native display-dynamic-environment?)
+(native display-environment-set!)
+;;conflict;;(native display-exception)
+(native display-exception-in-context)
+(native display-procedure-environment)
+(native generate-proper-tail-calls)
+(native step)
+(native step-level-set!)
+;;conflict;;(native trace)
+(native unbreak)
+;;conflict;;(native untrace)
+
+
+;;;
+;;;; Environment
+;;;
+
+
+(native getenv)
+(native setenv)
+
+
+;;;
+;;;; Evaluation
+;;;
+
+
+(native expression-parsing-exception-kind)
+(native expression-parsing-exception-parameters)
+(native expression-parsing-exception-source)
+(native expression-parsing-exception?)
+(native unbound-global-exception-code)
+(native unbound-global-exception-rte)
+(native unbound-global-exception-variable)
+(native unbound-global-exception?)
+(native uncaught-exception-arguments)
+(native uncaught-exception-procedure)
+(native uncaught-exception-reason)
+(native uncaught-exception?)
+
+
+;;;
+;;;; Exception
+;;;
+
+
+(native abort)
+;;conflict;;(native current-exception-handler)
+;;conflict;;(native error)
+;;conflict;;(native raise)
+;;conflict;;(native with-exception-catcher)
+;;conflict;;(native with-exception-handler)
+(native error-exception-message)
+(native error-exception-parameters)
+(native error-exception?)
+(native noncontinuable-exception-reason)
+(native noncontinuable-exception?)
+(native primordial-exception-handler)
+
+
+;;;
+;;;; File
+;;;
+
+
+;;conflict;;(native copy-file)
+(native create-directory)
+(native create-fifo)
+(native create-link)
+(native create-symbolic-link)
+;;conflict;;(native current-directory)
+;;conflict;;(native delete-directory)
+;;conflict;;(native delete-file)
+(native directory-files)
+(native file-attributes)
+(native file-creation-time)
+(native file-device)
+;;conflict;;(native file-exists?)
+(native file-group)
+(native file-info)
+(native file-info-attributes)
+(native file-info-creation-time)
+(native file-info-device)
+(native file-info-group)
+(native file-info-inode)
+(native file-info-last-access-time)
+(native file-info-last-change-time)
+(native file-info-last-modification-time)
+(native file-info-mode)
+(native file-info-number-of-links)
+(native file-info-owner)
+(native file-info-size)
+(native file-info-type)
+(native file-info?)
+(native file-inode)
+(native file-last-access-time)
+(native file-last-change-time)
+(native file-last-modification-time)
+(native file-mode)
+(native file-number-of-links)
+(native file-owner)
+(native file-size)
+(native file-type)
+(native rename-file)
+
+
+;;;
+;;;; Fixnum
+;;;
+
+
+(native fx+ <fx^fx:fx>)
+(native fx- <fx^fx:fx>)
+(native fx* <fx^fx:fx>)
+(native fx<)
+(native fx<=)
+(native fx=)
+(native fx>)
+(native fx>=)
+(native fxabs)
+(native fxand)
+(native fxarithmetic-shift)
+(native fxarithmetic-shift-left)
+(native fxarithmetic-shift-right)
+(native fxbit-count)
+(native fxbit-set?)
+(native fxeven?)
+(native fxfirst-bit-set)
+(native fxif)
+(native fxior)
+(native fxlength)
+(native fxmax)
+(native fxmin)
+(native fxmodulo)
+(native fxnegative?)
+(native fxnot)
+(native fxodd?)
+(native fxpositive?)
+(native fxquotient)
+(native fxremainder)
+(native fxwrap*)
+(native fxwrap+)
+(native fxwrap-)
+(native fxwrapabs)
+(native fxwraparithmetic-shift)
+(native fxwraparithmetic-shift-left)
+(native fxwraplogical-shift-right)
+(native fxwrapquotient)
+(native fxxor)
+(native fxzero?)
+;;conflict;;(native fixnum->flonum)
+(native fixnum-overflow-exception-arguments)
+(native fixnum-overflow-exception-procedure)
+(native fixnum-overflow-exception?)
+(native fixnum? <object:bool>)
+
+
+;;;
+;;;; Flonum
+;;;
+
+
+;;conflict;;(native fl*)
+;;conflict;;(native fl+)
+;;conflict;;(native fl-)
+;;conflict;;(native fl/)
+(native fl<)
+(native fl<=)
+(native fl=)
+(native fl>)
+(native fl>=)
+(native flabs)
+(native flacos)
+(native flasin)
+(native flatan)
+(native flceiling)
+(native flcos)
+(native fldenominator)
+(native fleven?)
+(native flexp)
+(native flexpt)
+(native flfinite?)
+(native flfloor)
+(native flinfinite?)
+(native flinteger?)
+(native fllog)
+(native flmax)
+(native flmin)
+(native flnan?)
+(native flnegative?)
+(native flnumerator)
+(native flodd?)
+(native flonum? <object:bool>)
+(native flpositive?)
+(native flround)
+(native flsin)
+(native flsqrt)
+(native fltan)
+(native fltruncate)
+(native flzero?)
+
+
+;;;
+;;;; Foreign
+;;;
+
+
+;;conflict;;(native foreign-address)
+;;conflict;;(native foreign-release!)
+;;conflict;;(native foreign-released?)
+;;conflict;;(native foreign-tags)
+;;conflict;;(native foreign?)
+(native cfun-conversion-exception-arguments)
+(native cfun-conversion-exception-code)
+(native cfun-conversion-exception-message)
+(native cfun-conversion-exception-procedure)
+(native cfun-conversion-exception?)
+(native multiple-c-return-exception?)
+(native sfun-conversion-exception-arguments)
+(native sfun-conversion-exception-code)
+(native sfun-conversion-exception-message)
+(native sfun-conversion-exception-procedure)
+(native sfun-conversion-exception?)
+
+
+;;;
+;;;; Group
+;;;
+
+
+(native group-info)
+(native group-info-gid)
+(native group-info-members)
+(native group-info-name)
+(native group-info?)
+
+
+;;;
+;;;; Hash
+;;;
+
+
+;;conflict;;(native eq?-hash)
+;;conflict;;(native equal?-hash)
+;;conflict;;(native eqv?-hash)
+(native object->serial-number)
+(native serial-number->object)
+(native invalid-hash-number-exception-arguments)
+(native invalid-hash-number-exception-procedure)
+(native invalid-hash-number-exception?)
+(native unbound-serial-number-exception-arguments)
+(native unbound-serial-number-exception-procedure)
+(native unbound-serial-number-exception?)
+
+
+;;;
 ;;;; Homogeneous
 ;;;
 
@@ -67,6 +386,7 @@
 (native u8vector->list)
 (native list->u8vector)
 (native u8vector->object)
+(native object->u8vector)
 (native object->u8vector)
 (native u8vector-shrink!)
 (native u8vector-append)
@@ -195,19 +515,106 @@
 
 
 ;;;
-;;;; Serialized
+;;;; Host
 ;;;
 
 
-(native make-serialized)
-(native serialized?)
-(native serialized-class)
-(native serialized-content)
+(native err-code->string)
+(native host-info)
+(native host-info-addresses)
+(native host-info-aliases)
+(native host-info-name)
+(native host-info?)
+(native host-name)
+(native no-such-file-or-directory-exception-arguments)
+(native no-such-file-or-directory-exception-procedure)
+(native no-such-file-or-directory-exception?)
+(native os-exception-arguments)
+(native os-exception-code)
+(native os-exception-message)
+(native os-exception-procedure)
+(native os-exception?)
+(native unbound-os-environment-variable-exception-arguments)
+(native unbound-os-environment-variable-exception-procedure)
+(native unbound-os-environment-variable-exception?)
 
 
-;;conflict;;(native default-random-source)
+;;;
+;;;; Integer
+;;;
+
+
+(native integer-length)
+(native integer-nth-root)
+(native integer-sqrt)
+
+
+;;;
+;;;; Interrupt
+;;;
+
+
+(native current-user-interrupt-handler)
+(native defer-user-interrupts)
+
+
+;;;
+;;;; Keyword
+;;;
+
+
+(native make-uninterned-keyword)
+;;conflict;;(native keyword->string)
+(native keyword-expected-exception-arguments)
+(native keyword-expected-exception-procedure)
+(native keyword-expected-exception?)
+(native keyword-hash)
+;;conflict;;(native keyword?)
+(native uninterned-keyword?)
+
+
+;;;
+;;;; Memory
+;;;
+
+
+;;conflict;;(native gc-report-set!)
+(native heap-overflow-exception?)
+
+
+;;;
+;;;; Mutex
+;;;
+
+
+;;conflict;;(native make-mutex)
+;;conflict;;(native mutex-lock!)
+;;conflict;;(native mutex-name)
+;;conflict;;(native mutex-specific)
+;;conflict;;(native mutex-specific-set!)
+;;conflict;;(native mutex-state)
+;;conflict;;(native mutex-unlock!)
+;;conflict;;(native mutex?)
 (native abandoned-mutex-exception?)
-(native abort)
+
+
+;;;
+;;;; Network
+;;;
+
+
+(native network-info)
+(native network-info-aliases)
+(native network-info-name)
+(native network-info-number)
+(native network-info?)
+
+
+;;;
+;;;; Number
+;;;
+
+
 (native all-bits-set?)
 (native any-bits-set?)
 (native arithmetic-shift <int^int:int>)
@@ -218,341 +625,33 @@
 (native bitwise-merge)
 (native bitwise-not <int:int>)
 (native bitwise-xor <int*:int>)
-(native box)
-(native box?)
-;;conflict;;(native break)
-(native call-with-input-string)
-(native call-with-input-u8vector)
-(native call-with-input-vector)
-(native call-with-output-string)
-(native call-with-output-u8vector)
-(native call-with-output-vector)
-(native call/cc)
-(native cfun-conversion-exception-arguments)
-(native cfun-conversion-exception-code)
-(native cfun-conversion-exception-message)
-(native cfun-conversion-exception-procedure)
-(native cfun-conversion-exception?)
 (native clear-bit-field)
-;;conflict;;(native close-port)
-(native command-line)
-(native compile-file)
-(native compile-file-to-target)
-(native condition-variable-broadcast!)
-(native condition-variable-name)
-(native condition-variable-signal!)
-(native condition-variable-specific)
-(native condition-variable-specific-set!)
-(native condition-variable?)
-(native console-port)
-;;conflict;;(native continuation-capture)
-;;conflict;;(native continuation-graft)
-;;conflict;;(native continuation-return)
-;;conflict;;(native continuation?)
 (native copy-bit-field)
-;;conflict;;(native copy-file)
-;;conflict;;(native cpu-time)
-(native create-directory)
-(native create-fifo)
-(native create-link)
-(native create-symbolic-link)
-;;conflict;;(native current-directory)
-(native current-error-port)
-;;conflict;;(native current-exception-handler)
-(native current-readtable)
-;;conflict;;(native current-thread)
-;;conflict;;(native current-time)
-(native current-user-interrupt-handler)
-(native datum-parsing-exception-kind)
-(native datum-parsing-exception-parameters)
-(native datum-parsing-exception-readenv)
-(native datum-parsing-exception?)
-(native deadlock-exception?)
-(native defer-user-interrupts)
-;;conflict;;(native delete-directory)
-;;conflict;;(native delete-file)
-(native directory-files)
-;;conflict;;(native display-continuation-backtrace)
-(native display-continuation-dynamic-environment)
-(native display-continuation-environment)
-(native display-dynamic-environment?)
-(native display-environment-set!)
-;;conflict;;(native display-exception)
-(native display-exception-in-context)
-(native display-procedure-environment)
+(native extract-bit-field <int^int^int:int>)
+(native finite?)
+(native first-bit-set)
+(native infinite?)
+(native nan?)
+(native replace-bit-field)
+(native test-bit-field?)
 (native divide-by-zero-exception-arguments)
 (native divide-by-zero-exception-procedure)
 (native divide-by-zero-exception?)
-;;conflict;;(native eq?-hash)
-;;conflict;;(native equal?-hash)
-;;conflict;;(native eqv?-hash)
-(native err-code->string)
-;;conflict;;(native error)
-(native error-exception-message)
-(native error-exception-parameters)
-(native error-exception?)
-;;conflict;;(native exit)
-(native expression-parsing-exception-kind)
-(native expression-parsing-exception-parameters)
-(native expression-parsing-exception-source)
-(native expression-parsing-exception?)
-(native extract-bit-field <int^int^int:int>)
-(native file-attributes)
-(native file-creation-time)
-(native file-device)
-;;conflict;;(native file-exists?)
-(native file-group)
-(native file-info)
-(native file-info-attributes)
-(native file-info-creation-time)
-(native file-info-device)
-(native file-info-group)
-(native file-info-inode)
-(native file-info-last-access-time)
-(native file-info-last-change-time)
-(native file-info-last-modification-time)
-(native file-info-mode)
-(native file-info-number-of-links)
-(native file-info-owner)
-(native file-info-size)
-(native file-info-type)
-(native file-info?)
-(native file-inode)
-(native file-last-access-time)
-(native file-last-change-time)
-(native file-last-modification-time)
-(native file-mode)
-(native file-number-of-links)
-(native file-owner)
-(native file-size)
-(native file-type)
-(native finite?)
-(native first-bit-set)
-;;conflict;;(native fixnum->flonum)
-(native fixnum-overflow-exception-arguments)
-(native fixnum-overflow-exception-procedure)
-(native fixnum-overflow-exception?)
-(native fixnum? <object:bool>)
-;;conflict;;(native fl*)
-;;conflict;;(native fl+)
-;;conflict;;(native fl-)
-;;conflict;;(native fl/)
-(native fl<)
-(native fl<=)
-(native fl=)
-(native fl>)
-(native fl>=)
-(native flabs)
-(native flacos)
-(native flasin)
-(native flatan)
-(native flceiling)
-(native flcos)
-(native fldenominator)
-(native fleven?)
-(native flexp)
-(native flexpt)
-(native flfinite?)
-(native flfloor)
-(native flinfinite?)
-(native flinteger?)
-(native fllog)
-(native flmax)
-(native flmin)
-(native flnan?)
-(native flnegative?)
-(native flnumerator)
-(native flodd?)
-(native flonum? <object:bool>)
-(native flpositive?)
-(native flround)
-(native flsin)
-(native flsqrt)
-(native fltan)
-(native fltruncate)
-(native flzero?)
-(native force-output)
-;;conflict;;(native foreign-address)
-;;conflict;;(native foreign-release!)
-;;conflict;;(native foreign-released?)
-;;conflict;;(native foreign-tags)
-;;conflict;;(native foreign?)
-(native fx+ <fx^fx:fx>)
-(native fx- <fx^fx:fx>)
-(native fx* <fx^fx:fx>)
-(native fx<)
-(native fx<=)
-(native fx=)
-(native fx>)
-(native fx>=)
-(native fxabs)
-(native fxand)
-(native fxarithmetic-shift)
-(native fxarithmetic-shift-left)
-(native fxarithmetic-shift-right)
-(native fxbit-count)
-(native fxbit-set?)
-(native fxeven?)
-(native fxfirst-bit-set)
-(native fxif)
-(native fxior)
-(native fxlength)
-(native fxmax)
-(native fxmin)
-(native fxmodulo)
-(native fxnegative?)
-(native fxnot)
-(native fxodd?)
-(native fxpositive?)
-(native fxquotient)
-(native fxremainder)
-(native fxwrap*)
-(native fxwrap+)
-(native fxwrap-)
-(native fxwrapabs)
-(native fxwraparithmetic-shift)
-(native fxwraparithmetic-shift-left)
-(native fxwraplogical-shift-right)
-(native fxwrapquotient)
-(native fxxor)
-(native fxzero?)
-;;conflict;;(native gc-report-set!)
-(native generate-proper-tail-calls)
-(native gensym)
-(native get-output-string)
-(native get-output-u8vector <any:u8vector>)
-(native get-output-vector)
-(native getenv)
-(native group-info)
-(native group-info-gid)
-(native group-info-members)
-(native group-info-name)
-(native group-info?)
-(native heap-overflow-exception?)
-(native host-info)
-(native host-info-addresses)
-(native host-info-aliases)
-(native host-info-name)
-(native host-info?)
-(native host-name)
-(native improper-length-list-exception-arg-num)
-(native improper-length-list-exception-arguments)
-(native improper-length-list-exception-procedure)
-(native improper-length-list-exception?)
-(native inactive-thread-exception-arguments)
-(native inactive-thread-exception-procedure)
-(native inactive-thread-exception?)
-(native infinite?)
-(native initialized-thread-exception-arguments)
-(native initialized-thread-exception-procedure)
-(native initialized-thread-exception?)
-(native input-port-byte-position)
-(native input-port-bytes-buffered)
-(native input-port-char-position)
-(native input-port-characters-buffered)
-(native input-port-column)
-(native input-port-line)
-(native input-port-readtable)
-(native input-port-readtable-set!)
-;;conflict;;(native input-port-timeout-set!)
-(native integer-length)
-(native integer-nth-root)
-(native integer-sqrt)
-(native invalid-hash-number-exception-arguments)
-(native invalid-hash-number-exception-procedure)
-(native invalid-hash-number-exception?)
-(native join-timeout-exception-arguments)
-(native join-timeout-exception-procedure)
-(native join-timeout-exception?)
-;;conflict;;(native keyword->string)
-(native keyword-expected-exception-arguments)
-(native keyword-expected-exception-procedure)
-(native keyword-expected-exception?)
-(native keyword-hash)
-;;conflict;;(native keyword?)
-(native link-flat)
-(native link-incremental)
-(native list->table)
-(native mailbox-receive-timeout-exception-arguments)
-(native mailbox-receive-timeout-exception-procedure)
-(native mailbox-receive-timeout-exception?)
-(native main)
-(native make-condition-variable)
-;;conflict;;(native make-mutex)
+
+
+;;;
+;;;; Parameter
+;;;
+
+
 (native make-parameter)
-(native make-random-source)
-;;conflict;;(native make-root-thread)
-(native make-table <object*:table>)
-;;conflict;;(native make-thread)
-;;conflict;;(native make-thread-group)
-(native make-uninterned-keyword)
-(native make-uninterned-symbol)
-(native make-will)
-(native multiple-c-return-exception?)
-;;conflict;;(native mutex-lock!)
-;;conflict;;(native mutex-name)
-;;conflict;;(native mutex-specific)
-;;conflict;;(native mutex-specific-set!)
-;;conflict;;(native mutex-state)
-;;conflict;;(native mutex-unlock!)
-;;conflict;;(native mutex?)
-(native nan?)
-(native network-info)
-(native network-info-aliases)
-(native network-info-name)
-(native network-info-number)
-(native network-info?)
-(native no-such-file-or-directory-exception-arguments)
-(native no-such-file-or-directory-exception-procedure)
-(native no-such-file-or-directory-exception?)
-(native noncontinuable-exception-reason)
-(native noncontinuable-exception?)
-(native nonempty-input-port-character-buffer-exception-arguments)
-(native nonempty-input-port-character-buffer-exception-procedure)
-(native nonempty-input-port-character-buffer-exception?)
-(native nonprocedure-operator-exception-arguments)
-(native nonprocedure-operator-exception-code)
-(native nonprocedure-operator-exception-operator)
-(native nonprocedure-operator-exception-rte)
-(native nonprocedure-operator-exception?)
-(native number-of-arguments-limit-exception-arguments)
-(native number-of-arguments-limit-exception-procedure)
-(native number-of-arguments-limit-exception?)
-(native object->serial-number)
-(native object->string)
-(native object->u8vector)
-(native open-directory)
-(native open-dummy)
-(native open-event-queue)
-(native open-file)
-(native open-input-string)
-(native open-input-u8vector)
-(native open-input-vector)
-(native open-output-string)
-(native open-output-u8vector)
-(native open-output-vector)
-;;conflict;;(native open-process)
-;;conflict;;(native open-string)
-(native open-string-pipe)
-;;conflict;;(native open-tcp-client)
-;;conflict;;(native open-tcp-server)
-(native open-u8vector)
-(native open-u8vector-pipe)
-(native open-vector)
-(native open-vector-pipe)
-(native os-exception-arguments)
-(native os-exception-code)
-(native os-exception-message)
-(native os-exception-procedure)
-(native os-exception?)
-(native output-port-byte-position)
-(native output-port-char-position)
-(native output-port-column)
-(native output-port-line)
-(native output-port-readtable)
-(native output-port-readtable-set!)
-;;conflict;;(native output-port-timeout-set!)
-(native output-port-width)
+
+
+;;;
+;;;; Path
+;;;
+
+
 (native path-directory)
 (native path-expand)
 (native path-extension)
@@ -562,22 +661,153 @@
 (native path-strip-trailing-directory-separator)
 (native path-strip-volume)
 (native path-volume)
+
+
+;;;
+;;;; Port
+;;;
+
+
+;;conflict;;(native close-port)
+(native console-port)
+(native current-error-port)
 (native port-settings-set!)
 (native port?)
+
+
+;; input
+(native call-with-input-string)
+(native call-with-input-u8vector)
+(native call-with-input-vector)
+(native input-port-byte-position)
+(native input-port-bytes-buffered)
+(native input-port-char-position)
+(native input-port-characters-buffered)
+(native input-port-column)
+(native input-port-line)
+(native input-port-readtable)
+(native input-port-readtable-set!)
+;;conflict;;(native input-port-timeout-set!)
+(native open-directory)
+(native open-dummy)
+(native open-event-queue)
+(native open-file)
+(native open-input-string)
+(native open-input-u8vector)
+(native open-input-vector)
+;;conflict;;(native open-string)
+(native open-string-pipe)
+(native open-u8vector)
+(native open-u8vector-pipe)
+(native open-vector)
+(native open-vector-pipe)
+;;conflict;;(native read-all)
+(native read-line)
+(native read-substring)
+;;conflict;;(native read-subu8vector)
+;;conflict;;(native read-u8)
+(native with-input-from-port)
+(native with-input-from-string)
+(native with-input-from-u8vector)
+(native with-input-from-vector)
+(native datum-parsing-exception-kind)
+(native datum-parsing-exception-parameters)
+(native datum-parsing-exception-readenv)
+(native datum-parsing-exception?)
+(native nonempty-input-port-character-buffer-exception-arguments)
+(native nonempty-input-port-character-buffer-exception-procedure)
+(native nonempty-input-port-character-buffer-exception?)
+
+
+;; output
+(native call-with-output-string)
+(native call-with-output-u8vector)
+(native call-with-output-vector)
+(native force-output)
+(native get-output-string)
+(native get-output-u8vector <any:u8vector>)
+(native get-output-vector)
+(native open-output-string)
+(native open-output-u8vector)
+(native open-output-vector)
+(native output-port-byte-position)
+(native output-port-char-position)
+(native output-port-column)
+(native output-port-line)
+(native output-port-readtable)
+(native output-port-readtable-set!)
+;;conflict;;(native output-port-timeout-set!)
+(native output-port-width)
 ;;conflict;;(native pp)
 (native pretty-print)
-(native primordial-exception-handler)
 ;;conflict;;(native print)
 (native println)
+(native with-output-to-port)
+(native with-output-to-string)
+(native with-output-to-u8vector)
+(native with-output-to-vector)
+(native write-substring)
+;;conflict;;(native write-subu8vector)
+;;conflict;;(native write-u8)
+
+
+;;;
+;;;; Procedure
+;;;
+
+
+(native nonprocedure-operator-exception-arguments)
+(native nonprocedure-operator-exception-code)
+(native nonprocedure-operator-exception-operator)
+(native nonprocedure-operator-exception-rte)
+(native nonprocedure-operator-exception?)
+(native number-of-arguments-limit-exception-arguments)
+(native number-of-arguments-limit-exception-procedure)
+(native number-of-arguments-limit-exception?)
+(native stack-overflow-exception?)
+(native unknown-keyword-argument-exception-arguments)
+(native unknown-keyword-argument-exception-procedure)
+(native unknown-keyword-argument-exception?)
+(native wrong-number-of-arguments-exception-arguments)
+(native wrong-number-of-arguments-exception-procedure)
+(native wrong-number-of-arguments-exception?)
+
+
+;;;
+;;;; Process
+;;;
+
+
+;;conflict;;(native exit)
+(native main)
+;;conflict;;(native open-process)
 (native process-pid)
 ;;conflict;;(native process-status)
 ;;conflict;;(native process-times)
+(native unterminated-process-exception-arguments)
+(native unterminated-process-exception-procedure)
+(native unterminated-process-exception?)
+
+
+;;;
+;;;; Protocol
+;;;
+
+
 (native protocol-info)
 (native protocol-info-aliases)
 (native protocol-info-name)
 (native protocol-info-number)
 (native protocol-info?)
-;;conflict;;(native raise)
+
+
+;;;
+;;;; Random
+;;;
+
+
+(native make-random-source)
+;;conflict;;(native default-random-source)
 (native random-f64vector)
 ;;conflict;;(native random-integer)
 ;;conflict;;(native random-real)
@@ -591,15 +821,14 @@
 (native random-source-state-set!)
 (native random-source?)
 (native random-u8vector)
-(native range-exception-arg-num)
-(native range-exception-arguments)
-(native range-exception-procedure)
-(native range-exception?)
-;;conflict;;(native read-all)
-(native read-line)
-(native read-substring)
-;;conflict;;(native read-subu8vector)
-;;conflict;;(native read-u8)
+
+
+;;;
+;;;; Readtable
+;;;
+
+
+(native current-readtable)
 (native readtable-case-conversion?)
 (native readtable-case-conversion?-set)
 (native readtable-comment-handler-set)
@@ -622,56 +851,103 @@
 (native readtable-write-extended-read-macros?)
 (native readtable-write-extended-read-macros?-set)
 ;;conflict;;(native readtable?)
-;;conflict;;(native real-time)
-(native rename-file)
+
+
+;;;
+;;;; REPL
+;;;
+
+
 (native repl-display-environment?)
 (native repl-input-port)
 (native repl-output-port)
 (native repl-result-history-max-length-set!)
 (native repl-result-history-ref)
-(native replace-bit-field)
+
+
+;;;
+;;;; RPC
+;;;
+
+
 (native rpc-remote-error-exception-arguments)
 (native rpc-remote-error-exception-message)
 (native rpc-remote-error-exception-procedure)
 (native rpc-remote-error-exception?)
-(native scheduler-exception-reason)
-(native scheduler-exception?)
-;;conflict;;(native seconds->time)
-(native serial-number->object)
+
+
+;;;
+;;;; Serialized
+;;;
+
+
+(native make-serialized)
+(native serialized?)
+(native serialized-class)
+(native serialized-content)
+
+
+;;;
+;;;; Service
+;;;
+
+
 (native service-info)
 (native service-info-aliases)
 (native service-info-name)
 (native service-info-port-number)
 (native service-info-protocol)
 (native service-info?)
-(native set-box!)
-(native setenv)
-(native sfun-conversion-exception-arguments)
-(native sfun-conversion-exception-code)
-(native sfun-conversion-exception-message)
-(native sfun-conversion-exception-procedure)
-(native sfun-conversion-exception?)
+
+
+;;;
+;;;; Shell
+;;;
+
+
 (native shell-command)
-;;conflict;;(native socket-info-address)
-(native socket-info-family)
-;;conflict;;(native socket-info-port-number)
-(native socket-info?)
-(native stack-overflow-exception?)
-(native started-thread-exception-arguments)
-(native started-thread-exception-procedure)
-(native started-thread-exception?)
-(native step)
-(native step-level-set!)
+
+
+;;;
+;;;; String
+;;;
+
+
+(native object->string)
 ;;conflict;;(native string->keyword)
 ;;conflict;;(native string-ci=?-hash)
 ;;conflict;;(native string=?-hash)
-(native subvector)
+
+
+;;;
+;;;; Symbol
+;;;
+
+
+(native gensym)
+(native make-uninterned-symbol)
 (native symbol-hash)
+(native uninterned-symbol?)
+
+
+;;;
+;;;; System
+;;;
+
+
 (native system-stamp)
 (native system-type)
 (native system-type-string)
 (native system-version)
 (native system-version-string)
+
+
+;;;
+;;;; Table
+;;;
+
+
+(native make-table <object*:table>)
 (native table->list)
 (native table-copy)
 (native table-for-each)
@@ -682,15 +958,39 @@
 (native table-search)
 (native table-set!)
 (native table?)
+(native list->table)
+(native unbound-table-key-exception-arguments)
+(native unbound-table-key-exception-procedure)
+(native unbound-table-key-exception?)
+
+
+;;;
+;;;; TCP
+;;;
+
+
+;;conflict;;(native open-tcp-client)
+;;conflict;;(native open-tcp-server)
 ;;conflict;;(native tcp-client-peer-socket-info)
 ;;conflict;;(native tcp-client-self-socket-info)
 ;;conflict;;(native tcp-server-socket-info)
 (native tcp-service-register!)
 (native tcp-service-unregister!)
-(native terminated-thread-exception-arguments)
-(native terminated-thread-exception-procedure)
-(native terminated-thread-exception?)
-(native test-bit-field?)
+;;conflict;;(native socket-info-address)
+(native socket-info-family)
+;;conflict;;(native socket-info-port-number)
+(native socket-info?)
+
+
+;;;
+;;;; Thread
+;;;
+
+
+;;conflict;;(native current-thread)
+;;conflict;;(native make-root-thread)
+;;conflict;;(native make-thread)
+;;conflict;;(native make-thread-group)
 ;;conflict;;(native thread-base-priority)
 ;;conflict;;(native thread-base-priority-set!)
 ;;conflict;;(native thread-group->thread-group-list)
@@ -736,12 +1036,52 @@
 ;;conflict;;(native thread-thread-group)
 ;;conflict;;(native thread-yield!)
 ;;conflict;;(native thread?)
+(native top)
+(native deadlock-exception?)
+(native inactive-thread-exception-arguments)
+(native inactive-thread-exception-procedure)
+(native inactive-thread-exception?)
+(native initialized-thread-exception-arguments)
+(native initialized-thread-exception-procedure)
+(native initialized-thread-exception?)
+(native join-timeout-exception-arguments)
+(native join-timeout-exception-procedure)
+(native join-timeout-exception?)
+(native mailbox-receive-timeout-exception-arguments)
+(native mailbox-receive-timeout-exception-procedure)
+(native mailbox-receive-timeout-exception?)
+(native scheduler-exception-reason)
+(native scheduler-exception?)
+(native started-thread-exception-arguments)
+(native started-thread-exception-procedure)
+(native started-thread-exception?)
+(native terminated-thread-exception-arguments)
+(native terminated-thread-exception-procedure)
+(native terminated-thread-exception?)
+(native uninitialized-thread-exception-arguments)
+(native uninitialized-thread-exception-procedure)
+(native uninitialized-thread-exception?)
+
+
+;;;
+;;;; Time
+;;;
+
+
+;;conflict;;(native cpu-time)
+;;conflict;;(native current-time)
+;;conflict;;(native real-time)
+;;conflict;;(native seconds->time)
 ;;conflict;;(native time->seconds)
 (native time?)
 (native timeout->time)
-(native top)
-;;conflict;;(native touch)
-;;conflict;;(native trace)
+
+
+;;;
+;;;; TTY
+;;;
+
+
 (native tty-history)
 (native tty-history-max-length-set!)
 (native tty-history-set!)
@@ -750,42 +1090,33 @@
 (native tty-text-attributes-set!)
 (native tty-type-set!)
 (native tty?)
+
+
+;;;
+;;;; Type
+;;;
+
+
+(native improper-length-list-exception-arg-num)
+(native improper-length-list-exception-arguments)
+(native improper-length-list-exception-procedure)
+(native improper-length-list-exception?)
+(native range-exception-arg-num)
+(native range-exception-arguments)
+(native range-exception-procedure)
+(native range-exception?)
 (native type-exception-arg-num)
 (native type-exception-arguments)
 (native type-exception-procedure)
 (native type-exception-type-id)
 (native type-exception?)
-(native unbound-global-exception-code)
-(native unbound-global-exception-rte)
-(native unbound-global-exception-variable)
-(native unbound-global-exception?)
-(native unbound-os-environment-variable-exception-arguments)
-(native unbound-os-environment-variable-exception-procedure)
-(native unbound-os-environment-variable-exception?)
-(native unbound-serial-number-exception-arguments)
-(native unbound-serial-number-exception-procedure)
-(native unbound-serial-number-exception?)
-(native unbound-table-key-exception-arguments)
-(native unbound-table-key-exception-procedure)
-(native unbound-table-key-exception?)
-(native unbox)
-(native unbreak)
-(native uncaught-exception-arguments)
-(native uncaught-exception-procedure)
-(native uncaught-exception-reason)
-(native uncaught-exception?)
-(native uninitialized-thread-exception-arguments)
-(native uninitialized-thread-exception-procedure)
-(native uninitialized-thread-exception?)
-(native uninterned-keyword?)
-(native uninterned-symbol?)
-(native unknown-keyword-argument-exception-arguments)
-(native unknown-keyword-argument-exception-procedure)
-(native unknown-keyword-argument-exception?)
-(native unterminated-process-exception-arguments)
-(native unterminated-process-exception-procedure)
-(native unterminated-process-exception?)
-;;conflict;;(native untrace)
+
+
+;;;
+;;;; User
+;;;
+
+
 (native user-info)
 (native user-info-gid)
 (native user-info-home)
@@ -794,25 +1125,24 @@
 (native user-info-uid)
 (native user-info?)
 (native user-name)
+
+
+;;;
+;;;; Vector
+;;;
+
+
 (native vector-append)
 ;;conflict;;(native vector-copy)
-;;conflict;;(native void)
+(native subvector)
+
+
+;;;
+;;;; Will
+;;;
+
+
+(native make-will)
 (native will-execute!)
 (native will-testator)
-(native will?)
-;;conflict;;(native with-exception-catcher)
-;;conflict;;(native with-exception-handler)
-(native with-input-from-port)
-(native with-input-from-string)
-(native with-input-from-u8vector)
-(native with-input-from-vector)
-(native with-output-to-port)
-(native with-output-to-string)
-(native with-output-to-u8vector)
-(native with-output-to-vector)
-(native write-substring)
-;;conflict;;(native write-subu8vector)
-;;conflict;;(native write-u8)
-(native wrong-number-of-arguments-exception-arguments)
-(native wrong-number-of-arguments-exception-procedure)
-(native wrong-number-of-arguments-exception?))
+(native will?))

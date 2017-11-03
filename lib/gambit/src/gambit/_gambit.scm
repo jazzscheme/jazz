@@ -41,4 +41,5 @@
 (export (scheme)
         
         (gambit.dialect)
-        (gambit.dialect (phase syntax))))
+        (gambit.dialect (phase syntax))
+        (gambit.language.runtime)))

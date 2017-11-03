@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Scheme Runtime Kernel
+;;;; Scheme Language Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected scheme.language.runtime.kernel foundation.dialect
+(module protected scheme.language.runtime foundation.dialect
 
 
 ;;;
@@ -364,103 +364,4 @@
 (native write-char <char^opt<port>:void>)
 (native load <string:void>)
 (native transcript-on <string:void>)
-(native transcript-off <:void>)
-
-
-;;;
-;;;; Kernel
-;;;
-
-
-(native jazz:debug-core?)
-(native jazz:debug-user?)
-(native jazz:cond-expand-features)
-(native jazz:feature-satisfied?)
-(native jazz:generate-symbol)
-(native jazz:simplify-begin)
-(native jazz:compose-reference)
-
-
-;;;
-;;;; Syntax
-;;;
-
-
-(native jazz:source?)
-(native jazz:text-source?)
-(native jazz:source-code)
-(native jazz:source-locat)
-(native jazz:desourcify)
-(native jazz:desourcify-all)
-(native jazz:sourcify)
-(native jazz:sourcify-if)
-(native jazz:sourcify-deep)
-(native jazz:sourcify-deep-if)
-(native jazz:extract-location)
-(native jazz:present-source)
-(native jazz:locat-container)
-(native jazz:locat-position)
-(native jazz:locat-start)
-(native jazz:locat-end)
-(native jazz:locat->container/line/col)
-(native jazz:locat->path/container/start/end&)
-(native jazz:container->path)
-(native jazz:position->filepos)
-(native jazz:filepos-line)
-(native jazz:filepos-col)
-
-
-;;;
-;;;; Syntactic Closure
-;;;
-
-
-(native jazz:make-syntactic-closure)
-(native jazz:syntactic-closure?)
-(native jazz:syntactic-closure-form)
-(native jazz:unwrap-syntactic-closure)
-(native jazz:strip-syntactic-closures)
-(native jazz:strip-source-info)
-(native jazz:identifier?)
-(native jazz:identifier=?)
-(native sc-macro-transformer)
-(native rsc-macro-transformer)
-(native er-macro-transformer)
-
-
-;;;
-;;;; Port
-;;;
-
-
-(native open-input-string)
-(native open-output-string)
-(native get-output-string)
-(native call-with-input-string)
-(native with-input-from-string)
-(native call-with-output-string)
-(native with-output-to-string)
-(native read-line)
-(native pretty-print)
-(native input-port-byte-position)
-(native output-port-byte-position)
-
-
-;;;
-;;;; Table
-;;;
-
-
-(native table?)
-(native make-table <object*:table>)
-(native table-copy)
-(native table-for-each)
-(native table-search)
-(native table-merge)
-(native table-merge!)
-(native table-ref)
-(native table-set!)
-(native table->list)
-(native unbound-table-key-exception?)
-(native list->table)
-(native jazz:iterate-table))
+(native transcript-off <:void>))

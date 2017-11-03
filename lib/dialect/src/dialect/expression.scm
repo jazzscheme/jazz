@@ -133,15 +133,15 @@
                                (let ((expression (and (%%pair? least-mismatch) (%%car least-mismatch))))
                                  (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (%%not (%%null? specializers)) (jazz:get-warn? 'optimizations)
                                            ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
-                                           (%%not (%%memq locator '(scheme.language.runtime.kernel:=
-                                                                     scheme.language.runtime.kernel:<
-                                                                     scheme.language.runtime.kernel:<=
-                                                                     scheme.language.runtime.kernel:>
-                                                                     scheme.language.runtime.kernel:>=
-                                                                     scheme.language.runtime.kernel:+
-                                                                     scheme.language.runtime.kernel:-
-                                                                     scheme.language.runtime.kernel:*
-                                                                     scheme.language.runtime.kernel:/))))
+                                           (%%not (%%memq locator '(scheme.language.runtime:=
+                                                                     scheme.language.runtime:<
+                                                                     scheme.language.runtime:<=
+                                                                     scheme.language.runtime:>
+                                                                     scheme.language.runtime:>=
+                                                                     scheme.language.runtime:+
+                                                                     scheme.language.runtime:-
+                                                                     scheme.language.runtime:*
+                                                                     scheme.language.runtime:/))))
                                    (jazz:warning "Warning: In {a}{a}: Unable to match call to specialized {a}"
                                                  (jazz:get-declaration-locator declaration)
                                                  (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
@@ -332,21 +332,21 @@
   (%%make-table test: eq?))
 
 
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:number?      jazz:Number)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:complex?     jazz:Complex)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:real?        jazz:Real)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:rational?    jazz:Rational)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:integer?     jazz:Integer)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:number?      jazz:Number)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:boolean?     jazz:Boolean)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:number?             jazz:Number)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:complex?            jazz:Complex)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:real?               jazz:Real)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:rational?           jazz:Rational)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:integer?            jazz:Integer)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:number?             jazz:Number)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:boolean?            jazz:Boolean)
 ;; not 100% correct because of Scheme's semantic for list?
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:list?        jazz:List)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:null?        jazz:Null)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:pair?        jazz:Pair)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:symbol?      jazz:Symbol)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:char?        jazz:Char)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:string?      jazz:String)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:vector?      jazz:Vector)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:list?               jazz:List)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:null?               jazz:Null)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:pair?               jazz:Pair)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:symbol?             jazz:Symbol)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:char?               jazz:Char)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:string?             jazz:String)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:vector?             jazz:Vector)
 (%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:s8vector?      jazz:S8Vector)
 (%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:u8vector?      jazz:U8Vector)
 (%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:s16vector?     jazz:S16Vector)
@@ -358,10 +358,10 @@
 (%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:f32vector?     jazz:F32Vector)
 (%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:f64vector?     jazz:F64Vector)
 (%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:continuation?  jazz:Continuation)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:procedure?   jazz:Procedure)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:input-port?  jazz:Port)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:output-port? jazz:Port)
-(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:eof-object?  jazz:EOF)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:procedure?          jazz:Procedure)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:input-port?         jazz:Port)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:output-port?        jazz:Port)
+(%%table-set! jazz:type-tests 'scheme.language.runtime:eof-object?         jazz:EOF)
 (%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:fixnum?        jazz:Fixnum)
 (%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:flonum?        jazz:Flonum)
 (%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:keyword?       jazz:Keyword)
@@ -494,7 +494,7 @@
                              (arguments (jazz:get-call-arguments expr)))
                          (let ((count (%%length arguments)))
                            (case operator-locator
-                             ((scheme.language.runtime.kernel:not)
+                             ((scheme.language.runtime:not)
                               (if (%%fx= count 1)
                                   (process-not (%%car arguments) env)
                                 env))

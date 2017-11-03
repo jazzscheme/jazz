@@ -35,4 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module foundation foundation.dialect)
+(module foundation foundation.dialect
+
+
+(export (foundation.language.runtime)))

@@ -333,17 +333,21 @@
 
 
 (define (jazz:global-bound? symbol)
-  (and (%%global-var? symbol)
-       (%%not (%%unbound? (%%global-var-ref symbol)))))
+  (jazz:check-symbol symbol 1 (global-bound? symbol)
+    (and (%%global-var? symbol)
+         (%%not (%%unbound? (%%global-var-ref symbol))))))
 
 (define (jazz:global-ref symbol)
-  (%%global-var-ref symbol))
+  (jazz:check-symbol symbol 1 (global-ref symbol)
+    (%%global-var-ref symbol)))
 
 (define (jazz:global-set! symbol value)
-  (%%global-var-set! symbol value))
+  (jazz:check-symbol symbol 1 (global-set! symbol)
+    (%%global-var-set! symbol value)))
 
 (define (jazz:global-unbind! symbol)
-  (%%global-var-unbind! symbol))
+  (jazz:check-symbol symbol 1 (global-unbind! symbol)
+    (%%global-var-unbind! symbol)))
 
 
 (define (jazz:compose-identifier . rest)

@@ -59,7 +59,8 @@
 
 
 (define (jazz:continuation-graft-no-winding cont proc)
-  (%%continuation-graft-no-winding cont proc))
+  (jazz:check-continuation cont 1 (continuation-graft-no-winding cont values)
+    (%%continuation-graft-no-winding cont proc)))
 
 
 (define jazz:continuation-return
@@ -67,19 +68,23 @@
 
 
 (define (jazz:continuation-parent cont)
-  (%%continuation-parent cont))
+  (jazz:check-continuation cont 1 (continuation-parent cont)
+    (%%continuation-parent cont)))
 
 
 (define (jazz:continuation-creator cont)
-  (%%continuation-creator cont))
+  (jazz:check-continuation cont 1 (continuation-creator cont)
+    (%%continuation-creator cont)))
 
 
 (define (jazz:continuation-locat cont)
-  (%%continuation-locat cont))
+  (jazz:check-continuation cont 1 (continuation-locat cont)
+    (%%continuation-locat cont)))
 
 
 (define (jazz:continuation-next cont)
-  (%%continuation-next cont))
+  (jazz:check-continuation cont 1 (continuation-next cont)
+    (%%continuation-next cont)))
 
 
 ;;;
@@ -261,10 +266,12 @@
 ;  (%%still-obj-refcount foreign))
 
 (define (jazz:still-obj-refcount-dec! foreign)
-  (%%still-obj-refcount-dec! foreign))
+  (jazz:check-foreign foreign 1 (still-obj-refcount-dec! foreign)
+    (%%still-obj-refcount-dec! foreign)))
 
 (define (jazz:still-obj-refcount-inc! foreign)
-  (%%still-obj-refcount-inc! foreign))
+  (jazz:check-foreign foreign 1 (still-obj-refcount-inc! foreign)
+    (%%still-obj-refcount-inc! foreign)))
 
 (define jazz:still-copy
   ##still-copy)
@@ -850,13 +857,15 @@
 
 
 (define (jazz:procedure-name procedure)
-  (%%procedure-name procedure))
+  (jazz:check-procedure procedure 1 (procedure-name procedure)
+    (%%procedure-name procedure)))
 
 (define (jazz:procedure-name-set! proc)
   (set! jazz:procedure-name proc))
 
 (define (jazz:procedure-locat procedure)
-  (%%procedure-locat procedure))
+  (jazz:check-procedure procedure 1 (procedure-locat procedure)
+    (%%procedure-locat procedure)))
 
 
 (define (jazz:closure? obj)
@@ -864,13 +873,16 @@
        (%%closure? obj)))
 
 (define (jazz:closure-code closure)
-  (%%closure-code closure))
+  (jazz:check-closure closure 1 (closure-code closure)
+    (%%closure-code closure)))
 
 (define (jazz:closure-length closure)
-  (%%closure-length closure))
+  (jazz:check-closure closure 1 (closure-length closure)
+    (%%closure-length closure)))
 
 (define (jazz:closure-ref closure n)
-  (%%closure-ref closure n))
+  (jazz:check-closure closure 1 (closure-ref closure)
+    (%%closure-ref closure n)))
 
 (define (jazz:closure-environment closure)
   ;; to do interpreted

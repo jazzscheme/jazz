@@ -125,7 +125,7 @@
 
 (jazz:define-macro (%%closure-ref closure n)
   (%%force-uniqueness (closure)
-    `(%%check-closure ,closure 1 (%%closure-length ,closure ,n)
+    `(%%check-closure ,closure 1 (%%closure-ref ,closure ,n)
        (jazz:unsafe (##closure-ref ,closure ,n)))))
 
 
@@ -1198,12 +1198,12 @@
 
 (jazz:define-macro (%%global-var-set! symbol value)
   (%%force-uniqueness (symbol)
-    `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol ,value)
+    `(%%check-symbol ,symbol 1 (%%global-var-set! ,symbol ,value)
        (jazz:unsafe (##global-var-set! ,symbol ,value)))))
 
 (jazz:define-macro (%%global-var-unbind! symbol)
   (%%force-uniqueness (symbol)
-    `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol)
+    `(%%check-symbol ,symbol 1 (%%global-var-unbind! ,symbol)
        (jazz:unsafe (##global-var-set! ,symbol #!unbound)))))
 
 

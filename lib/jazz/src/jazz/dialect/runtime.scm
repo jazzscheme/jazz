@@ -1598,29 +1598,40 @@
     ((inline onsite) . onsite)))
 
 
-(define (jazz:parse-definition walker resume declaration rest)
-  (receive (access compatibility expansion rest) (jazz:parse-modifiers walker resume declaration jazz:definition-modifiers rest)
-    (if (%%symbol? (jazz:unwrap-syntactic-closure (%%car rest)))
-        (let ((name (jazz:unwrap-syntactic-closure (%%car rest)))
-              (name-src (%%car rest)))
-          (jazz:parse-specifier (%%cdr rest)
-            (lambda (specifier rest)
-              (values name name-src specifier access compatibility expansion (if (%%null? rest) (%%list 'unspecified) (%%car rest)) #f))))
-      (let* ((name (jazz:source-code (%%car (jazz:unwrap-syntactic-closure (%%car rest)))))
-             (name-src (%%car (jazz:unwrap-syntactic-closure (%%car rest))))
-             (parameters (%%cdr (jazz:source-code (%%car rest)))))
-        (jazz:parse-specifier (%%cdr rest)
-          (lambda (specifier body)
-            (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body))
-                  (specifier-list (if specifier (%%list specifier) '())))
-              (let ((value
-                     `(lambda ,parameters ,@specifier-list
-                        ,@effective-body)))
-                (values name name-src specifier access compatibility expansion value parameters)))))))))
+(define (jazz:parse-definition walker resume declaration form-src)
+  (define (ill-formed)
+    (jazz:walk-error walker resume declaration form-src "Ill-formed definition"))
+  
+  (let ((rest (%%cdr (jazz:source-code form-src))))
+    (receive (access compatibility expansion rest) (jazz:parse-modifiers walker resume declaration jazz:definition-modifiers rest)
+      (cond ((%%null? rest)
+             (ill-formed))
+            ((%%symbol? (jazz:unwrap-syntactic-closure (%%car rest)))
+             (let ((name (jazz:unwrap-syntactic-closure (%%car rest)))
+                   (name-src (%%car rest)))
+               (jazz:parse-specifier (%%cdr rest)
+                 (lambda (specifier rest)
+                   (values name name-src specifier access compatibility expansion (if (%%null? rest) (%%list 'unspecified) (%%car rest)) #f)))))
+            ((%%pair? (jazz:unwrap-syntactic-closure (%%car rest)))
+             (let* ((name (jazz:source-code (%%car (jazz:unwrap-syntactic-closure (%%car rest)))))
+                    (name-src (%%car (jazz:unwrap-syntactic-closure (%%car rest))))
+                    (parameters (%%cdr (jazz:source-code (%%car rest)))))
+               (if (%%symbol? name)
+                   (jazz:parse-specifier (%%cdr rest)
+                     (lambda (specifier body)
+                       (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body))
+                             (specifier-list (if specifier (%%list specifier) '())))
+                         (let ((value
+                                 `(lambda ,parameters ,@specifier-list
+                                          ,@effective-body)))
+                           (values name name-src specifier access compatibility expansion value parameters)))))
+                 (ill-formed))))
+            (else
+             (ill-formed))))))
 
 
 (define (jazz:walk-extended-definition-declaration walker resume declaration environment form-src new-definition-declaration)
-  (receive (name name-src specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name name-src specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration form-src)
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((type (jazz:specifier->type walker resume declaration environment specifier)))
         (let ((signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
@@ -1639,7 +1650,7 @@
 
 
 (define (jazz:walk-extended-definition walker resume declaration environment form-src)
-  (receive (name name-src specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name name-src specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration form-src)
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((new-declaration (jazz:require-declaration-of-type jazz:Definition-Declaration declaration name)))
         (%%when (%%neq? expansion 'inline)
@@ -2098,10 +2109,6 @@
             (if (%%not-null? rest)
                 (jazz:walk-error walker resume declaration form-src "Invalid slot definition: {s}" name)
               (values name specifier access compatibility initialize accessors getter setter))))))))
-
-
-(define (jazz:expand-doc walker resume declaration environment form-src)
-  #f)
 
 
 (define (jazz:expand-slot walker resume declaration environment form-src)
@@ -2608,7 +2615,6 @@
 (jazz:define-walker-declaration %class               jazz jazz:walk-%class-declaration jazz:walk-%class)
 (jazz:define-walker-declaration interface            jazz jazz:walk-interface-declaration jazz:walk-interface)
 (jazz:define-walker-syntax      slot                 jazz jazz:expand-slot)
-;(jazz:define-walker-syntax      doc                  jazz jazz:expand-doc)
 (jazz:define-walker-syntax      property             jazz jazz:expand-property)
 (jazz:define-walker-declaration %slot                jazz jazz:walk-%slot-declaration jazz:walk-%slot)
 (jazz:define-walker-declaration %property            jazz jazz:walk-%slot-declaration jazz:walk-%slot)

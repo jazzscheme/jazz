@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected scheme.language.runtime foundation
+(module protected scheme.language.runtime foundation.dialect
 
 
 (export (scheme.language.runtime.kernel)))

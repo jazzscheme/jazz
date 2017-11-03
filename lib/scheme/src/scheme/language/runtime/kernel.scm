@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected scheme.language.runtime.kernel foundation
+(module protected scheme.language.runtime.kernel foundation.dialect
 
 
 ;;;
@@ -339,8 +339,6 @@
 (native open-output-file <string:port>)
 (native close-input-port <port:void>)
 (native close-output-port <port:void>)
-(native input-port-byte-position)
-(native output-port-byte-position)
 
 
 ;;;
@@ -444,6 +442,8 @@
 (native with-output-to-string)
 (native read-line)
 (native pretty-print)
+(native input-port-byte-position)
+(native output-port-byte-position)
 
 
 ;;;

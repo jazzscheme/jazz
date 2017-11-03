@@ -1455,7 +1455,7 @@
 (define (jazz:load-dialect-invoice dialect-name)
   (if (%%not (%%symbol? dialect-name))
       (jazz:error "Dialect must be a symbol: {s}" dialect-name)
-    (if (%%eq? dialect-name 'foundation)
+    (if (%%eq? dialect-name 'foundation.dialect)
         #f
       (jazz:new-import-invoice
         dialect-name

@@ -41,4 +41,5 @@
 (require (dialect)
          (foundation.dialect.runtime)
          (backend.scheme)
+         (foundation.backend.scheme.runtime)
          (foundation.backend.scheme.emit)))

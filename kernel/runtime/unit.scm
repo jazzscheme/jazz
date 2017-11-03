@@ -2199,7 +2199,7 @@
 
 
 (define (jazz:load-foundation)
-  (jazz:load-unit 'foundation))
+  (jazz:load-unit 'foundation.dialect))
 
 
 (define (jazz:load-runtime)

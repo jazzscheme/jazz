@@ -35,9 +35,4 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
-
-
-(require (dialect)
-         (foundation.dialect)
-         (foundation.backend.scheme.runtime)))
+(module foundation foundation.dialect)

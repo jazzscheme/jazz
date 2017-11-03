@@ -76,6 +76,9 @@
 (jazz:define-dialect foundation
   (jazz:new-foundation-dialect 'foundation))
 
+(jazz:define-dialect foundation.dialect
+  (jazz:new-foundation-dialect 'foundation.dialect))
+
 
 (jazz:define-walker-declaration require             foundation jazz:walk-require-declaration jazz:walk-require)
 (jazz:define-walker-declaration export              foundation jazz:walk-export-declaration jazz:walk-export)

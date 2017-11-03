@@ -35,9 +35,8 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module scheme.dialect foundation
+(module scheme.dialect foundation.dialect
 
 
-(require (foundation)
-         (scheme.dialect.runtime)
+(require (scheme.dialect.runtime)
          (scheme.backend.scheme.emit)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Scheme Scheme Backend Runtime
+;;;; Foundation Language Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,8 +35,4 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module scheme.backend.scheme.runtime foundation.dialect
-
-
-(require (scheme.backend.scheme.runtime.syntax (phase syntax))
-         (scheme.backend.scheme.runtime.classes)))
+(module protected foundation.language.runtime)

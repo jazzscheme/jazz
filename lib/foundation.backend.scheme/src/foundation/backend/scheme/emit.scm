@@ -62,9 +62,9 @@
                (%%table-set! load-units unit-name #t)
                (jazz:enqueue queue `(jazz:load-unit ',unit-name))))
            
-           (enqueue-load-unit 'foundation)
+           (enqueue-load-unit 'foundation.dialect)
            (let ((dialect-name (jazz:get-module-declaration-dialect-name declaration)))
-             (%%when (%%neq? dialect-name 'foundation)
+             (%%when (%%neq? dialect-name 'foundation.dialect)
                (enqueue-load-unit dialect-name)))
            (for-each (lambda (require-invoice)
                        (enqueue-load-unit (jazz:get-require-invoice-name require-invoice)))

@@ -47,7 +47,7 @@
 
 
 (c-define (launch-application boot) (char-string) void "launch_application" ""
-  (jazz:load-unit 'foundation)
+  (jazz:load-unit 'foundation.dialect)
   (jazz:load-unit 'jazz)
   (let ((boot (string->symbol boot)))
     (jazz:load-unit boot)

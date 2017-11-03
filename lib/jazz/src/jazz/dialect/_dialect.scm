@@ -38,8 +38,7 @@
 (module protected jazz.dialect scheme
 
 
-(require (foundation)
-         (jazz.dialect.runtime)
+(require (jazz.dialect.runtime)
          (jazz.backend.scheme)
          (jazz.backend.scheme.runtime))
 

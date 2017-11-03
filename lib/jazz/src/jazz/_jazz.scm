@@ -35,10 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz scheme
+(module jazz gambit
 
 
-(export (scheme)
+(export (gambit)
         
         (jazz.dialect (phase syntax))
         (jazz.language.syntax (phase syntax))

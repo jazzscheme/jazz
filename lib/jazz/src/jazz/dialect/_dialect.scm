@@ -44,4 +44,4 @@
 
 
 (export (jazz.language.syntax (phase syntax))
-        (scheme)))
+        (gambit)))

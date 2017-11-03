@@ -68,10 +68,10 @@
 ;;;
 
 
-(native box?)
-(native box)
-(native unbox)
-(native set-box!)
+;;gambit;;(native box?)
+;;gambit;;(native box)
+;;gambit;;(native unbox)
+;;gambit;;(native set-box!)
 
 
 ;;;
@@ -163,9 +163,9 @@
 (native jazz:object->vector)
 (native jazz:vector->object)
 (native jazz:object-copy)
-(native generate-proper-tail-calls)
-(native step)
-(native step-level-set!)
+;;gambit;;(native generate-proper-tail-calls)
+;;gambit;;(native step)
+;;gambit;;(native step-level-set!)
 (native install-step-handler)
 
 
@@ -275,8 +275,8 @@
 ;;;
 
 
-(native getenv)
-(native setenv)
+;;gambit;;(native getenv)
+;;gambit;;(native setenv)
 
 
 ;;;
@@ -288,7 +288,7 @@
 (native jazz:exception-detail)
 (native jazz:exception-location)
 (native jazz:display-exception)
-(native display-exception-in-context)
+;;gambit;;(native display-exception-in-context)
 (native jazz:display-continuation-backtrace)
 (native jazz:get-exception-hook)
 (native jazz:set-exception-hook)
@@ -343,9 +343,9 @@
 (native fx* <fx^fx:fx>)
 (native jazz:+infinity)
 (native jazz:-infinity)
-(native fxmodulo)
-(native fxquotient)
-(native fxand)
+;;gambit;;(native fxmodulo)
+;;gambit;;(native fxquotient)
+;;gambit;;(native fxand)
 
 
 ;;;
@@ -353,9 +353,9 @@
 ;;;
 
 
-(native finite?)
-(native infinite?)
-(native nan?)
+;;gambit;;(native finite?)
+;;gambit;;(native infinite?)
+;;gambit;;(native nan?)
 
 
 ;;;
@@ -395,21 +395,21 @@
 ;;;
 
 
-(native compile-file)
-(native compile-file-to-target)
-(native datum-parsing-exception?)
-(native inactive-thread-exception?)
-(native fxwrap*)
-(native fxwrap+)
-(native fxwrap-)
-(native object->string)
-(native err-code->string)
-(native os-exception-arguments)
-(native os-exception-code)
-(native os-exception-message)
-(native os-exception-procedure)
-(native os-exception?)
-(native system-version-string)
+;;gambit;;(native compile-file)
+;;gambit;;(native compile-file-to-target)
+;;gambit;;(native datum-parsing-exception?)
+;;gambit;;(native inactive-thread-exception?)
+;;gambit;;(native fxwrap*)
+;;gambit;;(native fxwrap+)
+;;gambit;;(native fxwrap-)
+;;gambit;;(native object->string)
+;;gambit;;(native err-code->string)
+;;gambit;;(native os-exception-arguments)
+;;gambit;;(native os-exception-code)
+;;gambit;;(native os-exception-message)
+;;gambit;;(native os-exception-procedure)
+;;gambit;;(native os-exception?)
+;;gambit;;(native system-version-string)
 
 
 ;;;
@@ -424,7 +424,7 @@
 ;;;; Homogeneous
 ;;;
 
-
+#; ( ;;gambit;;
 ;; s8
 (native s8vector <:s8vector>)
 (native make-s8vector <fx^opt<int>:s8vector>)
@@ -543,18 +543,18 @@
 (native subf64vector)
 (native subf64vector-fill!)
 (native subf64vector-move!)
-
+)
 
 ;;;
 ;;;; Host
 ;;;
 
 
-(native command-line)
+;;gambit;;(native command-line)
 (native jazz:command-executable)
 (native jazz:command-arguments)
-(native user-name)
-(native host-name)
+;;gambit;;(native user-name)
+;;gambit;;(native host-name)
 
 
 ;;;
@@ -825,7 +825,7 @@
 (native jazz:load-build)
 (native jazz:split-command-line)
 (native jazz:quit)
-(native main)
+;;gambit;;(native main)
 
 
 ;;;
@@ -950,7 +950,7 @@
 ;;;
 
 
-(native make-parameter)
+;;gambit;;(native make-parameter)
 
 
 ;;;
@@ -975,7 +975,7 @@
 (native jazz:directory-create)
 (native jazz:directory-content)
 (native jazz:directory-delete)
-(native path-normalize)
+;;gambit;;(native path-normalize)
 
 
 ;;;
@@ -983,8 +983,8 @@
 ;;;
 
 
-(native open-string-pipe)
-(native open-u8vector-pipe)
+;;gambit;;(native open-string-pipe)
+;;gambit;;(native open-u8vector-pipe)
 
 
 ;;;
@@ -992,12 +992,12 @@
 ;;;
 
 
-(native port?)
+;;gambit;;(native port?)
 (native jazz:close-port)
 (native jazz:input-port-timeout-set!)
 (native jazz:output-port-timeout-set!)
 (native jazz:controlling-terminal?)
-(native open-event-queue)
+;;gambit;;(native open-event-queue)
 (native jazz:eof-object)
 ;(native open-input-string)
 ;(native open-output-string)
@@ -1006,18 +1006,18 @@
 ;(native with-input-from-string)
 ;(native call-with-output-string)
 ;(native with-output-to-string)
-(native read-substring)
-(native open-vector)
-(native call-with-input-u8vector)
-(native call-with-output-u8vector)
-(native open-u8vector)
-(native open-output-u8vector)
+;;gambit;;(native read-substring)
+;;gambit;;(native open-vector)
+;;gambit;;(native call-with-input-u8vector)
+;;gambit;;(native call-with-output-u8vector)
+;;gambit;;(native open-u8vector)
+;;gambit;;(native open-output-u8vector)
 (native get-output-u8vector <any:u8vector>)
 (native jazz:read-u8)
 (native jazz:write-u8)
 (native jazz:read-subu8vector)
 (native jazz:write-subu8vector)
-(native write-substring)
+;;gambit;;(native write-substring)
 (native jazz:write-string)
 
 ;(native jazz:read-line)
@@ -1028,9 +1028,9 @@
 (native jazz:read-source-first)
 (native jazz:read-literal-hook)
 (native jazz:character-port-output-width-set!)
-(native force-output)
-(native current-error-port)
-(native with-output-to-port)
+;;gambit;;(native force-output)
+;;gambit;;(native current-error-port)
+;;gambit;;(native with-output-to-port)
 
 
 ;;;
@@ -1073,12 +1073,12 @@
 ;;;
 
 
-(native random-source?)
-(native make-random-source)
-(native random-source-state-ref)
-(native random-source-state-set!)
-(native random-source-make-integers)
-(native random-source-make-reals)
+;;gambit;;(native random-source?)
+;;gambit;;(native make-random-source)
+;;gambit;;(native random-source-state-ref)
+;;gambit;;(native random-source-state-set!)
+;;gambit;;(native random-source-make-integers)
+;;gambit;;(native random-source-make-reals)
 (native jazz:random-integer)
 (native jazz:random-real <:fl>)
 (native jazz:random-source-randomize!)
@@ -1093,7 +1093,7 @@
 
 
 (native jazz:readtable?)
-(native current-readtable)
+;;gambit;;(native current-readtable)
 (native jazz:make-jazz-readtable)
 (native jazz:make-standard-readtable)
 (native jazz:readtable-copy)
@@ -1111,16 +1111,16 @@
 (native jazz:readtable-named-char-table-set!)
 (native jazz:readtable-escaped-char-table)
 (native jazz:readtable-escaped-char-table-set!)
-(native readtable-comment-handler-set)
+;;gambit;;(native readtable-comment-handler-set)
 (native jazz:with-readtable)
 (native jazz:scheme-readtable)
 (native jazz:jazz-readtable)
 (native jazz:with-jazz-readtable)
-(native input-port-readtable)
-(native input-port-readtable-set!)
-(native readtable-start-syntax-set)
-(native six-types)
-(native six-types-set!)
+;;gambit;;(native input-port-readtable)
+;;gambit;;(native input-port-readtable-set!)
+;;gambit;;(native readtable-start-syntax-set)
+;;gambit;;(native six-types)
+;;gambit;;(native six-types-set!)
 (native print-marker)
 
 
@@ -1152,7 +1152,7 @@
 (native jazz:repl-debug)
 (native jazz:eval-within-no-winding)
 (native jazz:repl-result-history-add)
-(native repl-result-history-ref)
+;;gambit;;(native repl-result-history-ref)
 
 
 ;;;
@@ -1187,8 +1187,8 @@
 (native jazz:serial->object)
 
 ;; the -number versions are necessary to support the expansion of the # reader construct
-(native object->serial-number)
-(native serial-number->object)
+;;gambit;;(native object->serial-number)
+;;gambit;;(native serial-number->object)
 
 
 ;;;
@@ -1196,7 +1196,7 @@
 ;;;
 
 
-(native shell-command)
+;;gambit;;(native shell-command)
 
 
 ;;;
@@ -1267,7 +1267,7 @@
 ;;;
 
 
-(native gensym)
+;;gambit;;(native gensym)
 (native jazz:generate-symbol)
 (native jazz:with-uniqueness)
 (native jazz:with-uniqueness-typed)
@@ -1318,7 +1318,7 @@
 (native jazz:equal?-hash)
 (native jazz:string=?-hash)
 (native jazz:string-ci=?-hash)
-(native make-will)
+;;gambit;;(native make-will)
 
 
 ;;;

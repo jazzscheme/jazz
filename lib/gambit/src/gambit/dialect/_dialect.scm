@@ -43,4 +43,4 @@
          (gambit.dialect.runtime))
 
 
-(export (gambit.dialect.kernel)))
+(export (gambit.language.runtime)))

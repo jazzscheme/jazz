@@ -1119,8 +1119,8 @@
 ;;gambit;;(native input-port-readtable)
 ;;gambit;;(native input-port-readtable-set!)
 ;;gambit;;(native readtable-start-syntax-set)
-;;gambit;;(native six-types)
-;;gambit;;(native six-types-set!)
+(native six-types)
+(native six-types-set!)
 (native print-marker)
 
 

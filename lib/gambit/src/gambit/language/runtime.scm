@@ -521,7 +521,7 @@
 (native open-output-u8vector)
 (native open-output-vector)
 ;;conflict;;(native open-process)
-(native open-string)
+;;conflict;;(native open-string)
 (native open-string-pipe)
 ;;conflict;;(native open-tcp-client)
 ;;conflict;;(native open-tcp-server)

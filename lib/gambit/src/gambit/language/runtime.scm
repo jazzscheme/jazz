@@ -591,6 +591,7 @@
 ;;conflict;;(native read-u8)
 (native readtable-case-conversion?)
 (native readtable-case-conversion?-set)
+(native readtable-comment-handler-set)
 (native readtable-eval-allowed?)
 (native readtable-eval-allowed?-set)
 (native readtable-keywords-allowed?)

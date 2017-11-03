@@ -1111,7 +1111,6 @@
 (native jazz:readtable-named-char-table-set!)
 (native jazz:readtable-escaped-char-table)
 (native jazz:readtable-escaped-char-table-set!)
-;;gambit;;(native readtable-comment-handler-set)
 (native jazz:with-readtable)
 (native jazz:scheme-readtable)
 (native jazz:jazz-readtable)

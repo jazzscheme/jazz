@@ -107,67 +107,77 @@
 
 
 (jazz:define-macro (jazz:define-check-macro name test type)
-  `(jazz:define-macro (,name arg pos call code)
-     (if jazz:debug-core?
-         `(if (,',test ,arg)
-              ,code
-            (jazz:primitive-type-error ,pos ,',type ',(##car call) (##list ,@(##cdr call))))
-       code)))
+  (let ((str (symbol->string name)))
+    (let ((core (string->symbol (string-append "%%" str)))
+          (debug (string->symbol (string-append "jazz:" str))))
+      `(begin
+         (jazz:define-macro (,core arg pos call code)
+           (if jazz:debug-core?
+               `(if (,',test ,arg)
+                    ,code
+                  (jazz:primitive-type-error ,pos ,',type ',(##car call) (##list ,@(##cdr call))))
+             code))
+         (jazz:define-macro (,debug arg pos call code)
+           (if jazz:debug-user?
+               `(if (,',test ,arg)
+                    ,code
+                  (jazz:primitive-type-error ,pos ,',type ',(##car call) (##list ,@(##cdr call))))
+             code))))))
 
 
-(jazz:define-check-macro %%check-closure
+(jazz:define-check-macro check-closure
   ##closure?
   "CLOSURE")
 
-(jazz:define-check-macro %%check-continuation
+(jazz:define-check-macro check-continuation
   ##continuation?
   "CONTINUATION")
 
-(jazz:define-check-macro %%check-fixnum
+(jazz:define-check-macro check-fixnum
   ##fixnum?
   "FIXNUM")
 
-(jazz:define-check-macro %%check-foreign
+(jazz:define-check-macro check-foreign
   ##foreign?
   "FOREIGN")
 
-(jazz:define-check-macro %%check-list
+(jazz:define-check-macro check-list
   list?
   "LIST")
 
-(jazz:define-check-macro %%check-locat
+(jazz:define-check-macro check-locat
   ##locat?
   "LOCAT")
 
-(jazz:define-check-macro %%check-port
+(jazz:define-check-macro check-port
   ##port?
   "PORT")
 
-(jazz:define-check-macro %%check-procedure
+(jazz:define-check-macro check-procedure
   ##procedure?
   "PROCEDURE")
 
-(jazz:define-check-macro %%check-readenv
+(jazz:define-check-macro check-readenv
   jazz:readenv?
   "READENV")
 
-(jazz:define-check-macro %%check-readtable
+(jazz:define-check-macro check-readtable
   ##readtable?
   "READTABLE")
 
-(jazz:define-check-macro %%check-source
+(jazz:define-check-macro check-source
   ##source?
   "SOURCE")
 
-(jazz:define-check-macro %%check-string
+(jazz:define-check-macro check-string
   ##string?
   "STRING")
 
-(jazz:define-check-macro %%check-symbol
+(jazz:define-check-macro check-symbol
   ##symbol?
   "SYMBOL")
 
-(jazz:define-check-macro %%check-table
+(jazz:define-check-macro check-table
   table?
   "TABLE")
 

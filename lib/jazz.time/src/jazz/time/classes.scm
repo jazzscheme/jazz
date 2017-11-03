@@ -43,34 +43,34 @@
 ;;;
 
 
-(jazz:define-class time:Time-Class jazz:Class (metaclass: jazz:Class)
+(jazz:define-class jazz.time:Time-Class jazz:Class (metaclass: jazz:Class)
   ())
 
 
-(jazz:define-method (jazz:of-type? (time:Time-Class class) object)
+(jazz:define-method (jazz:of-type? (jazz.time:Time-Class class) object)
   (time? object))
 
 
-(jazz:define-method (jazz:emit-specifier (time:Time-Class class))
+(jazz:define-method (jazz:emit-specifier (jazz.time:Time-Class class))
   'time)
 
 
-(jazz:define-method (jazz:emit-test (time:Time-Class type) value source-declaration environment backend)
+(jazz:define-method (jazz:emit-test (jazz.time:Time-Class type) value source-declaration environment backend)
   `(time? ,value))
 
 
-(jazz:define-method (jazz:write-object (time:Time-Class type) we obj)
+(jazz:define-method (jazz:write-object (jazz.time:Time-Class type) we obj)
   (jazz:print-value (jazz:find-dispatch type 'call-print) we obj))
 
 
-(jazz:define-class time:Time jazz:Object (metaclass: time:Time-Class)
+(jazz:define-class jazz.time:Time jazz:Object (metaclass: jazz.time:Time-Class)
   ())
 
 
-(%%table-set! jazz:primitive-types 'time time:Time)
-(%%table-set! jazz:primitive-declarations time:Time 'Time)
-(%%table-set! jazz:type-tests 'time? time:Time)
-(jazz:register-structure-type time? time:Time)
+(%%table-set! jazz:primitive-types 'time jazz.time:Time)
+(%%table-set! jazz:primitive-declarations jazz.time:Time 'Time)
+(%%table-set! jazz:primitive-predicates 'time:time? jazz.time:Time)
+(jazz:register-structure-type time? jazz.time:Time)
 
 
 ;;;
@@ -78,31 +78,31 @@
 ;;;
 
 
-(jazz:define-class time:Date-Class jazz:Class (metaclass: jazz:Class)
+(jazz:define-class jazz.time:Date-Class jazz:Class (metaclass: jazz:Class)
   ())
 
 
-(jazz:define-method (jazz:of-type? (time:Date-Class class) object)
+(jazz:define-method (jazz:of-type? (jazz.time:Date-Class class) object)
   (date? object))
 
 
-(jazz:define-method (jazz:emit-specifier (time:Date-Class class))
+(jazz:define-method (jazz:emit-specifier (jazz.time:Date-Class class))
   'date)
 
 
-(jazz:define-method (jazz:emit-test (time:Date-Class type) value source-declaration environment backend)
+(jazz:define-method (jazz:emit-test (jazz.time:Date-Class type) value source-declaration environment backend)
   `(date? ,value))
 
 
-(jazz:define-method (jazz:write-object (time:Date-Class type) we obj)
+(jazz:define-method (jazz:write-object (jazz.time:Date-Class type) we obj)
   (jazz:print-value (jazz:find-dispatch type 'call-print) we obj))
 
 
-(jazz:define-class time:Date jazz:Object (metaclass: time:Date-Class)
+(jazz:define-class jazz.time:Date jazz:Object (metaclass: jazz.time:Date-Class)
   ())
 
 
-(%%table-set! jazz:primitive-types 'date time:Date)
-(%%table-set! jazz:primitive-declarations time:Date 'Date)
-(%%table-set! jazz:type-tests 'date? time:Date)
-(jazz:register-structure-type date? time:Date))
+(%%table-set! jazz:primitive-types 'date jazz.time:Date)
+(%%table-set! jazz:primitive-declarations jazz.time:Date 'Date)
+(%%table-set! jazz:primitive-predicates 'time:date? jazz.time:Date)
+(jazz:register-structure-type date? jazz.time:Date))

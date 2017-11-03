@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.assertion scheme
+(module protected jazz.language.syntax.assertion gambit
 
 
 (export assert

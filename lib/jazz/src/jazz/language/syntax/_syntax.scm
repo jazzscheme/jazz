@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax scheme
+(module protected jazz.language.syntax gambit
 
 
 (export (scheme.syntax)

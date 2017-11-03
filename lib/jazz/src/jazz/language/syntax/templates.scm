@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.templates scheme
+(module protected jazz.language.syntax.templates gambit
 
 
 (export instantiate-for-each

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.increase scheme
+(module protected jazz.language.syntax.increase gambit
 
 
 (export increase!
@@ -45,8 +45,6 @@
         bitwise-ior!)
 
 (import (scheme.syntax-rules (phase syntax)))
-
-(native private bitwise-ior)
 
 
 (define-syntax increase!

@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.bind-keywords scheme
+(module protected jazz.language.syntax.bind-keywords gambit
 
 
 (export bind-keywords)

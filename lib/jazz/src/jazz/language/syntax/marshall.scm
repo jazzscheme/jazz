@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.marshall scheme
+(module protected jazz.language.syntax.marshall gambit
 
 
 (export expand-state-marshalling)

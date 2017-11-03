@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.typecase scheme
+(module protected jazz.language.syntax.typecase gambit
 
 
 (export typecase)

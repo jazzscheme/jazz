@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Tests
+;;;; Primitive Tests
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,64 +35,50 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.validate.suite.Jazz-Tester jazz
+(module protected jazz.validate.suite.Primitive-Tester jazz
 
 
 (import (jazz.jml)
         (jazz.validation))
 
 
-(class Jazz-Tester extends Tester
+(class Primitive-Tester extends Tester
   
   
   (form
-    (<install> title: "Jazz"))
+    (<install> title: "Primitive"))
 
 
   (method override (test self)
-    (invoke self #f test-jazz))
+    (invoke self #f test-primitives))
   
   
   ;;;
-  ;;;; Jazz
+  ;;;; Primitives
   ;;;
 
 
-  (method (test-jazz self)
-    ;; definition
-    (check (declaration-failed? (definition)))
-    (check (declaration-failed? (definition 2)))
-    (check (declaration-failed? (definition (2))))
-    (check (declaration-failed? (definition (a 2))))
-    
-    ;; generic
-    @crash (check (declaration-failed? (generic)))
-    
-    ;; specific
-    @crash (check (declaration-failed? (specific)))
-    
-    ;; hub
-    @crash (check (declaration-failed? (hub)))
-    
-    ;; node
-    @crash (check (declaration-failed? (node)))
-    
-    ;; declare
-    @crash (check (declaration-failed? (declare)))
-    
-    ;; specialize
-    @crash (check (declaration-failed? (specialize)))
-    
-    ;; parameterize
-    @crash (check (declaration-failed? (parameterize)))
-    
-    ;; cast
-    (check (walk-failed? (cast)))
-    (check (walk-failed? (cast 2)))
-    (check (walk-failed? (cast <fl>)))
-    
-    ;; allocate
-    @crash (check (declaration-failed? (allocate)))
-    
-    ;; static
-    @crash (check (declaration-failed? (static))))))
+  (method (test-primitives self)
+    (let ((scheme (get-public-lookup (outline-unit 'scheme.language.runtime)))
+          (gambit (get-public-lookup (outline-unit 'gambit.language.runtime)))
+          (jazz (get-public-lookup (outline-unit 'jazz.language.runtime.kernel)))
+          (functional (get-public-lookup (outline-unit 'jazz.language.runtime.functional)))
+          (time (get-public-lookup (outline-unit 'time))))
+      (define (found? symbol)
+        (let ((str (symbol->string symbol)))
+          (define (test prefix lookup)
+            (and (starts-with? str prefix)
+                 (let ((name (string->symbol (substring str (string-length prefix) (string-length str)))))
+                   (table-ref lookup name #f))))
+          
+          (or (test "scheme.language.runtime:" scheme)
+              (test "gambit.language.runtime:" gambit)
+              (test "jazz.language.runtime.kernel:" jazz)
+              (test "jazz.language.runtime.functional:" functional)
+              (test "time:" time))))
+      
+      (define (validate title symbol)
+        (checking (found? symbol) (format "({a}-exists? {a})" title symbol)))
+      
+      (for-each (lambda (symbol) (validate "pattern" symbol)) (table-keys (primitive-patterns-get)))
+      (for-each (lambda (symbol) (validate "predicate" symbol)) (table-keys (primitive-predicates-get)))))))

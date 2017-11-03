@@ -283,7 +283,7 @@ c-end
 
 
 (define (jazz:make-exit-jobs-safe)
-  (let ((lst (fifo->list ##exit-jobs)))
+  (let ((lst (jazz:fifo->list ##exit-jobs)))
     (##clear-exit-jobs!)
     (for-each jazz:add-exit-job! lst)))
 

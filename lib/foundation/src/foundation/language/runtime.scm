@@ -39,6 +39,21 @@
 
 
 ;;;
+;;;; Digest
+;;;
+
+
+(native open-digest)
+(native close-digest)
+(native digest-update-subu8vector)
+(native digest-string)
+(native digest-substring)
+(native digest-u8vector)
+(native digest-subu8vector)
+(native digest-file)
+
+
+;;;
 ;;;; Kernel
 ;;;
 
@@ -50,6 +65,24 @@
 (native jazz:generate-symbol)
 (native jazz:simplify-begin)
 (native jazz:compose-reference)
+
+
+;;;
+;;;; Syntactic Closure
+;;;
+
+
+(native jazz:make-syntactic-closure)
+(native jazz:syntactic-closure?)
+(native jazz:syntactic-closure-form)
+(native jazz:unwrap-syntactic-closure)
+(native jazz:strip-syntactic-closures)
+(native jazz:strip-source-info)
+(native jazz:identifier?)
+(native jazz:identifier=?)
+(native jazz:sc-macro-transformer)
+(native jazz:rsc-macro-transformer)
+(native jazz:er-macro-transformer)
 
 
 ;;;
@@ -82,56 +115,8 @@
 
 
 ;;;
-;;;; Syntactic Closure
-;;;
-
-
-(native jazz:make-syntactic-closure)
-(native jazz:syntactic-closure?)
-(native jazz:syntactic-closure-form)
-(native jazz:unwrap-syntactic-closure)
-(native jazz:strip-syntactic-closures)
-(native jazz:strip-source-info)
-(native jazz:identifier?)
-(native jazz:identifier=?)
-(native sc-macro-transformer)
-(native rsc-macro-transformer)
-(native er-macro-transformer)
-
-
-;;;
-;;;; Port
-;;;
-
-
-(native open-input-string)
-(native open-output-string)
-(native get-output-string)
-(native call-with-input-string)
-(native with-input-from-string)
-(native call-with-output-string)
-(native with-output-to-string)
-(native read-line)
-(native pretty-print)
-(native input-port-byte-position)
-(native output-port-byte-position)
-
-
-;;;
 ;;;; Table
 ;;;
 
 
-(native table?)
-(native make-table <object*:table>)
-(native table-copy)
-(native table-for-each)
-(native table-search)
-(native table-merge)
-(native table-merge!)
-(native table-ref)
-(native table-set!)
-(native table->list)
-(native unbound-table-key-exception?)
-(native list->table)
 (native jazz:iterate-table))

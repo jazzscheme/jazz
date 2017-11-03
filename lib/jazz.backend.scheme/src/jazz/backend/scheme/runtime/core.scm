@@ -531,10 +531,10 @@
 (define jazz:sharp/sharp/fl/ ##fl/)
 
 
-(define (flalloc)
+(define (jazz:flalloc)
   (##subtype-set! (%%f64vector .0) 30))
 
-(define (flset! fl ignore val)
+(define (jazz:flset! fl ignore val)
   (%%unsafe-f64vector-set! fl 0 val))
 
 
@@ -722,13 +722,13 @@
     (thunk)))
 
 
-(define (six-types)
+(define (jazz:six-types)
   ##six-types)
 
-(define (six-types-set! lst)
+(define (jazz:six-types-set! lst)
   (set! ##six-types lst))
 
-(define (print-marker)
+(define (jazz:print-marker)
   #f)
 
 
@@ -1142,11 +1142,11 @@
 ;;;
 
 
-(define (install-step-handler proc)
+(define (jazz:install-step-handler proc)
   (declare (proper-tail-calls))
   (define (handler leapable? $code rte execute-body . other)
     (##step-off)
-    (process-step
+    (jazz:process-step
       proc
       $code
       (lambda ()
@@ -1157,7 +1157,7 @@
     (void)))
 
 
-(define (process-step proc $code execute)
+(define (jazz:process-step proc $code execute)
   (declare (proper-tail-calls))
   (proc
     (##code-locat $code)

@@ -178,7 +178,7 @@
 ;;;
 
 
-(define (fifo->list fifo)
+(define (jazz:fifo->list fifo)
   (macro-fifo->list fifo))
 
 

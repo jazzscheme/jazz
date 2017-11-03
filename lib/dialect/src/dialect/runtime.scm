@@ -4050,19 +4050,19 @@
                       (jazz:unwrap-syntactic-closure y)))))))
 
 
-(define sc-macro-transformer
+(define jazz:sc-macro-transformer
   (lambda (f)
     (lambda (expr usage-env macro-env)
       (jazz:make-syntactic-closure macro-env '() expr (f expr usage-env)))))
 
 
-(define rsc-macro-transformer
+(define jazz:rsc-macro-transformer
   (lambda (f)
     (lambda (expr usage-env macro-env)
       (f expr macro-env))))
 
 
-(define er-macro-transformer
+(define jazz:er-macro-transformer
   (lambda (f)
     (lambda (expr usage-env macro-env)
       (let ((rename

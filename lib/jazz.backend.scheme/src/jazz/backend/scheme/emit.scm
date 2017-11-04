@@ -691,10 +691,10 @@
 (jazz:add-primitive-patterns     'gambit.language.runtime:fx-                         '((%%fx- <fx^fx:fx>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:fx*                         '((%%fx* <fx^fx:fx>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:fl+                '(                     (%%fl+ <fv^fv:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:fl-                '(                     (%%fl- <fv^fv:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:fl*                '(                     (%%fl* <fv^fv:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:fl/                '(                     (%%fl/ <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:fl+                         '(                     (%%fl+ <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:fl-                         '(                     (%%fl- <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:fl*                         '(                     (%%fl* <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:fl/                         '(                     (%%fl/ <fv^fv:fl>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:nan?                        '(                     (%%flnan? <fv:bool>)))
 
@@ -773,6 +773,8 @@
 (jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-vector    '((%%allocate-vector    <any*:vector>)))
 
 ;; tracking allocations
+(jazz:add-primitive-patterns     'scheme.language.runtime:make-string                 '((%%make-string    <any*:string>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:make-vector                 '((%%make-vector    <any*:vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-s8vector               '((%%make-s8vector  <any*:s8vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-u8vector               '((%%make-u8vector  <any*:u8vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-s16vector              '((%%make-s16vector <any*:s16vector>)))
@@ -783,12 +785,10 @@
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-u64vector              '((%%make-u64vector <any*:u64vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-f32vector              '((%%make-f32vector <any*:f32vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-f64vector              '((%%make-f64vector <any*:f64vector>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:make-vector                 '((%%make-vector    <any*:vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-table                  '((%%make-table     <any*:table>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:make-string                 '((%%make-string    <any*:string>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-mutex             '((%%make-mutex     <any*:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-condition-variable     '((%%make-condition-variable <any*:any>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-thread            '((%%make-thread    <any*:any>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-mutex                  '((%%make-mutex     <any*:any>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-thread                 '((%%make-thread    <any*:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-will                   '((%%make-will      <any*:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-parameter              '((%%make-parameter <any*:any>)))
 

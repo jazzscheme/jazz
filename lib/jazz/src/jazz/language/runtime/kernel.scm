@@ -107,11 +107,7 @@
 ;;;
 
 
-(native jazz:continuation?)
-(native jazz:continuation-capture)
-(native jazz:continuation-graft)
 (native jazz:continuation-graft-no-winding)
-(native jazz:continuation-return)
 (native jazz:continuation-parent)
 (native jazz:continuation-creator)
 (native jazz:continuation-locat)
@@ -250,18 +246,12 @@
 (native jazz:exception-reason)
 (native jazz:exception-detail)
 (native jazz:exception-location)
-(native jazz:display-exception)
-(native jazz:display-continuation-backtrace)
 (native jazz:get-exception-hook)
 (native jazz:set-exception-hook)
 (native jazz:invoke-exception-hook)
 (native jazz:system-exception-hook)
-(native jazz:current-exception-handler)
-(native jazz:with-exception-handler)
-(native jazz:with-exception-catcher)
 (native jazz:with-exception-filter)
 (native jazz:dump-exception)
-(native jazz:raise)
 
 
 ;;;
@@ -323,11 +313,6 @@
 ;;;
 
 
-(native jazz:foreign?)
-(native jazz:foreign-address)
-(native jazz:foreign-release!)
-(native jazz:foreign-released?)
-(native jazz:foreign-tags)
 (native jazz:still-obj-refcount-dec!)
 (native jazz:still-obj-refcount-inc!)
 (native jazz:still-copy)
@@ -614,16 +599,6 @@
 
 
 ;;;
-;;;; Keyword
-;;;
-
-
-(native jazz:keyword?)
-(native jazz:string->keyword)
-(native jazz:keyword->string)
-
-
-;;;
 ;;;; List
 ;;;
 
@@ -658,7 +633,6 @@
 (native jazz:gc)
 (native jazz:gc-count)
 (native jazz:gc-statistics)
-(native jazz:gc-report-set!)
 (native jazz:add-gc-interrupt-job!)
 (native jazz:clear-gc-interrupt-jobs!)
 (native jazz:last-gc-real-time)
@@ -693,15 +667,19 @@
 
 
 ;;;
+;;;; Mutex
+;;;
+
+
+(native jazz:mutex-wait)
+(native jazz:mutex-owner)
+
+
+;;;
 ;;;; Network
 ;;;
 
 
-(native jazz:open-tcp-client)
-(native jazz:open-tcp-server)
-(native jazz:tcp-client-self-socket-info)
-(native jazz:tcp-client-peer-socket-info)
-(native jazz:tcp-server-socket-info)
 (native jazz:call-with-tcp-client)
 
 
@@ -766,18 +744,10 @@
 ;;;
 
 
-(native jazz:close-port)
-(native jazz:input-port-timeout-set!)
-(native jazz:output-port-timeout-set!)
 (native jazz:controlling-terminal?)
 (native jazz:eof-object)
-(native jazz:read-u8)
-(native jazz:write-u8)
-(native jazz:read-subu8vector)
-(native jazz:write-subu8vector)
 (native jazz:write-string)
 (native jazz:read-proper-line)
-(native jazz:read-all)
 (native jazz:read-source-all)
 (native jazz:read-source-first)
 (native jazz:read-literal-hook)
@@ -824,11 +794,6 @@
 ;;;
 
 
-(native jazz:random-integer)
-(native jazz:random-real <:fl>)
-(native jazz:random-source-randomize!)
-(native jazz:random-source-pseudo-randomize!)
-(native jazz:default-random-source)
 (native jazz:random-integer-65536)
 
 
@@ -837,7 +802,6 @@
 ;;;
 
 
-(native jazz:readtable?)
 (native jazz:make-jazz-readtable)
 (native jazz:make-standard-readtable)
 (native jazz:readtable-copy)
@@ -937,15 +901,6 @@
 
 
 ;;;
-;;;; Socket
-;;;
-
-
-(native jazz:socket-info-address)
-(native jazz:socket-info-port-number)
-
-
-;;;
 ;;;; Stack
 ;;;
 
@@ -1009,8 +964,6 @@
 (native jazz:command-argument)
 (native jazz:command-argument?)
 (native jazz:open-process)
-(native jazz:process-status)
-(native jazz:exit)
 (native jazz:exit-no-jobs)
 (native jazz:exit-jobs)
 (native jazz:add-exit-job!)
@@ -1023,15 +976,9 @@
 
 
 (native jazz:table-clear)
-(native jazz:table-length)
 (native jazz:iterate-table-safe)
 (native jazz:map-table)
 (native jazz:table-entries)
-(native jazz:eq?-hash)
-(native jazz:eqv?-hash)
-(native jazz:equal?-hash)
-(native jazz:string=?-hash)
-(native jazz:string-ci=?-hash)
 
 
 ;;;
@@ -1054,67 +1001,14 @@
 (native jazz:enable-interrupts!)
 (native jazz:get-heartbeat-interval)
 (native jazz:set-heartbeat-interval!)
-(native jazz:current-thread)
-(native jazz:thread?)
-(native jazz:make-thread)
-(native jazz:make-root-thread)
-(native jazz:thread-name)
-(native jazz:thread-specific)
-(native jazz:thread-specific-set!)
-(native jazz:thread-base-priority)
-(native jazz:thread-base-priority-set!)
-(native jazz:thread-priority-boost)
-(native jazz:thread-priority-boost-set!)
-(native jazz:thread-quantum)
-(native jazz:thread-quantum-set!)
-(native jazz:thread-start!)
-(native jazz:thread-yield!)
-(native jazz:thread-sleep!)
-(native jazz:thread-terminate!)
-(native jazz:thread-join!)
-(native jazz:thread-send)
-(native jazz:thread-receive)
-(native jazz:thread-mailbox-next)
-(native jazz:thread-mailbox-rewind)
-(native jazz:thread-mailbox-extract-and-rewind)
 (native jazz:thread-interrupt!)
-(native jazz:thread-thread-group)
-(native jazz:thread-group->thread-group-list)
-(native jazz:thread-group->thread-group-vector)
-(native jazz:thread-group->thread-list)
-(native jazz:thread-group->thread-vector)
-(native jazz:thread-state)
-(native jazz:thread-state-abnormally-terminated-reason)
-(native jazz:thread-state-abnormally-terminated?)
 (native jazz:thread-state-active-timeout)
 (native jazz:thread-state-active-waiting-for)
 (native jazz:thread-state-active?)
-(native jazz:thread-state-initialized?)
-(native jazz:thread-state-normally-terminated-result)
-(native jazz:thread-state-normally-terminated?)
-(native jazz:thread-state-uninitialized?)
 (native jazz:thread-cont)
 (native jazz:thread-continuation)
 (native jazz:pristine-thread-continuation)
-(native jazz:make-thread-group)
 (native jazz:thread-mutexes)
-(native jazz:mutex?)
-(native jazz:make-mutex)
-(native jazz:mutex-name)
-(native jazz:mutex-specific)
-(native jazz:mutex-specific-set!)
-(native jazz:mutex-state)
-(native jazz:mutex-lock!)
-(native jazz:mutex-unlock!)
-(native jazz:mutex-wait)
-(native jazz:mutex-owner)
-(native jazz:condition?)
-(native jazz:make-condition)
-(native jazz:condition-name)
-(native jazz:condition-specific)
-(native jazz:condition-specific-set!)
-(native jazz:condition-signal!)
-(native jazz:condition-broadcast!)
 
 
 ;;;
@@ -1126,9 +1020,6 @@
 (native jazz:systime?)
 (native jazz:systime->seconds)
 (native jazz:seconds->systime)
-(native jazz:process-times)
-(native jazz:cpu-time <:fl>)
-(native jazz:real-time <:fl>)
 (native jazz:current-seconds!)
 (native jazz:current-seconds <:fl>)
 (native jazz:current-monotonic)
@@ -1169,7 +1060,6 @@
 ;;;
 
 
-(native jazz:vector-copy)
 (native jazz:subvector-fill!)
 (native jazz:subvector-move!)
 

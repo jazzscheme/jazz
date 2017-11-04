@@ -1342,7 +1342,7 @@
   `(%%tracking
      (make-mutex ,@rest)))
 
-(jazz:define-macro (%%make-condition . rest)
+(jazz:define-macro (%%make-condition-variable . rest)
   `(%%tracking
      (make-condition-variable ,@rest)))
 

@@ -114,7 +114,7 @@
 
 (define (jazz:exception-reason exc)
   (let ((output (open-output-string)))
-    (jazz:display-exception exc output)
+    (display-exception exc output)
     (let ((str (get-output-string output)))
       (let ((len (string-length str)))
         (if (and (%%fx> len 0)

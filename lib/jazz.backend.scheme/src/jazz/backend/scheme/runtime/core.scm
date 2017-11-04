@@ -46,25 +46,9 @@
 (declare (proper-tail-calls))
 
 
-(define (jazz:continuation? obj)
-  (%%continuation? obj))
-
-
-(define (jazz:continuation-capture proc)
-  (%%continuation-capture proc))
-
-
-(define (jazz:continuation-graft cont proc)
-  (%%continuation-graft cont proc))
-
-
 (define (jazz:continuation-graft-no-winding cont proc)
   (jazz:check-continuation cont 1 (continuation-graft-no-winding cont values)
     (%%continuation-graft-no-winding cont proc)))
-
-
-(define jazz:continuation-return
-  continuation-return)
 
 
 (define (jazz:continuation-parent cont)
@@ -256,12 +240,6 @@
 ;;;
 
 
-(define jazz:foreign? foreign?)
-(define jazz:foreign-address foreign-address)
-(define jazz:foreign-release! foreign-release!)
-(define jazz:foreign-released? foreign-released?)
-(define jazz:foreign-tags foreign-tags)
-
 ;(define (jazz:still-obj-refcount foreign)
 ;  (%%still-obj-refcount foreign))
 
@@ -296,10 +274,6 @@
             (f64vector-ref vec 4)
             (f64vector-ref vec 5)
             (%%flonum->fixnum (f64vector-ref vec 6)))))
-
-
-(define (jazz:gc-report-set! flag)
-  (gc-report-set! flag))
 
 
 (define (jazz:add-gc-interrupt-job! thunk)
@@ -481,12 +455,6 @@
 ;;;
 
 
-(define jazz:open-tcp-client open-tcp-client)
-(define jazz:open-tcp-server open-tcp-server)
-(define jazz:tcp-client-self-socket-info tcp-client-self-socket-info)
-(define jazz:tcp-client-peer-socket-info tcp-client-peer-socket-info)
-(define jazz:tcp-server-socket-info tcp-server-socket-info)
-
 (define (jazz:call-with-tcp-client settings proc)
   (let ((port #f))
     (dynamic-wind
@@ -497,9 +465,6 @@
       (lambda ()
         (if port
             (close-port port))))))
-
-(define jazz:socket-info-address socket-info-address)
-(define jazz:socket-info-port-number socket-info-port-number)
 
 
 ;;;
@@ -562,12 +527,6 @@
 ;;;
 
 
-(define jazz:random-integer random-integer)
-(define jazz:random-real random-real)
-(define jazz:random-source-randomize! random-source-randomize!)
-(define jazz:random-source-pseudo-randomize! random-source-pseudo-randomize!)
-(define jazz:default-random-source default-random-source)
-
 (define jazz:random-integer-65536
   (let* ((rs (make-random-source))
          (ri (random-source-make-integers rs)))
@@ -605,10 +564,8 @@
 ;;;
 
 
-(define jazz:close-port close-port)
-(define jazz:input-port-timeout-set! input-port-timeout-set!)
-(define jazz:output-port-timeout-set! output-port-timeout-set!)
-(define jazz:write-string ##write-string)
+(define jazz:write-string
+  ##write-string)
 
 
 ;;;
@@ -652,9 +609,6 @@
 ;;;; Readtable
 ;;;
 
-
-(define (jazz:readtable? obj)
-  (%%readtable? obj))
 
 (define (jazz:make-standard-readtable)
   (%%make-standard-readtable))
@@ -704,14 +658,6 @@
 (define (jazz:eof-object)
   #!eof)
 
-(define jazz:read-u8 read-u8)
-(define jazz:write-u8 write-u8)
-(define jazz:read-subu8vector read-subu8vector)
-(define jazz:write-subu8vector write-subu8vector)
-
-(define jazz:read-line
-  read-line)
-
 (define (jazz:read-proper-line port)
   (let ((line (read-line port #\newline #t)))
     (if (eof-object? line)
@@ -720,9 +666,6 @@
         (if (and (%%fx> len 0) (%%eqv? (%%string-ref line (%%fx- len 1)) #\newline))
             (values (%%string-shrink! line (%%fx- len 1)) #t)
           (values line #f))))))
-
-(define jazz:read-all
-  read-all)
 
 (define (jazz:with-readtable readtable thunk)
   (parameterize ((current-readtable readtable))
@@ -1245,8 +1188,6 @@
 ;;;
 
 
-(define jazz:process-status process-status)
-(define jazz:exit exit)
 (define (jazz:exit-no-jobs #!optional (status 1))
   (##clear-exit-jobs!)
   (##exit status))
@@ -1334,11 +1275,6 @@
     (%%table-keys table)))
 
 
-(define (jazz:table-length table)
-  (%%debug-assert (%%table? table)
-    (%%table-length table)))
-
-
 (define (jazz:map-table table proc)
   (%%debug-assert (%%table? table)
     (let ((queue (jazz:new-queue)))
@@ -1360,13 +1296,6 @@
 (define (jazz:table-entries table)
   (%%debug-assert (%%table? table)
     (%%table-entries table)))
-
-
-(define jazz:eq?-hash eq?-hash)
-(define jazz:eqv?-hash eqv?-hash)
-(define jazz:equal?-hash equal?-hash)
-(define jazz:string=?-hash string=?-hash)
-(define jazz:string-ci=?-hash string-ci=?-hash)
 
 
 ;;;
@@ -1409,29 +1338,6 @@
 ;;;
 
 
-(define jazz:current-thread current-thread)
-(define jazz:thread? thread?)
-(define jazz:make-thread make-thread)
-(define jazz:make-root-thread make-root-thread)
-(define jazz:thread-name thread-name)
-(define jazz:thread-specific thread-specific)
-(define jazz:thread-specific-set! thread-specific-set!)
-(define jazz:thread-base-priority thread-base-priority)
-(define jazz:thread-base-priority-set! thread-base-priority-set!)
-(define jazz:thread-priority-boost thread-priority-boost)
-(define jazz:thread-priority-boost-set! thread-priority-boost-set!)
-(define jazz:thread-quantum thread-quantum)
-(define jazz:thread-quantum-set! thread-quantum-set!)
-(define jazz:thread-start! thread-start!)
-(define jazz:thread-yield! thread-yield!)
-(define jazz:thread-sleep! thread-sleep!)
-(define jazz:thread-terminate! thread-terminate!)
-(define jazz:thread-join! thread-join!)
-(define jazz:thread-send thread-send)
-(define jazz:thread-receive thread-receive)
-(define jazz:thread-mailbox-next thread-mailbox-next)
-(define jazz:thread-mailbox-rewind thread-mailbox-rewind)
-(define jazz:thread-mailbox-extract-and-rewind thread-mailbox-extract-and-rewind)
 ;; quicky need to fix this correctly
 (define jazz:thread-interrupt! (lambda rest
                                  (jazz:with-exception-filter
@@ -1443,29 +1349,16 @@
                                      (apply thread-interrupt! rest))))
         #; thread-interrupt!
         )
-(define jazz:make-thread-group make-thread-group)
-(define jazz:thread-thread-group thread-thread-group)
-(define jazz:thread-group->thread-group-list thread-group->thread-group-list)
-(define jazz:thread-group->thread-group-vector thread-group->thread-group-vector)
-(define jazz:thread-group->thread-list thread-group->thread-list)
-(define jazz:thread-group->thread-vector thread-group->thread-vector)
-(define jazz:thread-state thread-state)
-(define jazz:thread-state-abnormally-terminated-reason thread-state-abnormally-terminated-reason)
-(define jazz:thread-state-abnormally-terminated? thread-state-abnormally-terminated?)
 ;; quicky need to fix this correctly
 (define jazz:thread-state-active-timeout (lambda (state) #f) #; thread-state-active-timeout)
 ;; quicky need to fix this correctly
 (define jazz:thread-state-active-waiting-for (lambda (state) #f) #; thread-state-active-waiting-for)
 ;; quicky need to fix this correctly
 (define jazz:thread-state-active? (lambda (state) #t) #; thread-state-active?)
-(define jazz:thread-state-initialized? thread-state-initialized?)
-(define jazz:thread-state-normally-terminated-result thread-state-normally-terminated-result)
-(define jazz:thread-state-normally-terminated? thread-state-normally-terminated?)
-(define jazz:thread-state-uninitialized? thread-state-uninitialized?)
 
 
 (define (jazz:thread-continuation thread)
-  (if (jazz:thread-state-active? (jazz:thread-state thread))
+  (if (jazz:thread-state-active? (thread-state thread))
       (let ((cont (jazz:thread-cont thread)))
         ;; hack - gambit thread init with dummy continuation
         (if (%%not (%%eq? (%%vector-ref cont 0) #!void))
@@ -1527,35 +1420,12 @@
 ;;;
 
 
-(define jazz:mutex? mutex?)
-(define jazz:make-mutex make-mutex)
-(define jazz:mutex-name mutex-name)
-(define jazz:mutex-specific mutex-specific)
-(define jazz:mutex-specific-set! mutex-specific-set!)
-(define jazz:mutex-state mutex-state)
-(define jazz:mutex-lock! mutex-lock!)
-(define jazz:mutex-unlock! mutex-unlock!)
-
 (define (jazz:mutex-owner mutex)
   (jazz:btq-owner mutex))
 
 (define (jazz:mutex-wait mutex)
   (mutex-lock! mutex)
   (mutex-unlock! mutex))
-
-
-;;;
-;;;; Condition
-;;;
-
-
-(define jazz:condition? condition-variable?)
-(define jazz:make-condition make-condition-variable)
-(define jazz:condition-name condition-variable-name)
-(define jazz:condition-specific condition-variable-specific)
-(define jazz:condition-specific-set! condition-variable-specific-set!)
-(define jazz:condition-signal! condition-variable-signal!)
-(define jazz:condition-broadcast! condition-variable-broadcast!)
 
 
 ;;;
@@ -1567,9 +1437,6 @@
 (define jazz:systime? time?)
 (define jazz:systime->seconds time->seconds)
 (define jazz:seconds->systime seconds->time)
-(define jazz:process-times process-times)
-(define jazz:cpu-time cpu-time)
-(define jazz:real-time real-time)
 
 
 (define jazz:current-seconds!
@@ -1582,9 +1449,6 @@
       (declare (not interrupts-enabled))
       (%%get-current-time! f64vec 0)
       (%%f64vector-ref f64vec 0))))
-
-;; for backward compatibility
-(define current-seconds jazz:current-seconds)
 
 
 (define jazz:current-monotonic
@@ -1600,6 +1464,5 @@
 ;;;
 
 
-(define jazz:vector-copy vector-copy)
 (define jazz:subvector-fill! ##subvector-fill!)
 (define jazz:subvector-move! ##subvector-move!))

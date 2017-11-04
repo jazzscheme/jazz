@@ -214,35 +214,6 @@
 
 
 ;;;
-;;;; Exception
-;;;
-
-
-(define jazz:current-exception-handler
-  current-exception-handler)
-
-
-(define jazz:with-exception-handler
-  with-exception-handler)
-
-
-(define jazz:with-exception-catcher
-  with-exception-catcher)
-
-
-(define jazz:display-exception
-  display-exception)
-
-
-(define jazz:display-continuation-backtrace
-  display-continuation-backtrace)
-
-
-(define jazz:raise
-  raise)
-
-
-;;;
 ;;;; Error
 ;;;
 

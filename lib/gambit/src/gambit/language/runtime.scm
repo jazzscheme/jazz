@@ -87,10 +87,10 @@
 ;;;
 
 
-;;conflict;;(native continuation-capture)
-;;conflict;;(native continuation-graft)
-;;conflict;;(native continuation-return)
-;;conflict;;(native continuation?)
+(native continuation-capture)
+(native continuation-graft)
+(native continuation-return)
+(native continuation?)
 
 
 ;;;
@@ -99,12 +99,12 @@
 
 
 ;;conflict;;(native break)
-;;conflict;;(native display-continuation-backtrace)
+(native display-continuation-backtrace)
 (native display-continuation-dynamic-environment)
 (native display-continuation-environment)
 (native display-dynamic-environment?)
 (native display-environment-set!)
-;;conflict;;(native display-exception)
+(native display-exception)
 (native display-exception-in-context)
 (native display-procedure-environment)
 (native generate-proper-tail-calls)
@@ -149,11 +149,11 @@
 
 
 (native abort)
-;;conflict;;(native current-exception-handler)
+(native current-exception-handler)
 ;;conflict;;(native error)
-;;conflict;;(native raise)
-;;conflict;;(native with-exception-catcher)
-;;conflict;;(native with-exception-handler)
+(native raise)
+(native with-exception-catcher)
+(native with-exception-handler)
 (native error-exception-message)
 (native error-exception-parameters)
 (native error-exception?)
@@ -252,7 +252,6 @@
 (native fxwrapquotient)
 (native fxxor)
 (native fxzero?)
-;;conflict;;(native fixnum->flonum)
 (native fixnum-overflow-exception-arguments)
 (native fixnum-overflow-exception-procedure)
 (native fixnum-overflow-exception?)
@@ -309,11 +308,11 @@
 ;;;
 
 
-;;conflict;;(native foreign-address)
-;;conflict;;(native foreign-release!)
-;;conflict;;(native foreign-released?)
-;;conflict;;(native foreign-tags)
-;;conflict;;(native foreign?)
+(native foreign-address)
+(native foreign-release!)
+(native foreign-released?)
+(native foreign-tags)
+(native foreign?)
 (native cfun-conversion-exception-arguments)
 (native cfun-conversion-exception-code)
 (native cfun-conversion-exception-message)
@@ -344,9 +343,11 @@
 ;;;
 
 
-;;conflict;;(native eq?-hash)
-;;conflict;;(native equal?-hash)
-;;conflict;;(native eqv?-hash)
+(native eq?-hash)
+(native equal?-hash)
+(native eqv?-hash)
+(native string=?-hash)
+(native string-ci=?-hash)
 (native object->serial-number)
 (native serial-number->object)
 (native invalid-hash-number-exception-arguments)
@@ -564,12 +565,13 @@
 
 
 (native make-uninterned-keyword)
-;;conflict;;(native keyword->string)
+(native keyword->string)
 (native keyword-expected-exception-arguments)
 (native keyword-expected-exception-procedure)
 (native keyword-expected-exception?)
 (native keyword-hash)
-;;conflict;;(native keyword?)
+(native keyword?)
+(native string->keyword)
 (native uninterned-keyword?)
 
 
@@ -578,7 +580,7 @@
 ;;;
 
 
-;;conflict;;(native gc-report-set!)
+(native gc-report-set!)
 (native heap-overflow-exception?)
 
 
@@ -587,14 +589,14 @@
 ;;;
 
 
-;;conflict;;(native make-mutex)
-;;conflict;;(native mutex-lock!)
-;;conflict;;(native mutex-name)
-;;conflict;;(native mutex-specific)
-;;conflict;;(native mutex-specific-set!)
-;;conflict;;(native mutex-state)
-;;conflict;;(native mutex-unlock!)
-;;conflict;;(native mutex?)
+(native make-mutex)
+(native mutex-lock!)
+(native mutex-name)
+(native mutex-specific)
+(native mutex-specific-set!)
+(native mutex-state)
+(native mutex-unlock!)
+(native mutex?)
 (native abandoned-mutex-exception?)
 
 
@@ -668,7 +670,7 @@
 ;;;
 
 
-;;conflict;;(native close-port)
+(native close-port)
 (native console-port)
 (native current-error-port)
 (native port-settings-set!)
@@ -687,7 +689,7 @@
 (native input-port-line)
 (native input-port-readtable)
 (native input-port-readtable-set!)
-;;conflict;;(native input-port-timeout-set!)
+(native input-port-timeout-set!)
 (native open-directory)
 (native open-dummy)
 (native open-event-queue)
@@ -695,17 +697,17 @@
 (native open-input-string)
 (native open-input-u8vector)
 (native open-input-vector)
-;;conflict;;(native open-string)
+(native open-string)
 (native open-string-pipe)
 (native open-u8vector)
 (native open-u8vector-pipe)
 (native open-vector)
 (native open-vector-pipe)
-;;conflict;;(native read-all)
+(native read-all)
 (native read-line)
 (native read-substring)
-;;conflict;;(native read-subu8vector)
-;;conflict;;(native read-u8)
+(native read-subu8vector)
+(native read-u8)
 (native with-input-from-port)
 (native with-input-from-string)
 (native with-input-from-u8vector)
@@ -736,7 +738,7 @@
 (native output-port-line)
 (native output-port-readtable)
 (native output-port-readtable-set!)
-;;conflict;;(native output-port-timeout-set!)
+(native output-port-timeout-set!)
 (native output-port-width)
 ;;conflict;;(native pp)
 (native pretty-print)
@@ -747,8 +749,8 @@
 (native with-output-to-u8vector)
 (native with-output-to-vector)
 (native write-substring)
-;;conflict;;(native write-subu8vector)
-;;conflict;;(native write-u8)
+(native write-subu8vector)
+(native write-u8)
 
 
 ;;;
@@ -778,12 +780,12 @@
 ;;;
 
 
-;;conflict;;(native exit)
+(native exit)
 (native main)
 ;;conflict;;(native open-process)
 (native process-pid)
-;;conflict;;(native process-status)
-;;conflict;;(native process-times)
+(native process-status)
+(native process-times)
 (native unterminated-process-exception-arguments)
 (native unterminated-process-exception-procedure)
 (native unterminated-process-exception?)
@@ -807,16 +809,16 @@
 
 
 (native make-random-source)
-;;conflict;;(native default-random-source)
+(native default-random-source)
 (native random-f64vector)
-;;conflict;;(native random-integer)
-;;conflict;;(native random-real)
+(native random-integer)
+(native random-real <:fl>)
 (native random-source-make-f64vectors)
 (native random-source-make-integers)
 (native random-source-make-reals)
 (native random-source-make-u8vectors)
-;;conflict;;(native random-source-pseudo-randomize!)
-;;conflict;;(native random-source-randomize!)
+(native random-source-pseudo-randomize!)
+(native random-source-randomize!)
 (native random-source-state-ref)
 (native random-source-state-set!)
 (native random-source?)
@@ -850,7 +852,7 @@
 (native readtable-write-cdr-read-macros?-set)
 (native readtable-write-extended-read-macros?)
 (native readtable-write-extended-read-macros?-set)
-;;conflict;;(native readtable?)
+(native readtable?)
 
 
 ;;;
@@ -914,9 +916,6 @@
 
 
 (native object->string)
-;;conflict;;(native string->keyword)
-;;conflict;;(native string-ci=?-hash)
-;;conflict;;(native string=?-hash)
 
 
 ;;;
@@ -951,7 +950,7 @@
 (native table->list)
 (native table-copy)
 (native table-for-each)
-;;conflict;;(native table-length)
+(native table-length)
 (native table-merge)
 (native table-merge!)
 (native table-ref)
@@ -969,16 +968,16 @@
 ;;;
 
 
-;;conflict;;(native open-tcp-client)
-;;conflict;;(native open-tcp-server)
-;;conflict;;(native tcp-client-peer-socket-info)
-;;conflict;;(native tcp-client-self-socket-info)
-;;conflict;;(native tcp-server-socket-info)
+(native open-tcp-client)
+(native open-tcp-server)
+(native tcp-client-peer-socket-info)
+(native tcp-client-self-socket-info)
+(native tcp-server-socket-info)
 (native tcp-service-register!)
 (native tcp-service-unregister!)
-;;conflict;;(native socket-info-address)
+(native socket-info-address)
 (native socket-info-family)
-;;conflict;;(native socket-info-port-number)
+(native socket-info-port-number)
 (native socket-info?)
 
 
@@ -987,16 +986,16 @@
 ;;;
 
 
-;;conflict;;(native current-thread)
-;;conflict;;(native make-root-thread)
-;;conflict;;(native make-thread)
-;;conflict;;(native make-thread-group)
-;;conflict;;(native thread-base-priority)
-;;conflict;;(native thread-base-priority-set!)
-;;conflict;;(native thread-group->thread-group-list)
-;;conflict;;(native thread-group->thread-group-vector)
-;;conflict;;(native thread-group->thread-list)
-;;conflict;;(native thread-group->thread-vector)
+(native current-thread)
+(native make-root-thread)
+(native make-thread)
+(native make-thread-group)
+(native thread-base-priority)
+(native thread-base-priority-set!)
+(native thread-group->thread-group-list)
+(native thread-group->thread-group-vector)
+(native thread-group->thread-list)
+(native thread-group->thread-vector)
 (native thread-group-name)
 (native thread-group-parent)
 (native thread-group-resume!)
@@ -1005,37 +1004,37 @@
 (native thread-group?)
 (native thread-init!)
 ;;conflict;;(native thread-interrupt!)
-;;conflict;;(native thread-join!)
-;;conflict;;(native thread-mailbox-extract-and-rewind)
-;;conflict;;(native thread-mailbox-next)
-;;conflict;;(native thread-mailbox-rewind)
-;;conflict;;(native thread-name)
-;;conflict;;(native thread-priority-boost)
-;;conflict;;(native thread-priority-boost-set!)
-;;conflict;;(native thread-quantum)
-;;conflict;;(native thread-quantum-set!)
-;;conflict;;(native thread-receive)
+(native thread-join!)
+(native thread-mailbox-extract-and-rewind)
+(native thread-mailbox-next)
+(native thread-mailbox-rewind)
+(native thread-name)
+(native thread-priority-boost)
+(native thread-priority-boost-set!)
+(native thread-quantum)
+(native thread-quantum-set!)
+(native thread-receive)
 (native thread-resume!)
-;;conflict;;(native thread-send)
-;;conflict;;(native thread-sleep!)
-;;conflict;;(native thread-specific)
-;;conflict;;(native thread-specific-set!)
-;;conflict;;(native thread-start!)
-;;conflict;;(native thread-state)
-;;conflict;;(native thread-state-abnormally-terminated-reason)
-;;conflict;;(native thread-state-abnormally-terminated?)
+(native thread-send)
+(native thread-sleep!)
+(native thread-specific)
+(native thread-specific-set!)
+(native thread-start!)
+(native thread-state)
+(native thread-state-abnormally-terminated-reason)
+(native thread-state-abnormally-terminated?)
 ;;conflict;;(native thread-state-active-timeout)
 ;;conflict;;(native thread-state-active-waiting-for)
 ;;conflict;;(native thread-state-active?)
-;;conflict;;(native thread-state-initialized?)
-;;conflict;;(native thread-state-normally-terminated-result)
-;;conflict;;(native thread-state-normally-terminated?)
-;;conflict;;(native thread-state-uninitialized?)
+(native thread-state-initialized?)
+(native thread-state-normally-terminated-result)
+(native thread-state-normally-terminated?)
+(native thread-state-uninitialized?)
 (native thread-suspend!)
-;;conflict;;(native thread-terminate!)
-;;conflict;;(native thread-thread-group)
-;;conflict;;(native thread-yield!)
-;;conflict;;(native thread?)
+(native thread-terminate!)
+(native thread-thread-group)
+(native thread-yield!)
+(native thread?)
 (native top)
 (native deadlock-exception?)
 (native inactive-thread-exception-arguments)
@@ -1068,12 +1067,12 @@
 ;;;
 
 
-;;conflict;;(native cpu-time)
+(native jazz:cpu-time <:fl>)
 ;;conflict;;(native current-time)
-;;conflict;;(native real-time)
+(native jazz:real-time <:fl>)
 ;;conflict;;(native seconds->time)
 ;;conflict;;(native time->seconds)
-(native time?)
+;;conflict;;(native time?)
 (native timeout->time)
 
 
@@ -1133,7 +1132,7 @@
 
 
 (native vector-append)
-;;conflict;;(native vector-copy)
+(native vector-copy)
 (native subvector)
 
 

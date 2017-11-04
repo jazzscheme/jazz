@@ -723,7 +723,6 @@
 (native jazz:pathname-type)
 (native jazz:pathname-expand)
 (native jazz:pathname-normalize)
-(native jazz:file-exists?)
 (native jazz:file-delete)
 (native jazz:file-copy)
 (native jazz:file-access-time)
@@ -1053,15 +1052,6 @@
 (native jazz:unspecified)
 (native jazz:unspecified?)
 (native jazz:specified?)
-
-
-;;;
-;;;; Vector
-;;;
-
-
-(native jazz:subvector-fill!)
-(native jazz:subvector-move!)
 
 
 ;;;

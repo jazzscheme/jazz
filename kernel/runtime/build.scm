@@ -157,11 +157,11 @@
   (let ((dir (%%string-append jazz:kernel-install "build/kernel/")))
     (let ((swept-file (%%string-append dir "version-swept")))
       (define (determine-version)
-        (if (jazz:file-exists? swept-file)
+        (if (file-exists? swept-file)
             (receive (version gambit-version gambit-stamp) (jazz:load-version-file swept-file)
               version)
           (let ((version-file (%%string-append dir "kernel/version")))
-            (if (jazz:file-exists? version-file)
+            (if (file-exists? version-file)
                 (receive (version gambit-version gambit-stamp) (jazz:load-version-file version-file)
                   version)
               #f))))
@@ -401,7 +401,7 @@
               (digest (string-append output name "." jazz:Digest-Extension))
               (mnf (string-append output name "." jazz:Manifest-Extension)))
           (let ((hash-changed? (%%not (jazz:manifest-uptodate? src (jazz:load-updated-manifest name digest mnf src)))))
-            (if (or rebuild? hash-changed? (%%not (jazz:file-exists? dst)))
+            (if (or rebuild? hash-changed? (%%not (file-exists? dst)))
                 (let ((path (%%string-append dir name))
                       (options `(,@(if debug-environments? '(debug-environments) '())
                                  ,@(if debug-location? '(debug-location) '())
@@ -1278,7 +1278,7 @@
     (define digest-table (%%make-table test: eq?))
     
     (define (load-image-units-manifest)
-      (if (jazz:file-exists? loader)
+      (if (file-exists? loader)
           (begin
             (set! jazz:register-image-units
                   (lambda (lib-name units)

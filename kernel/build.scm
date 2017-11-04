@@ -1449,7 +1449,7 @@
                         ,(symbol->string product)
                         #; ;; dynamic-dependencies
                         ,@(let ((dependencies (string-append (current-directory) ".dependencies")))
-                            (if (jazz:file-exists? dependencies)
+                            (if (file-exists? dependencies)
                                 `("-dependencies" ,dependencies)
                               '()))
                         ,@arguments)))))

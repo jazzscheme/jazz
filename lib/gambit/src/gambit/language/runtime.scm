@@ -179,7 +179,7 @@
 (native file-attributes)
 (native file-creation-time)
 (native file-device)
-;;conflict;;(native file-exists?)
+(native file-exists?)
 (native file-group)
 (native file-info)
 (native file-info-attributes)
@@ -346,6 +346,8 @@
 (native eq?-hash)
 (native equal?-hash)
 (native eqv?-hash)
+(native keyword-hash)
+(native symbol-hash)
 (native string=?-hash)
 (native string-ci=?-hash)
 (native object->serial-number)
@@ -545,7 +547,6 @@
 ;;;
 
 
-(native integer-length)
 (native integer-nth-root)
 (native integer-sqrt)
 
@@ -569,7 +570,6 @@
 (native keyword-expected-exception-arguments)
 (native keyword-expected-exception-procedure)
 (native keyword-expected-exception?)
-(native keyword-hash)
 (native keyword?)
 (native string->keyword)
 (native uninterned-keyword?)
@@ -582,6 +582,7 @@
 
 (native gc-report-set!)
 (native heap-overflow-exception?)
+(native stack-overflow-exception?)
 
 
 ;;;
@@ -613,7 +614,7 @@
 
 
 ;;;
-;;;; Number
+;;;; Bitwise
 ;;;
 
 
@@ -630,12 +631,20 @@
 (native clear-bit-field)
 (native copy-bit-field)
 (native extract-bit-field <int^int^int:int>)
-(native finite?)
 (native first-bit-set)
-(native infinite?)
-(native nan?)
+(native integer-length)
 (native replace-bit-field)
 (native test-bit-field?)
+
+
+;;;
+;;;; Number
+;;;
+
+
+(native finite?)
+(native infinite?)
+(native nan?)
 (native divide-by-zero-exception-arguments)
 (native divide-by-zero-exception-procedure)
 (native divide-by-zero-exception?)
@@ -766,7 +775,6 @@
 (native number-of-arguments-limit-exception-arguments)
 (native number-of-arguments-limit-exception-procedure)
 (native number-of-arguments-limit-exception?)
-(native stack-overflow-exception?)
 (native unknown-keyword-argument-exception-arguments)
 (native unknown-keyword-argument-exception-procedure)
 (native unknown-keyword-argument-exception?)
@@ -915,7 +923,11 @@
 ;;;
 
 
+(native append-strings)
 (native object->string)
+(native substring-fill!)
+(native substring-move!)
+(native string-shrink!)
 
 
 ;;;
@@ -925,7 +937,6 @@
 
 (native gensym)
 (native make-uninterned-symbol)
-(native symbol-hash)
 (native uninterned-symbol?)
 
 
@@ -1131,9 +1142,13 @@
 ;;;
 
 
+(native append-vectors)
 (native vector-append)
 (native vector-copy)
+(native vector-shrink!)
 (native subvector)
+(native subvector-fill!)
+(native subvector-move!)
 
 
 ;;;

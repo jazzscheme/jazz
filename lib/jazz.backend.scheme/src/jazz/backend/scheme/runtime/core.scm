@@ -540,9 +540,8 @@
 ;;;
 
 
-(define jazz:pathname-expand path-expand)
-(define jazz:file-rename rename-file)
-(define jazz:directory-delete delete-directory)
+(define jazz:directory-delete
+  delete-directory)
 
 (define (jazz:current-directory . rest)
   (if (%%null? rest)
@@ -1456,13 +1455,4 @@
     (lambda ()
       (declare (not interrupts-enabled))
       (##get-monotonic-time! u64vec 0)
-      (%%u64vector-ref u64vec 0))))
-
-
-;;;
-;;;; Vector
-;;;
-
-
-(define jazz:subvector-fill! ##subvector-fill!)
-(define jazz:subvector-move! ##subvector-move!))
+      (%%u64vector-ref u64vec 0)))))

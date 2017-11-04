@@ -433,14 +433,14 @@
       #f
     (let ((directory (jazz:dirname-normalize directory)))
       (let ((repository-file (%%string-append directory jazz:Repository-Filename)))
-        (cond ((jazz:file-exists? repository-file)
+        (cond ((file-exists? repository-file)
                (jazz:load-repository directory))
               (dynamic?
                (if (%%not jazz:product)
                    (begin
                      (jazz:create-directories directory)
                      (create-repository repository-file)
-                     (if (jazz:file-exists? repository-file)
+                     (if (file-exists? repository-file)
                          (jazz:load-repository directory)
                        (repository-inexistant)))
                  (jazz:load-repository-form directory (repository-form))))
@@ -452,7 +452,7 @@
   (define (load-repository directory)
     (if (jazz:directory-exists? directory)
         (let ((repository-file (%%string-append directory jazz:Repository-Filename)))
-          (if (jazz:file-exists? repository-file)
+          (if (file-exists? repository-file)
               (call-with-input-file (%%list path: repository-file eol-encoding: 'cr-lf)
                 (lambda (input)
                   (let ((form (read input)))
@@ -654,7 +654,7 @@
                    (let ((dirname (%%car dirnames)))
                      (let ((directory (%%string-append library-directory dirname "/")))
                        (let ((package-pathname (%%string-append directory jazz:Package-Filename)))
-                         (if (jazz:file-exists? package-pathname)
+                         (if (file-exists? package-pathname)
                              (let ((package-name (%%string->symbol dirname)))
                                (if (%%table-ref table package-name #f)
                                    (iter (%%cdr dirnames) packages)
@@ -738,7 +738,7 @@
          (src (jazz:repository-pathname (%%get-package-repository package) path))
          (dst (jazz:repository-pathname jazz:Build-Repository path)))
     (define (updated-uptodate?)
-      (if (jazz:file-exists? dst)
+      (if (file-exists? dst)
           (if (= (jazz:file-modification-seconds src) (jazz:file-modification-seconds dst))
               #t
             (if (%%string=? (digest-file src 'SHA-1) (digest-file dst 'SHA-1))
@@ -760,7 +760,7 @@
             (load-package))
       (begin
         (jazz:create-directories (jazz:repository-pathname jazz:Build-Repository dir))
-        (if (jazz:file-exists? dst)
+        (if (file-exists? dst)
             (jazz:file-delete dst))
         (jazz:file-copy src dst)
         (load-package)))))
@@ -969,7 +969,7 @@
   (define (find-src package path)
     (define (try path underscore?)
       (define (try-extension extension)
-        (if (jazz:file-exists? (jazz:package-root-pathname package (%%string-append path "." extension)))
+        (if (file-exists? (jazz:package-root-pathname package (%%string-append path "." extension)))
             (%%make-resource package path underscore? extension)
           #f))
       
@@ -1029,7 +1029,7 @@
     (define (find package path extension)
       (define (try path underscore?)
         ;; we only test .o1 and let gambit find the right file by returning no extension when found
-        (if (jazz:file-exists? (jazz:package-root-pathname package (%%string-append path extension)))
+        (if (file-exists? (jazz:package-root-pathname package (%%string-append path extension)))
             (%%make-resource package path underscore? #f)
           #f))
       
@@ -1735,7 +1735,7 @@
         (free-processes '())
         (outdated-processes '())
         (process-mutex (%%make-mutex 'process-mutex))
-        (process-condition (%%make-condition 'process-condition))
+        (process-condition-variable (%%make-condition-variable 'process-condition-variable))
         (listening-port (open-tcp-server 0))
         (output-mutex (%%make-mutex 'output-mutex))
         (jobs (or jazz:jobs (jazz:build-jobs) jazz:jobs-default))
@@ -1793,7 +1793,7 @@
                                                ,@(if (jazz:repositories) `("-repositories" ,(jazz:repositories)) '())
                                                #; ;; dynamic-dependencies
                                                ,@(let ((dependencies (string-append (current-directory) ".dependencies")))
-                                                   (if (jazz:file-exists? dependencies)
+                                                   (if (file-exists? dependencies)
                                                        `("-dependencies" ,dependencies)
                                                      '()))
                                                ,@(if (jazz:reporting?) `("-reporting") '())
@@ -1815,7 +1815,7 @@
                      (mutex-unlock! process-mutex)
                      port/echo))))
               (else
-               (mutex-unlock! process-mutex process-condition)
+               (mutex-unlock! process-mutex process-condition-variable)
                (grab-build-process)))))
     
     (define (build name)
@@ -1825,7 +1825,7 @@
           (set! active-processes (jazz:remove port/echo active-processes))
           (set! stop-build? #t)
           (mutex-unlock! process-mutex)
-          (condition-variable-signal! process-condition))
+          (condition-variable-signal! process-condition-variable))
         
         (define (build-process-ended changes)
           (mutex-lock! process-mutex)
@@ -1838,7 +1838,7 @@
                 (end-port/echo port/echo))
             (set! free-processes (%%cons port/echo free-processes)))
           (mutex-unlock! process-mutex)
-          (condition-variable-signal! process-condition))
+          (condition-variable-signal! process-condition-variable))
         
         (if stop-build?
             (build-process-ended #f)

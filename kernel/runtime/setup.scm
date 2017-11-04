@@ -496,7 +496,7 @@ c-end
             (define (locate-dependencies root-path)
               (and root-path
                    (let ((dynamic-file (%%string-append root-path ".dependencies")))
-                     (and (jazz:file-exists? dynamic-file)
+                     (and (file-exists? dynamic-file)
                           dynamic-file))))
             
             (define (setup-repositories make?)

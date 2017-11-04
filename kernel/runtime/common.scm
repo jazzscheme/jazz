@@ -569,10 +569,6 @@
   (path-expand (string-append jazz:kernel-source suffix)))
 
 
-(define jazz:file-exists?
-  file-exists?)
-
-
 (define (jazz:build-dynamic-path destination-root source-path)
   (let ((root (path-strip-trailing-directory-separator destination-root))
         (branch (path-strip-directory (path-strip-trailing-directory-separator source-path)))
@@ -608,7 +604,7 @@
 
 
 (define (jazz:load-source-digests digest-filepath)
-  (if (jazz:file-exists? digest-filepath)
+  (if (file-exists? digest-filepath)
       (call-with-input-file (%%list path: digest-filepath eol-encoding: 'cr-lf)
         (lambda (input)
           (let ((digest-forms (read input)))
@@ -622,7 +618,7 @@
 
 
 (define (jazz:load-manifest digest-filepath manifest-filepath)
-  (if (jazz:file-exists? manifest-filepath)
+  (if (file-exists? manifest-filepath)
       (call-with-input-file (%%list path: manifest-filepath eol-encoding: 'cr-lf)
         (lambda (input)
           (let ((form (read input)))

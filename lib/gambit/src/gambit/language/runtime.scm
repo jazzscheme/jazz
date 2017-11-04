@@ -98,7 +98,7 @@
 ;;;
 
 
-;;conflict;;(native break)
+(native break)
 (native display-continuation-backtrace)
 (native display-continuation-dynamic-environment)
 (native display-continuation-environment)
@@ -110,9 +110,9 @@
 (native generate-proper-tail-calls)
 (native step)
 (native step-level-set!)
-;;conflict;;(native trace)
+(native trace)
 (native unbreak)
-;;conflict;;(native untrace)
+(native untrace)
 
 
 ;;;
@@ -150,7 +150,7 @@
 
 (native abort)
 (native current-exception-handler)
-;;conflict;;(native error)
+(native error)
 (native raise)
 (native with-exception-catcher)
 (native with-exception-handler)
@@ -172,7 +172,7 @@
 (native create-fifo)
 (native create-link)
 (native create-symbolic-link)
-;;conflict;;(native current-directory)
+(native current-directory)
 (native delete-directory)
 (native delete-file)
 (native directory-files)
@@ -752,7 +752,7 @@
 (native output-port-width)
 (native pp)
 (native pretty-print)
-;;conflict;;(native print)
+(native print)
 (native println)
 (native with-output-to-port)
 (native with-output-to-string)
@@ -1015,7 +1015,7 @@
 (native thread-group-terminate!)
 (native thread-group?)
 (native thread-init!)
-;;conflict;;(native thread-interrupt!)
+(native thread-interrupt!)
 (native thread-join!)
 (native thread-mailbox-extract-and-rewind)
 (native thread-mailbox-next)
@@ -1035,9 +1035,9 @@
 (native thread-state)
 (native thread-state-abnormally-terminated-reason)
 (native thread-state-abnormally-terminated?)
-;;conflict;;(native thread-state-active-timeout)
-;;conflict;;(native thread-state-active-waiting-for)
-;;conflict;;(native thread-state-active?)
+(native thread-state-active-timeout)
+(native thread-state-active-waiting-for)
+(native thread-state-active?)
 (native thread-state-initialized?)
 (native thread-state-normally-terminated-result)
 (native thread-state-normally-terminated?)
@@ -1080,11 +1080,11 @@
 
 
 (native jazz:cpu-time <:fl>)
-;;conflict;;(native current-time)
+(native current-time)
 (native jazz:real-time <:fl>)
-;;conflict;;(native seconds->time)
-;;conflict;;(native time->seconds)
-;;conflict;;(native time?)
+(native seconds->time)
+(native time->seconds)
+(native time?)
 (native timeout->time)
 
 

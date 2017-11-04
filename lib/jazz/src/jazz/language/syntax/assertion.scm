@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.assertion gambit
+(module protected jazz.language.syntax.assertion scheme
 
 
 (export assert
@@ -43,6 +43,8 @@
         allege
         debug-assert
         debug-assertion)
+
+(import (gambit (only open-output-string get-output-string)))
 
 
 (define-syntax assert

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.enumeration gambit
+(module protected jazz.language.syntax.enumeration scheme
 
 
 (export enumeration)

@@ -36,12 +36,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.bind-keywords gambit
+(module protected jazz.language.syntax.bind-keywords scheme
 
 
 (export bind-keywords)
 
-(import (jazz.language.runtime.kernel))
+(import (gambit (only string->keyword))
+        (jazz.language.runtime.kernel))
 
 
 (native private jazz:last-tail)

@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.bind gambit
+(module protected jazz.language.syntax.bind scheme
 
 
 (export bind

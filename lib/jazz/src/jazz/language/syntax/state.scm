@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.state gambit
+(module protected jazz.language.syntax.state scheme
 
 
 (export state)

@@ -167,14 +167,14 @@
 ;;;
 
 
-;;conflict;;(native copy-file)
+(native copy-file)
 (native create-directory)
 (native create-fifo)
 (native create-link)
 (native create-symbolic-link)
 ;;conflict;;(native current-directory)
-;;conflict;;(native delete-directory)
-;;conflict;;(native delete-file)
+(native delete-directory)
+(native delete-file)
 (native directory-files)
 (native file-attributes)
 (native file-creation-time)
@@ -263,10 +263,10 @@
 ;;;
 
 
-;;conflict;;(native fl*)
-;;conflict;;(native fl+)
-;;conflict;;(native fl-)
-;;conflict;;(native fl/)
+(native fl*)
+(native fl+)
+(native fl-)
+(native fl/)
 (native fl<)
 (native fl<=)
 (native fl=)
@@ -749,7 +749,7 @@
 (native output-port-readtable-set!)
 (native output-port-timeout-set!)
 (native output-port-width)
-;;conflict;;(native pp)
+(native pp)
 (native pretty-print)
 ;;conflict;;(native print)
 (native println)
@@ -790,7 +790,7 @@
 
 (native exit)
 (native main)
-;;conflict;;(native open-process)
+(native open-process)
 (native process-pid)
 (native process-status)
 (native process-times)

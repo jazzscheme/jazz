@@ -478,19 +478,11 @@
     path-or-settings))
 
 
-(define (jazz:open-process path-or-settings)
-  (open-process path-or-settings)
-  #; ;; wait this seems to uncover a gambit bug
-  (open-process `(,@(jazz:->open-process-settings path-or-settings)
-                  ;; make #f the default
-                  show-console: #f)))
-
-
 (define (jazz:invoke-process path-or-settings)
-  (let ((port (jazz:open-process `(,@(jazz:->open-process-settings path-or-settings)
-                                   stdin-redirection: #f
-                                   stdout-redirection: #f
-                                   stderr-redirection: #f))))
+  (let ((port (open-process `(,@(jazz:->open-process-settings path-or-settings)
+                              stdin-redirection: #f
+                              stdout-redirection: #f
+                              stderr-redirection: #f))))
     (process-status port)))
 
 

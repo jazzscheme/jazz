@@ -709,13 +709,6 @@
 
 
 ;;;
-;;;; Parameters
-;;;
-
-
-
-
-;;;
 ;;;; Pathname
 ;;;
 
@@ -723,8 +716,6 @@
 (native jazz:pathname-type)
 (native jazz:pathname-expand)
 (native jazz:pathname-normalize)
-(native jazz:file-delete)
-(native jazz:file-copy)
 (native jazz:file-access-time)
 (native jazz:file-modification-time)
 (native jazz:file-modification-seconds)
@@ -962,7 +953,6 @@
 (native jazz:switch-name)
 (native jazz:command-argument)
 (native jazz:command-argument?)
-(native jazz:open-process)
 (native jazz:exit-no-jobs)
 (native jazz:exit-jobs)
 (native jazz:add-exit-job!)

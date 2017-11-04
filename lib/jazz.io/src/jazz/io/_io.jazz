@@ -44,14 +44,13 @@
 (hub context-alias?)
 (hub context-setup?)
 (hub copy-directory)
-(hub copy-file)
 (hub copy-times)
 (hub count-directories)
 (hub count-files)
 (hub create)
 (hub create-directories)
-(hub delete-directory)
-(hub delete-file)
+(hub delete)
+(hub duplicate)
 (hub empty-directory)
 (hub exists?)
 (hub expand)
@@ -871,6 +870,10 @@
 
   (method public virtual (create self)
     )
+  
+  
+  (method public virtual (delete self)
+    )
 
 
   (method public (move-pathname self dst (error?: error? #t))
@@ -1109,7 +1112,7 @@
 
 
 (definition public inline (pathname-delete pathname <Pathname>)
-  (file-delete (parse pathname)))
+  (delete-file (parse pathname)))
 
 
 (definition public inline (pathname-modification-seconds pathname <Pathname>)
@@ -1186,13 +1189,13 @@
       (file-times-set! dst (file-access-time src) (file-modification-time src))))
 
 
-  (method public (copy-file self dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (preserve-times?: preserve-times? #f) (feedback: feedback #f))
+  (method public (duplicate self dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (preserve-times?: preserve-times? #f) (feedback: feedback #f))
     (when feedback
       (feedback self))
     (overwrite-read-only dst overwrite-read-only?)
     (when (and overwrite? (exists? dst))
-      (delete-file dst))
-    (file-copy (parse self) (parse dst))
+      (delete dst))
+    (copy-file (parse self) (parse dst))
     (when preserve-times?
       (copy-times self dst)))
   
@@ -1203,7 +1206,7 @@
           (cond ((different-file-digests? self dst)
                  (when feedback
                    (feedback 'replacing self))
-                 (copy-file self dst preserve-times?: #t))
+                 (duplicate self dst preserve-times?: #t))
                 (else
                  (when feedback
                    (feedback 'touching self))
@@ -1211,14 +1214,14 @@
       (when feedback
         (feedback 'copying self))
       (create-directories dst)
-      (copy-file self dst preserve-times?: #t)))
+      (duplicate self dst preserve-times?: #t)))
   
   
-  (method public (delete-file self (overwrite-read-only?: overwrite-read-only? #f) (error?: error? #t))
+  (method override (delete self (overwrite-read-only?: overwrite-read-only? #f) (error?: error? #t))
     (if (not (exists? self))
         (and error? (error "Unable to delete inexistant file: {s}" self))
       (overwrite-read-only self overwrite-read-only?)
-      (file-delete (parse self))))
+      (delete-file (parse self))))
   
   
   (method package (overwrite-read-only self overwrite-read-only?)
@@ -1400,11 +1403,11 @@
           (proc temp)
           (set! completed? #t))
       (cond ((not completed?)
-             (delete-file temp error?: #f))
+             (delete temp error?: #f))
             ((exists? file)
              (move-pathname file back)
              (move-pathname temp file)
-             (delete-file back))
+             (delete back))
             (else
              (move-pathname temp file))))))
 
@@ -1510,7 +1513,7 @@
     (when feedback
       (feedback self))
     (when (and overwrite? (exists? dst))
-      (delete-directory dst overwrite-read-only?: overwrite-read-only?))
+      (delete dst overwrite-read-only?: overwrite-read-only?))
     (create-directories dst)
     (let ((destination
             (lambda (path)
@@ -1522,7 +1525,7 @@
                 (let ((dest (new File (destination path))))
                   (if copier
                       (copier path dest)
-                    (copy-file path dest preserve-times?: preserve-times? feedback: feedback)))
+                    (duplicate path dest preserve-times?: preserve-times? feedback: feedback)))
               (copy-directory path (new Directory (destination path)) feedback: feedback copy?: copy?))))
         files?: #t
         directories?: #t
@@ -1539,7 +1542,7 @@
                               ((File)
                                (when feedback
                                  (feedback 'copying left))
-                               (copy-file left (new-file dst-dir (get-name left)) preserve-times?: #t))
+                               (duplicate left (new-file dst-dir (get-name left)) preserve-times?: #t))
                               ((Directory)
                                (when feedback
                                  (feedback 'copying left))
@@ -1552,11 +1555,11 @@
                               ((File)
                                (when feedback
                                  (feedback 'deleting right))
-                               (delete-file right))
+                               (delete right))
                               ((Directory)
                                (when feedback
                                  (feedback 'deleting right))
-                               (delete-directory right)))))
+                               (delete right)))))
                          ((:same)
                           (when (or (not filter) (filter 'replace left))
                             (typecase left
@@ -1569,7 +1572,7 @@
                                     (cond ((different-file-digests? left right)
                                            (when feedback
                                              (feedback 'replacing left))
-                                           (copy-file left right preserve-times?: #t))
+                                           (duplicate left right preserve-times?: #t))
                                           (else
                                            (when feedback
                                              (feedback 'touching left))
@@ -1577,14 +1580,14 @@
                                  ((Directory)
                                   (when feedback
                                     (feedback 'replacing left))
-                                  (delete-directory right)
-                                  (copy-file left (new-file dst-dir (get-name left)) preserve-times?: #t))))
+                                  (delete right)
+                                  (duplicate left (new-file dst-dir (get-name left)) preserve-times?: #t))))
                               ((Directory)
                                (typecase right
                                  ((File)
                                   (when feedback
                                     (feedback 'replacing left))
-                                  (delete-file right)
+                                  (delete right)
                                   (let ((right (new-directory dst-dir (get-name left))))
                                     (create right)
                                     (merge-into left right (if force-feedback? feedback #f))))
@@ -1608,7 +1611,7 @@
       (merge-into self dst (if force-feedback? feedback #f))))
   
   
-  (method public virtual (delete-directory self (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
+  (method override (delete self (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
     (empty-directory self overwrite-read-only?: overwrite-read-only? feedback: feedback)
     (remove-directory self))
   
@@ -1617,8 +1620,8 @@
     (iterate-directory self
       (lambda (path)
         (if (is? path File)
-            (delete-file path overwrite-read-only?: overwrite-read-only?)
-          (delete-directory path overwrite-read-only?: overwrite-read-only? feedback: feedback)))
+            (delete path overwrite-read-only?: overwrite-read-only?)
+          (delete path overwrite-read-only?: overwrite-read-only? feedback: feedback)))
       files?: #t
       directories?: #t
       recursive?: #f))

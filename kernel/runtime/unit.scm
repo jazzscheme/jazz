@@ -187,12 +187,6 @@
 ;;;
 
 
-(define jazz:file-delete
-  delete-file)
-
-(define jazz:file-copy
-  copy-file)
-
 (define jazz:file-times-set!
   file-last-access-and-modification-times-set!)
 
@@ -761,8 +755,8 @@
       (begin
         (jazz:create-directories (jazz:repository-pathname jazz:Build-Repository dir))
         (if (file-exists? dst)
-            (jazz:file-delete dst))
-        (jazz:file-copy src dst)
+            (delete-file dst))
+        (copy-file src dst)
         (load-package)))))
 
 
@@ -1778,7 +1772,7 @@
                  (mutex-unlock! process-mutex)
                  port/echo))
               ((%%fx< active-count jobs)
-               (let ((process (jazz:open-process
+               (let ((process (open-process
                                 (list
                                   path: (jazz:install-path "jazz")
                                   arguments: `("-:daqQ-"

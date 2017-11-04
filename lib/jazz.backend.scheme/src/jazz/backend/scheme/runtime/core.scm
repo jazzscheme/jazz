@@ -497,12 +497,6 @@
 ;;;
 
 
-(define jazz:sharp/sharp/fl+ ##fl+)
-(define jazz:sharp/sharp/fl- ##fl-)
-(define jazz:sharp/sharp/fl* ##fl*)
-(define jazz:sharp/sharp/fl/ ##fl/)
-
-
 (define (jazz:flalloc)
   (##subtype-set! (%%f64vector .0) 30))
 

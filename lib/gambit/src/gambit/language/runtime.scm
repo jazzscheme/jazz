@@ -523,6 +523,12 @@
 ;;;
 
 
+(native address-infos)
+(native address-info-family)
+(native address-info-protocol)
+(native address-info-socket-info)
+(native address-info-socket-type)
+(native address-info?)
 (native err-code->string)
 (native host-info)
 (native host-info-addresses)
@@ -794,7 +800,6 @@
 (native open-process)
 (native process-pid)
 (native process-status)
-(native process-times)
 (native unterminated-process-exception-arguments)
 (native unterminated-process-exception-procedure)
 (native unterminated-process-exception?)
@@ -1079,9 +1084,10 @@
 ;;;
 
 
-(native jazz:cpu-time <:fl>)
+(native cpu-time <:fl>)
 (native current-time)
-(native jazz:real-time <:fl>)
+(native process-times)
+(native real-time <:fl>)
 (native seconds->time)
 (native time->seconds)
 (native time?)

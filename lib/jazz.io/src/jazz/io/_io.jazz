@@ -40,7 +40,7 @@
 
 (hub anchorize)
 (hub collect-files)
-(hub compare-pathname)
+(hub compare-parse)
 (hub context-alias?)
 (hub context-setup?)
 (hub copy-times)
@@ -49,8 +49,9 @@
 (hub create)
 (hub create-directories)
 (hub delete)
+(hub delete-empty)
 (hub duplicate)
-(hub empty-directory)
+(hub empty)
 (hub exists?)
 (hub expand)
 (hub follow-component)
@@ -69,9 +70,9 @@
 (hub get-file)
 (hub get-hidden?)
 (hub get-hierarchy)
+(hub get-last-modification-seconds)
+(hub get-last-modification-time)
 (hub get-list)
-(hub get-modification-seconds)
-(hub get-modification-time)
 (hub get-name)
 (hub get-parent)
 (hub get-path)
@@ -98,7 +99,6 @@
 (hub present-location)
 (hub present-name)
 (hub read-only?)
-(hub remove-directory)
 (hub rename)
 (hub save-binary)
 (hub save-lines)
@@ -583,8 +583,8 @@
 
 
 (definition public (different-file-times? file1 file2)
-  (different-times? (get-modification-time file1)
-                    (get-modification-time file2)))
+  (different-times? (get-last-modification-time file1)
+                    (get-last-modification-time file2)))
 
 
 (definition public (different-file-digests? file1 file2)
@@ -614,7 +614,7 @@
 (class Moniker metaclass Moniker-Class extends Object
   
   
-  (method public virtual (compare-pathname self object)
+  (method public virtual (compare-parse self object)
     #f)
   
   
@@ -676,11 +676,11 @@
     )
 
 
-  (method public virtual (get-modification-seconds self)
+  (method public virtual (get-last-modification-seconds self)
     )
 
 
-  (method public virtual (get-modification-time self)
+  (method public virtual (get-last-modification-time self)
     )
 
 
@@ -892,7 +892,7 @@
            :not-equal)))
   
   
-  (method override (compare-pathname self object)
+  (method override (compare-parse self object)
     (and (is? object Pathname)
          (filename=? (parse self) (parse object))))
   
@@ -1107,7 +1107,7 @@
 
 
 (definition public inline (pathname=? x <Moniker> y <Moniker>)
-  (compare-pathname x y))
+  (compare-parse x y))
 
 
 (definition public inline (pathname-exists? pathname <Pathname>)
@@ -1118,8 +1118,8 @@
   (delete-file (parse pathname)))
 
 
-(definition public inline (pathname-modification-seconds pathname <Pathname>)
-  (file-modification-seconds (parse pathname)))
+(definition public inline (pathname-last-modification-seconds pathname <Pathname>)
+  (file-last-modification-seconds (parse pathname)))
 
 
 (definition public (pathname-hash pathname <Pathname>)
@@ -1189,7 +1189,7 @@
   (method public (copy-times self dst)
     (let ((src (parse self))
           (dst (parse dst)))
-      (file-times-set! dst (file-access-time src) (file-modification-time src))))
+      (file-last-access-and-modification-times-set! dst (file-last-access-time src) (file-last-modification-time src))))
 
 
   (method override (duplicate self dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (preserve-times?: preserve-times? #f) (feedback: feedback #f))
@@ -1240,12 +1240,12 @@
       (get-size input)))
 
 
-  (method override (get-modification-seconds self)
-    (file-modification-seconds (parse self)))
+  (method override (get-last-modification-seconds self)
+    (file-last-modification-seconds (parse self)))
 
 
-  (method override (get-modification-time self)
-    (seconds->time (file-modification-seconds (parse self))))
+  (method override (get-last-modification-time self)
+    (seconds->time (file-last-modification-seconds (parse self))))
 
 
   (method public (set-modification-time self time)
@@ -1458,7 +1458,7 @@
     self)
 
 
-  (method override (get-modification-time self)
+  (method override (get-last-modification-time self)
     #f)
   
   
@@ -1474,7 +1474,7 @@
   
   
   (method override (create self)
-    (directory-create (parse self)))
+    (create-directory (parse self)))
   
   
   (method override (create-directories self)
@@ -1615,11 +1615,11 @@
   
   
   (method override (delete self (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
-    (empty-directory self overwrite-read-only?: overwrite-read-only? feedback: feedback)
-    (remove-directory self))
+    (empty self overwrite-read-only?: overwrite-read-only? feedback: feedback)
+    (delete-empty self))
   
   
-  (method public (empty-directory self (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
+  (method public (empty self (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
     (iterate-directory self
       (lambda (path)
         (if (is? path File)
@@ -1630,8 +1630,8 @@
       recursive?: #f))
   
   
-  (method public (remove-directory self)
-    (directory-delete (parse self)))
+  (method public (delete-empty self)
+    (delete-directory (parse self)))
   
   
   (method override (get-content self (nodes?: nodes? #t) (leaves?: leaves? #t))

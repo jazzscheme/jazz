@@ -482,7 +482,7 @@ c-end
             (define (setup-kernel)
               (if (and jazz:kernel-install (jazz:global-bound? '##set-gambitdir!))
                   (let ((gambitdir (jazz:absolutize-directory jazz:kernel-install jazz:gambit-dir)))
-                    (if (and gambitdir (jazz:directory-exists? gambitdir))
+                    (if (and gambitdir (file-exists? gambitdir))
                         (let ((setter (jazz:global-ref '##set-gambitdir!)))
                           (setter gambitdir)))))
               (set! ##allow-inner-global-define? #t)

@@ -716,17 +716,11 @@
 (native jazz:pathname-type)
 (native jazz:pathname-expand)
 (native jazz:pathname-normalize)
-(native jazz:file-access-time)
-(native jazz:file-modification-time)
-(native jazz:file-modification-seconds)
-(native jazz:file-times-set!)
-(native jazz:file-rename)
+(native jazz:file-last-modification-seconds)
 (native jazz:add-extension)
 (native jazz:current-directory)
 (native jazz:with-current-directory)
-(native jazz:directory-create)
 (native jazz:directory-content)
-(native jazz:directory-delete)
 
 
 ;;;

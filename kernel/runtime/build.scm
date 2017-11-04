@@ -446,7 +446,7 @@
       (define (kernel-seconds)
         (let ((version-file (kernel-file "version")))
           (if (file-exists? version-file)
-              (jazz:file-modification-seconds version-file)
+              (jazz:file-last-modification-seconds version-file)
             #f)))
       
       ;;;
@@ -595,7 +595,7 @@
           (let ((link-file (link-file)))
             (if (or rebuild?
                     (%%not (file-exists? link-file))
-                    (or (%%not kernel-seconds) (< (jazz:file-modification-seconds link-file) kernel-seconds))
+                    (or (%%not kernel-seconds) (< (jazz:file-last-modification-seconds link-file) kernel-seconds))
                     (touched?))
                 (let ((base-files `(,(kernel-file "syntax/verbose")
                                     ,(kernel-file "_architecture")
@@ -650,7 +650,7 @@
           
           (if (or rebuild?
                   (%%not (file-exists? (image-file)))
-                  (or (%%not kernel-seconds) (< (jazz:file-modification-seconds (image-file)) kernel-seconds))
+                  (or (%%not kernel-seconds) (< (jazz:file-last-modification-seconds (image-file)) kernel-seconds))
                   (touched?))
               (link-image))))
       

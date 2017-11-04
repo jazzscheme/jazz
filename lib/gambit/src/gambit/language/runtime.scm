@@ -200,6 +200,7 @@
 (native file-last-access-time)
 (native file-last-change-time)
 (native file-last-modification-time)
+(native file-last-access-and-modification-times-set!)
 (native file-mode)
 (native file-number-of-links)
 (native file-owner)

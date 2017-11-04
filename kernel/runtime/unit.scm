@@ -183,21 +183,6 @@
 
 
 ;;;
-;;;; Pathname
-;;;
-
-
-(define jazz:file-times-set!
-  file-last-access-and-modification-times-set!)
-
-(define jazz:directory-exists?
-  file-exists?)
-
-(define jazz:directory-create
-  create-directory)
-
-
-;;;
 ;;;; Marker
 ;;;
 
@@ -444,7 +429,7 @@
 
 (define (jazz:load-repository directory #!key (name #f) (error? #t))
   (define (load-repository directory)
-    (if (jazz:directory-exists? directory)
+    (if (file-exists? directory)
         (let ((repository-file (%%string-append directory jazz:Repository-Filename)))
           (if (file-exists? repository-file)
               (call-with-input-file (%%list path: repository-file eol-encoding: 'cr-lf)
@@ -487,7 +472,7 @@
 
 
 (define (jazz:install-repository-if-exists directory #!key (name #f))
-  (if (jazz:directory-exists? directory)
+  (if (file-exists? directory)
       (jazz:install-repository directory name: name)))
 
 
@@ -598,7 +583,7 @@
   (if jazz:Build-Repository
       (let ((library-directory (%%get-repository-library-directory jazz:Build-Repository)))
         (let ((package-directory (%%string-append library-directory (%%symbol->string name) "/")))
-          (if (jazz:directory-exists? package-directory)
+          (if (file-exists? package-directory)
               (begin
                 (jazz:feedback "; removing {a}..." name)
                 (if (%%not (jazz:dry-run?))
@@ -640,7 +625,7 @@
   (define (repository-discover-packages repository)
     (let ((table (%%get-repository-packages-table repository)))
       (define (discover-packages parent library-directory packages)
-        (if (jazz:directory-exists? library-directory)
+        (if (file-exists? library-directory)
             (let iter ((dirnames (jazz:directory-directories library-directory))
                        (packages packages))
                  (if (%%null? dirnames)
@@ -733,11 +718,11 @@
          (dst (jazz:repository-pathname jazz:Build-Repository path)))
     (define (updated-uptodate?)
       (if (file-exists? dst)
-          (if (= (jazz:file-modification-seconds src) (jazz:file-modification-seconds dst))
+          (if (= (jazz:file-last-modification-seconds src) (jazz:file-last-modification-seconds dst))
               #t
             (if (%%string=? (digest-file src 'SHA-1) (digest-file dst 'SHA-1))
                 (begin
-                  (jazz:file-times-set! dst (jazz:file-access-time src) (jazz:file-modification-time src))
+                  (file-last-access-and-modification-times-set! dst (file-last-access-time src) (file-last-modification-time src))
                   #t)
               #f))
         #f))
@@ -973,7 +958,7 @@
              (or (try-extension (%%car extensions))
                  (iter (%%cdr extensions))))))
     
-    (if (and (jazz:directory-exists? (jazz:package-root-pathname package path))
+    (if (and (file-exists? (jazz:package-root-pathname package path))
              ;; why was this arbitrary test necessary?
              #;
              (jazz:lower-case-unit-name? unit-name))
@@ -1027,7 +1012,7 @@
             (%%make-resource package path underscore? #f)
           #f))
       
-      (if (and (jazz:directory-exists? (jazz:package-root-pathname package path))
+      (if (and (file-exists? (jazz:package-root-pathname package path))
                (jazz:lower-case-unit-name? unit-name))
           (try (%%string-append path "/_" (jazz:pathname-name path)) #t)
         (try path #f)))
@@ -1217,10 +1202,10 @@
                    jazz:*binary-packages-cache*
                  jazz:*source-packages-cache*))
         (toplevel-dir (jazz:package-root-pathname package "")))
-    (if (jazz:directory-exists? toplevel-dir)
+    (if (file-exists? toplevel-dir)
         (for-each (lambda (first-part)
                     (let ((first-dir (string-append toplevel-dir first-part "/")))
-                      (if (jazz:directory-exists? first-dir)
+                      (if (file-exists? first-dir)
                           (let ((has-files? #f))
                             (for-each (lambda (second-part)
                                         (let ((second-path (%%string-append first-dir second-part)))

@@ -534,9 +534,6 @@
 ;;;
 
 
-(define jazz:directory-delete
-  delete-directory)
-
 (define (jazz:current-directory . rest)
   (if (%%null? rest)
       (let ((dir (current-directory)))

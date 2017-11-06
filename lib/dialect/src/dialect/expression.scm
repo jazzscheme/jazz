@@ -57,15 +57,45 @@
   #f)
 
 
-(jazz:define-method (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src)
-  (if (%%not (%%class-is? declaration jazz:Module-Declaration))
-      (jazz:walk-error walker resume declaration form-src "For now, proclaim can only be used at the module level")))
+(jazz:define-method (jazz:validate-proclaim (jazz:Walker walker) resume declaration form-src)
+  (%%unless (%%class-is? declaration jazz:Module-Declaration)
+    (jazz:walk-error walker resume declaration form-src "For now, proclaim can only be used at the module level")))
+
+
+(define (jazz:validate-proclaim-clauses walker resume declaration form-src clauses)
+  (define (ill-formed clause)
+    (jazz:walk-error "Ill-formed proclaim: {s}" walker resume declaration form-src clause))
+  
+  (define (parse-clause clause)
+    (or (jazz:parse-proclaim-clause clause)
+        (ill-formed clause)))
+  
+  (define (validate-clause clause)
+    (receive (value kind arguments) (parse-clause clause)
+      (case kind
+        ((warn)
+         (let ((warnings (if (%%null? arguments) jazz:all-warnings arguments)))
+           (for-each (lambda (warning)
+                       (%%unless (%%memq warning jazz:all-warnings)
+                         (jazz:walk-error "Unknown proclaim warning: {s}" warning)))
+                     warnings)))
+        ((generate)
+         (let ((generates (if (%%null? arguments) jazz:all-generates arguments)))
+           (for-each (lambda (generate)
+                       (%%unless (%%memq generate jazz:all-generates)
+                         (jazz:walk-error "Unknown proclaim generate: {s}" generate)))
+                     generates)))
+        (else
+         (ill-formed clause)))))
+  
+  (for-each validate-clause clauses))
 
 
 (define (jazz:walk-proclaim walker resume declaration environment form-src)
-  (jazz:validate-proclaim walker resume declaration environment form-src)
+  (jazz:validate-proclaim walker resume declaration form-src)
   (let ((form (%%desourcify form-src)))
     (let ((clauses (%%cdr form)))
+      (jazz:validate-proclaim-clauses walker resume declaration form-src clauses)
       (jazz:new-proclaim clauses))))
 
 

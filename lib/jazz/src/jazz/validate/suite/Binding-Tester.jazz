@@ -50,11 +50,13 @@
 
 
   (method override (test self)
-    (invoke self "Let" test-let)
-    (invoke self "Letrec" test-letrec)
-    (invoke self "With" test-with)
-    (invoke self "Bind" test-bind)
-    (invoke self "Function" test-function))
+    (invoke self "let" test-let)
+    (invoke self "let*" test-let*)
+    (invoke self "letrec" test-letrec)
+    (invoke self "receive" test-receive)
+    (invoke self "with" test-with)
+    (invoke self "bind" test-bind)
+    (invoke self "function" test-function))
   
   
   ;;;
@@ -63,6 +65,24 @@
 
 
   (method (test-let self)
+    (check (eq? 2 (let () 2)))
+    (check (procedure? (let (fn (arg 'val)) fn)))
+    (check (procedure? (let (fn) fn)))
+    (check (walk-failed? (let)))
+    (check (walk-failed? (let (()))))
+    (check (walk-failed? (let ((())))))
+    (check (walk-failed? (let ((a)))))
+    (check (walk-failed? (let ((a 1) (b a)) a)))
+    (check (walk-failed? (let 1)))
+    (check (walk-failed? (let ((fact (lambda (n)
+                                       (if (= 0 n)
+                                           1
+                                         (* n (fact (- n 1)))))))
+                           (fact 3))))
+    (check (let (opposite (bool #f))
+             (if bool 
+                 bool 
+               (opposite (not bool)))))
     (check (= (let ((x 2)) x) 2))
     (check (= (let ((x 2)) (+ x x)) 4))
     (check (= (let ((x 2) (y 3)) (+ x y y)) 8))
@@ -70,29 +90,34 @@
     (check (= (let ((x 2)) (set! x 3) x) 3))
     (check (= (let ((x #f) (y #f)) (set! x 2) (set! y 3) (+ x y)) 5))
     (check (= (let ((x 2)) (let ((x (+ x x))) x)) 4))
+    (check (walk-failed? (let ((x 2))
+                           (let ((y 3)))
+                           (+ x y)))))
   
-    @what-the-fuck
-    (check (equal? (reverse
-                        (let ((lst '()) (x 2))
-                          (set! lst (cons x lst))
-                          (let ((x 3))
-                            (set! lst (cons x lst))
-                            (let ((x 5))
-                              (set! lst (cons x lst)))
-                            (set! lst (cons x lst)))
-                          (set! lst (cons x lst)))
-                        (set! lst (cons x lst)))
-                      '(2 3 5 3 2)))
-    
-    @Interpreted
-    (begin
-      
-      @free-reporting-is-now-done-at-the-category-level
-      (check (error? (code-walk '(let ((x 2))
-                                      (let ((y 3)))
-                                      (+ x y))
-                                   self
-                                   '())))))
+  
+  ;;;
+  ;;;; Let*
+  ;;;
+  
+  
+  (method (test-let* self)
+    (check (walk-failed? (let*)))
+    (check (eq? 25 (let* ((fn (lambda (x) (* x x)))
+                          (val (fn 5)))
+                     val)))
+    (check (eq? 4 (let* ((a 2)
+                         (b (* a 2)))
+                    b)))
+    (check (walk-failed? (let* ((a b) (b 2)) b)))
+    (check (walk-failed? (let* ((fact (lambda (n)
+                                           (if (= 0 n)
+                                               1
+                                             (* n (fact (- n 1)))))))
+                              (fact 3))))
+    (check (equal? (let ((x 2) (y 3))
+                     (let* ((x 5) (y (+ x x)) (z (* x y)))
+                       (list x y z)))
+                   '(5 10 50))))
   
   
   ;;;
@@ -101,6 +126,14 @@
 
 
   (method (test-letrec self)
+    (check (walk-failed? (letrec)))
+    (check (unspecified? (letrec ((a 2) (b a)) b)))
+    (check (not (unspecified? (letrec ((a b) (b 2)) b))))
+    (check (= 6 (letrec ((fact (lambda (n)
+                                 (if (= 0 n)
+                                     1
+                                   (* n (fact (- n 1)))))))
+                  (fact 3))))
     (check (= (letrec ((fact
                             (lambda (n)
                               (if (= n 0)
@@ -108,13 +141,25 @@
                                 (* n (fact (- n 1)))))))
                    (fact 5))
                  120))
-    
-    @Interpreted
-    (begin
-      (check (error? ((lambda (x)
-                           (letrec ((x (+ x x)))
-                             x))
-                         3)))))
+    (check (error-occurred? ((lambda (x)
+                               (letrec ((x (+ x x)))
+                                 x))
+                             3))))
+  
+  
+  ;;;
+  ;;;; Receive
+  ;;;
+  
+  
+  (method (test-receive self)
+    (check (walk-failed? (receive)))
+    (check (walk-failed? (receive x 1 x)))
+    (check (eq? 1 (receive (x) 1 x)))
+    (check (error-occurred? (receive (x) (1) x)))
+    (check (list? (receive (x) '(1) x)))
+    (check (eq? -3 (receive (x y) (values 2 5) (- x y))))
+    (check (error-occurred? (receive (x y) '(2 5) (- x y)))))
   
   
   ;;;
@@ -132,12 +177,13 @@
 
 
   (method (test-bind self)
+    (check (error-occurred? (bind (a) 1)))
+    (check (error-occurred? (bind (a) (1))))
+    (check (error-occurred? (bind (a b) '(1))))
+    (check (walk-failed? (bind (a b) (list 1 a))))
+    (check (equal? '(2 3) (bind (first . rest) '(1 2 3) rest)))
     (check (= (bind (x y z) (list 1 2 3) (+ x y z)) 6))
-    
-    @Interpreted
-    (begin
-      
-      (check (error? (bind (x y) (list 1) (+ x y))))))
+    (check (error-occurred? (bind (x y) (list 1) (+ x y)))))
   
   
   ;;;

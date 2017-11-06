@@ -51,8 +51,7 @@
   
   (method override (test self)
     (invoke self #f test-language)
-    (invoke self #f test-binding)
-    (invoke self #f test-conditionals))
+    (invoke self #f test-predicates))
   
   
   ;;;
@@ -101,150 +100,12 @@
   
   
   ;;;
-  ;;;; Binding
+  ;;;; Predicates
   ;;;
   
   
-  (method (test-binding self)
-    ;; define
-    (define foo 1)
-    (define (bar) 1)
-    (check (walk-failed? (let () (define))))
-    (check (walk-failed? (let () (define a))))
-    (check (eq? foo 1))
-    (check (not (equal? 'foo 1)))
-    (check (procedure? bar))
-    (check (eq? (bar) 1))
-    (check (walk-failed? (let () (define (a 1)))))
-    (check (walk-failed? unresolved-symbol))
-    (check (walk-failed? (unresolved-symbol)))
-    
-    ;; define-macro
-    (check (walk-failed? (let () (define-macro))))
-    (check (walk-failed? (let () (define-macro a))))
-    
-    ;; let
-    (check (eq? 2 (let () 2)))
-    (check (procedure? (let (func (arg 'val)) func)))
-    (check (procedure? (let (func) func)))
-    (check (walk-failed? (let)))
-    (check (walk-failed? (let (()))))
-    (check (walk-failed? (let ((())))))
-    (check (walk-failed? (let ((a)))))
-    (check (walk-failed? (let ((a 1) (b a)) a)))
-    (check (walk-failed? (let 1)))
-    (check (walk-failed? (let ((fact (lambda (n)
-                                          (if (= 0 n)
-                                              1
-                                            (* n (fact (- n 1)))))))
-                              (fact 3))))
-    (check (let (opposite (bool #f))
-                (if bool 
-                    bool 
-                  (opposite (not bool)))))
-    
-    ;; let*
-    (check (walk-failed? (let*)))
-    (check (eq? 25 (let* ((func (lambda (x) (* x x)))
-                             (val (func 5)))
-                        val)))
-    (check (eq? 4 (let* ((a 2)
-                            (b (* a 2)))
-                       b)))
-    @not-failing
-    (check (walk-failed? (let* ())))
-    (check (walk-failed? (let* ((a b) (b 2)) b)))
-    (check (walk-failed? (let* ((fact (lambda (n)
-                                           (if (= 0 n)
-                                               1
-                                             (* n (fact (- n 1)))))))
-                              (fact 3))))
-    
-    ;; letrec
-    (check (walk-failed? (letrec)))
-    @this-error-is-not-trapped-by-gambit
-    (check (neq? 2 (letrec ((a 2) (b a)) b)))
-    @this-error-is-not-trapped-by-gambit
-    (check (not (walk-failed? (letrec ((a b) (b 2)) b))))
-    (check (eq? 6 (letrec ((fact (lambda (n)
-                                      (if (= 0 n)
-                                          1
-                                        (* n (fact (- n 1)))))))
-                       (fact 3))))
-    
-    ;; bind
-    @incorrectly-returns-no-error-when-compiled
-    (check (error-occurred? (bind (a) 1)))
-    @crashed-when-compiled
-    (check (error-occurred? (bind (a) (1))))
-    @incorrectly-returns-no-error-when-compiled
-    (check (error-occurred? (bind (a b) '(1))))
-    (check (walk-failed? (bind (a b) (list 1 a))))
-    (check (equal? '(2 3) (bind (first . rest) '(1 2 3) rest)))
-    
-    ;; receive
-    (check (walk-failed? (receive)))
-    (check (eq? 1 (receive (x) 1 x)))
-    @crashed-when-compiled
-    (check (error-occurred? (receive (x) (1) x)))
-    (check (list? (receive (x) '(1) x)))
-    (check (eq? -3 (receive (x y) (values 2 5) (- x y))))
-    (check (error-occurred? (receive (x y) '(2 5) (- x y))))
-    @wait-for-crash-proof-test-method
-    (begin 
-      (receive x 1 x))
-    
-    ;; set!
-    (check (walk-failed? (set!)))
-    (check (walk-failed? (set! test)))
-    (check (walk-failed? (set! 'test 3)))
-    (check (walk-failed? (set! foo 2 3)))
-    (check (not (walk-failed? (set! foo 10)))))
-  
-  
-  ;;;
-  ;;;; Conditionals
-  ;;;
-  
-  
-  (method (test-conditionals self)
-    ;; if
-    (check (walk-failed? (if)))
-    (check (walk-failed? (if #t)))
-    (check (eq? 1 (if #t 1 2)))
-    (check (eq? 3 (if #f 1 2 3)))
-    
-    ;; when
-    (check (walk-failed? (when)))
-    (check (eq? 2 (when #t 2)))
-    
-    ;; unless
-    (check (walk-failed? (unless)))
-    (check (eq? 2 (unless #f 2)))
-    
-    ;; cond
-    (check (walk-failed? (cond ())))
-    (check (walk-failed? (cond (else 1) (else 2))))
-    (check (walk-failed? (cond 1 2)))
-    
+  (method (test-predicates self)
     ;; equal?
     (check (error-occurred? (equal?)))
     (check (error-occurred? (equal? 'foo)))
-    (check (error-occurred? (equal? 'foo 'bar 'test)))
-    
-    ;; ecase
-    (check (walk-failed? (ecase)))
-    (check (walk-failed? (ecase 1
-                           (0 (display "zero"))
-                           (1 (display "one"))
-                           (2 (display "two")))))
-    
-    ;; typecase
-    (check (walk-failed? (typecase)))
-    (check (eq? 2 (typecase "Test string"
-                       ((List) 1)
-                       ((String) 2))))
-    (check (eq? 2 (typecase "Test string"
-                       ((List) 1)
-                       ((String) 2)
-                       ((String) 3)))))))
+    (check (error-occurred? (equal? 'foo 'bar 'test))))))

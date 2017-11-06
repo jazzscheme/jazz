@@ -2532,7 +2532,7 @@
 ;;;
 
 
-(jazz:define-method (jazz:validate-proclaim (jazz:Jazz-Walker walker) resume declaration environment form-src)
+(jazz:define-method (jazz:validate-proclaim (jazz:Jazz-Walker walker) resume declaration form-src)
   (if (and (%%not (%%class-is? declaration jazz:Module-Declaration))
            (%%not (%%class-is? declaration jazz:Category-Declaration)))
       (jazz:walk-error walker resume declaration form-src "For now, proclaim can only be used at the module or category level")))

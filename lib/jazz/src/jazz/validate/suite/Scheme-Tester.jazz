@@ -50,53 +50,18 @@
   
   
   (method (test-scheme self)
-    ;; define
-    (check (declaration-failed? (define)))
-    (check (declaration-failed? (define 2)))
-    (check (declaration-failed? (define (2))))
-    (check (declaration-failed? (define (a 2))))
-    
-    ;; define-macro
+    (invoke self "define" test-define)
+    (invoke self "define macro" test-define-macro)
     ;; define-special-form
     ;; special-form
     ;; cond-expand
-    ;; quote
-    ;; begin
-    
-    ;; lambda
-    (declaration-failed? (lambda))
-    (declaration-failed? (lambda (a 2)))
-    
-    ;; let
-    ;; let*
-    ;; letrec
     ;; let-macro
     ;; let-symbol
-    ;; receive
-    ;; set!
-    ;; and
-    ;; or
-    ;; if
-    ;; case
-    ;; cond
-    ;; do
     ;; delay
     ;; quasiquote
     ;; unspecific
     ;; reify-reference
     )
-
-  
-  @wait (
-  (method override (test self)
-    (invoke self #f test-scheme)
-    (invoke self #f test-define)
-    (invoke self #f test-let)
-    (invoke self #f test-letstar)
-    (invoke self #f test-named-let)
-    (invoke self #f test-do)
-    (invoke self #f test-and)
-    (invoke self #f test-or))
   
   
   ;;;
@@ -104,83 +69,31 @@
   ;;;
   
   
-  (define (fact n)
-    (define (fact n res)
-      (if (= n 1)
-          res
-        (fact (- n 1) (* res n))))
-    (fact n 1))
-  
-  
   (method (test-define self)
-    (check (= (fact 5) 120)))
+    (define foo 1)
+    (define (bar) 1)
+    
+    (check (declaration-failed? (define)))
+    (check (declaration-failed? (define 2)))
+    (check (declaration-failed? (define (2))))
+    (check (declaration-failed? (define (a 2))))
+    
+    (check (walk-failed? (let () (define))))
+    (check (walk-failed? (let () (define a))))
+    (check (eq? foo 1))
+    (check (not (equal? 'foo 1)))
+    (check (procedure? bar))
+    (check (eq? (bar) 1))
+    (check (walk-failed? (let () (define (a 1)))))
+    (check (walk-failed? unresolved-symbol))
+    (check (walk-failed? (unresolved-symbol))))
   
   
   ;;;
-  ;;;; Let
+  ;;;; Define Macro
   ;;;
   
   
-  (method (test-let self)
-    (check (= (let ((x 2) (y 3))
-                   (let* ((x 5) (y (+ x x)) (z (* x y)))
-                     (list x y z)))
-                 '(5 4 6))))
-  
-  
-  ;;;
-  ;;;; Let*
-  ;;;
-  
-  
-  (method (test-letstar self)
-    (check (= (let ((x 2) (y 3))
-                   (let* ((x 5) (y (+ x x)) (z (* x y)))
-                     (list x y z)))
-                 '(5 10 50))))
-  
-  
-  ;;;
-  ;;;; Named Let
-  ;;;
-  
-  
-  (method (test-named-let self)
-    (check (= (let ((sum 0))
-                   (let (iter (n 1))
-                     (when (/= n 5)
-                       (increase! sum n)
-                       (iter (+ n 1))))
-                   sum)
-                 10)))
-  
-  
-  ;;;
-  ;;;; Do
-  ;;;
-  
-  
-  (method (test-do self)
-    (check (= (do ((i 1 (+ i 1))
-                      (sum 0))
-                     ((= i 5) sum)
-                   (increase! sum i))
-                 10)))
-  
-  
-  ;;;
-  ;;;; And
-  ;;;
-  
-  
-  (method (test-and self)
-    (check (= (let ((x 2)) (and x (/ 6 x))) 3)))
-  
-  
-  ;;;
-  ;;;; Or
-  ;;;
-  
-  
-  (method (test-or self)
-    (check (= (let ((x 2)) (or #f x)) 2))))))
+  (method (test-define-macro self)
+    (check (walk-failed? (let () (define-macro))))
+    (check (walk-failed? (let () (define-macro a)))))))

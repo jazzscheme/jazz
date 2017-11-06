@@ -118,7 +118,7 @@
 (jazz:define-virtual-syntax (jazz:walk-form (jazz:Walker walker) resume declaration environment form))
 (jazz:define-virtual-syntax (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
 (jazz:define-virtual-syntax (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
-(jazz:define-virtual-syntax (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src))
+(jazz:define-virtual-syntax (jazz:validate-proclaim (jazz:Walker walker) resume declaration form-src))
 (jazz:define-virtual-syntax (jazz:runtime-export (jazz:Walker walker) declaration))
 (jazz:define-virtual-syntax (jazz:lookup-environment (jazz:Walker walker) resume declaration environment symbol-src symbol))
 (jazz:define-virtual-syntax (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))

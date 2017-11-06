@@ -50,24 +50,24 @@
 
 
   (method override (test self)
-    (invoke self "Quote" test-quote)
-    (invoke self "If" test-if)
-    (invoke self "When" test-when)
-    (invoke self "Unless" test-unless)
-    (invoke self "While" test-while)
-    (invoke self "Until" test-until)
-    (invoke self "For" test-for)
-    (invoke self "Begin" test-begin)
-    (invoke self "Prog1" test-prog1)
-    (invoke self "Cond" test-cond)
-    (invoke self "Case" test-case)
-    (invoke self "ECase" test-ecase)
-    (invoke self "Typecase" test-typecase)
-    (invoke self "And" test-and)
-    (invoke self "Or" test-or)
-    (invoke self "Set!" test-set!)
-    (invoke self "Increase!" test-increase!)
-    (invoke self "Decrease!" test-decrease!))
+    (invoke self "quote" test-quote)
+    (invoke self "if" test-if)
+    (invoke self "when" test-when)
+    (invoke self "unless" test-unless)
+    (invoke self "while" test-while)
+    (invoke self "until" test-until)
+    (invoke self "for" test-for)
+    (invoke self "begin" test-begin)
+    (invoke self "prog1" test-prog1)
+    (invoke self "cond" test-cond)
+    (invoke self "case" test-case)
+    (invoke self "ecase" test-ecase)
+    (invoke self "typecase" test-typecase)
+    (invoke self "and" test-and)
+    (invoke self "or" test-or)
+    (invoke self "set!" test-set!)
+    (invoke self "increase!" test-increase!)
+    (invoke self "decrease!" test-decrease!))
   
   
   ;;;
@@ -78,10 +78,8 @@
   (method (test-quote self)
     (check (equal? '(a b c) (list 'a 'b 'c)))
     
-    @Interpreted
-    (begin
-      (check (error? (code-walk '(quote) self '())))
-      (check (error? (code-walk '(quote a b c) self '())))))
+    (check (walk-failed? (quote)))
+    (check (walk-failed? (quote a b c))))
   
   
   ;;;
@@ -90,10 +88,11 @@
 
 
   (method (test-if self)
-    @Interpreted
-    (begin
-      (check (error? (code-walk '(if) self '())))
-      (check (error? (code-walk '(if #f) self '())))))
+    (check (walk-failed? (if)))
+    (check (walk-failed? (if #f)))
+    (check (walk-failed? (if #t)))
+    (check (eq? 1 (if #t 1 2)))
+    (check (eq? 3 (if #f 1 2 3))))
   
   
   ;;;
@@ -102,9 +101,10 @@
 
 
   (method (test-when self)
-    @Interpreted
-    (begin
-      (check (error? (code-walk '(when) self '())))))
+    (check (walk-failed? (when)))
+    (check (eq? 2 (when #t 2)))
+    (check (equal? (when (= 2 2) 5) 5))
+    (check (unspecified? (when (= 2 3) 5))))
   
   
   ;;;
@@ -113,11 +113,10 @@
   
 
   (method (test-unless self)
-    (check (= (foo self) 50))
-    @convert
-    (check (equal? (unless (= 2 2) 5) #f))
-    @convert
-    (check (equal? (unless (= 2 3) 5) 5)))
+    (check (walk-failed? (unless)))
+    (check (eq? 2 (unless #f 2)))
+    (check (equal? (unless (= 2 3) 5) 5))
+    (check (unspecified? (unless (= 2 2) 5))))
   
   
   ;;;
@@ -171,9 +170,10 @@
 
 
   (method (test-cond self)
-    @bad-scheme-syntax
-    (let ((v (cond)))
-      (check (not v)))
+    (check (walk-failed? (cond)))
+    (check (walk-failed? (cond ())))
+    (check (walk-failed? (cond (else 1) (else 2))))
+    (check (walk-failed? (cond 1 2)))
     (let ((x 2)
           (y 3))
       (check (= (cond ((= x 5) 7)
@@ -188,14 +188,13 @@
 
 
   (method (test-case self)
-    @bad-scheme-syntax
-    (let ((v (case 2)))
-      (check (not v)))
+    (check (walk-failed? (case)))
+    (check (walk-failed? (case 2)))
     (check (= (case 3
-                   ((5) 7)
-                   ((3) 8)
-                   (else 9))
-                 8)))
+                ((5) 7)
+                ((3) 8)
+                (else 9))
+              8)))
   
   
   ;;;
@@ -204,9 +203,12 @@
 
 
   (method (test-ecase self)
-    @bad-scheme-syntax
-    (let ((v (ecase 2)))
-      (check (not v)))
+    (check (walk-failed? (ecase)))
+    (check (walk-failed? (ecase 2)))
+    (check (walk-failed? (ecase 1
+                           (0 (display "zero"))
+                           (1 (display "one"))
+                           (2 (display "two")))))
     (let ((x 2)
           (y 3))
       (check (= (ecase 3
@@ -222,9 +224,15 @@
 
 
   (method (test-typecase self)
-    @bad-scheme-syntax
-    (let ((v (typecase 2)))
-      (check (not v)))
+    (check (walk-failed? (typecase)))
+    (check (walk-failed? (typecase 2)))
+    (check (eq? 2 (typecase "Test string"
+                       ((List) 1)
+                       ((String) 2))))
+    (check (eq? 2 (typecase "Test string"
+                       ((List) 1)
+                       ((String) 2)
+                       ((String) 3))))
     (check (= (typecase 3
                    ((Symbol) 7)
                    ((Number) 8)
@@ -242,7 +250,8 @@
     (check (equal? (and #t #f #t) #f))
     (check (equal? (and #t #t) #t))
     (check (equal? (and #f 2) #f))
-    (check (equal? (and 2 3 5) 5)))
+    (check (equal? (and 2 3 5) 5))
+    (check (equal? (let ((x 2)) (and x (/ 6 x))) 3)))
   
   
   ;;;
@@ -255,7 +264,8 @@
     (check (equal? (or #f #t #f) #t))
     (check (equal? (or #f #f) #f))
     (check (equal? (or #f #f (+ 2 3) #f) 5))
-    (check (equal? (or #f #f) #f)))
+    (check (equal? (or #f #f) #f))
+    (check (equal? (let ((x 2)) (or #f x)) 2)))
   
   
   ;;;
@@ -264,7 +274,11 @@
 
 
   (method (test-set! self)
-    )
+    (check (walk-failed? (set!)))
+    (check (walk-failed? (set! test)))
+    (check (walk-failed? (set! 'test 3)))
+    (check (walk-failed? (set! foo 2 3)))
+    (check (not (walk-failed? (set! foo 10)))))
   
   
   ;;;

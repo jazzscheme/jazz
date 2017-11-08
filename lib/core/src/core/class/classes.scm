@@ -71,7 +71,7 @@
 (jazz:define-virtual-syntax (jazz:emit-specifier (jazz:Type type)) #t)
 (jazz:define-virtual-syntax (jazz:emit-type (jazz:Type type) source-declaration environment backend) #t)
 (jazz:define-virtual-syntax (jazz:emit-test (jazz:Type type) value source-declaration environment backend) #t)
-(jazz:define-virtual-syntax (jazz:emit-check (jazz:Type type) value source-declaration environment backend) #t)
+(jazz:define-virtual-syntax (jazz:emit-cast (jazz:Type type) value source-declaration environment backend) #t)
 
 
 (jazz:define-macro (%%subtype? target type)

@@ -261,8 +261,8 @@
                   `((define (,unsafe-locator ,@signature-emit)
                       ,body-emit)
                     (define (,method-locator ,@signature-emit)
-                      ,@signature-casts
-                      (,unsafe-locator ,@(map jazz:get-lexical-binding-name (jazz:get-signature-positional unsafe-signature)))))
+                      ,@(jazz:add-signature-casts signature-casts
+                        `(,unsafe-locator ,@(map jazz:get-lexical-binding-name (jazz:get-signature-positional unsafe-signature))))))
                 `((define (,method-locator ,@signature-emit)
                     ,@(jazz:add-signature-casts signature-casts body-emit))))
             (,add-method-proc ,class-locator ',name ,method-locator)
@@ -287,9 +287,8 @@
            `(begin
               ,@(if body-emit
                     `((define (,method-locator ,@signature-emit)
-                        ,@signature-casts
                         (let ((nextmethod (%%get-method-node-next-implementation ,method-node-locator)))
-                          ,body-emit)))
+                          ,@(jazz:add-signature-casts signature-casts body-emit))))
                   '())
               (define ,method-node-locator
                 (,add-method-proc ,class-locator ',name
@@ -410,7 +409,7 @@
                              (jazz:new-code
                                `(let ,(map (lambda (parameter argument)
                                              `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
-                                               ,(jazz:emit-type-check argument (jazz:get-lexical-binding-type parameter) source-declaration environment backend)))
+                                               ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) source source-declaration environment backend)))
                                            (jazz:get-signature-positional signature)
                                            (%%cons object arguments))
                                   ,(jazz:sourcify-deep-if (jazz:desourcify-all (jazz:get-code-form body-code)) source))

@@ -2088,9 +2088,10 @@
     (%%string->symbol (get-output-string output))))
 
 
-(jazz:define-method (jazz:emit-check (jazz:Function-Type type) value source-declaration environment backend)
-  `(if (%%not (%%procedure? ,value))
-       (jazz:type-error ,value jazz:Procedure)))
+(jazz:define-method (jazz:emit-cast (jazz:Function-Type type) value source-declaration environment backend)
+  `(if (%%procedure? ,value)
+       ,value
+     (jazz:type-error ,value jazz:Procedure)))
 
 
 (define (jazz:only-positional-function-type? function-type)
@@ -2134,8 +2135,8 @@
   #t)
 
 
-(jazz:define-method (jazz:emit-check (jazz:Category-Type type) value source-declaration environment backend)
-  #f)
+(jazz:define-method (jazz:emit-cast (jazz:Category-Type type) value source-declaration environment backend)
+  value)
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Category-Type type))
@@ -2273,9 +2274,9 @@
     (%%string->symbol (%%string-append (%%symbol->string type-specifier) "+"))))
 
 
-(jazz:define-method (jazz:emit-check (jazz:Nillable-Type type) value source-declaration environment backend)
+(jazz:define-method (jazz:emit-cast (jazz:Nillable-Type type) value source-declaration environment backend)
   ;; for tests
-  #f)
+  value)
 
 
 ;;;
@@ -2307,8 +2308,8 @@
   'any)
 
 
-(jazz:define-method (jazz:emit-check (jazz:Any-Class type) value source-declaration environment backend)
-  #f)
+(jazz:define-method (jazz:emit-cast (jazz:Any-Class type) value source-declaration environment backend)
+  value)
 
 
 (jazz:define-class jazz:Any jazz:Type (metaclass: jazz:Any-Class)
@@ -2318,10 +2319,6 @@
 ;;;
 ;;;; Cast
 ;;;
-
-
-;; Todo: unify the 2 versions of both procedures, where the only
-;; difference is that we do not do the emit-check when in release
 
 ;; Really not sure what is the right place to put the jazz:resolve-type
 ;; As a first try lets put them here at every type check
@@ -2339,7 +2336,6 @@
     (cond ((or (%%not type)
                (%%eq? type jazz:Void)
                (%%subtype? code-type type))
-           #; ;; creates too many warnings due to loop generated casts
            (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
              (jazz:warning "Warning: In {a}{a}: Redundant cast"
                            (jazz:get-declaration-locator source-declaration)
@@ -2348,53 +2344,29 @@
           ((and (%%eq? type jazz:Flonum)
                 (%%subtype? code-type jazz:Fixnum))
            `(%%fixnum->flonum ,(jazz:sourcified-form code)))
-          ((%%eq? type jazz:Flonum)
-           ;; coded the flonum case here for now has it is the only castable type
-           (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
-             (jazz:warning "Warning: In {a}{a}: Untyped cast <fl>"
-                           (jazz:get-declaration-locator source-declaration)
-                           (jazz:present-expression-location (jazz:get-expression-source expression) #f)))
-           (let ((value (jazz:generate-symbol "val")))
-             `(let ((,value (let () ,(jazz:sourcified-form code))))
-                (if (%%fixnum? ,value)
-                    (%%fixnum->flonum ,value)
-                  ,value))))
           (else
            (if (jazz:get-generate? 'check)
                (let ((value (jazz:generate-symbol "val")))
                  `(let ((,value (let () ,(jazz:sourcified-form code))))
-                    ,(jazz:emit-check type value source-declaration environment backend)
-                    ,value))
+                    ,(jazz:emit-cast type value source-declaration environment backend)))
              (jazz:sourcified-form code))))))
 
 
-(define (jazz:emit-type-check code type source-declaration environment backend)
-  (if (jazz:get-generate? 'check)
-      (let ((code-type (jazz:resolve-type-safe (jazz:get-code-type code)))
-            (type (jazz:resolve-type-safe type)))
-        (if (or (%%not type) 
-                (%%eq? type jazz:Void)
-                (%%subtype? code-type type))
-            (jazz:sourcified-form code)
-          (let ((value (jazz:generate-symbol "val")))
-            `(let ((,value (let () ,(jazz:sourcified-form code))))
-               ,(jazz:emit-check type value source-declaration environment backend)
-               ,value))))
-    (jazz:sourcified-form code)))
-
-
-(define (jazz:emit-parameter-check code type source-declaration environment backend)
+(define (jazz:emit-parameter-cast code type source-declaration environment backend)
   (if (jazz:get-generate? 'check)
       (let ((type (jazz:resolve-type-safe type)))
         (if (or (%%not type) (%%eq? type jazz:Any) (%%object-class? type) (jazz:object-declaration? type))
             #f
           (let ((parameter (jazz:sourcified-form code)))
-            (jazz:emit-check type parameter source-declaration environment backend))))
+            (let ((cast (jazz:emit-cast type parameter source-declaration environment backend)))
+              (if cast
+                  (%%list parameter cast)
+                #f)))))
     #f))
 
 
-(define (jazz:emit-return-check code type source-declaration environment backend)
-  (jazz:emit-type-check code type source-declaration environment backend))
+(define (jazz:emit-return-cast code type expression source-declaration environment backend)
+  (jazz:emit-type-cast code type expression source-declaration environment backend))
 
 
 ;;;
@@ -5772,13 +5744,13 @@
     (define (process parameter)
       (let ((type (jazz:get-lexical-binding-type parameter)))
         (if (and type (%%neq? type jazz:Any) (jazz:emit-check? parameter))
-            (let ((check (jazz:emit-parameter-check (jazz:emit-binding-reference parameter source-declaration environment backend) type source-declaration environment backend)))
-              (if check
+            (let ((cast (jazz:emit-parameter-cast (jazz:emit-binding-reference parameter source-declaration environment backend) type source-declaration environment backend)))
+              (if cast
                   (begin
                     ;; optimize the by far more frequent case of signatures having no types
                     (if (%%not queue)
                         (set! queue (jazz:new-queue)))
-                    (jazz:enqueue queue check)))))))
+                    (jazz:enqueue queue cast)))))))
     
     (for-each process (jazz:get-signature-positional signature))
     (for-each process (jazz:get-signature-optional signature))
@@ -5791,8 +5763,7 @@
 (define (jazz:add-signature-casts signature-casts body-emit)
   (if (%%not signature-casts)
       `(,body-emit)
-    `(,@signature-casts
-      (let ()
+    `((let ,signature-casts
         ,body-emit))))
 
 

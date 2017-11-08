@@ -519,7 +519,7 @@
 (jazz:define-virtual (jazz:emit-specifier (jazz:Type type)))
 (jazz:define-virtual (jazz:emit-type (jazz:Type type) source-declaration environment backend))
 (jazz:define-virtual (jazz:emit-test (jazz:Type type) value source-declaration environment backend))
-(jazz:define-virtual (jazz:emit-check (jazz:Type type) value source-declaration environment backend))
+(jazz:define-virtual (jazz:emit-cast (jazz:Type type) value source-declaration environment backend))
 
 
 (jazz:define-method (jazz:of-type? (jazz:Type type) object)
@@ -555,10 +555,11 @@
     `(%%is? ,value ,locator)))
 
 
-(jazz:define-method (jazz:emit-check (jazz:Type type) value source-declaration environment backend)
+(jazz:define-method (jazz:emit-cast (jazz:Type type) value source-declaration environment backend)
   (let ((locator (jazz:emit-type type source-declaration environment backend)))
-    `(if (%%not ,(jazz:emit-test type value source-declaration environment backend))
-         (jazz:type-error ,value ,locator))))
+    `(if ,(jazz:emit-test type value source-declaration environment backend)
+         ,value
+       (jazz:type-error ,value ,locator))))
 
 
 ;; for bootstrapping the core methods of type
@@ -1220,6 +1221,15 @@
   `(%%flonum? ,value))
 
 
+(jazz:define-method (jazz:emit-cast (jazz:Flonum-Class type) value source-declaration environment backend)
+  (let ((locator (jazz:emit-type type source-declaration environment backend)))
+    `(if (%%flonum? ,value)
+         ,value
+       (if (%%fixnum? ,value)
+           (%%fixnum->flonum ,value)
+         (jazz:type-error ,value ,locator)))))
+
+
 (jazz:define-class-runtime jazz:Flonum)
 
 
@@ -1242,6 +1252,16 @@
 (jazz:define-method (jazz:emit-test (jazz:Flovec-Class type) value source-declaration environment backend)
   `(or (%%flonum? ,value)
        (%%f64vector? ,value)))
+
+
+(jazz:define-method (jazz:emit-cast (jazz:Flonum-Class type) value source-declaration environment backend)
+  (let ((locator (jazz:emit-type type source-declaration environment backend)))
+    `(if (or (%%flonum? ,value)
+             (%%f64vector? ,value))
+         ,value
+       (if (%%fixnum? ,value)
+           (%%fixnum->flonum ,value)
+         (jazz:type-error ,value ,locator)))))
 
 
 (jazz:define-class-runtime jazz:Flovec)

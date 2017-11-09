@@ -1254,7 +1254,7 @@
        (%%f64vector? ,value)))
 
 
-(jazz:define-method (jazz:emit-cast (jazz:Flonum-Class type) value source-declaration environment backend)
+(jazz:define-method (jazz:emit-cast (jazz:Flovec-Class type) value source-declaration environment backend)
   (let ((locator (jazz:emit-type type source-declaration environment backend)))
     `(if (or (%%flonum? ,value)
              (%%f64vector? ,value))

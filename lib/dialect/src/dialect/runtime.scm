@@ -2343,7 +2343,10 @@
            (jazz:sourcified-form code))
           ((and (%%eq? type jazz:Flonum)
                 (%%subtype? code-type jazz:Fixnum))
-           `(%%fixnum->flonum ,(jazz:sourcified-form code)))
+           (let ((code-emit (jazz:sourcified-form code)))
+             (if (%%fixnum? (jazz:source-code code-emit))
+                 (jazz:sourcify (%%fixnum->flonum (jazz:source-code code-emit)) code-emit)
+               `(%%fixnum->flonum ,(jazz:sourcified-form code)))))
           (else
            (if (jazz:get-generate? 'check)
                (let ((value (jazz:generate-symbol "val")))

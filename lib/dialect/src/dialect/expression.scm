@@ -264,7 +264,7 @@
 ;; #f -> no mismatch
 ;; #t -> mismatch at the call level
 ;; (arg ...) -> mismatched arguments
-(define (jazz:signature-mismatch arguments argument-types function-type)
+(define (jazz:signature-mismatch arguments argument-types function-type #!optional (implicit? #f))
   (let ((argcount (%%length argument-types))
         (mandatory (jazz:get-function-type-mandatory function-type))
         (positional (jazz:get-function-type-positional function-type))
@@ -288,10 +288,15 @@
                        (and (%%class-is? arg jazz:Constant)
                             (%%subtype? type jazz:Fixnum))
                      (%%subtype? type jazz:Fixnum)))
+                  ;; flonum
+                  ((%%eq? expect jazz:Flonum)
+                   (or (%%subtype? type jazz:Flonum)
+                       (and implicit? (%%subtype? type jazz:Fixnum))))
                   ;; flovec
                   ((%%eq? expect jazz:Flovec)
                    (or (%%subtype? type jazz:Flonum)
-                       (%%subtype? type jazz:F64Vector)))
+                       (%%subtype? type jazz:F64Vector)
+                       (and implicit? (%%subtype? type jazz:Fixnum))))
                   (else
                    (%%subtype? type expect)))))))
     

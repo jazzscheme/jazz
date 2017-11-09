@@ -373,13 +373,7 @@
         (or (jazz:emit-inlined-final-dispatch-call source method-declaration object-code others-codes declaration environment backend)
             (jazz:with-code-value object-code
               (lambda (code)
-                (let ((dispatch-code (jazz:emit-method-dispatch object-argument code source others-arguments others-codes method-declaration declaration environment backend)))
-                  (jazz:new-code
-                    `(,(jazz:sourcified-form dispatch-code)
-                      ,(jazz:sourcified-form code)
-                      ,@(jazz:codes-forms others-codes))
-                    (jazz:get-code-type dispatch-code)
-                    source)))))
+                (jazz:emit-method-dispatch object-argument code source others-arguments others-codes method-declaration declaration environment backend))))
       (let ((dv (jazz:register-variable declaration (%%string-append (%%symbol->string name) "!d") #f)))
         (let ((d (%%car dv)))
           (%%set-cdr! dv `(jazz:cache-dispatch ',name (lambda (d) (set! ,d d))))
@@ -868,12 +862,15 @@
                             (jazz:only-positional-function-type? type)
                             (jazz:typed-function-type? type)
                             (let ((types (jazz:codes-types arguments-codes)))
-                              (let ((mismatch (jazz:signature-mismatch arguments types type)))
+                              (let ((mismatch (jazz:signature-mismatch arguments types type #t)))
                                 (if (or (%%not mismatch)
                                         (%%not (jazz:get-generate? 'check)))
                                     (jazz:new-code
                                       (let ((locator (jazz:unsafe-locator locator)))
-                                        `(,locator ,@(jazz:codes-forms arguments-codes)))
+                                        `(,locator ,@(map (lambda (code type)
+                                                            (jazz:emit-implicit-cast code type #f declaration environment backend))
+                                                          arguments-codes
+                                                          (jazz:get-function-type-positional type))))
                                       (jazz:get-function-type-result type)
                                       #f)
                                   (begin
@@ -891,11 +888,14 @@
                             (jazz:only-positional-function-type? type)
                             (jazz:typed-function-type? type)
                             (let ((types (jazz:codes-types arguments-codes)))
-                              (let ((mismatch (jazz:signature-mismatch arguments types type)))
+                              (let ((mismatch (jazz:signature-mismatch arguments types type #t)))
                                 (if (or (%%not mismatch)
                                         (%%not (jazz:get-generate? 'check)))
                                     (jazz:new-code
-                                      `(,(jazz:get-lexical-binding-name binding) ,@(jazz:codes-forms arguments-codes))
+                                      `(,(jazz:get-lexical-binding-name binding) ,@(map (lambda (code type)
+                                                                                          (jazz:emit-implicit-cast code type #f declaration environment backend))
+                                                                                        arguments-codes
+                                                                                        (jazz:get-function-type-positional type)))
                                       (jazz:get-function-type-result type)
                                       #f)
                                   (begin

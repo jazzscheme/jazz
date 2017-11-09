@@ -2341,7 +2341,7 @@
                            (jazz:get-declaration-locator source-declaration)
                            (jazz:present-expression-location (jazz:get-expression-source expression) #f)))
            (jazz:sourcified-form code))
-          ((and (%%eq? type jazz:Flonum)
+          ((and (%%subtype? type jazz:Flonum)
                 (%%subtype? code-type jazz:Fixnum))
            (let ((code-emit (jazz:sourcified-form code)))
              (if (%%fixnum? (jazz:source-code code-emit))
@@ -2353,6 +2353,23 @@
                  `(let ((,value (let () ,(jazz:sourcified-form code))))
                     ,(jazz:emit-cast type value source-declaration environment backend)))
              (jazz:sourcified-form code))))))
+
+
+(define (jazz:emit-implicit-cast code type expression source-declaration environment backend)
+  (let ((code-type (jazz:resolve-type-safe (jazz:get-code-type code)))
+        (type (jazz:resolve-type-safe type)))
+    (cond ((or (%%not type)
+               (%%eq? type jazz:Void)
+               (%%subtype? code-type type))
+           (jazz:sourcified-form code))
+          ((and (%%subtype? type jazz:Flonum)
+                (%%subtype? code-type jazz:Fixnum))
+           (let ((code-emit (jazz:sourcified-form code)))
+             (if (%%fixnum? (jazz:source-code code-emit))
+                 (jazz:sourcify (%%fixnum->flonum (jazz:source-code code-emit)) code-emit)
+               `(%%fixnum->flonum ,(jazz:sourcified-form code)))))
+          (else
+           (jazz:sourcified-form code)))))
 
 
 (define (jazz:emit-parameter-cast code type source-declaration environment backend)

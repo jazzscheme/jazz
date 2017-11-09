@@ -776,44 +776,71 @@
       (let ((category-declaration (jazz:get-declaration-parent method-declaration)))
         (jazz:add-to-module-references source-declaration method-declaration)
         (let ((object-type (jazz:get-code-type object-code))
-              (object-cast (jazz:emit-type-cast object-code category-declaration operator-src source-declaration environment backend)))
-          (jazz:new-code
-            (case dispatch-type
-              ((final)
-               (let ((type (jazz:get-lexical-binding-type method-declaration))
-                     (implementation-locator (jazz:get-declaration-locator method-declaration)))
-                 (if (and jazz:debug-user?
-                          arguments
-                          ;; fail safe as this should never occur as inlined-call is before
-                          (%%neq? (jazz:get-method-declaration-expansion method-declaration) 'inline)
-                          ;; safe first iteration simplification
-                          (jazz:only-positional-function-type? type)
-                          (jazz:typed-function-type? type #t))
-                     (let ((types (jazz:codes-types arguments-codes)))
-                       (let ((mismatch (jazz:signature-mismatch (%%cons object-argument arguments) (%%cons object-type types) type)))
-                         (if (or (%%not mismatch)
-                                 (%%not (jazz:get-generate? 'check)))
-                             (let ((locator (jazz:unsafe-locator implementation-locator)))
-                               `(%%final-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,locator))
-                           (begin
-                             (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
-                               (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
-                                 (jazz:warning "Warning: In {a}{a}: Unmatched call to typed method {a}"
-                                               (jazz:get-declaration-locator declaration)
-                                               (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) operator-src)
-                                               (jazz:reference-name (jazz:get-declaration-locator declaration)))))
-                             `(%%final-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,implementation-locator)))))
-                   `(%%final-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,implementation-locator))))
-              ((class)
-               (let ((class-level-locator (%%compose-helper (jazz:get-declaration-locator category-declaration) 'level))
-                     (method-rank-locator (%%compose-helper (jazz:get-declaration-locator method-declaration) 'rank)))
-                 `(%%class-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,class-level-locator ,method-rank-locator)))
-              ((interface)
-               (let ((interface-rank-locator (%%compose-helper (jazz:get-declaration-locator category-declaration) 'rank))
-                     (method-rank-locator (%%compose-helper (jazz:get-declaration-locator method-declaration) 'rank)))
-                 `(%%interface-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,interface-rank-locator ,method-rank-locator))))
-            (jazz:call-return-type (jazz:get-lexical-binding-type method-declaration))
-            #f))))))
+              (object-cast (jazz:emit-type-cast object-code category-declaration operator-src source-declaration environment backend))
+              (return-type (jazz:call-return-type (jazz:get-lexical-binding-type method-declaration))))
+          (case dispatch-type
+            ((final)
+             (let ((type (jazz:get-lexical-binding-type method-declaration))
+                   (implementation-locator (jazz:get-declaration-locator method-declaration)))
+               (if (and jazz:debug-user?
+                        arguments
+                        ;; fail safe as this should never occur as inlined-call is before
+                        (%%neq? (jazz:get-method-declaration-expansion method-declaration) 'inline)
+                        ;; safe first iteration simplification
+                        (jazz:only-positional-function-type? type)
+                        (jazz:typed-function-type? type #t))
+                   (let ((types (jazz:codes-types arguments-codes)))
+                     (let ((mismatch (jazz:signature-mismatch (%%cons object-argument arguments) (%%cons object-type types) type #t)))
+                       (if (or (%%not mismatch)
+                               (%%not (jazz:get-generate? 'check)))
+                           (let ((locator (jazz:unsafe-locator implementation-locator))
+                                 (type (jazz:get-lexical-binding-type declaration)))
+                             (jazz:new-code
+                               `((%%final-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,locator)
+                                 ,(jazz:sourcified-form object-code)
+                                 ,@(map (lambda (code type)
+                                          (jazz:emit-implicit-cast code type #f declaration environment backend))
+                                        arguments-codes
+                                        (%%cdr (jazz:get-function-type-positional type))))
+                               return-type
+                               operator-src))
+                         (begin
+                           (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
+                             (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
+                               (jazz:warning "Warning: In {a}{a}: Unmatched call to typed method {a}"
+                                             (jazz:get-declaration-locator declaration)
+                                             (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) operator-src)
+                                             (jazz:reference-name (jazz:get-declaration-locator declaration)))))
+                           (jazz:new-code
+                             `((%%final-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,implementation-locator)
+                               ,(jazz:sourcified-form object-code)
+                               ,@(jazz:codes-forms arguments-codes))
+                             return-type
+                             operator-src)))))
+                 (jazz:new-code
+                   `((%%final-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,implementation-locator)
+                     ,(jazz:sourcified-form object-code)
+                     ,@(jazz:codes-forms arguments-codes))
+                   return-type
+                   operator-src))))
+            ((class)
+             (let ((class-level-locator (%%compose-helper (jazz:get-declaration-locator category-declaration) 'level))
+                   (method-rank-locator (%%compose-helper (jazz:get-declaration-locator method-declaration) 'rank)))
+               (jazz:new-code
+                 `((%%class-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,class-level-locator ,method-rank-locator)
+                   ,(jazz:sourcified-form object-code)
+                   ,@(jazz:codes-forms arguments-codes))
+                 return-type
+                 operator-src)))
+            ((interface)
+             (let ((interface-rank-locator (%%compose-helper (jazz:get-declaration-locator category-declaration) 'rank))
+                   (method-rank-locator (%%compose-helper (jazz:get-declaration-locator method-declaration) 'rank)))
+               (jazz:new-code
+                 `((%%interface-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,interface-rank-locator ,method-rank-locator)
+                   ,(jazz:sourcified-form object-code)
+                   ,@(jazz:codes-forms arguments-codes))
+                 return-type
+                 operator-src)))))))))
 
 
 (jazz:define-method (jazz:compose-declaration-locator (jazz:Method-Declaration declaration))

@@ -2345,7 +2345,7 @@
                 (%%subtype? code-type jazz:Fixnum))
            (let ((code-emit (jazz:sourcified-form code)))
              (if (%%fixnum? (jazz:source-code code-emit))
-                 (jazz:sourcify (%%fixnum->flonum (jazz:source-code code-emit)) code-emit)
+                 (jazz:sourcify-if (%%fixnum->flonum (jazz:source-code code-emit)) (jazz:get-code-source code))
                `(%%fixnum->flonum ,(jazz:sourcified-form code)))))
           (else
            (if (jazz:get-generate? 'check)

@@ -115,7 +115,7 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Declaration declaration) environment backend)
   (let ((value (jazz:get-define-declaration-value declaration)))
-    (let ((expression (jazz:emit-type-cast (jazz:emit-expression value declaration environment backend) (jazz:get-lexical-binding-type declaration) value declaration environment backend)))
+    (let ((expression (jazz:emit-type-cast (jazz:emit-expression value declaration environment backend) (jazz:get-lexical-binding-type declaration) (jazz:get-expression-source value) declaration environment backend)))
       (jazz:emit backend 'define declaration environment expression))))
 
 
@@ -422,7 +422,7 @@
                 (let ((signature-casts (jazz:emit-signature-casts signature declaration augmented-environment backend))
                       (unsafe-locator (jazz:unsafe-locator (jazz:get-declaration-locator declaration))))
                   (let ((call-expression `(,unsafe-locator ,@(map jazz:get-lexical-binding-name (jazz:get-signature-positional signature)))))
-                    (let ((call-body (jazz:simplify-begin (jazz:emit-return-cast (jazz:new-code call-expression (jazz:get-code-type body-code) #f) type expression declaration environment backend))))
+                    (let ((call-body (jazz:simplify-begin (jazz:emit-return-cast (jazz:new-code call-expression (jazz:get-code-type body-code) #f) type (jazz:get-expression-source expression) declaration environment backend))))
                       (jazz:new-code
                         (jazz:emit backend 'lambda expression declaration environment signature-emit signature-casts call-body)
                         (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
@@ -440,7 +440,7 @@
             (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
               (let ((signature-casts (and (jazz:get-generate? 'lambda-check) (jazz:emit-signature-casts signature declaration augmented-environment backend)))
                     (body-emit (jazz:emit backend 'begin expression declaration environment body-code)))
-                (let ((cast-body (jazz:simplify-begin (jazz:emit-return-cast (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type expression declaration environment backend))))
+                (let ((cast-body (jazz:simplify-begin (jazz:emit-return-cast (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type (jazz:get-expression-source expression) declaration environment backend))))
                   (jazz:new-code
                     (jazz:emit backend 'lambda expression declaration environment signature-emit signature-casts cast-body)
                     (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
@@ -532,7 +532,7 @@
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
                              (jazz:sourcify-deep-if
-                               `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) value declaration environment backend))
+                               `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) (jazz:get-expression-source value) declaration environment backend))
                                src))))
                        bindings
                        variables))
@@ -607,7 +607,7 @@
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
                              (jazz:sourcify-deep-if
-                               `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) value declaration environment backend))
+                               `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) (jazz:get-expression-source value) declaration environment backend))
                                src))))
                        bindings
                        (%%cdr variables)))
@@ -685,7 +685,7 @@
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
                              (jazz:sourcify-deep-if
-                               `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) value declaration environment backend))
+                               `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) (jazz:get-expression-source value) declaration environment backend))
                                src))))
                        bindings
                        variables))
@@ -754,7 +754,7 @@
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
                              (jazz:sourcify-deep-if
-                               `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) value declaration environment backend))
+                               `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) (jazz:get-expression-source value) declaration environment backend))
                                src))))
                        bindings
                        variables))

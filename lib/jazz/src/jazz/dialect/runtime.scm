@@ -76,7 +76,7 @@
                               (jazz:new-code
                                 `(let ,(map (lambda (parameter argument)
                                               `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
-                                                ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) value source-declaration environment backend)))
+                                                ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) (jazz:get-expression-source value) source-declaration environment backend)))
                                             (jazz:get-signature-positional signature)
                                             arguments)
                                    ,@(jazz:sourcify-list (jazz:get-code-form body-code) (jazz:get-expression-source call)))
@@ -111,10 +111,10 @@
              ;; safe first iteration simplification
              (jazz:only-positional-signature? (jazz:get-lambda-signature value))
              (jazz:typed-signature? (jazz:get-lambda-signature value)))
-        (let ((safe (jazz:emit-type-cast (jazz:emit-safe value declaration environment backend) type value declaration environment backend))
-              (unsafe (jazz:emit-type-cast (jazz:emit-unsafe value declaration environment backend) type value declaration environment backend)))
+        (let ((safe (jazz:emit-type-cast (jazz:emit-safe value declaration environment backend) type (jazz:get-expression-source value) declaration environment backend))
+              (unsafe (jazz:emit-type-cast (jazz:emit-unsafe value declaration environment backend) type (jazz:get-expression-source value) declaration environment backend)))
           (jazz:emit backend 'definition declaration environment safe unsafe))
-      (let ((expression (jazz:emit-type-cast (jazz:emit-expression value declaration environment backend) type value declaration environment backend)))
+      (let ((expression (jazz:emit-type-cast (jazz:emit-expression value declaration environment backend) type (jazz:get-expression-source value) declaration environment backend)))
         (jazz:emit backend 'definition declaration environment expression #f)))))
 
 
@@ -799,7 +799,7 @@
                                `((%%final-dispatch ,(jazz:emit-class-of category-declaration object-cast) ,locator)
                                  ,(jazz:sourcified-form object-code)
                                  ,@(map (lambda (code type)
-                                          (jazz:emit-implicit-cast code type #f declaration environment backend))
+                                          (jazz:emit-implicit-cast code type))
                                         arguments-codes
                                         (%%cdr (jazz:get-function-type-positional type))))
                                return-type
@@ -908,7 +908,7 @@
                (body-type (let ((type (jazz:get-lexical-binding-type declaration)))
                             (if (%%is? type jazz:Function-Type) (jazz:get-function-type-result type) jazz:Any)))
                (body-emit (and body (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
-                                      (jazz:emit-type-cast body-code body-type body declaration augmented-environment backend))))
+                                      (jazz:emit-type-cast body-code body-type (jazz:get-expression-source body) declaration augmented-environment backend))))
                (generate-unsafe? (and jazz:debug-user?
                                       ;; no need to emit unsafe and safe when inline because as the checks are not included
                                       ;; in the body it is possible to define the function itself with checks so it is safe

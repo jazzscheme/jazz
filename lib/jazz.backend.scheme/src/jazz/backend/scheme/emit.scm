@@ -438,7 +438,7 @@
   (jazz:emit-type-cast
     expression-emit
     type
-    expression
+    (jazz:get-expression-source expression)
     declaration
     environment
     backend))
@@ -868,7 +868,7 @@
                                     (jazz:new-code
                                       (let ((locator (jazz:unsafe-locator locator)))
                                         `(,locator ,@(map (lambda (code type)
-                                                            (jazz:emit-implicit-cast code type #f declaration environment backend))
+                                                            (jazz:emit-implicit-cast code type))
                                                           arguments-codes
                                                           (jazz:get-function-type-positional type))))
                                       (jazz:get-function-type-result type)
@@ -893,7 +893,7 @@
                                         (%%not (jazz:get-generate? 'check)))
                                     (jazz:new-code
                                       `(,(jazz:get-lexical-binding-name binding) ,@(map (lambda (code type)
-                                                                                          (jazz:emit-implicit-cast code type #f declaration environment backend))
+                                                                                          (jazz:emit-implicit-cast code type))
                                                                                         arguments-codes
                                                                                         (jazz:get-function-type-positional type)))
                                       (jazz:get-function-type-result type)

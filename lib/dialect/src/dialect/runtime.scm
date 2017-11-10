@@ -2338,6 +2338,7 @@
     (cond ((or (%%not type)
                (%%eq? type jazz:Void)
                (%%subtype? code-type type))
+           #; ;; too much at the moment
            (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
              (jazz:warning "Warning: In {a}{a}: Redundant cast"
                            (jazz:get-declaration-locator source-declaration)
@@ -2349,15 +2350,15 @@
              (if (%%fixnum? (jazz:source-code code-emit))
                  (jazz:sourcify-if (%%fixnum->flonum (jazz:source-code code-emit)) (jazz:get-code-source code))
                `(%%fixnum->flonum ,(jazz:sourcified-form code)))))
-          (else #; (%%eq? code-type jazz:Any) ;; WAIT
+          (else
+           #; ;; incompatible cast test
+           (%%unless (%%eq? code-type jazz:Any)
+             (pp (jazz:format "Casting {a} to incompatible type {a}" code-type type) (current-output-port)))
            (if (jazz:get-generate? 'check)
                (let ((value (jazz:generate-symbol "val")))
                  `(let ((,value (let () ,(jazz:sourcified-form code))))
                     ,(jazz:emit-cast type value source-declaration walker resume environment backend)))
-             (jazz:sourcified-form code)))
-          #; ;; WAIT
-          (else
-           (jazz:error "Casting {a} to incompatible type {a}" code-type type)))))
+             (jazz:sourcified-form code))))))
 
 
 (define (jazz:emit-implicit-cast code type)

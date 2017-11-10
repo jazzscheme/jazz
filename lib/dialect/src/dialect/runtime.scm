@@ -2282,9 +2282,15 @@
     (%%string->symbol (%%string-append (%%symbol->string type-specifier) "+"))))
 
 
+(jazz:define-method (jazz:emit-test (jazz:Nillable-Type type) value source-declaration walker resume environment backend)
+  `(or (%%not ,value)
+       ,(jazz:emit-test (jazz:get-nillable-type-type type) value source-declaration walker resume environment backend)))
+
+
 (jazz:define-method (jazz:emit-cast (jazz:Nillable-Type type) value source-declaration walker resume environment backend)
-  ;; for tests
-  value)
+  `(if ,(jazz:emit-test type value source-declaration walker resume environment backend)
+       ,value
+     (jazz:type-error ,value ',(jazz:emit-specifier type))))
 
 
 ;;;
@@ -2612,6 +2618,7 @@
 (jazz:add-primitive-type 'complex      jazz:Complex)
 (jazz:add-primitive-type 'real         jazz:Real)
 (jazz:add-primitive-type 'rational     jazz:Rational)
+(jazz:add-primitive-type 'integer      jazz:Integer)
 (jazz:add-primitive-type 'int          jazz:Integer)
 (jazz:add-primitive-type 'fx           jazz:Fixnum)
 (jazz:add-primitive-type 'fb           jazz:Fixbound)

@@ -556,10 +556,9 @@
 
 
 (jazz:define-method (jazz:emit-cast (jazz:Type type) value source-declaration walker resume environment backend)
-  (let ((locator (jazz:emit-type type source-declaration walker resume environment backend)))
-    `(if ,(jazz:emit-test type value source-declaration walker resume environment backend)
-         ,value
-       (jazz:type-error ,value ,locator))))
+  `(if ,(jazz:emit-test type value source-declaration walker resume environment backend)
+       ,value
+     (jazz:type-error ,value ',(jazz:emit-specifier type))))
 
 
 ;; for bootstrapping the core methods of type
@@ -1222,12 +1221,11 @@
 
 
 (jazz:define-method (jazz:emit-cast (jazz:Flonum-Class type) value source-declaration walker resume environment backend)
-  (let ((locator (jazz:emit-type type source-declaration walker resume environment backend)))
-    `(if (%%flonum? ,value)
-         ,value
-       (if (%%fixnum? ,value)
-           (%%fixnum->flonum ,value)
-         (jazz:type-error ,value ,locator)))))
+  `(if (%%flonum? ,value)
+       ,value
+     (if (%%fixnum? ,value)
+         (%%fixnum->flonum ,value)
+       (jazz:type-error ,value ',(jazz:emit-specifier type)))))
 
 
 (jazz:define-class-runtime jazz:Flonum)
@@ -1255,13 +1253,12 @@
 
 
 (jazz:define-method (jazz:emit-cast (jazz:Flovec-Class type) value source-declaration walker resume environment backend)
-  (let ((locator (jazz:emit-type type source-declaration walker resume environment backend)))
-    `(if (or (%%flonum? ,value)
-             (%%f64vector? ,value))
-         ,value
-       (if (%%fixnum? ,value)
-           (%%fixnum->flonum ,value)
-         (jazz:type-error ,value ,locator)))))
+  `(if (or (%%flonum? ,value)
+           (%%f64vector? ,value))
+       ,value
+     (if (%%fixnum? ,value)
+         (%%fixnum->flonum ,value)
+       (jazz:type-error ,value ',(jazz:emit-specifier type)))))
 
 
 (jazz:define-class-runtime jazz:Flovec)

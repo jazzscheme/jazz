@@ -293,6 +293,10 @@
     #f))
 
 
+(jazz:define-method (jazz:emit-specifier (jazz:Category-Declaration declaration))
+  (jazz:get-lexical-binding-name declaration))
+
+
 ;;;
 ;;;; Class-Declaration
 ;;;

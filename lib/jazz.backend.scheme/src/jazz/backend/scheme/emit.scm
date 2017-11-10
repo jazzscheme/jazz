@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-emit (definition (scheme backend) declaration environment expression unsafe-expression)
+(jazz:define-emit (definition (scheme backend) declaration walker resume environment expression unsafe-expression)
   (jazz:sourcify-deep-if
     (let ((locator (jazz:get-declaration-locator declaration)))
       (let ((unsafe-locator (and unsafe-expression (jazz:unsafe-locator locator))))
@@ -70,7 +70,7 @@
 ;;;
 
 
-(jazz:define-emit (generic (scheme backend) declaration environment signature-emit body-emit)
+(jazz:define-emit (generic (scheme backend) declaration walker resume environment signature-emit body-emit)
   (let ((generic-locator (jazz:get-declaration-locator declaration)))
     `(jazz:define-generic ,(%%cons generic-locator signature-emit)
        ,@(jazz:sourcified-form body-emit))))
@@ -81,7 +81,7 @@
 ;;;
 
 
-(jazz:define-emit (specific (scheme backend) declaration environment signature-emit body-emit)
+(jazz:define-emit (specific (scheme backend) declaration walker resume environment signature-emit body-emit)
   (let ((generic-declaration (jazz:get-specific-declaration-generic declaration)))
     (let ((generic-locator (jazz:get-declaration-locator generic-declaration))
           (modifier (if (jazz:get-specific-declaration-root? declaration) 'root 'child)))
@@ -94,7 +94,7 @@
 ;;;
 
 
-(jazz:define-emit (class (scheme backend) declaration environment)
+(jazz:define-emit (class (scheme backend) declaration walker resume environment)
   (let ((name (jazz:get-lexical-binding-name declaration))
         (locator (jazz:get-declaration-locator declaration))
         (ascendant-declaration (jazz:get-class-declaration-ascendant declaration))
@@ -108,14 +108,14 @@
                    (if (%%not (%%symbol? core-class))
                        (jazz:validate-core-class core-class declaration))
                    (let ((core-class-locator (if (%%symbol? core-class) core-class (%%get-category-identifier core-class)))
-                         (ascendant-access (if (%%not ascendant-declaration) #f (jazz:sourcified-form (jazz:emit-binding-reference ascendant-declaration declaration environment backend)))))
+                         (ascendant-access (if (%%not ascendant-declaration) #f (jazz:sourcified-form (jazz:emit-binding-reference ascendant-declaration declaration walker resume environment backend)))))
                      `((define ,locator ,core-class-locator)
                        (define ,level-locator (%%get-class-level ,locator))
                        (jazz:set-core-class-redefined ',name ',core-class-locator))))
                (let ((metaclass-declaration (jazz:get-category-declaration-metaclass declaration)))
-                 (let ((ascendant-access (jazz:emit-ascendant-access declaration environment backend)))
-                   (let ((metaclass-access (if (%%not metaclass-declaration) (if (%%not ascendant-access) 'jazz:Object-Class `(%%get-object-class ,ascendant-access)) (jazz:sourcified-form (jazz:emit-binding-reference metaclass-declaration declaration environment backend))))
-                         (interface-accesses (map (lambda (declaration) (jazz:sourcified-form (jazz:emit-binding-reference declaration declaration environment backend))) interface-declarations)))
+                 (let ((ascendant-access (jazz:emit-ascendant-access declaration walker resume environment backend)))
+                   (let ((metaclass-access (if (%%not metaclass-declaration) (if (%%not ascendant-access) 'jazz:Object-Class `(%%get-object-class ,ascendant-access)) (jazz:sourcified-form (jazz:emit-binding-reference metaclass-declaration declaration walker resume environment backend))))
+                         (interface-accesses (map (lambda (declaration) (jazz:sourcified-form (jazz:emit-binding-reference declaration declaration walker resume environment backend))) interface-declarations)))
                      `((define ,locator
                          ;; this is a quicky that needs to be well tought out
                          (if (jazz:global-bound? ',locator)
@@ -126,7 +126,7 @@
                (if (jazz:get-generate? 'register)
                    `((jazz:register-module-entry ',(jazz:get-lexical-binding-name toplevel-declaration) ',name ,locator))
                  '()))
-           ,@(jazz:emit-namespace-statements body declaration environment backend))
+           ,@(jazz:emit-namespace-statements body declaration walker resume environment backend))
         (jazz:get-declaration-source declaration)))))
 
 
@@ -135,14 +135,14 @@
 ;;;
 
 
-(jazz:define-emit (interface (scheme backend) declaration environment)
+(jazz:define-emit (interface (scheme backend) declaration walker resume environment)
   (let* ((name (jazz:get-lexical-binding-name declaration))
          (locator (jazz:get-declaration-locator declaration))
          (rank-locator (%%compose-helper locator 'rank))
          (ascendant-declarations (jazz:get-interface-declaration-ascendants declaration))
          (metaclass-declaration (jazz:get-category-declaration-metaclass declaration))
-         (metaclass-access (if (%%not metaclass-declaration) 'jazz:Interface (jazz:sourcified-form (jazz:emit-binding-reference metaclass-declaration declaration environment backend))))
-         (ascendant-accesses (map (lambda (declaration) (jazz:sourcified-form (jazz:emit-binding-reference declaration declaration environment backend))) ascendant-declarations))
+         (metaclass-access (if (%%not metaclass-declaration) 'jazz:Interface (jazz:sourcified-form (jazz:emit-binding-reference metaclass-declaration declaration walker resume environment backend))))
+         (ascendant-accesses (map (lambda (declaration) (jazz:sourcified-form (jazz:emit-binding-reference declaration declaration walker resume environment backend))) ascendant-declarations))
          (body (jazz:get-namespace-declaration-body declaration)))
     (jazz:sourcify-deep-if
       `(begin
@@ -154,7 +154,7 @@
              (if (jazz:get-generate? 'register)
                  `((jazz:register-module-entry ',(jazz:get-lexical-binding-name toplevel-declaration) ',name ,locator))
                '()))
-         ,@(jazz:emit-namespace-statements body declaration environment backend))
+         ,@(jazz:emit-namespace-statements body declaration walker resume environment backend))
       (jazz:get-declaration-source declaration))))
 
 
@@ -163,7 +163,7 @@
 ;;;
 
 
-(jazz:define-emit (slot (scheme backend) declaration environment initialize-emit)
+(jazz:define-emit (slot (scheme backend) declaration walker resume environment initialize-emit)
   (let* ((name (jazz:get-lexical-binding-name declaration))
          (locator (jazz:get-declaration-locator declaration))
          (class-declaration (jazz:get-declaration-parent declaration))
@@ -194,7 +194,7 @@
 ;;;
 
 
-(jazz:define-emit (property (scheme backend) declaration environment initialize-emit)
+(jazz:define-emit (property (scheme backend) declaration walker resume environment initialize-emit)
   (let* ((name (jazz:get-lexical-binding-name declaration))
          (locator (jazz:get-declaration-locator declaration))
          (class-declaration (jazz:get-declaration-parent declaration))
@@ -221,8 +221,8 @@
              '())
          (define ,slot-locator
            (jazz:add-property ,class-locator ',name ,initialize-locator ,allocate?
-             ,(fix-self (jazz:sourcified-form (jazz:emit-expression getter declaration environment backend)))
-             ,(fix-self (jazz:sourcified-form (jazz:emit-expression setter declaration environment backend)))))
+             ,(fix-self (jazz:sourcified-form (jazz:emit-expression getter declaration walker resume environment backend)))
+             ,(fix-self (jazz:sourcified-form (jazz:emit-expression setter declaration walker resume environment backend)))))
          (define ,offset-locator
            (%%get-slot-offset ,slot-locator))
          ,@(jazz:declaration-result))
@@ -234,7 +234,7 @@
 ;;;
 
 
-(jazz:define-emit (method (scheme backend) declaration environment signature-emit signature-casts body-emit unsafe-signature)
+(jazz:define-emit (method (scheme backend) declaration walker resume environment signature-emit signature-casts body-emit unsafe-signature)
   (let* ((name (jazz:get-lexical-binding-name declaration))
          (abstraction (jazz:get-method-declaration-abstraction declaration))
          (propagation (jazz:get-method-declaration-propagation declaration))
@@ -304,7 +304,7 @@
 ;;;
 
 
-(jazz:define-emit (with-self (scheme backend) expression declaration environment body-emit)
+(jazz:define-emit (with-self (scheme backend) expression declaration walker resume environment body-emit)
   (jazz:simplify-begin
     `(begin
        ,@(jazz:sourcified-form body-emit))))
@@ -315,7 +315,7 @@
 ;;;
 
 
-(jazz:define-emit (with-dynamic-self (scheme backend) expression declaration environment body-emit)
+(jazz:define-emit (with-dynamic-self (scheme backend) expression declaration walker resume environment body-emit)
   (jazz:simplify-begin
     `(begin
        ,@(jazz:sourcified-form body-emit))))
@@ -326,7 +326,7 @@
 ;;;
 
 
-(jazz:define-emit (dispatch-call (scheme backend) name source declaration environment object-argument object-code others-arguments others-codes)
+(jazz:define-emit (dispatch-call (scheme backend) name source declaration walker resume environment object-argument object-code others-arguments others-codes)
   (define (resolve-type object-code)
     (let ((object-type (jazz:patch-type-until-unification (jazz:get-code-type object-code))))
       (if (%%class-is? object-type jazz:Autoload-Declaration)
@@ -370,10 +370,10 @@
   
   (let ((method-declaration (lookup-method/warn object-code)))
     (if method-declaration
-        (or (jazz:emit-inlined-final-dispatch-call source method-declaration object-code others-codes declaration environment backend)
+        (or (jazz:emit-inlined-final-dispatch-call source method-declaration object-code others-codes declaration walker resume environment backend)
             (jazz:with-code-value object-code
               (lambda (code)
-                (jazz:emit-method-dispatch object-argument code source others-arguments others-codes method-declaration declaration environment backend))))
+                (jazz:emit-method-dispatch object-argument code source others-arguments others-codes method-declaration declaration walker resume environment backend))))
       (let ((dv (jazz:register-variable declaration (%%string-append (%%symbol->string name) "!d") #f)))
         (let ((d (%%car dv)))
           (%%set-cdr! dv `(jazz:cache-dispatch ',name (lambda (d) (set! ,d d))))
@@ -385,7 +385,7 @@
             source))))))
 
 
-(define (jazz:emit-inlined-final-dispatch-call source declaration object arguments source-declaration environment backend)
+(define (jazz:emit-inlined-final-dispatch-call source declaration object arguments source-declaration walker resume environment backend)
   ;; mostly copy/pasted and adapted from method declaration. need to unify the code
   (if (%%eq? (jazz:get-method-declaration-expansion declaration) 'inline)
       (receive (dispatch-type method-declaration) (jazz:method-dispatch-info declaration)
@@ -399,11 +399,11 @@
                      (jazz:with-annotated-frame (jazz:annotate-signature signature)
                        (lambda (frame)
                          (let ((augmented-environment (%%cons frame environment)))
-                           (let ((body-code (jazz:emit-expression body source-declaration augmented-environment backend)))
+                           (let ((body-code (jazz:emit-expression body source-declaration walker resume augmented-environment backend)))
                              (jazz:new-code
                                `(let ,(map (lambda (parameter argument)
                                              `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
-                                               ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) source source-declaration environment backend)))
+                                               ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) source source-declaration walker resume environment backend)))
                                            (jazz:get-signature-positional signature)
                                            (%%cons object arguments))
                                   ,(jazz:sourcify-deep-if (jazz:desourcify-all (jazz:get-code-form body-code)) source))
@@ -421,7 +421,7 @@
 ;;;
 
 
-(jazz:define-emit (dispatch-reference (scheme backend) name source declaration environment)
+(jazz:define-emit (dispatch-reference (scheme backend) name source declaration walker resume environment)
   (jazz:new-code
     `(lambda (object . rest)
        (apply (jazz:dispatch (jazz:class-of object) ',name) object rest))
@@ -434,12 +434,14 @@
 ;;;
 
 
-(jazz:define-emit (cast (scheme backend) expression declaration environment type expression-emit)
+(jazz:define-emit (cast (scheme backend) expression declaration walker resume environment type expression-emit)
   (jazz:emit-type-cast
     expression-emit
     type
     (jazz:get-expression-source expression)
     declaration
+    walker
+    resume
     environment
     backend))
 
@@ -449,7 +451,7 @@
 ;;;
 
 
-(jazz:define-emit (allocate (scheme backend) expression declaration environment class-emit values-emit)
+(jazz:define-emit (allocate (scheme backend) expression declaration walker resume environment class-emit values-emit)
   `(%%object ,(jazz:sourcified-form class-emit)
              ,@(jazz:codes-forms values-emit)))
 
@@ -459,7 +461,7 @@
 ;;;
 
 
-(jazz:define-emit (static (scheme backend) expression declaration environment static)
+(jazz:define-emit (static (scheme backend) expression declaration walker resume environment static)
   (%%car static))
 
 
@@ -510,7 +512,7 @@
 ;;;
 
 
-(jazz:define-emit (call (scheme backend) expression declaration environment)
+(jazz:define-emit (call (scheme backend) expression declaration walker resume environment)
   (let ((operator (jazz:get-call-operator expression))
         (arguments (jazz:get-call-arguments expression)))
     (let ((locator (if (%%class-is? operator jazz:Binding-Reference)
@@ -519,14 +521,14 @@
                              (jazz:get-declaration-locator binding)
                            #f))
                      #f))
-          (arguments-codes (jazz:emit-expressions arguments declaration environment backend)))
+          (arguments-codes (jazz:emit-expressions arguments declaration walker resume environment backend)))
       (jazz:sourcify-code
-        (or (jazz:emit-specialized-call operator locator arguments arguments-codes expression declaration environment backend)
-            (jazz:emit-new-call operator locator arguments arguments-codes declaration environment backend)
-            (jazz:emit-primitive-call operator locator arguments arguments-codes declaration environment backend)
-            (jazz:emit-inlined-call operator arguments-codes expression declaration environment backend)
-            (jazz:emit-unsafe-call operator locator arguments arguments-codes declaration environment backend)
-            (jazz:emit-call operator arguments arguments-codes declaration environment backend))
+        (or (jazz:emit-specialized-call operator locator arguments arguments-codes expression declaration walker resume environment backend)
+            (jazz:emit-new-call operator locator arguments arguments-codes declaration walker resume environment backend)
+            (jazz:emit-primitive-call operator locator arguments arguments-codes declaration walker resume environment backend)
+            (jazz:emit-inlined-call operator arguments-codes expression declaration walker resume environment backend)
+            (jazz:emit-unsafe-call operator locator arguments arguments-codes declaration walker resume environment backend)
+            (jazz:emit-call operator arguments arguments-codes declaration walker resume environment backend))
         (jazz:get-expression-source expression)))))
 
 
@@ -559,7 +561,7 @@
 ;;;
 
 
-(jazz:define-emit (new-call (scheme backend) operator locator arguments arguments-codes declaration environment)
+(jazz:define-emit (new-call (scheme backend) operator locator arguments arguments-codes declaration walker resume environment)
   (if (%%eq? locator 'jazz.language.runtime.kernel:new)
       (%%assert (%%pair? arguments)
         (let ((class-expression (%%car arguments)))
@@ -800,7 +802,7 @@
 (jazz:initialize-primitive-patterns)
 
 
-(jazz:define-emit (primitive-call (scheme backend) operator locator arguments arguments-codes declaration environment)
+(jazz:define-emit (primitive-call (scheme backend) operator locator arguments arguments-codes declaration walker resume environment)
   (if (%%not locator)
       #f
     (let ((patterns (jazz:get-primitive-patterns locator)))
@@ -849,7 +851,7 @@
 ;;;
 
 
-(jazz:define-emit (unsafe-call (scheme backend) operator locator arguments arguments-codes declaration environment)
+(jazz:define-emit (unsafe-call (scheme backend) operator locator arguments arguments-codes declaration walker resume environment)
   (and jazz:debug-user?
        (and (%%class-is? operator jazz:Binding-Reference)
             (let ((binding (jazz:get-binding-reference-binding operator)))
@@ -923,11 +925,11 @@
 ;;;
 
 
-(jazz:define-emit (definition-assignment (scheme backend) declaration source-declaration environment value-code)
+(jazz:define-emit (definition-assignment (scheme backend) declaration source-declaration walker resume environment value-code)
   (let ((locator (jazz:get-declaration-locator declaration)))
     `(set! ,locator ,(jazz:sourcified-form value-code))))
 
 
-(jazz:define-emit (slot-assignment (scheme backend) declaration source-declaration environment self value-code)
+(jazz:define-emit (slot-assignment (scheme backend) declaration source-declaration walker resume environment self value-code)
   (let ((offset-locator (%%compose-helper (jazz:get-declaration-locator declaration) 'offset)))
     `(%%object-set! ,(jazz:sourcified-form self) ,offset-locator ,(jazz:sourcified-form value-code)))))

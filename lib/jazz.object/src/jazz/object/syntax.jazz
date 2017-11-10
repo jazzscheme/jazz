@@ -73,7 +73,7 @@
     (set! nodes (cons node nodes)))
   
   
-  (method override (emit-declaration environment backend)
+  (method override (emit-declaration walker resume environment backend)
     (sourcify-deep-if
       `(begin)
       source))
@@ -83,7 +83,7 @@
     )
   
   
-  (method override (emit-binding-reference source-declaration environment backend)
+  (method override (emit-binding-reference source-declaration walker resume environment backend)
     (new-code
       `(list 'referencing 'hub ,(length nodes))
       Any
@@ -94,9 +94,9 @@
     
     (let ((object-argument (car arguments))
           (others-arguments (cdr arguments)))
-      (let ((object-code (emit-expression object-argument self environment backend))
-            (others-codes (emit-expressions others-arguments self environment backend)))
-        (emit backend 'hub name binding-src source-declaration environment object-code others-arguments others-codes)))
+      (let ((object-code (emit-expression object-argument self walker resume environment backend))
+            (others-codes (emit-expressions others-arguments self walker resume environment backend)))
+        (emit backend 'hub name binding-src source-declaration walker resume environment object-code others-arguments others-codes)))
     
     #;
     (new-code
@@ -162,12 +162,12 @@
       (set! self.signature signature)))
   
   
-  (method override (emit-declaration environment backend)
+  (method override (emit-declaration walker resume environment backend)
     (let ((class-reference (get-class (car (get-positional signature)))))
       (sourcify-deep-if
         ;; hack to put explicit locator here
         ;; should call the code walker instead
-        `(jazz.object:register-node ',hub-name ,(sourcified-form (emit-expression class-reference self environment backend)))
+        `(jazz.object:register-node ',hub-name ,(sourcified-form (emit-expression class-reference self walker resume environment backend)))
         source))))
 
 

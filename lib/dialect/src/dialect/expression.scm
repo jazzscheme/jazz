@@ -51,7 +51,7 @@
   (jazz:allocate-proclaim #f #f clauses))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Proclaim expression) declaration environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Proclaim expression) declaration walker resume environment backend)
   (let ((clauses (jazz:get-proclaim-clauses expression)))
     (for-each jazz:proclaim clauses))
   #f)
@@ -112,10 +112,10 @@
   (jazz:allocate-delay #f #f expression))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Delay expression) declaration environment backend)
-  (let ((expr (jazz:emit-expression (jazz:get-delay-expression expression) declaration environment backend)))
+(jazz:define-method (jazz:emit-expression (jazz:Delay expression) declaration walker resume environment backend)
+  (let ((expr (jazz:emit-expression (jazz:get-delay-expression expression) declaration walker resume environment backend)))
     (jazz:new-code
-      (jazz:emit backend 'delay expression declaration environment expr)
+      (jazz:emit backend 'delay expression declaration walker resume environment expr)
       jazz:Any
       #f)))
 
@@ -147,7 +147,7 @@
 
 
 (jazz:define-variable-override jazz:emit-specialized-call
-  (lambda (operator locator arguments arguments-codes call declaration environment backend)
+  (lambda (operator locator arguments arguments-codes call declaration walker resume environment backend)
     (if (%%not locator)
         #f
       (or (jazz:emit-specialized-locator locator arguments-codes environment backend)
@@ -188,7 +188,7 @@
                              (let ((function-type (jazz:get-lexical-binding-type specializer)))
                                (let ((mismatch (jazz:signature-mismatch arguments types function-type)))
                                  (if (%%not mismatch)
-                                     (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration environment backend)
+                                     (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration walker resume environment backend)
                                          (begin
                                            (jazz:add-to-module-references declaration specializer)
                                            (jazz:new-code
@@ -219,7 +219,7 @@
 
 
 (jazz:define-variable-override jazz:emit-new-call
-  (lambda (operator locator arguments arguments-codes declaration environment backend)
+  (lambda (operator locator arguments arguments-codes declaration walker resume environment backend)
     #f))
 
 
@@ -229,8 +229,8 @@
 
 
 (jazz:define-variable-override jazz:emit-primitive-call
-  (lambda (operator locator arguments arguments-codes declaration environment backend)
-    (jazz:emit backend 'primitive-call operator locator arguments arguments-codes declaration environment)))
+  (lambda (operator locator arguments arguments-codes declaration walker resume environment backend)
+    (jazz:emit backend 'primitive-call operator locator arguments arguments-codes declaration walker resume environment)))
 
 
 ;;;
@@ -239,10 +239,10 @@
 
 
 (jazz:define-variable-override jazz:emit-inlined-call
-  (lambda (operator arguments call declaration environment backend)
+  (lambda (operator arguments call declaration walker resume environment backend)
     (if (%%class-is? operator jazz:Binding-Reference)
         (let ((binding (jazz:get-binding-reference-binding operator)))
-          (jazz:emit-inlined-binding-call binding arguments call declaration environment backend))
+          (jazz:emit-inlined-binding-call binding arguments call declaration walker resume environment backend))
       #f)))
 
 
@@ -252,8 +252,8 @@
 
 
 (jazz:define-variable-override jazz:emit-unsafe-call
-  (lambda (operator locator arguments arguments-codes declaration environment backend)
-    (jazz:emit backend 'unsafe-call operator locator arguments arguments-codes declaration environment)))
+  (lambda (operator locator arguments arguments-codes declaration walker resume environment backend)
+    (jazz:emit backend 'unsafe-call operator locator arguments arguments-codes declaration walker resume environment)))
 
 
 ;;;
@@ -574,16 +574,16 @@
   (process-expr test (%%cons environment environment)))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:If expression) declaration environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:If expression) declaration walker resume environment backend)
   (let ((test (jazz:get-if-test expression))
         (yes (jazz:get-if-yes expression))
         (no (jazz:get-if-no expression)))
     (jazz:bind (yes-environment . no-environment) (jazz:branch-types test environment)
-      (let ((test (jazz:emit-expression test declaration environment backend))
-            (yes (jazz:emit-expression yes declaration yes-environment backend))
-            (no (and no (jazz:emit-expression no declaration no-environment backend))))
+      (let ((test (jazz:emit-expression test declaration walker resume environment backend))
+            (yes (jazz:emit-expression yes declaration walker resume yes-environment backend))
+            (no (and no (jazz:emit-expression no declaration walker resume no-environment backend))))
         (jazz:new-code
-          (jazz:emit backend 'if expression declaration environment test yes no)
+          (jazz:emit backend 'if expression declaration walker resume environment test yes no)
           (jazz:extend-type (jazz:get-code-type yes) (and no (jazz:get-code-type no)))
           (jazz:get-expression-source expression))))))
 
@@ -621,7 +621,7 @@
   (jazz:allocate-cond #f source clauses))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Cond expression) declaration environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Cond expression) declaration walker resume environment backend)
   (let ((clauses (jazz:get-cond-clauses expression)))
     (let ((clauses
             (let recurse ((clauses clauses)
@@ -633,8 +633,8 @@
                            (arrow? (%%cadr clause))
                            (body (%%cddr clause)))
                        (jazz:bind (yes-environment . no-environment) (jazz:branch-types test environment)
-                         (let ((test (and test (jazz:emit-expression test declaration environment backend)))
-                               (body (and body (jazz:emit-expression body declaration yes-environment backend))))
+                         (let ((test (and test (jazz:emit-expression test declaration walker resume environment backend)))
+                               (body (and body (jazz:emit-expression body declaration walker resume yes-environment backend))))
                            (let ((output
                                    `(,(if (%%not test)
                                           'else
@@ -652,7 +652,7 @@
                                          (else jazz:Any))))
                              (%%cons (%%cons output type) (recurse (%%cdr clauses) no-environment)))))))))))
       (jazz:new-code
-        (jazz:emit backend 'cond expression declaration environment (map car clauses))
+        (jazz:emit backend 'cond expression declaration walker resume environment (map car clauses))
         (jazz:extend-types (map cdr clauses))
         (jazz:get-expression-source expression)))))
 
@@ -689,16 +689,16 @@
   (jazz:allocate-case #f source target clauses))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Case expression) declaration environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Case expression) declaration walker resume environment backend)
   (let ((target (jazz:get-case-target expression))
         (clauses (jazz:get-case-clauses expression)))
-    (let ((target-emit (jazz:emit-expression target declaration environment backend))
+    (let ((target-emit (jazz:emit-expression target declaration walker resume environment backend))
           (clauses-emit (map (lambda (clause)
                                (let ((body (%%cdr clause)))
-                                 (jazz:emit-expression body declaration environment backend)))
+                                 (jazz:emit-expression body declaration walker resume environment backend)))
                              clauses)))
       (jazz:new-code
-        (jazz:emit backend 'case expression declaration environment target-emit clauses clauses-emit)
+        (jazz:emit backend 'case expression declaration walker resume environment target-emit clauses clauses-emit)
         (jazz:extend-types (map (lambda (emited-clause)
                                   (jazz:get-code-type emited-clause))
                                 clauses-emit))
@@ -728,7 +728,7 @@
   (jazz:allocate-and #f source expressions))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:And expression) declaration environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:And expression) declaration walker resume environment backend)
   (let ((expressions
           (let recurse ((expressions (jazz:get-and-expressions expression))
                         (environment environment))
@@ -736,7 +736,7 @@
                    '()
                  (let ((expression (%%car expressions)))
                    (jazz:bind (yes-environment . no-environment) (jazz:branch-types expression environment)
-                     (let ((code (jazz:emit-expression expression declaration environment backend)))
+                     (let ((code (jazz:emit-expression expression declaration walker resume environment backend)))
                        (%%cons code (recurse (%%cdr expressions) yes-environment)))))))))
     (let ((type (cond ((%%null? expressions) jazz:Any)
                       ((%%null? (%%cdr expressions)) (jazz:get-code-type (%%car expressions)))
@@ -745,7 +745,7 @@
                                   jazz:Any
                                 (jazz:new-nillable-type last-type)))))))
       (jazz:new-code
-        (jazz:emit backend 'and expression declaration environment expressions)
+        (jazz:emit backend 'and expression declaration walker resume environment expressions)
         type
         (jazz:get-expression-source expression)))))
 
@@ -771,7 +771,7 @@
   (jazz:allocate-or #f source expressions))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Or expression) declaration environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Or expression) declaration walker resume environment backend)
   (let ((expressions
           (let recurse ((expressions (jazz:get-or-expressions expression))
                         (environment environment))
@@ -779,7 +779,7 @@
                    '()
                  (let ((expression (%%car expressions)))
                    (jazz:bind (yes-environment . no-environment) (jazz:branch-types expression environment)
-                     (let ((code (jazz:emit-expression expression declaration environment backend)))
+                     (let ((code (jazz:emit-expression expression declaration walker resume environment backend)))
                        (%%cons code (recurse (%%cdr expressions) no-environment)))))))))
     (let ((type (cond ((%%null? expressions) jazz:Any)
                       ((%%null? (%%cdr expressions)) (jazz:get-code-type (%%car expressions)))
@@ -793,7 +793,7 @@
                                   last-type
                                 jazz:Any))))))
       (jazz:new-code
-        (jazz:emit backend 'or expression declaration environment expressions)
+        (jazz:emit backend 'or expression declaration walker resume environment expressions)
         type
         (jazz:get-expression-source expression)))))
 
@@ -819,9 +819,9 @@
   (jazz:allocate-declare #f #f declarations))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Declare expression) declaration environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Declare expression) declaration walker resume environment backend)
   (jazz:new-code
-    (jazz:emit backend 'declare expression declaration environment)
+    (jazz:emit backend 'declare expression declaration walker resume environment)
     jazz:Any
     #f))
 
@@ -844,11 +844,11 @@
   (jazz:allocate-parameterize #f #f bindings body))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Parameterize expression) declaration environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Parameterize expression) declaration walker resume environment backend)
   (let ((body (jazz:get-parameterize-body expression)))
-    (let ((body-code (jazz:emit-expression body declaration environment backend)))
+    (let ((body-code (jazz:emit-expression body declaration walker resume environment backend)))
       (jazz:new-code
-        (jazz:emit backend 'parameterize expression declaration environment body-code)
+        (jazz:emit backend 'parameterize expression declaration walker resume environment body-code)
         (jazz:get-code-type body-code)
         #f))))
 

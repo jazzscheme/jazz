@@ -43,14 +43,14 @@
 ;;;
 
 
-(jazz:define-emit (module (scheme backend) declaration environment)
-  (let ((body-expansion (jazz:emit-namespace-statements (jazz:get-namespace-declaration-body declaration) declaration environment backend))
-        (inclusions-expansion (jazz:emit-module-inclusions declaration backend))
-        (literals-expansion (jazz:emit-module-literals declaration backend))
-        (variables-expansion (jazz:emit-module-variables declaration backend))
-        (statics-expansion (jazz:emit-module-statics declaration backend))
-        (autoloads-expansion (jazz:emit-module-autoloads declaration environment backend))
-        (registration-expansion (jazz:emit-module-registration declaration environment backend)))
+(jazz:define-emit (module (scheme backend) declaration walker resume environment)
+  (let ((body-expansion (jazz:emit-namespace-statements (jazz:get-namespace-declaration-body declaration) declaration walker resume environment backend))
+        (inclusions-expansion (jazz:emit-module-inclusions declaration walker resume environment backend))
+        (literals-expansion (jazz:emit-module-literals declaration walker resume environment backend))
+        (variables-expansion (jazz:emit-module-variables declaration walker resume environment backend))
+        (statics-expansion (jazz:emit-module-statics declaration walker resume environment backend))
+        (autoloads-expansion (jazz:emit-module-autoloads declaration walker resume environment backend))
+        (registration-expansion (jazz:emit-module-registration declaration walker resume environment backend)))
     `(begin
        ,@(case (jazz:walk-for)
            ((eval) '())
@@ -99,7 +99,7 @@
 ;;;
 
 
-(jazz:define-emit (declare (scheme backend) expression declaration environment)
+(jazz:define-emit (declare (scheme backend) expression declaration walker resume environment)
   (let ((declarations (jazz:get-declare-declarations expression)))
     `(declare ,@declarations)))
 
@@ -109,7 +109,7 @@
 ;;;
 
 
-(jazz:define-emit (proclaim (scheme backend) expression declaration environment)
+(jazz:define-emit (proclaim (scheme backend) expression declaration walker resume environment)
   #f)
 
 
@@ -118,7 +118,7 @@
 ;;;
 
 
-(jazz:define-emit (specialize (scheme backend) expression declaration environment)
+(jazz:define-emit (specialize (scheme backend) expression declaration walker resume environment)
   `(begin))
 
 
@@ -127,7 +127,7 @@
 ;;;
 
 
-(jazz:define-emit (begin (scheme backend) expression declaration environment code)
+(jazz:define-emit (begin (scheme backend) expression declaration walker resume environment code)
   `(begin ,@(jazz:sourcified-form code)))
 
 
@@ -136,7 +136,7 @@
 ;;;
 
 
-(jazz:define-emit (autoload-reference (scheme backend) declaration environment referenced-declaration)
+(jazz:define-emit (autoload-reference (scheme backend) declaration walker resume environment referenced-declaration)
   `(,(jazz:autoload-locator referenced-declaration)))
 
 
@@ -160,7 +160,7 @@
   (jazz:get-lexical-binding-name binding))
 
 
-(jazz:define-emit (variable-reference (scheme backend) binding source-declaration environment)
+(jazz:define-emit (variable-reference (scheme backend) binding source-declaration walker resume environment)
   (jazz:emit-binding-symbol binding source-declaration environment backend))
 
 
@@ -182,7 +182,7 @@
 ;;;
 
 
-(jazz:define-emit (call (scheme backend) expression declaration environment)
+(jazz:define-emit (call (scheme backend) expression declaration walker resume environment)
   #f)
 
 
@@ -214,10 +214,10 @@
 ;;;
 
 
-(jazz:define-emit (define-assignment (scheme backend) declaration source-declaration environment value-code)
+(jazz:define-emit (define-assignment (scheme backend) declaration source-declaration walker resume environment value-code)
   (let ((locator (jazz:get-declaration-locator declaration)))
     `(set! ,locator ,(jazz:sourcified-form value-code))))
 
 
-(jazz:define-emit (variable-assignment (scheme backend) binding source-declaration environment binding-code value-code)
+(jazz:define-emit (variable-assignment (scheme backend) binding source-declaration walker resume environment binding-code value-code)
   `(set! ,binding-code ,(jazz:sourcified-form value-code))))

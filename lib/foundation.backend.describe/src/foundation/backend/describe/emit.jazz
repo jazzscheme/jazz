@@ -46,7 +46,7 @@
 ;;;
 
 
-(define-emit (module (describe backend) declaration environment)
+(define-emit (module (describe backend) declaration walker resume environment)
   (let ((name (get-name declaration))
         (dialect-name (get-dialect-name declaration))
         (body-expansion (emit-namespace-statements (get-body declaration) declaration environment backend)))
@@ -59,7 +59,7 @@
 ;;;
 
 
-(define-emit (declare (describe backend) expression declaration environment)
+(define-emit (declare (describe backend) expression declaration walker resume environment)
   (let ((declarations (get-declarations expression)))
     `(declare ,@declarations)))
 
@@ -69,7 +69,7 @@
 ;;;
 
 
-(define-emit (proclaim (describe backend) expression declaration environment)
+(define-emit (proclaim (describe backend) expression declaration walker resume environment)
   #f)
 
 
@@ -78,7 +78,7 @@
 ;;;
 
 
-(define-emit (begin (describe backend) expression declaration environment code)
+(define-emit (begin (describe backend) expression declaration walker resume environment code)
   `(begin ,@(sourcified-form code)))
 
 
@@ -87,7 +87,7 @@
 ;;;
 
 
-(define-emit (lambda (describe backend) expression declaration environment signature-emit signature-casts cast-body)
+(define-emit (lambda (describe backend) expression declaration walker resume environment signature-emit signature-casts cast-body)
   `(lambda ,signature-emit
      ,cast-body))
 
@@ -97,7 +97,7 @@
 ;;;
 
 
-(define-emit (let (describe backend) expression declaration environment bindings-output body-code)
+(define-emit (let (describe backend) expression declaration walker resume environment bindings-output body-code)
   `(let ,bindings-output
      ,@(sourcified-form body-code)))
 
@@ -107,7 +107,7 @@
 ;;;
 
 
-(define-emit (named-let (describe backend) expression declaration environment variable-emit bindings-output body-code)
+(define-emit (named-let (describe backend) expression declaration walker resume environment variable-emit bindings-output body-code)
   `(let ,variable-emit ,bindings-output
      ,@(sourcified-form body-code)))
 
@@ -117,7 +117,7 @@
 ;;;
 
 
-(define-emit (letstar (describe backend) expression declaration environment bindings-output body-code)
+(define-emit (letstar (describe backend) expression declaration walker resume environment bindings-output body-code)
   `(let* ,bindings-output
      ,@(sourcified-form body-code)))
 
@@ -127,7 +127,7 @@
 ;;;
 
 
-(define-emit (letrec (describe backend) expression declaration environment bindings-output body-code)
+(define-emit (letrec (describe backend) expression declaration walker resume environment bindings-output body-code)
   `(letrec ,bindings-output
      ,@(sourcified-form body-code)))
 
@@ -137,7 +137,7 @@
 ;;;
 
 
-(define-emit (receive (describe backend) expression declaration environment bindings-output expression-output body-code)
+(define-emit (receive (describe backend) expression declaration walker resume environment bindings-output expression-output body-code)
   `(receive ,bindings-output
        ,expression-output
      ,@(sourcified-form body-code)))
@@ -148,7 +148,7 @@
 ;;;
 
 
-(define-emit (and (describe backend) expression declaration environment expressions)
+(define-emit (and (describe backend) expression declaration walker resume environment expressions)
   `(and ,@(codes-forms expressions)))
 
 
@@ -157,7 +157,7 @@
 ;;;
 
 
-(define-emit (or (describe backend) expression declaration environment expressions)
+(define-emit (or (describe backend) expression declaration walker resume environment expressions)
   `(or ,@(codes-forms expressions)))
 
 
@@ -166,7 +166,7 @@
 ;;;
 
 
-(define-emit (if (describe backend) expression declaration environment test yes no)
+(define-emit (if (describe backend) expression declaration walker resume environment test yes no)
   `(if ,(sourcified-form test)
        ,(sourcified-form yes)
      ,(sourcified-form no)))
@@ -177,7 +177,7 @@
 ;;;
 
 
-(define-emit (cond (describe backend) expression declaration environment clauses)
+(define-emit (cond (describe backend) expression declaration walker resume environment clauses)
   `(cond))
 
 
@@ -186,7 +186,7 @@
 ;;;
 
 
-(define-emit (case (describe backend) expression declaration environment target-emit clauses clauses-emit)
+(define-emit (case (describe backend) expression declaration walker resume environment target-emit clauses clauses-emit)
   `(case))
 
 
@@ -195,7 +195,7 @@
 ;;;
 
 
-(define-emit (do (describe backend) expression declaration environment bindings-output test-code result-code body-code)
+(define-emit (do (describe backend) expression declaration walker resume environment bindings-output test-code result-code body-code)
   `(do ,bindings-output
        (,(sourcified-form test-code) ,@(sourcified-form result-code))
      ,@(sourcified-form body-code)))
@@ -206,7 +206,7 @@
 ;;;
 
 
-(define-emit (delay (describe backend) expression declaration environment expr)
+(define-emit (delay (describe backend) expression declaration walker resume environment expr)
   `(delay ,(sourcified-form expr)))
 
 
@@ -215,12 +215,12 @@
 ;;;
 
 
-(define-emit (quasiquote (describe backend) expression declaration environment)
+(define-emit (quasiquote (describe backend) expression declaration walker resume environment)
   (define (emit form)
     (if (pair? form)
         (if (or (eq? (car form) 'unquote)
                 (eq? (car form) 'unquote-splicing))
-            (list (car form) (sourcified-form (emit-expression (cadr form) declaration environment backend)))
+            (list (car form) (sourcified-form (emit-expression (cadr form) declaration walker resume environment backend)))
           (cons (emit (car form)) (emit (cdr form))))
       form))
   
@@ -232,7 +232,7 @@
 ;;;
 
 
-(define-emit (parameterize (describe backend) expression declaration environment body-code)
+(define-emit (parameterize (describe backend) expression declaration walker resume environment body-code)
   `(parameterize))
 
 
@@ -241,7 +241,7 @@
 ;;;
 
 
-(define-emit (unspecific (describe backend) expression declaration environment body-code)
+(define-emit (unspecific (describe backend) expression declaration walker resume environment body-code)
   `(unspecific))
 
 
@@ -250,7 +250,7 @@
 ;;;
 
 
-(define-emit (time (describe backend) expression declaration environment expressions)
+(define-emit (time (describe backend) expression declaration walker resume environment expressions)
   `(time))
 
 
@@ -259,7 +259,7 @@
 ;;;
 
 
-(define-emit (autoload-reference (describe backend) declaration environment referenced-declaration)
+(define-emit (autoload-reference (describe backend) declaration walker resume environment referenced-declaration)
   `(autoload-reference))
 
 
@@ -283,7 +283,7 @@
   `(special-form-reference))
 
 
-(define-emit (variable-reference (describe backend) binding source-declaration environment)
+(define-emit (variable-reference (describe backend) binding source-declaration walker resume environment)
   (if (is? binding Lexical-Binding)
       (let ((type (get-type binding)))
         (if type
@@ -312,7 +312,7 @@
 ;;;
 
 
-(define-emit (call (describe backend) expression declaration environment)
+(define-emit (call (describe backend) expression declaration walker resume environment)
   #f)
 
 
@@ -344,9 +344,9 @@
 ;;;
 
 
-(define-emit (define-assignment (describe backend) declaration source-declaration environment value-code)
+(define-emit (define-assignment (describe backend) declaration source-declaration walker resume environment value-code)
   `(define-assignment ,(sourcified-form value-code)))
 
 
-(define-emit (variable-assignment (describe backend) binding source-declaration environment binding-code value-code)
+(define-emit (variable-assignment (describe backend) binding source-declaration walker resume environment binding-code value-code)
   `(variable-assignment ,(get-name binding) ,(sourcified-form value-code))))

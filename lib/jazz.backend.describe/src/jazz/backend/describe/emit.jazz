@@ -46,7 +46,7 @@
 ;;;
 
 
-(define-emit (definition (describe backend) declaration environment expression unsafe-expression)
+(define-emit (definition (describe backend) declaration walker resume environment expression unsafe-expression)
   (let ((name (get-name declaration)))
     `(definition ,name
        ,expression)))
@@ -57,7 +57,7 @@
 ;;;
 
 
-(define-emit (specialize (describe backend) expression declaration environment)
+(define-emit (specialize (describe backend) expression declaration walker resume environment)
   `(specialize))
 
 
@@ -66,7 +66,7 @@
 ;;;
 
 
-(define-emit (generic (describe backend) declaration environment signature-emit body-emit)
+(define-emit (generic (describe backend) declaration walker resume environment signature-emit body-emit)
   `(generic ,signature-emit
      ,@(jazz:sourcified-form body-emit)))
 
@@ -76,7 +76,7 @@
 ;;;
 
 
-(define-emit (specific (describe backend) declaration environment signature-emit body-emit)
+(define-emit (specific (describe backend) declaration walker resume environment signature-emit body-emit)
   `(specific ,signature-emit
      ,@(jazz:sourcified-form body-emit)))
 
@@ -86,7 +86,7 @@
 ;;;
 
 
-(define-emit (class (describe backend) declaration environment)
+(define-emit (class (describe backend) declaration walker resume environment)
   (let ((name (get-name declaration))
         (ascendant (get-name (get-ascendant declaration)))
         (interfaces (map get-name~ (get-interfaces declaration)))
@@ -101,7 +101,7 @@
 ;;;
 
 
-(define-emit (interface (describe backend) declaration environment)
+(define-emit (interface (describe backend) declaration walker resume environment)
   (let ((name (get-name declaration))
         (body (get-body declaration)))
     (let ((body-emit (emit-namespace-statements body declaration environment backend)))
@@ -114,7 +114,7 @@
 ;;;
 
 
-(define-emit (slot (describe backend) declaration environment initialize-emit)
+(define-emit (slot (describe backend) declaration walker resume environment initialize-emit)
   (let ((name (get-name declaration)))
     `(slot ,name)))
 
@@ -124,7 +124,7 @@
 ;;;
 
 
-(define-emit (property (describe backend) declaration environment initialize-emit)
+(define-emit (property (describe backend) declaration walker resume environment initialize-emit)
   (let ((name (get-name declaration)))
     `(property ,name)))
 
@@ -134,7 +134,7 @@
 ;;;
 
 
-(define-emit (method (describe backend) declaration environment signature-emit signature-casts body-emit unsafe-signature)
+(define-emit (method (describe backend) declaration walker resume environment signature-emit signature-casts body-emit unsafe-signature)
   (let ((name (get-name declaration)))
     `(method (,name)
        ,body-emit)))
@@ -145,7 +145,7 @@
 ;;;
 
 
-(define-emit (with-self (describe backend) expression declaration environment body-emit)
+(define-emit (with-self (describe backend) expression declaration walker resume environment body-emit)
   `(with-self
      ,@(jazz:sourcified-form body-emit)))
 
@@ -155,7 +155,7 @@
 ;;;
 
 
-(define-emit (with-dynamic-self (describe backend) expression declaration environment body-emit)
+(define-emit (with-dynamic-self (describe backend) expression declaration walker resume environment body-emit)
   `(with-dynamic-self
      ,@(jazz:sourcified-form body-emit)))
 
@@ -165,7 +165,7 @@
 ;;;
 
 
-(define-emit (dispatch-call (describe backend) name source declaration environment object-argument object-code others-arguments others-codes)
+(define-emit (dispatch-call (describe backend) name source declaration walker resume environment object-argument object-code others-arguments others-codes)
   `(dispatch-call ,name ,(jazz:sourcified-form object-code) ,@(jazz:codes-forms others-codes)))
 
 
@@ -174,7 +174,7 @@
 ;;;
 
 
-(define-emit (dispatch-reference (describe backend) name source declaration environment)
+(define-emit (dispatch-reference (describe backend) name source declaration walker resume environment)
   `(dispatch-reference ,name))
 
 
@@ -183,7 +183,7 @@
 ;;;
 
 
-(define-emit (cast (describe backend) expression declaration environment type expression-emit)
+(define-emit (cast (describe backend) expression declaration walker resume environment type expression-emit)
   `(cast ,(jazz:sourcified-form expression-emit)))
 
 
@@ -192,7 +192,7 @@
 ;;;
 
 
-(define-emit (construct (describe backend) expression declaration environment class-emit values-emit)
+(define-emit (construct (describe backend) expression declaration walker resume environment class-emit values-emit)
   `(construct ,(jazz:sourcified-form class-emit)
               ,@(jazz:codes-forms values-emit)))
 
@@ -203,7 +203,7 @@
 ;;;
 
 
-(define-emit (allocate (describe backend) expression declaration environment class-emit values-emit)
+(define-emit (allocate (describe backend) expression declaration walker resume environment class-emit values-emit)
   `(allocate ,(jazz:sourcified-form class-emit)
              ,@(jazz:codes-forms values-emit)))
 
@@ -213,7 +213,7 @@
 ;;;
 
 
-(define-emit (static (describe backend) expression declaration environment static)
+(define-emit (static (describe backend) expression declaration walker resume environment static)
   `(static ,(car static)))
 
 
@@ -287,7 +287,7 @@
 ;;;
 
 
-(define-emit (new-call (describe backend) operator locator arguments arguments-codes declaration environment)
+(define-emit (new-call (describe backend) operator locator arguments arguments-codes declaration walker resume environment)
   #f)
 
 
@@ -296,7 +296,7 @@
 ;;;
 
 
-(define-emit (primitive-call (describe backend) operator locator arguments arguments-codes declaration environment)
+(define-emit (primitive-call (describe backend) operator locator arguments arguments-codes declaration walker resume environment)
   #f)
 
 
@@ -314,7 +314,7 @@
 ;;;
 
 
-(define-emit (unsafe-call (describe backend) operator locator arguments arguments-codes declaration environment)
+(define-emit (unsafe-call (describe backend) operator locator arguments arguments-codes declaration walker resume environment)
   #f)
 
 
@@ -323,9 +323,9 @@
 ;;;
 
 
-(define-emit (definition-assignment (describe backend) declaration source-declaration environment value-code)
+(define-emit (definition-assignment (describe backend) declaration source-declaration walker resume environment value-code)
   `(definition-assignment ,(jazz:sourcified-form value-code)))
 
 
-(define-emit (slot-assignment (describe backend) declaration source-declaration environment self value-code)
+(define-emit (slot-assignment (describe backend) declaration source-declaration walker resume environment self value-code)
   `(slot-assignment ,(jazz:sourcified-form value-code))))

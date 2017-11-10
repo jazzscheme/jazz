@@ -78,7 +78,7 @@
     (set! self.name name))
   
   
-  (method override (emit-expression self declaration environment backend)
+  (method override (emit-expression self declaration walker resume environment backend)
     (new-code
       `(c-include ,name)
       Any
@@ -109,7 +109,7 @@
     (set! self.code code))
   
   
-  (method override (emit-expression self declaration environment backend)
+  (method override (emit-expression self declaration walker resume environment backend)
     (new-code
       `(c-initialization ,name ,code)
       Any
@@ -140,7 +140,7 @@
     (set! self.code code))
   
   
-  (method override (emit-expression self declaration environment backend)
+  (method override (emit-expression self declaration walker resume environment backend)
     (new-code
       `(c-declaration ,name ,code)
       Any
@@ -172,7 +172,7 @@
       (set! self.code code)))
   
   
-  (method override (emit-declaration self environment backend)
+  (method override (emit-declaration self walker resume environment backend)
     `(begin))
   
   
@@ -262,7 +262,7 @@
     inclusions)
   
   
-  (method override (emit-declaration self environment backend)
+  (method override (emit-declaration self walker resume environment backend)
     `(begin))
   
   
@@ -561,10 +561,10 @@
     (set! self.arguments arguments))
   
   
-  (method override (emit-expression self declaration environment backend)
+  (method override (emit-expression self declaration walker resume environment backend)
     (new-code
       `(##c-code ,code ,@(map (lambda (argument)
-                                (sourcified-form (emit-expression argument declaration environment backend)))
+                                (sourcified-form (emit-expression argument declaration walker resume environment backend)))
                               arguments))
       Any
       #f)))
@@ -593,7 +593,7 @@
     (set! self.expansion expansion))
   
   
-  (method override (emit-expression self declaration environment backend)
+  (method override (emit-expression self declaration walker resume environment backend)
     (new-code
       expansion
       Any
@@ -774,17 +774,17 @@
         (validate-arguments walker resume source-declaration self signature arguments form-src)))
   
   
-  (method override (emit-declaration self environment backend)
+  (method override (emit-declaration self walker resume environment backend)
     (with-annotated-frame (annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
           (sourcify-deep-if
-            `(c-definition ,(cons locator (emit-signature signature self augmented-environment backend)) ,parameter-types ,result-type ,c-name ,scope
-               ,@(sourcified-form (emit-expression body self augmented-environment backend)))
+            `(c-definition ,(cons locator (emit-signature signature self walker resume augmented-environment backend)) ,parameter-types ,result-type ,c-name ,scope
+               ,@(sourcified-form (emit-expression body self walker resume augmented-environment backend)))
             source)))))
   
   
-  (method override (emit-binding-reference self source-declaration environment backend)
+  (method override (emit-binding-reference self source-declaration walker resume environment backend)
     (new-code
       (emit backend 'c-definition-reference self)
       Any

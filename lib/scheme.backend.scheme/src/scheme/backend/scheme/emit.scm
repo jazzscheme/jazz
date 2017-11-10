@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-emit (define (scheme backend) declaration environment expression)
+(jazz:define-emit (define (scheme backend) declaration walker resume environment expression)
   (jazz:sourcify-deep-if
     (let ((locator (jazz:get-declaration-locator declaration)))
       `(begin
@@ -64,7 +64,7 @@
 ;;;
 
 
-(jazz:define-emit (lambda (scheme backend) expression declaration environment signature-emit signature-casts cast-body)
+(jazz:define-emit (lambda (scheme backend) expression declaration walker resume environment signature-emit signature-casts cast-body)
   `(lambda ,signature-emit
      ,@(jazz:add-signature-casts signature-casts cast-body)))
 
@@ -74,7 +74,7 @@
 ;;;
 
 
-(jazz:define-emit (let (scheme backend) expression declaration environment bindings-output body-code)
+(jazz:define-emit (let (scheme backend) expression declaration walker resume environment bindings-output body-code)
   `(let ,bindings-output
      ,@(jazz:sourcified-form body-code)))
 
@@ -84,7 +84,7 @@
 ;;;
 
 
-(jazz:define-emit (named-let (scheme backend) expression declaration environment variable-emit bindings-output body-code)
+(jazz:define-emit (named-let (scheme backend) expression declaration walker resume environment variable-emit bindings-output body-code)
   `(let ,variable-emit ,bindings-output
      ,@(jazz:sourcified-form body-code)))
 
@@ -94,7 +94,7 @@
 ;;;
 
 
-(jazz:define-emit (letstar (scheme backend) expression declaration environment bindings-output body-code)
+(jazz:define-emit (letstar (scheme backend) expression declaration walker resume environment bindings-output body-code)
   `(let* ,bindings-output
      ,@(jazz:sourcified-form body-code)))
 
@@ -104,7 +104,7 @@
 ;;;
 
 
-(jazz:define-emit (letrec (scheme backend) expression declaration environment bindings-output body-code)
+(jazz:define-emit (letrec (scheme backend) expression declaration walker resume environment bindings-output body-code)
   `(letrec ,bindings-output
      ,@(jazz:sourcified-form body-code)))
 
@@ -114,7 +114,7 @@
 ;;;
 
 
-(jazz:define-emit (receive (scheme backend) expression declaration environment bindings-output expression-output body-code)
+(jazz:define-emit (receive (scheme backend) expression declaration walker resume environment bindings-output expression-output body-code)
   `(receive ,bindings-output
        ,expression-output
      ,@(jazz:sourcified-form body-code)))
@@ -125,7 +125,7 @@
 ;;;
 
 
-(jazz:define-emit (and (scheme backend) expression declaration environment expressions)
+(jazz:define-emit (and (scheme backend) expression declaration walker resume environment expressions)
   `(and ,@(jazz:codes-forms expressions)))
 
 
@@ -134,7 +134,7 @@
 ;;;
 
 
-(jazz:define-emit (or (scheme backend) expression declaration environment expressions)
+(jazz:define-emit (or (scheme backend) expression declaration walker resume environment expressions)
   `(or ,@(jazz:codes-forms expressions)))
 
 
@@ -143,7 +143,7 @@
 ;;;
 
 
-(jazz:define-emit (if (scheme backend) expression declaration environment test yes no)
+(jazz:define-emit (if (scheme backend) expression declaration walker resume environment test yes no)
   `(if ,(jazz:sourcified-form test)
        ,(jazz:sourcified-form yes)
      ,@(if no
@@ -156,7 +156,7 @@
 ;;;
 
 
-(jazz:define-emit (cond (scheme backend) expression declaration environment clauses)
+(jazz:define-emit (cond (scheme backend) expression declaration walker resume environment clauses)
   `(cond ,@clauses))
 
 
@@ -165,7 +165,7 @@
 ;;;
 
 
-(jazz:define-emit (case (scheme backend) expression declaration environment target-emit clauses clauses-emit)
+(jazz:define-emit (case (scheme backend) expression declaration walker resume environment target-emit clauses clauses-emit)
   `(case ,(jazz:sourcified-form target-emit)
      ,@(map (lambda (clause emited-clause)
               (let ((tries (%%car clause)))
@@ -179,7 +179,7 @@
 ;;;
 
 
-(jazz:define-emit (do (scheme backend) expression declaration environment bindings-output test-code result-code body-code)
+(jazz:define-emit (do (scheme backend) expression declaration walker resume environment bindings-output test-code result-code body-code)
   `(do ,bindings-output
        (,(jazz:sourcified-form test-code) ,@(jazz:sourcified-form result-code))
      ,@(jazz:sourcified-form body-code)))
@@ -190,7 +190,7 @@
 ;;;
 
 
-(jazz:define-emit (delay (scheme backend) expression declaration environment expr)
+(jazz:define-emit (delay (scheme backend) expression declaration walker resume environment expr)
   `(delay ,(jazz:sourcified-form expr)))
 
 
@@ -199,12 +199,12 @@
 ;;;
 
 
-(jazz:define-emit (quasiquote (scheme backend) expression declaration environment)
+(jazz:define-emit (quasiquote (scheme backend) expression declaration walker resume environment)
   (define (emit form)
     (if (%%pair? form)
         (if (or (%%eq? (%%car form) 'unquote)
                 (%%eq? (%%car form) 'unquote-splicing))
-            (%%list (%%car form) (jazz:sourcified-form (jazz:emit-expression (%%cadr form) declaration environment backend)))
+            (%%list (%%car form) (jazz:sourcified-form (jazz:emit-expression (%%cadr form) declaration walker resume environment backend)))
           (%%cons (emit (%%car form)) (emit (%%cdr form))))
       form))
   
@@ -216,13 +216,13 @@
 ;;;
 
 
-(jazz:define-emit (parameterize (scheme backend) expression declaration environment body-code)
+(jazz:define-emit (parameterize (scheme backend) expression declaration walker resume environment body-code)
   (let ((bindings (jazz:get-parameterize-bindings expression)))
     `(parameterize ,(map (lambda (binding)
                            (let ((variable (%%car binding))
                                  (value (%%cdr binding)))
-                             `(,(jazz:sourcified-form (jazz:emit-expression variable declaration environment backend))
-                               ,(jazz:sourcified-form (jazz:emit-expression value declaration environment backend)))))
+                             `(,(jazz:sourcified-form (jazz:emit-expression variable declaration walker resume environment backend))
+                               ,(jazz:sourcified-form (jazz:emit-expression value declaration walker resume environment backend)))))
                          bindings)
        ,@(jazz:sourcified-form body-code))))
 
@@ -232,7 +232,7 @@
 ;;;
 
 
-(jazz:define-emit (unspecific (scheme backend) expression declaration environment code)
+(jazz:define-emit (unspecific (scheme backend) expression declaration walker resume environment code)
   `(begin ,@(jazz:sourcified-form code) (%%unspecified)))
 
 
@@ -241,7 +241,7 @@
 ;;;
 
 
-(jazz:define-emit (time (scheme backend) expression declaration environment expr port)
+(jazz:define-emit (time (scheme backend) expression declaration walker resume environment expr port)
   `(time
      ,(jazz:sourcified-form expr)
      ,(jazz:sourcified-form port))))

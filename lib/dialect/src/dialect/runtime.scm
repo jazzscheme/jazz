@@ -1381,13 +1381,14 @@
                                   declaration))))
                (environment (%%cons declaration (jazz:walker-environment walker)))
                (body (jazz:walk-namespace walker resume declaration environment body)))
+          (jazz:validate-walk-problems walker)
           (jazz:rename-identifier-conflicts body environment)
           (jazz:set-namespace-declaration-body declaration body)
-          (let ((result (if backend
-                            (jazz:emit-declaration declaration walker resume '() backend)
-                          declaration)))
-            (jazz:validate-walk-problems walker)
-            result))))))
+          (if backend
+              (let ((emitted (jazz:emit-declaration declaration walker resume '() backend)))
+                (jazz:validate-walk-problems walker)
+                emitted)
+            declaration))))))
 
 
 (define (jazz:generate-script partial-form #!optional (backend-name #f))
@@ -1402,13 +1403,14 @@
                (declaration (jazz:walk-module-declaration walker #f name 'public dialect-name dialect-invoice body))
                (environment (%%cons declaration (jazz:walker-environment walker)))
                (body (jazz:walk-namespace walker resume declaration environment body)))
+          (jazz:validate-walk-problems walker)
           (jazz:rename-identifier-conflicts body environment)
           (jazz:set-namespace-declaration-body declaration body)
-          (let ((result (if backend
-                            (jazz:emit-declaration declaration walker resume '() backend)
-                          declaration)))
-            (jazz:validate-walk-problems walker)
-            result))))))
+          (if backend
+              (let ((emitted (jazz:emit-declaration declaration walker resume '() backend)))
+                (jazz:validate-walk-problems walker)
+                emitted)
+            declaration))))))
 
 
 (define (jazz:cond-expand form-src cont)

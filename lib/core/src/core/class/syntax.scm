@@ -286,10 +286,10 @@
        (%%table-set! jazz:class-info ',name (jazz:make-class-info ',metaclass-accessor ',ascendant-accessor ',constructor ',constructor-type ',accessors-type ',slots ',slot-names ',all-slot-names ',instance-size)))))
 
 
-(jazz:define-macro (jazz:define-class-runtime name #!optional (bootstrap? #f))
+(jazz:define-macro (jazz:define-class-runtime name #!optional (bootstrap-type? #f))
   (let ((class-info (%%table-ref jazz:class-info name))
         (class-level-name (%%compose-helper name 'core-level)))
-    (let ((metaclass-accessor (and (%%not bootstrap?) (jazz:get-class-info-metaclass-accessor class-info)))
+    (let ((metaclass-accessor (and (%%not bootstrap-type?) (jazz:get-class-info-metaclass-accessor class-info)))
           (ascendant-accessor (jazz:get-class-info-ascendant-accessor class-info)))
       (let ((ascendant-info (if (%%not ascendant-accessor) #f (%%table-ref jazz:class-info ascendant-accessor))))
         (let ((ascendant-slot-names (if (%%not ascendant-info) '() (jazz:get-class-info-all-slot-names ascendant-info)))
@@ -344,7 +344,7 @@
                      (else
                       `((define (,constructor ,@all-variables)
                           (%%object ,name ,@all-variables))))))
-               ,@(if bootstrap?
+               ,@(if bootstrap-type?
                      '()
                    (jazz:expand-slots name slots))
                (jazz:set-core-class ',(jazz:reference-name name) ,name))))))))
@@ -589,9 +589,8 @@ end-of-c-code
          (class-name (%%caar parameters))
          (implementation-name (jazz:method-implementation-name class-name name))
          (rank-name (jazz:method-rank-name implementation-name)))
-    `(begin
-       (define ,rank-name
-         (jazz:add-core-virtual-method ,class-name ',name)))))
+    `(define ,rank-name
+       (jazz:add-core-virtual-method ,class-name ',name))))
 
 
 (define (jazz:expand-define-method signature body)

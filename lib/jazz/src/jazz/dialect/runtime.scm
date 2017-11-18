@@ -1550,6 +1550,10 @@
       new-declaration)))
 
 
+(jazz:define-variable-override jazz:hub-declaration-class
+  jazz:Hub-Declaration)
+
+
 (jazz:define-variable-override jazz:manifest-ignore?
   (lambda (obj)
     (%%is? obj jazz:Hub-Declaration)))

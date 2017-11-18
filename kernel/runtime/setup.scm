@@ -71,6 +71,7 @@ c-end
 (jazz:define-variable jazz:custom-compile-unit-internal)
 (jazz:define-variable jazz:build-unit-internal)
 (jazz:define-variable jazz:get-subunit-names-internal)
+(jazz:define-variable jazz:hub-declaration-class)
 (jazz:define-variable jazz:manifest-ignore?)
 (jazz:define-variable jazz:manifest-valid?)
 

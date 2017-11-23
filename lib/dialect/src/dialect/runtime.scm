@@ -542,6 +542,12 @@
     '()))
 
 
+(define (jazz:outline-generate-transformations transformations)
+  (if (%%not transformations)
+      '()
+    transformations))
+
+
 (define (jazz:declaration-result)
   (if (%%eq? (jazz:walk-for) 'eval)
       '((jazz:unspecified))
@@ -1596,7 +1602,10 @@
 
 (jazz:define-method (jazz:outline-generate (jazz:Module-Declaration declaration) output)
   (let ((declarations (jazz:outline-generate-filter-access (jazz:resolve-bindings (jazz:queue-list (jazz:get-namespace-declaration-children declaration))) (jazz:get-public-lookup declaration))))
-    (jazz:format output "(module {a} {a}" (jazz:get-lexical-binding-name declaration) (jazz:get-module-declaration-dialect-name declaration))
+    (let ((name (jazz:get-lexical-binding-name declaration))
+          (dialect-name (jazz:get-module-declaration-dialect-name declaration))
+          (dialect-invoice (jazz:get-module-declaration-dialect-invoice declaration)))
+      (jazz:format output "(module {s} {s}" name (if (%%not dialect-invoice) (string->keyword (symbol->string dialect-name)) dialect-name)))
     #; ;; requires are not needed and create problems when outlined
     (for-each (lambda (require-invoice)
                 (let ((name (jazz:get-require-invoice-name require-invoice))
@@ -1605,7 +1614,8 @@
               (jazz:get-module-declaration-requires declaration))
     (for-each (lambda (module-invoice)
                 (let ((name (jazz:get-module-invoice-name module-invoice))
-                      (phase (jazz:get-module-invoice-phase module-invoice)))
+                      (phase (jazz:get-module-invoice-phase module-invoice))
+                      (transformations (jazz:get-module-invoice-transformations module-invoice)))
                   (if name
                       (let ((autoload (jazz:get-export-invoice-autoload module-invoice)))
                         (if autoload
@@ -1614,13 +1624,14 @@
                                            (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
                                          autoload)))
                               (jazz:format output "{%}  {s}" `(export (,name (autoload ,@autoload-names)))))
-                          (jazz:format output "{%}  {s}" `(export (,name ,@(jazz:outline-generate-phase-list phase)))))))))
+                          (jazz:format output "{%}  {s}" `(export (,name ,@(jazz:outline-generate-phase-list phase) ,@(jazz:outline-generate-transformations transformations)))))))))
               (jazz:get-module-declaration-exports declaration))
     (for-each (lambda (module-invoice)
                 (let ((name (jazz:get-module-invoice-name module-invoice))
-                      (phase (jazz:get-module-invoice-phase module-invoice)))
+                      (phase (jazz:get-module-invoice-phase module-invoice))
+                      (transformations (jazz:get-module-invoice-transformations module-invoice)))
                   (if name
-                      (jazz:format output "{%}  {s}" `(import (,name ,@(jazz:outline-generate-phase-list phase)))))))
+                      (jazz:format output "{%}  {s}" `(import (,name ,@(jazz:outline-generate-phase-list phase) ,@(jazz:outline-generate-transformations transformations)))))))
               (jazz:get-module-declaration-imports declaration))
     (for-each (lambda (decl)
                 (jazz:outline-generate decl output))

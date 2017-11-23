@@ -1110,7 +1110,7 @@
            (jazz:get-export-declaration-symbol decl))
           ((%%is? decl jazz:Autoload-Declaration)
            (jazz:autoload-declaration-locator-heuristic decl))
-          ((%%is? decl jazz:hub-declaration-class)
+          ((and jazz:hub-declaration-class (%%is? decl jazz:hub-declaration-class))
            (%%string->symbol (%%string-append (%%symbol->string (jazz:get-lexical-binding-name decl)) "<hub>")))
           (else
            (jazz:get-declaration-locator decl))))

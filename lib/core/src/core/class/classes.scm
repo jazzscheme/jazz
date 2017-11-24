@@ -197,6 +197,7 @@
 ;;;
 
 
+(jazz:define-class-syntax jazz:Bool-Class         jazz:Class          (metaclass: jazz:Class) ())
 (jazz:define-class-syntax jazz:Boolean-Class      jazz:Class          (metaclass: jazz:Class) ())
 (jazz:define-class-syntax jazz:Char-Class         jazz:Class          (metaclass: jazz:Class) ())
 (jazz:define-class-syntax jazz:Numeric-Class      jazz:Class          (metaclass: jazz:Class) ())
@@ -242,6 +243,7 @@
 (jazz:define-class-syntax jazz:Marker-Class       jazz:Class          (metaclass: jazz:Class) ())
 
 
+(jazz:define-class-syntax jazz:Bool         jazz:Object   (metaclass: jazz:Bool-Class)         ())
 (jazz:define-class-syntax jazz:Boolean      jazz:Object   (metaclass: jazz:Boolean-Class)      ())
 (jazz:define-class-syntax jazz:Char         jazz:Object   (metaclass: jazz:Char-Class)         ())
 (jazz:define-class-syntax jazz:Numeric      jazz:Object   (metaclass: jazz:Numeric-Class)      ())

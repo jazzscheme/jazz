@@ -2638,7 +2638,8 @@
 
 (jazz:add-primitive-type 'any          jazz:Any)
 (jazz:add-primitive-type 'object       jazz:Object)
-(jazz:add-primitive-type 'bool         jazz:Boolean)
+(jazz:add-primitive-type 'bool         jazz:Bool)
+(jazz:add-primitive-type 'boolean      jazz:Boolean)
 (jazz:add-primitive-type 'char         jazz:Char)
 (jazz:add-primitive-type 'number       jazz:Number)
 (jazz:add-primitive-type 'complex      jazz:Complex)

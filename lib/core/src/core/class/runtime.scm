@@ -979,6 +979,29 @@
 
 
 ;;;
+;;;; Bool
+;;;
+
+
+(jazz:define-class-runtime jazz:Bool-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:Bool-Class class) object)
+  #t)
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:Bool-Class class))
+  'bool)
+
+
+(jazz:define-method (jazz:emit-test (jazz:Bool-Class type) value source-declaration walker resume environment backend)
+  #t)
+
+
+(jazz:define-class-runtime jazz:Bool)
+
+
+;;;
 ;;;; Boolean
 ;;;
 
@@ -991,7 +1014,7 @@
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Boolean-Class class))
-  'bool)
+  'boolean)
 
 
 (jazz:define-method (jazz:emit-test (jazz:Boolean-Class type) value source-declaration walker resume environment backend)

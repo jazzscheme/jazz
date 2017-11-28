@@ -353,23 +353,29 @@
   
   
   (method override (syntax-at self pos <Cell>) <Text-Syntax>
-    (let ((info (or (info-at self pos)
-                    (let ((next (next-cell model pos)))
-                      (and next (info-at self next))))))
-      (if info
-          (let ((proc (cdr info)))
-            (let ((class (proc)))
-              (new class model)))
-        self)))
+    (receive (syntax syntax-style) (replace-syntax self pos)
+      syntax))
   
   
   (method override (syntax-at-range self range <Range$Cell$>) <Text-Syntax>
     ;; quicky. should validate that the style is uniform throughout range
-    (receive (syntax syntax-style) (replace-syntax self range)
+    (receive (syntax syntax-style) (replace-range-syntax self range)
       syntax))
   
   
-  (method override (replace-syntax self range <Range$Cell$>)
+  (method override (replace-syntax self pos <Cell>)
+    (let ((info (or (info-at self pos)
+                    (let ((next (next-cell model pos)))
+                      (and next (info-at self next))))))
+      (if info
+          (let ((name (cdar info))
+                (proc (cdr info)))
+            (let ((class (proc)))
+              (values (new class model) name)))
+        (values self #f))))
+  
+  
+  (method override (replace-range-syntax self range <Range$Cell$>)
     (define (determine-info)
       (let ((start (get-start range))
             (end (get-end range)))

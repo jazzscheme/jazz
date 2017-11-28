@@ -876,34 +876,32 @@
     (for-each-client self
       (lambda (client)
         (content-changing client range strings)))
-    (receive (syntax syntax-style) (replace-syntax syntax range)
-      (let ((start (get-start range))
-            (end (get-end range))
-            (count (length strings))
-            (undo-strings (range-strings self range))
-            (caret (replace-range self range strings)))
-        (let ((start-line (get-line start)))
-          (update-displayed-from self start-line)
-          (recolorize syntax syntax-style start (- (+ start-line count) 1)))
-        (set-modified? self #t)
-        (let ((undo-range (new Range$Cell$ start caret)))
-          (register-undo undoer
-            (let ((old-range (copy range)))
-              (lambda ()
-                (for-each-client self hide-caret)
-                (replace self undo-range undo-strings)
-                (for-each-client self
-                  (lambda (client)
-                    (set-selection client old-range)
-                    (update-caret client))))))
-          (for-each-client self
-            (lambda (client)
-              (content-changed client range strings undo-range undo-strings))))
-        (let ((appl (get-application)))
-          ;; quick hack for sejour
-          (when (and appl (is? appl Application))
-            (update-focus-actions appl)))
-        caret)))
+    (let ((start (get-start range))
+          (end (get-end range))
+          (count (length strings))
+          (undo-strings (range-strings self range))
+          (caret (replace-range self range strings)))
+      (update-displayed-from self (get-line start))
+      (replace-recolorize self start count)
+      (set-modified? self #t)
+      (let ((undo-range (new Range$Cell$ start caret)))
+        (register-undo undoer
+                       (let ((old-range (copy range)))
+                         (lambda ()
+                           (for-each-client self hide-caret)
+                           (replace self undo-range undo-strings)
+                           (for-each-client self
+                             (lambda (client)
+                               (set-selection client old-range)
+                               (update-caret client))))))
+        (for-each-client self
+          (lambda (client)
+            (content-changed client range strings undo-range undo-strings))))
+      (let ((appl (get-application)))
+        ;; quick hack for sejour
+        (when (and appl (is? appl Application))
+          (update-focus-actions appl)))
+      caret))
   
   
   (method package (replace-range self range <Range$Cell$> strings)
@@ -1013,6 +1011,11 @@
       (lambda (client)
         (let ((rect (position/size->rect (get-position paragraph) (new Dimension (get-width client) (get-height paragraph)))))
           (invalidate-rect client rect)))))
+  
+  
+  (method package virtual (replace-recolorize self start count)
+    (receive (syntax syntax-style) (replace-syntax syntax start)
+      (recolorize syntax syntax-style start (- (+ (get-line start) count) 1))))
   
   
   ;;;
@@ -1424,35 +1427,33 @@
     (for-each-client self
       (lambda (client)
         (content-changing client range strings)))
-    (receive (syntax syntax-style) (replace-syntax syntax range)
-      (let* ((start (get-start range))
-             (end (get-end range))
-             (count (length strings))
-             (undo-strings (range-formatted-text range))
-             (caret (replace-range self range strings)))
-        (apply-formats/styles (new Range$Cell$ start caret))
-        (let ((start-line (get-line start)))
-          (update-displayed-from self start-line)
-          (recolorize syntax syntax-style start (- (+ start-line count) 1)))
-        (set-modified? self #t)
-        (let ((undo-range (new Range$Cell$ start caret)))
-          (register-undo undoer
-            (let ((old-range (copy range)))
-              (lambda ()
-                (for-each-client self hide-caret)
-                (replace-formatted self undo-range undo-strings)
-                (for-each-client self
-                  (lambda (client)
-                    (set-selection client old-range)
-                    (update-caret client))))))
-          (for-each-client self
-            (lambda (client)
-              (content-changed client range strings undo-range undo-strings))))
-        (let ((appl (get-application)))
-          ;; quick hack for sejour
-          (when (and appl (is? appl Application))
-            (update-focus-actions appl)))
-        caret)))
+    (let* ((start (get-start range))
+           (end (get-end range))
+           (count (length strings))
+           (undo-strings (range-formatted-text range))
+           (caret (replace-range self range strings)))
+      (apply-formats/styles (new Range$Cell$ start caret))
+      (update-displayed-from self (get-line start))
+      (replace-recolorize self start count)
+      (set-modified? self #t)
+      (let ((undo-range (new Range$Cell$ start caret)))
+        (register-undo undoer
+                       (let ((old-range (copy range)))
+                         (lambda ()
+                           (for-each-client self hide-caret)
+                           (replace-formatted self undo-range undo-strings)
+                           (for-each-client self
+                             (lambda (client)
+                               (set-selection client old-range)
+                               (update-caret client))))))
+        (for-each-client self
+          (lambda (client)
+            (content-changed client range strings undo-range undo-strings))))
+      (let ((appl (get-application)))
+        ;; quick hack for sejour
+        (when (and appl (is? appl Application))
+          (update-focus-actions appl)))
+      caret))
   
   
   ;;;

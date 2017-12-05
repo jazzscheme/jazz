@@ -52,7 +52,7 @@
         (jazz.window))
 
 
-(class Window extends Figure
+(class Window extends Figure implements Windowable
  
 
   (property title initialize #f accessors explicit)
@@ -310,12 +310,12 @@
   ;;;
   
   
-  (method public (acquire-capture self)
+  (method override (acquire-capture self)
     (assert handle)
     (set-capture handle))
   
   
-  (method public (release-capture self)
+  (method override (release-capture self)
     (unset-capture))
 
 
@@ -385,6 +385,19 @@
     (if hit
         processed
       unprocessed))
+  
+  
+  ;;;
+  ;;;; Tracking
+  ;;;
+  
+  
+  (method override (track-mouse-leave self)
+    (platform-track-mouse-leave handle))
+  
+  
+  (method override (cancel-mouse-leave-tracking self)
+    (platform-cancel-mouse-leave-tracking handle))
 
 
   ;;;
@@ -424,6 +437,10 @@
   ;;;
   ;;;; Focus
   ;;;
+  
+  
+  (method override (call-set-focus self)
+    (platform-set-focus handle))
   
   
   (method package virtual (reset-focus self)
@@ -612,7 +629,7 @@
            (get-frame parent))))
   
   
-  (method public (get-overlapped self)
+  (method override (get-overlapped self)
     (if (is? self Overlapped)
         self
       (get-overlapped parent)))
@@ -633,7 +650,7 @@
     (platform-get-window-title handle))
   
 
-  (method public (acquire self window <Window> shape)
+  (method override (acquire self window <Windowable> shape)
     (assert handle)
     (typecase shape
       ((Point)
@@ -725,10 +742,10 @@
 
   (cond-expand
     (cocoa
-     (method public (mouse-position self) <Point>
+     (method override (mouse-position self) <Point>
        (platform-mouse-position handle)))
     (else
-     (method public (mouse-position) <Point>
+     (method override (mouse-position self) <Point>
        (acquire (get-desktop) (platform-mouse-position)))))
 
 
@@ -737,7 +754,7 @@
      (method public (set-mouse-position self pos)
        (platform-set-mouse-position handle (get-h pos) (get-v pos))))
     (else
-     (method public (set-mouse-position pos)
+     (method public (set-mouse-position self pos)
        (let ((pos (acquire (get-desktop) self pos)))
          (platform-set-mouse-position (get-h pos) (get-v pos))))))
 
@@ -826,12 +843,12 @@
         (proc))))
 
   
-  (method public (invalidate-rect self rect)
+  (method override (invalidate-rect self rect)
     (assert handle)
     (platform-invalidate-rect handle rect))
 
   
-  (method public (invalidate-region self region)
+  (method override (invalidate-region self region)
     (assert handle)
     (platform-invalidate-region handle region))
 
@@ -841,7 +858,7 @@
     (platform-invalidate-window handle))
 
   
-  (method public (redraw-window self (rect: rect #f) (region: region #f))
+  (method override (redraw-window self (rect: rect #f) (region: region #f))
     (assert handle)
     (if (inhibit-updates?)
         (cond (rect (invalidate-rect self rect))

@@ -316,7 +316,7 @@
   ;;;
 
 
-  (method public (set-search-result self icon msg)
+  (method (search-result-update self icon msg)
     (let ((status-bar (find-status-bar self)))
       (when status-bar
         (let ((label (find-component status-bar 'search-result)))
@@ -362,6 +362,21 @@
   
   (method protected virtual (search-manager-class self)
     )
+
+
+  ;;;
+  ;;;; Services
+  ;;;
+  
+  
+  (method override (provide-services self)
+    (nextmethod self)
+    ;; search
+    (provide-service 'search-result-update (~ search-result-update self))
+    ;; debugger
+    (provide-service 'update-focused-process (lambda () (update-focused-process (find-status-bar self))))
+    ;; documentation
+    (provide-service 'edit-documentation (~ edit-documentation self)))
 
 
   ;;;
@@ -1116,6 +1131,96 @@
   
   (method (on-showcase self evt)
     (new-frame Showcase))
+
+  
+  ;;;
+  ;;;; Analysis
+  ;;;
+  
+  
+  (definition debug-analysis?
+    #f)
+  
+  
+  (method (with-lisp-text-view self proc)
+    (let ((focus (active-focus)))
+      (if (is? focus Lisp-Text-View)
+          (proc focus)
+        (bell))))
+  
+  
+  (method (on-analyse self evt)
+    (with-lisp-text-view self
+      (lambda (text)
+        (analyse-selection self text))))
+  
+  
+  (method (on-analyse-buffer self evt)
+    (with-lisp-text-view
+      (lambda (text)
+        (analyse-buffer self text))))
+  
+  
+  (method (analyse-selection self text)
+    (with-safe-explore
+      (lambda ()
+        (let ((range (current-declaration-range text)))
+          (if (not range)
+              (bell)
+            (analyse-range self text range))))))
+  
+  
+  (method (analyse-buffer self text)
+    (analyse-range self text (buffer-selection text)))
+  
+  
+  (method (analyse-range self text range)
+    (define (determine-kernel)
+      (project-kernel (current-project (get-workbench-manager (get-application)))))
+    
+    (let ((moniker (get-moniker text)))
+      (if (not moniker)
+          (bell)
+        (user-message "Analysing...")
+        (let ((info (prepare-expressions text range)))
+          (thread-start!
+            (new-thread
+              (lambda ()
+                (let ((server-port (open-tcp-server 0)))
+                  (let ((port-args (list "-port" (number->string (socket-info-port-number (tcp-server-socket-info server-port))))))
+                    (if debug-analysis?
+                        (let ((command (format "{s} {l}"
+                                               (parse (determine-kernel))
+                                               `("-run" "builder" "analyse" ,@port-args))))
+                          (set-clipboard-text command)
+                          (user-message "Clipboard set to shell command"))
+                      (open-process
+                        (list
+                          path: (parse (determine-kernel))
+                          arguments: `("-:daqQ-" "-run" "builder" "analyse" ,@port-args)
+                          stdin-redirection: #f
+                          stdout-redirection: #f
+                          stderr-redirection: #f
+                          show-console: #f))))
+                  (let ((port (read server-port)))
+                    (write-binary info port)
+                    (let ((info (read-binary port)))
+                      (clear-user-message)
+                      (unless (eof-object? info)
+                        (bind (what expr detail) info
+                          (post-event
+                            (lambda ()
+                              (case what
+                                ((none)
+                                 (message-box "Found no problems")
+                                 (clear-problems (get-problems-view)))
+                                ((walk)
+                                 (let ((walk-debugger (get-local-debugger (get-application)))
+                                       (walk-cookie #f))
+                                   (report-walk-problems walk-debugger (get-local-process) detail walk-cookie)))
+                                ((error)
+                                 (message-box expr type: 'problem)))))))))))
+              'analyse))))))
 
 
   ;;;

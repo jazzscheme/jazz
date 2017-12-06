@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.jas jazz
+(module jazz.associative jazz
 
 
 (hub add-directory)
@@ -98,11 +98,11 @@
 
 
 (definition public (jas-init working)
-  (new JAS-Repository working init?: #t))
+  (new Associative-Repository working init?: #t))
 
 
 (definition public (jas-open working)
-  (new JAS-Repository working))
+  (new Associative-Repository working))
 
 
 (definition public (jas-config-get repo key)
@@ -213,7 +213,7 @@
 ;;;
 
 
-(class JAS-Repository extends Object
+(class Associative-Repository extends Object
   
   
   (slot working         getter generate)
@@ -243,7 +243,7 @@
     (set! self.working working)
     (set! self.directory (jas-directory))
     (set! head (new-file directory "HEAD"))
-    (set! index (new JAS-Index self working file: (new-file directory "index")))
+    (set! index (new Associative-Index self working file: (new-file directory "index")))
     (set! objects (new-directory directory "objects"))
     (set! heads (new-directory directory '("refs" "heads")))
     (set! disregard '(".DS_Store"))
@@ -561,12 +561,12 @@
   (method package (head-index self)
     (let ((head (read-head self)))
       (if (not head)
-          (new JAS-Index self #f)
+          (new Associative-Index self #f)
         (commit-index self (resolve self head)))))
   
   
   (method package (working-index self)
-    (prog1 (new JAS-Index self working entries: (scan-directory self #f working base: index))
+    (prog1 (new Associative-Index self working entries: (scan-directory self #f working base: index))
       (save-to-file index)))
   
   
@@ -579,7 +579,7 @@
   
   
   (method (tree->index self tree)
-    (new JAS-Index self #f entries: (scan-tree self tree)))
+    (new Associative-Index self #f entries: (scan-tree self tree)))
   
   
   (method package (scan-file self path file (base: base #f))
@@ -692,7 +692,7 @@
                      (get-entries to)
                      key: car
                      case-insensitive?: #t)
-      (new JAS-Diff (queue-list queue))))
+      (new Associative-Diff (queue-list queue))))
   
   
   ;;;
@@ -823,7 +823,7 @@
 ;;;
 
 
-(class JAS-Index extends Object
+(class Associative-Index extends Object
   
   
   (slot repository getter generate)
@@ -940,7 +940,7 @@
 ;;;
 
 
-(class JAS-Diff extends Object
+(class Associative-Diff extends Object
   
   
   (slot changes getter generate)
@@ -963,14 +963,14 @@
 
 
 (definition protected (jas-exception format-string . rest)
-  (throw (new JAS-Exception (apply format format-string rest))))
+  (throw (new Associative-Exception (apply format format-string rest))))
 
 
 (definition protected (jas-exception-no-commits)
   (jas-exception "Your current head does not have any commits yet"))
 
 
-(class JAS-Exception extends Exception
+(class Associative-Exception extends Exception
   
   
   (slot message)
@@ -1006,9 +1006,9 @@
               (get-changes diff)))
   
   (typecase obj
-    ((JAS-Index)
+    ((Associative-Index)
      (describe-index obj))
-    ((JAS-Diff)
+    ((Associative-Diff)
      (describe-diff obj))
     (else
      (jas-exception "Unable to describe {a}" obj)))))

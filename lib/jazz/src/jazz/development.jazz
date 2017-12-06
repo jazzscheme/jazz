@@ -39,7 +39,7 @@
 
 
 (import (jazz.component)
-        (jazz.jml))
+        (jazz.markup))
 
 
 ;;;
@@ -66,7 +66,7 @@
 
 (definition (iter obj proc)
   (cond ((null/pair? obj) (iter-list obj proc))
-        ((is? obj JML-Node) (iter-node obj proc))))
+        ((is? obj Markup-Node) (iter-node obj proc))))
 
 
 (definition (foldl-list x f s)
@@ -105,13 +105,13 @@
 
 (definition (foldl x f s)
   (cond ((null/pair? x) (foldl-list x f s))
-        ((is? x JML-Node) (foldl-node x f s))
+        ((is? x Markup-Node) (foldl-node x f s))
         ((is? x Component) (foldl-component x f s))))
 
 
 (definition (foldr x f s)
   (cond ((null/pair? x) (foldr-list x f s))
-        ((is? x JML-Node) (foldr-node x f s))
+        ((is? x Markup-Node) (foldr-node x f s))
         ((is? x Component) (foldr-component x f s))))
 
 
@@ -147,7 +147,7 @@
 
 (definition public (fold x f s)
   (cond ((null/pair? x) (foldl-list x f s))
-        ((is? x JML-Node) (fold-node x f s))
+        ((is? x Markup-Node) (fold-node x f s))
         ((is? x Component) (fold-component x f s))))
 
 
@@ -167,16 +167,16 @@
     ps))
 
 
-(definition public (component->jml x (properties: properties #f))
+(definition public (component->markup x (properties: properties #f))
   (fold x
         (lambda (c p)
-          (component-self->jml c p properties: properties))
+          (component-self->markup c p properties: properties))
         #f))
 
 
-(definition (component-self->jml c p (properties: properties #f))
+(definition (component-self->markup c p (properties: properties #f))
   (let ((properties (or properties '(position size))))
-    (new JML-Element p (category-name (class-of c))
+    (new Markup-Element p (category-name (class-of c))
          properties:
          `(name ,(get-name c)
                 ,@(apply append (collect (lambda (property)
@@ -186,12 +186,12 @@
                 serial ,(format "#{a}" (object->serial c))))))
 
 
-(definition (component-ascendants->jml c (properties: properties #f))
-  (define (component->jml c)
-    (component-self->jml c (let ((parent (get-parent c)))
-                             (if parent
-                                 (component->jml parent)
-                               #f))
+(definition (component-ascendants->markup c (properties: properties #f))
+  (define (component->markup c)
+    (component-self->markup c (let ((parent (get-parent c)))
+                                (if parent
+                                    (component->markup parent)
+                                  #f))
       properties: properties))
   
   (define (find-toplevel c)
@@ -200,18 +200,18 @@
           (find-toplevel parent)
         c)))
   
-  (find-toplevel (component->jml c)))
+  (find-toplevel (component->markup c)))
 
 
 (definition public (pprint-component x (properties: properties #f))
   (print-node
-    (component->jml x properties: properties)
+    (component->markup x properties: properties)
     :console))
 
 
 (definition public (pprint-component-ascendants x (properties: properties #f))
   (print-node
-    (component-ascendants->jml x properties: properties)
+    (component-ascendants->markup x properties: properties)
     :console
     space-name?: #t))
 

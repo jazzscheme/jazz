@@ -38,13 +38,13 @@
 ;; All these simple, composite, mix, empty, separated, ... need big time simplification!
 
 
-(module protected jazz.jml.xhtml.XHTML-Renderer jazz
+(module protected jazz.markup.xhtml.XHTML-Renderer jazz
 
 
-(import (jazz.jml))
+(import  (jazz.markup))
 
 
-(class XHTML-Renderer extends JML-Renderer
+(class XHTML-Renderer extends Markup-Renderer
   
   
   ;;;
@@ -73,20 +73,20 @@
   ;;;
   
   
-  (method override (render self jml output)
-    (render-jml self '() jml #f #f #f 0 output))
+  (method override (render self markup output)
+    (render-markup self '() markup #f #f #f 0 output))
   
   
-  (method (render-jml self context jml simple? mix? inside-pre? level output)
-    (typecase jml
-      ((JML-Text)
-       (render-text self context jml output))
+  (method (render-markup self context markup simple? mix? inside-pre? level output)
+    (typecase markup
+      ((Markup-Text)
+       (render-text self context markup output))
       (else
-       (render-node self context jml simple? mix? inside-pre? level output))))
+       (render-node self context markup simple? mix? inside-pre? level output))))
 
 
-  (method virtual (render-text self context jml output)
-    (let ((text (get-text jml)))
+  (method virtual (render-text self context markup output)
+    (let ((text (get-text markup)))
       (iterate text
                (lambda (c)
                  (let ((n (char->integer c)))
@@ -98,16 +98,16 @@
                        (else (format output "{c}" c)))))))))
   
   
-  (method override (render-node self context jml simple? mix? inside-pre? level output)
-    (if (is-not? jml JML-Node)
-        (render jml self context simple? mix? inside-pre? level output)
-      (let ((tag (get-tag jml)))
-        (render-tag self context jml tag simple? mix? inside-pre? level output))))
+  (method override (render-node self context markup simple? mix? inside-pre? level output)
+    (if (is-not? markup Markup-Node)
+        (render markup self context simple? mix? inside-pre? level output)
+      (let ((tag (get-tag markup)))
+        (render-tag self context markup tag simple? mix? inside-pre? level output))))
   
   
-  (method (render-tag self context jml tag simple? parent-mix? inside-pre? level output)
+  (method (render-tag self context markup tag simple? parent-mix? inside-pre? level output)
     (let* ((tab (get-tab-size preferences))
-           (composite? (composite? jml))
+           (composite? (composite? markup))
            (mix? (memq? tag Mix-Tags))
            (pre? (memq? tag Pre-Tags))
            (inside-pre? (or pre? inside-pre?)))
@@ -122,7 +122,7 @@
                              (if (and (pair? value) (eq? (car value) :string))
                                  (render-string self context output property value)
                                (render-value self context output property value))))
-                         (get-properties jml))
+                         (get-properties markup))
       (if (memq? tag Empty-Tags)
           (output-text self context output "/>")
         (output-text self context output ">")
@@ -132,7 +132,7 @@
                (case tag
                  ((html body) level)
                  (else (+ level 1)))))
-          (render-children self context jml (not composite?) mix? inside-pre? new-level output))
+          (render-children self context markup (not composite?) mix? inside-pre? new-level output))
         (when (and composite? (not mix?) (not inside-pre?))
           (output-text self context output "{_ :v}" (* level tab)))
         (when (and (memq? tag Separated2-Tags) (not inside-pre?))
@@ -154,10 +154,10 @@
     (output-text self context output " {a}=\"{a}\"" property value))
   
   
-  (method (render-children self context jml simple? mix? inside-pre? level output)
+  (method (render-children self context markup simple? mix? inside-pre? level output)
     (for-each (lambda (sub)
-                (render-jml self context sub simple? mix? inside-pre? level output))
-              (get-children jml)))
+                (render-markup self context sub simple? mix? inside-pre? level output))
+              (get-children markup)))
   
   
   (method (output-text self context output format-string . parameters)

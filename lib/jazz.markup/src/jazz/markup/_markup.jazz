@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; JML
+;;;; Markup
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,15 +35,15 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.jml jazz
+(module jazz.markup jazz
 
 
-(hub ->jml)
+(hub ->markup)
 (hub add-child)
 (hub add-properties)
 (hub append-child)
 (hub append-parent)
-(hub children->jml)
+(hub children->markup)
 (hub composite?)
 (hub find-by)
 (hub find-name)
@@ -68,7 +68,7 @@
 (hub has-property?)
 (hub parse)
 (hub print-node)
-(hub properties->jml)
+(hub properties->markup)
 (hub remove-child)
 (hub remove-property)
 (hub render)
@@ -81,14 +81,14 @@
 (hub set-text)
 (hub simple?)
 (hub single-line?)
-(hub tag->jml)
+(hub tag->markup)
 (hub transform)
 
 
-(export (jazz.jml.syntax (phase syntax))
-        (jazz.jml.autoload)
-        (jazz.jml.parse))
-(import (jazz.jml.autoload)
+(export (jazz.markup.syntax (phase syntax))
+        (jazz.markup.autoload)
+        (jazz.markup.parse))
+(import (jazz.markup.autoload)
         (jazz.component.autoload)
         (jazz.component.hubs)
         (jazz.io))
@@ -118,10 +118,10 @@
 ;;;
 
 
-(definition public (parse-jml jml (preferences-class: preferences-class #f) (parser-class: parser-class #f))
-  (let* ((pref (new (or preferences-class JML-Preferences)))
-         (parser (new (or parser-class JML-Parser) preferences: pref)))
-    (parse parser jml)))
+(definition public (parse-markup markup (preferences-class: preferences-class #f) (parser-class: parser-class #f))
+  (let* ((pref (new (or preferences-class Markup-Preferences)))
+         (parser (new (or parser-class Markup-Parser) preferences: pref)))
+    (parse parser markup)))
 
 
 ;;;
@@ -129,7 +129,7 @@
 ;;;
 
 
-(definition public (transform-jml node transformation)
+(definition public (transform-markup node transformation)
   (transform transformation node))
 
 
@@ -138,9 +138,9 @@
 ;;;
 
 
-(definition public (render-jml node output (preferences-class: preferences-class #f) (renderer-class: renderer-class #f))
-  (let* ((pref (new (or preferences-class JML-Preferences)))
-         (renderer (new (or renderer-class JML-Renderer) pref)))
+(definition public (render-markup node output (preferences-class: preferences-class #f) (renderer-class: renderer-class #f))
+  (let* ((pref (new (or preferences-class Markup-Preferences)))
+         (renderer (new (or renderer-class Markup-Renderer) pref)))
     (render renderer node output)))
 
 
@@ -165,8 +165,8 @@
 ;; two passes of parsing to a node and then converting to a form
 
 
-(definition public (jml->form expr (locator #f))
-  (let* ((parser (new JML-Parser))
+(definition public (markup->form expr (locator #f))
+  (let* ((parser (new Markup-Parser))
          (node (parse parser expr))
          (form (node->form node)))
     (set-locator form locator)
@@ -184,7 +184,7 @@
       (get-output fact)))
   
   (define (node->form node parent)
-    (if (is? node JML-Text)
+    (if (is? node Markup-Text)
         node
       (let* ((tag (get-tag node))
              (tag-name (symbol->string tag))
@@ -246,7 +246,7 @@
       (get-output fact)))
   
   (define (form/parent->node form parent)
-    (if (is? form JML-Text)
+    (if (is? form Markup-Text)
         form
       (let* ((action (get-action form))
              (model (get-model form))
@@ -255,7 +255,7 @@
              (tag (if symbolic?
                       (string->symbol (string-append (symbol->string name) (case action ((modify) "!") ((locate) "~"))))
                     (case action ((install) 'install) ((new) model) ((instantiate) '*) ((modify) '!) ((locate) '~))))
-             (element (let ((element (new JML-Element #f tag))) (set-parent-value element parent) element))
+             (element (let ((element (new Markup-Element #f tag))) (set-parent-value element parent) element))
              (properties (extract-form-properties form symbolic?))
              (children (map (lambda (form)
                               (form/parent->node form element))
@@ -268,7 +268,7 @@
 
 
 (definition public (construct-form expr locator (data #f))
-  (let ((form (jml->form expr locator)))
+  (let ((form (markup->form expr locator)))
     (set-data form data)
     (setup-context form form)
     form))
@@ -331,10 +331,10 @@
 ;;;
 
 
-(definition public (save-jml jml file . rest)
+(definition public (save-markup markup file . rest)
   (call-with-output-file (path-settings file)
     (lambda (port)
-      (apply print-node jml port rest)
+      (apply print-node markup port rest)
       (newline port))))
 
 
@@ -343,12 +343,12 @@
 ;;;
 
 
-(definition public (read-jml file)
+(definition public (read-markup file)
   (parameterize ((walk-for #f))
     (call-with-input-file (path-settings file eol-encoding: 'cr-lf readtable: jazz-readtable)
       read)))
 
 
-(definition public (load-jml file)
-  (let ((parser (new JML-Parser preferences: (new JML-Preferences))))
-    (parse parser (read-jml file)))))
+(definition public (load-markup file)
+  (let ((parser (new Markup-Parser preferences: (new Markup-Preferences))))
+    (parse parser (read-markup file)))))

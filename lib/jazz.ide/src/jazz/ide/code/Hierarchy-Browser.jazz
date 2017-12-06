@@ -54,7 +54,7 @@
         (jazz.handler)
         (jazz.ide)
         (jazz.io)
-        (jazz.jml)
+        (jazz.markup)
         (jazz.outline)
         (jazz.preferences)
         (jazz.resource)
@@ -183,14 +183,14 @@
   
   
   (method (on-update self evt)
-    (define (reload-jml)
+    (define (reload-markup)
       (let ((moniker (get-moniker (get-document-controller client))))
         (if moniker
             (set! client-root (safe-read-form moniker))
           (set! client-root #f))))
     
     (when (or (is? client-root Exception) (is? client-root Form))
-      (reload-jml))
+      (reload-markup))
     (update self)
     (highlight-selection self))
 
@@ -255,60 +255,60 @@
   
   (method package (update self)
     (define (get-entry-title entry)
-      (if (is? entry JML-Node)
-          "JML"
+      (if (is? entry Markup-Node)
+          "Markup"
         (get-title entry)))
     
     ;; All this should be abstracted into an Hierarchy-Client class
-    ;; with Hierarchy-Catalog-Client and Hierarchy-JML-Client subclasses
+    ;; with Hierarchy-Catalog-Client and Hierarchy-Markup-Client subclasses
     
     (define (insert-entry-definition tree entry)
-      (if (is? entry JML-Node)
-          (insert-jml-definition tree #f 0 entry (get-sorted? self))
+      (if (is? entry Markup-Node)
+          (insert-markup-definition tree #f 0 entry (get-sorted? self))
         (insert-definition entry tree #f 0 (get-sorted? self))))
     
-    (define (insert-jml-definition tree father level node sort?)
+    (define (insert-markup-definition tree father level node sort?)
       (define (insert-definition father level node sort?)
-        (let ((row (insert-jml-self father level node)))
-          (insert-jml-self-definitions row level node sort?)))
+        (let ((row (insert-markup-self father level node)))
+          (insert-markup-self-definitions row level node sort?)))
       
-      (define (insert-jml-self father level node)
-        (let* ((model (get-jml-model father node))
+      (define (insert-markup-self father level node)
+        (let* ((model (get-markup-model father node))
                (image (if (and model (subtype? model Component)) (get-class-image model) {Image-Resource "Slot"}))
                (title (cond ((get-property node 'title)) ((get-name node) => ->string) (else (->string (get-model node)))))
                (state (if (< level 1) 'expanded 'collapsed)))
           (add-row tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: node)))
       
-      (define (get-jml-model father node)
+      (define (get-markup-model father node)
         #f
         @convert-autoload
         (let ((model (get-model node)))
           (when (and model (get-autoload model))
             (autoload model))))
       
-      (define (insert-jml-self-definitions father level node sort?)
-        (insert-jml-definitions father level (get-jml-named-children node) sort?))
+      (define (insert-markup-self-definitions father level node sort?)
+        (insert-markup-definitions father level (get-markup-named-children node) sort?))
       
-      (define (insert-jml-definitions father level definitions sort?)
-        (let ((ordered (if sort? (sort-jml-definitions definitions) definitions)))
+      (define (insert-markup-definitions father level definitions sort?)
+        (let ((ordered (if sort? (sort-markup-definitions definitions) definitions)))
           (for-each (lambda (definition)
                       (insert-definition father (+ level 1) definition sort?))
                     ordered)))
       
-      (define (get-jml-named-children node)
+      (define (get-markup-named-children node)
         (define (named? node)
-          (and (is? node JML-Element)
+          (and (is? node Markup-Element)
                (or (get-name node)
                    (get-property node 'title))))
         
-        (and (is? node JML-Element)
+        (and (is? node Markup-Element)
              (collect-if (lambda (child)
-                           (and (is? child JML-Element)
+                           (and (is? child Markup-Element)
                                 (or (named? child)
                                     (some? named? (get-children child)))))
                          (get-children node))))
       
-      (define (sort-jml-definitions definitions)
+      (define (sort-markup-definitions definitions)
         (sort string<? definitions key: (lambda (definition) (->string (get-name definition)))))
       
       (insert-definition father level node sort?))
@@ -379,7 +379,7 @@
   
   
   (method package (edit-definitions self definition double-click?)
-    (define (edit-jml-definition definition)
+    (define (edit-markup-definition definition)
       (let* ((appl (get-application))
              (moniker (get-origin client-root))
              (frame (edit-document appl moniker visible?: #f))
@@ -389,8 +389,8 @@
         (set-selection-safe text range ensure-displayed?: 'center-caret)
         (focus-host frame)))
     
-    (if (is? definition JML-Node)
-        (edit-jml-definition definition)
+    (if (is? definition Markup-Node)
+        (edit-markup-definition definition)
       (edit-entry definition activate-focus?: double-click?)))
   
   

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; JML Descriptors
+;;;; Markup Parse
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,35 +35,56 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.jml.descriptors jazz
-
-
-(import (jazz.descriptor)
-        (jazz.domain)
-        (jazz.jml)
-        (jazz.resource))
+(module jazz.markup.parse jazz
 
 
 ;;;
-;;;; JML-Preferences
+;;;; Tag
 ;;;
 
 
-(class JML-Preferences-Descriptor extends Component-Descriptor
-  
-  
-  (form
-    (<install>                                      title: "JML Preferences" image: {Image-Resource "Preferences"}
-      (<properties~>
-        (<Property-Descriptor> name: target
-          (<String-Domain>     name: domain))
-        (<Property-Descriptor> name: jml-directory  title: "JML Directory"
-          (<Directory-Domain>  name: domain))
-        (<Property-Descriptor> name: html-directory title: "HTML Directory"
-          (<Directory-Domain>  name: domain))
-        (<Property-Descriptor> name: debug-tables?
-          (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: debug-colors?
-          (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: tab-size
-          (<Integer-Domain>    name: domain)))))))
+(definition public (tag? expr)
+  (and (symbol? expr)
+       (tag-string? (symbol->string expr))))
+
+
+(definition public (tag-string? string)
+  (and (> (string-length string) 2)
+       (starts-with? string "<")
+       (ends-with? string ">")))
+
+
+(definition public (tag->name tag)
+  (let ((extract
+          (lambda (string <string>)
+            (subseq string 1 (- (cardinality string) 1)))))
+    (if (string? tag)
+        (extract tag)
+      (string->symbol (extract (symbol->string tag))))))
+
+
+(definition public (name->tag name)
+  (string->symbol (string-append "<" (symbol->string name) ">")))
+
+
+;;;
+;;;; Parse
+;;;
+
+
+(definition public (parse-markup-expr expr)
+  (bind (first . rest) expr
+    (let ((tag (tag->name first)))
+      (receive (properties children) (parse-attributes rest)
+        (values tag properties children)))))
+
+
+(definition public (get-markup-property list property (not-found: not-found '()))
+  (let ((scan list))
+    (continuation-capture
+      (lambda (return)
+        (while (not-null? scan)
+          (when (eqv? (car scan) property)
+            (continuation-return return (cadr scan)))
+          (set! scan (cddr scan)))
+        not-found)))))

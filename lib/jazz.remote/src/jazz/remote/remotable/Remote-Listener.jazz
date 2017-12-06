@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Remotable Stubs
+;;;; Remote Listener
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,54 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.jrm.remote.Remotable-Stub jazz
+(module protected jazz.remote.remotable.Remote-Listener jazz
 
 
-(interface Remotable-Stub
+(import (jazz.network)
+        (jazz.remote))
+
+
+(class Remote-Listener extends TCP-Server
   
   
-  (method public virtual abstract (stub-reference self))))
+  (method override (server-name self)
+    'remote-listener)
+  
+  
+  (method override (server-title self)
+    "Remote Listener")
+  
+  
+  (method override (connection-name self)
+    'remote-connection)
+  
+  
+  ;; for text communication
+  (method override (connection-readtable self)
+    jazz-readtable)
+  
+  
+  ;;;
+  ;;;; Thread
+  ;;;
+  
+  
+  (method override (create-thread self . rest)
+    (apply new-system-thread rest))
+
+  
+  ;;;
+  ;;;; Connection
+  ;;;
+  
+  
+  (method override (accept-connection self port)
+    (accept-remote port))
+  
+  
+  (method override (close-connection self port)
+    (if remote-problem-handler
+        (remote-problem-handler
+          (lambda ()
+            (close-port port)))
+      (close-port port)))))

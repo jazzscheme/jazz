@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Remote Proxy
+;;;; Remote Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,51 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.jrm.remote.Remote-Proxy jazz
+(unit jazz.remote.install
 
 
-(import (jazz.jrm))
-
-
-(class Remote-Proxy extends Proxy
-  
-  
-  (method meta override (marshall-object self object)
-    (marshall-remote-proxy object))
-  
-  
-  (method meta override (unmarshall-object self content)
-    (unmarshall-proxy content))
-
-  
-  (slot ior    getter generate)
-  (slot values getter generate)
-  
-  
-  (method override (initialize self ior values)
-    (nextmethod self)
-    (set! self.ior ior)
-    (set! self.values values))
-  
-  
-  (method override (print self output readably)
-    (print-unreadable self output
-      (lambda (output)
-        (format output "on {s} {s}"
-          ior values))))
-  
-  
-  ;; meant to be used by the remoting system only
-  (method public (set-values self lst)
-    (set! values lst))
-  
-  
-  (method public (proxy-value self keyword thunk)
-    (let ((prop (getprop values keyword)))
-      (if prop
-          (cadr prop)
-        (thunk))))
-  
-  
-  (method override (live? self)
-    (remote-proxy-live? self))))
+(jazz:define-literal IOR jazz.remote.literals:construct-ior))

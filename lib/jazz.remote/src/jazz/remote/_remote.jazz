@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Remote Method Invocation
+;;;; Jazz Remoting
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -47,7 +47,7 @@
 ;;     marshalled object sent remotely
 ;;   listener
 ;;     tcp server receiving a connection request
-;;     and that starts the pump called jrm-connection
+;;     and that starts the pump called remote-connection
 ;;   pumps
 ;;     waits on socket for messages client and server side
 ;;   switchboard
@@ -75,12 +75,12 @@
 ;;
 ;; TODO
 ;; - need to really think about exception handling
-;;   - make sure exceptions internal to jrm are handled correctly
+;;   - make sure exceptions internal to remoting are handled correctly
 ;;   - maybe we should just let user code exceptions by handled by
 ;;     the current exception handler!?
 
 
-(module jazz.jrm jazz
+(module jazz.remote jazz
 
 
 (hub find-object)
@@ -114,18 +114,18 @@
 (hub unregister-object)
 
 
-(export (jazz.jrm.autoload))
-(import (jazz.jrm.autoload)
-        (jazz.jrm.protocol)
-        (jazz.jrm.transmission)
+(export (jazz.remote.autoload))
+(import (jazz.remote.autoload)
+        (jazz.remote.protocol)
+        (jazz.remote.transmission)
         (jazz.event)
         (jazz.network)
         (jazz.settings)
         (jazz.version))
 
 
-(definition *jrm-marker*
-  (list 'jrm))
+(definition *remote-marker*
+  (list 'remote))
 
 
 ;;;
@@ -133,14 +133,14 @@
 ;;;
 
 
-(definition *jrm-uuid*
+(definition *remote-uuid*
   #f)
 
 
 (definition public (listening-uuid)
-  (or *jrm-uuid*
+  (or *remote-uuid*
       (let ((uuid (make-uuid)))
-        (set! *jrm-uuid* uuid)
+        (set! *remote-uuid* uuid)
         uuid)))
 
 
@@ -149,7 +149,7 @@
 ;;;
 
 
-(definition (debug-jrm side action message/delayed)
+(definition (debug-remote side action message/delayed)
   (define (simplify message)
     (cond ((not *debug-simplify?*)
            message)
@@ -176,12 +176,12 @@
 
 
 (definition public (connect-remote host service (slave? #f))
-  (debug-jrm '-pump- 'start (list host service))
+  (debug-remote '-pump- 'start (list host service))
   ;; note that the default value for open-tcp-client coalesce is #t which uses the Nagle algorithm
   (let ((port (open-tcp-client (list server-address: host port-number: service readtable: jazz-readtable))))
     (with-exception-catcher
       (lambda (exc)
-        (debug-jrm '-pump- 'closed (list host service))
+        (debug-remote '-pump- 'closed (list host service))
         (with-exception-catcher
           (lambda (exc)
             #f)
@@ -214,9 +214,9 @@
                     (thread-start! (new-thread
                                      (lambda ()
                                        (process-pump uuid connection port slave?))
-                                     'jrm-pump))
+                                     'remote-pump))
                     (setup-remote-connection uuid connection)
-                    (debug-jrm '-pump- 'started (list host service port))
+                    (debug-remote '-pump- 'started (list host service port))
                     uuid))))))))))
 
 
@@ -394,7 +394,7 @@
                   (input-port-timeout-set! wait-port wait)
                   (read wait-port))))))
         (let ((message (if (eof-object? data) data (cdr data))))
-          (debug-jrm '-pump- 'read message)
+          (debug-remote '-pump- 'read message)
           (thread-send (require-remote-switchboard) (values 'pump uuid message))
           (if (eof-object? message)
               (close-remote-connection uuid port)
@@ -406,30 +406,30 @@
 ;;;
 
 
-(definition *jrm-switchboard*
+(definition *remote-switchboard*
   #f)
 
 
 (definition public (require-remote-switchboard)
-  (if (not *jrm-switchboard*)
+  (if (not *remote-switchboard*)
       (error "Unable to complete operation because the remote switchboard is not running")
-    *jrm-switchboard*))
+    *remote-switchboard*))
 
 
 (definition public (start-remote-switchboard)
-  (unless *jrm-switchboard*
+  (unless *remote-switchboard*
     ;; main thread has load-lock on jazz.debuggee.setup
-    ;; switchboard-thread will need to load jazz.jrm.register.Register
-    (load-unit 'jazz.jrm.register.Register)
-    (set! *jrm-switchboard*
+    ;; switchboard-thread will need to load jazz.remote.register.Register
+    (load-unit 'jazz.remote.register.Register)
+    (set! *remote-switchboard*
           (new-thread (lambda ()
                         (process-switchboard))
-                      'jrm-switchboard))
-    (thread-start! *jrm-switchboard*)))
+                      'remote-switchboard))
+    (thread-start! *remote-switchboard*)))
 
 
 (definition public (flush-remote-switchboard)
-  (when *jrm-switchboard*
+  (when *remote-switchboard*
     (let ((invoke-thread (current-thread)))
       (thread-send (require-remote-switchboard) (values 'flush #f invoke-thread))
       (catch (Connection-Broke exc
@@ -458,7 +458,7 @@
     (define (process-pump-message uuid message)
       (define (dispatch-remote message)
         (bind (kind cookie method-name proxy-ior arguments) message
-          (debug-jrm 'server 'dispatch (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
+          (debug-remote 'server 'dispatch (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
           (let ((local-proxy (ior->proxy proxy-ior)))
             (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments))))
       
@@ -479,7 +479,7 @@
                   (lambda (exc)
                     (continuation-capture
                       (lambda (cont)
-                        (debug-jrm 'server 'exception
+                        (debug-remote 'server 'exception
                           (lambda ()
                             (list method-name
                                   (with-output-to-string ""
@@ -500,7 +500,7 @@
                 (invocation-broke thread "Switchboard connection closed"))))
           invocations))
       
-      (debug-jrm 'server 'pump message)
+      (debug-remote 'server 'pump message)
       (if (eof-object? message)
           (cleanup-pump-invocations invocations uuid)
         (let ((kind (car message)))
@@ -510,7 +510,7 @@
                (let ((thread (serial->object cookie)))
                  (when (table-ref invocations thread #f)
                    (table-clear invocations thread)
-                   (thread-send thread (cons *jrm-marker* message))))))
+                   (thread-send thread (cons *remote-marker* message))))))
             ((live?)
              (bind (kind cookie method-name proxy-ior arguments) message
                (catch Connection-Broke
@@ -524,26 +524,26 @@
              (thread-start!
                (new-thread (lambda ()
                              (dispatch-remote message))
-                           'jrm-post)))
+                           'remote-post)))
             ((exec call)
              (thread-start!
                (new-thread (lambda ()
                              (let ((reply (execute-remote message)))
-                               (debug-jrm 'server 'reply message)
-                               (debug-jrm 'server 'reply reply)
+                               (debug-remote 'server 'reply message)
+                               (debug-remote 'server 'reply reply)
                                ;; calling find-remote-connection is a quick solution that needs proper thinking
                                ;; to the problem of receiving invocations after the connection has been closed
                                (let ((connection (find-remote-connection uuid) @wait (require-remote-connection uuid)))
                                  (when connection
                                    (send-remote-message reply connection)))))
                            (case kind
-                             ((exec) 'jrm-exec)
-                             ((call) 'jrm-call)))))))))
+                             ((exec) 'remote-exec)
+                             ((call) 'remote-call)))))))))
     
     (define (invocation-broke thread reason)
-      (debug-jrm 'server 'broke (list thread reason))
+      (debug-remote 'server 'broke (list thread reason))
       (let ((cookie (object->serial thread)))
-        (thread-send thread (cons *jrm-marker* (list 'broke cookie reason)))))
+        (thread-send thread (cons *remote-marker* (list 'broke cookie reason)))))
     
     (let (loop)
       (receive (best-thread best-timeout best-message) (find-best-timeout)
@@ -562,7 +562,7 @@
                    (table-set! invocations invoke-thread (list timeout uuid message))))
                 ((invoke)
                  (receive (invoke-thread post-problem-handler timeout kind method-name proxy-ior arguments) message
-                   (debug-jrm 'server 'invoke (list (object->serial invoke-thread) timeout kind method-name proxy-ior arguments))
+                   (debug-remote 'server 'invoke (list (object->serial invoke-thread) timeout kind method-name proxy-ior arguments))
                    (assert (thread? invoke-thread))
                    (let ((cookie (object->serial invoke-thread)))
                      (with-exception-filter
@@ -730,15 +730,15 @@
     (declare (proper-tail-calls))
     (let (iter)
       (let ((next (thread-mailbox-next)))
-        (cond ((and (pair? next) (eq? (car next) *jrm-marker*))
+        (cond ((and (pair? next) (eq? (car next) *remote-marker*))
                (thread-mailbox-extract-and-rewind)
                (cdr next))
               (else
                (iter))))))
   
   (let ((message (skip-to-message)))
-    (debug-jrm 'client 'read (list method-name (object->serial invoke-thread)))
-    (debug-jrm 'client 'read message)
+    (debug-remote 'client 'read (list method-name (object->serial invoke-thread)))
+    (debug-remote 'client 'read message)
     (bind (kind cookie result) message
       (case kind
         ((result)
@@ -764,7 +764,7 @@
     (let ((uuid (get-uuid proxy-ior))
           (cookie (object->serial invoke-thread))
           (timeout (and (neq? kind 'post) (make-absolute-timeout (receive-timeout)))))
-      (debug-jrm 'client 'send (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
+      (debug-remote 'client 'send (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
       (thread-send (require-remote-switchboard) (values 'invoke uuid (values invoke-thread post-problem-handler timeout kind method-name proxy-ior arguments)))
       (case kind
         ((post)

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Remote Listener
+;;;; Remote Proxy
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,54 +35,51 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.jrm.remote.Remote-Listener jazz
+(module protected jazz.remote.remotable.Remote-Proxy jazz
 
 
-(import (jazz.jrm)
-        (jazz.network))
+(import (jazz.remote))
 
 
-(class Remote-Listener extends TCP-Server
+(class Remote-Proxy extends Proxy
   
   
-  (method override (server-name self)
-    'jrm-listener)
+  (method meta override (marshall-object self object)
+    (marshall-remote-proxy object))
   
   
-  (method override (server-title self)
-    "Remote Listener")
-  
-  
-  (method override (connection-name self)
-    'jrm-connection)
-  
-  
-  ;; for text communication
-  (method override (connection-readtable self)
-    jazz-readtable)
-  
-  
-  ;;;
-  ;;;; Thread
-  ;;;
-  
-  
-  (method override (create-thread self . rest)
-    (apply new-system-thread rest))
+  (method meta override (unmarshall-object self content)
+    (unmarshall-proxy content))
 
   
-  ;;;
-  ;;;; Connection
-  ;;;
+  (slot ior    getter generate)
+  (slot values getter generate)
   
   
-  (method override (accept-connection self port)
-    (accept-remote port))
+  (method override (initialize self ior values)
+    (nextmethod self)
+    (set! self.ior ior)
+    (set! self.values values))
   
   
-  (method override (close-connection self port)
-    (if remote-problem-handler
-        (remote-problem-handler
-          (lambda ()
-            (close-port port)))
-      (close-port port)))))
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "on {s} {s}"
+          ior values))))
+  
+  
+  ;; meant to be used by the remoting system only
+  (method public (set-values self lst)
+    (set! values lst))
+  
+  
+  (method public (proxy-value self keyword thunk)
+    (let ((prop (getprop values keyword)))
+      (if prop
+          (cadr prop)
+        (thunk))))
+  
+  
+  (method override (live? self)
+    (remote-proxy-live? self))))

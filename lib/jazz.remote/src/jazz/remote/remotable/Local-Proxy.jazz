@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; JRM Protocol
+;;;; Local Proxy
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,11 +35,41 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.jrm.protocol jazz
+(module protected jazz.remote.remotable.Local-Proxy jazz
 
 
-(definition public simulated-protocol
-  #f)
+(import (jazz.remote))
 
-(definition public (set-simulated-protocol protocol)
-  (set! simulated-protocol protocol)))
+
+(class Local-Proxy extends Proxy
+  
+  
+  (method meta override (marshall-object self object)
+    (marshall-local-proxy object))
+  
+  
+  (method meta override (unmarshall-object self content)
+    (unmarshall-proxy content))
+
+  
+  (slot object accessors generate)
+  
+  
+  (method override (initialize self object)
+    (nextmethod self)
+    (set! self.object object))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "on {s}"
+          object))))
+  
+  
+  (method package virtual (proxy-values self)
+    '())
+  
+  
+  (method override (live? self)
+    #t)))

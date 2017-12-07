@@ -1,0 +1,318 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Designer Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.ui.manager.Designer-Manager jazz
+
+
+(import (jazz.application)
+        (jazz.component)
+        (jazz.descriptor)
+        (jazz.designer)
+        (jazz.designer.ui)
+        (jazz.designer.ui.view)
+        (jazz.event)
+        (jazz.graphic)
+        (jazz.handler)
+        (jazz.ide)
+        (jazz.layout)
+        (jazz.markup)
+        (jazz.resource)
+        (jazz.ui)
+        (jazz.view)
+        (jazz.workspace))
+
+
+(class Designer-Manager extends Layout-View
+
+
+  (property client initialize #f accessors explicit)
+
+
+  (form
+    (<install>                                   layout-type: flow layout-insets: {Rect 4 5 0 0} background: {Color Medium}
+      (<Radio-Tool>     name: select             size: {Dimension 22 22} resource: {Image-Resource "ModeSelect"} group: selection-mode portfolio: :images selected?: #t tooltip?: #t tooltip-text: "Select" action-handler: {Event-Handler :form on-mode mode: select})
+      (<Separator>                               size: {Dimension 2 0})
+      (<Radio-Tool>     name: rect               size: {Dimension 22 22} resource: {Image-Resource "ModeRect"} group: selection-mode portfolio: :images tooltip?: #t tooltip-text: "Rectangle" action-handler: {Event-Handler :form on-mode mode: rect})
+      (<Separator>)
+      (<Radio-Tool>     name: view-mode          size: {Dimension 22 22} tooltip?: #t tooltip-text: "View Mode" group: viewing-mode resource: {Image-Resource "WorkspaceDesigning"} portfolio: :images action-handler: {Event-Handler :form on-viewing-mode mode: view})
+      (<Radio-Tool>     name: grid-mode          size: {Dimension 22 22} tooltip?: #t tooltip-text: "Grid Mode" group: viewing-mode resource: {Image-Resource "DesignTables"} portfolio: :images action-handler: {Event-Handler :form on-viewing-mode mode: grid})
+      (<Radio-Tool>     name: text-mode          size: {Dimension 22 22} tooltip?: #t tooltip-text: "Text Mode" group: viewing-mode resource: {Image-Resource "Document"} portfolio: :images action-handler: {Event-Handler :form on-viewing-mode mode: text})
+      (<Separator>)
+      (<Toggle-Tool>    name: frames             size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Frames?" resource: {Image-Resource "Fill"} portfolio: :images selected?: #t action-handler: {Event-Handler :form on-toggle-frames})
+      (<Toggle-Tool>    name: content            size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Content?" resource: {Image-Resource "View"} portfolio: :images selected?: #t action-handler: {Event-Handler :form on-toggle-content})
+      @wait
+      (<Toggle-Tool>    name: preview            size: {Dimension 22 22} tooltip?: #t tooltip-text: "Preview" resource: {Image-Resource "Trait"} portfolio: :images action-handler: {Event-Handler :form on-preview})
+      (<Push-Tool>      name: try-out            size: {Dimension 22 22} tooltip?: #t tooltip-text: "Try Out" resource: {Image-Resource "Trait"} portfolio: :images action-handler: {Event-Handler :form on-try-out})
+      (<Separator>)
+      (<Toggle-Tool>    name: lock-selection     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Lock Selection?" resource: {Image-Resource "DesignRelation"} portfolio: :images selected?: #f action-handler: {Event-Handler :form on-toggle-lock-selection})
+      (<Separator>)
+      (<Layout-View>    name: zoom-layout        size: {Dimension 80 22} layout-type: fill layout-insets: {Rect 2 2 2 1}
+        (<Border-View>                           border-color: {Color Dark}
+          (<Zoom-Combo> name: zoom               content-change-handler: {Event-Handler :form on-zoom-change})))
+      (<Separator>)
+      (<Push-Tool>      name: refresh            size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-refresh})
+      (<Separator>)
+      (<Push-Tool>      name: validate-integrity size: {Dimension 22 22} tooltip?: #t tooltip-text: "Validate Integrity" resource: {Image-Resource "Validate"} portfolio: :images action-handler: {Event-Handler :form on-validate-integrity})))
+  
+  
+  (method meta override (external-name self . rest)
+    'Design)
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-icon self)
+    {Image-Resource "Designer"})
+  
+
+  (method meta override (host-title self)
+    "Design")
+  
+  
+  (method override (client-activate self)
+    (let ((guest (current-document)))
+      (let ((client (and (is? guest Component-Editor) guest)))
+        (set-client self client))))
+  
+  
+  (method override (client-deactivate self)
+    (set-client self #f))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-editor self evt)
+    (case (get-kind evt)
+      ((:designer-change) (set-designer self (get-property evt designer:)))))
+  
+  
+  (method (on-new self evt)
+    )
+  
+  
+  (method package (on-open self evt)
+    (set-client client (instantiate (open-form client))))
+  
+  
+  (method (on-toggle-frames self evt)
+    (toggle-frames client))
+  
+  
+  (method (on-toggle-content self evt)
+    (toggle-content client))
+  
+  
+  (method (on-toggle-lock-selection self evt)
+    (toggle-lock-selection client))
+  
+  
+  (method package (on-refresh self evt)
+    (refresh client))
+  
+  
+  (method (on-preview self evt)
+    (preview client))
+  
+  
+  (method package (on-try-out self evt)
+    (if (not client)
+        (bell)
+      (try-out client)))
+  
+  
+  (method (on-viewing-mode self evt)
+    (with-cursor :wait
+      (lambda ()
+        (let ((editor client)
+              (application (get-application))
+              (mode (get-property evt mode:)))
+          (with-exception-filter
+            (lambda (exc)
+              (is? exc Cancel-Signal))
+            (lambda (exc)
+              ;; rollback
+              (typecase editor
+                ((Text-Editor) (set-selected? (locate self 'text-mode) #t))
+                ((Grid-Component-Editor) (set-selected? (locate self 'grid-mode) #t))
+                ((View-Editor) (set-selected? (locate self 'view-mode) #t)))
+              (signal-cancel))
+            (lambda ()
+              (prepare-mode-switch editor)))
+          (let ((frame (get-frame editor))
+                (client (get-client editor))
+                (modified? (get-modified? editor)))
+            (let ((position (get-position frame))
+                  (size (get-size frame)))
+              (set-parent client #f)
+              (close (get-frame editor))
+              (let ((editor (open-component client editor-class: (case mode
+                                                                   ((view) (view-editor-class application))
+                                                                   ((grid) (component-editor-class application))
+                                                                   ((text) (text-editor-class application)))
+                              host-position: position
+                              host-size: size)))
+                (set-modified? editor modified?))))))))
+  
+  
+  (method (on-edit-form self evt)
+    (view-component client workspace: (designer-source-workspace)))
+  
+  
+  (method (on-zoom-change self evt)
+    (let ((value (get-zoom (get-sender evt)))
+          (view (get-client client)))
+      (set-scaling view value)))
+  
+  
+  (method (on-validate-integrity self evt)
+    (with-progress
+      (lambda (reporter)
+        (validate-integrity client reporter: reporter)
+        (report-message reporter "Done")
+        (set-done reporter))
+      threaded?: #f
+      name: "Validate Integrity"
+      progress-reporter: Validation-Reporter
+      cancelable?: #t))
+  
+  
+  ;;;
+  ;;;; Mode
+  ;;;
+  
+  
+  (method (on-mode self evt)
+    (let ((mode (get-property evt mode:))
+          (editor (current-document)))
+      (set-mode editor mode)
+      (invalidate-selection editor)))
+  
+  
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method public (get-client self)
+    client)
+
+
+  (method public (set-client self clt)
+    (set! client clt)
+    (client-update self))
+  
+  
+  (method package (client-update self)
+    (let ((component-editor? (and client (is? client Component-Editor)))
+          (view-editor? (and client (is? client View-Editor)))
+          (grid-editor? (and client (is? client Grid-Component-Editor)))
+          (component (and client (get-client client))))
+      (let ((view? (is? component View)))
+        (define (can-descriptor-try-out?)
+          (let ((class (and component-editor? (get-origin (get-form (get-designer client))))))
+            (and (class? class)
+                 (can-try-out? (get-descriptor class) class))))
+        
+        (set-enabled? (locate self 'select) view-editor?)
+        (set-enabled? (locate self 'rect) view-editor?)
+        (let ((frames-button (locate self 'frames))
+              (content-button (locate self 'content))
+              @wait
+              (preview-button (locate 'preview))
+              (try-out-button (locate self 'try-out))
+              (refresh-button (locate self 'refresh))
+              (lock-button (locate self 'lock-selection))
+              (zoom-layout (locate self 'zoom-layout))
+              (zoom (locate self 'zoom)))
+          (set-enabled? frames-button view-editor?)
+          (set-enabled? content-button view-editor?)
+          @wait
+          (set-enabled? preview-button view-editor?)
+          (set-enabled? try-out-button (can-descriptor-try-out?))
+          (set-enabled? refresh-button component-editor?)
+          (set-enabled? lock-button view-editor?)
+          (set-enabled? (locate self 'view-mode) view?)
+          (set-enabled? (locate self 'grid-mode) component-editor?)
+          (set-enabled? (locate self 'text-mode) component-editor?)
+          (set-enabled? zoom-layout view-editor?)
+          (set-enabled? zoom view-editor?)
+          (when view?
+            (set-zoom zoom (effective-scaling (get-client client))))
+          (set-selected? frames-button (and view-editor? (get-show-frames? client)))
+          (set-selected? content-button (and view-editor? (get-show-content? client)))
+          (set-selected? lock-button (and view-editor? (get-selection-locked? client)))
+          @wait
+          (set-selected? preview-button (and view-editor? (previewing? client))))
+        (cond (view-editor? (set-selected? (locate self 'view-mode) #t))
+              (grid-editor? (set-selected? (locate self 'grid-mode) #t))
+              (component-editor? (set-selected? (locate self 'text-mode) #t)))
+        (set-enabled? (locate self 'validate-integrity) client))))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method package (set-designer self designer)
+    (if (not designer)
+        (set-title self "Design")
+      (let ((reference (get-reference designer)))
+        (set-title self (format "Design : {a}" (category-identifier (class-of reference))))))))
+
+
+;;;
+;;;; Validation-Reporter
+;;;
+
+
+(class Validation-Reporter extends Progress-Reporter
+  
+  
+  (form
+    (<install>              title: "Validation Progress"
+      (<!>     name: invite title: "Please wait while the integrity validation completes")))
+  
+  
+  (method meta override (host-title self)
+    "Validation Progress")))

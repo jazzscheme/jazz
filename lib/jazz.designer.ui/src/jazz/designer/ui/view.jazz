@@ -1,0 +1,339 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Designer View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.designer.ui.view jazz
+
+
+(import (jazz.application)
+        (jazz.component)
+        (jazz.descriptor)
+        (jazz.designer)
+        (jazz.designer.ui)
+        (jazz.editor)
+        (jazz.editor.jazz)
+        (jazz.ide)
+        (jazz.io)
+        (jazz.locale)
+        (jazz.markup)
+        (jazz.picker)
+        (jazz.runtime)
+        (jazz.text)
+        (jazz.ui)
+        (jazz.view)
+        (jazz.workspace))
+
+
+;;;
+;;;; Component
+;;;
+
+
+(definition package (request-component-presentation class brothers (initial-value: initial-value #f))
+  (if (get-class-name-prohibited? class)
+      #f
+    (let* ((name-mandatory? (get-class-name-mandatory? class))
+           (name-unicity? (get-class-name-unicity? class))
+           (unicity-domain (and name-unicity? brothers (remove "{}" (map get-presentation-property brothers) test: equal?)))
+           (pres (localize (get-class-presentation class)))
+           (validator (lambda (str) (and (find str #\space) "No space allowed in names")))
+           (presentation (request-string title: (new Locales english: (format "Enter {a} Name" pres) french: "Entrez le nom") prefix: "Name:" initial-value: initial-value accepts-empty?: (not name-mandatory?) unicity-domain: unicity-domain validator: validator)))
+      presentation)))
+
+
+(definition package (component-addable-classes component)
+  (remove-duplicates
+    (map publicize-runtime-reference
+         (flatten-lists
+           (or (component-categorized-toolbox-addable-classes component) '())))
+    key: serialize-runtime-reference
+    test: equal?))
+
+
+(definition package (component-categorized-toolbox-addable-classes component)
+  (let ((toolbox-managers (get-toolbox-managers)))
+    (and (not-null? toolbox-managers)
+         (is? component Component)
+         (get-categorized-addable-classes component))))
+
+
+(definition package (component-categorized-addable-classes component parent)
+  (let ((parent-classes (and parent (get-addable-classes parent)))
+        (classes (get-addable-classes component))
+        (categorized (get-categorized-addable-classes component))
+        (model (class-of component)))
+    (let ((model-ref (and parent-classes
+                          (not (find classes model test: eq? key: resolve-runtime-reference return: 'item))
+                          (find parent-classes model test: eq? key: resolve-runtime-reference return: 'item))))
+      (if model-ref
+          (cons (list model-ref) categorized)
+        categorized))))
+
+
+(definition public (redundant-descendant? component components)
+  (some? (lambda (target)
+           (and (neq? component target)
+                (has-parent? component target)))
+         components))
+
+
+(definition public (can-modify-components? components pred)
+  (and (not-null? components)
+       (every? (lambda (component)
+                 (and (is? component Component)
+                      (pred component)
+                      (not (redundant-descendant? component components))))
+               components)))
+
+
+(definition public (can-copy-components? components)
+  (can-modify-components? components can-copy-component?))
+
+
+(definition public (can-cut-components? components)
+  (can-modify-components? components can-cut-component?))
+
+
+(definition public (can-delete-components? components)
+  (can-modify-components? components can-delete-component?))
+
+
+(definition public (can-paste-components? components)
+  (and (every? (lambda (component)
+                 (is? component Component))
+               components)
+       (determine-unique-paster components)))
+
+
+;;;
+;;;; Open
+;;;
+
+
+(definition public (origin-equal? origin1 origin2)
+  (and (eq? (class-of origin1) (class-of origin2))
+       (typecase origin1
+         ((File) (pathname=? origin1 origin2))
+         ((Class) (eq? origin1 origin2))
+         ((Runtime-Reference) (eq? (resolve-runtime-reference origin1)
+                                   (resolve-runtime-reference origin2)))
+         (else
+          (error "Unknown origin type : {s}" (class-of origin1))))))
+
+
+(definition public (find-editor origin)
+  (find-frame-if-guest
+    (lambda (guest)
+      (and (is? guest Component-Editor)
+           (origin-equal? origin (get-origin (get-form (get-designer guest))))))))
+
+
+(definition public (make-trait-edition-instance reference)
+  (let* ((trait (resolve-runtime-reference reference))
+         (trait-type (get-client-type trait))
+         (type-name (category-name trait-type))
+         (trait-form (get-form trait))
+         (trait-edition-form (copy-object trait-form #t))
+         (edition-form (new Form action: 'new model: type-name children: (list trait-edition-form))))
+    (set-locator edition-form (locator-add-reference (get-locator trait-form) type-name (runtime-class-reference trait-type)))
+    (setup-context edition-form edition-form)
+    (set-origin edition-form reference)
+    (instantiate edition-form)))
+
+
+(definition public (open-trait reference (editor-class: editor-class #f))
+  (let ((resolved (resolve-runtime-reference reference)))
+    (if (is? resolved Trait)
+        (let ((frame (find-editor reference)))
+          (if frame
+              (focus-host frame)
+            (open-component (make-trait-edition-instance reference) editor-class: editor-class)))
+      (error "Target is not a trait: {s}" resolved))))
+
+
+(definition public (insert-new-form text class-name (form #f))
+  (let ((form-string (if form
+                         (form->string form 2)
+                       "(form\n    (<install>))")))
+    (insert-string (get-model text) (location-range text (list class-name :new-form)) (format "{%}{%}{%}  {a}" form-string))))
+
+
+(definition public (insert-class text class-name super-class-name)
+  (let ((explorer (new Jazz-Explorer (get-model text))))
+    (set-caret text (find-namespace-insertion-point explorer))
+    (insert-string text (format "{%}{%}{%}(class {a} extends {a})" class-name super-class-name))))
+
+
+(definition (check-class-form class)
+  (let ((class-form (get-class-form class)))
+    (unless (and class-form (eq? (get-origin class-form) class))
+      (case (message-box "This class does not have a form. Do you want to add one? You will have to reopen." yes: "Yes" no: "No")
+        ((yes)
+         (bind (unit class-name) (cdr (serialize-class class))
+           (call-with-saved-text (find-unit-source unit)
+             (lambda (text)
+               (insert-new-form text class-name)
+               (evaluate-range text (location-range text (list class-name :form))))))))
+      (signal-cancel))))
+
+
+(definition public (make-class-edition-instance class)
+  (check-class-form class)
+  (let* ((class-form (get-class-form class))
+         (edition-form (copy-object class-form #t)))
+    (setup-context edition-form edition-form)
+    (new class class-form: edition-form)))
+
+
+(definition public (open-class class (editor-class: editor-class #f))
+  (if (class? class)
+      (let ((frame (find-editor class)))
+        (if frame
+            (begin
+              (focus-host frame)
+              (get-guest frame))
+          (open-component (make-class-edition-instance class) editor-class: editor-class)))
+    (error "Target is not a class: {s}" class)))
+
+
+(definition protected (open-component target (editor-class: editor-class #f) (host-position: host-position #f) (host-size: host-size #f))
+  (if (is? target Component)
+      (let ((editor-class (or editor-class
+                              (typecase target
+                                ((View) (view-editor-class (get-application)))
+                                ((Component) (component-editor-class (get-application)))))))
+        (get-guest (new-frame editor-class host-position: host-position host-size: host-size client: target)))
+    (error "Target is not a component: {s}" target)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(definition *view-editors*
+  (make-table test: eq?))
+
+(definition package (get-view-editor view)
+  (table-ref *view-editors* view #f))
+
+(definition package (set-view-editor view editor)
+  (table-set! *view-editors* view editor))
+
+
+(definition (view-editor-client view)
+  (define (determine-client guest)
+    (typecase guest
+      (else
+       guest)))
+  
+  (determine-client (get-guest view)))
+
+
+(definition public (design-client)
+  (pick-figure
+    click: (lambda (view pos) (design-view view))
+    highlight: #t
+    highlight-root-only?: #t
+    obscure-unhighlighted?: #f
+    report-figure?: #f
+    tooltips?: #f))
+
+
+(definition public (design-mouse-client)
+  (design-view (active-mouse-view)))
+
+
+(definition (design-view view)
+  (let ((client (view-editor-client view)))
+    (if (not client)
+        (bell)
+      (let ((view (new (class-of client))))
+        (new-frame View-Editor client: view)))))
+
+
+@w
+(definition (design-view view)
+  (let ((client (view-editor-client view)))
+    (if (not client)
+        (bell)
+      (let ((editor (get-view-editor client)))
+        (if (not editor)
+            (set-view-editor client (get-guest (new-frame View-Editor host-visible?: #f client: client)))
+          (close editor)
+          (set-view-editor client #f))))))
+
+
+(definition public (save-mouse-client)
+  (let ((client (view-editor-client (active-mouse-view))))
+    (if (not client)
+        (bell)
+      (let ((editor (get-view-editor client)))
+        (if (not editor)
+            (bell)
+          (with-cursor :wait
+            (lambda ()
+              (save editor))))))))
+
+
+(definition public (design target)
+  (open-component target))
+
+
+(definition public (design-in-place view)
+  (new-frame jazz.designer.ui:View-Editor client: view host-visible?: #f))
+
+
+;;;
+;;;; Toolboxes
+;;;
+
+
+(definition public (request-unique-name-in-module unit)
+    (let ((symbols (table-keys (get-exports (require-module unit)))))
+      (request-name accepts-empty?: #f unicity-domain: (map symbol->string symbols))))
+
+
+(definition public (find-toolbox-module name)
+    (find (find-toolbox-modules) name key: get-module-name return: 'item))
+
+
+(definition public (find-toolbox-modules)
+  (append-map collect-toolbox-modules (get-toolbox-managers)))
+
+
+(definition public (get-toolbox-managers)
+  (collect-type Toolbox-Manager (docked-views))))

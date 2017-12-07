@@ -1,0 +1,251 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Details Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.ui.editor.Details-Tree jazz
+
+
+(import (jazz.component)
+        (jazz.descriptor)
+        (jazz.designer)
+        (jazz.designer.ui)
+        (jazz.handler)
+        (jazz.locale)
+        (jazz.markup)
+        (jazz.tree))
+
+
+(class undocumented Details-Tree extends Components-Tree
+
+
+  (property base    initialize #f  accessors generate)
+  (property details initialize '() accessors generate)
+
+
+  (form
+    (<install> draggable?: #t reorderable?: #t portfolio: :images multiple-selection?: #f selection-mode: row selection-handler: {Event-Handler :self on-selection-change}))
+
+
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method override (branch-changed self)
+    (update self))
+  
+  
+  (method override (selection-changed self selection old origin force-parent? focus?)
+    (define (determine-client component force-parent?)
+      (let ((parent (get-parent component)))
+        (if (and parent (not-null? (get-addable-classes parent)) (or force-parent? (null? (get-addable-classes component))))
+            (values parent #t)
+          (values component #f))))
+    
+    (unless (or (not origin) (eq? origin self))
+      (if (null? selection)
+          (set-client self #f)
+        (let ((component (car selection)))
+          (receive (client parent?) (determine-client component force-parent?)
+            (set-client self client)
+            (if (not parent?)
+                (set-selection self '() generate-event?: #f)
+              (let ((row (component-row self component)))
+                (when row
+                  (set-selection self (list (row->line self row)) generate-event?: #t)))))))))
+  
+  
+  @group
+  (method (selection-changed selection old origin force-parent? focus?)
+    (let ((component (car selection)))
+      (when (or (not component) (is? component Group))
+        (set-selection '() generate-event?: #f)
+        (set-client component))))
+  
+
+  ;;;
+  ;;;; Update
+  ;;;
+
+
+  (method override (update self (expand-state: expand-state (get-expand-state self)) (selected-components: selected-components (selected-components self)))
+    (with-update-locked self
+      (lambda ()
+        (setup-columns self)
+        (insert-rows self expand-state selected-components))))
+  
+  
+  (method (setup-columns self)
+    (let ((header (get-header self)))
+      (set! base (and client (get-addable-base client)))
+      (set! details (and client (get-addable-details client)))
+      (set-filled-column self #f)
+      (remove-columns self preserve-node-column?: #t)
+      (if (or (not base) (null? details))
+          (set-filled-column self (get-name node-column))
+        (let ((first? #t))
+          (for-each (lambda (detail)
+                      (bind (path width filled?) detail
+                        (receive (base ignore name title) (split-detail-path self base #f path)
+                          (let ((property (category-field base name)))
+                            (if (not property)
+                                (error "Addable child {a} of {a} has no property {a}" base client name)
+                              (let ((title (or title (detail-presentation base property))))
+                                (when filled?
+                                  (set-filled-column self name))
+                                (if first?
+                                    (begin
+                                      (set! first? #f)
+                                      (let ((column (get-node-column self)))
+                                        (set-name column name)
+                                        (set-title column title)
+                                        (set-width column width)))
+                                  (add-column self class: Tree-Label-Column name: name title: title width: width))))))))
+                    details)))))
+  
+  
+  (method (insert-rows self expand-state selected-components)
+    (remove-every-row self)
+    (when client
+      (let ((recursive? (get-recursive-details? client)))
+        (insert-components self client #f recursive?)
+        (update-selection self expand-state selected-components))))
+  
+  
+  (method (insert-components self component father recursive?)
+    (let ((components (get-components component)))
+      (for-each (lambda (child)
+                  (unless (is? child Group)
+                    (insert-component self child father recursive?)))
+                (if (sort-component-components? component)
+                    (sort < components key: get-presentation-property)
+                  components))))
+    
+  
+  (method protected virtual (insert-component self component father recursive?)
+    (let ((row #f))
+      (when (and base details)
+        (bind (first . rest) details
+          (let ((based? (is? component base)))
+            (when (not based?)
+              (set! first '(name-info filled)))
+            (let* ((nn (car first))
+                   (np (category-field base nn))
+                   (nv (read-property component np))
+                   (nt (present-property component np nv))
+                   (ni (get-component-image component))
+                   (node (new Tree-Node title: nt image: ni))
+                   (labels (map (lambda (detail)
+                                  (if (not based?)
+                                      (new Tree-Label title: "")
+                                    (bind (path width filled?) detail
+                                      (receive (base component name ignore) (split-detail-path self base component path)
+                                        (let* ((property (category-field base name))
+                                               (value (read-property component property))
+                                               (title (present-property component property value)))
+                                          (new Tree-Label title: title))))))
+                                rest))
+                   (children (cons node labels)))
+              (set! row (add-row self father: father state: 'expanded children: children user-data: component))))))
+        (when recursive?
+          (insert-components self component row recursive?))))
+  
+  
+  (method (split-detail-path self base component path)
+    (if (symbol? path)
+        (values base component path #f)
+      (let ((reversed (reverse path)))
+        (bind (title name . subpath) (if (string? (car reversed)) reversed (cons #f reversed))
+          (let ((subpath (reverse! subpath)))
+            (values (follow-submodels self base subpath) (and component (child component subpath)) name title))))))
+  
+  
+  (method (follow-submodels self model path)
+    (cond ((null? path)
+           model)
+          ((symbol? path)
+           (get-model (child (get-class-form model) path)))
+          (else
+           (follow-submodels self (get-model (child (get-class-form model) (car path))) (cdr path)))))
+  
+  
+  (method package (present-location self component)
+    (let ((ascendants (cdr (collect-ascendants component))))
+      (if (null? ascendants)
+          ""
+        (join (map (lambda (ascendant) (localize (get-presentation-property ascendant))) ascendants) " / "))))
+
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method override (on-designer self evt)
+    (case (get-kind evt)
+      ((:child-add) (child-add self (get-property evt child:) (get-property evt parent:)))
+      ((:child-remove) (child-remove self (get-property evt child:)))
+      ((:property-change) (property-change self (get-property evt component:) (get-property evt property:) (get-property evt value:)))))
+  
+  
+  (method package (child-add self child parent)
+    (unless (or (is? child Group) (neq? parent client))
+      (with-update-locked self
+        (lambda ()
+          (insert-component self child #f #f)))))
+  
+  
+  (method package (child-remove self child)
+    (unless (or (is? child Group) (neq? (get-parent child) client))
+      (let ((row (component-row self child)))
+        (when row
+          (with-update-locked self
+            (lambda ()
+              (remove-row self row)))))))
+  
+  
+  (method package (property-change self component property value)
+    (unless (or (is? component Group) (neq? (get-parent component) client))
+      (let ((col (find details (field-name property) key: car)))
+        (when col
+          (for-each-visible-row self
+            (lambda (row rank)
+              (when (eq? (get-user-data row) component)
+                (let* ((cell (new Cell rank col))
+                       (data (get-cell-data self cell))
+                       (title (present-property component property value)))
+                  (set-title data title)
+                  (invalidate-cell self cell)))))))))))

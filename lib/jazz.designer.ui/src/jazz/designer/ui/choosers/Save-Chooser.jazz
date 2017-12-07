@@ -1,0 +1,196 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Save Chooser
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.ui.choosers.Save-Chooser jazz
+
+
+(import (jazz.component)
+        (jazz.designer)
+        (jazz.designer.ui)
+        (jazz.handler)
+        (jazz.graphic)
+        (jazz.markup)
+        (jazz.text)
+        (jazz.ui)
+        (jazz.view))
+
+
+(class Save-Chooser extends View
+  
+  
+  (property modules initialize '() accessors generate)
+  
+  
+  (form
+    (<install>                                   size: {Dimension 400 216}
+      (<Label-View>       name: title            title: "Save designed form" position: {Point 10 9} size: {Dimension 350 16} font: {Font Caption})
+      (<Label-View>       name: description      title: "Choose the representation under which you want to save" position: {Point 30 27} size: {Dimension 350 16} font: {Font Label})
+      (<Radio-Button>     name: class-button     title: "As class" position: {Point 25 88} tooltip?: #t tooltip-text: "Save your design as a class inside a module" action-handler: {Event-Handler :form on-class})
+      (<Radio-Button>     name: file-button      title: "As file" position: {Point 25 114} tooltip?: #t tooltip-text: "Save your design as a form inside a file" action-handler: {Event-Handler :form on-file})
+      (<Horizontal-Line>                         position: {Point 0 48} size: {Dimension 400 8})
+      (<Vertical-Line>                           position: {Point 110 59} size: {Dimension 8 101})
+      (<Label-View>       name: file-label       title: "File:" position: {Point 136 102} size: {Dimension 40 16} visible?: #f font: {Font Label})
+      (<Border-View>      name: file-border      position: {Point 173 100} size: {Dimension 201 19} visible?: #f border-type: edge style: entry
+        (<Pathname-Entry> name: file-entry
+          (<!>            name: moniker          mode: save moniker-update-handler: {Event-Handler :form on-content-change} parameters: (default-extension: "jmf")
+            (<!>          name: body             left-padding: 2 top-padding: 2))))
+      (<Label-View>       name: module-label     title: "Module:" position: {Point 136 88} size: {Dimension 60 16} visible?: #f font: {Font Label})
+      (<Combo-Widget>     name: module-combo     position: {Point 200 85} size: {Dimension 175 22} visible?: #f
+        (<box~>                                  content-change-handler: {Event-Handler :form on-content-change}))
+      (<Horizontal-Line>                         position: {Point 0 170} size: {Dimension 400 8})
+      (<Label-View>       name: class-name-label title: "Class Name:" position: {Point 136 114} visible?: #f size: {Dimension 60 16})
+      (<Entry-Widget>     name: class-name-entry position: {Point 202 112} visible?: #f size: {Dimension 172 19}
+        (<text~>                                 content-change-handler: {Event-Handler :form on-content-change} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}))
+      (<Push-Button>      name: ok               title: "Ok" position: {Point 225 182} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
+      (<Push-Button>      name: cancel           title: "Cancel" position: {Point 311 182} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
+      (<Trait>            name: class
+        (<install>
+          (<!>            name: class-name-label visible?: #t)
+          (<!>            name: class-name-entry visible?: #t)
+          (<!>            name: module-label     visible?: #t)
+          (<!>            name: module-combo     visible?: #t)))
+      (<Trait>            name: file
+        (<install>
+          (<!>            name: file-label       visible?: #t)
+          (<!>            name: file-border      visible?: #t)))))
+  
+  
+  (method meta override (host-title self)
+    "Save as")
+  
+  
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (setup-modules self)
+    (install-branch self 'class)
+    (set-selected? (locate self 'class-button) #t))
+  
+  
+  (method override (focus-default self)
+    (focus-branch self (get-active-trait-name self)))
+  
+  
+  (method (get-module-combo self)
+    (locate self '(module-combo box)))
+  
+  
+  (method package (get-file-entry self)
+    (locate self '(file-entry)))
+  
+  
+  (method (get-class-name-text self)
+    (locate self '(class-name-entry text)))
+  
+  
+  (method (setup-modules self)
+    (set-choices (get-module-combo self)
+      (zip modules (map symbol->string modules))))
+  
+  
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method override (get-modal-result self)
+    (case (get-active-trait-name self)
+      ((class)
+       (let ((module-name (catch (Parse-Error err #f)
+                            (get-value (get-module-combo self))))
+             (class-string (get-string-content (get-class-name-text self))))
+         (and module-name
+              (not (empty-string? class-string))
+              (list module-name class-string))))
+      ((file)
+       (get-value (get-file-entry self)))))
+  
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-class self evt)
+    (install-branch self 'class))
+  
+  
+  (method (on-file self evt)
+    (install-branch self 'file))
+  
+  
+  (method (on-content-change self evt)
+    (update-ok self))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-return-press self evt)
+    (when (get-enabled? (locate self 'ok))
+      (validate-dialog self)
+      (let ((dialog (get-host self)))
+        (end-modal dialog (get-modal-result dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press self evt)
+    (let ((dialog (get-host self)))
+      (cancel-modal dialog)))
+  
+  
+  ;;;
+  ;;;; Branches
+  ;;;
+  
+  
+  (method (install-branch self trait)
+    (set-active-trait self (locate self trait))
+    (when player (focus-branch self trait))
+    (update-ok self))
+  
+  
+  (method (focus-branch self trait)
+    (acquire-focus (case trait
+                      ((class) (get-module-combo self))
+                      ((file)  (tab-view (get-file-entry self))))))
+
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-ok self)
+    (set-enabled? (locate self 'ok) (and (get-modal-result self) #t)))))

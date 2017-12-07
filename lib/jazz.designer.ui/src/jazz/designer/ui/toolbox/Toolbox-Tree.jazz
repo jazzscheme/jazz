@@ -1,0 +1,432 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Toolbox Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.ui.toolbox.Toolbox-Tree jazz
+
+
+(import (jazz.action)
+        (jazz.clipboard)
+        (jazz.component)
+        (jazz.designer)
+        (jazz.designer.ui)
+        (jazz.designer.ui.view)
+        (jazz.editor)
+        (jazz.editor.jazz)
+        (jazz.handler)
+        (jazz.markup)
+        (jazz.menu)
+        (jazz.resource)
+        (jazz.runtime)
+        (jazz.text)
+        (jazz.undoer)
+        (jazz.view)
+        (jazz.workspace))
+
+
+(class Toolbox-Tree-Actions extends Actions
+  
+  
+  (form
+    (<install>
+      (<Action-Item> name: add         action-handler: {Event-Handler :focus on-add})
+      (<Action-Item> name: add-other   action-handler: {Event-Handler :focus on-add-other})
+      (<Action-Item> name: try-out     action-handler: {Event-Handler :focus on-try-out})
+      (<Action-Item> name: edit-source action-handler: {Event-Handler :focus on-edit-source}))))
+
+
+(class Toolbox-Menu extends Component-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: add           before: add-item title: "Add" icon: {Image-Resource "Added"} action-handler: {Action toolbox-tree add})
+      (<Separator-Item> name: end-new-group before: add-item)
+      (<Label-Item>     name: add-other     before: end-add-group title: "Add Other..." icon: {Image-Resource "Added"} action-handler: {Action toolbox-tree add-other})
+      (<Label-Item>     name: try-out       before: end-open-group title: "Try Out" icon: {Image-Resource "Trait"} action-handler: {Action toolbox-tree try-out})
+      (<Label-Item>     name: edit-source   before: end-open-group title: "Edit Source" icon: {Image-Resource "Script"} action-handler: {Action toolbox-tree edit-source}))))
+
+
+(class undocumented Toolbox-Tree extends Descendants-Tree
+  
+  
+  (form
+    (<install> portfolio: :images draggable?: #t reorderable?: #t multiple-selection?: #f selection-mode: row))
+  
+  
+  (method override (add-component-class self ref)
+    (let ((parent (selected-component self)))
+      (if (is? parent Toolbox-Module)
+          (let ((class-name (request-unique-name-in-module (get-module-name parent))))
+            (add-element parent ref class-name)
+            (nextmethod self (reify-reference Toolbox-Model) presentation: (symbol->string class-name) properties: (list unit: (get-module-name Toolbox-Module) model: class-name)))
+        (nextmethod self ref))))
+  
+  
+  (method virtual (can-add? self)
+    (let ((components (selected-components self)))
+      (and (not-null? components)
+           (is? (car components) Toolbox-Addable)
+           (not (is? (car components) Toolbox-Trait)))))
+  
+  
+  (method override (context-menu-class self)
+    Toolbox-Menu)
+  
+  
+  (method override (get-context-menu self)
+    (let ((menu (nextmethod self))
+          (components (selected-components self)))
+      (with-update-locked menu
+        (lambda ()
+          (unless (null? components)
+            (let ((component (car components)))
+              (when (is? component Toolbox-Addable)
+                (let ((kind (get-kind (find-ascendant component Toolbox))))
+                  (set-default? (locate menu 'open) (eq? kind 'user))
+                  (set-default? (locate menu 'add) (neq? kind 'user))))))
+          (set-visible? (locate menu 'add) (can-add? self))
+          (set-visible? (locate menu 'add-other) (get-action-enabled? {Action toolbox-tree add-other}))
+          (set-visible? (locate menu 'try-out) (get-action-enabled? {Action toolbox-tree try-out}))
+          (set-visible? (locate menu 'edit-source) (get-action-enabled? {Action toolbox-tree edit-source}))
+          (layout-menu menu)
+          menu))))
+  
+  
+  (method public (call-with-selected-addable self func)
+    (let ((selected (get-single-selected-data self)))
+      (and (is? selected Toolbox-Addable)
+           (func selected))))
+  
+  
+  (method (call-with-selected-toolbox-model self func)
+    (let ((selected-toolbox-model (get-single-selected-data self)))
+      (and (is? selected-toolbox-model Toolbox-Model)
+           (func selected-toolbox-model))))
+  
+  
+  (method public (find-model-if self pred)
+    (find-if pred (collect-descendants self client Toolbox-Model)))
+  
+  
+  (method public (selected-addable self)
+    (call-with-selected-addable self identity))
+  
+  
+  (method public (selected-class self)
+    (call-with-selected-addable self get-class))
+  
+  
+  (method public (selected-model self)
+    (call-with-selected-toolbox-model self get-model))
+  
+  
+  (method public (selected-unit self)
+    (call-with-selected-toolbox-model self get-unit))
+  
+  
+  (method public (selected-toolbox self)
+    (call-with-selected-addable self (lambda (addable) (find-ascendant addable Toolbox))))
+  
+  
+  (method (with-blocked-toolbox-operation self tool thunk)
+    (if (find-editor (get-tool-origin self tool))
+        (designer-error "This operation is forbidden while this object is opened")
+      (thunk)))
+  
+  
+  (method (with-safe-toolbox self tool thunk)
+    (with-safe-design
+      (lambda ()
+        (if (get-class tool)
+            (with-exception-filter
+              (lambda (obj)
+                (or (is? obj Location-Error)
+                    (is? obj Explore-Error)))
+              (lambda (err)
+                (designer-error "The code referred to by this tool is invalid: {s}" err))
+              thunk)
+          (designer-error "This tool is no longer valid, please synchronize your toolbox")))))
+  
+  
+  (method package virtual (get-imports self tool)
+    (let* ((object (get-class tool))
+           (form (typecase object
+                   ((Class) (get-class-form object))
+                   ((Trait) (get-client-form object))
+                   (else (error "unknown object type")))))
+      (form-imports form)))
+  
+  
+  (method virtual (copy-tool self tool parent)
+    (with-safe-toolbox self tool
+      (lambda ()
+        (let ((type (serialize-class (class-of tool)))
+              (imports (get-imports self tool)))
+          (call-with-text (find-unit-source (get-unit tool))
+            (lambda (text)
+              (let ((model (get-model text))
+                    ;; Should probably use a guid
+                    (placeholder '%%TOOLBOX-COPY-PLACEHOLDER%%))
+                (replace-range model (find-name-location self text tool) (list (symbol->string placeholder)))
+                (let* ((code-string (get-string text (location-range text (list placeholder))))
+                       (clipboard-text (format "{s}" (list placeholder type imports code-string))))
+                  (set-clipboard-text clipboard-text format: 'jazz-tool)))))))))
+  
+  
+  (method override (copy-selection self)
+    (let* ((selected (selected-component self))
+           (parent (and selected (get-parent selected))))
+      (if (is? parent Toolbox-Module)
+          (copy-tool self selected parent)
+        (nextmethod self))))
+  
+  
+  (method virtual (paste-tool self tool parent)
+    (bind (placeholder type imports string) tool
+      (let* ((module-name (get-module-name parent))
+             (name (request-unique-name-in-module module-name)))
+        (call-with-saved-text (find-unit-source module-name)
+          (lambda (text)
+            (let ((model (get-model text))
+                  (new-tool (new (resolve-runtime-reference (deserialize-runtime-reference type)) unit: module-name model: placeholder)))
+              (insert-imports text (remove module-name imports))
+              (set-caret text (find-namespace-insertion-point (new Jazz-Explorer model)))
+              (insert-string text (format "{%}{%}{%}{a}" string))
+              (replace-range model (find-name-location self text new-tool) (list (symbol->string name)))
+              (evaluate-range text (location-range text (list name)))
+              (add-child (get-designer self) new-tool parent properties: (list title: (symbol->string name) model: name unit: module-name))))))))
+  
+  
+  (method override (paste-clipboard self)
+    (let ((parent (or (selected-component self) client)))
+      (if (is? parent Toolbox-Module)
+          (paste-tool self (get-jazz-tool) parent)
+        (nextmethod self))))
+  
+  
+  (method override (cut-selection self)
+    (let* ((selected (selected-component self))
+           (parent (and selected (get-parent selected))))
+      (if (is? parent Toolbox-Module)
+          (begin
+            (copy-tool self selected parent)
+            (delete-tool self selected parent #f))
+        (nextmethod self))))
+  
+  
+  (method virtual (delete-tool self tool parent (confirm? #t))
+    (define (confirm-delete)
+      (let ((code (message-box "Delete selected object?" type: 'confirmation)))
+        (case code
+          ((yes) #t)
+          ((no) #f)
+          ((cancel) (signal-cancel)))))
+    
+    (if (and (is? tool Toolbox-Model)
+             (is? parent Toolbox-Module))
+        (with-safe-toolbox self tool
+          (lambda ()
+            (with-blocked-toolbox-operation self tool
+              (lambda ()
+                (if (find-editor (get-tool-origin self tool))
+                    (message-box "Please close this object before deleting it." type: 'problem)
+                  (when (or (not confirm?) (confirm-delete))
+                    (let ((symbol (get-model tool)))
+                      (remove-element parent symbol)
+                      (remove-child (get-designer self) tool))))))))
+      (bell)))
+  
+  
+  (method override (delete-selection self)
+    (let* ((selected (selected-component self))
+           (parent (and selected (get-parent selected))))
+      (if (is? parent Toolbox-Module)
+          (delete-tool self selected parent)
+        (nextmethod self))))
+  
+  
+  (method virtual (find-name-location self text tool)
+    (location-range text (list (get-model tool) 1)))
+  
+  
+  (method virtual (rename-tool self tool parent)
+    (if (and (is? tool Toolbox-Model)
+             (is? parent Toolbox-Module))
+        (with-safe-toolbox self tool
+          (lambda ()
+            (with-blocked-toolbox-operation self tool
+              (lambda ()
+                (let* ((unit (get-unit tool))
+                       (name (request-unique-name-in-module unit))
+                       (symbol (get-model tool)))
+                  (call-with-saved-text (find-unit-source unit)
+                    (lambda (text)
+                      (let ((range (find-name-location self text tool)))
+                        (set-selection text range)
+                        (replace-selection text (list (symbol->string name)))
+                        (set-caret text (get-end range))
+                        (evaluate-selection text))))
+                  (remove-from-runtime parent symbol)
+                  (set-property designer tool 'model name)
+                  (set-property designer tool 'title (symbol->string name)))))))
+      (bell)))
+  
+  
+  (method override (rename-selection self)
+    (let* ((selected (selected-component self))
+           (parent (and selected (get-parent selected))))
+      (if (is? parent Toolbox-Module)
+          (rename-tool self selected parent)
+        (nextmethod self))))
+  
+  
+  (method override (update-selection self expand-state selected-components)
+    )
+  
+
+  (method override (focus-actions self)
+    (cons (find-actions 'toolbox-tree)
+          (nextmethod self)))
+  
+  
+  (method override (focus-update-actions self)
+    (nextmethod self)
+    (let ((data (get-single-selected-data self)))
+      (let ((module? (is? data Toolbox-Module))
+            (model? (is? data Toolbox-Model))
+            (form? (is? data Toolbox-Form)))
+        (set-action-enabled? {Action toolbox-tree add} (and model? (can-add? self) (is? (current-document) Component-Editor)))
+        (set-action-enabled? {Action toolbox-tree add-other} module?)
+        (set-action-enabled? {Action toolbox-tree try-out} model?)
+        (set-action-enabled? {Action toolbox-tree edit-source} model?)
+        (set-action-enabled? {Action components-tree open} (and model? (not form?))))))
+  
+  
+  (method (on-double-click self evt)
+    (let ((selected (selected-toolbox self)))
+      (when selected
+        (if (eq? (get-kind selected) 'user)
+            (on-open self evt)
+          (on-add self evt)))))
+  
+  
+  (method virtual (get-tool-origin self tool)
+    (typecase tool
+      ((Toolbox-Trait)
+       (deserialize-runtime-reference `(module-public ,(get-unit tool) ,(get-model tool))))
+      ((Toolbox-Model)
+       (get-class tool))
+      (else
+       (error "Unknown tool type"))))
+  
+  
+  (method virtual (open-model self model (editor-class: editor-class #f))
+    (with-safe-toolbox self model
+      (lambda ()
+        (let ((origin (get-tool-origin self model)))
+          (typecase model
+            ((Toolbox-Trait)
+             (open-trait origin editor-class: editor-class))
+            ((Toolbox-Model)
+             (open-class origin editor-class: editor-class)))))))
+  
+  
+  (method override (on-open self evt)
+    (when (or (eq? (get-kind (selected-toolbox self)) 'user)
+              (eq? (message-box "Are you sure you want to open this non-user class?" type: 'question) 'yes))
+      (let ((model (selected-addable self)))
+        (open-model self model))))
+  
+  
+  (method package (new-class self model unit (size: size #f))
+    (let* ((model-name (string->symbol (format "<{a}>" model)))
+           (form (construct-form (list model-name) (imports-locator (list unit)) #f))
+           (target (instantiate form))
+           (editor (open-component target)))
+      (when size
+        (safe-set-property (get-designer editor) target 'size size undoable?: #f))
+      editor))
+  
+  
+  @a
+  (method (new-form form (size: size #f))
+    (let ((form (copy-object form #t)))
+      (setup-context form form)
+      (let ((target (instantiate form)))
+        (when size
+          (set-size target size))
+        (open-component target))))
+  
+  
+  (method (on-add-other self evt)
+    (bind (symbol import) (get-modal Class-Dialog-Toolbox references: (list (runtime-reference->reference (reify-reference Component))))
+      (add-component-class self (deserialize-runtime-reference (list 'module-public import symbol)))))
+  
+  
+  (method (on-add self evt)
+    (let ((addable (selected-addable self))
+          (editor (current-document)))
+      (with-safe-toolbox self addable
+        (lambda ()
+          (if (is? editor Component-Editor)
+              (with-atomic-undo (get-undoer (get-designer editor))
+                (lambda ()
+                  (let* ((surrogate (get-surrogate (get-client editor)))
+                         (component (typecase addable
+                                      ((Toolbox-Form)
+                                       (add-new-form surrogate (resolve-form addable) {Point 0 0} centered?: #f import: (get-unit addable)))
+                                      ((Toolbox-Model)
+                                       (add-new surrogate (get-class addable) {Point 0 0} centered?: #f import: (get-unit addable))))))
+                    (cascade-view-position (get-designer editor) component {Point 0 0}))))
+            (bell))))))
+  
+  
+  (method package (on-try-out self evt)
+    (try-out (on-open self evt)))
+  
+  
+  (method (on-edit-source self evt)
+    (let ((addable (selected-addable self)))
+      (with-safe-toolbox self addable
+        (lambda ()
+          (open-model self addable editor-class: Text-Editor)))))
+  
+  
+  (method override (row-state self component update? level)
+    (if update?
+        (if (< level 1) 'expanded 'collapsed)
+      'collapsed))))

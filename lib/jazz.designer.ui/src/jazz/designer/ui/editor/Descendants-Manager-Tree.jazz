@@ -1,0 +1,273 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Descendants-Manager-Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.ui.editor.Descendants-Manager-Tree jazz
+
+
+(import (jazz.action)
+        (jazz.component)
+        (jazz.descriptor)
+        (jazz.designer)
+        (jazz.designer.ui)
+        (jazz.designer.ui.view)
+        (jazz.handler)
+        (jazz.graphic)
+        (jazz.markup)
+        (jazz.menu)
+        (jazz.resource)
+        (jazz.runtime)
+        (jazz.tree)
+        (jazz.undoer)
+        (jazz.view))
+
+
+(class undocumented Descendants-Manager-Tree-Actions extends Actions
+  
+  
+  (form
+    (<install>
+      (<Action-Item> name: change-class action-handler: {Event-Handler :focus on-change-class}))))
+
+
+(class undocumented Descendants-Manager-Menu extends Component-Menu
+  
+  
+  (form
+    (<install>
+      (<Separator-Item> before: before-traits)
+      (<Label-Item>     before: before-traits name: change-class title: "Change Class..." icon: {Image-Resource "InstanceInit"} action-handler: {Action descendants-manager-tree change-class}))))
+
+
+(class undocumented Descendants-Manager-Tree extends Descendants-Tree
+  
+  
+  (slot preserved-states initialize (make-table test: eq? weak-keys: #t))
+
+
+  ;;;
+  ;;;; Classes
+  ;;;
+  
+  
+  (method override (categorized-addable-classes self component)
+    (or (component-categorized-toolbox-addable-classes component)
+        (nextmethod self component)))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method (refresh-colors self component)
+    (let* ((row (component-row self component))
+           (data (and row (get-child row 0))))
+      (unless (not data)
+        (for-each (~ refresh-component self) (component-ancestry component (get-reference designer))))))
+  
+  
+  (method override (on-designer self evt)
+    (if (eq? (get-kind evt) ':property-change)
+        (refresh-colors self (get-property evt component:))
+      (nextmethod self evt)))
+  
+  
+  ;;;
+  ;;;; Default Traits
+  ;;;
+  
+  
+  @wait-for-traits
+  (method (on-set-default-traits evt)
+    (define (initialize manager)
+      (set-client manager (make-traits-toolbox (get-application) (class-of (selected-component))))
+      (on-synchronize manager #f)
+      (let ((references (get-default-traits (selected-component))))
+        (when references
+          (if (every? (lambda (obj) (is? obj Trait-Reference)) references)
+              (setup-traits manager (map make-locator references) (map get-reference-import references))
+            (designer-error "Some traits are not of the Trait-Reference class")))))
+    
+    (define (make-locator reference)
+      (cons (get-symbol reference) (get-parameters reference)))
+    
+    (define (make-reference locator)
+      (new Trait-Reference (car locator) (cdr locator)))
+    
+    (bind (locators imports) (get-modal Traits-Dialog application-select?: #f initialize: initialize)
+      (set-default-traits designer (selected-component) (map make-reference locators) imports: (remove-duplicates imports))))
+  
+  
+  ;;;
+  ;;;; Classes
+  ;;;
+  
+  
+  (method (on-change-class self evt)
+    (let* ((component (selected-component self))
+           (reference (get-reference (get-context (get-form designer)) (category-name (class-of component)))))
+      (bind (old-import old-symbol) (parse-runtime-reference reference)
+        (let* ((parent (get-parent component))
+               (child-descriptor (find (get-children (get-children-descriptor (get-class-descriptor (class-of parent))))
+                                       (get-name component)
+                                       key: get-target
+                                       test: eq?
+                                       return: 'item))
+               (references (if child-descriptor
+                               (get-classes child-descriptor)
+                             (list (runtime-reference->reference (find (get-addable-classes parent) component key: resolve-runtime-reference test: is? return: 'item))))))
+          (bind (symbol import) (get-modal Class-Dialog-Toolbox initialize: (lambda (manager) (setup manager old-import old-symbol)) references: references)
+            (unless (and (eq? old-symbol symbol) (eq? old-import import))
+              (let ((next (and (not (eq? component (last-child parent)))
+                               (next-child parent component))))
+                (with-atomic-undo (get-undoer designer)
+                  (lambda ()
+                    (remove-child designer component)
+                    (let ((new-component (new (module-ref import symbol))))
+                      (add-child designer new-component parent name: (get-name component) import: import descendant?: #t)
+                      (when next
+                        (send-before designer new-component next))
+                      (select-component self new-component)))))))))))
+  
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method override (context-menu-class self)
+    Descendants-Manager-Menu)
+  
+  
+  (method override (get-context-menu self)
+    (let ((menu (nextmethod self)))
+      (with-update-locked menu
+        (lambda ()
+          (set-visible? (locate menu 'change-class) (get-action-enabled? {Action descendants-manager-tree change-class}))
+          (layout-menu menu)
+          menu))))
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method override (focus-actions self)
+    (cons (find-actions 'descendants-manager-tree)
+          (nextmethod self)))
+  
+  
+  (method override (focus-update-actions self)
+    (nextmethod self)
+    (let ((component (selected-component self)))
+      (when component
+        (set-action-enabled? {Action components-tree open} #t)
+        @wait-for-traits
+        (set-action-enabled? {Action components-tree set-default-traits} #t)
+        (set-action-enabled? {Action descendants-manager-tree change-class} (and (boolean (get-parent component))
+                                                                                 (component-owned-by-reference? designer component))))))
+
+
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method override (client-update self)
+    (when editor
+      (update self expand-state: (table-ref preserved-states client #f) selected-components: (get-selection editor))))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method override (transfer-state self actual client)
+    (table-set! preserved-states client (get-expand-state self))
+    (table-clear preserved-states actual))
+  
+  
+  (method override (preserve-state self client)
+    (table-set! preserved-states client (get-expand-state self)))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (owned-color self)
+    {Color Dark-Green})
+  
+  
+  (method (modify-color self)
+    {Color red: 1 green: 127 blue: 139})
+  
+  
+  (method (unowned-color self)
+    {Color Dark-Gray})
+  
+  
+  (method override (component-font self component owned-form)
+    (if owned-form
+        (case (ownership-level owned-form)
+          ((create modify) {Font Label-Bold})
+          ((traverse) #f))
+      #f))
+  
+  
+  (method override (component-color self component owned-form)
+    (if owned-form
+        (case (ownership-level owned-form)
+          ((create) (owned-color self))
+          ((modify) (modify-color self))
+          ((traverse) (unowned-color self)))
+      (unowned-color self)))
+  
+  
+  (method override (component-state self component)
+    'collapsed)
+  
+  
+  (method override (insert-component self row component rights update? level (image: image #f) (state: state #f))
+    (let ((subrow (nextmethod self row component rights update? level image: image state: state)))
+      (when subrow
+        (when (component-owned self component)
+          (ensure-expanded self subrow))
+        subrow)))))

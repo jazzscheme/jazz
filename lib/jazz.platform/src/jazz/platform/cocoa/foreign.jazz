@@ -530,7 +530,7 @@ ___EXT(___release_scmobj)(dst); }
 
 (c-declare cocoa #/Objective-C/
 
-#define PLATFORM_USE_FULLSCREEN 0
+#define PLATFORM_USE_FULLSCREEN 1
 
 
 #include <stdint.h>
@@ -1175,6 +1175,15 @@ static float transformY(float y)
 ;;;
 
 
+;; this complex code taken from cocoa with love came about
+;; mainly due to noticing separate screen fullscreen being
+;; a bit slower in opengl games. but this code is just too
+;; brittle. I also suppose Apple must have fixed this by
+;; now as separate screen fullscreen is the Apple official
+;; way to go for fullscreen... keeping the code below as
+;; it is also used by the enter/exit windowed mecanism...
+
+
 (c-declare cocoa #/Objective-C/
 
 @interface JazzFullScreenWindow : JazzWindow
@@ -1371,23 +1380,6 @@ void toggleFullScreenWindowed(PlatformWindow* window)
         exitFullScreenWindowed(window);
 }
 
-
-void platformInternalPostEmptyEvent()
-{
-    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-    NSEvent* event = [NSEvent otherEventWithType:NSApplicationDefined
-                                        location:NSMakePoint(0, 0)
-                                   modifierFlags:0
-                                       timestamp:0
-                                    windowNumber:0
-                                         context:nil
-                                         subtype:0
-                                           data1:0
-                                           data2:0];
-    [NSApp postEvent:event atStart:YES];
-    [pool drain];
-}
-
 //#)
 
 
@@ -1484,6 +1476,23 @@ void platformInternalPostEmptyEvent()
 }
 
 @end
+
+
+void platformInternalPostEmptyEvent()
+{
+    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+    NSEvent* event = [NSEvent otherEventWithType:NSApplicationDefined
+                                        location:NSMakePoint(0, 0)
+                                   modifierFlags:0
+                                       timestamp:0
+                                    windowNumber:0
+                                         context:nil
+                                         subtype:0
+                                           data1:0
+                                           data2:0];
+    [NSApp postEvent:event atStart:YES];
+    [pool drain];
+}
 
 //#)
 
@@ -3302,6 +3311,7 @@ void platformExitWindowed(PlatformWindow* window)
 }
 
 
+/* WINDOWED FULLSCREEN TOO BRITTLE
 void platformEnterFullscreenWindowed(PlatformWindow* window)
 {
     enterFullScreenWindowed(window);
@@ -3312,6 +3322,7 @@ void platformExitFullscreenWindowed(PlatformWindow* window)
 {
     exitFullScreenWindowed(window);
 }
+*/
 
 
 // Need to understand why using new Lion's native
@@ -3835,8 +3846,10 @@ void platformPlaySound(char* filename, double volume)
 (c-external (platformEnableWindow platformwindow) void)
 (c-external (platformEnterWindowed platformwindow NSRect* bool) void)
 (c-external (platformExitWindowed platformwindow) void)
+#; ( ;; WINDOWED FULLSCREEN TOO BRITTLE
 (c-external (platformEnterFullscreenWindowed platformwindow) void)
 (c-external (platformExitFullscreenWindowed platformwindow) void)
+)
 (c-external (platformEnterFullscreen platformwindow) void)
 (c-external (platformExitFullscreen platformwindow) void)
 (c-external (platformShowWindow platformwindow) void)

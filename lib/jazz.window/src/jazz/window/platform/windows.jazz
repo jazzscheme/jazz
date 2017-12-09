@@ -87,12 +87,12 @@
   (make-table test: eqv?))
 
 
-(definition public inline (get-window hwnd)
+(definition public inline (registered-window hwnd)
   (let ((hwnd (if (foreign? hwnd) (foreign-address hwnd) hwnd)))
     (table-ref Windows-Table hwnd #f)))
 
 
-(definition public inline (set-window hwnd window)
+(definition public inline (register-window hwnd window)
   (if window
       (table-set! Windows-Table (foreign-address hwnd) window)
     (table-clear Windows-Table (foreign-address hwnd))))
@@ -455,11 +455,11 @@
 
 (definition (message-callback hwnd <foreign> msg <int> wparam <int> lparam <int>)
   (declare (proper-tail-calls))
-  (let ((window (get-window hwnd)))
+  (let ((window (registered-window hwnd)))
     (when (and (not window) (get-in-creation))
       (set! window (get-in-creation))
       (set-handle window hwnd)
-      (set-window hwnd window)
+      (register-window hwnd window)
       (set-in-creation #f))
     (if (not window)
         (DefWindowProc hwnd msg wparam lparam)

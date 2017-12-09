@@ -236,11 +236,11 @@
   #f)
 
 
-(definition public inline (get-window handle)
+(definition public inline (registered-window handle)
   (table-ref Windows-Table handle #f))
 
 
-(definition public inline (set-window handle window)
+(definition public inline (register-window handle window)
   (table-set! Windows-Table handle window))
 
 
@@ -356,7 +356,7 @@
 
 
 (definition package (destroy-window handle)
-  (let ((window (get-window handle)))
+  (let ((window (registered-window handle)))
     (clear-xic handle)
     (when (= handle (platform-get-focus))
       (focus-lose window))
@@ -459,7 +459,7 @@
     (lambda ()
       (let* ((any-event (XEvent-xany-ref msg))
              (handle (XAnyEvent-window-ref any-event)))
-        (let ((window (get-window handle)))
+        (let ((window (registered-window handle)))
           (when window
             (dispatch-message window msg)))))))
 
@@ -1021,7 +1021,7 @@
 (definition package (platform-window-from-point point)
   (get-toplevel-hwnd)
   @w
-  (get-window (XMouseWindow x11-default-display (XRootWindow x11-default-display (XDefaultScreen x11-default-display)))))
+  (registered-window (XMouseWindow x11-default-display (XRootWindow x11-default-display (XDefaultScreen x11-default-display)))))
 
 
 (definition package (platform-move-window handle x y cx cy)
@@ -1120,7 +1120,7 @@
   (iterate-table-safe invalid-regions
     (lambda (handle region)
       (table-clear invalid-regions handle)
-      (let ((window (get-window handle)))
+      (let ((window (registered-window handle)))
         (when window
           (iterate-rectangles region
             (lambda (rect)
@@ -1137,7 +1137,7 @@
   ;; is this test correct or was it a patch made during the port
   (when (and handle rect)
     (invalidate-offscreen-rect handle rect)
-    (let ((validated-rect (validate-inval-rect rect (get-window handle))))
+    (let ((validated-rect (validate-inval-rect rect (registered-window handle))))
       (let ((old-region (table-ref invalid-regions handle #f))
             (new-region (and validated-rect (new Region rect: rect))))
         (when (or old-region new-region)
@@ -1165,8 +1165,8 @@
   (cond (region (invalidate-offscreen-region handle region))
         (rect (invalidate-offscreen-rect handle rect)))
   (if region
-      (paint (get-window handle) region)
-    (paint (get-window handle) (new Region rect: rect))))
+      (paint (registered-window handle) region)
+    (paint (registered-window handle) (new Region rect: rect))))
 
 
 (definition package (platform-get-update-rect handle)
@@ -1186,7 +1186,7 @@
   (let ((region (table-ref invalid-regions handle #f)))
     (when region
       (table-clear invalid-regions handle)
-      (paint (get-window handle) region))))
+      (paint (registered-window handle) region))))
 
 
 (definition package (platform-show-noactivate handle)

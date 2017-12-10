@@ -39,6 +39,9 @@
 (module jazz.odbc jazz
 
 
+(hub get-hdbc)
+
+
 ;; some platforms are missing sql.h
 (cond-expand
   (windows
@@ -155,6 +158,7 @@
 (definition (identity1 x i)
   x)
 
+
 (definition (SQL_TIMESTAMP_STRUCT-alloc i)
   (SQL_TIMESTAMP_STRUCT-make))
 
@@ -229,8 +233,9 @@
 (definition (SQLServer-datatype-append type)
   (sixth (assq-value type SQLServer-datatypes #f)))
 
+
 ;;;
-;;;; ODBC Exception
+;;;; Diagnostic
 ;;;
 
 
@@ -244,7 +249,7 @@
   (slot column accessors generate)
   
   
-  (method override (initialize state message row column statement)
+  (method override (initialize self state message row column statement)
     (set! self.state state)
     (set! self.message message)
     (set! self.row row)
@@ -252,10 +257,15 @@
     (set! self.statement statement))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{a} column {a} row {a} : {a}" state column row message)))))
+
+
+;;;
+;;;; Exception
+;;;
 
 
 (class ODBC-Exception extends Exception
@@ -264,11 +274,11 @@
   (slot records accessors generate)
   
   
-  (method override (initialize records)
+  (method override (initialize self records)
     (set! self.records records))
   
   
-  (method override (print output readably)
+  (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (let ((record (car records))
@@ -276,12 +286,13 @@
           (format output "{?:More records, ~} {a} column {a} row {a} : {a}" more? (get-state record) (get-column record) (get-row record) (get-message record))))))
   
   
-  (method (get-state)
+  (method (get-state self)
     (get-state (car records)))
   
   
-  (method override (get-message)
+  (method override (get-message self)
     (get-message (car records))))
+
 
 ;;;
 ;;;; Error Handling
@@ -323,7 +334,6 @@
      (error "Unknown SQL return code {a}" result))))
 
 
-
 (definition (handle-sql-result HandleType Handle proc success-proc cleanup-proc)
   (dynamic-wind
     (lambda () #f)
@@ -344,11 +354,13 @@
 ;;;; Diagnostic Attributes
 ;;;
 
+
 (c-constant SQL_DIAG_SQLSTATE 4)
 (c-constant SQL_DIAG_MESSAGE_TEXT 6)
 (c-constant SQL_DIAG_COLUMN_NUMBER -1247)
 (c-constant SQL_DIAG_ROW_NUMBER -1248)
 (c-constant SQL_DIAG_DYNAMIC_FUNCTION 7)
+
 
 (definition public (get-SQLState HandleType Handle RecNumber)
   (let ((DiagInfoPtr (SQLCHAR*-alloc 6)))
@@ -446,6 +458,7 @@
       (lambda ()
         (SQLHANDLE*-free handle*)))))
 
+
 (definition public (SQLDriverConnect ConnectionHandle InConnectionString)
   (let ((result (SQLDriverConnect$ ConnectionHandle #f InConnectionString SQL_NTS #f 0 #f SQL_DRIVER_NOPROMPT)))
     (ecase result
@@ -453,6 +466,7 @@
        #t)
       (else
        (handle-sql-error SQL_HANDLE_DBC ConnectionHandle result)))))
+
 
 (definition public (SQLExecDirect StatementHandle StatementText)
   (let ((StatementText (char-string->SQLCHAR* StatementText)))
@@ -464,6 +478,7 @@
       (lambda ()
         (SQLCHAR*-free StatementText)))))
 
+
 (definition public (SQLExecDirectW StatementHandle StatementText)
   (let ((StatementText (UTF-16-string->SQLWCHAR* StatementText)))
     (handle-sql-result SQL_HANDLE_STMT StatementHandle
@@ -474,6 +489,7 @@
       (lambda ()
         (SQLWCHAR*-free StatementText)))))
 
+
 (definition public (SQLNumResultCols StatementHandle)
   (let ((ColumnCountPtr (SQLSMALLINT*-alloc 1)))
     (handle-sql-result SQL_HANDLE_STMT StatementHandle
@@ -483,6 +499,7 @@
         (SQLSMALLINT*-ref ColumnCountPtr 0))
       (lambda ()
         (SQLSMALLINT*-free ColumnCountPtr)))))
+
 
 (definition public (SQLColAttribute StatementHandle ColumnNumber FieldIdentifier)
   (case (assoc-value FieldIdentifier SQL-column-attributes-types #f)
@@ -550,14 +567,14 @@
   (slot data-append       accessors generate)
   
   
-  (method override (initialize hstmt index name type-name datatype column-length c-type)
+  (method override (initialize self hstmt index name type-name datatype column-length c-type)
     (set! self.index index)
     (set! self.name name)
     (set! self.type-name type-name)
     (set! self.datatype datatype)
     (set! size-buffer (SQLLEN*-alloc 1))
     (set! self.hstmt hstmt)
-    (let ((buffer-length (calculate-buffer-length column-length))
+    (let ((buffer-length (calculate-buffer-length self column-length))
           (datatype-size (SQLServer-datatype-size datatype)))
       ;; For fixed length types, the size is ignored by ODBC
       (set! value-buffer-size (if datatype-size (* datatype-size buffer-length) 1))
@@ -568,13 +585,13 @@
     (set! data-append (SQLServer-datatype-append datatype)))
   
   
-  (method override (close)
-    (free value-buffer)
-    (free size-buffer)
-    (nextmethod))
+  (method override (close self)
+    (heap-free value-buffer)
+    (heap-free size-buffer)
+    (nextmethod self))
   
   
-  (method (calculate-buffer-length column-length)
+  (method (calculate-buffer-length self column-length)
     (let ((datatype-size (SQLServer-datatype-size datatype)))
       (if datatype-size
           (if (can-be-bound? datatype column-length)
@@ -583,11 +600,11 @@
         1)))
   
   
-  (method public virtual (get-data)
+  (method public virtual (get-data self)
     )
   
   
-  (method (get-base-data)
+  (method (get-base-data self)
     (let ((size (SQLLEN*-ref size-buffer 0)))
       (and (not (= SQL_NULL_DATA size))
            (if datatype-size
@@ -598,33 +615,33 @@
 (class ODBC-Bound-Column extends ODBC-Column
   
   
-  (method override (initialize statement index name type-name datatype column-length c-type)
-    (nextmethod statement index name type-name datatype column-length c-type)
+  (method override (initialize self statement index name type-name datatype column-length c-type)
+    (nextmethod self statement index name type-name datatype column-length c-type)
     (SQLBindCol$ hstmt index c-type value-buffer value-buffer-size size-buffer))
   
   
-  (method override (get-data)
-    (get-base-data)))
+  (method override (get-data self)
+    (get-base-data self)))
   
 
 (class ODBC-Unbound-Fixed-Column extends ODBC-Column
   
   
-  (method override (get-data)
+  (method override (get-data self)
     (let ((result (SQLGetData$ hstmt index c-type value-buffer value-buffer-size size-buffer)))
       (if (= result SQL_SUCCESS)
-          (get-base-data)
+          (get-base-data self)
         (handle-sql-error SQL_HANDLE_STMT hstmt result)))))
 
 
 (class ODBC-Unbound-Variable-Column extends ODBC-Column
   
   
-  (method override (get-data)
+  (method override (get-data self)
     (define (get-next)
       (declare (proper-tail-calls))
       (let* ((result (SQLGetData$ hstmt index c-type value-buffer value-buffer-size size-buffer))
-             (data (get-base-data)))
+             (data (get-base-data self)))
         (ecase result
           ((SQL_SUCCESS_WITH_INFO)
            (cons data (get-next)))
@@ -639,40 +656,40 @@
 (class ODBC-Statement extends Object
   
   
-  (slot hstmt accessors generate)
-  (slot columns accessors generate)
+  (slot hstmt          accessors generate)
+  (slot columns        accessors generate)
   (slot dispatch-cache accessors generate)
-  (slot strategy accessors generate)
+  (slot strategy       accessors generate)
   (slot statement-text accessors generate)
   
   
-  (method override (initialize connection statement-text (strategy: strategy 'mixed) (timeout: timeout 60))
+  (method override (initialize self connection statement-text (strategy: strategy 'mixed) (timeout: timeout 60))
     (set! self.strategy strategy)
     (set! hstmt (SQLAllocHandleStd SQL_HANDLE_STMT (get-hdbc connection)))
     (set! self.statement-text statement-text)
     (SQLSetStmtAttr hstmt SQL_ATTR_QUERY_TIMEOUT timeout 0))
   
   
-  (method (execute)
+  (method (execute self)
     (SQLExecDirectW hstmt statement-text))
   
   
-  (method override (close)
+  (method override (close self)
     (SQLFreeHandle SQL_HANDLE_STMT hstmt)
-    (nextmethod))
+    (nextmethod self))
   
   
-  (method (prepare-resultset)
-    (set! columns (create-columns))
-    (set! dispatch-cache (create-dispatch-cache)))
+  (method (prepare-resultset self)
+    (set! columns (create-columns self))
+    (set! dispatch-cache (create-dispatch-cache self)))
   
   
-  (method (clean-resultset)
-    (vector-for-each close~ columns)
+  (method (clean-resultset self)
+    (vector-for-each close columns)
     (SQLFreeStmt$ hstmt SQL_UNBIND))
   
   
-  (method (find-last-bound-column num-cols datatypes col-sizes)
+  (method (find-last-bound-column self num-cols datatypes col-sizes)
     (let (loop (i 1)
                (datatypes datatypes)
                (col-sizes col-sizes))
@@ -683,7 +700,7 @@
         num-cols)))
   
   
-  (method (create-columns)
+  (method (create-columns self)
     (let* ((num-cols (SQLNumResultCols hstmt))
            (indexes (naturals 1 (+ num-cols 1))))
       (let ((column-types (map (lambda (index)
@@ -720,13 +737,13 @@
                  column-lengths))))))
   
   
-  (method (create-dispatch-cache)
+  (method (create-dispatch-cache self)
     (vector-map (lambda (object)
                   (dispatch (class-of object) 'get-data))
                 columns))
                     
   
-  (method public (get-row)
+  (method public (get-row self)
     (let ((result (SQLFetch$ hstmt)))
       (ecase result
         ((SQL_SUCCESS SQL_SUCCESS_WITH_INFO)
@@ -746,34 +763,34 @@
          (handle-sql-error SQL_HANDLE_STMT hstmt result)))))
   
   
-  (method public (load-single-resultset)
+  (method public (load-single-resultset self)
     (declare (proper-tail-calls))
     (let ((num-cols (SQLNumResultCols hstmt)))
       (and (> num-cols 0)
            (let ((rows (new List-Factory)))
-             (prepare-resultset)
+             (prepare-resultset self)
              (let (loop (i 0))
-               (let ((row (get-row)))
+               (let ((row (get-row self)))
                  (when row
                    (put rows row)
                    (loop (+ i 1)))))
-             (clean-resultset)
-             (list (vector-map get-name~ columns)
+             (clean-resultset self)
+             (list (vector-map get-name columns)
                    (get-output rows))))))
   
   
-  (method (more-results)
+  (method (more-results self)
     (SQLMoreResults hstmt))
   
   
-  (method public (load-multiple-resultsets)
+  (method public (load-multiple-resultsets self)
     (declare (proper-tail-calls))
     (let ((sets (new List-Factory)))
       (let (loop)
-        (let ((resultset (load-single-resultset)))
+        (let ((resultset (load-single-resultset self)))
           (when resultset
             (put sets resultset)))
-        (if (more-results)
+        (if (more-results self)
             (loop)
           (get-output sets))))))
 )

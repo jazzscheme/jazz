@@ -40,7 +40,8 @@
 
 (import (jazz.database)
         (jazz.database.ado)
-        (jazz.platform))
+        (jazz.platform)
+        (jazz.platform.com))
 
 
 (class ADO-Recordset extends Recordset
@@ -49,18 +50,18 @@
   (slot handle initialize #f getter generate)
   
   
-  (method override (setup-recordset initargs)
-    (nextmethod initargs)
+  (method override (setup-recordset self initargs)
+    (nextmethod self initargs)
     (set! handle (com-create Recordset-class)))
   
   
-  (method override (destroy-recordset)
+  (method override (destroy-recordset self)
     (when handle
       (when (/= (Recordset15$get-State handle) adStateClosed)
         (Recordset15$Close handle))
       (com-release handle)
       (set! handle #f))
-    (nextmethod))
+    (nextmethod self))
   
   
   ;;;
@@ -68,11 +69,11 @@
   ;;;
   
   
-  (method override (opened?)
+  (method override (opened? self)
     (boolean handle))
   
   
-  (method override (open command
+  (method override (open self command
                 (connection: connection #f)
                 (data-source: data-source #f)
                 (max-load: max-load #t)
@@ -95,7 +96,7 @@
   ;;;
   
   
-  (method override (get-state)
+  (method override (get-state self)
     (let ((state (Recordset15$get-State handle)))
       (cond ((= state adStateOpen) 'open)
             ((= state adStateClosed) 'closed)
@@ -107,19 +108,19 @@
   ;;;
   
   
-  (method override (new-recordset-metadata)
+  (method override (new-recordset-metadata self)
     (new ADO-Recordset-Metadata (Recordset15$get-Fields handle)))
   
   
-  (method override (get-field-type metadata field)
+  (method override (get-field-type self metadata field)
     (get-Type field))
   
   
-  (method override (get-field-value metadata field)
+  (method override (get-field-value self metadata field)
     (Field20$get-Value field))
   
   
-  (method override (safe-field-value metadata field)
+  (method override (safe-field-value self metadata field)
     (get-field-value metadata field)
     @convert
     (ecase (get-field-type metadata field)
@@ -133,7 +134,7 @@
   ;;;
   
   
-  (method override (next-recordset!)
+  (method override (next-recordset! self)
     (receive (records-affected new-handle) (Recordset15$NextRecordset handle)
       (destroy-recordset)
       (set! handle new-handle)))
@@ -144,31 +145,31 @@
   ;;;
   
   
-  (method override (move-first)
+  (method override (move-first self)
     (Recordset15$MoveFirst handle))
   
   
-  (method override (move-last)
+  (method override (move-last self)
     (Recordset15$MoveLast handle))
   
   
-  (method override (move-next)
+  (method override (move-next self)
     (Recordset15$MoveNext handle))
   
   
-  (method override (move-previous)
+  (method override (move-previous self)
     (Recordset15$MovePrevious handle))
   
   
-  (method override (at-bof?)
+  (method override (at-bof? self)
     (Recordset15$get-BOF handle))
   
   
-  (method override (at-eof?)
+  (method override (at-eof? self)
     (Recordset15$get-EOF handle))
   
   
-  (method override (iterate-records proc)
+  (method override (iterate-records self proc)
     (declare (proper-tail-calls))
     (unless (at-eof?)
       @this-doesnt-work-with-multirecordsets-but-does-it-break-existing-code-to-comment-it?

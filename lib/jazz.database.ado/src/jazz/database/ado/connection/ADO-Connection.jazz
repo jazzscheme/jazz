@@ -40,7 +40,9 @@
 
 (import (jazz.database)
         (jazz.database.ado)
-        (jazz.platform))
+        (jazz.platform)
+        (jazz.platform.com)
+        (jazz.schema))
 
 
 (class ADO-Connection extends Connection
@@ -49,19 +51,19 @@
   (slot handle initialize #f getter generate)
   
   
-  (method override (setup-connection)
-    (nextmethod)
+  (method override (setup-connection self)
+    (nextmethod self)
     (set! handle (com-create Connection-class))
     @convert
     (put-CommandTimeout handle 0))
   
   
-  (method override (destroy-connection)
+  (method override (destroy-connection self)
     (when handle
       (Connection15$Close handle)
       (com-release handle)
       (set! handle #f))
-    (nextmethod))
+    (nextmethod self))
   
   
   ;;;
@@ -69,10 +71,10 @@
   ;;;
   
   
-  (method override (open data-source . rest)
+  (method override (open self data-source . rest)
     (let ((connection-string (get-connection-string data-source)))
       (Connection15$Open handle connection-string "" "" adConnectUnspecified))
-    (nextmethod data-source))
+    (nextmethod self data-source))
   
   
   ;;;
@@ -80,7 +82,7 @@
   ;;;
   
   
-  (method override (get-state)
+  (method override (get-state self)
     (let ((state (Connection15$get-State handle)))
       (cond ((= state adStateOpen) 'open)
             ((= state adStateClosed) 'closed)
@@ -92,7 +94,7 @@
   ;;;
   
   
-  (method override (new-request)
+  (method override (new-request self)
     (new ADO-Request self))
   
   
@@ -101,7 +103,7 @@
   ;;;
   
   
-  (method override (execute command)
+  (method override (execute self command)
     (let ((command (post-process-request data-source command)))
       (trace-ado command)
       (receive (affected recordset) (Connection15$Execute handle command (bitwise-ior adCmdText adExecuteNoRecords))
@@ -113,13 +115,13 @@
   ;;;
   
   
-  (method override (begin-transaction)
+  (method override (begin-transaction self)
     (Connection15$BeginTrans handle))
   
   
-  (method override (commit-transaction)
+  (method override (commit-transaction self)
     (Connection15$CommitTrans handle))
   
   
-  (method override (rollback-transaction)
+  (method override (rollback-transaction self)
     (Connection15$RollbackTrans handle))))

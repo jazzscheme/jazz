@@ -1,6 +1,9 @@
 (module jazz.database.odbc jazz
 
 
+(hub get-hdbc)
+
+
 (import (jazz.database (cond windows))
         (jazz.odbc (cond windows))
         (jazz.schema (cond windows)))
@@ -18,7 +21,7 @@
   (property directory initialize #f accessors generate)
   
   
-  (method override (get-connection-string)
+  (method override (get-connection-string self)
     (format "driver=~{Microsoft dBASE Driver (*.dbf)~};DriverID=277;Dbq={a}" directory)))
 
 
@@ -32,26 +35,26 @@
   (slot hdbc accessors generate)
   
   
-  (method override (setup-connection)
-    (nextmethod)
+  (method override (setup-connection self)
+    (nextmethod self)
     (set! henv (SQLAllocHandleStd SQL_HANDLE_ENV #f))
     (set! hdbc (SQLAllocHandleStd SQL_HANDLE_DBC henv)))
   
   
-  (method override (destroy-connection)
+  (method override (destroy-connection self)
     (SQLDisconnect hdbc)
     (SQLFreeHandle SQL_HANDLE_DBC hdbc)
     (SQLFreeHandle SQL_HANDLE_ENV henv)
-    (nextmethod))
+    (nextmethod self))
   
   
-  (method override (open data-source . rest)
+  (method override (open self data-source . rest)
     (let ((connection-string (get-connection-string data-source)))
       (SQLDriverConnect hdbc connection-string))
-    (nextmethod data-source))
+    (nextmethod self data-source))
   
   
-  (method (resultset->Data-Table resultset)
+  (method (resultset->Data-Table self resultset)
     (let ((table (new Data-Table)))
       (set-columns table (map (lambda (name)
                                  (new Data-Column name: name))
@@ -62,26 +65,26 @@
              (second resultset)))))
   
   
-  (method override (begin-transaction)
+  (method override (begin-transaction self)
     (SQLSetConnectAttr hdbc SQL_ATTR_AUTOCOMMIT 0 0))
   
   
-  (method override (commit-transaction)
+  (method override (commit-transaction self)
     (SQLEndTran SQL_HANDLE_DBC hdbc SQL_COMMIT)
     (SQLSetConnectAttr hdbc SQL_ATTR_AUTOCOMMIT 1 0))
   
   
-  (method override (rollback-transaction)
+  (method override (rollback-transaction self)
     (SQLEndTran SQL_HANDLE_DBC hdbc SQL_ROLLBACK)
     (SQLSetConnectAttr hdbc SQL_ATTR_AUTOCOMMIT 1 0))
   
   
-  (method override (execute request)
+  (method override (execute self request)
     (with ((statement (new ODBC-Statement self (post-process-request data-source request))))
       (execute statement)))
   
   
-  (method override (load-request request (convert?: convert? #t))
+  (method override (load-request self request (convert?: convert? #t))
     (define (autoconvert resultset)
       (if convert?
           (resultset->Data-Table resultset)
@@ -93,7 +96,7 @@
                      (load-single-resultset statement)))))
   
   
-  (method override (load-multirequest request (convert?: convert? #t) (strategy: strategy 'mixed))
+  (method override (load-multirequest self request (convert?: convert? #t) (strategy: strategy 'mixed))
     (define (autoconvert resultsets)
       (if convert?
           (map resultset->Data-Table resultsets)

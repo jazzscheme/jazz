@@ -114,7 +114,7 @@
             (expat-lib-path          (quoter "lib/jazz.cairo/foreign/windows/expat/lib"))
             (png-lib-path            (quoter "lib/jazz.cairo/foreign/windows/png/lib"))
             (zlib-lib-path           (quoter "lib/jazz.zlib/foreign/windows/zlib/lib")))
-        (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" expat-include-path " -I" png-include-path " -I" zlib-include-path " -fpermissive"))
+        (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" expat-include-path " -I" png-include-path " -I" zlib-include-path))
               (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -mwindows -lcairo -lfreetype")))
           (list cc-flags ld-flags)))))
   (x11

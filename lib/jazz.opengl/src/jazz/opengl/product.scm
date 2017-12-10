@@ -81,9 +81,9 @@
           (jazz.opengl.foreign.glext-header)
           (jazz.opengl.foreign.glext)
           (jazz.opengl.foreign.glu-header)
-          (jazz.opengl.foreign.glu cc-options: "-fpermissive" ld-options: "-lopengl32 -lglu32")
-          (jazz.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path " -fpermissive") ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglu32 -lglew32"))
-          (jazz.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path " -fpermissive") ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglew32"))
+          (jazz.opengl.foreign.glu ld-options: "-lopengl32 -lglu32")
+          (jazz.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglu32 -lglew32"))
+          (jazz.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglew32"))
           (jazz.opengl.glew.windows cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglew32"))
           (jazz.opengl.platform.windows cc-options: "-DUNICODE -D_WIN32_WINNT=0x0502" ld-options: "-mwindows -lopengl32")))))
   (cocoa

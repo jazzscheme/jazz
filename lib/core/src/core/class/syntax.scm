@@ -517,6 +517,7 @@ end-of-c-code
          ((%%boolean? ,obj)      jazz:Boolean)
          ((%%char? ,obj)         jazz:Char)
          ((%%fixnum? ,obj)       jazz:Fixnum)
+         ((%%ratnum? ,obj)       jazz:Ratnum)
          ((%%flonum? ,obj)       jazz:Flonum)
          ((%%integer? ,obj)      jazz:Integer)
          ((%%rational? ,obj)     jazz:Rational)

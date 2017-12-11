@@ -976,6 +976,12 @@
       `(rational? ,obj)
     `(jazz:unsafe (##rational? ,obj))))
 
+(jazz:define-macro (%%ratnum? obj)
+  `(jazz:unsafe (##ratnum? ,obj)))
+
+(jazz:define-macro (%%ratnum->flonum x)
+  `(jazz:unsafe (##ratnum->flonum ,x)))
+
 
 ;;;
 ;;;; Readenv

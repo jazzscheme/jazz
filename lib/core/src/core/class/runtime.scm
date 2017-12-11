@@ -1224,6 +1224,29 @@
 
 
 ;;;
+;;;; Ratnum
+;;;
+
+
+(jazz:define-class-runtime jazz:Ratnum-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:Ratnum-Class class) object)
+  (%%ratnum? object))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:Ratnum-Class class))
+  'rt)
+
+
+(jazz:define-method (jazz:emit-test (jazz:Ratnum-Class type) value source-declaration walker resume environment backend)
+  `(%%ratnum? ,value))
+
+
+(jazz:define-class-runtime jazz:Ratnum)
+
+
+;;;
 ;;;; Flonum
 ;;;
 

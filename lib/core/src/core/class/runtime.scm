@@ -1267,11 +1267,14 @@
 
 
 (jazz:define-method (jazz:emit-cast (jazz:Flonum-Class type) value source-declaration walker resume environment backend)
-  `(if (%%flonum? ,value)
-       ,value
-     (if (%%fixnum? ,value)
-         (%%fixnum->flonum ,value)
-       (jazz:type-error ,value ',(jazz:emit-specifier type)))))
+  `(cond ((%%flonum? ,value)
+          ,value)
+         ((%%fixnum? ,value)
+          (%%fixnum->flonum ,value))
+         ((%%ratnum? ,value)
+          (%%ratnum->flonum ,value))
+         (else
+          (jazz:type-error ,value ',(jazz:emit-specifier type)))))
 
 
 (jazz:define-class-runtime jazz:Flonum)

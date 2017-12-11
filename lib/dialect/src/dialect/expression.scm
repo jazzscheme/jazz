@@ -291,7 +291,8 @@
                   ;; flonum
                   ((%%eq? expect jazz:Flonum)
                    (or (%%subtype? type jazz:Flonum)
-                       (and implicit? (%%subtype? type jazz:Fixnum))))
+                       (and implicit? (%%subtype? type jazz:Fixnum))
+                       (and implicit? (%%subtype? type jazz:Ratnum))))
                   ;; flovec
                   ((%%eq? expect jazz:Flovec)
                    (or (%%subtype? type jazz:Flonum)

@@ -2382,12 +2382,20 @@
                            (jazz:get-declaration-locator source-declaration)
                            (jazz:present-expression-location source #f)))
            (jazz:sourcified-form code))
+          ;; fixnum to flonum
           ((and (%%subtype? type jazz:Flonum)
                 (%%subtype? code-type jazz:Fixnum))
            (let ((code-emit (jazz:sourcified-form code)))
              (if (%%fixnum? (jazz:source-code code-emit))
                  (jazz:sourcify-if (%%fixnum->flonum (jazz:source-code code-emit)) (jazz:get-code-source code))
                `(%%fixnum->flonum ,(jazz:sourcified-form code)))))
+          ;; ratnum to flonum
+          ((and (%%subtype? type jazz:Flonum)
+                (%%subtype? code-type jazz:Ratnum))
+           (let ((code-emit (jazz:sourcified-form code)))
+             (if (%%ratnum? (jazz:source-code code-emit))
+                 (jazz:sourcify-if (%%ratnum->flonum (jazz:source-code code-emit)) (jazz:get-code-source code))
+               `(%%ratnum->flonum ,(jazz:sourcified-form code)))))
           (else
            #; ;; incompatible cast test
            (%%unless (%%eq? code-type jazz:Any)
@@ -2406,12 +2414,20 @@
                (%%eq? type jazz:Void)
                (%%subtype? code-type type))
            (jazz:sourcified-form code))
+          ;; fixnum to flonum
           ((and (%%subtype? type jazz:Flonum)
                 (%%subtype? code-type jazz:Fixnum))
            (let ((code-emit (jazz:sourcified-form code)))
              (if (%%fixnum? (jazz:source-code code-emit))
                  (jazz:sourcify (%%fixnum->flonum (jazz:source-code code-emit)) code-emit)
                `(%%fixnum->flonum ,(jazz:sourcified-form code)))))
+          ;; ratnum to flonum
+          ((and (%%subtype? type jazz:Flonum)
+                (%%subtype? code-type jazz:Ratnum))
+           (let ((code-emit (jazz:sourcified-form code)))
+             (if (%%ratnum? (jazz:source-code code-emit))
+                 (jazz:sourcify (%%ratnum->flonum (jazz:source-code code-emit)) code-emit)
+               `(%%ratnum->flonum ,(jazz:sourcified-form code)))))
           (else
            (jazz:sourcified-form code)))))
 

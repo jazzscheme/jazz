@@ -346,7 +346,14 @@
 (definition public (read-markup file)
   (parameterize ((walk-for #f))
     (call-with-input-file (path-settings file eol-encoding: 'cr-lf readtable: jazz-readtable)
-      read)))
+      (lambda (input)
+        (let ((expr (read input)))
+          (if (eof-object? expr)
+              (error "No expression found in: {s}" (parse file))
+            (let ((extraneous (read input)))
+              (if (not (eof-object? extraneous))
+                  (error "Found extraneous expressions in: {s}" (parse file))
+                expr))))))))
 
 
 (definition public (load-markup file)

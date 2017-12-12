@@ -119,10 +119,13 @@
   (parameterize ((walk-for #f))
     (let ((expr (read input)))
       (if (eof-object? expr)
-          (error "No expression found in form{?~: {a}~}" (and file (parse file)))
-        (let ((form (parse-form expr file)))
-          (set-origin form file)
-          form)))))
+          (error "No expression found{?~ in: {s}~}" (and file (parse file)))
+        (let ((extraneous (read input)))
+          (if (not (eof-object? extraneous))
+              (error "Found extraneous expressions{?~ in: {s}~}" (and file (parse file)))
+            (let ((form (parse-form expr file)))
+              (set-origin form file)
+              form)))))))
 
 
 (definition public (parse-form expr (file #f))
@@ -130,7 +133,7 @@
     (if (and (pair? expr)
              (eq? (car expr) 'data))
         (parse-data expr proc)
-      (error "Ill-formed data{? in: {a}~}" (and file (parse file)))))
+      (error "Ill-formed data{? in: {s}~}" (and file (parse file)))))
   
   (define (parse-data expr proc)
     (bind (data dialect . info) expr

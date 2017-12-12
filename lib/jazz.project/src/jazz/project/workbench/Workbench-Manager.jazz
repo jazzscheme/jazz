@@ -161,7 +161,7 @@
     (set-shown? (locate-component self '(descendants header)) #f)
     (set-editor (locate self 'descendants) self)
     (set-client self (get-workbench))
-    (add-quit-listener (get-application) self))
+    (add-quit-listener (current-application) self))
   
   
   (method override (get-designer-class self)
@@ -232,7 +232,7 @@
                     (lambda ()
                       (with-design-locked client
                         (lambda ()
-                          (setup-workbench (get-application))
+                          (setup-workbench (current-application))
                           (set-client self (get-workbench)))))))))
             use: 'text
             ensure-expanded?: #t)))))
@@ -299,7 +299,7 @@
   
   (method (on-dependencies self evt)
     (let ((project (selected-object self))
-          (analyser (get-dependencies-analyser (get-application))))
+          (analyser (get-dependencies-analyser (current-application))))
       (let ((text (locate analyser 'package))
             (tree (get-tree analyser)))
         (set-string-content text (->string (get-name project)))
@@ -430,7 +430,7 @@
   
   
   (method (edit-workbench self)
-    (let ((appl (get-application))
+    (let ((appl (current-application))
           (file Workbench-File))
       (edit-document appl file)))
   
@@ -447,13 +447,13 @@
     (let ((file (project-file)))
       (if (not file)
           (bell)
-        (edit-document (get-application) file))))
+        (edit-document (current-application) file))))
   
   
   (method package (edit-descriptor self)
     (for-each (lambda (project)
                 (let ((description-file (get-description-file project)))
-                  (edit-document (get-application) description-file)))
+                  (edit-document (current-application) description-file)))
               (selected-objects self)))
   
   
@@ -498,7 +498,7 @@
                       (cons 'product-unit package)
                       (cons 'product-directories project-parts))))
             
-            (let ((template (new-directory (templates-directory (get-application)) (list "project" template)))
+            (let ((template (new-directory (templates-directory (current-application)) (list "project" template)))
                   (associations (if empty? (empty-associations) (associations))))
               (copy-template template directory associations)
               (with-update-locked tree
@@ -536,7 +536,7 @@
             (create-directories default-directory)
             (receive (kind template directory name) (get-modal New-Document-Dialog directory: default-directory)
               (let* ((extension (extract-extension template))
-                     (file-templates (new-directory (templates-directory (get-application)) "file"))
+                     (file-templates (new-directory (templates-directory (current-application)) "file"))
                      (template (new-file file-templates (concatenate template ".template")))
                      (destination (new-file directory (format "{a}.{a}" name extension)))
                      (unit (find-pathname-unit (parse destination)))
@@ -603,7 +603,7 @@
           (extensions (effective-include-extensions (get-include-extensions project))))
       (if extensions
           (member? ext extensions test: extension=?)
-        (known-extension-frame-class (get-application) ext))))
+        (known-extension-frame-class (current-application) ext))))
   
   
   (definition (filter-pathname? project pathname (filter: filter #f))
@@ -1008,7 +1008,7 @@
             (when row
               (ensure-expanded tree row)))
           (highlight-component tree (active-project))))
-      (let ((appl (get-application)))
+      (let ((appl (current-application)))
         (update-project-actions appl))))
     
   
@@ -1141,7 +1141,7 @@
 
   
   (method package (run-project self project)
-    (run-project (get-application) project))
+    (run-project (current-application) project))
 
   
   ;;;
@@ -1164,7 +1164,7 @@
         (and (and file (exists? file))
              (list "-dependencies" (parse file)))))
     
-    (debug-project (get-application) project executable: executable command-arguments: (dependencies-arguments) debugger-interactive?: #t))
+    (debug-project (current-application) project executable: executable command-arguments: (dependencies-arguments) debugger-interactive?: #t))
   
   
   ;;;
@@ -1192,7 +1192,7 @@
       
   
   (method package (validate-project self project (executable: executable #f))
-    (validate-project (get-application) project executable: executable debugger-interactive?: #t))
+    (validate-project (current-application) project executable: executable debugger-interactive?: #t))
 
   
   ;;;
@@ -1201,7 +1201,7 @@
   
   
   (method public (launch-selection self)
-    (let ((appl (get-application)))
+    (let ((appl (current-application)))
       (for-each (lambda (component)
                   (typecase component
                     ((Project)
@@ -1279,7 +1279,7 @@
                   @cant-find
                   (prepare-directories project)
                   (user-message "Preprocessing {a}..." moniker)
-                  (let ((output (get-output-log (get-application)))
+                  (let ((output (get-output-log (current-application)))
                         (timer (new Timer)))
                     (clear-results output)
                     (select-resultset output)

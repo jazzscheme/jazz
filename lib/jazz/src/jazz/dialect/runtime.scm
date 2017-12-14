@@ -1523,7 +1523,7 @@
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Hub-Declaration declaration) meta)
-  #f)
+  `(hub ,(jazz:get-lexical-binding-name declaration)))
 
 
 (define (jazz:parse-hub walker resume declaration rest)

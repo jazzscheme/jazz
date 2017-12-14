@@ -196,7 +196,7 @@
              focus)))
     
     (set! client (or explicit-client (determine-client)))
-    (set! client-selection (and client (get-selection client)))
+    (set! client-selection (and client (new Text-Mark client (get-selection client))))
     (set! client-position (and client (get-scrolled-position client))))
   
   
@@ -608,7 +608,7 @@
     (let ((client (get-client self))
           (client-selection (get-client-selection self)))
       (let ((model (and (is? client Text-View) (get-model client))))
-        (set! last-range (if model (or range client-selection) #f))
+        (set! last-range (if model (if range (new Text-Mark client range) client-selection) #f))
         (set! found-style (if model (add-style model 'Found (new Text-Style base: 'Base domain: (get-styles-domain model) highlight: {Color Found})) #f))
         (set! highlight-style (if model (add-style model 'Highlight (new Text-Style base: 'Base domain: (get-styles-domain model) highlight: {Color Highlight})) #f))
         (set! replace-style (if model (add-style model 'Replace (new Text-Style base: 'Base domain: (get-styles-domain model) highlight: {Color Light-Red} frame: {Color Replace})) #f))
@@ -824,7 +824,7 @@
   
   
   (method (reset-search self range)
-    (set! last-range range)
+    (set! last-range (new Text-Mark (get-client self) range))
     (set! last-found? #t)
     (set! prefixes (make-table test: equal?)))
 
@@ -905,7 +905,7 @@
     
     (define (search-target model beginning ending target again?)
       (let ((context (get-context self))
-            (range (or (and prefix? (table-ref prefixes target #f)) last-range)))
+            (range (get-range (or (and prefix? (table-ref prefixes target #f)) last-range))))
         (let ((pos (case direction
                      ((forward) (if again? (get-end range) (get-start range)))
                      ((backward) (if again? (get-start range) (nu+ (get-start range) (cardinality target))))))
@@ -913,7 +913,7 @@
           (let ((found (text-regular-search model context start: pos end: (if reversed? beginning ending) reversed?: reversed?)))
             (define (add-prefix range)
               (reset-prefixes)
-              (table-set! prefixes target range))
+              (table-set! prefixes target (new Text-Mark (get-client self) range)))
             
             (define (reset-prefixes)
               (let ((card (cardinality target)))
@@ -927,7 +927,7 @@
                    (bind (from . to) found
                      (let ((range (new Range$Cell$ from to)))
                        (add-prefix range)
-                       (set! last-range range)))
+                       (set! last-range (new Text-Mark (get-client self) range))))
                    found))))))
     
     (define (highlight-boundary client beginning ending)
@@ -944,11 +944,11 @@
         (for-each (lambda (found)
                     (bind (start . end) found
                       (let ((range (new Range$Cell$ start end)))
-                        (unless (nu=? range last-range)
+                        (unless (nu=? range (get-range last-range))
                           (add-highlight client (new Text-Highlight client range highlight-style))))))
                   all))
-      (add-highlight client (new Text-Highlight client last-range found-style))
-      (set-selection client last-range))
+      (add-highlight client (new Text-Highlight client (get-range last-range) found-style))
+      (set-selection client (get-range last-range)))
     
     (define (highlight-replace client model beginning ending repl)
       (unless (empty-string? repl)
@@ -980,8 +980,8 @@
                      (bell)))
                  (if (not all)
                      (clear-status text)
-                   (let ((rank (and last-range (find all (cons (get-start last-range)
-                                                               (get-end last-range))
+                   (let ((rank (and last-range (find all (cons (get-start (get-range last-range))
+                                                               (get-end (get-range last-range)))
                                                  test: (lambda (x y)
                                                          (and (cell=? (car x) (car y))
                                                               (cell=? (cdr x) (cdr y)))))))
@@ -1037,7 +1037,7 @@
     (let ((client (get-client self))
           (client-selection (get-client-selection self)))
       (when client-selection
-        (set-selection client client-selection ensure-displayed?: #f)
+        (set-selection client (get-range client-selection) ensure-displayed?: #f)
         (scroll-to client (get-client-position self))))
     (cleanup self))
   

@@ -279,7 +279,10 @@
                 (and (%%class-is? type jazz:Category-Type)
                      (%%eq? (jazz:get-category-type-declaration type) (jazz:get-category-type-declaration expect))))
           (let ((type (or type jazz:Any)))
-            (cond ;; fixbound
+            (cond ;; bool
+                  ((%%eq? expect jazz:Bool)
+                   #t)
+                  ;; fixbound
                   ((%%eq? expect jazz:Fixbound)
                    ;; TEMPORARY PATCH FOR UNIFICATION TESTS UNTIL A SATISFACTORY SOLUTION TO FIXBOUND IN DEBUG
                    (%%subtype? type jazz:Fixnum)

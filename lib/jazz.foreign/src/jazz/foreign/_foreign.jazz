@@ -72,13 +72,14 @@
 
 
 (definition public (with-callable name thunk)
+  (set! callback-exception #f)
   (let ((result (parameterize ((current-callable name))
                   (thunk))))
-    (if callback-exception
-        (let ((exc callback-exception))
-          (set! callback-exception #f)
-          (throw exc))
-      result)))
+    (let ((exception callback-exception))
+      (set! callback-exception #f)
+      (if exception
+          (throw exception)
+        result))))
 
 
 ;;;
@@ -98,7 +99,6 @@
           (lambda (cont)
             (display-continuation-backtrace cont port #t #f 100 100)))))
     (quit))
-  (set! callback-exception #f)
   (set-exit-callable #f)
   (with-exception-filter
     (lambda (exc)

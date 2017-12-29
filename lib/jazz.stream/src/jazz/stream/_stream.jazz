@@ -38,181 +38,14 @@
 (module jazz.stream jazz
 
 
-(import (jazz.stream.foreign)
-        (jazz.foreign)
-        (jazz.platform.types))
-
-(export (jazz.stream.foreign))
+(hub set-sink)
+(hub set-src)
 
 
-;;;
-;;;; GLib
-;;;
+(import (jazz.stream.gstreamer)
+        (jazz.syntax (phase syntax)))
 
-
-(definition public (g_value_boolean n)
-  (let ((value (g_value_new G_TYPE_BOOLEAN)))
-    (g_value_set_boolean value n)
-    value))
-
-
-(definition public (g_value_int n)
-  (let ((value (g_value_new G_TYPE_INT)))
-    (g_value_set_int value n)
-    value))
-
-
-(definition public (g_value_uint64 n)
-  (let ((value (g_value_new G_TYPE_UINT64)))
-    (g_value_set_uint64 value n)
-    value))
-
-
-(definition public (g_value_string str)
-  (let ((value (g_value_new G_TYPE_STRING)))
-    (g_value_set_string value str)
-    value))
-
-
-(definition public (g_value_fraction n d)
-  (let ((value (g_value_new (GST_TYPE_FRACTION))))
-    (gst_value_set_fraction value n d)
-    value))
-
-
-(definition public (g_object_set obj . rest)
-  (for-each-property (lambda (name value)
-                       (g_object_set_property obj name value))
-                     rest))
-
-
-;;;
-;;;; GStreamer
-;;;
-
-
-(definition gstreamer-initialized?
-  #f)
-
-
-(definition public (startup-gstreamer)
-  (unless gstreamer-initialized?
-    (gst_init)
-    (set! gstreamer-initialized? #t)))
-
-
-(definition public (shutdown-gstreamer)
-  (when gstreamer-initialized?
-    (set! gstreamer-initialized? #f)))
-
-
-;;;
-;;;; Pipeline
-;;;
-
-
-(definition public (gst-launch . elements)
-  (gst_parse_launch (gst-parse elements)))
-
-
-(definition public (gst-parse elements)
-  (define (parse elem)
-    (cond ((not elem)
-           elem)
-          ((string? elem)
-           (string-append " ! " elem))
-          ((pair? elem)
-           (string-append " " (parse-list elem)))
-          (else
-           (error "Unable to parse {s}" elem))))
-  
-  (define (parse-list elem)
-    (let ((elem (remove-false elem)))
-      (string-append (car elem)
-        (apply string-append (map parse (cdr elem))))))
-  
-  (parse-list elements))
-
-
-(definition public (pipeline-messages-processor pipeline debug? (ready-proc #f))
-  (let ((name (gst_object_get_name pipeline))
-        (bus (gst_pipeline_get_bus pipeline)))
-    (lambda ()
-      (let (loop)
-        (let ((msg (gst_bus_pop bus)))
-          (when msg
-            (when (and (= (GST_MESSAGE_TYPE msg) GST_MESSAGE_STATE_CHANGED)
-                       (= (gst_message_state_changed_get_new_state msg) GST_STATE_PLAYING)
-                       (equal? (gst_object_get_name (GST_MESSAGE_SRC msg)) name))
-              (when ready-proc
-                (ready-proc))
-              @convert
-              (when debug?
-                (debug 'diff
-                       (- (gst_clock_get_time (gst_pipeline_get_clock output-pipeline))
-                          (gst_clock_get_time (gst_pipeline_get_clock input-pipeline))))
-                ;(gst_debug_pipeline input-pipeline)
-                )
-              @convert
-              (let ((input-base (gst_element_get_base_time input-pipeline))
-                    (output-base (gst_element_get_base_time output-pipeline)))
-                (let ((delta (- output-base input-base)))
-                  (when debug?
-                    (debug '******** (gst_present_time input-base) (gst_present_time output-base) (gst_present_time delta)))
-                  (set! correction delta))))
-            (when debug?
-              (gst_print_message name msg))
-            (let ((type (GST_MESSAGE_TYPE msg)))
-              (ecase type
-                ((GST_MESSAGE_EOS)
-                 (exit))
-                ((GST_MESSAGE_ERROR)
-                 (exit 1))))
-            (loop)))))))
-
-
-;;;
-;;;; Caps
-;;;
-
-
-(definition public (gst_caps type . rest)
-  (let ((caps (gst_caps_new_empty_simple type)))
-    (for-each-property (lambda (name value)
-                         (gst_caps_set_value caps name value))
-                       rest)
-    caps))
-
-
-(definition public (gst-setup-source src type format width height framerate (stream-format: stream-format #f) (alignment: alignment #f))
-  (gst_app_src_set_caps src
-                        (apply gst_caps type
-                          `("format"        ,(g_value_string format)
-                            "width"         ,(g_value_int width)
-                            "height"        ,(g_value_int height)
-                            "framerate"     ,(g_value_fraction framerate 1)
-                            ,@(if stream-format `("stream-format" ,(g_value_string "avc")) '())
-                            ,@(if alignment `("alignment" ,(g_value_string "au")) '()))))
-  (g_object_set src
-                "is-live"     (g_value_boolean #t)
-                "stream-type" (g_value_int GST_APP_STREAM_TYPE_STREAM)
-                "format"      (g_value_int GST_FORMAT_TIME)))
-
-
-;;;
-;;;; Bin
-;;;
-
-
-(definition public (gst_bin_elements bin)
-  (let ((it (gst_bin_iterate_elements bin))
-        (queue (new-queue)))
-    (let (loop)
-      (let ((elem (gst_iterator_next_element it)))
-        (if (not elem)
-            (queue-list queue)
-          (enqueue queue elem)
-          (loop))))))
+(export (jazz.stream.gstreamer))
 
 
 ;;;
@@ -220,30 +53,162 @@
 ;;;
 
 
-(definition public (gst_element_pads elem)
-  (let ((it (gst_element_iterate_pads elem))
-        (queue (new-queue)))
-    (let (loop)
-      (let ((pad (gst_iterator_next_pad it)))
-        (if (not pad)
-            (queue-list queue)
-          (enqueue queue pad)
-          (loop))))))
+(class Stream-Element extends Object
+  
+  
+  (slot state initialize #f getter generate)
+  (slot sink  initialize #f accessors generate)
+  (slot src   initialize #f accessors generate)
+  
+  
+  (method package (ready? self)
+    (eq? state 'ready))
+  
+  
+  (method package (playing? self)
+    (eq? state 'playing))
+  
+  
+  (method public (setup self)
+    (when (not state)
+      (startup-gstreamer)
+      (setup-element self)
+      (set! state 'ready)))
+  
+  
+  (method public (start self)
+    (setup self)
+    (unless (eq? state 'playing)
+      (start-element self)
+      (set! state 'playing)))
+  
+  
+  (method public (stop self)
+    (when (eq? state 'playing)
+      (stop-element self)
+      (set! state 'ready)))
+  
+  
+  (method public (conclude self)
+    (stop self)
+    (when (eq? state 'ready)
+      (conclude-element self)
+      (set! state #f)))
+  
+  
+  (method protected virtual (setup-element self)
+    )
+  
+  
+  (method protected virtual (start-element self)
+    )
+  
+  
+  (method protected virtual (stop-element self)
+    )
+  
+  
+  (method protected virtual (conclude-element self)
+    )
+  
+  
+  (method protected virtual (process self)
+    )
+  
+  
+  (method package virtual (consume self buffer timestamp duration)
+    ))
 
 
-(definition public (gst_monitor pipeline what . names)
-  (for-each (lambda (name)
-              (let ((elem (gst_bin_get_by_name pipeline name)))
-                (if (not elem)
-                    (error "Unable to find element {a}" name)
-                  (for-each (lambda (pad)
-                              (case what
-                                ((data)
-                                 (gst_monitor_data pipeline pad))
-                                ((events)
-                                 (gst_monitor_events pipeline pad))
-                                ((all)
-                                 (gst_monitor_data pipeline pad)
-                                 (gst_monitor_events pipeline pad))))
-                            (gst_element_pads elem)))))
-            names)))
+;;;
+;;;; Src
+;;;
+
+
+(class Stream-Src extends Stream-Element)
+
+
+;;;
+;;;; Sink
+;;;
+
+
+(class Stream-Sink extends Stream-Element
+  
+  
+  (slot consumer initialize #f accessors generate)
+  
+  
+  (method override (initialize self (consumer: consumer #f))
+    (nextmethod self)
+    (set! self.consumer consumer))
+  
+  
+  (method override (consume self buffer timestamp duration)
+    (consumer buffer timestamp duration)))
+
+
+;;;
+;;;; Debug-Sink
+;;;
+
+
+(class Debug-Sink extends Stream-Sink
+  
+  
+  (slot name initialize #f accessors generate)
+  
+  
+  (method override (initialize self name . rest)
+    (apply nextmethod self rest)
+    (set! self.name name))
+  
+  
+  (method override (consume self buffer timestamp duration)
+    (debug name (u8vector-length buffer) timestamp duration)))
+
+
+;;;
+;;;; Pipeline
+;;;
+
+
+(definition public (pipeline . elements)
+  (let ((len (length elements)))
+    (if (< len 2)
+        (error "Invalid pipeline length: {s}" len)
+      (let (loop (previous #f) (scan elements))
+        (when (not-null? scan)
+          (let ((elem (car scan)))
+            (when previous
+              (set-src elem previous)
+              (set-sink previous elem))
+            (loop elem (cdr scan)))))))
+  (new Stream-Pipeline elements))
+
+
+(class Stream-Pipeline extends Stream-Element
+  
+  
+  (slot elements initialize #f accessors generate)
+  
+  
+  (method override (initialize self elements)
+    (nextmethod self)
+    (set! self.elements elements))
+  
+  
+  (method override (setup-element self)
+    (for-each setup elements))
+  
+  
+  (method override (start-element self)
+    (for-each start elements))
+  
+  
+  (method override (stop-element self)
+    (for-each stop elements))
+  
+  
+  (method override (conclude-element self)
+    (for-each conclude elements))))

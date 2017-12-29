@@ -714,23 +714,29 @@
 (c-declare cairo
   #/C/
 struct readfunc_closure {
-  int offset;
-  ___SCMOBJ vector;
+    int offset;
+    ___SCMOBJ vector;
 };
 
-cairo_status_t u8vector_readfunc (void* closure,
-                                  unsigned char* buf,
-                                  unsigned int length) {
-  // FIXME: check the length
-  unsigned int i = 0;
-  int offset = ((struct readfunc_closure*) closure)->offset;
-  ___SCMOBJ vector = ((struct readfunc_closure*) closure)->vector;
-  while (i < length) {
-    buf[i] = ___INT(___U8VECTORREF(vector, ___FIX(offset + i)));
-    i++;
-  }
-  ((struct readfunc_closure*) closure)->offset = offset + length;
-  return CAIRO_STATUS_SUCCESS;
+cairo_status_t u8vector_readfunc(void* closure, unsigned char* buf, unsigned int length)
+{
+    // FIXME: check the length
+    unsigned int i = 0;
+    int offset = ((struct readfunc_closure*) closure)->offset;
+    ___SCMOBJ vector = ((struct readfunc_closure*) closure)->vector;
+    while (i < length) {
+        buf[i] = ___INT(___U8VECTORREF(vector, ___FIX(offset + i)));
+        i++;
+    }
+    ((struct readfunc_closure*) closure)->offset = offset + length;
+    return CAIRO_STATUS_SUCCESS;
+}
+
+cairo_status_t writefunc(void *closure, const unsigned char* data, unsigned int length)
+{
+    printf("%d\n", length);
+    return CAIRO_STATUS_SUCCESS;
+    // return length == fwrite(data, 1, length,stdout) ? CAIRO_STATUS_SUCCESS : CAIRO_STATUS_WRITE_ERROR;
 }
 //#)
 
@@ -745,6 +751,24 @@ cairo_status_t u8vector_readfunc (void* closure,
 
 (definition public (load-png-image-from-u8vector u8vector)
   (___cairo_image_surface_create_from_png_stream u8vector))
+
+
+(c-declare cairo
+  #/C/
+cairo_status_t _writefunc(void *closure, const unsigned char* data, unsigned int length)
+{
+    return CAIRO_STATUS_SUCCESS;
+}
+//#)
+
+
+(c-external (___cairo_image_surface_write_to_png_stream cairo_surface_t*) void
+  #/C/
+    cairo_surface_write_to_png_stream(___arg1, _writefunc, 0);
+//#)
+
+(definition public (surface->png handle)
+  (___cairo_image_surface_write_to_png_stream handle))
 
 
 ;;;

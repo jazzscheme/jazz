@@ -49,7 +49,7 @@
       (string-append "/usr/bin/" (jazz:compiler-name)))
     
     (define jazz:custom-cc-options
-      '("-O1" "-Wno-unused" "-Wno-write-strings" "-fno-math-errno" "-fno-strict-aliasing" "-fwrapv" "-fomit-frame-pointer" "-fPIC" "-fno-common")))
+      '("-O1" "-Wno-unused" "-Wno-write-strings" "-Wno-deprecated-declarations" "-fno-math-errno" "-fno-strict-aliasing" "-fwrapv" "-fomit-frame-pointer" "-fPIC" "-fno-common")))
   (else))
 
 

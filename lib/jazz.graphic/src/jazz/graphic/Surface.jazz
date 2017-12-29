@@ -488,9 +488,11 @@
       (fill self)))
 
   
-  (method public (draw-surface self handle x y)
+  (method public (draw-surface self handle x <fl> y <fl> (alpha: alpha #f))
     (set-source-surface self handle x y)
-    (paint self))
+    (if alpha
+        (paint-with-alpha self alpha)
+      (paint self)))
   
   
   (method public (fill-background self rect background)
@@ -536,14 +538,14 @@
           (fill-image self rect image mode: mode position: position size: size)))))
   
   
-  (method public (fill-image self rect <Rect> image <Image> (mode: mode 'stretch) (position: position #f) (size: size #f))
+  (method public (fill-image self rect <Rect> image <Image> (mode: mode 'stretch) (position: position #f) (size: size #f) (alpha: alpha #f))
     (define (draw-position)
       (let ((pos <Point> (or position {Point 0 0})))
-        (draw-at image self #f (get-h pos) (get-v pos))))
+        (draw-at image self #f (get-h pos) (get-v pos) alpha: alpha)))
     
     (define (draw-center)
       (let ((pos <Point> (center (image-size image) (rect-size rect))))
-        (draw-at image self #f (get-h pos) (get-v pos))))
+        (draw-at image self #f (get-h pos) (get-v pos) alpha: alpha)))
     
     (define (draw-fill)
       (draw-scale 'fill))
@@ -555,12 +557,15 @@
       (let ((image-size (image-size image))
             (rect-size (rect-size rect)))
         (let ((ratio (fit-dimensions image-size rect-size mode)))
-          (with ((resized (new Image handle: (resize-image (get-handle image) (fxround (* (cast <fl> (get-width image-size)) ratio)) (fxround (* (cast <fl> (get-height image-size)) ratio))))))
-            (draw-at (cast <Image> resized) self #f 0 0)))))
+          (let ((new-width (fxround (* (cast <fl> (get-width image-size)) ratio)))
+                (new-height (fxround (* (cast <fl> (get-height image-size)) ratio))))
+            (with ((resized (new Image handle: (resize-image (get-handle image) new-width new-height))))
+              (let ((pos <Point> (center (new Dimension new-width new-height) rect-size)))
+                (draw-at resized self #f (get-h pos) (get-v pos) alpha: alpha)))))))
     
     (define (draw-stretch)
       (with ((resized <Image> (new Image handle: (resize-image (get-handle image) (rect-width rect) (rect-height rect)))))
-        (draw-at resized self #f 0 0)))
+        (draw-at resized self #f 0 0 alpha: alpha)))
     
     (define (draw-tile)
       (let ((handle (get-handle image)))
@@ -1179,6 +1184,10 @@
   
   (method public (paint self)
     (cairo_paint context))
+  
+  
+  (method public (paint-with-alpha self alpha <fl>)
+    (cairo_paint_with_alpha context alpha))
   
   
   (method public (clear self)

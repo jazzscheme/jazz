@@ -947,6 +947,7 @@
 (native jazz:switch-name)
 (native jazz:command-argument)
 (native jazz:command-argument?)
+(native jazz:find-option)
 (native jazz:exit-no-jobs)
 (native jazz:exit-jobs)
 (native jazz:add-exit-job!)

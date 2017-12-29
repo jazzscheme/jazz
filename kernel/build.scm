@@ -1812,19 +1812,19 @@
       read))
   
   (define (string-option name options)
-    (let ((opt (jazz:get-option name options)))
+    (let ((opt (jazz:find-option name options)))
       (if (not opt)
           (jazz:unspecified-option)
         opt)))
   
   (define (symbol-option name options)
-    (let ((opt (jazz:get-option name options)))
+    (let ((opt (jazz:find-option name options)))
       (if (not opt)
           (jazz:unspecified-option)
         (string->symbol opt))))
   
   (define (boolean-option name options)
-    (let ((opt (jazz:get-option name options)))
+    (let ((opt (jazz:find-option name options)))
       (cond ((not opt)
              (jazz:unspecified-option))
             ((string-ci=? opt "false")
@@ -1835,7 +1835,7 @@
              (fatal (jazz:format "Invalid boolean argument for option: {a}" name))))))
   
   (define (list-option name options)
-    (let ((opt (jazz:get-option name options)))
+    (let ((opt (jazz:find-option name options)))
       (if (not opt)
           (jazz:unspecified-option)
         opt)))

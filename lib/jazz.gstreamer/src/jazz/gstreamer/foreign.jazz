@@ -295,6 +295,23 @@ static GstFlowReturn gst_app_src_write3(GstElement* elem, ___SCMOBJ vec, int siz
     return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
 }
 
+static GstFlowReturn gst_app_src_write4(GstElement* elem, void* ptr, int size, ___U64 timestamp, ___U64 duration)
+{
+    GstBuffer *buffer = gst_buffer_new_allocate(NULL, size, NULL);
+    GstMapInfo map;
+    gst_buffer_map(buffer, &map, GST_MAP_WRITE);
+    memmove(map.data, ptr, size);
+    gst_buffer_unmap(buffer, &map);
+    GstPipeline* pipeline = (GstPipeline*) GST_ELEMENT_PARENT(elem);
+    GstClock* clock = gst_pipeline_get_clock(pipeline);
+    GstClockTime base_time = gst_element_get_base_time(elem);
+    GstClockTime abs_time = gst_clock_get_time(clock);
+    GST_BUFFER_PTS(buffer) = abs_time - base_time;
+    GST_BUFFER_DTS(buffer) = GST_BUFFER_PTS(buffer);
+    GST_BUFFER_DURATION(buffer) = duration;
+    return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
+}
+
 static double present_time(GstClockTime time)
 {
     if (time == GST_CLOCK_TIME_NONE)
@@ -538,6 +555,7 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
 (c-external (gst_app_src_write GstElement* scheme-object int uint64 uint64) GstFlowReturn)
 (c-external (gst_app_src_write2 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
 (c-external (gst_app_src_write3 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
+(c-external (gst_app_src_write4 GstElement* void* int uint64 uint64) GstFlowReturn)
 (c-external (gst_app_sink_pull GstElement* void* scheme-object) int)
 (c-external (gst_app_sink_read GstElement* scheme-object scheme-object) int)
 (c-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")

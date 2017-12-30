@@ -38,7 +38,6 @@
 (module jazz.audio jazz
 
 
-(hub get-handle)
 (hub pause)
 (hub play)
 (hub playing?)
@@ -47,21 +46,25 @@
 (hub set-3d-enabled)
 (hub set-3d-position)
 (hub set-loop)
+(hub set-panorama)
 (hub set-volume)
 (hub stop)
 
 
 (export (jazz.audio.foreign))
 (import (jazz.audio.foreign)
-        (jazz.io))
+        (jazz.geometry)
+        (jazz.io)
+        (jazz.stream)
+        (jazz.syntax (phase syntax)))
 
 
-;; unfortunately cricket crashes on some systems
-(definition protected cricket?
+;; useful if audio is unavailable on a system
+(definition audio?
   #t)
 
-(definition protected (set-cricket? flag)
-  (set! cricket? flag))
+(definition protected (set-audio? flag)
+  (set! audio? flag))
 
 
 ;;;
@@ -74,28 +77,17 @@
 
 
 (definition public (startup-audio)
-  (when cricket?
+  (when audio?
     (unless audio-initialized?
-      (CricketInit)
+      (startup-gstreamer)
       (set! audio-initialized? #t))))
 
 
 (definition public (shutdown-audio)
-  (when cricket?
+  (when audio?
     (when audio-initialized?
-      (CricketShutdown)
+      (shutdown-gstreamer)
       (set! audio-initialized? #f))))
-
-
-(definition public (update-audio)
-  (when cricket?
-    (when audio-initialized?
-      (CricketUpdate))))
-
-
-(add-exit-job!
-  (lambda ()
-    (shutdown-audio)))
 
 
 ;;;
@@ -103,103 +95,234 @@
 ;;;
 
 
-(definition public (new-bank-sound path)
-  (new Sound (and cricket? (CricketNewBankSound (parse path)))))
+(definition public (new-sound path)
+  (and audio? (new Sound (parse path))))
 
 
 (definition public (new-stream-sound path)
-  (new Sound (and cricket? (CricketNewStreamSound (parse path)))))
+  (and audio? (new Sound (parse path))))
 
 
 (definition public (set-3d-attenuation near far)
-  (when cricket?
-    (CricketSet3dAttenuation near far)))
+  (when audio?
+    ))
 
 
 (definition public (set-3d-listener eyeX eyeY eyeZ lookingAtX lookingAtY lookingAtZ upX upY upZ)
-  (when cricket?
-    (CricketSet3dListenerPosition eyeX eyeY eyeZ lookingAtX lookingAtY lookingAtZ upX upY upZ)))
+  (when audio?
+    ))
+
+
+(definition 3d-sounds
+  '())
+
+(definition (register-3d-sound sound)
+  (set! 3d-sounds (cons sound 3d-sounds)))
+
+(definition (unregister-3d-sound sound)
+  (set! 3d-sounds (remove! sound 3d-sounds)))
+
+
+(definition EPSI <fl>
+  1e-5)
+
+
+(definition (copy-vert vert <f64vector>) <f64vector>
+  (f64vector
+    (f64vector-ref vert 0)
+    (f64vector-ref vert 1)
+    (f64vector-ref vert 2)))
+
+
+(definition (vert- v1 <f64vector> v2 <f64vector>) <f64vector>
+  (f64vector
+    (- (f64vector-ref v1 0) (f64vector-ref v2 0))
+    (- (f64vector-ref v1 1) (f64vector-ref v2 1))
+    (- (f64vector-ref v1 2) (f64vector-ref v2 2))))
+
+
+(definition (vert-norm v <f64vector>) <fl>
+  (let ((x (f64vector-ref v 0))
+        (y (f64vector-ref v 1))
+        (z (f64vector-ref v 2)))
+    (sqrt (+ (* x x)
+             (* y y)
+             (* z z)))))
+
+
+(definition (vert-distance v1 <f64vector> v2 <f64vector>) <fl>
+  (vert-norm (vert- v2 v1)))
+
+
+(definition (vert-near? v1 <f64vector> v2 <f64vector>) <bool>
+  (< (vert-distance v1 v2) EPSI))
+
+
+(definition (interpolate x <fl> x0 <fl> x1 <fl> y0 <fl> y1 <fl>) <fl>
+  (+ y0 (* (- x x0) (/ (- y1 y0) (- x1 x0)))))
+
+
+(definition listener-position
+  #f)
+
+(definition listener-sight
+  #f)
+
+
+(definition near-distance
+  2.5)
+
+(definition near-volume
+  1.)
+
+(definition far-distance
+  50.)
+
+(definition far-volume
+  0.)
+
+
+;; pass vector-signed-angle until a clean solution
+(definition package (update-3d-sounds position sight vector-signed-angle)
+  (when (or (not listener-position)
+            (not listener-sight)
+            (not (vert-near? position listener-position))
+            (not (vert-near? sight listener-sight)))
+    (set! listener-position (copy-vert position))
+    (set! listener-sight (copy-vert sight))
+    (for-each (lambda (sound)
+                (let ((pos (get-position sound)))
+                  ;; volume
+                  (let ((dist (vert-distance pos listener-position)))
+                    (let ((vol (cond ((<= dist near-distance)
+                                      near-volume)
+                                     ((>= dist far-distance)
+                                      far-volume)
+                                     (else
+                                      (interpolate dist near-distance far-distance 1. 0.)))))
+                      (set-volume sound vol)))
+                  ;; pan
+                  (let ((angle (vector-signed-angle listener-sight (vert- pos listener-position) (f64vector 0. 1. 0.))))
+                    (let ((pan (cond ((between? angle 0. PI/2) (interpolate angle 0. PI/2 0. -1.))
+                                     ((between? angle PI/2 PI) (interpolate angle PI/2 PI -1. 0.))
+                                     ((between? angle (- PI) (- PI/2)) (interpolate angle (- PI) (- PI/2) 0. 1.))
+                                     ((between? angle (- PI/2) 0.) (interpolate angle (- PI/2) 0. 1. 0.)))))
+                      (set-panorama sound pan)))))
+              3d-sounds)))
 
 
 (class Sound extends Object
   
   
-  (slot handle getter generate)
+  (slot pipeline getter generate)
+  (slot position getter generate)
   
   
-  (method override (initialize self handle)
-    (set! self.handle handle))
+  (method override (initialize self location)
+    (let ((pipeline (gst-launch (tie "filesrc location={location} name=src")
+                                "decodebin name=decode"
+                                "audioconvert name=convert"
+                                "volume name=volume"
+                                "audiopanorama name=panorama"
+                                "autoaudiosink name=sink")))
+      (gst_object_set_name pipeline "sound")
+      (let ((process-messages (pipeline-messages-processor pipeline #t)))
+        (thread-start!
+          (new-thread
+            (lambda ()
+              (let (loop)
+                (process-messages)
+                (sleep .01)
+                (loop))))))
+      (set! self.pipeline pipeline)))
   
   
   (method override (destroy self)
-    (when cricket?
-      (CricketDestroy handle)))
+    (when audio?
+      (when pipeline
+        (unregister-3d-sound self)
+        (gst_element_set_state pipeline GST_STATE_NULL)
+        (gst_object_unref pipeline)
+        (set! pipeline #f))))
   
   
   (method public (ready? self)
-    (if cricket?
-        (CricketReady handle)
+    (if audio?
+        #t
       #t))
   
   
   (method public (play self)
-    (when cricket?
-      (CricketPlay handle)))
+    (when audio?
+      (gst_element_set_state pipeline GST_STATE_PLAYING)))
   
   
   (method public (stop self)
-    (when cricket?
-      (CricketStop handle)))
+    (when audio?
+      (gst_element_set_state pipeline GST_STATE_READY)))
+  
+  
+  (method public (rewind self)
+    (when audio?
+      (gst_element_seek_simple pipeline GST_FORMAT_TIME GST_SEEK_FLAG_FLUSH 0)))
   
   
   (method public (playing? self)
-    (if cricket?
-        (CricketPlaying handle)
+    (if audio?
+        #t
       #f))
   
   
   (method public (pause self)
-    (when cricket?
-      (CricketPause handle)))
+    (when audio?
+      (gst_element_set_state pipeline GST_STATE_PAUSED)))
   
   
   (method public (resume self)
-    (when cricket?
-      (CricketResume handle)))
+    (when audio?
+      (gst_element_set_state pipeline GST_STATE_PLAYING)))
   
   
   (method public (paused? self)
-    (if cricket?
-        (CricketPaused handle)
+    (if audio?
+        #f
       #f))
   
   
   (method public (set-loop self)
-    (when cricket?
-      (CricketSetLoop handle)))
+    (when audio?
+      ))
   
   
   (method public (release-loop self)
-    (when cricket?
-      (CricketReleaseLoop handle)))
+    (when audio?
+      ))
   
   
   (method public (get-volume self)
-    (if cricket?
-        (CricketGetVolume handle)
+    (if audio?
+        1.
       1.))
   
   
-  (method public (set-volume self volume)
-    (when cricket?
-      (CricketSetVolume handle volume)))
+  (method public (set-volume self vol)
+    (when audio?
+      (let ((volume (gst_bin_get_by_name pipeline "volume")))
+        (g_object_set_double volume "volume" vol))))
+  
+  
+  (method public (set-panorama self pan)
+    (when audio?
+      (let ((panorama (gst_bin_get_by_name pipeline "panorama")))
+        (g_object_set_double panorama "panorama" pan))))
   
   
   (method public (set-3d-enabled self flag)
-    (when cricket?
-      (CricketSet3dEnabled handle flag)))
+    (when audio?
+      ))
   
   
   (method public (set-3d-position self x y z)
-    (when cricket?
-      (CricketSet3dPosition handle x y z)))))
+    (when audio?
+      (set! position (f64vector x y z))
+      (register-3d-sound self)))))

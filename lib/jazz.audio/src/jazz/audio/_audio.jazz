@@ -38,13 +38,14 @@
 (module jazz.audio jazz
 
 
+(hub add-eos-proc)
 (hub get-volume)
 (hub pause)
 (hub paused?)
 (hub play)
 (hub playing?)
 (hub resume)
-(hub set-eos-proc)
+(hub rewind)
 (hub set-panorama)
 (hub set-volume)
 
@@ -100,8 +101,8 @@
 (class Sound extends Object
   
   
-  (slot pipeline initialize #f getter generate)
-  (slot eos-proc initialize #f accessors generate)
+  (slot pipeline  initialize #f getter generate)
+  (slot eos-procs initialize #f getter generate)
   
   
   (method override (initialize self location)
@@ -128,10 +129,16 @@
     (nextmethod self))
   
   
+  (method public (add-eos-proc self proc)
+    (set! eos-procs (if (not eos-procs)
+                        (list proc)
+                      (append eos-procs (list proc)))))
+  
+  
   (method public (play self)
     (when audio?
       (gst_element_set_state pipeline GST_STATE_PLAYING)
-      (when eos-proc
+      (when eos-procs
         (let ((bus (gst_pipeline_get_bus pipeline)))
           (thread-start!
             (new-thread
@@ -143,7 +150,9 @@
                           (gst_message_unref msg)
                           (if (/= type GST_MESSAGE_EOS)
                               (loop)
-                            (eos-proc self)))
+                            (for-each (lambda (proc)
+                                        (proc self))
+                                      eos-procs)))
                       (sleep .1)
                       (loop)))))
               'eos))))))
@@ -162,6 +171,12 @@
   (method public (resume self)
     (when audio?
       (gst_element_set_state pipeline GST_STATE_PLAYING)))
+  
+  
+  (method public (rewind self)
+    (when audio?
+      (when (playing? self)
+        (gst_element_seek_simple pipeline GST_FORMAT_TIME GST_SEEK_FLAG_FLUSH 0))))
   
   
   (method public (paused? self)

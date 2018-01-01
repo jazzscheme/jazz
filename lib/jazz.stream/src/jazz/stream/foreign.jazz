@@ -76,6 +76,16 @@
 (c-enumerant G_TYPE_STRING)
 
 
+(c-declare jazz.stream.foreign #/C/
+static double g_object_get_double(GObject* obj, char* name)
+{
+    double d;
+    g_object_get(obj, name, &d, NULL);
+    return d;
+}
+//#)
+
+
 (c-external (g_value_new GType) GValue*
   #/C/
     GValue* value = (GValue*) calloc(sizeof(GValue), 1);
@@ -95,6 +105,7 @@
 (c-external (g_value_set_string GValue* char-string) void)
 (c-external (g_object_get_property (call G_OBJECT GObject*) char-string GValue*) void)
 (c-external (g_object_set_property (call G_OBJECT GObject*) char-string GValue*) void)
+(c-external (g_object_get_double (call G_OBJECT GObject*) char-string) double "g_object_get_double")
 (c-external (g_object_set_double (call G_OBJECT GObject*) char-string double NULL) void "g_object_set")
 (c-external (g_object_set_string (call G_OBJECT GObject*) char-string char-string NULL) void "g_object_set")
 
@@ -109,9 +120,12 @@
 (c-enumerant GST_STATE_PAUSED)
 (c-enumerant GST_STATE_PLAYING)
 (c-enumerant GST_CLOCK_TIME_NONE)
-(c-enumerant GST_MESSAGE_ERROR)
 (c-enumerant GST_MESSAGE_EOS)
+(c-enumerant GST_MESSAGE_ERROR)
+(c-enumerant GST_MESSAGE_WARNING)
 (c-enumerant GST_MESSAGE_STATE_CHANGED)
+(c-enumerant GST_MESSAGE_STREAM_STATUS)
+(c-enumerant GST_MESSAGE_QOS)
 (c-enumerant GST_FORMAT_TIME)
 (c-enumerant GST_EVENT_CAPS)
 (c-enumerant GST_SEEK_FLAG_FLUSH)
@@ -161,6 +175,33 @@ static GstStateChangeReturn gst_element_set_state_aux(GstElement* elem, GstState
     ___mask_heartbeat_interrupts_end(&heartbeat_interrupts);
   
     return state_change;
+}
+
+static GstState gst_element_get_state_aux(GstElement* elem)
+{
+    GstState state, pending;
+    gst_element_get_state(elem, &state, &pending, 0);
+    return state;
+}
+
+static void gst_element_wait_state_aux(GstElement* elem)
+{
+    GstState state, pending;
+    gst_element_get_state(elem, &state, &pending, GST_CLOCK_TIME_NONE);
+}
+
+static gint64 gst_element_query_position_aux(GstElement* elem, GstFormat format)
+{
+    gint64 pos;
+    gst_element_query_position(elem, format, &pos);
+    return pos;
+}
+
+static gint64 gst_element_query_duration_aux(GstElement* elem, GstFormat format)
+{
+    gint64 pos;
+    gst_element_query_duration(elem, format, &pos);
+    return pos;
 }
 
 static GstState gst_message_state_changed_get_new_state(GstMessage *msg)
@@ -422,9 +463,9 @@ static void gst_print_message(char* pipeline_name, GstMessage *msg)
 }
 
 static GstPadProbeReturn
-cb_have_data (GstPad          *pad,
-              GstPadProbeInfo *info,
-              gpointer         user_data)
+cb_have_data(GstPad          *pad,
+             GstPadProbeInfo *info,
+             gpointer         user_data)
 {
     GstBuffer* buffer;
     GstPipeline* pipeline;
@@ -452,9 +493,9 @@ cb_have_data (GstPad          *pad,
 }
 
 static GstPadProbeReturn
-cb_have_event (GstPad          *pad,
-               GstPadProbeInfo *info,
-               gpointer         user_data)
+cb_have_event(GstPad          *pad,
+              GstPadProbeInfo *info,
+              gpointer         user_data)
 {
     GstEvent* event;
     GstPipeline* pipeline;
@@ -529,12 +570,16 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
 (c-external (gst_caps_new_empty_simple char-string) GstCaps*)
 (c-external (gst_caps_set_value GstCaps* char-string GValue*) void)
 (c-external (gst_element_set_state GstElement* GstState) GstStateChangeReturn "gst_element_set_state_aux")
+(c-external (gst_element_get_state GstElement*) GstState "gst_element_get_state_aux")
+(c-external (gst_element_wait_state GstElement*) void "gst_element_wait_state_aux")
 (c-external (gst_element_seek_simple GstElement* GstFormat GstSeekFlags int64) gboolean)
 (c-external (gst_element_get_bus GstElement*) GstBus*)
 (c-external (gst_element_get_base_time GstElement*) GstClockTime)
 (c-external (gst_element_factory_make char-string char-string) GstElement*)
 (c-external (gst_element_link GstElement* GstElement*) gboolean)
 (c-external (gst_element_iterate_pads GstElement*) GstIterator*)
+(c-external (gst_element_query_position GstElement* GstFormat) int64 "gst_element_query_position_aux")
+(c-external (gst_element_query_duration GstElement* GstFormat) int64 "gst_element_query_duration_aux")
 (c-external (gst_iterator_next_element GstIterator*) GstElement*)
 (c-external (gst_iterator_next_pad GstIterator*) GstPad*)
 (c-external (gst_signal_connect_to gpointer char-string gpointer) gulong)

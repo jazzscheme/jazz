@@ -109,6 +109,9 @@
 (definition video-bitrate
   2048)
 
+(definition window-size
+  #f)
+
 (definition lag
   #f)
 
@@ -125,7 +128,7 @@
   #f)
 
 
-(jazz:split-command-line (command-arguments) '("fps" "debug") '("debugger" "r" "run" "script" "audio" "audio-codec" "size" "codec" "framerate" "bitrate" "lag" "monitor") #f
+(jazz:split-command-line (command-arguments) '("fps" "debug") '("debugger" "r" "run" "script" "audio" "audio-codec" "size" "codec" "framerate" "bitrate" "window" "lag" "monitor") #f
   (lambda (commands options remain)
     (define (number-argument arg)
       (if (string? arg)
@@ -153,6 +156,7 @@
     (set! video-codec (or (symbol-argument (find-option "codec" options)) video-codec))
     (set! video-framerate (or (number-argument (find-option "framerate" options)) video-framerate))
     (set! video-bitrate (or (number-argument (find-option "bitrate" options)) video-bitrate))
+    (set! window-size (or (size-argument (find-option "window" options)) video-size))
     (set! lag (number-argument (find-option "lag" options)))
     (set! fps? (find-option "fps" options #f))
     (set! debug? (find-option "debug" options #f))
@@ -161,7 +165,7 @@
 
 
 @comment
-(debug script audio-codec video-size video-codec video-framerate video-bitrate lag fps? debug? remaining)
+(debug script audio-codec video-size video-codec video-framerate video-bitrate window-size lag fps? debug? remaining)
 
 
 (definition public (test-gstreamer)
@@ -220,10 +224,12 @@
 (definition public (test-video)
   (let ((width (get-width video-size))
         (height (get-height video-size))
+        (window-width (get-width window-size))
+        (window-height (get-height window-size))
         (codec video-codec)
         (framerate video-framerate)
         (bitrate video-bitrate))
-    (let ((video-buffer (make-u8vector (* width height 4)))
+    (let ((video-buffer (make-u8vector (* window-width window-height 4)))
           (video-info (make-u64vector 2))
           (video-mutex (make-mutex 'video))
           (pipe (open-vector))
@@ -274,7 +280,8 @@
                                           (and (eq? codec 'theora) "theoradec name=dec")
                                           "videoconvert name=convert2"
                                           "videoflip video-direction=horiz"
-                                          (tie "video/x-raw, format=BGRA, width={width}, height={height}, framerate={framerate}/1")
+                                          "videoscale name=scale2"
+                                          (tie "video/x-raw, format=BGRA, width={window-width}, height={window-height}, framerate={framerate}/1")
                                           (if fps?
                                               "fpsdisplaysink video-sink=appsink name=sink"
                                             "appsink name=sink"))))
@@ -299,7 +306,7 @@
                     (loop))))))
           'video))
       ;; application
-      (boot-environment (new Test-Application size: video-size pipe: pipe drawer: drawer)))))
+      (boot-environment (new Test-Application size: window-size pipe: pipe drawer: drawer)))))
 
 
 ;;;

@@ -506,6 +506,7 @@
           (video-info (make-u64vector 2))
           (video-mutex (make-mutex 'video))
           (pipe (open-vector))
+          (frame-size 0)
           (frame-count 0)
           (draw-count 0))
       (define (with-video-mutex thunk)
@@ -519,7 +520,7 @@
           (lambda ()
             (move-u8vector->pointer! video-buffer (cairo_image_surface_get_data (get-handle surface)))))
         (set-font surface {Font Label point-size: 36})
-        (draw-text surface 10 16 (format "{a} skipped" (- frame-count draw-count)) {Color Red}))
+        (draw-text surface 10 16 (format "{r precision: 1} kb, {a} skipped" (/ (cast <fl> frame-size) 1024.) (- frame-count draw-count)) {Color Red}))
       
       ;; audio input
       (when audio?
@@ -683,6 +684,7 @@
                   (let (loop)
                     (let ((info (read video-pipe)))
                       (bind (buffer size timestamp duration) info
+                        (set! frame-size size)
                         (gst_app_src_write3 src buffer size timestamp duration)))
                     (let ((size (with-video-mutex
                                   (lambda ()

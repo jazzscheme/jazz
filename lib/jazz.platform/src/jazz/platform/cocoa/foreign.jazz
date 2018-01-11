@@ -793,7 +793,7 @@ void platformInputWindowVisibility(PlatformWindow* window, int visible);
 // Input event notification
 bool platformInputKey(PlatformWindow* window, int key, int action);
 void platformInputChar(PlatformWindow* window, int character);
-void platformInputScroll(PlatformWindow* window, double x, double y);
+void platformInputScroll(PlatformWindow* window, NSPoint location, double dx, double dy);
 void platformInputMouseClick(PlatformWindow* window, int button, int clickCount, NSPoint location, int action);
 void platformInputCursorMotion(PlatformWindow* window, double x, double y);
 
@@ -952,7 +952,7 @@ int key_press_callback(PlatformWindow* window, int key, int action);
 void char_callback(PlatformWindow* window, int c);
 void button_callback(PlatformWindow* window, int x, int y, int button, int clickCount, int action);
 void moved_callback(PlatformWindow* window, double x, double y);
-void wheel_callback(PlatformWindow* window, double x, double y);
+void wheel_callback(PlatformWindow* window, double x, double y, double dx, double dy);
 void file_callback(NSString* filename);
 void drop_callback(PlatformWindow* window, NSArray* filenames);
 void entered_callback(PlatformWindow* window);
@@ -1954,7 +1954,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
     double deltaY = [event deltaY];
 
     if (fabs(deltaX) > 0.0 || fabs(deltaY) > 0.0)
-        platformInputScroll(window, deltaX, deltaY);
+        platformInputScroll(window, [event locationInWindow], deltaX, deltaY);
 }
 
 @end
@@ -2758,9 +2758,9 @@ void platformInputChar(PlatformWindow* window, int character)
 }
 
 
-void platformInputScroll(PlatformWindow* window, double xoffset, double yoffset)
+void platformInputScroll(PlatformWindow* window, NSPoint location, double dx, double dy)
 {
-    wheel_callback(window, xoffset, yoffset);
+    wheel_callback(window, location.x, location.y, dx, dy);
 }
 
 
@@ -4066,10 +4066,10 @@ void platformPlaySound(char* filename, double volume)
       (call-mouse-moved window x y))))
 
 
-(c-callback (wheel-callback handle x y) (platformwindow double double) void "wheel_callback" "" #f
+(c-callback (wheel-callback handle x y dx dy) (platformwindow double double double double) void "wheel_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
-      (mouse-wheel window #f #f (new Point (fxround (* 30. x)) (fxround (* 30. y)))))))
+      (mouse-wheel window (fxround x) (fxround y) (new Point (fxround (* 30. dx)) (fxround (* 30. dy)))))))
 
 
 (c-callback (file-callback filename) (NSString*) void "file_callback" "" #f

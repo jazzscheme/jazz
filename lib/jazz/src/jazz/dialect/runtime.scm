@@ -621,13 +621,15 @@
 
 
 (jazz:define-class jazz:Slot-Declaration jazz:Field-Declaration (constructor: jazz:allocate-slot-declaration)
-  ((initialize  getter: generate setter: generate)
-   (getter-name getter: generate)
-   (setter-name getter: generate)))
+  ((initialize        getter: generate setter: generate)
+   (getter-name       getter: generate)
+   (setter-name       getter: generate)
+   (getter-generation getter: generate)
+   (setter-generation getter: generate)))
 
 
-(define (jazz:new-slot-declaration name type access compatibility attributes parent initialize getter-name setter-name)
-  (let ((new-declaration (jazz:allocate-slot-declaration name type #f access compatibility attributes #f parent #f #f #f initialize getter-name setter-name)))
+(define (jazz:new-slot-declaration name type access compatibility attributes parent initialize getter-name setter-name getter-generation setter-generation)
+  (let ((new-declaration (jazz:allocate-slot-declaration name type #f access compatibility attributes #f parent #f #f #f initialize getter-name setter-name getter-generation setter-generation)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -680,11 +682,16 @@
 
 
 (define (jazz:outline-generate-accessors declaration)
-  (let ((getter (jazz:get-slot-declaration-getter-name declaration))
-        (setter (jazz:get-slot-declaration-setter-name declaration)))
-    (cond ((and getter setter) '(accessors generate))
-          (getter '(getter generate))
-          (setter '(setter generate))
+  (let ((getter-name (jazz:get-slot-declaration-getter-name declaration))
+        (setter-name (jazz:get-slot-declaration-setter-name declaration))
+        (getter-generation (jazz:get-slot-declaration-getter-generation declaration))
+        (setter-generation (jazz:get-slot-declaration-setter-generation declaration)))
+    (cond ((and getter-name setter-name)
+           (if (%%eq? getter-generation setter-generation)
+               `(accessors ,getter-generation)
+             `(getter ,getter-generation setter ,setter-generation)))
+          (getter-name `(getter ,getter-generation))
+          (setter-name `(setter ,setter-generation))
           (else '()))))
 
 
@@ -698,8 +705,8 @@
    (setter getter: generate setter: generate)))
 
 
-(define (jazz:new-property-declaration name type access compatibility attributes parent initialize getter-name setter-name)
-  (let ((new-declaration (jazz:allocate-property-declaration name type #f access compatibility attributes #f parent #f #f #f initialize getter-name setter-name #f #f)))
+(define (jazz:new-property-declaration name type access compatibility attributes parent initialize getter-name setter-name getter-generation setter-generation)
+  (let ((new-declaration (jazz:allocate-property-declaration name type #f access compatibility attributes #f parent #f #f #f initialize getter-name setter-name getter-generation setter-generation #f #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -2196,7 +2203,7 @@
                     (specifier-list (if specifier (%%list specifier) '())))
                 `(begin
                    ,(jazz:sourcify-deep-if
-                      `(,symbol ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
+                      `(,symbol ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name ,getter-generation ,setter-generation)
                       form-src)
                    ,@(if generate-getter?
                          `((method ,(or getter-access 'public) ,getter-propagation ,getter-abstraction ,getter-expansion (,getter-name self) ,@specifier-list
@@ -2210,12 +2217,12 @@
 
 (define (jazz:walk-%slot-declaration walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
-    (jazz:bind (name specifier access compatibility initialize getter-name setter-name) (%%cdr form)
+    (jazz:bind (name specifier access compatibility initialize getter-name setter-name getter-generation setter-generation) (%%cdr form)
       (%%assertion (%%class-is? declaration jazz:Class-Declaration) (jazz:walk-error walker resume declaration form-src "Slots can only be defined inside classes: {s}" name)
         (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
               (new (if (%%eq? (%%car form) '%property) jazz:new-property-declaration jazz:new-slot-declaration)))
           (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                     (new name type access compatibility '() declaration #f getter-name setter-name))))
+                                     (new name type access compatibility '() declaration #f getter-name setter-name getter-generation setter-generation))))
             (jazz:set-declaration-source new-declaration form-src)
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
               effective-declaration)))))))

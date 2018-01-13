@@ -865,24 +865,28 @@
                             (jazz:typed-function-type? type)
                             (let ((types (jazz:codes-types arguments-codes)))
                               (let ((mismatch (jazz:signature-mismatch arguments types type #t)))
-                                (if (or (%%not mismatch)
-                                        (%%not (jazz:get-generate? 'check)))
-                                    (jazz:new-code
-                                      (let ((locator (jazz:unsafe-locator locator)))
-                                        `(,locator ,@(map (lambda (code type)
-                                                            (jazz:emit-implicit-cast code type))
-                                                          arguments-codes
-                                                          (jazz:get-function-type-positional type))))
-                                      (jazz:get-function-type-result type)
-                                      #f)
-                                  (begin
-                                    (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
-                                      (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
-                                        (jazz:warning "Warning: In {a}{a}: Unmatched call to typed definition {a}"
-                                                      (jazz:get-declaration-locator declaration)
-                                                      (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
-                                                      (jazz:reference-name locator))))
-                                    #f)))))))
+                                ;; quick solution to calling an inline function from
+                                ;; a script that does not have access to source code
+                                (cond ((%%not jazz:kernel-source-access?)
+                                       #f)
+                                      ((or (%%not mismatch)
+                                           (%%not (jazz:get-generate? 'check)))
+                                       (jazz:new-code
+                                         (let ((locator (jazz:unsafe-locator locator)))
+                                           `(,locator ,@(map (lambda (code type)
+                                                               (jazz:emit-implicit-cast code type))
+                                                             arguments-codes
+                                                             (jazz:get-function-type-positional type))))
+                                         (jazz:get-function-type-result type)
+                                         #f))
+                                      (else
+                                       (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
+                                         (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
+                                           (jazz:warning "Warning: In {a}{a}: Unmatched call to typed definition {a}"
+                                                         (jazz:get-declaration-locator declaration)
+                                                         (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
+                                                         (jazz:reference-name locator))))
+                                       #f)))))))
                     ((%%class-is? binding jazz:Internal-Define-Variable)
                      (let ((type (jazz:get-lexical-binding-type binding)))
                        (and (%%is? type jazz:Function-Type)

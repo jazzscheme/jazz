@@ -244,16 +244,16 @@
   
   (method override (can-paste-properties? self)
     (let ((components (selected-components self)))
-      (when components
-        (when (clipboard-format-available? 'jazz-parcels)
-          (let ((parcels (get-jazz-parcels)))
-            (when (= (length parcels) 1)
-              (let* ((parcel (car parcels))
-                     (parcel-model (get-master-model parcel)))
-                (when parcel-model
-                  (every? (lambda (component)
-                            (subtype? (class-of component) parcel-model))
-                          components)))))))))
+      (and components
+           (and (clipboard-format-available? 'jazz-parcels)
+                (let ((parcels (get-jazz-parcels)))
+                  (and (= (length parcels) 1)
+                       (let* ((parcel (car parcels))
+                              (parcel-model (get-master-model parcel)))
+                         (and parcel-model
+                              (every? (lambda (component)
+                                        (subtype? (class-of component) parcel-model))
+                                      components)))))))))
   
   
   (method override (can-delete? self)
@@ -472,8 +472,8 @@
   
   
   (method protected virtual (find-component-insertion self parent-row component target)
-    (when target
-      (son-rank parent-row (find-row self target))))
+    (and target
+         (son-rank parent-row (find-row self target))))
   
   
   (method protected virtual (send-component-before self component before)
@@ -505,8 +505,8 @@
                        ((and before? (or (= quarter 1) (and (not move?) (= quarter 2)))) 'before)
                        ((and before? (not (expanded? row)) (or (= quarter 4) (and (not move?) (= quarter 3)))) 'after)
                        (else #f))))
-      (when part
-        (new Tree-Drop-Target view: self row: row part: part))))
+      (and part
+           (new Tree-Drop-Target view: self row: row part: part))))
   
   
   (method override (get-row-target self drag-drop row)
@@ -520,9 +520,9 @@
                 (missing-named-classes (map (lambda (element)
                                               (resolve-runtime-reference (cadr element)))
                                             (missing-named-children component))))
-           (when (and class (or (addable-class? component class)
-                                (member? class missing-named-classes test: subclass?)))
-             (new Tree-Drop-Target view: self row: row))))
+           (and (and class (or (addable-class? component class)
+                               (member? class missing-named-classes test: subclass?)))
+                (new Tree-Drop-Target view: self row: row))))
         @wait
         ((Descendants-Tree)
          (get-row-reorder-target drag-drop row 'row))

@@ -38,8 +38,9 @@
 (module jazz.audio jazz
 
 
-(hub add-eos-proc)
+(hub ended?)
 (hub get-volume)
+(hub mute)
 (hub pause)
 (hub paused?)
 (hub play)
@@ -48,6 +49,7 @@
 (hub rewind)
 (hub set-panorama)
 (hub set-volume)
+(hub unmute)
 
 
 (import (jazz.event)
@@ -92,27 +94,37 @@
 ;;;
 
 
-(definition public (new-sound path)
-  (new Sound (parse path)))
+(definition public debug-sounds?
+  #f)
+
+(definition public (set-debug-sounds? flag)
+  (set! debug-sounds? flag))
+
+
+(definition public (new-sound file)
+  (new Sound file))
 
 
 (class Sound extends Object
   
   
-  (slot pipeline  initialize #f getter generate)
-  (slot eos-procs initialize #f getter generate)
+  (slot file     initialize #f getter generate)
+  (slot pipeline initialize #f getter generate)
   
   
-  (method override (initialize self location)
+  (method override (initialize self file)
     (when audio?
-      (let ((pipeline (gst-launch (tie "filesrc location={location} name=src")
-                                  "decodebin name=decode"
-                                  "audioconvert name=convert"
-                                  "volume name=volume"
-                                  "audiopanorama name=panorama"
-                                  "autoaudiosink name=sink")))
-        (gst_object_set_name pipeline "sound")
-        (set! self.pipeline pipeline))))
+      (when debug-sounds?
+        (set! self.file file))
+      (let ((location (parse file)))
+        (let ((pipeline (gst-launch (tie "filesrc location={location} name=src")
+                                    "decodebin name=decode"
+                                    "audioconvert name=convert"
+                                    "volume name=volume"
+                                    "audiopanorama name=panorama"
+                                    "autoaudiosink name=sink")))
+          (gst_object_set_name pipeline "sound")
+          (set! self.pipeline pipeline)))))
   
   
   (method override (destroy self)
@@ -127,33 +139,9 @@
     (nextmethod self))
   
   
-  (method public (add-eos-proc self proc)
-    (set! eos-procs (if (not eos-procs)
-                        (list proc)
-                      (append eos-procs (list proc)))))
-  
-  
   (method public (play self)
     (when audio?
-      (gst_element_set_state pipeline GST_STATE_PLAYING)
-      (when eos-procs
-        (let ((bus (gst_pipeline_get_bus pipeline)))
-          (thread-start!
-            (new-thread
-              (lambda ()
-                (let (loop)
-                  (let ((msg (gst_bus_pop bus)))
-                    (if msg
-                        (let ((type (GST_MESSAGE_TYPE msg)))
-                          (gst_message_unref msg)
-                          (if (/= type GST_MESSAGE_EOS)
-                              (loop)
-                            (for-each (lambda (proc)
-                                        (proc self))
-                                      eos-procs)))
-                      (sleep .1)
-                      (loop)))))
-              'eos))))))
+      (gst_element_set_state pipeline GST_STATE_PLAYING)))
 
   
   (method public (playing? self)
@@ -181,6 +169,26 @@
     (if audio?
         (= (gst_element_get_state pipeline) GST_STATE_PAUSED)
       #f))
+  
+  
+  (method public (ended? self)
+    (if audio?
+        (and (= (gst_element_get_state pipeline) GST_STATE_PLAYING)
+             (>= (gst_element_query_position pipeline GST_FORMAT_TIME)
+                 (gst_element_query_duration pipeline GST_FORMAT_TIME)))
+      #f))
+  
+  
+  (method public (mute self)
+    (when audio?
+      (let ((volume (gst_bin_get_by_name pipeline "volume")))
+        (g_object_set_boolean volume "mute" #t))))
+  
+  
+  (method public (unmute self)
+    (when audio?
+      (let ((volume (gst_bin_get_by_name pipeline "volume")))
+        (g_object_set_boolean volume "mute" #f))))
   
   
   (method public (get-volume self)

@@ -95,6 +95,7 @@
 (hub get-read-mutex)
 (hub get-reason)
 (hub get-reference)
+(hub get-slave?)
 (hub get-stub-interface)
 (hub get-title)
 (hub get-uuid)
@@ -133,14 +134,14 @@
 ;;;
 
 
-(definition *remote-uuid*
+(definition *listening-uuid*
   #f)
 
 
 (definition public (listening-uuid)
-  (or *remote-uuid*
+  (or *listening-uuid*
       (let ((uuid (make-uuid)))
-        (set! *remote-uuid* uuid)
+        (set! *listening-uuid* uuid)
         uuid)))
 
 
@@ -210,10 +211,10 @@
               (bind (uuid title listener address protocol) message
                 (let ((lag (- (current-seconds) before)))
                   (write-port port 'handshake)
-                  (let ((connection (new Remote-Connection port title listener address protocol lag)))
+                  (let ((connection (new Remote-Connection port title listener address slave? protocol lag)))
                     (thread-start! (new-thread
                                      (lambda ()
-                                       (process-pump uuid connection port slave?))
+                                       (process-pump uuid connection port))
                                      'remote-pump))
                     (setup-remote-connection uuid connection)
                     (debug-remote '-pump- 'started (list host service port))
@@ -273,7 +274,7 @@
                (write-port port (list local-uuid local-title local-listener local-address local-protocol))
                (assert (eq? (read-port port) 'handshake)
                  (let ((lag (- (current-seconds) before)))
-                   (let ((connection (new Remote-Connection port title listener address protocol lag)))
+                   (let ((connection (new Remote-Connection port title listener address #f protocol lag)))
                      (setup-remote-connection uuid connection)
                      (process-pump uuid connection port)))))))))))
   
@@ -296,17 +297,19 @@
   (slot title       getter generate)
   (slot listener    getter generate)   ; the peer's listener port
   (slot address     getter generate)   ; the peer's address of us
+  (slot slave?      getter generate)
   (slot protocol    accessors generate)
   (slot lag         accessors generate)
   
   
-  (method override (initialize self port title listener address protocol lag)
+  (method override (initialize self port title listener address slave? protocol lag)
     (set! self.port port)
     (set! self.read-mutex (make-mutex 'read))
     (set! self.write-mutex (make-mutex 'write))
     (set! self.title title)
     (set! self.listener listener)
     (set! self.address address)
+    (set! self.slave? slave?)
     (set! self.protocol protocol)
     (set! self.lag lag))
   
@@ -375,9 +378,10 @@
 ;;;
 
 
-(definition (process-pump uuid connection port (slave? #f))
+(definition (process-pump uuid connection port)
   (declare (proper-tail-calls))
-  (let ((wait-port (open-vector)))
+  (let ((wait-port (open-vector))
+        (slave? (get-slave? connection)))
     (let (loop)
       (let ((data (catch (connection-problem? exc
                            (when slave?

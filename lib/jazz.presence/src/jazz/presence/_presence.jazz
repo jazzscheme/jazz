@@ -1,0 +1,934 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Presence
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+;; REDESIGN
+;; - really think where mutexes should go
+;; - rethinking of exception handling
+;;   - principle of user code should handle exceptions!?
+;;   - rethink timeouts also as a timeout implies an exception
+;; - rethink protocol also: header, version, ...
+;; - should we really always send the current-seconds?
+;; - reflect on the statement: there should be no timeouts!
+;;   are not timeouts always reflection of some exception!?
+;; - debugging code should be 100% independant and 100% robust
+;;   - this needs to include inter-thread communication
+;;     - could (should?) inter-thread communication include
+;;       a similar system as presences for inter-process!?
+;; - remove the new-register-proxy hack!?
+;; - the package should stay jazz.remote as the presence is
+;;   just a part of the remoting system. in the same way
+;;   start-remote-presence should stay start-remote-listener
+;; - maybe a monitoring presence for yownu to monitor the
+;;   remote invocations!?
+;; - why did read-remote-message have a +inf.0 timeout???
+;; - review all usage of new-system-thread that are clearly
+;;   meant as a way to not infinite loop if an error occurs
+;;   inside the remote debugger
+;; - wow. investigate and think about if it is true that a
+;;   read timeout stays active even after the read is done
+;;   - if so then we should have a clean one place to call
+;;     that always sets the timeout before reading
+;; - reading the doc I don't think it is correct to use a
+;;   port's timeout thunk to throw an exception!?
+;; - is alive? really necessary. are we not always going to
+;;   receive an eof in the connection read as soon as the
+;;   remote process dies?
+
+
+;; OVERVIEW
+;;   Socket is persistent between two connected processes
+;;   and messages and responses travel through the bidirectional
+;;   socket pipe. Initial connection is done with connect-uuid
+;;
+;; LEXICON
+;;   uuid
+;;     used to uniquely identify processes
+;;   ior
+;;     marshalled object sent remotely
+;;   listener
+;;     tcp server receiving a connection request
+;;     and that starts the pump called remote-connection
+;;   connection
+;;     waits on socket for messages client and server side
+;;   stub
+;;     interface common to local and remote objects
+;;   proxy local / remote
+;;     objects implementing transparent communication
+;;   register
+;;     used to register remotely accessible objects
+;;
+;; CALL
+;;   local <-> remote call
+;;     local code calls invoke from some local thread
+;;       message is written to connection port
+;;         local thread then blocks on mutex
+;;         remote reads message and executes it
+;;           result is written back to connection port
+;;         connection reads result and unlocks mutex
+;;           local thread continues execution
+
+
+(module jazz.presence jazz
+
+
+(hub accept-remote)
+(hub alive?)
+(hub close-connection)
+(hub connect-remote)
+(hub debug-remote)
+(hub find-object)
+(hub get-address)
+(hub get-exception)
+(hub get-ior)
+(hub get-listener)
+(hub get-manifest)
+(hub get-object)
+(hub get-port)
+(hub get-presence)
+(hub get-protocol)
+(hub get-read-mutex)
+(hub get-reason)
+(hub get-reference)
+(hub get-slave?)
+(hub get-stub-interface)
+(hub get-title)
+(hub get-uuid)
+(hub get-values)
+(hub get-write-mutex)
+(hub invoke)
+(hub load-object)
+(hub local-class)
+(hub new-register-proxy)
+(hub process)
+(hub proxy-values)
+(hub read-message)
+(hub register-object)
+(hub remote-class)
+(hub require-connection)
+(hub require-object)
+(hub set-protocol)
+(hub set-values)
+(hub start-listener)
+(hub stop-listener)
+(hub stub-reference)
+(hub unregister-object)
+(hub write-message)
+
+
+(export (jazz.presence.autoload))
+(import (jazz.presence.autoload)
+        (jazz.presence.protocol)
+        (jazz.presence.transmission)
+        (jazz.event)
+        (jazz.network)
+        (jazz.settings)
+        (jazz.version))
+
+
+(definition public remote-timeout
+  (make-parameter #f))
+
+
+;;;
+;;;; Presences
+;;;
+
+
+(definition protected presences
+  (make-table test: eq?))
+
+(definition protected uuid-presences
+  (make-table test: equal?))
+
+
+(definition presences-mutex
+  (make-mutex 'presences))
+
+(definition (with-presences-mutex thunk)
+  (dynamic-wind
+    (lambda ()
+      (mutex-lock! presences-mutex))
+    thunk
+    (lambda ()
+      (mutex-unlock! presences-mutex))))
+
+
+(definition protected (require-presence purpose)
+  (with-presences-mutex
+    (lambda ()
+      (or (table-ref presences purpose #f)
+          (let ((presence (new Remote-Presence purpose)))
+            (table-set! presences purpose presence)
+            (table-set! uuid-presences (get-uuid presence) presence)
+            presence)))))
+
+
+(definition protected (find-presence-by-uuid uuid)
+  (with-presences-mutex
+    (lambda ()
+      (table-ref uuid-presences uuid #f))))
+
+
+(definition protected (iterate-presences proc)
+  (with-presences-mutex
+    (lambda ()
+      (iterate-table presences
+        (lambda (purpose presence)
+          (proc presence))))))
+
+
+(definition protected (collect-presences)
+  (let ((presences '()))
+    (iterate-presences
+      (lambda (presence)
+        (set! presences (cons presence presences))))
+    presences))
+
+
+;;;
+;;;; Presence
+;;;
+
+
+(class Remote-Presence extends Object
+  
+  
+  (slot purpose           getter generate)
+  (slot uuid              getter generate)
+  (slot register          getter generate)
+  (slot listener          getter generate)
+  (slot connections       getter generate)
+  (slot connections-mutex getter generate)
+  
+  
+  (method override (initialize self purpose)
+    (nextmethod self)
+    (set! self.purpose purpose)
+    (set! self.uuid (make-uuid))
+    (set! self.register (new-register-proxy Register self))
+    (set! self.listener #f)
+    (set! self.connections (make-table))
+    (set! self.connections-mutex (make-mutex 'connections))
+    (debug-remote self 'setup register))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a} {a}" purpose uuid))))
+  
+  
+  ;;;
+  ;;;; Listener
+  ;;;
+  
+  
+  (method (start-listener self host service alternate-service)
+    (receive (listen-host listen-service listen-alternate-service) (listen-parameter)
+      (let ((host (or host listen-host Remote-Listener-Host))
+            (service (or service listen-service Remote-Listener-Service))
+            (alternate-service (or alternate-service listen-alternate-service)))
+        (let ((server (new Remote-Listener self host: host service: service alternate-service: alternate-service)))
+          (start server)
+          (set! listener server)))))
+  
+  
+  (method (stop-listener self)
+    (when listener
+      (stop listener)
+      (set! listener #f)))
+  
+  
+  ;;;
+  ;;;; Connect
+  ;;;
+  
+  
+  (method (connect-remote self host service (slave? #f))
+    (debug-remote self 'open host service)
+    (let ((port (open-tcp-client (list server-address: host port-number: service readtable: jazz-readtable))))
+      (let ((local-uuid uuid)
+            (local-title (current-process-title))
+            (local-service (listening-port listener))
+            (local-address (socket-info-address (tcp-client-peer-socket-info port)))
+            (local-protocol simulated-protocol)
+            (start (current-seconds)))
+        (write-port port (list 'connect local-uuid local-title local-service local-address local-protocol))
+        (let ((reply (read-port port)))
+          (cond ((eof-object? reply)
+                 (error "Connecting to {a} {a} received eof" host service))
+                ((eq? reply 'already-connected)
+                 (error "Already connected to {a} {a}" host service))
+                (else
+                 (bind (remote-uuid remote-title remote-service remote-address remote-protocol) reply
+                   (let ((lag (- (current-seconds) start)))
+                     (write-port port 'handshake)
+                     (let ((connection (new Remote-Connection self port remote-title remote-service remote-address remote-protocol lag slave?)))
+                       (debug-remote self 'connect remote-uuid connection)
+                       (caller-garble-hack)
+                       (register-connection self remote-uuid connection)
+                       (thread-start!
+                         (new-thread
+                           (lambda ()
+                             (process connection))
+                           'remoting-connection))
+                       remote-uuid)))))))))
+  
+  
+  ;;;
+  ;;;; Accept
+  ;;;
+  
+  
+  (method (accept-remote self port)
+    (let ((message (read-port port)))
+      (bind (remote-kind remote-uuid remote-title remote-service remote-address remote-protocol) message
+        ;; already connected!
+        (if (find-connection self remote-uuid)
+            (write-port port 'already-connected)
+          (let ((local-uuid uuid)
+                (local-title (current-process-title))
+                (local-service (listening-port listener))
+                (local-address (socket-info-address (tcp-client-peer-socket-info port)))
+                (local-protocol simulated-protocol)
+                (start (current-seconds)))
+            (write-port port (list local-uuid local-title local-service local-address local-protocol))
+            (assert (eq? (read-port port) 'handshake)
+              (let ((lag (- (current-seconds) start)))
+                (let ((connection (new Remote-Connection self port remote-title remote-service remote-address remote-protocol lag #f)))
+                  (callee-garble-hack)
+                  (debug-remote self 'accept remote-uuid connection)
+                  (register-connection self remote-uuid connection)
+                  (process connection)))))))))
+  
+  
+  ;;;
+  ;;;; Connections
+  ;;;
+  
+  
+  (method (with-connections-mutex self thunk)
+    (dynamic-wind
+      (lambda ()
+        (mutex-lock! connections-mutex))
+      thunk
+      (lambda ()
+        (mutex-unlock! connections-mutex))))
+  
+  
+  (method (register-connection self remote-uuid connection)
+    (with-connections-mutex self
+      (lambda ()
+        (table-set! connections remote-uuid connection))))
+  
+  
+  (method (find-connection self remote-uuid)
+    (with-connections-mutex self
+      (lambda ()
+        (table-ref connections remote-uuid #f))))
+  
+  
+  (method (require-connection self remote-uuid)
+    (or (find-connection self remote-uuid)
+        (error "Unable to find connection: {a}" remote-uuid)))
+  
+  
+  (method (close-connection self connection)
+    (with-connections-mutex self
+      (lambda ()
+        (table-clear connections (get-uuid connection))
+        (close-port (get-port connection)))))
+
+  
+  ;;;
+  ;;;; Debug
+  ;;;
+  
+  
+  (method (debug-remote self action . rest)
+    (format :terminal "{a}{? {a}~} {a} {a width: 7} {l}{%}" *remote-title* purpose uuid action rest))
+  
+  
+  (method (debug-simplify self obj)
+    (cond ((not *debug-simplify?*)
+           obj)
+          ((pair? obj)
+           (map (lambda (obj)
+                  (cond ((pair? obj)
+                         '<pair>)
+                        ((object? obj)
+                         '<object>)
+                        (else
+                         obj)))
+                obj))
+          (else
+           obj))))
+
+
+;;;
+;;;; Connection
+;;;
+
+
+(class Remote-Connection extends Object
+  
+  
+  (slot presence          getter generate)
+  (slot port              getter generate)
+  (slot read-mutex        getter generate)
+  (slot write-mutex       getter generate)
+  (slot invocations       getter generate)
+  (slot invocations-mutex getter generate)
+  (slot executions        getter generate)
+  (slot executions-mutex  getter generate)
+  (slot title             getter generate)
+  (slot service           getter generate)   ; the peer's listener port
+  (slot address           getter generate)   ; the peer's address of us
+  (slot protocol          accessors generate)
+  (slot lag               accessors generate)
+  (slot slave?            getter generate)
+  
+  
+  (method override (initialize self presence port title service address protocol lag slave?)
+    (set! self.presence presence)
+    (set! self.port port)
+    (set! self.read-mutex (make-mutex 'read))
+    (set! self.write-mutex (make-mutex 'write))
+    (set! self.invocations (make-table test: eq?))
+    (set! self.invocations-mutex (make-mutex 'invocations))
+    (set! self.executions (make-table test: eq?))
+    (set! self.executions-mutex (make-mutex 'executions))
+    (set! self.title title)
+    (set! self.service service)
+    (set! self.address address)
+    (set! self.protocol protocol)
+    (set! self.lag lag)
+    (set! self.slave? slave?))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" title))))
+  
+  
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method (process self)
+    (declare (proper-tail-calls))
+    (let (loop)
+      (let ((message (read-message self)))
+        (if (eof-object? message)
+            (close-connection presence self)
+          (bind (kind . rest) message
+            (case kind
+              ((post exec call)
+               (execute self kind rest))
+              ((result)
+               (result self rest))))
+          (loop)))))
+  
+  
+  ;;;
+  ;;;; Invoke
+  ;;;
+  
+  
+  (definition invoke-noresult
+    (list 'invoke-noresult))
+  
+  
+  (method (with-invocations self thunk)
+    (mutex-lock! invocations-mutex)
+    (prog1 (thunk)
+      (mutex-unlock! invocations-mutex)))
+  
+  
+  (method (invoke self kind method-name remote-proxy arguments)
+    (debug-remote presence 'invoke kind method-name)
+    (let ((ior (get-ior remote-proxy)))
+      (let ((mutex (make-mutex 'invoke)))
+        (let ((cookie (object->serial mutex)))
+          (with-invocations self
+            (lambda ()
+              (table-set! invocations cookie mutex)))
+          (mutex-lock! mutex)
+          (mutex-specific-set! mutex invoke-noresult)
+          (write-message self `(,kind ,cookie ,method-name ,ior ,arguments))
+          (mutex-lock! mutex)
+          (mutex-unlock! mutex)
+          (mutex-specific mutex)))))
+  
+  
+  (method (result self rest)
+    (bind (cookie result) rest
+      (debug-remote presence 'result result)
+      (let ((mutex (with-invocations self
+                     (lambda ()
+                       (table-ref invocations cookie)))))
+        (mutex-specific-set! mutex result)
+        (mutex-unlock! mutex))))
+  
+  
+  ;;;
+  ;;;; Execute
+  ;;;
+  
+  
+  (method (with-executions self thunk)
+    (mutex-lock! executions-mutex)
+    (prog1 (thunk)
+      (mutex-unlock! executions-mutex)))
+  
+  
+  (method (execute self kind rest)
+    (bind (cookie method-name ior arguments) rest
+      (debug-remote presence 'execute method-name)
+      (let ((thread
+              (new-thread
+                (lambda ()
+                  (let ((local-proxy (ior->proxy ior)))
+                    (let ((result (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments)))
+                      (case kind
+                        ((exec)
+                         (write-message self `(result ,cookie ,(unspecified))))
+                        ((call)
+                         (write-message self `(result ,cookie ,result))))
+                      (with-executions self
+                        (lambda ()
+                          (table-clear executions cookie))))))
+                'remoting-execution)))
+        (with-executions self
+          (lambda ()
+            (table-set! executions cookie thread)))
+        (thread-start! thread))))
+  
+  
+  ;;;
+  ;;;; IO
+  ;;;
+  
+  
+  (definition debug-io?
+    #f)
+  
+  
+  (method (write-message self message)
+    (unwind-protect
+        (begin
+          (mutex-lock! write-mutex)
+          (when debug-io?
+            (debug-remote presence 'write message)
+            (caller-garble-hack))
+          (write-port port message))
+      (mutex-unlock! write-mutex)))
+  
+  
+  (method (read-message self)
+    (unwind-protect
+        (begin
+          (mutex-lock! read-mutex)
+          (input-port-timeout-set! port (or (remote-timeout) +inf.0))
+          (let ((message (read-port port)))
+            (when debug-io?
+              (callee-garble-hack)
+              (debug-remote presence 'read message))
+            (if (eof-object? message)
+                (throw (new Connection-Timeout))
+              message)))
+      (mutex-unlock! read-mutex))))
+
+
+;;;
+;;;; Listener
+;;;
+
+
+(definition Remote-Listener-Host
+  localhost)
+
+(definition Remote-Listener-Service
+  'any)
+
+
+(definition public (get-remote-listener (purpose: purpose #f))
+  (get-listener (require-presence purpose)))
+
+
+(definition public (require-remote-listener (purpose: purpose #f))
+  (or (get-remote-listener purpose: purpose)
+      (error "Unable to complete operation because the remote listener is not running")))
+
+
+(definition public (listen-parameter)
+  (host/service-parameter "listen" 'listen (values #f #f #f)))
+
+
+(definition public (host/service-parameter arg setting (default (unspecified)))
+  (parse-parameter arg parse-host/service setting parse-host/service default))
+
+
+(definition public (start-remote-presence (purpose: purpose #f) (host: host #f) (service: service #f) (alternate-service: alternate-service #f))
+  (let ((presence (require-presence purpose)))
+    (start-listener presence host service alternate-service)))
+
+
+(definition public (stop-remote-presence (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (stop-listener presence)))
+
+
+;;;
+;;;; Invoke
+;;;
+
+
+(definition public (post-remote method-name remote-proxy . arguments)
+  (let ((connection (remote-proxy->connection remote-proxy)))
+    (invoke connection 'post method-name remote-proxy arguments)))
+
+
+(definition public (exec-remote method-name remote-proxy . arguments)
+  (let ((connection (remote-proxy->connection remote-proxy)))
+    (invoke connection 'exec method-name remote-proxy arguments)))
+
+
+(definition public (call-remote method-name remote-proxy . arguments)
+  (let ((connection (remote-proxy->connection remote-proxy)))
+    (invoke connection 'call method-name remote-proxy arguments)))
+
+
+;;;
+;;;; Alive
+;;;
+
+
+(definition public alive-timeout
+  0.5)
+
+
+(definition package (remote-proxy-alive? remote-proxy)
+  #t)
+
+
+@w
+(definition package (remote-proxy-alive? remote-proxy)
+  (catch (Connection-Timeout exc
+           #f)
+    (parameterize ((remote-timeout alive-timeout))
+      (call-remote 'alive? remote-proxy))))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(definition public (get-local-register (purpose #f))
+  (get-register (require-presence purpose)))
+
+
+(definition public (new-remote-register purpose uuid)
+  (ior->proxy (new IOR purpose uuid (serialize-runtime-reference (reify-reference Register-Stub)) #f '())))
+
+
+(definition public (connect-remote-register host port (purpose: purpose #f) (slave?: slave? #f))
+  (let ((presence (require-presence purpose)))
+    (let ((uuid (connect-remote presence host port slave?)))
+      (new-remote-register purpose uuid))))
+
+
+(definition public (get-remote-register remote-proxy)
+  (let ((ior (get-ior remote-proxy)))
+    (let ((purpose (get-purpose ior))
+          (uuid (get-uuid ior)))
+      (let ((presence (require-presence purpose)))
+        (new-remote-register purpose uuid)))))
+
+
+(definition public (register-proxy name proxy-class object (purpose #f))
+  (let ((presence (require-presence purpose)))
+    (let ((register (get-local-register purpose))
+          (proxy (new proxy-class presence object)))
+      (register-object register name proxy)
+      proxy)))
+
+
+@w
+(definition public (proxy-connection-info client proxy)
+  (let ((client-uuid (get-uuid (get-ior client))))
+    (let ((client-connection (require-remote-connection client-uuid)))
+      (let ((host (get-address client-connection)))
+        (if (local-proxy? proxy)
+            (let ((port (listening-port (get-remote-listener))))
+              (list proxy host port))
+          (let ((proxy-uuid (get-uuid (get-ior proxy))))
+            (let ((proxy-connection (require-remote-connection proxy-uuid)))
+              (let ((listener (get-listener proxy-connection)))
+                ;; we cannot use the peer port number because if it was him that connected
+                ;; to us then it will have a distinct port from its process remote listener
+                (assert listener
+                  (let ((port listener))
+                    (list proxy host port)))))))))))
+
+
+@w
+(definition public (connect-remote-proxy info)
+  (bind (proxy host port) info
+    (let ((ior (get-ior proxy)))
+      (let ((uuid (get-uuid ior)))
+        ;; already connected
+        (unless (find-remote-connection uuid)
+          (assert (uuid=? (connect-remote host port)
+                          uuid)))
+        proxy))))
+
+
+@w
+(definition protected (close-remote-proxy remote-proxy)
+  (catch (Connection-Broke exc
+           #f)
+    (let ((uuid (get-uuid (get-ior remote-proxy))))
+      (let ((port (get-port (require-remote-connection uuid))))
+        (close-remote-connection uuid port)))))
+
+
+;;;
+;;;; IOR
+;;;
+
+
+(definition public (ior? object)
+  (is? object IOR))
+
+
+(definition public (ior=? x y)
+  (and (uuid=? (get-uuid x) (get-uuid y))
+       (reference=? (get-reference x) (get-reference y))))
+
+
+(definition public (ior-server=? x y)
+  (uuid=? (get-uuid x) (get-uuid y)))
+
+
+(definition public (host=? x y)
+  (equal? x y))
+
+
+(definition public (service=? x y)
+  (eqv? x y))
+
+
+(definition public (reference=? x y)
+  (eqv? x y))
+
+
+(definition public (ior->proxy ior)
+  (let ((purpose (get-purpose ior)))
+    (let ((presence (require-presence purpose)))
+      (define (local-ior? ior)
+        (find-presence-by-uuid (get-uuid ior)))
+      
+      (define (local->proxy stub-interface ior)
+        (define (reference->local-proxy stub-interface reference)
+          (if (not reference)
+              (get-local-register purpose)
+            (new (local-class stub-interface) presence (serial->object reference))))
+        
+        (reference->local-proxy stub-interface (get-reference ior)))
+      
+      (define (remote->proxy stub-interface ior)
+        (let ((remote-class (remote-class stub-interface)))
+          (new remote-class presence ior (get-values ior))))
+      
+      (let ((stub-interface (resolve-runtime-reference (deserialize-runtime-reference (get-stub-interface ior)))))
+        (if (local-ior? ior)
+            (local->proxy stub-interface ior)
+          (remote->proxy stub-interface ior))))))
+
+
+;;;
+;;;; Proxy
+;;;
+
+
+(definition public (proxy? object)
+  (is? object Proxy))
+
+
+(definition public (proxy=? x y)
+  (cond ((and (remote-proxy? x) (remote-proxy? y))
+         (remote-proxy=? x y))
+        ((and (local-proxy? x) (local-proxy? y))
+         (local-proxy=? x y))
+        (else
+         #f)))
+
+
+(definition public (proxy-server=? x y)
+  (cond ((and (remote-proxy? x) (remote-proxy? y))
+         (ior-server=? (get-ior x)
+                       (get-ior y)))
+        ((and (local-proxy? x) (local-proxy? y))
+         #t)
+        (else
+         #f)))
+
+
+;;;
+;;;; Local Proxy
+;;;
+
+
+(definition public (local-proxy? object)
+  (is? object Local-Proxy))
+
+
+(definition public (local-proxy=? x y)
+  (eq? (get-object x)
+       (get-object y)))
+
+
+;;;
+;;;; Remote Proxy
+;;;
+
+
+(definition public (remote-proxy? object)
+  (is? object Remote-Proxy))
+
+
+(definition public (remote-proxy=? x y)
+  (ior=? (get-ior x)
+         (get-ior y)))
+
+
+(definition (remote-proxy->connection proxy)
+  (let ((presence (get-presence proxy)))
+    (require-connection presence (get-uuid (get-ior proxy)))))
+
+
+;;;
+;;;; Marshall
+;;;
+
+
+(definition protected (marshall-local-proxy proxy)
+  (let ((presence (get-presence proxy)))
+    (define (local-proxy->reference)
+      (if (proxy=? proxy (get-register presence))
+          #f
+        (let ((object (get-object proxy)))
+          (gc-protect object)
+          (object->serial object))))
+    
+    (let ((ior
+            (new IOR
+              (get-purpose presence)
+              (get-uuid presence)
+              (serialize-runtime-reference (stub-reference proxy))
+              (local-proxy->reference)
+              (proxy-values proxy))))
+      (serialize-object (class-of proxy) (encode-ior ior)))))
+
+
+(definition protected (marshall-remote-proxy proxy)
+  (serialize-object (class-of proxy) (encode-ior (get-ior proxy))))
+
+
+(definition (encode-ior ior)
+  (vector (get-purpose ior)
+          (get-uuid ior)
+          (get-stub-interface ior)
+          (get-reference ior)
+          (get-values ior)))
+
+
+;;;
+;;;; Unmarshall
+;;;
+
+
+(definition protected (unmarshall-proxy content)
+  (ior->proxy (decode-ior content)))
+
+
+(definition (decode-ior content)
+  (new IOR
+    (vector-ref content 0)
+    (vector-ref content 1)
+    (vector-ref content 2)
+    (vector-ref content 3)
+    (vector-ref content 4)))
+
+
+;;;
+;;;; GC
+;;;
+
+
+;; Need to think about how the objects should be GC protected
+;; One possible approach is to use a refcounted table of shared
+;; objects. For this we need to always use IOR, e.g. wrap
+;; serial numbers in IOR and define a will on IOR that calls
+;; the IOR's ownwer process to release the object's refcount
+
+
+(definition protected *Mega-Patch*
+  '())
+
+
+(definition public (gc-protect obj)
+  (set! *Mega-Patch* (cons obj *Mega-Patch*)))
+
+
+;;;
+;;;; Debug
+;;;
+
+
+(definition (caller-garble-hack)
+  ;; gazoum quick hack to help output from getting garbled
+  (sleep .01))
+
+
+(definition (callee-garble-hack)
+  ;; gazoum quick hack to help output from getting garbled
+  (sleep .01)))

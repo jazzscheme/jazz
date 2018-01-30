@@ -1,0 +1,48 @@
+(module jazz.presence.test.server jazz
+
+
+(import (jazz.debuggee)
+        (jazz.network)
+        (jazz.platform)
+        (jazz.presence.syntax (phase syntax))
+        (jazz.presence)
+        (jazz.presence.transmission)
+        (jazz.presence.test.stub)
+        (jazz.settings))
+
+
+(class Server extends Object
+  
+  
+  (method public (foo self client)
+    (+ 23 (bar client))))
+
+
+(definition server
+  #f)
+
+(definition client
+  #f)
+
+
+(definition (run-server)
+  ;; remote
+  (start-remote-presence)
+  (set! server (register-proxy 'server Server-Local-Proxy (new Server)))
+  ;; master
+  (let ((master (string-argument "master")))
+    (receive (host port alternate-port) (parse-host/service master)
+      (let ((remote-register (connect-remote-register host port slave?: #t)))
+        (set! client (require-object remote-register 'master)))))
+  ;; ready
+  (ready client server)
+  ;; debugger
+  (if (not (using-debugger?))
+      (terminal-repl)
+    (set-default-context 'jazz.presence.test.server)
+    (start-repl)))
+
+
+(register-product-run 'jazz.presence.test.server
+  (lambda (descriptor)
+    (run-server))))

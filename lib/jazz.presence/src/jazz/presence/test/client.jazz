@@ -1,0 +1,76 @@
+(module jazz.presence.test.client jazz
+
+
+(import (jazz.debuggee)
+        (jazz.network)
+        (jazz.platform)
+        (jazz.presence.syntax (phase syntax))
+        (jazz.presence)
+        (jazz.presence.transmission)
+        (jazz.presence.test.stub))
+
+
+(class Client extends Object
+  
+  
+  (method public (bar self)
+    17)
+  
+  
+  (method public (ready self s)
+    (set! server s)
+    (mutex-unlock! ready-mutex)))
+
+
+(definition client
+  #f)
+
+(definition server
+  #f)
+
+
+(definition ready-mutex
+  (make-mutex 'ready))
+
+
+(definition (spawn-server)
+  (open-process
+    (list
+      path: kernel-path
+      arguments: `("-:darR"
+                   ,@(let ((arg (command-argument "debugger")))
+                       (if arg
+                           `(,"-debugger" ,arg)
+                         '()))
+                   "-run" "test-server"
+                   "-master" ,(encode-host/port (or (listening-host (get-remote-listener)) "localhost") (listening-port (get-remote-listener))))
+      stdin-redirection: #f
+      stdout-redirection: #f
+      stderr-redirection: #f
+      show-console: #f))
+  (mutex-lock! ready-mutex))
+
+
+(definition (run-client)
+  ;; remote
+  (start-remote-presence)
+  (set! client (register-proxy 'master Client-Local-Proxy (new Client)))
+  ;; server
+  (thread-start!
+    (new-thread
+      (lambda ()
+        ;; server
+        (mutex-lock! ready-mutex)
+        (spawn-server)
+        (foo server client))
+      'spawn))
+  ;; debugger
+  (if (not (using-debugger?))
+      (terminal-repl)
+    (set-default-context 'jazz.presence.test.client)
+    (start-repl)))
+
+
+(register-product-run 'jazz.presence.test.client
+  (lambda (descriptor)
+    (run-client))))

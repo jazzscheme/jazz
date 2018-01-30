@@ -329,7 +329,7 @@
                        (thread-start!
                          (new-thread
                            (lambda ()
-                             (process connection))
+                             (process connection remote-uuid))
                            'remoting-connection))
                        remote-uuid)))))))))
   
@@ -358,7 +358,7 @@
                   (callee-garble-hack)
                   (debug-remote self 'accept remote-uuid connection)
                   (register-connection self remote-uuid connection)
-                  (process connection)))))))))
+                  (process connection remote-uuid)))))))))
   
   
   ;;;
@@ -392,10 +392,10 @@
         (error "Unable to find connection: {a}" remote-uuid)))
   
   
-  (method (close-connection self connection)
+  (method (close-connection self remote-uuid connection)
     (with-connections-mutex self
       (lambda ()
-        (table-clear connections (get-uuid connection))
+        (table-clear connections remote-uuid)
         (close-port (get-port connection)))))
 
   
@@ -471,12 +471,12 @@
   ;;;
   
   
-  (method (process self)
+  (method (process self remote-uuid)
     (declare (proper-tail-calls))
     (let (loop)
       (let ((message (read-message self)))
         (if (eof-object? message)
-            (close-connection presence self)
+            (close-connection presence remote-uuid self)
           (bind (kind . rest) message
             (case kind
               ((post exec call)
@@ -745,7 +745,7 @@
     (let ((presence (get-presence remote-proxy))
           (uuid (get-uuid (get-ior remote-proxy))))
       (let ((connection (require-connection presence uuid)))
-        (close-connection presence connection)))))
+        (close-connection presence uuid connection)))))
 
 
 ;;;

@@ -261,6 +261,15 @@
                 (step-stop process stop command))))))))
   
   
+  (method package (repl-thread self)
+    (let ((thread (selected-thread self)))
+      (with-thread-refresh self thread
+        (lambda ()
+          (with-remote-exception-handler process
+            (lambda ()
+              (repl-thread process thread)))))))
+  
+  
   (method package (terminate-thread self)
     (let ((thread (selected-thread self))
           (preserve-console? (shift-down?)))
@@ -434,6 +443,8 @@
                               (icon {Image-Resource "Restart"}))
                           (new Label-Item parent: menu title: title icon: icon action-handler: (make-handler (lambda () (restart-stop self restart))))))
                       restarts))
+          (new Separator-Item parent: menu)
+          (new Label-Item parent: menu title: "Repl" action-handler: (make-handler (lambda () (repl-thread self))))
           (new Separator-Item parent: menu)
           (new Label-Item parent: menu title: "Terminate" action-handler: (make-handler (lambda () (terminate-thread self))))
           (layout-menu menu)

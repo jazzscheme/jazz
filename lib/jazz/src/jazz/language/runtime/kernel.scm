@@ -988,13 +988,11 @@
 (native jazz:get-heartbeat-interval)
 (native jazz:set-heartbeat-interval!)
 (native jazz:thread-interrupt!)
-(native jazz:thread-state-active-timeout)
-(native jazz:thread-state-active-waiting-for)
-(native jazz:thread-state-active?)
 (native jazz:thread-cont)
 (native jazz:thread-continuation)
 (native jazz:pristine-thread-continuation)
 (native jazz:thread-mutexes)
+(native jazz:write-timeout)
 
 
 ;;;

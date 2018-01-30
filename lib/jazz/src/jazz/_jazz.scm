@@ -38,7 +38,7 @@
 (module jazz gambit:
 
 
-(export (gambit (except break current-directory current-time error print seconds->time thread-interrupt! thread-state-active-timeout thread-state-active-waiting-for thread-state-active? time->seconds time? trace unbreak untrace))
+(export (gambit (except break current-directory current-time error print seconds->time time->seconds time? trace unbreak untrace))
         
         (jazz.dialect (phase syntax))
         (jazz.language.syntax (phase syntax))

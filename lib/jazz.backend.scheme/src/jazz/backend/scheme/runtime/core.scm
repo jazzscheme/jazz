@@ -1328,7 +1328,7 @@
 ;;;
 
 
-;; quicky need to fix this correctly
+;; need to fix this correctly
 (define jazz:thread-interrupt! (lambda rest
                                  (jazz:with-exception-filter
                                    (lambda (exc)
@@ -1339,15 +1339,14 @@
                                      (apply thread-interrupt! rest))))
         #; thread-interrupt!
         )
-;; quicky need to fix this correctly
-(define jazz:thread-state-active-timeout (lambda (state) #f) #; thread-state-active-timeout)
-;; quicky need to fix this correctly
-(define jazz:thread-state-active-waiting-for (lambda (state) #f) #; thread-state-active-waiting-for)
-;; quicky need to fix this correctly
-(define jazz:thread-state-active? (lambda (state) #t) #; thread-state-active?)
+
+(define (jazz:thread-state-active? state)
+  (or (thread-state-running? state)
+      (thread-state-waiting? state)))
 
 
 (define (jazz:thread-continuation thread)
+  (declare (not interrupts-enabled))
   (if (jazz:thread-state-active? (thread-state thread))
       (let ((cont (jazz:thread-cont thread)))
         ;; hack - gambit thread init with dummy continuation
@@ -1364,6 +1363,15 @@
          (if (%%eq? mutex thread)
              mutexes
            (iter (%%vector-ref mutex 2) (cons mutex mutexes))))))
+
+
+;; copied from _repl
+(define (jazz:write-timeout to now port)
+  (##write-string " " port)
+  (let* ((expiry (##fl- to now))
+         (e (##fl/ (##flround (##fl* 10.0 expiry)) 10.0)))
+    (##write (if (##integer? e) (##inexact->exact e) e) port))
+  (##write-string "s" port))
 
 
 ;;;

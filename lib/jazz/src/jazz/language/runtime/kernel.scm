@@ -496,6 +496,8 @@
 (native jazz:current-process-name-set!)
 (native jazz:current-process-title)
 (native jazz:current-process-title-set!)
+(native jazz:current-process-prefix)
+(native jazz:current-process-prefix-set!)
 (native jazz:current-process-traits)
 (native jazz:current-process-traits-set!)
 (native jazz:current-process-icon)

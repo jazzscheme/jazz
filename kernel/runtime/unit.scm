@@ -1308,6 +1308,12 @@
         (%%cadr pair)
       #f)))
 
+(define (jazz:product-descriptor-prefix descriptor)
+  (let ((pair (%%assq 'prefix (%%cdr descriptor))))
+    (if pair
+        (%%cadr pair)
+      #f)))
+
 (define (jazz:product-descriptor-description descriptor)
   (let ((pair (%%assq 'description (%%cdr descriptor))))
     (if pair
@@ -1424,6 +1430,9 @@
 (jazz:define-variable jazz:process-title
   #f)
 
+(jazz:define-variable jazz:process-prefix
+  #f)
+
 (jazz:define-variable jazz:process-traits
   #f)
 
@@ -1448,6 +1457,12 @@
 
 (define (jazz:current-process-title-set! title)
   (set! jazz:process-title title))
+
+(define (jazz:current-process-prefix)
+  jazz:process-prefix)
+
+(define (jazz:current-process-prefix-set! prefix)
+  (set! jazz:process-prefix prefix))
 
 (define (jazz:current-process-traits)
   jazz:process-traits)
@@ -1521,6 +1536,7 @@
       (set! jazz:process-product name)
       (set! jazz:process-name name)
       (set! jazz:process-title (or (%%get-product-title product) (jazz:product-descriptor-title descriptor)))
+      (set! jazz:process-prefix (jazz:product-descriptor-prefix descriptor))
       (set! jazz:process-icon (or (%%get-product-icon product) (jazz:product-descriptor-icon descriptor)))
       (let ((switches (jazz:product-descriptor-switches descriptor)))
         (if switches

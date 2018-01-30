@@ -67,6 +67,10 @@
 ;; - is alive? really necessary. are we not always going to
 ;;   receive an eof in the connection read as soon as the
 ;;   remote process dies?
+;; - think deeply about the deadlock bug that was caused by
+;;   the read unserialize ending up loading code that was
+;;   blocked in the load-mutex because the code was invoked
+;;   directly in the world.settings module
 
 
 ;; OVERVIEW
@@ -96,10 +100,10 @@
 ;;     local code calls invoke from some local thread
 ;;       message is written to connection port
 ;;         local thread then blocks on mutex
-;;         remote reads message and executes it
+;;           remote reads message and executes it
 ;;           result is written back to connection port
-;;         connection reads result and unlocks mutex
-;;           local thread continues execution
+;;       connection reads result and unlocks mutex
+;;     local thread continues execution
 
 
 (module jazz.presence jazz
@@ -110,6 +114,8 @@
 (hub close-connection)
 (hub connect-remote)
 (hub debug-remote)
+(hub debug-simplify)
+(hub find-connection)
 (hub find-object)
 (hub get-address)
 (hub get-exception)
@@ -161,6 +167,24 @@
 
 (definition public remote-timeout
   (make-parameter #f))
+
+
+;;;
+;;;; Backward Compatibility
+;;;
+
+
+(definition public receive-timeout
+  (make-parameter #f))
+
+(definition public post-problem-handler
+  (make-parameter #f))
+
+(definition protected (set-remote-problem-handler problem-handler)
+  )
+
+(definition protected (start-remote-switchboard)
+  )
 
 
 ;;;
@@ -258,13 +282,14 @@
   
   
   (method (start-listener self host service alternate-service)
-    (receive (listen-host listen-service listen-alternate-service) (listen-parameter)
-      (let ((host (or host listen-host Remote-Listener-Host))
-            (service (or service listen-service Remote-Listener-Service))
-            (alternate-service (or alternate-service listen-alternate-service)))
-        (let ((server (new Remote-Listener self host: host service: service alternate-service: alternate-service)))
-          (start server)
-          (set! listener server)))))
+    (unless listener
+      (receive (listen-host listen-service listen-alternate-service) (listen-parameter)
+        (let ((host (or host listen-host Remote-Listener-Host))
+              (service (or service listen-service Remote-Listener-Service))
+              (alternate-service (or alternate-service listen-alternate-service)))
+          (let ((server (new Remote-Listener self host: host service: service alternate-service: alternate-service)))
+            (start server)
+            (set! listener server))))))
   
   
   (method (stop-listener self)
@@ -386,17 +411,12 @@
   (method (debug-simplify self obj)
     (cond ((not *debug-simplify?*)
            obj)
-          ((pair? obj)
-           (map (lambda (obj)
-                  (cond ((pair? obj)
-                         '<pair>)
-                        ((object? obj)
-                         '<object>)
-                        (else
-                         obj)))
-                obj))
+          ((atom? obj)
+           obj)
+          ((object? obj)
+           (category-name (class-of obj)))
           (else
-           obj))))
+           (type->specifier (class-of obj))))))
 
 
 ;;;
@@ -482,7 +502,7 @@
   
   
   (method (invoke self kind method-name remote-proxy arguments)
-    (debug-remote presence 'invoke kind method-name)
+    (debug-remote presence kind method-name)
     (let ((ior (get-ior remote-proxy)))
       (let ((mutex (make-mutex 'invoke)))
         (let ((cookie (object->serial mutex)))
@@ -499,7 +519,7 @@
   
   (method (result self rest)
     (bind (cookie result) rest
-      (debug-remote presence 'result result)
+      (debug-remote presence 'result (debug-simplify presence result))
       (let ((mutex (with-invocations self
                      (lambda ()
                        (table-ref invocations cookie)))))
@@ -645,11 +665,8 @@
 
 
 (definition package (remote-proxy-alive? remote-proxy)
-  #t)
-
-
-@w
-(definition package (remote-proxy-alive? remote-proxy)
+  #t
+  @todo
   (catch (Connection-Timeout exc
            #f)
     (parameterize ((remote-timeout alive-timeout))
@@ -691,16 +708,17 @@
       proxy)))
 
 
-@w
 (definition public (proxy-connection-info client proxy)
-  (let ((client-uuid (get-uuid (get-ior client))))
-    (let ((client-connection (require-remote-connection client-uuid)))
+  (let ((client-presence (get-presence client))
+        (client-uuid (get-uuid (get-ior client))))
+    (let ((client-connection (require-connection client-presence client-uuid)))
       (let ((host (get-address client-connection)))
         (if (local-proxy? proxy)
             (let ((port (listening-port (get-remote-listener))))
               (list proxy host port))
-          (let ((proxy-uuid (get-uuid (get-ior proxy))))
-            (let ((proxy-connection (require-remote-connection proxy-uuid)))
+          (let ((proxy-presence (get-presence proxy))
+                (proxy-uuid (get-uuid (get-ior proxy))))
+            (let ((proxy-connection (require-connection proxy-presence proxy-uuid)))
               (let ((listener (get-listener proxy-connection)))
                 ;; we cannot use the peer port number because if it was him that connected
                 ;; to us then it will have a distinct port from its process remote listener
@@ -709,25 +727,25 @@
                     (list proxy host port)))))))))))
 
 
-@w
 (definition public (connect-remote-proxy info)
   (bind (proxy host port) info
-    (let ((ior (get-ior proxy)))
+    (let ((presence (get-presence proxy))
+          (ior (get-ior proxy)))
       (let ((uuid (get-uuid ior)))
         ;; already connected
-        (unless (find-remote-connection uuid)
-          (assert (uuid=? (connect-remote host port)
+        (unless (find-connection presence uuid)
+          (assert (uuid=? (connect-remote presence host port)
                           uuid)))
         proxy))))
 
 
-@w
 (definition protected (close-remote-proxy remote-proxy)
   (catch (Connection-Broke exc
            #f)
-    (let ((uuid (get-uuid (get-ior remote-proxy))))
-      (let ((port (get-port (require-remote-connection uuid))))
-        (close-remote-connection uuid port)))))
+    (let ((presence (get-presence remote-proxy))
+          (uuid (get-uuid (get-ior remote-proxy))))
+      (let ((connection (require-connection presence uuid)))
+        (close-connection presence connection)))))
 
 
 ;;;

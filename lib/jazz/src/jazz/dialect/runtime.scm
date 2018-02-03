@@ -1935,7 +1935,8 @@
                       (%%pair? (%%cdr (jazz:source-code expr)))
                       (or 
                         (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'public)
-                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'package)))
+                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'package)
+                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'protected)))
                  (jazz:enqueue class expr)
                  ;; is there a function to just skip the modifiers?
                  (receive (access compatibility propagation abstraction expansion remote synchronized rest) (jazz:parse-modifiers walker resume declaration jazz:method-modifiers (%%cdr (jazz:source-code expr)))

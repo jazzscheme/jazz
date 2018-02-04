@@ -1131,6 +1131,21 @@
 
 
 ;;;
+;;;; UDP
+;;;
+
+
+(native open-udp)
+(native udp-destination-set!)
+(native udp-read-u8vector)
+(native udp-write-u8vector)
+(native udp-read-subu8vector)
+(native udp-write-subu8vector)
+(native udp-local-socket-info)
+(native udp-source-socket-info)
+
+
+;;;
 ;;;; User
 ;;;
 

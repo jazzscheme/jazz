@@ -496,8 +496,15 @@
   (method (process self remote-uuid)
     (declare (proper-tail-calls))
     (let (loop)
-      (let ((message (read-message self)))
-        (if (eof-object? message)
+      (let ((message (catch (connection-exception? exc
+                              (when slave?
+                                (delay-event
+                                  (lambda ()
+                                    (quit))))
+                              (eof-object))
+                       (read-message self))
+                     @gazrob (read-message self)))
+        (if (eof-object? message) ;; gazrob
             (close-connection presence remote-uuid self)
           (bind (kind . rest) message
             (case kind

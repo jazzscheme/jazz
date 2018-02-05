@@ -300,6 +300,34 @@
   
   
   ;;;
+  ;;;; Accept
+  ;;;
+  
+  
+  (method (accept-remote self port)
+    (let ((message (read-port port)))
+      (bind (remote-kind remote-uuid remote-title remote-service remote-address remote-protocol) message
+        ;; already connected!
+        (if (find-connection self remote-uuid)
+            (write-port port 'already-connected)
+          (let ((local-uuid uuid)
+                (local-title (current-process-title))
+                (local-service (listening-port listener))
+                (local-address (socket-info-address (tcp-client-peer-socket-info port)))
+                (local-protocol simulated-protocol)
+                (start (current-seconds)))
+            (write-port port (list local-uuid local-title local-service local-address local-protocol))
+            (assert (eq? (read-port port) 'handshake)
+              (let ((lag (- (current-seconds) start)))
+                (let ((connection (new Remote-Connection self remote-uuid port remote-title remote-service remote-address remote-protocol lag #f)))
+                  (callee-garble-hack)
+                  (debug-remote self 'accept remote-uuid connection)
+                  (register-connection self remote-uuid connection)
+                  (set-thread connection (current-thread))
+                  (process connection remote-uuid)))))))))
+  
+  
+  ;;;
   ;;;; Connect
   ;;;
   
@@ -323,43 +351,17 @@
                  (bind (remote-uuid remote-title remote-service remote-address remote-protocol) reply
                    (let ((lag (- (current-seconds) start)))
                      (write-port port 'handshake)
-                     (let ((connection (new Remote-Connection self port remote-title remote-service remote-address remote-protocol lag slave?)))
+                     (let ((connection (new Remote-Connection self remote-uuid port remote-title remote-service remote-address remote-protocol lag slave?)))
                        (debug-remote self 'connect remote-uuid connection)
                        (caller-garble-hack)
                        (register-connection self remote-uuid connection)
-                       (thread-start!
-                         (new-thread
-                           (lambda ()
-                             (process connection remote-uuid))
-                           'remoting-connection))
-                       remote-uuid)))))))))
-  
-  
-  ;;;
-  ;;;; Accept
-  ;;;
-  
-  
-  (method (accept-remote self port)
-    (let ((message (read-port port)))
-      (bind (remote-kind remote-uuid remote-title remote-service remote-address remote-protocol) message
-        ;; already connected!
-        (if (find-connection self remote-uuid)
-            (write-port port 'already-connected)
-          (let ((local-uuid uuid)
-                (local-title (current-process-title))
-                (local-service (listening-port listener))
-                (local-address (socket-info-address (tcp-client-peer-socket-info port)))
-                (local-protocol simulated-protocol)
-                (start (current-seconds)))
-            (write-port port (list local-uuid local-title local-service local-address local-protocol))
-            (assert (eq? (read-port port) 'handshake)
-              (let ((lag (- (current-seconds) start)))
-                (let ((connection (new Remote-Connection self port remote-title remote-service remote-address remote-protocol lag #f)))
-                  (callee-garble-hack)
-                  (debug-remote self 'accept remote-uuid connection)
-                  (register-connection self remote-uuid connection)
-                  (process connection remote-uuid)))))))))
+                       (let ((thread (new-thread
+                                       (lambda ()
+                                         (process connection remote-uuid))
+                                       'remoting-connection)))
+                         (set-thread connection thread)
+                         (thread-start! thread)
+                         remote-uuid))))))))))
   
   
   ;;;

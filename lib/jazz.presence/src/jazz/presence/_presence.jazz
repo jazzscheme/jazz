@@ -268,7 +268,8 @@
     (set! self.listener #f)
     (set! self.connections (make-table))
     (set! self.connections-mutex (make-mutex 'connections))
-    (debug-remote self 'setup register))
+    (when debug-remote?
+      (debug-remote self 'setup register)))
   
   
   (method override (print self output readably)
@@ -320,8 +321,9 @@
             (assert (eq? (read-port port) 'handshake)
               (let ((lag (- (current-seconds) start)))
                 (let ((connection (new Remote-Connection self remote-uuid port remote-title remote-service remote-address remote-protocol lag #f)))
-                  (callee-garble-hack)
-                  (debug-remote self 'accept remote-uuid connection)
+                  (when debug-remote?
+                    (callee-garble-hack)
+                    (debug-remote self 'accept remote-uuid connection))
                   (register-connection self remote-uuid connection)
                   (set-thread connection (current-thread))
                   (process connection remote-uuid)))))))))
@@ -333,7 +335,8 @@
   
   
   (method (connect-remote self host service (slave? #f))
-    (debug-remote self 'open host service)
+    (when debug-remote?
+      (debug-remote self 'open host service))
     (let ((port (open-tcp-client (list server-address: host port-number: service readtable: jazz-readtable))))
       (let ((local-uuid uuid)
             (local-title (current-process-title))
@@ -352,8 +355,9 @@
                    (let ((lag (- (current-seconds) start)))
                      (write-port port 'handshake)
                      (let ((connection (new Remote-Connection self remote-uuid port remote-title remote-service remote-address remote-protocol lag slave?)))
-                       (debug-remote self 'connect remote-uuid connection)
-                       (caller-garble-hack)
+                       (when debug-remote?
+                         (debug-remote self 'connect remote-uuid connection)
+                         (caller-garble-hack))
                        (register-connection self remote-uuid connection)
                        (let ((thread (new-thread
                                        (lambda ()
@@ -408,8 +412,7 @@
   
   
   (method (debug-remote self action . rest)
-    (when debug-remote?
-      (format :terminal "{a}{? {a}~} {a} {a width: 7} {l}{%}" remote-title purpose uuid action rest)))
+    (format :terminal "{a}{? {a}~} {a} {a width: 7} {l}{%}" remote-title purpose uuid action rest))
   
   
   (method (debug-simplify self obj)
@@ -507,7 +510,8 @@
   
   
   (method (invoke self kind method-name remote-proxy arguments)
-    (debug-remote presence kind method-name)
+    (when debug-remote?
+      (debug-remote presence kind method-name))
     (let ((ior (get-ior remote-proxy)))
       (if (eq? kind 'post)
           (write-message self `(,kind #f ,method-name ,ior ,arguments))
@@ -526,7 +530,8 @@
   
   (method (result self rest)
     (bind (cookie result) rest
-      (debug-remote presence 'result (debug-simplify presence result))
+      (when debug-remote?
+        (debug-remote presence 'result (debug-simplify presence result)))
       (let ((mutex (with-invocations self
                      (lambda ()
                        (prog1 (table-ref invocations cookie)
@@ -548,7 +553,8 @@
   
   (method (execute self kind rest)
     (bind (cookie method-name ior arguments) rest
-      (debug-remote presence 'execute method-name)
+      (when debug-remote?
+        (debug-remote presence 'execute method-name))
       (let ((thread
               (new-thread
                 (lambda ()

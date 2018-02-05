@@ -437,6 +437,8 @@ end-of-code
 
 (define (##alloc-pair kind)
   ((c-function ##alloc-pair (scheme-object) scheme-object
+             ;; experiment based on a marc message about Gambit's new VM API
+             ;; "___SCMOBJ r = ___EXT(___make_pair) (___arg1 ? ___ps : NULL, ___FIX(0), ___FIX(0));
              "___SCMOBJ r = ___EXT(___make_pair) (___ps, ___FIX(0), ___FIX(0));
               ___EXT(___release_scmobj)(r);
               ___return(r);")

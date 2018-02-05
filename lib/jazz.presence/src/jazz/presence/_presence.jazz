@@ -62,8 +62,8 @@
 ;;   read timeout stays active even after the read is done
 ;;   - if so then we should have a clean one place to call
 ;;     that always sets the timeout before reading
-;; - reading the doc I don't think it is correct to use a
-;;   port's timeout thunk to throw an exception!?
+;; - reading the doc I don't think it is not correct to use
+;;   a port's timeout thunk to throw an exception!?
 ;; - is alive? really necessary. are we not always going to
 ;;   receive an eof in the connection read as soon as the
 ;;   remote process dies?
@@ -71,6 +71,17 @@
 ;;   the read unserialize ending up loading code that was
 ;;   blocked in the load-mutex because the code was invoked
 ;;   directly in the world.settings module
+;; - wow I wonder if when everything is working I should not
+;;   still keep remote separate and only used by the debugger
+;;   so that I can always always always debug the remoting
+;;   system while I develop it
+;; - a working presence would I think completely solve all
+;;   the problems of the server needing a specific port as
+;;   both presence would have their own port!!?!
+;; - no need for a read-mutex I think
+;; - any call to gambit that accesses a port has to be very
+;;   careful of os-exceptions. also want to cleary preserve
+;;   that it was an os exceptions and show err-code->string
 
 
 ;; OVERVIEW
@@ -97,13 +108,13 @@
 ;;
 ;; CALL
 ;;   local <-> remote call
-;;     local code calls invoke from some local thread
-;;       message is written to connection port
-;;         local thread then blocks on mutex
+;;     local code calls invoke from some thread
+;;       message is written to the connection port
+;;         thread then blocks on mutex
 ;;           remote reads message and executes it
 ;;           result is written back to connection port
 ;;       connection reads result and unlocks mutex
-;;     local thread continues execution
+;;     thread continues execution
 
 
 (module jazz.presence jazz
@@ -320,7 +331,7 @@
             (write-port port (list local-uuid local-title local-service local-address local-protocol))
             (assert (eq? (read-port port) 'handshake)
               (let ((lag (- (current-seconds) start)))
-                (let ((connection (new Remote-Connection self remote-uuid port remote-title remote-service remote-address remote-protocol lag #f)))
+                (let ((connection (new Remote-Connection self port remote-title remote-service remote-address remote-protocol lag #f)))
                   (when debug-remote?
                     (callee-garble-hack)
                     (debug-remote self 'accept remote-uuid connection))
@@ -354,7 +365,7 @@
                  (bind (remote-uuid remote-title remote-service remote-address remote-protocol) reply
                    (let ((lag (- (current-seconds) start)))
                      (write-port port 'handshake)
-                     (let ((connection (new Remote-Connection self remote-uuid port remote-title remote-service remote-address remote-protocol lag slave?)))
+                     (let ((connection (new Remote-Connection self port remote-title remote-service remote-address remote-protocol lag slave?)))
                        (when debug-remote?
                          (debug-remote self 'connect remote-uuid connection)
                          (caller-garble-hack))
@@ -872,7 +883,7 @@
          (get-ior y)))
 
 
-(definition (remote-proxy->connection proxy)
+(definition protected (remote-proxy->connection proxy)
   (let ((presence (get-presence proxy)))
     (require-connection presence (get-uuid (get-ior proxy)))))
 

@@ -263,13 +263,14 @@ static void gst_print_error(GstMessage *msg)
 
 static int gst_app_sink_pull(GstElement* elem, void* data, ___SCMOBJ info)
 {
-    int size = -1;
+    int size;
     ___U64 *info_ptr = ___CAST(___U64*, ___BODY(info));
     GstSample *sample;
     sample = gst_app_sink_try_pull_sample(GST_APP_SINK(elem), 0);
     if (sample)
     {
         GstBuffer* buffer = gst_sample_get_buffer(sample);
+        GstClockTime pts, duration;
         if (buffer)
         {
             GstMapInfo map;
@@ -278,16 +279,24 @@ static int gst_app_sink_pull(GstElement* elem, void* data, ___SCMOBJ info)
             size = map.size;
             gst_buffer_unmap(buffer, &map);
             
-            info_ptr[0] = GST_BUFFER_PTS(buffer);
-            info_ptr[1] = GST_BUFFER_DURATION(buffer);
+            pts = GST_BUFFER_PTS(buffer);
+            duration = GST_BUFFER_DURATION(buffer);
             GstClock* clock = gst_element_get_clock(elem);
             GstClockTime base_time = gst_element_get_base_time(elem);
             GstClockTime abs_time = gst_clock_get_time(clock);
             GstPipeline* pipeline = (GstPipeline*) GST_ELEMENT_PARENT(elem);
         }
         gst_sample_unref(sample);
+        // not completely sure about this hack around audio receiving
+        // GST_CLOCK_TIME_NONE PTS in the first two frames. note that
+        // just dropping them by returning -1 makes audio not work at
+        // the receiver side for some reason
+        info_ptr[0] = (pts == GST_CLOCK_TIME_NONE) ? 0 : pts;
+        info_ptr[1] = duration;
+        return size;
     }
-    return size;
+    else
+        return -1;
 }
 
 static int gst_app_sink_read(GstElement* elem, ___SCMOBJ vec, ___SCMOBJ info)

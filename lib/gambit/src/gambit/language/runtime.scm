@@ -379,6 +379,8 @@
 (native s8vector-copy)
 (native s8vector-fill!)
 (native subs8vector)
+(native subs8vector-fill!)
+(native subs8vector-move!)
 
 ;; u8
 (native u8vector <:u8vector>)
@@ -397,6 +399,7 @@
 (native u8vector-copy)
 (native u8vector-fill!)
 (native subu8vector)
+(native subu8vector-fill!)
 (native subu8vector-move!)
 
 ;; s16
@@ -412,6 +415,8 @@
 (native s16vector-copy)
 (native s16vector-fill!)
 (native subs16vector)
+(native subs16vector-fill!)
+(native subs16vector-move!)
 
 ;; u16
 (native u16vector <:u16vector>)
@@ -427,6 +432,8 @@
 (native u16vector-copy)
 (native u16vector-fill!)
 (native subu16vector)
+(native subu16vector-fill!)
+(native subu16vector-move!)
 
 ;; s32
 (native s32vector <:s32vector>)
@@ -440,8 +447,9 @@
 (native s32vector-append)
 (native s32vector-copy)
 (native s32vector-fill!)
-(native subs32vector-move!)
 (native subs32vector)
+(native subs32vector-fill!)
+(native subs32vector-move!)
 
 ;; u32
 (native u32vector <:u32vector>)
@@ -456,6 +464,8 @@
 (native u32vector-copy)
 (native u32vector-fill!)
 (native subu32vector)
+(native subu32vector-fill!)
+(native subu32vector-move!)
 
 ;; s64
 (native s64vector <:s64vector>)
@@ -470,6 +480,8 @@
 (native s64vector-copy)
 (native s64vector-fill!)
 (native subs64vector)
+(native subs64vector-fill!)
+(native subs64vector-move!)
 
 ;; u64
 (native u64vector <:u64vector>)
@@ -484,6 +496,8 @@
 (native u64vector-copy)
 (native u64vector-fill!)
 (native subu64vector)
+(native subu64vector-fill!)
+(native subu64vector-move!)
 
 ;; f32
 (native f32vector <:f32vector>)

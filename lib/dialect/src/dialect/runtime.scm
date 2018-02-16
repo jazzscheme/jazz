@@ -937,7 +937,7 @@
                 (jazz:set-module-declaration-requires module-declaration (%%append requires (%%list require-invoice))))))))))
 
 
-(define (jazz:add-module-import module-declaration module-invoice register?)
+(define (jazz:add-module-import walker resume declaration form-src module-declaration module-invoice register?)
   (define (merge-invoice actual new)
     ;; todo
     #f)
@@ -961,11 +961,11 @@
                                   (if mangled-key
                                       (%%table-set! imported mangled-key declaration))))
                               (jazz:get-public-lookup imported-module-declaration))
-              (jazz:table-merge-reporting-conflicts! module-declaration "Import" private imported)))
+              (jazz:table-merge-reporting-conflicts! walker resume declaration form-src module-declaration "Import" private imported)))
           (else
            (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice)))
              (let ((imported (jazz:get-public-lookup imported-module-declaration)))
-               (jazz:table-merge-reporting-conflicts! module-declaration "Import" private imported)))))))
+               (jazz:table-merge-reporting-conflicts! walker resume declaration form-src module-declaration "Import" private imported)))))))
 
 
 ;; reset everything imported for code analysis
@@ -982,7 +982,7 @@
               (jazz:get-module-declaration-imports module-declaration))))
 
 
-(define (jazz:add-module-export module-declaration module-invoice)
+(define (jazz:add-module-export walker resume declaration form-src module-declaration module-invoice)
   (define (merge-invoice actual new)
     (let ((actual-autoload (jazz:get-export-invoice-autoload actual))
           (new-autoload (jazz:get-export-invoice-autoload new)))
@@ -1032,14 +1032,14 @@
                                   (if mangled-key
                                       (%%table-set! exported mangled-key declaration))))
                               (jazz:get-public-lookup exported-module-declaration))
-              (jazz:table-merge-reporting-conflicts! module-declaration "Export" public exported)
+              (jazz:table-merge-reporting-conflicts! walker resume declaration form-src module-declaration "Export" public exported)
               (table-for-each (lambda (key declaration)
                                 (add-to-module-exports declaration))
                               exported)))
           (else
            (let* ((exported-module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration))
                   (exported-table (jazz:get-public-lookup exported-module-declaration)))
-             (jazz:table-merge-reporting-conflicts! module-declaration "Export" public exported-table)
+             (jazz:table-merge-reporting-conflicts! walker resume declaration form-src module-declaration "Export" public exported-table)
              (table-for-each (lambda (key declaration)
                                (add-to-module-exports declaration))
                              exported-table))))))
@@ -1110,8 +1110,8 @@
     #f))
 
 
-(define (jazz:table-merge-reporting-conflicts! module-declaration prefix table add)
-  (define (effective-declaration-locator decl)
+(define (jazz:table-merge-reporting-conflicts! walker resume declaration form-src module-declaration prefix table add)
+  (define (effective-locator decl)
     (cond ((%%is? decl jazz:Export-Declaration)
            (jazz:get-export-declaration-symbol decl))
           ((%%is? decl jazz:Autoload-Declaration)
@@ -1121,29 +1121,21 @@
           (else
            (jazz:get-declaration-locator decl))))
   
-  (define (find-actual-conflicts)
-    (let ((lst '()))
-      (jazz:iterate-table add
-        (lambda (key value)
-          (let ((actual (%%table-ref table key #f)))
-            (let ((value-locator (effective-declaration-locator value))
-                  (actual-locator (effective-declaration-locator actual)))
-              (%%when (%%neq? value-locator actual-locator)
-                (set! lst (%%cons (%%list key value-locator actual-locator) lst)))))))
-      lst))
+  (define (report-conflicts)
+    (jazz:iterate-table add
+      (lambda (key value)
+        (let ((actual (%%table-ref table key #f)))
+          (let ((value-locator (effective-locator value))
+                (actual-locator (effective-locator actual)))
+            (%%when (%%neq? value-locator actual-locator)
+              (jazz:walk-conflict walker resume declaration key actual-locator value-locator form-src)))))))
   
   (let ((table-count (%%table-length table))
         (add-count (%%table-length add)))
     (%%table-merge! table add #f)
     (%%when (%%not (%%fx= (%%table-length table) (%%fx+ table-count add-count)))
-      (let ((conflicts (find-actual-conflicts)))
-        ;; Can be null if the same declaration has been imported from
-        ;; different modules. Maybe we should also do an error in that case...
-        (%%when (%%not (%%null? conflicts))
-          (jazz:error "{a} conflicts detected in {a}: {s}"
-                      prefix
-                      (jazz:get-lexical-binding-name module-declaration)
-                      conflicts))))))
+      ;; Can report no conflicts if the same declaration was imported from different modules
+      (report-conflicts))))
 
 
 (define (jazz:add-to-module-references declaration referenced-declaration)
@@ -1258,6 +1250,7 @@
   
   (receive (access rest) (parse-modifiers partial-form)
     (let ((name (jazz:source-code (%%car rest)))
+          (dialect-src (%%cadr rest))
           (dialect (jazz:desourcify (%%cadr rest)))
           (body (%%cddr rest)))
       (receive (dialect-name dialect-transformations) (jazz:parse-dialect dialect)
@@ -1266,15 +1259,18 @@
                   access
                   dialect-name
                   dialect-transformations
+                  dialect-src
                   body))))))
 
 
 (define (jazz:parse-script partial-form)
-  (let ((dialect (jazz:desourcify (%%car partial-form)))
+  (let ((dialect-src (%%car partial-form))
+        (dialect (jazz:desourcify (%%car partial-form)))
         (body (%%cdr partial-form)))
     (receive (dialect-name dialect-transformations) (jazz:parse-dialect dialect)
       (values dialect-name
               dialect-transformations
+              dialect-src
               body))))
 
 
@@ -1322,23 +1318,23 @@
 
 
 (define (jazz:parse-module-declaration partial-form)
-  (receive (name access dialect-name dialect-transformations body) (jazz:parse-module partial-form)
+  (receive (name access dialect-name dialect-transformations dialect-src body) (jazz:parse-module partial-form)
     (if (and (jazz:requested-unit-name) (%%neq? name (jazz:requested-unit-name)))
         (jazz:error "Module at {s} is defining {s}" (jazz:requested-unit-name) name)
       (parameterize ((jazz:walk-context (jazz:new-walk-context #f name #f)))
         (let* ((dialect-invoice (and dialect-transformations (jazz:load-dialect-invoice dialect-name dialect-transformations)))
                (dialect (jazz:require-dialect dialect-name))
                (walker (jazz:dialect-walker dialect)))
-          (let ((declaration (jazz:walk-module-declaration walker #f name access dialect-name dialect-invoice body)))
+          (let ((declaration (jazz:walk-module-declaration walker #f name access dialect-name dialect-invoice dialect-src body)))
             #; ;; todo validate outline errors
             (jazz:validate-walk-problems walker)
             declaration))))))
 
 
-(define (jazz:walk-module-declaration walker actual name access dialect-name dialect-invoice body)
+(define (jazz:walk-module-declaration walker actual name access dialect-name dialect-invoice dialect-src body)
   (let ((declaration (or actual (jazz:new-module-declaration name access #f walker dialect-name dialect-invoice))))
     (%%when dialect-invoice
-      (jazz:add-module-import declaration dialect-invoice #f))
+      (jazz:add-module-import walker #f declaration dialect-src declaration dialect-invoice #f))
     ;; reset the walker if it was cached
     (jazz:set-module-declaration-walker declaration walker)
     (jazz:walk-declarations walker #f declaration (%%cons declaration (jazz:walker-environment walker)) body)
@@ -1382,7 +1378,7 @@
 
 
 (define (jazz:generate-module partial-form #!optional (backend-name 'scheme))
-  (receive (name access dialect-name dialect-transformations body) (jazz:parse-module partial-form)
+  (receive (name access dialect-name dialect-transformations dialect-src body) (jazz:parse-module partial-form)
     (if (and (jazz:requested-unit-name) (%%neq? name (jazz:requested-unit-name)))
         (jazz:error "Module at {s} is defining {s}" (jazz:requested-unit-name) name)
       (parameterize ((jazz:walk-context (jazz:new-walk-context #f name #f)))
@@ -1395,7 +1391,7 @@
                (body (jazz:dialect-wrap dialect body))
                (declaration (jazz:call-with-catalog-entry-lock name
                               (lambda ()
-                                (let ((declaration (jazz:walk-module-declaration walker actual name access dialect-name dialect-invoice body)))
+                                (let ((declaration (jazz:walk-module-declaration walker actual name access dialect-name dialect-invoice dialect-src body)))
                                   (jazz:set-catalog-entry name declaration)
                                   declaration))))
                (environment (%%cons declaration (jazz:walker-environment walker)))
@@ -1412,14 +1408,14 @@
 
 (define (jazz:generate-script partial-form #!optional (backend-name #f))
   (let ((name (gensym 'script)))
-    (receive (dialect-name dialect-transformations body) (jazz:parse-script partial-form)
+    (receive (dialect-name dialect-transformations dialect-src body) (jazz:parse-script partial-form)
       (parameterize ((jazz:walk-context (jazz:new-walk-context #f name #f)))
         (let* ((dialect-invoice (and dialect-transformations (jazz:load-dialect-invoice dialect-name dialect-transformations)))
                (dialect (jazz:require-dialect dialect-name))
                (walker (jazz:dialect-walker dialect))
                (backend (and backend-name (jazz:require-backend backend-name)))
                (resume #f)
-               (declaration (jazz:walk-module-declaration walker #f name 'public dialect-name dialect-invoice body))
+               (declaration (jazz:walk-module-declaration walker #f name 'public dialect-name dialect-invoice dialect-src body))
                (environment (%%cons declaration (jazz:walker-environment walker)))
                (body (jazz:walk-namespace walker resume declaration environment body)))
           (jazz:validate-walk-problems walker)
@@ -1787,7 +1783,7 @@
     (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
       (let ((export-invoices (walk-exports (jazz:filter-features (%%cdr form)))))
         (for-each (lambda (export-invoice)
-                    (jazz:add-module-export module-declaration export-invoice))
+                    (jazz:add-module-export walker resume declaration form-src module-declaration export-invoice))
                   export-invoices)))))
 
 
@@ -3542,6 +3538,28 @@
 
 
 ;;;
+;;;; Conflict Error
+;;;
+
+
+(jazz:define-class jazz:Conflict-Error jazz:Walk-Error (constructor: jazz:allocate-conflict-error)
+  ((symbol getter: generate)
+   (first  getter: generate)
+   (second getter: generate)))
+
+
+(define (jazz:new-conflict-error location symbol first second)
+  (jazz:allocate-conflict-error #f location symbol first second))
+
+
+(jazz:define-method (jazz:present-exception (jazz:Conflict-Error error))
+  (jazz:format "Import conflict: {s} {s} {s}"
+               (jazz:get-conflict-error-symbol error)
+               (jazz:get-conflict-error-first error)
+               (jazz:get-conflict-error-second error)))
+
+
+;;;
 ;;;; Unresolved Error
 ;;;
 
@@ -4445,6 +4463,11 @@
   (let ((location (jazz:walk-location walker declaration (jazz:source-locat src)))
         (message (apply jazz:format fmt-string rest)))
     (jazz:walker-error walker resume (jazz:new-walk-error location message))))
+
+
+(define (jazz:walk-conflict walker resume declaration symbol first second form-src)
+  (let ((location (jazz:walk-location walker declaration (jazz:source-locat form-src))))
+    (jazz:walker-error walker resume (jazz:new-conflict-error location symbol first second))))
 
 
 (define (jazz:walk-unresolved walker resume declaration symbol-src)
@@ -5542,7 +5565,7 @@
                         (jazz:load-unit (jazz:get-lexical-binding-name module-declaration))))
                     import-invoices))
         (for-each (lambda (import-invoice)
-                    (jazz:add-module-import module-declaration import-invoice #t))
+                    (jazz:add-module-import walker resume declaration form-src module-declaration import-invoice #t))
                   import-invoices)))))
 
 

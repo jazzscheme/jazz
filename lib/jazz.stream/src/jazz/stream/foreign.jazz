@@ -48,6 +48,7 @@
 (c-include "<gst/gst.h>")
 (c-include "<gst/app/gstappsrc.h>")
 (c-include "<gst/app/gstappsink.h>")
+(c-include "<gst/pbutils/pbutils.h>")
 
 
 ;;;
@@ -154,27 +155,44 @@ static double g_object_get_double(GObject* obj, char* name)
 (c-type GstSeekFlags         enum)
 
 
-(c-type GstElement   (native "GstElement"))
-(c-type GstElement*  (pointer GstElement GstElement*))
-(c-type GstPad       (native "GstPad"))
-(c-type GstPad*      (pointer GstPad GstPad*))
-(c-type GstCaps      (native "GstCaps"))
-(c-type GstCaps*     (pointer GstCaps GstCaps*))
-(c-type GstBin       (native "GstBin"))
-(c-type GstBin*      (pointer GstBin GstBin*))
-(c-type GstPipeline  (native "GstPipeline"))
-(c-type GstPipeline* (pointer GstPipeline GstPipeline*))
-(c-type GstBus       (native "GstBus"))
-(c-type GstBus*      (pointer GstBus GstBus*))
-(c-type GstClock     (native "GstClock"))
-(c-type GstClock*    (pointer GstClock GstClock*))
-(c-type GstMessage   (native "GstMessage"))
-(c-type GstMessage*  (pointer GstMessage GstMessage*))
-(c-type GstIterator  (native "GstIterator"))
-(c-type GstIterator* (pointer GstIterator GstIterator*))
+(c-type GstElement               (native "GstElement"))
+(c-type GstElement*              (pointer GstElement GstElement*))
+(c-type GstPad                   (native "GstPad"))
+(c-type GstPad*                  (pointer GstPad GstPad*))
+(c-type GstCaps                  (native "GstCaps"))
+(c-type GstCaps*                 (pointer GstCaps GstCaps*))
+(c-type GstStructure             (native "GstStructure"))
+(c-type GstStructure*            (pointer GstStructure GstStructure*))
+(c-type GstBin                   (native "GstBin"))
+(c-type GstBin*                  (pointer GstBin GstBin*))
+(c-type GstPipeline              (native "GstPipeline"))
+(c-type GstPipeline*             (pointer GstPipeline GstPipeline*))
+(c-type GstBus                   (native "GstBus"))
+(c-type GstBus*                  (pointer GstBus GstBus*))
+(c-type GstClock                 (native "GstClock"))
+(c-type GstClock*                (pointer GstClock GstClock*))
+(c-type GstMessage               (native "GstMessage"))
+(c-type GstMessage*              (pointer GstMessage GstMessage*))
+(c-type GstIterator              (native "GstIterator"))
+(c-type GstIterator*             (pointer GstIterator GstIterator*))
+(c-type GstDiscoverer            (native "GstDiscoverer"))
+(c-type GstDiscoverer*           (pointer GstDiscoverer GstDiscoverer*))
+(c-type GstDiscovererInfo        (native "GstDiscovererInfo"))
+(c-type GstDiscovererInfo*       (pointer GstDiscovererInfo GstDiscovererInfo*))
+(c-type GstDiscovererStreamInfo  (native "GstDiscovererStreamInfo"))
+(c-type GstDiscovererStreamInfo* (pointer GstDiscovererStreamInfo GstDiscovererStreamInfo*))
 
 
 (c-declare jazz.stream.foreign #/C/
+static int gst_structure_get_int_aux(GstStructure* struc, char* name)
+{
+    int result;
+    
+    gst_structure_get_int(struc, name, &result);
+    
+    return result;
+}
+
 static GstStateChangeReturn gst_element_set_state_aux(GstElement* elem, GstState state)
 {
     GstStateChangeReturn state_change;
@@ -256,6 +274,31 @@ static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
 static gulong gst_signal_connect_to(gpointer instance, char* signal, gpointer data)
 {
     return g_signal_connect(instance, signal, G_CALLBACK(on_pad_added), data);
+}
+
+static GstDiscoverer* gst_discoverer_new_aux()
+{
+    return gst_discoverer_new(5 * GST_SECOND, NULL);
+}
+
+static GstDiscovererInfo* gst_discoverer_discover_uri_aux(GstDiscoverer* disc, char* uri)
+{
+    GstDiscovererInfo* info;
+    GError* err;
+    
+    info = gst_discoverer_discover_uri(disc, uri, &err);
+    
+    if (err)
+        g_print(" %s\n", err->message);
+    
+    return info;
+}
+
+static int gst_discoverer_video_info_get_width_aux(GstDiscovererInfo* info)
+{
+    GstDiscovererVideoInfo* video_info = (GstDiscovererVideoInfo*) info;
+  
+    return gst_discoverer_video_info_get_width(video_info);
 }
 
 static void gst_print_error(GstMessage *msg)
@@ -586,8 +629,13 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
 (c-external (gst_value_get_fraction_numerator GValue*) int)
 (c-external (gst_value_get_fraction_denominator GValue*) int)
 (c-external (gst_value_set_fraction GValue* int int) void)
+(c-external (gst_pad_get_current_caps GstPad*) GstCaps*)
 (c-external (gst_caps_new_empty_simple char-string) GstCaps*)
+(c-external (gst_caps_is_fixed GstCaps*) gboolean)
+(c-external (gst_caps_get_structure GstCaps* int) GstStructure*)
 (c-external (gst_caps_set_value GstCaps* char-string GValue*) void)
+(c-external (gst_caps_to_string GstCaps*) char-string)
+(c-external (gst_structure_get_int GstStructure* char-string) int "gst_structure_get_int_aux")
 (c-external (gst_element_set_state GstElement* GstState) GstStateChangeReturn "gst_element_set_state_aux")
 (c-external (gst_element_get_state GstElement*) GstState "gst_element_get_state_aux")
 (c-external (gst_element_wait_state GstElement*) void "gst_element_wait_state_aux")
@@ -596,6 +644,7 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
 (c-external (gst_element_get_base_time GstElement*) GstClockTime)
 (c-external (gst_element_factory_make char-string char-string) GstElement*)
 (c-external (gst_element_link GstElement* GstElement*) gboolean)
+(c-external (gst_element_get_static_pad GstElement* char-string) GstPad*)
 (c-external (gst_element_iterate_pads GstElement*) GstIterator*)
 (c-external (gst_element_query_position GstElement* GstFormat) int64 "gst_element_query_position_aux")
 (c-external (gst_element_query_duration GstElement* GstFormat) int64 "gst_element_query_duration_aux")
@@ -615,6 +664,13 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
 (c-external (gst_message_state_changed_get_new_state GstMessage*) GstState)
 (c-external (gst_message_unref GstMessage*) void)
 (c-external (gst_clock_get_time GstClock*) GstClockTime)
+(c-external (gst_discoverer_new) GstDiscoverer* "gst_discoverer_new_aux")
+(c-external (gst_discoverer_discover_uri GstDiscoverer* char-string) GstDiscovererInfo* "gst_discoverer_discover_uri_aux")
+(c-external (gst_discoverer_info_get_duration GstDiscovererInfo*) GstClockTime)
+(c-external (gst_discoverer_info_get_stream_info GstDiscovererInfo*) GstDiscovererStreamInfo*)
+(c-external (gst_discoverer_video_info_get_width (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
+(c-external (gst_discoverer_video_info_get_height (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
+(c-external (gst_discoverer_video_info_get_depth (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
 (c-external (gst_present_time GstClockTime) double "present_time")
 (c-external (gst_print_pipeline (call GST_PIPELINE GstElement*)) void)
 (c-external (gst_print_pad GstElement* char-string) void)

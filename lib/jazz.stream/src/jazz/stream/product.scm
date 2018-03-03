@@ -46,8 +46,8 @@
 (cond-expand
   (cocoa
     (define jazz:stream-flags
-      (let ((cc-flags (jazz:pkg-config-cflags "gstreamer-1.0 gstreamer-app-1.0"))
-            (ld-flags (jazz:pkg-config-libs "gstreamer-1.0 gstreamer-app-1.0")))
+      (let ((cc-flags (jazz:pkg-config-cflags "gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0"))
+            (ld-flags (jazz:pkg-config-libs "gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0")))
         (list cc-flags ld-flags)))
     #; ;; brew-based-private-deployment
     (define jazz:stream-flags

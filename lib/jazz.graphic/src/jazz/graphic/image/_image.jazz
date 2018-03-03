@@ -40,8 +40,10 @@
 
 (import (jazz.application (cond (not ios)))
         (jazz.cairo)
+        (jazz.graphic.jpeg)
         (jazz.io)
-        (jazz.resource))
+        (jazz.resource)
+        (jazz.stream))
 
 
 (cond-expand
@@ -63,25 +65,42 @@
   (define (find-image-file resource)
     (get-resource (current-application) 'image (get-name resource)))
   
+  (define (create-cairo-surface-from-file file)
+    (assert (file? file)
+      (if (exists? file)
+          (let ((ext (get-extension file)))
+            (cond ((extension=? ext "png")
+                   (create-cairo-surface-from-png file))
+                  ((member? ext '("jpg" "jpeg") test: extension=?)
+                   (create-cairo-surface-from-jpeg file))
+                  (else
+                   (error "Unable to create image from {a}" ext))))
+        (error "Unable to find image: {a}" (parse file)))))
+  
   (define (create-cairo-surface-from-png file)
-    (if (not (exists? file))
-        (signal (new Image-Load-Error))
-      (let ((handle (cairo_image_surface_create_from_png (parse file))))
-        (if (/= (cairo_surface_status handle) 0)
-            (signal (new Image-Load-Error))
-          handle))))
+    (let ((handle (cairo_image_surface_create_from_png (parse file))))
+      (if (/= (cairo_surface_status handle) 0)
+          (signal (new Image-Load-Error))
+        handle)))
+  
+  (define (create-cairo-surface-from-jpeg file)
+    (receive (width height content) (read-jpeg file)
+      (let ((handle (cairo_image_surface_create CAIRO_FORMAT_ARGB32 width height)))
+        (cairo_surface_flush handle)
+        (move-u8vector->pointer! content (cairo_image_surface_get_data handle))
+        (cairo_surface_mark_dirty handle)
+        handle)))
   
   (if (not type)
-      (assert (file? image)
-        (create-cairo-surface-from-png image))
+      (create-cairo-surface-from-file image)
     (case type
       ((icon)
-       (create-cairo-surface-from-png
+       (create-cairo-surface-from-file
          (if (resource? image)
              (find-icon-file image)
            image)))
       ((image)
-       (create-cairo-surface-from-png
+       (create-cairo-surface-from-file
          (if (resource? image)
              (find-image-file image)
            image))))))

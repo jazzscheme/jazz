@@ -610,6 +610,8 @@
 (native jazz:compiler-extension)
 (native jazz:language-extension)
 (native jazz:add-exit-job!)
+(native jazz:enable-crash-handler)
+(native jazz:disable-crash-handler)
 (native jazz:log-backtrace)
 (native jazz:set-crash-reporter)
 (native jazz:crash-process)

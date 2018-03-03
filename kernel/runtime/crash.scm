@@ -76,9 +76,14 @@
       (jazz:crash-reporter ignore))
 
     (c-declaration crash #<<end-of-c-code
-      static LONG WINAPI unhandled_exception_filter(LPEXCEPTION_POINTERS info)
+      static void restore_low_level_windows_crash_handler()
       {
         SetUnhandledExceptionFilter(NULL);
+      }
+      
+      static LONG WINAPI unhandled_exception_filter(LPEXCEPTION_POINTERS info)
+      {
+        restore_low_level_windows_crash_handler();
         jazz_call_crash_reporter(info);
         return EXCEPTION_CONTINUE_SEARCH;
       }
@@ -92,6 +97,12 @@ end-of-c-code
     (c-initialization crash "setup_low_level_windows_crash_handler();")
     
     (c-declaration crash "const DWORD CRASH_PROCESS = (DWORD) 0xE0000001L;")
+    
+    (define jazz:enable-crash-handler
+      (c-lambda () void "setup_low_level_windows_crash_handler"))
+    
+    (define jazz:disable-crash-handler
+      (c-lambda () void "restore_low_level_windows_crash_handler"))
     
     (c-external (jazz:crash-process) void
       "RaiseException(CRASH_PROCESS, EXCEPTION_NONCONTINUABLE , 0, NULL);"))
@@ -150,6 +161,12 @@ end-of-c-code
    )
 
    (c-initialization crash "setup_low_level_unix_crash_handler();")
+   
+   (define jazz:enable-crash-handler
+     (c-lambda () void "setup_low_level_unix_crash_handler"))
+   
+   (define jazz:disable-crash-handler
+     (c-lambda () void "restore_low_level_unix_signals"))
 
    (c-external (jazz:crash-process) void
      "raise(SIGSEGV);"))))

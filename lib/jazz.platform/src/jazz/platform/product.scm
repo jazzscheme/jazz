@@ -46,10 +46,7 @@
 (cond-expand
   (mac
     (define jazz:custom-cc
-      (string-append "/usr/bin/" (jazz:compiler-name)))
-    
-    (define jazz:custom-cc-options
-      '("-O1" "-Wno-unused" "-Wno-write-strings" "-Wno-deprecated-declarations" "-fno-math-errno" "-fno-strict-aliasing" "-fwrapv" "-fomit-frame-pointer" "-fPIC" "-fno-common")))
+      'llvm))
   (else))
 
 
@@ -57,7 +54,7 @@
   (mac
     (define jazz:types-units
       `((jazz.platform.types-syntax)
-        (jazz.platform.types custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options))))
+        (jazz.platform.types custom-cc: ,jazz:custom-cc))))
   (else
    (define jazz:types-units
      '((jazz.platform.types-syntax)
@@ -98,16 +95,16 @@
 (cond-expand
   (ios
    (define jazz:ios-units
-     `((jazz.platform.ios.camera ld-options: "-framework CoreFoundation -framework AVFoundation -framework CoreMedia -framework CoreGraphics -framework QuartzCore -framework ImageIO" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc)
-       (jazz.platform.ios.foreign ld-options: "-framework CoreFoundation -framework AudioToolbox -framework CoreLocation -framework CoreGraphics -framework StoreKit -framework MediaPlayer -framework AVFoundation -framework CoreMedia -framework MobileCoreServices" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc)
-       (angry.database ld-options: "-ObjC -F/Users/magnan/Downloads/couchbase-lite-ios-enterprise_1-3 -framework CoreFoundation -framework CoreGraphics -lz -lsqlite3 -framework SystemConfiguration -framework Security -framework CouchbaseLite -framework CFNetwork -framework MobileCoreServices" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc))))
+     `((jazz.platform.ios.camera ld-options: "-framework CoreFoundation -framework AVFoundation -framework CoreMedia -framework CoreGraphics -framework QuartzCore -framework ImageIO" custom-cc: ,jazz:custom-cc output-language: objc)
+       (jazz.platform.ios.foreign ld-options: "-framework CoreFoundation -framework AudioToolbox -framework CoreLocation -framework CoreGraphics -framework StoreKit -framework MediaPlayer -framework AVFoundation -framework CoreMedia -framework MobileCoreServices" custom-cc: ,jazz:custom-cc output-language: objc)
+       (angry.database ld-options: "-ObjC -F/Users/magnan/Downloads/couchbase-lite-ios-enterprise_1-3 -framework CoreFoundation -framework CoreGraphics -lz -lsqlite3 -framework SystemConfiguration -framework Security -framework CouchbaseLite -framework CFNetwork -framework MobileCoreServices" custom-cc: ,jazz:custom-cc output-language: objc))))
   (else))
 
 
 (cond-expand
   (cocoa
    (define jazz:cocoa-units
-     `((jazz.platform.cocoa.foreign ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc))))
+     `((jazz.platform.cocoa.foreign ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" custom-cc: ,jazz:custom-cc output-language: objc))))
   (else))
 
 

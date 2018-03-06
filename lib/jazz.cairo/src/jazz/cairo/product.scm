@@ -54,10 +54,7 @@
 (cond-expand
   (mac
     (define jazz:custom-cc
-      (string-append "/usr/bin/" (jazz:compiler-name)))
-    
-    (define jazz:custom-cc-options
-      '("-O1" "-Wno-unused" "-Wno-write-strings" "-fno-math-errno" "-fno-strict-aliasing" "-fwrapv" "-fomit-frame-pointer" "-fPIC" "-fno-common")))
+      'llvm))
   (else))
 
 
@@ -136,7 +133,7 @@
   (cocoa
     (define jazz:cairo-units
       (jazz:bind (cc-flags ld-flags) (jazz:cairo-flags jazz:quote-jazz-pathname)
-        `((jazz.cairo cc-options: ,cc-flags ld-options: ,ld-flags custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options)))))
+        `((jazz.cairo cc-options: ,cc-flags ld-options: ,ld-flags custom-cc: ,jazz:custom-cc)))))
   (windows
     (define jazz:cairo-units
       (jazz:bind (cc-flags ld-flags) (jazz:cairo-flags jazz:quote-jazz-pathname)

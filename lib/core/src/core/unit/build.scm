@@ -121,14 +121,14 @@
 
 
 (jazz:define-variable-override jazz:compile-unit-internal
-  (lambda (unit-name #!key (output-language #f) (options #f) (custom-cc #f) (custom-cc-options #f) (cc-options #f) (ld-options #f) (force? #f))
+  (lambda (unit-name #!key (output-language #f) (options #f) (custom-cc #f) (cc-options #f) (ld-options #f) (force? #f))
     (jazz:with-unit-resources unit-name #f
       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
         (if src
             (parameterize ((jazz:requested-unit-name unit-name)
                            (jazz:requested-unit-resource src)
                            (jazz:requested-pathname #f))
-              (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name output-language: output-language options: options custom-cc: custom-cc custom-cc-options: custom-cc-options cc-options: cc-options ld-options: ld-options force?: force?))
+              (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name output-language: output-language options: options custom-cc: custom-cc cc-options: cc-options ld-options: ld-options force?: force?))
           (%%unless (and bin (file-exists? (jazz:resource-pathname (jazz:bin->otl bin))))
             (jazz:error "Unable to find source for: {s}" unit-name)))))))
 
@@ -184,7 +184,49 @@
     str))
 
 
-(define (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (output-language #f) (options #f) (custom-cc #f) (custom-cc-options #f) (cc-options #f) (ld-options #f) (force? #f))
+(define jazz:custom-cc-path
+  (let ((cache (make-table test: eq?)))
+    (lambda (custom-cc)
+      (or (%%table-ref cache custom-cc #f)
+          (let ((path
+                  (case custom-cc
+                    ((llvm)
+                     (string-append "/usr/bin/" (jazz:compiler-name))))))
+            (%%table-set! cache custom-cc path)
+            path)))))
+
+(define jazz:custom-cc-arguments
+  (let ((cache (make-table test: eq?)))
+    (lambda (custom-cc)
+      (or (%%table-ref cache custom-cc #f)
+          (let ((path (##string-append (##path-expand "~~bin") "gambcomp-C" ##os-bat-extension-string-saved)))
+            (define (read-info argument)
+              (let ((port (open-process (list path: path arguments: (list argument)))))
+                (let ((info (jazz:remove "" (jazz:split-string (read-line port) #\space) test: equal?)))
+                  (close-port port)
+                  info)))
+            
+            ;; too many differences between LLVM and GCC to use FLAGS_DYN
+            ;; this list was copied from a Gambit LLVM build
+            (define jazz:llvm-arguments
+              '("-O1"
+                "-Wno-unused"
+                "-Wno-write-strings"
+                "-fno-math-errno"
+                "-fwrapv"
+                "-fno-strict-aliasing"
+                "-fomit-frame-pointer"
+                "-fPIC"
+                "-fno-common"))
+
+            (let ((flags jazz:llvm-arguments)
+                  (defs (read-info "DEFS_DYN")))
+              (let ((arguments (%%append flags defs)))
+                (%%table-set! cache custom-cc arguments)
+                arguments)))))))
+
+
+(define (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (output-language #f) (options #f) (custom-cc #f) (cc-options #f) (ld-options #f) (force? #f))
   (let ((references-valid? (and (or obj-uptodate? bin-uptodate?) (jazz:manifest-references-valid? (or obj bin)))))
     (let ((options (or options jazz:compile-options))
           (cc-options (jazz:wrap-single-host-cc-options (or cc-options "")))
@@ -201,7 +243,7 @@
                 (jazz:with-extension-reader (%%get-resource-extension src)
                   (lambda ()
                     (parameterize ((jazz:walk-for 'compile))
-                      (jazz:compile-source-file src bin update-obj? update-bin? build-package output-language: output-language options: options custom-cc: custom-cc custom-cc-options: custom-cc-options cc-options: cc-options ld-options: ld-options unit-name: manifest-name)))))))
+                      (jazz:compile-source-file src bin update-obj? update-bin? build-package output-language: output-language options: options custom-cc: custom-cc cc-options: cc-options ld-options: ld-options unit-name: manifest-name)))))))
         (if (or compile? (jazz:force-outlines?))
             (let ((path (jazz:binary-with-extension src ".otl")))
               (jazz:create-directories (jazz:pathname-dir path))
@@ -211,7 +253,7 @@
                     (jazz:outline-generate declaration output))))))))))
 
 
-(define (jazz:compile-source-file src bin update-obj? update-bin? build-package #!key (output-language #f) (options #f) (custom-cc #f) (custom-cc-options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz:kernel-platform))
+(define (jazz:compile-source-file src bin update-obj? update-bin? build-package #!key (output-language #f) (options #f) (custom-cc #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz:kernel-platform))
   (define bin-pathname-base
     (jazz:binary-with-extension src ""))
   
@@ -270,13 +312,15 @@
                                 show-console: #f)))
                         (if custom-cc
                             (let ((gambit-include-dir (path-expand "~~include")))
-                              (jazz:call-process
-                                (list
-                                  path: custom-cc
-                                  arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) "-D___DYNAMIC" ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output)
-                                  show-console: #f)))
+                              (case custom-cc
+                                ((llvm)
+                                 (jazz:call-process
+                                   (list
+                                     path: (jazz:custom-cc-path custom-cc)
+                                     arguments: `(,@(jazz:custom-cc-arguments custom-cc) ,(%%string-append "-I" gambit-include-dir) ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output)
+                                     show-console: #f)))))
                           (compile-file bin-output options: (%%cons 'obj options) cc-options: (string-append "-D___DYNAMIC " cc-options))))))
-            (jazz:error "compilation failed")))))
+            (jazz:error "Compilation failed")))))
   
   (define (update-manifest)
     (let ((digest-filepath (jazz:digest-pathname build-package src))

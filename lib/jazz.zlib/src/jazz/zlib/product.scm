@@ -46,17 +46,14 @@
 (cond-expand
   (mac
     (define jazz:custom-cc
-      (string-append "/usr/bin/" (jazz:compiler-name)))
-    
-    (define jazz:custom-cc-options
-      '("-O1" "-Wno-unused" "-Wno-write-strings" "-fno-math-errno" "-fno-strict-aliasing" "-fwrapv" "-fomit-frame-pointer" "-fPIC" "-fno-common")))
+      'llvm))
   (else))
 
 
 (cond-expand
   (cocoa
    (define jazz:zlib-units
-     `((jazz.zlib.foreign ld-options: "-lz.1" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options))))
+     `((jazz.zlib.foreign ld-options: "-lz.1" custom-cc: ,jazz:custom-cc))))
   (windows
    (define jazz:zlib-units
      (let ((zlib-include-path  (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/include"))

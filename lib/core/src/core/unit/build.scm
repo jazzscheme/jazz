@@ -212,12 +212,18 @@
               '("-O1"
                 "-Wno-unused"
                 "-Wno-write-strings"
+                "-Wdisabled-optimization"
+                "-fno-trapping-math"
                 "-fno-math-errno"
                 "-fwrapv"
                 "-fno-strict-aliasing"
                 "-fomit-frame-pointer"
                 "-fPIC"
-                "-fno-common"))
+                "-fno-common"
+                "-mieee-fp"
+                ;; "-fschedule-insns2"
+                ;; "-mpc64"
+                ))
 
             (let ((flags jazz:llvm-arguments)
                   (defs (read-info "DEFS_DYN")))

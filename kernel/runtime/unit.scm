@@ -2066,8 +2066,10 @@
   (%%make-parameter 0))
 
 
-(define (jazz:load-resource loading resource . rest)
+(define (jazz:load-resource unit-name loading resource . rest)
   (let ((quiet? (if (%%null? rest) #f (%%car rest))))
+    (if (jazz:unit-verbose?)
+        (pp unit-name))
     (jazz:with-verbose (jazz:load-verbose?) loading (jazz:resource-pathname resource)
       (lambda ()
         (jazz:load-file (%%list
@@ -2150,7 +2152,7 @@
                (jazz:increment-object-load-counter)
                (let ((quiet? (or (%%not src) (let ((ext (%%get-resource-extension src)))
                                                (and ext (%%string=? ext "jazz"))))))
-                 (jazz:load-resource "loading bin" bin quiet?)))
+                 (jazz:load-resource unit-name "loading bin" bin quiet?)))
               (src
                 (if (or (%%not jazz:load-interpreted-hook)
                         (%%not (jazz:load-interpreted-hook unit-name)))
@@ -2174,7 +2176,7 @@
                                      (jazz:generate-symbol-counter 0))
                         (jazz:with-extension-reader (%%get-resource-extension src)
                           (lambda ()
-                            (jazz:load-resource "loading src" src)))))))
+                            (jazz:load-resource unit-name "loading src" src)))))))
               (else
                (if force-source?
                    (jazz:error "Unable to find unit source: {s}" unit-name)

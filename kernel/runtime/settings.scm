@@ -76,6 +76,9 @@
 ;;;
 
 
+(jazz:define-setting jazz:unit-verbose?
+  #f)
+
 (jazz:define-setting jazz:load-verbose?
   #f)
 

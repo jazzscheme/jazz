@@ -246,12 +246,14 @@
       '())))
 
 
-(define (jazz:remove item lst)
+(define (jazz:remove item lst #!key (test #f))
   (declare (proper-tail-calls))
   (let iter ((scan lst))
     (if (%%not (%%null? scan))
         (let ((value (%%car scan)))
-          (if (%%eq? value item)
+          (if (if test
+                  (test value item)
+                (%%eq? value item))
               (iter (%%cdr scan))
             (%%cons value (iter (%%cdr scan)))))
       '())))

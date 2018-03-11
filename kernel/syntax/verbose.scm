@@ -38,11 +38,40 @@
 (##actlog-stop)
 
 
+;;;
+;;;; Time
+;;;
+
+
+(define jazz:current-seconds
+  (let ((f64vec (##f64vector 0.)))
+    (lambda ()
+      (declare (not interrupts-enabled))
+      (##get-current-time! f64vec 0)
+      (##f64vector-ref f64vec 0))))
+
+
+(define jazz:current-monotonic
+  (let ((u64vec (##u64vector 0)))
+    (lambda ()
+      (declare (not interrupts-enabled))
+      (##get-monotonic-time! u64vec 0)
+      (##u64vector-ref u64vec 0))))
+
+
+;;;
+;;;; Boot
+;;;
+
+
 ;; put here to be as early as possible in the boot
 (define jazz:kernel-boot
-  (let ((f64vec (##make-f64vector 1)))
-    (##get-current-time! f64vec 0)
-    (##f64vector-ref f64vec 0)))
+  (jazz:current-seconds))
+
+
+;;;
+;;;; Verbose
+;;;
 
 
 (define jazz:kernel-verbose?

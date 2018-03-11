@@ -965,6 +965,7 @@
 ;;;
 
 
+(native configure-command-string)
 (native system-stamp)
 (native system-type)
 (native system-type-string)

@@ -151,19 +151,28 @@
       (let ((products (%%get-package-products package)))
         (continuation-capture
           (lambda (return)
-            (for-each
-              (lambda (product-descriptor)
-                (let* ((product-name (jazz:product-descriptor-name product-descriptor))
-                       (product (jazz:get-product product-name))
-                       (update-descriptor (jazz:product-descriptor-update product-descriptor)))
-                  (let ((update (jazz:cond-expanded-product-descriptor-update product-name product-descriptor)))
-                    (for-each (lambda (unit)
-                                (jazz:for-each-subunit unit
-                                  (lambda (sub-unit declaration phase)
-                                    (if (eq? sub-unit unit-name)
-                                        (continuation-return return product)))))
-                              update))))
-              products)
+            ;; first go through all units in all updates
+            (for-each (lambda (product-descriptor)
+                        (let* ((product-name (jazz:product-descriptor-name product-descriptor))
+                               (product (jazz:get-product product-name)))
+                          (let ((update (jazz:cond-expanded-product-descriptor-update product-name product-descriptor)))
+                            (for-each (lambda (unit)
+                                        (if (eq? unit unit-name)
+                                            (continuation-return return product)))
+                                      update))))
+                      products)
+            ;; then do the much more costly subunits scan
+            (for-each (lambda (product-descriptor)
+                        (let* ((product-name (jazz:product-descriptor-name product-descriptor))
+                               (product (jazz:get-product product-name)))
+                          (let ((update (jazz:cond-expanded-product-descriptor-update product-name product-descriptor)))
+                            (for-each (lambda (unit)
+                                        (jazz:for-each-subunit unit
+                                          (lambda (sub-unit declaration phase)
+                                            (if (eq? sub-unit unit-name)
+                                                (continuation-return return product)))))
+                                      update))))
+                      products)
             #f))))))
 
 

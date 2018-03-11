@@ -121,14 +121,14 @@
 
 
 (jazz:define-variable-override jazz:compile-unit-internal
-  (lambda (unit-name #!key (output-language #f) (options #f) (custom-cc #f) (cc-options #f) (ld-options #f) (force? #f))
+  (lambda (unit-name #!key (output-language #f) (options #f) (custom-cc #f) (cc-options #f) (ld-options #f) (skip-references? #f) (force? #f))
     (jazz:with-unit-resources unit-name #f
       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
         (if src
             (parameterize ((jazz:requested-unit-name unit-name)
                            (jazz:requested-unit-resource src)
                            (jazz:requested-pathname #f))
-              (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name output-language: output-language options: options custom-cc: custom-cc cc-options: cc-options ld-options: ld-options force?: force?))
+              (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name output-language: output-language options: options custom-cc: custom-cc cc-options: cc-options ld-options: ld-options skip-references?: skip-references? force?: force?))
           (%%unless (and bin (file-exists? (jazz:resource-pathname (jazz:bin->otl bin))))
             (jazz:error "Unable to find source for: {s}" unit-name)))))))
 
@@ -136,13 +136,13 @@
 ;; this function should be unified with jazz:compile-unit-internal
 ;; (being careful about jazz:find-unit-product overhead)
 (jazz:define-variable-override jazz:custom-compile-unit-internal
-  (lambda (unit-name #!key (options #f) (force? #f))
+  (lambda (unit-name #!key (options #f) (skip-references? #f) (force? #f))
     (let ((product (jazz:find-unit-product unit-name)))
       (let ((build (and product
                         (%%get-product-build product))))
         (if build
-            (build (%%get-product-descriptor product) unit: unit-name force?: force?)
-          (jazz:compile-unit unit-name options: options force?: force?))))))
+            (build (%%get-product-descriptor product) unit: unit-name skip-references?: skip-references? force?: force?)
+          (jazz:compile-unit unit-name options: options skip-references?: skip-references? force?: force?))))))
 
 
 (define (jazz:find-unit-product unit-name)
@@ -241,8 +241,8 @@
                 arguments)))))))
 
 
-(define (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (output-language #f) (options #f) (custom-cc #f) (cc-options #f) (ld-options #f) (force? #f))
-  (let ((references-valid? (and (or obj-uptodate? bin-uptodate?) (jazz:manifest-references-valid? (or obj bin)))))
+(define (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (output-language #f) (options #f) (custom-cc #f) (cc-options #f) (ld-options #f) (skip-references? #f) (force? #f))
+  (let ((references-valid? (or skip-references? (and (or obj-uptodate? bin-uptodate?) (jazz:manifest-references-valid? (or obj bin))))))
     (let ((options (or options jazz:compile-options))
           (cc-options (jazz:wrap-single-host-cc-options (or cc-options "")))
           (ld-options (or ld-options ""))

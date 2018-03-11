@@ -1672,7 +1672,7 @@
           (jazz:build-library-descriptor descriptor)))))
 
 
-(define (jazz:build-product-descriptor descriptor #!key (unit #f) (force? #f))
+(define (jazz:build-product-descriptor descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (define (build-product)
     (jazz:update-product-descriptor descriptor)
     (let ((build (jazz:product-descriptor-build descriptor)))
@@ -1684,7 +1684,7 @@
                     build))))
   
   (if unit
-      (jazz:compile-unit unit force?: force?)
+      (jazz:compile-unit unit skip-references?: skip-references? force?: force?)
     (build-product)))
 
 

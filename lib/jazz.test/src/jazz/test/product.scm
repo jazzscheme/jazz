@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(define (jazz:build-test descriptor #!key (unit #f) (force? #f))
+(define (jazz:build-test descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs `((jazz.test cc-options: "" ld-options: ""))))
     (jazz:custom-compile/build unit-specs unit: unit force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))

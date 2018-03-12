@@ -406,7 +406,7 @@
                                                ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) source source-declaration walker resume environment backend)))
                                            (jazz:get-signature-positional signature)
                                            (%%cons object arguments))
-                                  ,(jazz:sourcify-deep-if (jazz:desourcify-all (jazz:get-code-form body-code)) source))
+                                  ,(jazz:get-code-form body-code))
                                (jazz:call-return-type (jazz:get-lexical-binding-type declaration))
                                #f)))))
                    (jazz:error "Wrong number of arguments passed to {s}" (jazz:get-lexical-binding-name declaration)))

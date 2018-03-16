@@ -715,7 +715,7 @@
                            (display "(jazz:library-main)" output)
                            (newline output))
                           (else
-                           (display "#!gsi -:darR,t8,f8,-8" output)
+                           (display "#!gsi -:darR,tU8,fU8,-U8" output)
                            (if minimum-heap
                                (begin
                                  (display ",m" output)

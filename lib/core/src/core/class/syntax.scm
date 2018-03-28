@@ -482,13 +482,24 @@
 (jazz:define-macro (%%c-class-of-impl obj)
   `(or (let ()
          (declare (extended-bindings))
-         (##c-code #<<end-of-c-code
+         (##c-code ,(%%string-append #<<end-of-c-code
 {
     ___SCMOBJ obj = ___ARG1;
     if (___MEM_ALLOCATED(obj))
     {
         int subtype = (*___UNTAG(obj) & ___SMASK) >> ___HTB;
+end-of-c-code
+
+(if (jazz:gambitjazz?)
+    #<<end-of-c-code
         if (subtype == ___sJAZZ || subtype == ___sJAZZSTRUCT)
+end-of-c-code
+    #<<end-of-c-code
+        if (subtype == ___sJAZZ)
+end-of-c-code
+)
+
+#<<end-of-c-code
             ___RESULT = ___VECTORREF(obj,0);
         else if (subtype == ___sSTRUCTURE)
             ___RESULT = ___FAL;
@@ -503,6 +514,7 @@
         ___RESULT = ___BODY_AS(___ARG5,___tSUBTYPED)[___INT(___FAL - obj)];
 }
 end-of-c-code
+)
     ,obj                    ;; ___ARG1
     jazz:subtypes           ;; ___ARG2
     jazz:Fixnum             ;; ___ARG3

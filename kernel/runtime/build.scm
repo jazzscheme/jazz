@@ -46,11 +46,6 @@
 ;;;
 
 
-(define (jazz:gambitjazz?)
-  (and (jazz:global-bound? '##gambitjazz?)
-       (jazz:global-ref '##gambitjazz?)))
-
-
 (define (jazz:gambitcomp op
                          output-dir
                          input-filenames

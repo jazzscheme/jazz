@@ -54,19 +54,29 @@
   7)
 
 (jazz:define-macro (%%subtype-jazzstruct)
-  16)
+  (if (jazz:gambitjazz?)
+      16
+    `(error "Unimplemented")))
+
+(jazz:define-macro (%%jazz-subtype? st)
+  `(%%fx= ,st (%%subtype-jazz)))
+
+(jazz:define-macro (%%jazzstruct-subtype? st)
+  (if (jazz:gambitjazz?)
+      `(%%fx= ,st (%%subtype-jazzstruct))
+    #f))
 
 ;; this function is here for structure / class unification
 (jazz:define-macro (%%jazz? expr)
-  (jazz:with-uniqueness expr
-    (lambda (expr)
-      (if (##global-var? '##jazzstruct?)
-          `(or (##jazz? ,expr) (##jazzstruct? ,expr))
-        `(##jazz? ,expr)))))
+  (if (jazz:gambitjazz?)
+      (jazz:with-uniqueness expr
+        (lambda (expr)
+          `(or (##jazz? ,expr) (##jazzstruct? ,expr))))
+    `(##jazz? ,expr)))
 
 ;; this function is here for structure / class unification
 (jazz:define-macro (%%jazzstruct? expr)
-  (if (##global-var? '##jazzstruct?)
+  (if (jazz:gambitjazz?)
       `(##jazzstruct? ,expr)
     #f))
 
@@ -76,7 +86,9 @@
 
 ;; this function is here for structure / class unification
 (jazz:define-macro (%%jazzstructify expr)
-  `(##subtype-set! ,expr (%%subtype-jazzstruct)))
+  (if (jazz:gambitjazz?)
+      `(##subtype-set! ,expr (%%subtype-jazzstruct))
+    `(error "Unimplemented")))
 
 #; ;; defined as functions until structure / class unification
 (jazz:define-macro (%%record? expr)

@@ -123,6 +123,7 @@ end-of-c-code
       #include <unistd.h>
       #include <sys/types.h>
       #include <signal.h>
+      #include <execinfo.h>
       
       static void restore_low_level_unix_signals()
       {
@@ -140,6 +141,14 @@ end-of-c-code
       static void error_signal_handler(int sig_num)
       {
         restore_low_level_unix_signals();
+                                      
+        // Dump the C stack which is only really useful if
+        // Gambit was built with --enable-debug for symbols
+        // void *ret_adrs[100];
+        // ___SIZE_T n = backtrace (ret_adrs, sizeof (ret_adrs) / sizeof (void*));
+        // backtrace_symbols_fd (ret_adrs, n, STDOUT_FILENO);
+        // printf("\n");
+        
         jazz_call_crash_reporter(sig_num);
         fflush(stdout);
         jazz_call_crash_exit();

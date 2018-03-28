@@ -52,6 +52,17 @@
 
 
 ;;;
+;;;; Exception
+;;;
+
+
+(define (jazz:unimplemented . rest)
+  (if (null? rest)
+      (error "Unimplemented functionality")
+    (error "Unimplemented functionality:" (car rest))))
+
+
+;;;
 ;;;; Number
 ;;;
 

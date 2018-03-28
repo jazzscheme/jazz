@@ -1669,12 +1669,6 @@
     (error error-string)))
 
 
-(define (jazz:unimplemented . rest)
-  (if (null? rest)
-      (jazz:error "Unimplemented functionality")
-    (jazz:error "The following functionality is unimplemented: {a}" (car rest))))
-
-
 ;;;
 ;;;; Repl
 ;;;

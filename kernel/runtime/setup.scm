@@ -145,110 +145,163 @@ c-end
 ;;;
 
 
-(define (jazz:wrap-datum& re x)
-  (if (%%source? x)
-      x
-    (jazz:make-source& x (jazz:readenv->locat& re))))
+(define jazz:wrap-datum&
+  (if (jazz:gambitjazz?)
+      (lambda (re x)
+        (if (%%source? x)
+            x
+          (jazz:make-source& x (jazz:readenv->locat& re))))
+    ##wrap-datum))
 
-(define (jazz:unwrap-datum& re x)
-  (%%source-code x))
-
-
-(define (jazz:readenv->locat& re)
-  (let ((container
-          (or (jazz:readenv-container re)
-              (let ((c
-                      (##port-name->container
-                        (##port-name (jazz:readenv-port re)))))
-                (jazz:readenv-container-set! re c)
-                c))))
-    (jazz:make-locat& container
-                      (##filepos->position
-                        (jazz:readenv-filepos re))
-                      (##filepos->position
-                        (##readenv-current-filepos re)))))
+(define jazz:unwrap-datum&
+  (if (jazz:gambitjazz?)
+      (lambda (re x)
+        (%%source-code x))
+    ##unwrap-datum))
 
 
-(define (jazz:source&? src)
-  (and (%%source? src)
-       (%%fx= (%%vector-length src) 6)))
-
-(define (jazz:make-source& code locat)
-  (%%vector ##source1-marker
-            code
-            (if locat (%%locat-container locat) #f)
-            (if locat (jazz:locat-start& locat) #f)
-            (if locat (jazz:locat-end& locat) #f)
-            'text))
-
-(define (jazz:sourcify-aux1& code src)
-  (if (jazz:source&? src)
-      (%%vector ##source1-marker
-                code
-                (%%vector-ref src 2)
-                (%%vector-ref src 3)
-                (%%vector-ref src 4)
-                'syntax)
-    (%%vector ##source1-marker
-              code
-              (%%vector-ref src 2)
-              (%%vector-ref src 3))))
-
-(define (jazz:sourcify-aux2& code src)
-  (if (jazz:source&? src)
-      (%%vector ##source2-marker
-                code
-                (%%vector-ref src 2)
-                (%%vector-ref src 3)
-                (%%vector-ref src 4)
-                'syntax)
-    (%%vector ##source2-marker
-              code
-              (%%vector-ref src 2)
-              (%%vector-ref src 3))))
-
-(define (jazz:source-locat& src)
-  (if (jazz:source&? src)
-      (let ((container (%%vector-ref src 2)))
-        (if container
-            (jazz:make-locat& container
-                              (%%vector-ref src 3)
-                              (%%vector-ref src 4))
-          #f))
-    (let ((container (%%vector-ref src 2)))
-      (if container
-          (##make-locat container
-                        (%%vector-ref src 3))
-        #f))))
-
-(define (jazz:source-origin src)
-  (%%vector-ref src 5))
-
-(define (jazz:text-source? src)
-  (and (jazz:source&? src)
-       (%%eq? (jazz:source-origin src) 'text)))
+(define jazz:readenv->locat&
+  (if (jazz:gambitjazz?)
+      (lambda (re)
+        (let ((container
+                (or (jazz:readenv-container re)
+                    (let ((c
+                            (##port-name->container
+                              (##port-name (jazz:readenv-port re)))))
+                      (jazz:readenv-container-set! re c)
+                      c))))
+          (jazz:make-locat& container
+                            (##filepos->position
+                              (jazz:readenv-filepos re))
+                            (##filepos->position
+                              (##readenv-current-filepos re)))))
+    (lambda (re)
+      (jazz:unimplemented))))
 
 
-(define (jazz:locat&? locat)
-  (%%fx= (%%vector-length locat) 3))
+(define jazz:source&?
+  (if (jazz:gambitjazz?)
+      (lambda (src)
+        (and (%%source? src)
+             (%%fx= (%%vector-length src) 6)))
+    (lambda (src)
+      #f)))
 
-(define (jazz:make-locat& container start end)
-  (%%vector container start end))
+(define jazz:make-source&
+  (if (jazz:gambitjazz?)
+      (lambda (code locat)
+        (%%vector ##source1-marker
+                  code
+                  (if locat (%%locat-container locat) #f)
+                  (if locat (jazz:locat-start& locat) #f)
+                  (if locat (jazz:locat-end& locat) #f)
+                  'text))
+    (lambda (code locat)
+      (jazz:unimplemented))))
 
-(define (jazz:locat-start& locat)
-  (%%locat-position locat))
+(define jazz:sourcify-aux1&
+  (if (jazz:gambitjazz?)
+      (lambda (code src)
+        (if (jazz:source&? src)
+            (%%vector ##source1-marker
+                      code
+                      (%%vector-ref src 2)
+                      (%%vector-ref src 3)
+                      (%%vector-ref src 4)
+                      'syntax)
+          (%%vector ##source1-marker
+                    code
+                    (%%vector-ref src 2)
+                    (%%vector-ref src 3))))
+    (lambda (code src)
+      (jazz:unimplemented))))
 
-(define (jazz:locat-end& locat)
-  (let ((container (%%vector-ref locat 0)))
-    (if (%%source? container)
-        (jazz:locat-end& (%%source-locat container))
-      (%%vector-ref locat 2))))
+(define jazz:sourcify-aux2&
+  (if (jazz:gambitjazz?)
+      (lambda (code src)
+        (if (jazz:source&? src)
+            (%%vector ##source2-marker
+                      code
+                      (%%vector-ref src 2)
+                      (%%vector-ref src 3)
+                      (%%vector-ref src 4)
+                      'syntax)
+          (%%vector ##source2-marker
+                    code
+                    (%%vector-ref src 2)
+                    (%%vector-ref src 3))))
+    (lambda (code src)
+      (jazz:unimplemented))))
+
+(define jazz:source-locat&
+  (if (jazz:gambitjazz?)
+      (lambda (src)
+        (if (jazz:source&? src)
+            (let ((container (%%vector-ref src 2)))
+              (if container
+                  (jazz:make-locat& container
+                                    (%%vector-ref src 3)
+                                    (%%vector-ref src 4))
+                #f))
+          (let ((container (%%vector-ref src 2)))
+            (if container
+                (##make-locat container
+                              (%%vector-ref src 3))
+              #f))))
+    (lambda (src)
+      (%%source-locat src))))
+
+(define jazz:source-origin
+  (if (jazz:gambitjazz?)
+      (lambda (src)
+        (%%vector-ref src 5))
+    (lambda (src)
+      (jazz:unimplemented))))
+
+(define jazz:text-source?
+  (if (jazz:gambitjazz?)
+      (lambda (src)
+        (and (jazz:source&? src)
+             (%%eq? (jazz:source-origin src) 'text)))
+    (lambda (src)
+      (jazz:unimplemented))))
 
 
-(set! ##wrap-datum jazz:wrap-datum&)
-(set! ##unwrap-datum jazz:unwrap-datum&)
-(set! ##sourcify-aux1 jazz:sourcify-aux1&)
-(set! ##sourcify-aux2 jazz:sourcify-aux2&)
+(define jazz:locat&?
+  (if (jazz:gambitjazz?)
+      (lambda (locat)
+        (%%fx= (%%vector-length locat) 3))
+    (lambda (locat)
+      (jazz:unimplemented))))
+
+(define jazz:make-locat&
+  (if (jazz:gambitjazz?)
+      (lambda (container start end)
+        (%%vector container start end))
+    (lambda (container start end)
+      (jazz:unimplemented))))
+
+(define jazz:locat-start&
+  (lambda (locat)
+    (%%locat-position locat)))
+
+(define jazz:locat-end&
+  (if (jazz:gambitjazz?)
+      (lambda (locat)
+        (let ((container (%%vector-ref locat 0)))
+          (if (%%source? container)
+              (jazz:locat-end& (%%source-locat container))
+            (%%vector-ref locat 2))))
+    (lambda (locat)
+      (%%locat-position locat))))
+
+
+(if (jazz:gambitjazz?)
+    (begin
+      (set! ##wrap-datum jazz:wrap-datum&)
+      (set! ##unwrap-datum jazz:unwrap-datum&)
+      (set! ##sourcify-aux1 jazz:sourcify-aux1&)
+      (set! ##sourcify-aux2 jazz:sourcify-aux2&)))
 
 
 ;;;

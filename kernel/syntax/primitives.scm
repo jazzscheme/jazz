@@ -410,13 +410,20 @@
 ;;;
 
 
+(define jazz:debug-flonum?
+  (cond-expand
+    (finite
+     #f)
+    (else
+     jazz:debug-core?)))
+
 (jazz:define-macro (%%flonum? obj)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flonum? ,obj)
     `(jazz:unsafe (##flonum? ,obj))))
 
 (jazz:define-macro (%%flnan? obj)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flnan? ,obj)
     `(jazz:unsafe (##flnan? ,obj))))
 
@@ -424,127 +431,127 @@
   `(jazz:unsafe (##flonum->fixnum ,x)))
 
 (jazz:define-macro (%%fl= . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(= ,@rest)
     `(jazz:unsafe (##fl= ,@rest))))
 
 (jazz:define-macro (%%fl< . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(< ,@rest)
     `(jazz:unsafe (##fl< ,@rest))))
 
 (jazz:define-macro (%%fl<= . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(<= ,@rest)
     `(jazz:unsafe (##fl<= ,@rest))))
 
 (jazz:define-macro (%%fl> . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(> ,@rest)
     `(jazz:unsafe (##fl> ,@rest))))
 
 (jazz:define-macro (%%fl>= . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(>= ,@rest)
     `(jazz:unsafe (##fl>= ,@rest))))
 
 (jazz:define-macro (%%fl+ . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(+ ,@rest)
     `(jazz:unsafe (##fl+ ,@rest))))
 
 (jazz:define-macro (%%fl- . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(- ,@rest)
     `(jazz:unsafe (##fl- ,@rest))))
 
 (jazz:define-macro (%%fl* . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(* ,@rest)
     `(jazz:unsafe (##fl* ,@rest))))
 
 (jazz:define-macro (%%fl/ . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(/ ,@rest)
     `(jazz:unsafe (##fl/ ,@rest))))
 
 (jazz:define-macro (%%flfloor x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flfloor ,x)
     `(jazz:unsafe (##flfloor ,x))))
 
 (jazz:define-macro (%%flceiling x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flceiling ,x)
     `(jazz:unsafe (##flceiling ,x))))
 
 (jazz:define-macro (%%fltruncate x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(fltruncate ,x)
     `(jazz:unsafe (##fltruncate ,x))))
 
 (jazz:define-macro (%%flround x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flround ,x)
     `(jazz:unsafe (##flround ,x))))
 
 (jazz:define-macro (%%flabs x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flabs ,x)
     `(jazz:unsafe (##flabs ,x))))
 
 (jazz:define-macro (%%flsqrt x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flsqrt ,x)
     `(jazz:unsafe (##flsqrt ,x))))
 
 (jazz:define-macro (%%flexpt x y)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flexpt ,x ,y)
     `(jazz:unsafe (##flexpt ,x ,y))))
 
 (jazz:define-macro (%%flsquare x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flsquare ,x)
     `(jazz:unsafe (##flsquare ,x))))
 
 (jazz:define-macro (%%flsin x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flsin ,x)
     `(jazz:unsafe (##flsin ,x))))
 
 (jazz:define-macro (%%flcos x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flcos ,x)
     `(jazz:unsafe (##flcos ,x))))
 
 (jazz:define-macro (%%fltan x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(fltan ,x)
     `(jazz:unsafe (##fltan ,x))))
 
 (jazz:define-macro (%%flasin x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flasin ,x)
     `(jazz:unsafe (##flasin ,x))))
 
 (jazz:define-macro (%%flacos x)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flacos ,x)
     `(jazz:unsafe (##flacos ,x))))
 
 (jazz:define-macro (%%flatan . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flatan ,@rest)
     `(jazz:unsafe (##flatan ,@rest))))
 
 (jazz:define-macro (%%flmin . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flmin ,@rest)
     `(jazz:unsafe (##flmin ,@rest))))
 
 (jazz:define-macro (%%flmax . rest)
-  (if jazz:debug-core?
+  (if jazz:debug-flonum?
       `(flmax ,@rest)
     `(jazz:unsafe (##flmax ,@rest))))
 

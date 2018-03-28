@@ -64,10 +64,15 @@
                           (begin
                             (sleep .001)
                             (loop))))))
-          (assert (= (gst_caps_is_fixed caps) 1)
-            (let ((struc (gst_caps_get_structure caps 0)))
-              (values (gst_structure_get_int struc "width")
-                      (gst_structure_get_int struc "height")))))))))
+          (if (= (gst_caps_is_fixed caps) 1)
+              (let ((struc (gst_caps_get_structure caps 0)))
+                (gst_element_set_state pipeline GST_STATE_NULL)
+                (gst_object_unref pipeline)
+                (values (gst_structure_get_int struc "width")
+                        (gst_structure_get_int struc "height")))
+            (gst_element_set_state pipeline GST_STATE_NULL)
+            (gst_object_unref pipeline)
+            (error "Internal error")))))))
 
 
 (definition public (read-jpeg file)
@@ -99,6 +104,8 @@
                     (error "Unable to decode jpeg: {a}" location)
                   (if (/= read -1)
                       (assert (= read size)
+                        (gst_element_set_state pipeline GST_STATE_NULL)
+                        (gst_object_unref pipeline)
                         (values width height buffer))
                     (sleep .001)
                     (loop (+ count 1))))))))))))

@@ -406,7 +406,7 @@
                       (options `(,@(if debug-environments? '(debug-environments) '())
                                  ,@(if debug-location? '(debug-location) '())
                                  ,@(if debug-source? '(debug-source) '())
-                                 track-scheme)))
+                                 ,@(if jazz:enable-track-scheme? '(track-scheme) '()))))
                   ;; standardize path as it will be the path stored in debugging information
                   (let ((standardized-path (jazz:pathname-standardize (path-normalize path))))
                     (jazz:push-changed-units path)

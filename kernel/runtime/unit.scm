@@ -1787,7 +1787,8 @@
                                   arguments: `("-:daqQ-"
                                                "-worker"
                                                "-link" ,(%%symbol->string jazz:link)
-                                               ,@(if (%%memq 'keep-c jazz:compile-options) `("-keep-c" "-track-scheme") (if (%%memq 'track-scheme jazz:compile-options) `("-track-scheme") '()))
+                                               ,@(if (%%memq 'keep-c jazz:compile-options) `("-keep-c") '())
+                                               ,@(if (%%memq 'track-scheme jazz:compile-options) `("-track-scheme") '())
                                                ,@(if (%%memq 'expansion jazz:compile-options) `("-expansion") '())
                                                ,@(if (jazz:build-target) `("-target" ,(symbol->string (jazz:build-target))) '())
                                                ,@(if (jazz:save-emit?) `("-emit") '())

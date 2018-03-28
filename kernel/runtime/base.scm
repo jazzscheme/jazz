@@ -145,6 +145,24 @@
          (%%string=? (%%substring str 0 tl) target))))
 
 
+(define (jazz:string-search str target)
+  (let ((sl (%%string-length str))
+        (tl (%%string-length target)))
+    (let iter ((n 0))
+      (let ((end (%%fx+ n tl)))
+        (if (%%fx<= end sl)
+            (if (%%string=? (%%substring str n end) target)
+                n
+              (iter (%%fx+ n 1)))
+          #f)))))
+
+
+(define (jazz:string-contains? str target)
+  (if (jazz:string-search str target)
+      #t
+    #f))
+
+
 (define (jazz:string-downcase str)
   (list->string (map char-downcase (string->list str))))
 

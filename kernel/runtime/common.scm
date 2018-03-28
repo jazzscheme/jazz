@@ -74,6 +74,18 @@
 
 
 ;;;
+;;;; Configure
+;;;
+
+
+(define jazz:enable-track-scheme?
+  (jazz:string-contains? (configure-command-string) "--enable-track-scheme"))
+
+(define jazz:enable-debug-garbage-collect?
+  (jazz:string-contains? (configure-command-string) "--enable-debug-garbage-collect"))
+
+
+;;;
 ;;;; Configuration
 ;;;
 
@@ -85,7 +97,7 @@
   `(,@(if jazz:kernel-debug-environments? '(debug-environments) '())
     ,@(if jazz:kernel-debug-location? '(debug-location) '())
     ,@(if jazz:kernel-debug-source? '(debug-source) '())
-    track-scheme))
+    ,@(if jazz:enable-track-scheme? '(track-scheme) '())))
 
 (jazz:define-variable jazz:link
   #f)

@@ -103,6 +103,15 @@
 
 
 ;;;
+;;;; Configure
+;;;
+
+
+(native jazz:enable-track-scheme?)
+(native jazz:enable-debug-garbage-collect?)
+
+
+;;;
 ;;;; Continuation
 ;;;
 

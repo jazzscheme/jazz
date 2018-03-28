@@ -605,7 +605,15 @@
   (let ((table (jazz:repository-packages-table repository)))
     (jazz:iterate-table-safe table
       (lambda (name package)
-        (jazz:setup-package package)))))
+        (jazz:setup-package package)))
+    #; ;; this removes the randomness of scanning an eq? table
+       ;; and can sometimes be usefull for debugging purposes
+    (for-each (lambda (pair)
+                (jazz:setup-package (%%cdr pair)))
+              (jazz:sort-list (lambda (x y)
+                                (%%string<? (%%symbol->string (%%car x))
+                                            (%%symbol->string (%%car y))))
+                              (%%table->list table)))))
 
 
 (define (jazz:repository-packages repository)

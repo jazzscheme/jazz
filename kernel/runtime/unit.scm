@@ -2077,7 +2077,7 @@
 (define (jazz:load-resource unit-name loading resource . rest)
   (let ((quiet? (if (%%null? rest) #f (%%car rest))))
     (if (jazz:unit-verbose?)
-        (pp unit-name))
+        (pretty-print unit-name))
     (jazz:with-verbose (jazz:load-verbose?) loading (jazz:resource-pathname resource)
       (lambda ()
         (jazz:load-file (%%list

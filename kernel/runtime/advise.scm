@@ -65,7 +65,7 @@
 
 (define (jazz:debug-table-assert name table)
   (if (eq? (jazz:debugging-table-scan) table)
-      (jazz:error "Calling prohibited {a} while scanning table: {a}" name table)))
+      (jazz:error "Calling {a} while scanning table: {a}" name table)))
 
 
 (define (jazz:debug-table-find rest)
@@ -111,4 +111,11 @@
   (jazz:advise 'table-merge!     jazz:debug-table-advice)
   (jazz:advise '##table-merge!   jazz:debug-table-advice)
   (jazz:advise 'table->list      jazz:debug-table-advice)
-  (jazz:advise '##table->list    jazz:debug-table-advice)))
+  (jazz:advise '##table->list    jazz:debug-table-advice))
+
+
+(cond-expand
+  (core
+   (if jazz:kernel-mutable-bindings?
+       (jazz:debug-table-scan)))
+  (else)))

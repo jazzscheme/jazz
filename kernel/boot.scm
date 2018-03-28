@@ -99,6 +99,10 @@
       
       ;; hack around loading header being very
       ;; time consuming because of gambit's header
+      #;
+      ;; comment for the time being because it is incorrect
+      ;; to have only one .o1 for every build especially now
+      ;; that we can build using different gambits
       (let ((path (string-append jazz:source "kernel/syntax/header"))
             (src (string-append jazz:source "kernel/syntax/header.scm"))
             (o1 (string-append jazz:source "kernel/syntax/header.o1"))

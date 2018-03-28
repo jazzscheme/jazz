@@ -87,7 +87,7 @@
   
   (let* ((downcase-name (downcase (%%symbol->string name)))
          (constructor (jazz:getf options constructor: #f))
-         (constructor-structure? (jazz:getf options constructor-structure?: #f))
+         (constructor-class? (jazz:getf options constructor-class?: #f))
          (predicate (jazz:getf options predicate: #f))
          (accessors-type (jazz:getf options accessors-type: 'function))
          (accessors-prefix (case accessors-type ((macro) "%%") (else "jazz:")))
@@ -102,11 +102,11 @@
     `(begin
        ,@(if (%%not constructor)
              '()
-           (if (%%not constructor-structure?)
-               `((define (,constructor ,@all-slot-names)
-                   (%%record ',name ,@all-slot-names)))
-             `((define (,constructor structure ,@all-slot-names)
-                 (%%class-record structure ,@all-slot-names)))))
+           (if constructor-class?
+               `((define (,constructor class ,@all-slot-names)
+                   (%%class-record class ,@all-slot-names)))
+             `((define (,constructor ,@all-slot-names)
+                 (%%record ',name ,@all-slot-names)))))
        ,@(if (%%not predicate)
              '()
            `((define (,predicate obj)

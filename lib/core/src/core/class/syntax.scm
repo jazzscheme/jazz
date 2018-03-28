@@ -410,7 +410,7 @@
 ;;;
 
 
-(jazz:define-structure jazz:Class jazz:Category (constructor: %%allocate-class constructor-structure?: #t accessors-type: macro)
+(jazz:define-structure jazz:Class jazz:Category (constructor: %%allocate-class constructor-class?: #t accessors-type: macro)
   ((ascendant       accessors: generate)
    (interfaces      accessors: generate)
    (slots           accessors: generate)
@@ -427,7 +427,7 @@
 ;;;
 
 
-(jazz:define-structure jazz:Interface jazz:Category (constructor: %%allocate-interface constructor-structure?: #t accessors-type: macro)
+(jazz:define-structure jazz:Interface jazz:Category (constructor: %%allocate-interface constructor-class?: #t accessors-type: macro)
   ((ascendants getter: generate)
    (rank       getter: generate)))
 
@@ -446,7 +446,7 @@
 ;;;
 
 
-(jazz:define-structure jazz:Slot jazz:Field (constructor: %%allocate-slot constructor-structure?: #t accessors-type: macro)
+(jazz:define-structure jazz:Slot jazz:Field (constructor: %%allocate-slot constructor-class?: #t accessors-type: macro)
   ((offset     getter: generate)
    (initialize getter: generate setter: generate)))
 

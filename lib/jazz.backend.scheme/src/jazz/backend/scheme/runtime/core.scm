@@ -527,6 +527,9 @@
 (define (jazz:flalloc)
   (##subtype-set! (%%f64vector .0) 30))
 
+(define (jazz:flref fl ignore)
+  (%%unsafe-f64vector-ref fl 0))
+
 (define (jazz:flset! fl ignore val)
   (%%unsafe-f64vector-set! fl 0 val))
 

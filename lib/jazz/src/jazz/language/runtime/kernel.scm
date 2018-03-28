@@ -341,6 +341,7 @@
 (native undocumented jazz:sharp/sharp/fl/ <fl^fl:fl>)
 
 (native jazz:flalloc <:fl>)
+(native jazz:flref)
 (native jazz:flset!)
 
 

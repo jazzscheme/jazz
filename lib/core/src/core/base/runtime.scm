@@ -644,11 +644,11 @@
 
 
 (define (jazz:values-ref values n)
-  (%%vector-ref values n))
+  (%%unsafe-vector-ref values n))
 
 
 (define (jazz:values-set! values n obj)
-  (%%vector-set! values n obj))
+  (%%unsafe-vector-set! values n obj))
 
 
 ;;;

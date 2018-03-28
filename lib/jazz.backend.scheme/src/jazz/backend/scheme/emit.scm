@@ -670,8 +670,8 @@
 (jazz:add-primitive-patterns     'scheme.language.runtime:vector-ref                  '((%%vector-ref    <vector^fb:any>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime:vector-set!                 '((%%vector-set!   <vector^fb^any:void>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-ref             '((%%vector-ref    <values^fb:any>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-set!            '((%%vector-set!   <values^fb^any:void>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-ref             '((%%unsafe-vector-ref  <values^fb:any>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-set!            '((%%unsafe-vector-set! <values^fb^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:table-ref                   '((%%table-ref  <table^any:any>) (%%table-ref    <table^any^any:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:table-set!                  '((%%table-set! <table^any^any:void>)))
@@ -787,7 +787,8 @@
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-will                   '((%%make-will      <any*:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-parameter              '((%%make-parameter <any*:any>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((%%unsafe-f64vector-set! <fl^fb^fv:void>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flref                  '((%%unsafe-f64vector-ref <fv^fb:fl>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((%%unsafe-f64vector-set! <fv^fb^fv:void>)))
 
 (%%when (%%not jazz:debug-user?)
   (jazz:add-primitive-patterns 'jazz.language.runtime.functional:element            '((list-ref <list^int:any>) (%%vector-ref    <vector^int:any>)      (%%string-ref    <string^int:char>)))

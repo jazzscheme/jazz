@@ -180,7 +180,7 @@
               jazz:platform-files)))
 
 
-(define (jazz:build-cairo descriptor #!key (unit #f) (force? #f))
+(define (jazz:build-cairo descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:cairo-units))
     (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))

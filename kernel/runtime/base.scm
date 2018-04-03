@@ -237,12 +237,15 @@
 ;;;
 
 
-(define jazz:pathname-type
-  (lambda (pathname)
-    (let ((type (file-type pathname)))
-      (if (eq? type 'regular)
-          'file
-        type))))
+(define (jazz:pathname-type pathname)
+  (let ((type (file-type pathname)))
+    (if (eq? type 'regular)
+        'file
+      type)))
+
+(define (jazz:pathname-link? pathname)
+  (let ((info (file-info pathname #f)))
+    (%%eq? (file-info-type info) 'symbolic-link)))
 
 (define jazz:pathname-exists?
   file-exists?)

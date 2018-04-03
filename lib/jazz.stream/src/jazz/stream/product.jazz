@@ -1,0 +1,143 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Stream Product
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.stream.product jazz
+
+
+(import (jazz.io))
+
+
+;;;
+;;;; Build
+;;;
+
+
+(cond-expand
+  (cocoa
+    (define stream-flags
+      (let ((gstreamer-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/include/gstreamer-1.0"))
+            (glib-include-path      (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/include/glib-2.0"))
+            (glib-lib-include-path  (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/lib/glib-2.0/include"))
+            (gstreamer-lib-path     (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/lib")))
+        ;; relocated from the following calls
+        ;; $ pkg-config --cflags gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0
+        ;; $ pkg-config --libs gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0
+        (let ((cc-flags (string-append "-D_REENTRANT -I" gstreamer-include-path " -I" glib-include-path " -I" glib-lib-include-path))
+              (ld-flags (string-append "-L" gstreamer-lib-path " -lgstapp-1.0 -lgstbase-1.0 -lgstpbutils-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0 -lintl -Wl,-framework -Wl,CoreFoundation")))
+          (list cc-flags ld-flags)))))
+  (windows
+    (define stream-flags
+      (let ((gstreamer-include-path  (quote-jazz-pathname "lib/jazz.stream/foreign/windows/gstreamer/include/gstreamer-1.0"))
+            (gstreamer-lib-path      (quote-jazz-pathname "lib/jazz.stream/foreign/windows/gstreamer/lib"))
+            (glib-include-path       (quote-jazz-pathname "lib/jazz.stream/foreign/windows/glib/include/glib-2.0"))
+            (glibconfig-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/windows/glib/include"))
+            (glib-lib-path           (quote-jazz-pathname "lib/jazz.stream/foreign/windows/glib/lib"))
+            (gettext-include-path    (quote-jazz-pathname "lib/jazz.stream/foreign/windows/gettext/include"))
+            (gettext-lib-path        (quote-jazz-pathname "lib/jazz.stream/foreign/windows/gettext/lib")))
+        (let ((cc-flags (string-append "-I" gstreamer-include-path " -I" glib-include-path " -I" glibconfig-include-path " -I" gettext-include-path))
+              (ld-flags (string-append "-L" gstreamer-lib-path " -L" glib-lib-path " -L" gettext-lib-path " -lgstreamer")))
+          (list cc-flags ld-flags)))))
+  (else
+    (define stream-flags
+      (let ((cc-flags (pkg-config-cflags "gstreamer-1.0"))
+            (ld-flags (pkg-config-libs "gstreamer-1.0")))
+        (list cc-flags ld-flags)))))
+
+
+(define stream-units
+  (bind (cc-flags ld-flags) stream-flags
+    `((jazz.stream.foreign cc-options: ,cc-flags ld-options: ,ld-flags))))
+
+
+(cond-expand
+  (cocoa
+   (define (copy-platform-files)
+     (let ((src-dir {Directory Jazz "lib" "jazz.stream" "foreign" "mac" "gstreamer"})
+           (dst-dir {Directory Build "gstreamer"}))
+       (define (install-filename path)
+         (let ((src (new-file src-dir path))
+               (dst (new-file dst-dir path)))
+           (install-file src dst
+             feedback: (lambda (action pathname)
+                         (build-feedback "; {a} {a}..." action (get-name pathname))))))
+       
+       (define (install-dirname path (src #f) (dst #f))
+         (let ((src (new-directory src-dir (or src path)))
+               (dst (new-directory dst-dir (or dst path))))
+           (install-directory src dst
+             feedback: (let ((first? #t))
+                         (lambda (action pathname)
+                           (when first?
+                             (build-feedback "; {a} {a}..." action (get-name pathname))
+                             (set! first? #f)))))))
+       
+       (initialize-aliases)
+       (install-dirname "lib")
+       (install-dirname "libexec"))))
+  (else))
+
+
+(define (build-stream descriptor #!key (unit #f) (skip-references? #f) (force? #f))
+  (let ((unit-specs stream-units))
+    (custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
+    (if (or (not unit) (not (assq unit unit-specs)))
+        (build-product-descriptor descriptor))))
+
+
+(define (stream-library-options descriptor add-language)
+  (cond-expand
+    (cocoa
+     (let ((gstreamer-lib-path (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/lib")))
+       (string-append "-L" gstreamer-lib-path " -lgstapp-1.0 -lgstbase-1.0 -lgstpbutils-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0 -lintl -Wl,-framework -Wl,CoreFoundation")))
+    (windows
+     (let ((gstreamer-lib-path (jazz-pathname "lib/jazz.stream/foreign/windows/gstreamer/lib"))
+           (glib-lib-path (jazz-pathname "lib/jazz.stream/foreign/windows/glib/lib"))
+           (gettext-lib-path (jazz-pathname "lib/jazz.stream/foreign/windows/gettext/lib")))
+       (string-append "-L" gstreamer-lib-path " -L" glib-lib-path " -L" gettext-lib-path " -lgstreamer")))
+    (else
+     (pkg-config-libs "gstreamer-1.0"))))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(register-product 'jazz.stream
+  title: "Stream"
+  build: build-stream
+  library-options: stream-library-options))

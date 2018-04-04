@@ -93,18 +93,15 @@
           (##write-string " " output)
           (##write-string (system-type-string) output)
           (##write-string " " output)
-          (##write (configure-command-string) output)
-          (##newline output)
+          (##write-string (configure-command-string) output)
           (get-output-string output)))
       
       ;; hack around loading header being very
       ;; time consuming because of gambit's header
-      #;
-      ;; comment for the time being because it is incorrect
-      ;; to have only one .o1 for every build especially now
-      ;; that we can build using different gambits
-      (let ((path (string-append jazz:source "kernel/syntax/header"))
-            (src (string-append jazz:source "kernel/syntax/header.scm"))
+      ;; note that this is note completely ideal as
+      ;; the header will keep being regenerated if we
+      ;; alternate building using different gambits
+      (let ((src (string-append jazz:source "kernel/syntax/header.scm"))
             (o1 (string-append jazz:source "kernel/syntax/header.o1"))
             (ver (string-append jazz:source "kernel/syntax/header.ver"))
             (version (print-version)))
@@ -112,7 +109,7 @@
           ;; delete it first so gambit doesn't generate .o2 .o3 ...
           (if (file-exists? o1)
               (delete-file o1))
-          (compile-file path)
+          (compile-file src)
           (file-last-access-and-modification-times-set! o1 (file-last-access-time o1) (file-last-modification-time src))
           (call-with-output-file ver
             (lambda (output)

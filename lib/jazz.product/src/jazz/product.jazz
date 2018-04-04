@@ -54,7 +54,7 @@
 
 (cond-expand
   (cocoa
-    (definition public (install-application descriptor destination (name: name #f) (bundle: bundle #f) (application?: application? #t) (executable?: executable? #t) (source-access?: source-access? #f) (scriptable?: scriptable? #f) (platform?: platform? #f) (opengl?: opengl? #f) (git?: git? #f) (audio?: audio? #f) (files: files '()) (directories: directories '()) (ignored-contents: ignored-contents #f) (ignored-macosx: ignored-macosx #f))
+    (definition public (install-application descriptor destination (name: name #f) (bundle: bundle #f) (application?: application? #t) (executable?: executable? #t) (source-access?: source-access? #f) (scriptable?: scriptable? #f) (platform?: platform? #f) (opengl?: opengl? #f) (git?: git? #f) (gstreamer?: gstreamer? #f) (files: files '()) (directories: directories '()) (ignored-contents: ignored-contents #f) (ignored-macosx: ignored-macosx #f))
       (let ((bundle (or bundle (product-descriptor-build-bundle descriptor))))
         (when bundle
           (let ((src-root {Directory Build})
@@ -68,15 +68,13 @@
                                         "libpixman-1.0.dylib"
                                         "libpng16.16.dylib"))
                   (opengl-libraries '("libGLEW.dylib"))
-                  (git-libraries '("libgit2.22.dylib"))
-                  (audio-libraries '())) ;; cricket is a static library on mac
+                  (git-libraries '("libgit2.22.dylib")))
               (let ((src-contents (new-directory src-app '("Contents")))
                     (dst-contents (new-directory dst-app '("Contents"))))
                 (let ((dst-macos (new-directory dst-contents '("MacOS")))
                       (libraries (append (if platform? platform-libraries '())
                                          (if opengl? opengl-libraries '())
-                                         (if git? git-libraries '())
-                                         (if audio? audio-libraries '()))))
+                                         (if git? git-libraries '()))))
                   ;; bundle
                   (install-directory (new-directory src-app '("Contents")) (new-directory dst-app '("Contents"))
                     filter: (lambda (action pathname)
@@ -91,6 +89,7 @@
                                                  (let ((filename (get-name pathname)))
                                                    (or (filename=? filename "lib")
                                                        (member? filename libraries test: filename=?)
+                                                       (filename=? filename "gstreamer")
                                                        (and ignored-macosx
                                                             (member? filename ignored-macosx test: filename=?)))))))
                                       (else
@@ -103,6 +102,11 @@
                                 feedback: (lambda (action pathname)
                                             (build-feedback "; {a} {a}..." action (get-name pathname)))))
                             libraries)
+                  ;; gstreamer
+                  (when gstreamer?
+                    (install-directory (new-directory src-root "gstreamer") (new-directory dst-macos "gstreamer")
+                      feedback: (lambda (action pathname)
+                                  (build-feedback "; {a} {a}..." action (get-name pathname)))))
                   ;; lib
                   (install-directory (new-directory src-root "lib") (new-directory dst-macos "lib")
                     filter: (let ((ignored-extensions (ignored-extensions source-access? scriptable?)))
@@ -112,7 +116,7 @@
                     feedback: (lambda (action pathname)
                                 (build-feedback "; {a} {a}..." action (get-name pathname))))))))))))
   (windows
-    (definition public (install-application descriptor destination (name: name #f) (application?: application? #t) (executable?: executable? #t) (source-access?: source-access? #f) (scriptable?: scriptable? #f) (platform?: platform? #f) (opengl?: opengl? #f) (git?: git? #f) (audio?: audio? #f) (files: files '()) (directories: directories '()) (ignored-contents: ignored-contents #f) (ignored-macosx: ignored-macosx #f))
+    (definition public (install-application descriptor destination (name: name #f) (application?: application? #t) (executable?: executable? #t) (source-access?: source-access? #f) (scriptable?: scriptable? #f) (platform?: platform? #f) (opengl?: opengl? #f) (git?: git? #f) (gstreamer?: gstreamer? #f) (files: files '()) (directories: directories '()) (ignored-contents: ignored-contents #f) (ignored-macosx: ignored-macosx #f))
       (let ((descriptor-name (product-descriptor-name descriptor)))
         (let ((src-root {Directory Build})
               (dst-root (if application? (new-directory destination (or name (->string descriptor-name))) destination))
@@ -126,8 +130,7 @@
                                     "libpng16-16.dll"
                                     "zlib1.dll"))
               (opengl-libraries '("glew32.dll"))
-              (git-libraries '("libgit2.dll"))
-              (audio-libraries '("cricket.dll")))
+              (git-libraries '("libgit2.dll")))
           ;; appl
           (for-each (lambda (library)
                       (install-file (new-file src-root library) (new-file dst-root library)
@@ -141,8 +144,12 @@
                                     (build-feedback "; {a} {a}..." action (get-name pathname)))))
                     (append (if platform? platform-libraries '())
                             (if opengl? opengl-libraries '())
-                            (if git? git-libraries '())
-                            (if audio? audio-libraries '())))
+                            (if git? git-libraries '())))
+          ;; gstreamer
+          (when gstreamer?
+            (install-directory (new-directory src-root "gstreamer") (new-directory dst-macos "gstreamer")
+              feedback: (lambda (action pathname)
+                          (build-feedback "; {a} {a}..." action (get-name pathname)))))
           ;; lib
           (install-directory (new-directory src-root "lib") (new-directory dst-root "lib")
             filter: (let ((ignored-extensions (ignored-extensions source-access? scriptable?)))
@@ -164,14 +171,13 @@
                                     (build-feedback "; {a} {a}..." action (get-name pathname)))))
                     directories)))))
   (else
-    (definition public (install-application descriptor destination (name: name #f) (application?: application? #t) (executable?: executable? #t) (source-access?: source-access? #f) (scriptable?: scriptable? #f) (platform?: platform? #f) (opengl?: opengl? #f) (git?: git? #f) (audio?: audio? #f) (files: files '()) (directories: directories '()) (ignored-contents: ignored-contents #f) (ignored-macosx: ignored-macosx #f))
+    (definition public (install-application descriptor destination (name: name #f) (application?: application? #t) (executable?: executable? #t) (source-access?: source-access? #f) (scriptable?: scriptable? #f) (platform?: platform? #f) (opengl?: opengl? #f) (git?: git? #f) (gstreamer?: gstreamer? #f) (files: files '()) (directories: directories '()) (ignored-contents: ignored-contents #f) (ignored-macosx: ignored-macosx #f))
       (let ((descriptor-name (product-descriptor-name descriptor)))
         (let ((src-root {Directory Build})
               (dst-root (if application? (new-directory destination (or name (->string descriptor-name))) destination))
               (platform-libraries '())
               (opengl-libraries '())
-              (git-libraries '())
-              (audio-libraries '()))
+              (git-libraries '()))
           ;; appl
           (for-each (lambda (library)
                       (install-file (new-file src-root library) (new-file dst-root library)
@@ -187,8 +193,12 @@
                                     (build-feedback "; {a} {a}..." action (get-name pathname)))))
                     (append (if platform? platform-libraries '())
                             (if opengl? opengl-libraries '())
-                            (if git? git-libraries '())
-                            (if audio? audio-libraries '())))
+                            (if git? git-libraries '())))
+          ;; gstreamer
+          (when gstreamer?
+            (install-directory (new-directory src-root "gstreamer") (new-directory dst-macos "gstreamer")
+              feedback: (lambda (action pathname)
+                          (build-feedback "; {a} {a}..." action (get-name pathname)))))
           ;; lib
           (install-directory (new-directory src-root "lib") (new-directory dst-root "lib")
             filter: (let ((ignored-extensions (ignored-extensions source-access? scriptable?)))

@@ -54,11 +54,11 @@
 
 
 (define (parse-remotable-stub walker resume declaration rest)
-  (receive (access rest) (parse-modifiers walker resume declaration remotable-stub-modifiers rest)
+  (receive (access modifiers rest) (parse-modifiers walker resume declaration remotable-stub-modifiers rest)
     (let ((name (car rest))
           (rest (cdr rest)))
       (receive (ascendant-name body) (parse-keywords remotable-stub-keywords rest)
-        (values name #f access ascendant-name body)))))
+        (values name #f access modifiers ascendant-name body)))))
 
 
 (define method-stub-modifiers
@@ -68,16 +68,16 @@
 
 
 (define (parse-method-stub walker resume declaration rest)
-  (receive (access invocation passage rest) (parse-modifiers walker resume declaration method-stub-modifiers rest)
+  (receive (access invocation passage modifiers rest) (parse-modifiers walker resume declaration method-stub-modifiers rest)
     (let* ((signature (car rest))
            (name (car signature))
            (parameters (cdr signature))
            (body (cdr rest)))
-      (values name Any access invocation passage parameters body))))
+      (values name Any access invocation passage modifiers parameters body))))
 
 
 (define (expand-remotable-stub walker resume declaration environment rest)
-  (receive (name type stub-access ascendant-name body) (parse-remotable-stub walker resume declaration rest)
+  (receive (name type stub-access stub-modifiers ascendant-name body) (parse-remotable-stub walker resume declaration rest)
     (define (add name suffix)
       (string->symbol (string-append (symbol->string name) suffix)))
     
@@ -120,7 +120,7 @@
           (remotes (new-queue)))
       (for-each (lambda (method-form)
                   (assert (eq? (car method-form) 'method)
-                    (receive (name type access invocation passage parameters body) (parse-method-stub walker resume declaration (cdr method-form))
+                    (receive (name type access invocation passage modifiers parameters body) (parse-method-stub walker resume declaration (cdr method-form))
                       (receive (parameters positional rest) (parse-parameters parameters)
                         (let ((invoker (case invocation ((post) 'post-remote) ((exec) 'exec-remote) ((call) 'call-remote)))
                               (dispatch (string->symbol (string-append (symbol->string name))))
@@ -153,7 +153,7 @@
                ,local-class)
              (method override (remote-class self)
                ,remote-class))
-           (interface ,stub-access ,stub-interface extends ,(if (specified? ascendant-name) (add ascendant-name "-Stub") 'Remotable-Stub) metaclass ,interface-class
+           (interface ,@stub-modifiers ,stub-interface extends ,(if (specified? ascendant-name) (add ascendant-name "-Stub") 'Remotable-Stub) metaclass ,interface-class
              ,@(queue-list proxies))
            (class package ,local-class extends ,(if (specified? ascendant-name) (add ascendant-name "-Local-Proxy") 'Local-Proxy) implements ,stub-interface
              (method override (stub-reference self)

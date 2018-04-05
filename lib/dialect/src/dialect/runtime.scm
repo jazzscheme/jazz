@@ -397,6 +397,7 @@
 (jazz:define-class jazz:Declaration jazz:Lexical-Binding ()
   ((access        getter: generate)
    (compatibility getter: generate)
+   (modifiers     getter: generate)
    (attributes    getter: generate)
    (toplevel      getter: generate setter: generate)
    (parent        getter: generate setter: generate)
@@ -695,7 +696,7 @@
 (jazz:define-method (jazz:resolve-reference (jazz:Declaration-Reference declaration-reference) module-declaration)
   (or (jazz:get-declaration-reference-declaration declaration-reference)
       (receive (name symbol) (jazz:parse-exported-symbol module-declaration (jazz:get-declaration-reference-name declaration-reference))
-        (let ((declaration (jazz:new-export-declaration name #f 'public 'uptodate '() #f symbol)))
+        (let ((declaration (jazz:new-export-declaration name #f 'public 'uptodate '() '() #f symbol)))
           (jazz:set-declaration-reference-declaration declaration-reference declaration)
           declaration))))
 
@@ -737,7 +738,7 @@
   (or (jazz:get-declaration-reference-declaration declaration-reference)
       (receive (name symbol) (jazz:parse-exported-symbol module-declaration (jazz:get-declaration-reference-name declaration-reference))
         (let ((locator (jazz:compose-reference (jazz:get-lexical-binding-name module-declaration) name)))
-          (let ((declaration (jazz:new-export-declaration name #f 'public 'uptodate '() module-declaration locator)))
+          (let ((declaration (jazz:new-export-declaration name #f 'public 'uptodate '() '() module-declaration locator)))
             (jazz:set-declaration-reference-declaration declaration-reference declaration)
             declaration)))))
 
@@ -790,7 +791,7 @@
       (and resource
            (%%get-resource-package resource))))
   
-  (let ((new-declaration (jazz:allocate-unit-declaration name #f #f access 'uptodate '() #f parent #f #f #f (determine-package) requires)))
+  (let ((new-declaration (jazz:allocate-unit-declaration name #f #f access 'uptodate '() '() #f parent #f #f #f (determine-package) requires)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -896,13 +897,13 @@
    (local-macros    getter: generate)))
 
 
-(define (jazz:new-module-declaration name access parent walker dialect-name dialect-invoice)
+(define (jazz:new-module-declaration name access modifiers parent walker dialect-name dialect-invoice)
   (define (determine-package)
     (let ((resource (jazz:requested-unit-resource)))
       (and resource
            (%%get-resource-package resource))))
   
-  (let ((new-declaration (jazz:allocate-module-declaration name #f #f access 'uptodate '() #f parent #f #f #f (jazz:make-access-lookups jazz:public-access) (jazz:new-queue) #f walker (determine-package) dialect-name dialect-invoice '() '() '() '() (%%make-table test: eq?))))
+  (let ((new-declaration (jazz:allocate-module-declaration name #f #f access 'uptodate modifiers '() #f parent #f #f #f (jazz:make-access-lookups jazz:public-access) (jazz:new-queue) #f walker (determine-package) dialect-name dialect-invoice '() '() '() '() (%%make-table test: eq?))))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -1257,6 +1258,7 @@
         (%%assert (%%symbol? name)
           (values name
                   access
+                  '()
                   dialect-name
                   dialect-transformations
                   dialect-src
@@ -1318,21 +1320,21 @@
 
 
 (define (jazz:parse-module-declaration partial-form)
-  (receive (name access dialect-name dialect-transformations dialect-src body) (jazz:parse-module partial-form)
+  (receive (name access modifiers dialect-name dialect-transformations dialect-src body) (jazz:parse-module partial-form)
     (if (and (jazz:requested-unit-name) (%%neq? name (jazz:requested-unit-name)))
         (jazz:error "Module at {s} is defining {s}" (jazz:requested-unit-name) name)
       (parameterize ((jazz:walk-context (jazz:new-walk-context #f name #f)))
         (let* ((dialect-invoice (and dialect-transformations (jazz:load-dialect-invoice dialect-name dialect-transformations)))
                (dialect (jazz:require-dialect dialect-name))
                (walker (jazz:dialect-walker dialect)))
-          (let ((declaration (jazz:walk-module-declaration walker #f name access dialect-name dialect-invoice dialect-src body)))
+          (let ((declaration (jazz:walk-module-declaration walker #f name access modifiers dialect-name dialect-invoice dialect-src body)))
             #; ;; todo validate outline errors
             (jazz:validate-walk-problems walker)
             declaration))))))
 
 
-(define (jazz:walk-module-declaration walker actual name access dialect-name dialect-invoice dialect-src body)
-  (let ((declaration (or actual (jazz:new-module-declaration name access #f walker dialect-name dialect-invoice))))
+(define (jazz:walk-module-declaration walker actual name access modifiers dialect-name dialect-invoice dialect-src body)
+  (let ((declaration (or actual (jazz:new-module-declaration name access modifiers #f walker dialect-name dialect-invoice))))
     (%%when dialect-invoice
       (jazz:add-module-import walker #f declaration dialect-src declaration dialect-invoice #f))
     ;; reset the walker if it was cached
@@ -1378,7 +1380,7 @@
 
 
 (define (jazz:generate-module partial-form #!optional (backend-name 'scheme))
-  (receive (name access dialect-name dialect-transformations dialect-src body) (jazz:parse-module partial-form)
+  (receive (name access modifiers dialect-name dialect-transformations dialect-src body) (jazz:parse-module partial-form)
     (if (and (jazz:requested-unit-name) (%%neq? name (jazz:requested-unit-name)))
         (jazz:error "Module at {s} is defining {s}" (jazz:requested-unit-name) name)
       (parameterize ((jazz:walk-context (jazz:new-walk-context #f name #f)))
@@ -1391,7 +1393,7 @@
                (body (jazz:dialect-wrap dialect body))
                (declaration (jazz:call-with-catalog-entry-lock name
                               (lambda ()
-                                (let ((declaration (jazz:walk-module-declaration walker actual name access dialect-name dialect-invoice dialect-src body)))
+                                (let ((declaration (jazz:walk-module-declaration walker actual name access modifiers dialect-name dialect-invoice dialect-src body)))
                                   (jazz:set-catalog-entry name declaration)
                                   declaration))))
                (environment (%%cons declaration (jazz:walker-environment walker)))
@@ -1415,7 +1417,7 @@
                (walker (jazz:dialect-walker dialect))
                (backend (and backend-name (jazz:require-backend backend-name)))
                (resume #f)
-               (declaration (jazz:walk-module-declaration walker #f name 'public dialect-name dialect-invoice dialect-src body))
+               (declaration (jazz:walk-module-declaration walker #f name 'public '() dialect-name dialect-invoice dialect-src body))
                (environment (%%cons declaration (jazz:walker-environment walker)))
                (body (jazz:walk-namespace walker resume declaration environment body)))
           (jazz:validate-walk-problems walker)
@@ -1721,8 +1723,8 @@
   ((symbol getter: generate)))
 
 
-(define (jazz:new-export-declaration name type access compatibility attributes parent symbol)
-  (let ((new-declaration (jazz:allocate-export-declaration name type #f access compatibility attributes #f parent #f #f #f symbol)))
+(define (jazz:new-export-declaration name type access compatibility modifiers attributes parent symbol)
+  (let ((new-declaration (jazz:allocate-export-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f symbol)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -1805,8 +1807,8 @@
   ((symbol getter: generate)))
 
 
-(define (jazz:new-export-syntax-declaration name type access compatibility attributes parent symbol)
-  (let ((new-declaration (jazz:allocate-export-syntax-declaration name type #f access compatibility attributes #f parent #f #f #f symbol)))
+(define (jazz:new-export-syntax-declaration name type access compatibility modifiers attributes parent symbol)
+  (let ((new-declaration (jazz:allocate-export-syntax-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f symbol)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -1842,7 +1844,7 @@
 
 
 (define (jazz:new-autoload-declaration name type parent module-declaration exported-module)
-  (let ((new-declaration (jazz:allocate-autoload-declaration name type #f 'public 'uptodate '() #f parent #f #f #f module-declaration exported-module #f)))
+  (let ((new-declaration (jazz:allocate-autoload-declaration name type #f 'public 'uptodate '() '() #f parent #f #f #f module-declaration exported-module #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -2765,8 +2767,8 @@
    (body      getter: generate setter: generate)))
 
 
-(define (jazz:new-macro-declaration name type access compatibility attributes parent signature)
-  (let ((new-declaration (jazz:allocate-macro-declaration name type #f access compatibility attributes #f parent #f #f #f signature #f)))
+(define (jazz:new-macro-declaration name type access compatibility modifiers attributes parent signature)
+  (let ((new-declaration (jazz:allocate-macro-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -2805,27 +2807,27 @@
 
 
 (define (jazz:parse-macro walker resume declaration rest)
-  (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:macro-modifiers rest)
+  (receive (access compatibility modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:macro-modifiers rest)
     (let* ((signature (jazz:source-code (%%car rest)))
            (body (%%cdr rest))
            (name (%%desourcify (%%car signature)))
            (type jazz:Any)
            (parameters (%%cdr signature)))
-      (values name type access compatibility parameters body))))
+      (values name type access compatibility modifiers parameters body))))
 
 
 (define (jazz:walk-macro-declaration walker resume declaration environment form-src)
-  (receive (name type access compatibility parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name type access compatibility modifiers parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let ((signature (jazz:walk-parameters walker resume declaration environment parameters #t #f)))
       (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                 (jazz:new-macro-declaration name type access compatibility '() declaration signature))))
+                                 (jazz:new-macro-declaration name type access compatibility modifiers '() declaration signature))))
         (jazz:set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 
 
 (define (jazz:walk-macro walker resume declaration environment form-src)
-  (receive (name type access compatibility parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name type access compatibility modifiers parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let ((new-declaration (jazz:require-declaration declaration name)))
       (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
         (jazz:set-macro-declaration-signature new-declaration signature)
@@ -2871,7 +2873,7 @@
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Macro-Declaration declaration) meta)
-  `(macro ,(jazz:get-declaration-access declaration)
+  `(macro ,@(jazz:get-declaration-modifiers declaration)
           (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-macro-declaration-signature declaration)))))
 
 
@@ -2885,8 +2887,8 @@
    (body      getter: generate setter: generate)))
 
 
-(define (jazz:new-local-macro-declaration name type access compatibility attributes parent signature)
-  (let ((new-declaration (jazz:allocate-macro-declaration name type #f access compatibility attributes #f parent #f #f #f signature #f)))
+(define (jazz:new-local-macro-declaration name type access compatibility modifiers attributes parent signature)
+  (let ((new-declaration (jazz:allocate-macro-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -2923,10 +2925,10 @@
 
 
 (define (jazz:walk-local-macro-declaration walker resume declaration environment form-src)
-  (receive (name type access compatibility parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name type access compatibility modifiers parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
     (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
       (let* ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                  (jazz:new-local-macro-declaration name type access compatibility '() declaration signature)))
+                                  (jazz:new-local-macro-declaration name type access compatibility modifiers '() declaration signature)))
              (walked-body (jazz:walk-body walker resume new-declaration augmented-environment body)))
         (jazz:set-local-macro-declaration-signature new-declaration signature)
         (jazz:set-local-macro-declaration-body new-declaration walked-body)
@@ -2943,7 +2945,7 @@
 
 
 (define (jazz:walk-local-macro walker resume declaration environment form-src)
-  (receive (name type access compatibility parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name type access compatibility modifiers parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
     (jazz:require-declaration declaration name)))
 
 
@@ -2957,8 +2959,8 @@
    (body      getter: generate setter: generate)))
 
 
-(define (jazz:new-syntax-declaration name type access compatibility attributes parent signature syntax-form)
-  (let ((new-declaration (jazz:allocate-syntax-declaration name type #f access compatibility attributes #f parent #f #f #f signature #f)))
+(define (jazz:new-syntax-declaration name type access compatibility modifiers attributes parent signature syntax-form)
+  (let ((new-declaration (jazz:allocate-syntax-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -3066,11 +3068,11 @@
 
 
 (define (jazz:walk-syntax-declaration walker resume declaration environment form-src)
-  (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
+  (receive (access compatibility modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (let ((name (jazz:source-code (%%car rest)))
           (name-src (%%car rest)))
       (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                 (jazz:new-syntax-declaration name jazz:Any access compatibility '() declaration #f #f))))
+                                 (jazz:new-syntax-declaration name jazz:Any access compatibility modifiers '() declaration #f #f))))
         (jazz:set-declaration-source new-declaration form-src)
         (jazz:set-declaration-name-source new-declaration name-src)
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -3078,7 +3080,7 @@
 
 
 (define (jazz:walk-syntax walker resume declaration environment form-src)
-  (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
+  (receive (access compatibility modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (let* ((name (jazz:source-code (%%car rest)))
            (name-src (%%car rest))
            (body (%%cdr rest))
@@ -3101,8 +3103,8 @@
   ())
 
 
-(define (jazz:new-define-syntax-declaration name type access compatibility attributes parent signature syntax-form)
-  (let ((new-declaration (jazz:allocate-define-syntax-declaration name type #f access compatibility attributes #f parent #f #f #f signature #f)))
+(define (jazz:new-define-syntax-declaration name type access compatibility modifiers attributes parent signature syntax-form)
+  (let ((new-declaration (jazz:allocate-define-syntax-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -3159,11 +3161,11 @@
 
 
 (define (jazz:walk-define-syntax-declaration walker resume declaration environment form-src)
-  (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
+  (receive (access compatibility modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (let ((name (jazz:source-code (%%car rest)))
           (name-src (%%car rest)))
       (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                 (jazz:new-define-syntax-declaration name jazz:Any access compatibility '() declaration '() #f))))
+                                 (jazz:new-define-syntax-declaration name jazz:Any access compatibility modifiers '() declaration '() #f))))
         (jazz:set-declaration-source new-declaration form-src)
         (jazz:set-declaration-name-source new-declaration name-src)
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -3171,7 +3173,7 @@
 
 
 (define (jazz:walk-define-syntax walker resume declaration environment form-src)
-  (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
+  (receive (access compatibility modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (let* ((name (jazz:source-code (%%car rest)))
            (name-src (%%car rest))
            (body (%%cdr rest))
@@ -3194,8 +3196,8 @@
   ())
 
 
-(define (jazz:new-define-local-syntax-declaration name type access compatibility attributes parent signature syntax-form)
-  (let ((new-declaration (jazz:allocate-define-local-syntax-declaration name type #f access compatibility attributes #f parent #f #f #f signature #f)))
+(define (jazz:new-define-local-syntax-declaration name type access compatibility modifiers attributes parent signature syntax-form)
+  (let ((new-declaration (jazz:allocate-define-local-syntax-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -3219,12 +3221,12 @@
 
 
 (define (jazz:walk-define-local-syntax-declaration walker resume declaration environment form-src)
-  (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
+  (receive (access compatibility modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (let ((name (jazz:source-code (%%car rest)))
           (body (%%cdr rest)))
       (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment '() #t #t)
         (let* ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                    (jazz:new-define-local-syntax-declaration name jazz:Any access compatibility '() declaration signature #f)))
+                                    (jazz:new-define-local-syntax-declaration name jazz:Any access compatibility modifiers '() declaration signature #f)))
                (walked-body (jazz:walk-body walker resume new-declaration augmented-environment body)))
           (jazz:set-syntax-declaration-body new-declaration walked-body)
           (jazz:set-declaration-source new-declaration form-src)
@@ -3255,7 +3257,7 @@
 
 
 (define (jazz:walk-define-local-syntax walker resume declaration environment form-src)
-  (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
+  (receive (access compatibility modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (jazz:require-declaration declaration (jazz:source-code (%%car rest)))))
 
 
@@ -4546,26 +4548,36 @@
           (else (is-modifier? (%%cdr infos) x))))
   
   (define (skip-modifiers infos ls)
-    (if (and (%%pair? ls) (is-modifier? infos (jazz:unwrap-syntactic-closure (%%car ls))))
-        (skip-modifiers infos (%%cdr ls))
-      ls))
+    (define (skip orig ls)
+      (if (%%pair? ls)
+          (let ((expr (jazz:unwrap-syntactic-closure (%%car ls))))
+            (if (is-modifier? infos expr)
+                (skip (%%cons expr orig) (%%cdr ls))
+              (values (jazz:reverse! orig) ls)))
+        (values (%%reverse orig) ls)))
+    
+    (skip '() ls))
   
   (define (get-modifier names from to)
-    (cond ((%%eq? from to) #f)
+    (cond ((%%eq? from to)
+           #f)
           ((%%memq (jazz:unwrap-syntactic-closure (%%car from)) names)
            (cond ((get-modifier names (%%cdr from) to)
                   => (lambda (x) (jazz:walk-error "Ambiguous modifiers: {s} {s}" walker resume declaration (%%car from) x)))
-                 (else (jazz:unwrap-syntactic-closure (%%car from)))))
-          (else (get-modifier names (%%cdr from) to))))
+                 (else
+                  (jazz:unwrap-syntactic-closure (%%car from)))))
+          (else
+           (get-modifier names (%%cdr from) to))))
   
-  (let ((modifiers rest)
-        (rest (skip-modifiers infos rest)))
-    (let lp ((ls infos) (res '()))
-         (cond ((%%null? ls)
-                (%%apply values (%%reverse (%%cons rest res))))
-               ((get-modifier (%%caar ls) modifiers rest)
-                => (lambda (x) (lp (%%cdr ls) (%%cons x res))))
-               (else (lp (%%cdr ls) (%%cons (%%cdar ls) res)))))))
+  (let ((modifiers rest))
+    (receive (originals rest) (skip-modifiers infos rest)
+      (let lp ((ls infos) (res '()))
+           (cond ((%%null? ls)
+                  (%%apply values (%%reverse (%%cons rest (%%cons originals res)))))
+                 ((get-modifier (%%caar ls) modifiers rest)
+                  => (lambda (x) (lp (%%cdr ls) (%%cons x res))))
+                 (else
+                  (lp (%%cdr ls) (%%cons (%%cdar ls) res))))))))
 
 
 ;;;
@@ -5591,7 +5603,7 @@
     (jazz:walk-error walker resume declaration form-src "Ill-formed native: {s}" (%%desourcify form-src)))
   
   (let ((rest (%%cdr (jazz:source-code form-src))))
-    (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:native-modifiers rest)
+    (receive (access compatibility modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:native-modifiers rest)
       (if (%%null? rest)
           (ill-formed)
         (let ((name (jazz:source-code (%%car rest)))
@@ -5600,17 +5612,17 @@
               (jazz:parse-specifier (%%cdr rest)
                 (lambda (specifier rest)
                   (if (%%null? rest)
-                      (values name name-src specifier access compatibility)
+                      (values name name-src specifier access compatibility modifiers)
                     (ill-formed))))
             (ill-formed)))))))
 
 
 (define (jazz:walk-native-declaration walker resume declaration environment form-src)
-  (receive (name name-src specifier access compatibility) (jazz:parse-native walker resume declaration form-src)
+  (receive (name name-src specifier access compatibility modifiers) (jazz:parse-native walker resume declaration form-src)
     (receive (name symbol) (jazz:parse-exported-symbol declaration name)
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any)))
         (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                   (jazz:new-export-declaration name type access compatibility '() declaration symbol))))
+                                   (jazz:new-export-declaration name type access compatibility modifiers '() declaration symbol))))
           (jazz:set-declaration-source new-declaration form-src)
           (jazz:set-declaration-name-source new-declaration name-src)
           (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -5618,7 +5630,7 @@
 
 
 (define (jazz:walk-native walker resume declaration environment form-src)
-  (receive (name name-src specifier access compatibility) (jazz:parse-native walker resume declaration form-src)
+  (receive (name name-src specifier access compatibility modifiers) (jazz:parse-native walker resume declaration form-src)
     (receive (name symbol) (jazz:parse-exported-symbol declaration name)
       (jazz:require-declaration declaration name))))
 
@@ -5641,7 +5653,7 @@
     (jazz:walk-error walker resume declaration form-src "Ill-formed native-syntax: {s}" (%%desourcify form-src)))
   
   (let ((rest (%%cdr (jazz:source-code form-src))))
-    (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:native-syntax-modifiers rest)
+    (receive (access compatibility modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:native-syntax-modifiers rest)
       (if (%%null? rest)
           (ill-formed)
         (let ((name (jazz:source-code (%%car rest)))
@@ -5650,17 +5662,17 @@
               (jazz:parse-specifier (%%cdr rest)
                 (lambda (specifier rest)
                   (if (%%null? rest)
-                      (values name name-src specifier access compatibility)
+                      (values name name-src specifier access compatibility modifiers)
                     (ill-formed))))
             (ill-formed)))))))
 
 
 (define (jazz:walk-native-syntax-declaration walker resume declaration environment form-src)
-  (receive (name name-src specifier access compatibility) (jazz:parse-native-syntax walker resume declaration form-src)
+  (receive (name name-src specifier access compatibility modifiers) (jazz:parse-native-syntax walker resume declaration form-src)
     (receive (name symbol) (jazz:parse-exported-symbol declaration name)
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any)))
         (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                   (jazz:new-export-syntax-declaration name type access compatibility '() declaration symbol))))
+                                   (jazz:new-export-syntax-declaration name type access compatibility modifiers '() declaration symbol))))
           (jazz:set-declaration-source new-declaration form-src)
           (jazz:set-declaration-name-source new-declaration name-src)
           (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -5668,7 +5680,7 @@
 
 
 (define (jazz:walk-native-syntax walker resume declaration environment form-src)
-  (receive (name name-src specifier access compatibility) (jazz:parse-native-syntax walker resume declaration form-src)
+  (receive (name name-src specifier access compatibility modifiers) (jazz:parse-native-syntax walker resume declaration form-src)
     (receive (name symbol) (jazz:parse-exported-symbol declaration name)
       (jazz:require-declaration declaration name))))
 

@@ -85,6 +85,8 @@
       
       (define (print-version)
         (let ((output (open-output-string)))
+          (##write-string (path-expand "~~") output)
+          (##write-string " " output)
           (##write-string "Gambit" output)
           (##write-string " " output)
           (##write-string (system-version-string) output)

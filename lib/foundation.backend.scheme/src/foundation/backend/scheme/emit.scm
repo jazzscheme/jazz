@@ -216,8 +216,8 @@
 
 (jazz:define-emit (define-assignment (scheme backend) declaration source-declaration walker resume environment value-code)
   (let ((locator (jazz:get-declaration-locator declaration)))
-    `(set! ,locator ,(jazz:sourcified-form value-code))))
+    `(set! ,locator ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type declaration) source-declaration declaration walker resume environment backend))))
 
 
 (jazz:define-emit (variable-assignment (scheme backend) binding source-declaration walker resume environment binding-code value-code)
-  `(set! ,binding-code ,(jazz:sourcified-form value-code))))
+  `(set! ,binding-code ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type binding) source-declaration source-declaration walker resume environment backend))))

@@ -1409,37 +1409,37 @@
 ;;;
 
 
-(define word-size
+(define jazz:word-size
   (%%unsafe-u8vector-length '#(0)))
 
 
-(define (header-get obj)
-  (if (= word-size 4)
+(define (jazz:header-get obj)
+  (if (= jazz:word-size 4)
       (%%u32vector-ref obj -1)
     (%%u64vector-ref obj -1)))
 
-(define (header-set! obj h)
-  (if (= word-size 4)
+(define (jazz:header-set! obj h)
+  (if (= jazz:word-size 4)
       (%%u32vector-set! obj -1 h)
     (%%u64vector-set! obj -1 h)))
 
 
-(define (make-thread-with-stack stack-len thunk)
+(define (jazz:make-thread-with-stack stack-len thunk)
   (let* ((pt ##primordial-thread)
          (thread-len (%%vector-length pt))
          (total-len (+ thread-len stack-len))
          (thread (make-vector total-len #f)))
     (%%unsafe-vector-set! thread 0 (%%vector-ref pt 0))
-    (header-set! thread
-                 (+ (bitwise-and (header-get pt) -4)
-                    (bitwise-and (header-get thread) 3)))
+    (jazz:header-set! thread
+                      (+ (bitwise-and (jazz:header-get pt) -4)
+                         (bitwise-and (jazz:header-get thread) 3)))
     (thread-init! thread thunk)
     (thread-specific-set! thread (+ thread-len 1))
     thread))
 
 
 ;; work around PERM not being mutable
-(define force-f64vector-set!
+(define jazz:force-f64vector-set!
   ##f64vector-set!)
 
 

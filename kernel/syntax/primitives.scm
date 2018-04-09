@@ -1416,6 +1416,24 @@
 (jazz:define-macro (%%values? obj)
   `(jazz:unsafe (##values? ,obj)))
 
+(jazz:define-macro (%%values-ref values n)
+  (if jazz:debug-core?
+      (%%force-uniqueness (values)
+        (%%force-uniqueness (n)
+          `(if (%%fx< ,n (%%unsafe-vector-length ,values))
+               (%%unsafe-vector-ref ,values ,n)
+             (error "Out of bounds"))))
+    `(%%unsafe-vector-ref ,values ,n)))
+
+(jazz:define-macro (%%values-set! values n obj)
+  (if jazz:debug-core?
+      (%%force-uniqueness (values)
+        (%%force-uniqueness (n)
+          `(if (%%fx< ,n (%%unsafe-vector-length ,values))
+               (%%unsafe-vector-set! ,values ,n ,obj)
+             (error "Out of bounds"))))
+    `(%%unsafe-vector-set! ,values ,n ,obj)))
+
 
 ;;;
 ;;;; Vector

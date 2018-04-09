@@ -670,8 +670,8 @@
 (jazz:add-primitive-patterns     'scheme.language.runtime:vector-ref                  '((%%vector-ref    <vector^fb:any>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime:vector-set!                 '((%%vector-set!   <vector^fb^any:void>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-ref             '((%%unsafe-vector-ref  <values^fb:any>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-set!            '((%%unsafe-vector-set! <values^fb^any:void>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-ref             '((%%values-ref  <values^fb:any>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-set!            '((%%values-set! <values^fb^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:table-ref                   '((%%table-ref  <table^any:any>) (%%table-ref    <table^any^any:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:table-set!                  '((%%table-set! <table^any^any:void>)))

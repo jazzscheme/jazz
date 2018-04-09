@@ -173,18 +173,6 @@
 
 
 (definition (print-process-snapshot continuation output (reason: reason #f) (exception: exception #f) (max-depth: max-depth (snapshot-max-depth)) (max-width: max-width (snapshot-max-width)) (max-content: max-content (snapshot-max-content)) (current-thread-only?: current-thread-only? #f))
-  (continuation-capture
-    (lambda (bailout)
-      (with-exception-handler
-        (lambda (exc)
-          (continuation-graft bailout
-            (lambda ()
-              (format output "{%}{%}")
-              (format output "*** BAILOUT ***{%}")
-              (force-output output)
-              (format output "{a}{%}" (exception-reason exc))
-              (force-output output))))
-        (lambda ()
   (let ((cache (make-table test: eqv?)))
     (define package-info-serial first)
     (define package-info-class second)
@@ -272,6 +260,7 @@
                   (format output "      (<frame> name: {s}" name)
                   (when location
                     (format output " location: {s}" location))
+                  (force-output output)
                   (loop (for variable in variables)
                         (do (format output "{%}")
                             (bind (name value mutable?) variable
@@ -285,7 +274,8 @@
                                                             (unspecified? value))
                                                         ;; this test is necessary as object->string can return a truncated unreadable string
                                                         (< (string-length presentation) max-width))))
-                                      (format output "        (<variable> name: {s} serial: {s}{?: presentation: {a}~})" name serial atomic? presentation))))))))
+                                      (format output "        (<variable> name: {s} serial: {s}{?: presentation: {a}~})" name serial atomic? presentation)
+                                      (force-output output))))))))
                   (format output ")")
                   (force-output output)))))
     
@@ -313,18 +303,35 @@
                   (set! depth-values missed-values))))
         (format output "{%}")
         (format output "    (<values>")
+        (force-output output)
         (for-each (lambda (pair)
                     (bind (key serial class presentation more? mutable? kind) pair
                       (format output "{%}")
                       (format output "      (<value> serial: {a} class: {s} presentation: {s}" serial class presentation)
+                      (force-output output)
                       (let ((content (table-ref content-cache serial '())))
                         (when (not-null? content)
                           (format output " content: {s}" content)))
-                      (format output ")")))
+                      (format output ")")
+                      (force-output output)))
                   (sort < (table->list cache) key: car))
-        (format output ")")))
-  
-    (print-process)))))))
+        (format output ")")
+        (force-output output)))
+    
+    (with-exception-handler
+      (lambda (exc)
+        (format output "{%}{%}")
+        (format output "*** INTERNAL ERROR ***{%}")
+        (force-output output)
+        (format output "{a}{%}{%}" (exception-reason exc))
+        (force-output output)
+        (continuation-capture
+          (lambda (cont)
+            (display-continuation-backtrace cont output)))
+        (force-output output)
+        (exit -1))
+      (lambda ()
+        (print-process)))))
 
 
 ;;;

@@ -232,6 +232,7 @@
     (let ((video-buffer (make-u8vector (* window-width window-height 4)))
           (video-info (make-u64vector 2))
           (video-mutex (make-mutex 'video))
+          (transferer (make-transferer video-size))
           (pipe (open-vector))
           (frame-count 0)
           (draw-count 0))
@@ -244,7 +245,7 @@
         (increase! draw-count)
         (with-video-mutex
           (lambda ()
-            (move-u8vector->pointer! video-buffer (cairo_image_surface_get_data (get-handle surface)))))
+            (transferer video-buffer surface)))
         (set-font surface {Font Label point-size: 36})
         (draw-text surface 10 16 (format "{a} skipped" (- frame-count draw-count)) {Color Red}))
       
@@ -253,7 +254,10 @@
         (new-thread
           (lambda ()
             (let ((view (read pipe)))
-              (let ((pipeline (gst-launch "avfvideosrc name=src"
+              (let ((pipeline (gst-launch (cond-expand
+                                            (mac "avfvideosrc name=src")
+                                            (windows "ksvideosrc name=src")
+                                            (else (unimplemented)))
                                           "videoscale name=scale"
                                           "videoconvert name=convert"
                                           (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
@@ -321,7 +325,7 @@
         (framerate video-framerate)
         (bitrate 4096))
     (let ((video-pipe (open-vector))
-          (memory-surface (new Memory-Surface #f (new Dimension width height)))
+          (image-surface (new Image-Surface (new Dimension width height)))
           (surface-mutex (make-mutex 'surface))
           (view-pipe (open-vector))
           (frame-count 0)
@@ -345,7 +349,7 @@
         (fill-rect surface (new Rect 100 70 800 400) {Color Red alpha: .8})
         (with-surface-mutex
           (lambda ()
-            (draw-surface surface (get-handle memory-surface) 0 0)))
+            (draw-surface surface (get-handle image-surface) 0 0)))
         (set-font surface {Font Label point-size: 36})
         (draw-text surface 10 16 (format "{a} skipped" (- frame-count draw-count)) {Color Red}))
       
@@ -376,7 +380,7 @@
                           (alpha-info (make-u64vector 2))
                           (alpha-bytes #f)
                           (alpha-data (heap-calloc (/ (* width height 12) 8) 1))
-                          (surface (new Memory-Surface #f video-size))
+                          (surface (new Image-Surface video-size))
                           (start #f))
                       (let (loop)
                         (when (and (not color-bytes) (not alpha-bytes))
@@ -454,9 +458,9 @@
                             (increase! frame-count)
                             (with-surface-mutex
                               (lambda ()
-                                (cairo_surface_flush (get-handle memory-surface))
-                                (combine-alpha color-buffer alpha-buffer (cairo_image_surface_get_data (get-handle memory-surface)) (* width height))
-                                (cairo_surface_mark_dirty (get-handle memory-surface))))
+                                (cairo_surface_flush (get-handle image-surface))
+                                (combine-alpha color-buffer alpha-buffer (cairo_image_surface_get_data (get-handle image-surface)) (* width height))
+                                (cairo_surface_mark_dirty (get-handle image-surface))))
                             (invalidate-view view)
                             (set! color-bytes #f)
                             (set! alpha-bytes #f))
@@ -505,6 +509,7 @@
           (video-buffer (make-u8vector (* width height 4)))
           (video-info (make-u64vector 2))
           (video-mutex (make-mutex 'video))
+          (transferer (make-transferer video-size))
           (pipe (open-vector))
           (frame-size 0)
           (frame-count 0)
@@ -518,7 +523,7 @@
         (increase! draw-count)
         (with-video-mutex
           (lambda ()
-            (move-u8vector->pointer! video-buffer (cairo_image_surface_get_data (get-handle surface)))))
+            (transferer video-buffer surface)))
         (set-font surface {Font Label point-size: 36})
         (draw-text surface 10 16 (format "{r precision: 1} kb, {a} skipped" (/ (cast <fl> frame-size) 1024.) (- frame-count draw-count)) {Color Red}))
       
@@ -557,7 +562,10 @@
       (thread-start!
         (new-thread
           (lambda ()
-            (let ((pipeline (gst-launch "avfvideosrc name=src"
+            (let ((pipeline (gst-launch (cond-expand
+                                          (mac "avfvideosrc name=src")
+                                          (windows "ksvideosrc name=src")
+                                          (else (unimplemented)))
                                         "videoscale name=scale"
                                         "videoconvert name=convert"
                                         (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
@@ -857,4 +865,22 @@
   
   (method override (draw self surface context)
     (when drawer
-      (drawer self surface)))))
+      (drawer self surface))))
+
+
+;;;
+;;;; Transfer
+;;;
+
+
+(definition (make-transferer size)
+  (cond-expand
+    (windows
+     (let ((transfer-surface (new Image-Surface size)))
+       (lambda (video-buffer surface)
+         (move-u8vector->pointer! video-buffer (cairo_image_surface_get_data (get-handle transfer-surface)))
+         (cairo_surface_mark_dirty (get-handle transfer-surface))
+         (blit-surface surface transfer-surface))))
+    (else
+     (lambda (video-buffer surface)
+       (move-u8vector->pointer! video-buffer (cairo_image_surface_get_data (get-handle surface))))))))

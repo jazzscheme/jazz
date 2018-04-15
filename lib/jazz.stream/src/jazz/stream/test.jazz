@@ -48,6 +48,7 @@
         (jazz.geometry)
         (jazz.graphic)
         (jazz.io)
+        (jazz.jpeg)
         (jazz.markup)
         (jazz.platform)
         (jazz.process)
@@ -68,6 +69,8 @@
 ;; app
 ;; ogg
 ;; wav
+;; jpeg
+;; movie
 (definition script
   'app)
 
@@ -91,7 +94,7 @@
 
 ;; none     no codec used
 ;; h265     *** cannot find the encoder but should definitely be considered ***
-;; h264     *** the best one atm ***
+;; h264     *** the best one at the moment and is probably faster than h265 ***
 ;; h263     doesn't link
 ;; flv      really blocky.
 ;; mpeg4    also blocky
@@ -112,6 +115,9 @@
 (definition window-size
   #f)
 
+(definition media
+  #f)
+
 (definition lag
   #f)
 
@@ -128,8 +134,11 @@
   #f)
 
 
-(jazz:split-command-line (command-arguments) '("fps" "debug") '("debugger" "r" "run" "script" "audio" "audio-codec" "size" "codec" "framerate" "bitrate" "window" "lag" "monitor") #f
+(jazz:split-command-line (command-arguments) '("fps" "debug") '("debugger" "r" "run" "script" "audio" "audio-codec" "size" "codec" "framerate" "bitrate" "window" "media" "lag" "monitor") #f
   (lambda (commands options remain)
+    (define (string-argument arg)
+      arg)
+    
     (define (number-argument arg)
       (if (string? arg)
           (string->number arg)
@@ -147,6 +156,8 @@
         ((540) {Dimension 960 540})
         ((360) {Dimension 640 360})
         ((180) {Dimension 320 180})
+        ;; custom
+        ((480) {Dimension 640 480})
         (else #f)))
     
     (set! script (or (symbol-argument (find-option "script" options)) script))
@@ -157,6 +168,7 @@
     (set! video-framerate (or (number-argument (find-option "framerate" options)) video-framerate))
     (set! video-bitrate (or (number-argument (find-option "bitrate" options)) video-bitrate))
     (set! window-size (or (size-argument (find-option "window" options)) video-size))
+    (set! media (string-argument (find-option "media" options)))
     (set! lag (number-argument (find-option "lag" options)))
     (set! fps? (find-option "fps" options #f))
     (set! debug? (find-option "debug" options #f))
@@ -177,6 +189,8 @@
     ((app) (test-app))
     ((ogg) (test-ogg))
     ((wav) (test-wav))
+    ((jpeg) (test-jpeg))
+    ((movie) (test-movie))
     (else (error "Unknown script: {a}" script))))
 
 
@@ -632,7 +646,6 @@
                     (let (loop)
                       (let ((info (read audio-pipe)))
                         (bind (buffer size timestamp duration) info
-                          (terminal '*** size)
                           (gst_app_src_write3 src buffer size timestamp duration)))
                       (process-messages)
                       (loop))))))
@@ -717,7 +730,8 @@
   (thread-start!
     (new-thread
       (lambda ()
-        (let ((pipeline (gst_pipeline_new "audio-player")))
+        (let ((pipeline (gst_pipeline_new "audio-player"))
+              (filename (or media "~/Media/test.ogg")))
           (let ((source   (gst_element_factory_make "filesrc"       "file-source"))
                 (demuxer  (gst_element_factory_make "oggdemux"      "ogg-demuxer"))
                 (decoder  (gst_element_factory_make "vorbisdec"     "vorbis-decoder"))
@@ -729,7 +743,7 @@
                             (windows (gst_element_factory_make "audioconvert" "winconv"))
                             (else)))
                 (sink     (gst_element_factory_make "autoaudiosink" "audio-output")))
-            (g_object_set_string source "location" (path-normalize "~/Media/test.ogg"))
+            (g_object_set_string source "location" (path-normalize filename))
             (let ((bus (gst_pipeline_get_bus pipeline)))
               (gst_bin_add pipeline source)
               (gst_bin_add pipeline demuxer)
@@ -789,13 +803,14 @@
 
 
 (define (play-explosion)
-  (let ((pipeline (gst_pipeline_new "audio-player")))
+  (let ((pipeline (gst_pipeline_new "audio-player"))
+        (filename (or media "~/Media/test.wav")))
     (let ((source  (gst_element_factory_make "filesrc"       "file-source"))
           (decoder (gst_element_factory_make "wavparse"      "wavparse"))
           (conv    (gst_element_factory_make "audioconvert"  "converter"))
           (resamp  (gst_element_factory_make "audioresample" "resampler"))
           (sink    (gst_element_factory_make "autoaudiosink" "audio-output")))
-      (g_object_set_string source "location" (path-normalize "~/media/test.wav"))
+      (g_object_set_string source "location" (path-normalize filename))
       (let ((bus (gst_pipeline_get_bus pipeline)))
         (gst_bin_add pipeline source)
         (gst_bin_add pipeline decoder)
@@ -820,6 +835,214 @@
       'wav))
   ;; application
   (boot-environment (new Test-Application)))
+
+
+;;;
+;;;; JPEG
+;;;
+
+
+(definition public (test-jpeg)
+  (initialize-aliases)
+  (let ((width (get-width video-size))
+        (height (get-height video-size))
+        (window-width (get-width window-size))
+        (window-height (get-height window-size))
+        (file (new File (tokenise-filename (or media "~/Media/test.jpg")))))
+    (let ((image-surface (create-cairo-surface-from-jpeg file)))
+      (define (drawer view surface)
+        (blit-surface surface image-surface))
+      
+      ;; application
+      (boot-environment (new Test-Application size: window-size drawer: drawer)))))
+
+
+;;;
+;;;; Movie
+;;;
+
+
+(definition public (test-movie)
+  (let ((width (get-width video-size))
+        (height (get-height video-size))
+        (codec 'none)
+        (framerate video-framerate)
+        (bitrate video-bitrate))
+    (let ((audio-pipe (open-vector))
+          (video-pipe (open-vector))
+          (video-buffer (make-u8vector (* width height 4)))
+          (video-info (make-u64vector 2))
+          (video-mutex (make-mutex 'video))
+          (transferer (make-transferer video-size))
+          (pipe (open-vector))
+          (frame-size 0)
+          (frame-count 0)
+          (draw-count 0))
+      (define (with-video-mutex thunk)
+        (mutex-lock! video-mutex)
+        (prog1 (thunk)
+          (mutex-unlock! video-mutex)))
+      
+      (define (drawer view surface)
+        (increase! draw-count)
+        (with-video-mutex
+          (lambda ()
+            (transferer video-buffer surface)))
+        (set-font surface {Font Label point-size: 36})
+        (draw-text surface 10 16 (format "{r precision: 1} kb, {a} skipped" (/ (cast <fl> frame-size) 1024.) (- frame-count draw-count)) {Color Red}))
+      
+      ;; input
+      (thread-start!
+        (new-thread
+          (lambda ()
+            (let ((pipeline (gst-launch (tie "filesrc name=filesrc")
+                                        "decodebin name=decoder"
+                                        (list "decoder."
+                                              "queue"
+                                              "audioconvert"
+                                              "audioresample"
+                                              "audio/x-raw, format=F32LE, layout=interleaved, rate=80000, channels=2"
+                                              "appsink name=audioappsink")
+                                        (list "decoder."
+                                              "videoscale"
+                                              "videoconvert"
+                                              (tie "video/x-raw, format=I420, width={width}, height={height}, pixel-aspect-ratio=(fraction)1/1")
+                                              "appsink name=videoappsink")))
+                  (filename (or media "~/Media/test.webm")))
+              (let ((source (gst_bin_get_by_name pipeline "filesrc"))
+                    (video-appsink (gst_bin_get_by_name pipeline "videoappsink"))
+                    (video-data (make-u8vector (* width height 4)))
+                    (video-info (make-u64vector 2))
+                    (audio-appsink (gst_bin_get_by_name pipeline "audioappsink"))
+                    (audio-buffer (make-u8vector 65536))
+                    (audio-info (make-u64vector 2))
+                    (process-messages (pipeline-messages-processor pipeline print?: debug?)))
+                (g_object_set_string source "location" (path-normalize filename))
+                (gst_element_set_state pipeline GST_STATE_PLAYING)
+                (let (loop)
+                  (let ((size (gst_app_sink_read video-appsink video-buffer video-info)))
+                    (when (/= size -1)
+                      (let ((timestamp (u64vector-ref video-info 0))
+                            (duration (u64vector-ref video-info 1)))
+                        (write (list (u8vector-copy video-buffer) size timestamp duration) video-pipe)
+                        (force-output video-pipe))))
+                  (let ((size (gst_app_sink_read audio-appsink audio-buffer audio-info)))
+                    (when (/= size -1)
+                      (let ((timestamp (u64vector-ref audio-info 0))
+                            (duration (u64vector-ref audio-info 1)))
+                        (write (list (u8vector-copy audio-buffer) size timestamp duration) audio-pipe)
+                        (force-output audio-pipe))))
+                  (process-messages)
+                  (sleep .001)
+                  (loop)))))
+          'input))
+      ;; audio output
+      (thread-start!
+        (new-thread
+          (lambda ()
+            (let ((codec 'none))
+              (let ((pipeline (gst-launch "appsrc name=src"
+                                          (and (eq? codec 'opus) "avdec_opus name=dec")
+                                          (and (eq? codec 'vorbis) "vorbisdec name=dec")
+                                          "autoaudiosink name=sink")))
+                (gst_object_set_name pipeline "output")
+                (let ((src (gst_bin_get_by_name pipeline "src"))
+                      (process-messages (pipeline-messages-processor pipeline print?: debug?)))
+                  (when debug?
+                    (when (neq? codec 'none)
+                      (gst_monitor pipeline monitor "enc" "identity" "dec"))
+                    (gst_monitor pipeline monitor "sink"))
+                  (case codec
+                    ((vorbis)
+                     (gst_app_src_set_caps src
+                                           (gst_caps "audio/x-vorbis")))
+                    (else
+                     (gst_app_src_set_caps src
+                                           (gst_caps "audio/x-raw"
+                                                     "format"   (g_value_string "F32LE")
+                                                     "layout"   (g_value_string "interleaved")
+                                                     "rate"     (g_value_int 80000)
+                                                     "channels" (g_value_int 2)))))
+                  (g_object_set src
+                                "is-live"     (g_value_boolean #t)
+                                "stream-type" (g_value_int GST_APP_STREAM_TYPE_STREAM)
+                                "format"      (g_value_int GST_FORMAT_TIME))
+                  (gst_element_set_state pipeline GST_STATE_PLAYING)
+                  (process-messages)
+                  (let (loop)
+                    (let ((info (read audio-pipe)))
+                      (bind (buffer size timestamp duration) info
+                        (gst_app_src_write3 src buffer size timestamp duration)))
+                    (process-messages)
+                    (loop))))))
+          'audio-output))
+      ;; video output
+      (thread-start!
+        (new-thread
+          (lambda ()
+            (let ((view (read pipe)))
+              (let ((pipeline (gst-launch "appsrc name=src"
+                                          (and (eq? codec 'h264) "avdec_h264 name=dec")
+                                          (and (eq? codec 'vp8) "vp8dec name=dec")
+                                          "videoconvert name=convert"
+                                          (tie "video/x-raw, format=BGRA, width={width}, height={height}, framerate={framerate}/1")
+                                          (if fps?
+                                              "fpsdisplaysink video-sink=appsink name=sink"
+                                            "appsink name=sink"))))
+                (gst_object_set_name pipeline "output")
+                (let ((src (gst_bin_get_by_name pipeline "src"))
+                      (sink (gst_bin_get_by_name pipeline "sink"))
+                      (process-messages (pipeline-messages-processor pipeline print?: debug?)))
+                  (when debug?
+                    (gst_monitor pipeline monitor "src" "convert" "sink")
+                    (when (neq? codec 'none)
+                      (gst_monitor pipeline monitor "dec")))
+                  (case codec
+                    ((h264)
+                     (gst_app_src_set_caps src
+                                           (gst_caps "video/x-h264"
+                                                     "width"         (g_value_int width)
+                                                     "height"        (g_value_int height)
+                                                     "framerate"     (g_value_fraction framerate 1)
+                                                     "stream-format" (g_value_string "avc")
+                                                     "alignment"     (g_value_string "au"))))
+                    ((vp8)
+                     (gst_app_src_set_caps src
+                                           (gst_caps "video/x-vp8"
+                                                     "width"         (g_value_int width)
+                                                     "height"        (g_value_int height)
+                                                     "framerate"     (g_value_fraction framerate 1)
+                                                     "stream-format" (g_value_string "avc")
+                                                     "alignment"     (g_value_string "au"))))
+                    (else
+                     (gst_app_src_set_caps src
+                                           (gst_caps "video/x-raw"
+                                                     "format"    (g_value_string "I420")
+                                                     "width"     (g_value_int width)
+                                                     "height"    (g_value_int height)
+                                                     "framerate" (g_value_fraction framerate 1)))))
+                  (g_object_set src
+                                "is-live"     (g_value_boolean #t)
+                                "stream-type" (g_value_int GST_APP_STREAM_TYPE_STREAM)
+                                "format"      (g_value_int GST_FORMAT_TIME))
+                  (gst_element_set_state pipeline GST_STATE_PLAYING)
+                  (process-messages)
+                  (let (loop)
+                    (let ((info (read video-pipe)))
+                      (bind (buffer size timestamp duration) info
+                        (set! frame-size size)
+                        (gst_app_src_write3 src buffer size timestamp duration)))
+                    (let ((size (with-video-mutex
+                                  (lambda ()
+                                    (gst_app_sink_read sink video-buffer video-info)))))
+                      (when (/= size -1)
+                        (increase! frame-count)
+                        (invalidate-view view)))
+                    (process-messages)
+                    (loop))))))
+          'video-output))
+      ;; application
+      (boot-environment (new Test-Application size: video-size pipe: pipe drawer: drawer)))))
 
 
 ;;;

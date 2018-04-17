@@ -60,6 +60,15 @@
   (let ((needed-version (or need-version minimum-needed-version)))
     (let ((needed-major (get-major needed-version))
           (needed-minor (get-minor needed-version)))
+      (define (needs-adjust?)
+        (cond-expand
+          (windows #t)
+          (else (let ((major (glGetInteger GL_MAJOR_VERSION))
+                      (minor (glGetInteger GL_MINOR_VERSION)))
+                  (or (< major needed-major)
+                      (and (= major needed-major)
+                           (< minor needed-minor)))))))
+      
       (define (validate-version)
         (let ((major (glGetInteger GL_MAJOR_VERSION))
               (minor (glGetInteger GL_MINOR_VERSION)))
@@ -76,13 +85,9 @@
 
       (let ((window (create-opengl-window class: class position: position size: size fullscreen?: fullscreen? render?: render?)))
         (initialize-glew)
-        (let ((major (glGetInteger GL_MAJOR_VERSION))
-              (minor (glGetInteger GL_MINOR_VERSION)))
-          (when (or (< major needed-major)
-                    (and (= major needed-major)
-                         (< minor needed-minor)))
-            (adjust-opengl-context window needed-major needed-minor)
-            (validate-version)))
+        (when (needs-adjust?)
+          (adjust-opengl-context window needed-major needed-minor)
+          (validate-version))
         ;; at the moment vsync is a really bad thing as it blocks
         ;; the thread scheduler by having control remain in C...
         (disable-vsync window)

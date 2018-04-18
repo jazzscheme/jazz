@@ -53,7 +53,9 @@
 
 
 (jazz:define-macro (%%boolean? obj)
-  `(boolean? ,obj))
+  (if jazz:debug-core?
+      `(boolean? ,obj)
+    `(jazz:unsafe (##boolean? ,obj))))
 
 (jazz:define-macro (%%not expr)
   (if jazz:debug-core?

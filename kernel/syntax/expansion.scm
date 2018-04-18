@@ -84,7 +84,14 @@
       (let ((bindings (##cadr form))
             (body (##cddr form)))
         (cond ((and (##eqv? bindings '())
-                    (##null? (##cdr body)))
+                    (##null? (##cdr body))
+		    (let ((expr (##car body)))
+		      ;; inner define needs the let
+                      (##not (and (##pair? expr)
+                                  (##eq? (##car expr) 'define)))
+		      ;; begin might start with a define needing the let
+                      (##not (and (##pair? expr)
+                                  (##eq? (##car expr) 'begin)))))
                (##car body))
               ((and (##pair? bindings)
                     (##null? (##cdr bindings))

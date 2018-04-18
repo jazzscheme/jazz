@@ -998,6 +998,10 @@
   #t)
 
 
+(jazz:define-method (jazz:emit-cast (jazz:Bool-Class type) value source-declaration walker resume environment backend)
+  value)
+
+
 (jazz:define-class-runtime jazz:Bool)
 
 

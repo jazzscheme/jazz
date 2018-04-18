@@ -195,6 +195,15 @@
 
 
 ;;;
+;;;; Worker
+;;;
+
+
+(jazz:define-setting jazz:worker-repl?
+  #f)
+
+
+;;;
 ;;;; Profile
 ;;;
 

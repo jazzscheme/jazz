@@ -1784,7 +1784,9 @@
                (let ((process (open-process
                                 (list
                                   path: (jazz:install-path "jazz")
-                                  arguments: `("-:daqQ-"
+                                  arguments: `(,(if (jazz:worker-repl?)
+                                                    "-:darQ"
+                                                  "-:daqQ-")
                                                "-worker"
                                                "-link" ,(%%symbol->string jazz:link)
                                                ,@(if (%%memq 'keep-c jazz:compile-options) `("-keep-c") '())
@@ -1824,7 +1826,7 @@
     
     (define (build name)
       (let ((port/echo (grab-build-process)))
-        (define (build-process-died)
+        (define (build-process-problem)
           (mutex-lock! process-mutex)
           (set! active-processes (jazz:remove port/echo active-processes))
           (set! stop-build? #t)
@@ -1851,7 +1853,7 @@
             (let iter ()
                  (let ((form (read established-port)))
                    (if (eof-object? form)
-                       (build-process-died)
+                       (build-process-problem)
                      (let ((command (%%car form))
                            (arguments (%%cdr form)))
                        (case command
@@ -1859,6 +1861,9 @@
                           (build-process-ended arguments))
                          ((report)
                           (jazz:report "{a}" arguments)
+                          (iter))
+                         ((exception)
+                          (build-process-problem)
                           (iter))
                          (else
                           (error "Unknown master command" command)))))))))))
@@ -1923,7 +1928,9 @@
 
 (define (jazz:worker-process port)
   (declare (proper-tail-calls))
-  (let ((established-port (open-tcp-client port)))
+  (let ((repl? (jazz:worker-repl?))
+        (previous-handler (current-exception-handler))
+        (established-port (open-tcp-client port)))
     (define (build product)
       (set! jazz:worker-product product)
       (jazz:reset-changed-units)
@@ -1939,23 +1946,35 @@
                (close-port established-port)
              (let ((command (%%car form))
                    (arguments (%%cdr form)))
-               (with-exception-catcher
-                 (lambda (exc)
-                   (if jazz:worker-product
-                       (begin
-                         (display "*** ERROR BUILDING ")
-                         (display jazz:worker-product)
-                         (display " -- ")))
-                   (display-exception exc)
-                   (force-output)
-                   (exit))
-                 (lambda ()
-                   (case command
-                     ((build)
-                      (build (%%car arguments)))
-                     (else
-                      (error "Unknown worker command" command)))
-                   (iter)))))))))
+               (%%continuation-capture
+                 (lambda (cont)
+                   (with-exception-handler
+                     (lambda (exc)
+                       (if repl?
+                           (begin
+                             ;; closing the port would terminate the parent
+                             ;; process making the console port unavailable
+                             ;; (close-port established-port)
+                             (write '(exception) established-port)
+                             (force-output established-port)
+                             (previous-handler exc))
+                         (%%continuation-graft cont
+                           (lambda ()
+                             (if jazz:worker-product
+                                 (begin
+                                   (display "*** ERROR BUILDING ")
+                                   (display jazz:worker-product)
+                                   (display " -- ")))
+                             (display-exception exc)
+                             (force-output)
+                             (exit)))))
+                     (lambda ()
+                       (case command
+                         ((build)
+                          (build (%%car arguments)))
+                         (else
+                          (error "Unknown worker command" command)))
+                       (iter)))))))))))
 
 
 ;;;

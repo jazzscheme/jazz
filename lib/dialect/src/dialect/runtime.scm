@@ -4360,7 +4360,7 @@
                                      (cond ((%%class-is? annotated-frame jazz:Annotated-Frame)
                                             (jazz:get-annotated-frame-variables annotated-frame))
                                            ((%%class-is? annotated-frame jazz:Variable)
-                                            (list annotated-frame))
+                                            (%%list annotated-frame))
                                            (else
                                             '()))))
                    (if (%%null? variables)

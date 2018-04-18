@@ -76,6 +76,30 @@
     form))
 
 
+(define (jazz:simplify-let form)
+  (if (and (##pair? form)
+           (##eq? (##car form) 'let)
+           (##pair? (##cdr form))
+           (##pair? (##cddr form)))
+      (let ((bindings (##cadr form))
+            (body (##cddr form)))
+        (cond ((and (##eqv? bindings '())
+                    (##null? (##cdr body)))
+               (##car body))
+              ((and (##pair? bindings)
+                    (##null? (##cdr bindings))
+                    (let ((binding (##car bindings)))
+                      (and (##pair? binding)
+                           (##pair? (##cdr binding))
+                           (##null? (##cddr binding))
+                           (##symbol? (##car binding))
+                           (eq? (##car binding) (##car body)))))
+               (##cadar bindings))
+              (else
+               form)))
+    form))
+
+
 (define (jazz:with-uniqueness expr proc)
   (if (##symbol? (jazz:source-code expr))
       (proc expr)

@@ -75,12 +75,13 @@
                             (let ((type (jazz:call-return-type (jazz:get-lexical-binding-type declaration)))
                                   (body-code (jazz:emit-expression body source-declaration walker resume augmented-environment backend)))
                               (jazz:new-code
-                                `(let ,(map (lambda (parameter argument)
-                                              `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
-                                                ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) (jazz:get-expression-source value) source-declaration walker resume environment backend)))
-                                            (jazz:get-signature-positional signature)
-                                            arguments)
-                                   ,(jazz:simplify-begin (jazz:emit-return-cast (jazz:new-code (jazz:simplify-begin `(begin ,@(jazz:get-code-form body-code))) (jazz:get-code-type body-code) #f) type (jazz:get-declaration-source declaration) declaration walker resume environment backend)))
+                                (jazz:simplify-let
+                                  `(let ,(map (lambda (parameter argument)
+                                                `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
+                                                  ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) (jazz:get-expression-source value) source-declaration walker resume environment backend)))
+                                              (jazz:get-signature-positional signature)
+                                              arguments)
+                                     ,(jazz:simplify-begin (jazz:emit-return-cast (jazz:new-code (jazz:simplify-begin `(begin ,@(jazz:get-code-form body-code))) (jazz:get-code-type body-code) #f) type (jazz:get-declaration-source declaration) declaration walker resume environment backend))))
                                 type
                                 #f)))))
                     (jazz:error "Wrong number of arguments passed to {s}" (jazz:get-lexical-binding-name declaration)))

@@ -2400,8 +2400,9 @@
              (pp (jazz:format "Casting {a} to incompatible type {a}" code-type type) (current-output-port)))
            (if (jazz:get-generate? 'check)
                (let ((value (jazz:generate-symbol "val")))
-                 `(let ((,value (let () ,(jazz:sourcified-form code))))
-                    ,(jazz:emit-cast type value source-declaration walker resume environment backend)))
+                 (jazz:simplify-let
+                   `(let ((,value ,(jazz:simplify-let `(let () ,(jazz:sourcified-form code)))))
+                      ,(jazz:emit-cast type value source-declaration walker resume environment backend))))
              (jazz:sourcified-form code))))))
 
 
@@ -5884,7 +5885,8 @@
 
 
 (define (jazz:add-signature-casts signature-casts body-emit)
-  (if (%%not signature-casts)
+  (if (or (%%not signature-casts)
+          (%%null? signature-casts))
       `(,body-emit)
     `((let ,signature-casts
         ,body-emit))))

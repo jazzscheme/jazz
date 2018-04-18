@@ -478,6 +478,11 @@
   (jazz:error "Unable to outline extract: {s}" declaration))
 
 
+;; inline not supported in outlines at the moment
+(define (jazz:outline-generate-modifiers declaration)
+  (jazz:remove 'inline (jazz:get-declaration-modifiers declaration)))
+
+
 (define (jazz:outline-generate-filter-access declarations #!optional (public-lookup #f))
   (jazz:collect-if (lambda (decl)
                      (or (%%not (%%eq? (jazz:get-declaration-access decl) 'private))
@@ -2874,7 +2879,7 @@
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Macro-Declaration declaration) meta)
-  `(macro ,@(jazz:get-declaration-modifiers declaration)
+  `(macro ,@(jazz:outline-generate-modifiers declaration)
           (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-macro-declaration-signature declaration)))))
 
 

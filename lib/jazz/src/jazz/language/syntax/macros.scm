@@ -87,7 +87,7 @@
       (lambda (expansion form-src)
         (let ((name (car (source-code form-src))))
           (parse-specifier (cdr (source-code form-src))
-            (lambda (specifier body)
+            (lambda (specifier specifier-source body)
               (let ((value (car body)))
                 (sourcify-deep-if
                   `(definition public ,expansion ,name ,@(if specifier (list specifier) '()) ,value)

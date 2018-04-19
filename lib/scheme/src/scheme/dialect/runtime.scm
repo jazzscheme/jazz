@@ -96,12 +96,13 @@
 
 
 (jazz:define-class jazz:Define-Declaration jazz:Declaration (constructor: jazz:allocate-define-declaration)
-  ((signature getter: generate)
-   (value     getter: generate setter: generate)))
+  ((signature        getter: generate)
+   (specifier-source getter: generate)
+   (value            getter: generate setter: generate)))
 
 
-(define (jazz:new-define-declaration name type parent signature)
-  (let ((new-declaration (jazz:allocate-define-declaration name type #f 'private 'uptodate '() '() #f parent #f #f #f signature #f)))
+(define (jazz:new-define-declaration name type parent signature specifier-source)
+  (let ((new-declaration (jazz:allocate-define-declaration name type #f 'private 'uptodate '() '() #f parent #f #f #f signature specifier-source #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -150,14 +151,14 @@
 
 
 (define (jazz:walk-define-declaration walker resume declaration environment form-src)
-  (receive (name name-src specifier value parameters) (jazz:parse-define walker resume declaration #f form-src)
+  (receive (name name-src specifier specifier-source value parameters) (jazz:parse-define walker resume declaration #f form-src)
     (if (%%not (%%class-is? declaration jazz:Namespace-Declaration))
         (jazz:walk-error walker resume declaration form-src "Ill-placed define")
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
             (signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
         (let ((effective-type (if signature (jazz:signature->function-type signature type) type)))
           (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                     (jazz:new-define-declaration name effective-type declaration signature))))
+                                     (jazz:new-define-declaration name effective-type declaration signature specifier-source))))
             (jazz:set-declaration-source new-declaration form-src)
             (jazz:set-declaration-name-source new-declaration name-src)
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -165,7 +166,7 @@
 
 
 (define (jazz:walk-define walker resume declaration environment form-src)
-  (receive (name name-src specifier value parameters) (jazz:parse-define walker resume declaration #t form-src)
+  (receive (name name-src specifier specifier-source value parameters) (jazz:parse-define walker resume declaration #t form-src)
     (if (%%not (%%class-is? declaration jazz:Namespace-Declaration))
         (jazz:walk-error walker resume declaration form-src "Ill-placed define")
       (let* ((new-declaration (jazz:require-declaration declaration name))
@@ -463,7 +464,7 @@
   (%%assertion (%%not-null? (%%cdr (jazz:source-code form-src))) (jazz:walk-error walker resume declaration form-src "Ill-formed lambda")
     (let ((parameters (jazz:source-code (%%cadr (jazz:source-code form-src)))))
       (jazz:parse-specifier (%%cddr (jazz:source-code form-src))
-        (lambda (specifier body)
+        (lambda (specifier specifier-source body)
           (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
             (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
                   (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
@@ -481,10 +482,10 @@
     (let ((symbol-src (%%car (jazz:source-code form-src))))
       (let ((symbol (jazz:source-code symbol-src)))
         (jazz:parse-specifier (%%cdr (jazz:source-code form-src))
-          (lambda (specifier rest)
+          (lambda (specifier specifier-source rest)
             (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) #f))
                   (value (%%car rest)))
-              (values (jazz:new-variable symbol type symbol-src) value))))))))
+              (values (jazz:new-variable symbol type symbol-src specifier-source) value))))))))
 
 
 ;;;
@@ -639,7 +640,7 @@
                         (jazz:enqueue expanded-bindings (%%cons variable (jazz:walk walker resume declaration environment value)))
                         (set! augmented-environment (%%cons variable augmented-environment))))))
                 bindings)
-      (let ((variable (jazz:new-variable name #f #f)))
+      (let ((variable (jazz:new-variable name #f #f #f)))
         (set! augmented-environment (%%cons variable augmented-environment))
         (jazz:new-named-let form-src variable
           (jazz:queue-list expanded-bindings)
@@ -777,7 +778,7 @@
   (%%assertion (%%not-null? (%%cdr (jazz:unwrap-syntactic-closure form-src))) (jazz:walk-error walker resume declaration form-src "Ill-formed letrec")
     (let ((bindings (jazz:unwrap-syntactic-closure (%%cadr (jazz:unwrap-syntactic-closure form-src))))
           (body (%%cddr (jazz:source-code form-src))))
-      (let* ((new-variables (map (lambda (binding-form) (jazz:new-variable (jazz:source-code (%%car (jazz:source-code binding-form))) #f #f)) bindings))
+      (let* ((new-variables (map (lambda (binding-form) (jazz:new-variable (jazz:source-code (%%car (jazz:source-code binding-form))) #f #f #f)) bindings))
              (augmented-environment (%%append new-variables environment))
              (expanded-bindings (jazz:new-queue)))
         (for-each (lambda (variable binding-form)
@@ -841,9 +842,9 @@
           (let ((expr (jazz:source-code (%%car scan))))
             (%%assert (%%symbol? expr)
               (jazz:parse-specifier (%%cdr scan)
-                (lambda (specifier rest)
+                (lambda (specifier specifier-source rest)
                   (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any)))
-                    (jazz:enqueue queue (jazz:new-variable expr type #f))
+                    (jazz:enqueue queue (jazz:new-variable expr type #f #f))
                     (iter rest))))))))))
   
   (%%assertion (%%not-null? (%%cdr (jazz:unwrap-syntactic-closure form-src))) (jazz:walk-error walker resume declaration form-src "Ill-formed receive")
@@ -1085,7 +1086,7 @@
         (test (%%car (jazz:source-code (%%car (%%cddr (jazz:source-code form-src))))))
         (result (%%cdr (jazz:source-code (%%car (%%cddr (jazz:source-code form-src))))))
         (body (%%cdr (%%cddr (jazz:source-code form-src)))))
-    (let* ((new-variables (map (lambda (binding-form) (jazz:new-variable (jazz:source-code (%%car (jazz:source-code binding-form))) #f #f)) bindings))
+    (let* ((new-variables (map (lambda (binding-form) (jazz:new-variable (jazz:source-code (%%car (jazz:source-code binding-form))) #f #f #f)) bindings))
            (augmented-environment (%%append new-variables environment))
            (expanded-bindings (jazz:new-queue)))
       (for-each (lambda (variable binding-form)

@@ -502,7 +502,7 @@
               (begin
                 (jazz:enqueue queue name)
                 (set! first-positional? #f))
-            (jazz:enqueue-list queue `(,name ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type parameter)))))))
+            (jazz:enqueue-list queue `(,name ,@(jazz:outline-generate-parameter-type-list parameter))))))
       
       ;; adding (unspecified) is a quick solution
       (define (add-optional parameter)
@@ -531,6 +531,19 @@
   (if (and type (%%is-not? type jazz:Any-Class))
       (%%list (jazz:type->specifier type))
     '()))
+
+
+(define (jazz:outline-generate-specifier-list specifier-source)
+  (if specifier-source
+      (%%list (jazz:source-code specifier-source))
+    '()))
+
+
+(define (jazz:outline-generate-parameter-type-list parameter)
+  (let ((specifier-source (jazz:get-variable-specifier-source parameter)))
+    (if specifier-source
+        (%%list (jazz:source-code specifier-source))
+      (jazz:outline-generate-type-list (jazz:get-lexical-binding-type parameter)))))
 
 
 (define (jazz:outline-generate-access-list declaration)
@@ -2473,8 +2486,8 @@
 
 (define (jazz:parse-specifier lst proc)
   (if (and (%%pair? lst) (jazz:specifier? (jazz:source-code (%%car lst))))
-      (proc (jazz:source-code (%%car lst)) (%%cdr lst))
-    (proc #f lst)))
+      (proc (jazz:source-code (%%car lst)) (%%car lst) (%%cdr lst))
+    (proc #f #f lst)))
 
 
 (define (jazz:walk-specifier walker resume declaration environment specifier)
@@ -3665,13 +3678,14 @@
 
 
 (jazz:define-class jazz:Variable jazz:Symbol-Binding (constructor: jazz:allocate-variable)
-  ((source          getter: generate)
-   (reference-count getter: generate setter: generate)))
+  ((source           getter: generate)
+   (specifier-source getter: generate)
+   (reference-count  getter: generate setter: generate)))
 
 
-(define (jazz:new-variable name type source)
+(define (jazz:new-variable name type source specifier-source)
   (%%assertion (jazz:variable-name-valid? name) (jazz:error "Invalid variable name: {s}" (jazz:desourcify-all name))
-    (jazz:allocate-variable name type #f #f source 0)))
+    (jazz:allocate-variable name type #f #f source specifier-source 0)))
 
 
 (define (jazz:variable-name-valid? name)
@@ -3737,9 +3751,9 @@
   ())
 
 
-(define (jazz:new-parameter name type source)
+(define (jazz:new-parameter name type source specifier-source)
   (%%assertion (jazz:variable-name-valid? name) (jazz:error "Invalid variable name: {s}" (jazz:desourcify-all name))
-    (jazz:allocate-parameter name type #f #f source 0)))
+    (jazz:allocate-parameter name type #f #f source specifier-source 0)))
 
 
 (jazz:define-virtual (jazz:emit-check? (jazz:Parameter parameter)))
@@ -3763,8 +3777,8 @@
   ((class getter: generate)))
 
 
-(define (jazz:new-dynamic-parameter name type source class)
-  (jazz:allocate-dynamic-parameter name type #f #f source 0 class))
+(define (jazz:new-dynamic-parameter name type source specifier-source class)
+  (jazz:allocate-dynamic-parameter name type #f #f source specifier-source 0 class))
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Dynamic-Parameter parameter) declaration walker resume environment backend)
@@ -3781,8 +3795,8 @@
   ((default getter: generate setter: generate)))
 
 
-(define (jazz:new-optional-parameter name type source default)
-  (jazz:allocate-optional-parameter name type #f #f source 0 default))
+(define (jazz:new-optional-parameter name type source specifier-source default)
+  (jazz:allocate-optional-parameter name type #f #f source specifier-source 0 default))
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Optional-Parameter parameter) declaration walker resume environment backend)
@@ -3799,8 +3813,8 @@
   ((default getter: generate setter: generate)))
 
 
-(define (jazz:new-named-parameter name type source default)
-  (jazz:allocate-named-parameter name type #f #f source 0 default))
+(define (jazz:new-named-parameter name type source specifier-source default)
+  (jazz:allocate-named-parameter name type #f #f source specifier-source 0 default))
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Named-Parameter parameter) declaration walker resume environment backend)
@@ -3821,8 +3835,8 @@
   ())
 
 
-(define (jazz:new-rest-parameter name type source)
-  (jazz:allocate-rest-parameter name type #f #f source 0))
+(define (jazz:new-rest-parameter name type source specifier-source)
+  (jazz:allocate-rest-parameter name type #f #f source specifier-source 0))
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Rest-Parameter parameter) declaration walker resume environment backend)
@@ -4819,9 +4833,9 @@
   ((signature getter: generate)))
 
 
-(define (jazz:new-internal-define-variable name type source signature)
+(define (jazz:new-internal-define-variable name type source specifier-source signature)
   (%%assertion (jazz:variable-name-valid? name) (jazz:error "Invalid variable name: {s}" (jazz:desourcify-all name))
-    (jazz:allocate-internal-define-variable name type #f #f source 0 signature)))
+    (jazz:allocate-internal-define-variable name type #f #f source specifier-source 0 signature)))
 
 
 (jazz:define-method (jazz:walk-binding-validate-call (jazz:Internal-Define-Variable declaration) walker resume source-declaration operator arguments form-src)
@@ -5292,7 +5306,7 @@
 
 (define (jazz:walk-body walker resume declaration environment form-list)
   (define (walk-internal-define environment form-src variable)
-    (receive (name name-src specifier value parameters) (jazz:parse-define walker resume declaration #t form-src)
+    (receive (name name-src specifier specifier-source value parameters) (jazz:parse-define walker resume declaration #t form-src)
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
             (signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
         (let ((effective-type (if signature (jazz:signature->function-type signature type) type)))
@@ -5337,7 +5351,7 @@
                                         (signature (if (%%symbol? signature)
                                                        #f
                                                      (jazz:walk-parameters walker resume declaration environment (%%cdr signature) #t #f))))
-                                    (let ((variable (jazz:new-internal-define-variable name #f #f signature)))
+                                    (let ((variable (jazz:new-internal-define-variable name #f #f #f signature)))
                                       (jazz:enqueue variables variable)
                                       (set! augmented-environment (%%cons variable augmented-environment)))))))))
                         internal-defines)
@@ -5366,17 +5380,17 @@
                  (let ((name (jazz:source-code (%%car rest)))
                        (name-src (%%car rest)))
                    (jazz:parse-specifier (%%cdr rest)
-                     (lambda (specifier rest)
-                       (values name name-src specifier (and walk? (%%car rest)) #f))))))
+                     (lambda (specifier specifier-source rest)
+                       (values name name-src specifier specifier-source (and walk? (%%car rest)) #f))))))
               ((and (%%pair? first)
                     (%%symbol? (jazz:source-code (%%car first))))
                (let ((name (jazz:source-code (%%car (jazz:source-code (%%car rest)))))
                      (name-src (%%car (jazz:source-code (%%car rest))))
                      (parameters (%%cdr (jazz:source-code (%%car rest)))))
                  (jazz:parse-specifier (%%cdr rest)
-                   (lambda (specifier body)
+                   (lambda (specifier specifier-source body)
                      (let ((specifier-list (if specifier (%%list specifier) '())))
-                       (values name name-src specifier `(lambda ,parameters ,@specifier-list ,@body) parameters))))))
+                       (values name name-src specifier specifier-source `(lambda ,parameters ,@specifier-list ,@body) parameters))))))
               (else
                (jazz:walk-error walker resume declaration form-src "Ill-formed define variable: {s}" (jazz:desourcify-all first))))))))
 
@@ -5616,7 +5630,7 @@
               (name-src (%%car rest)))
           (if (%%symbol? name)
               (jazz:parse-specifier (%%cdr rest)
-                (lambda (specifier rest)
+                (lambda (specifier specifier-source rest)
                   (if (%%null? rest)
                       (values name name-src specifier access compatibility modifiers)
                     (ill-formed))))
@@ -5666,7 +5680,7 @@
               (name-src (%%car rest)))
           (if (%%symbol? name)
               (jazz:parse-specifier (%%cdr rest)
-                (lambda (specifier rest)
+                (lambda (specifier specifier-source rest)
                   (if (%%null? rest)
                       (values name name-src specifier access compatibility modifiers)
                     (ill-formed))))
@@ -5782,21 +5796,22 @@
                      ((dynamic)
                       ;; should compare specifier to dynamic specifier
                       (let* ((specifier (jazz:source-code (%%car parameter)))
+                             (specifier-source (%%car parameter))
                              (code (if (jazz:specifier? specifier) (jazz:specifier->name specifier) (%%car parameter)))
                              (variable (jazz:source-code (%%cadr parameter)))
-                             (dynamic-parameter (jazz:new-dynamic-parameter variable jazz:Any #f (jazz:walk walker resume declaration augmented-environment code))))
+                             (dynamic-parameter (jazz:new-dynamic-parameter variable jazz:Any #f specifier-source (jazz:walk walker resume declaration augmented-environment code))))
                         (jazz:enqueue dynamics dynamic-parameter)
                         (augment-environment dynamic-parameter))
                       (iterate-parameters (%%cdr scan) (%%memq section sections)))
                      ((positional)
                       (jazz:parse-specifier (%%cdr scan)
-                        (lambda (specifier rest)
+                        (lambda (specifier specifier-source rest)
                           (define (make-positional-parameter)
                             (if (and first-positional-parameter
                                      (%%null? (jazz:queue-list positionals)))
                                 (first-positional-parameter parameter specifier)
                               (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) #f)))
-                                (jazz:new-parameter parameter type #f))))
+                                (jazz:new-parameter parameter type #f specifier-source))))
                           
                           (let ((positional-parameter (make-positional-parameter)))
                             (jazz:enqueue positionals positional-parameter)
@@ -5804,7 +5819,7 @@
                           (iterate-parameters rest (%%memq section sections)))))
                      ((optional #!optional)
                       (jazz:parse-specifier (%%cdr parameter)
-                        (lambda (specifier rest)
+                        (lambda (specifier specifier-source rest)
                           (%%when (and walk? (%%not (%%fx= (%%length rest) 1)))
                             (jazz:walk-error walker resume declaration parameter-src "Ill-formed optional parameter: {s}" (jazz:desourcify parameter-src)))
                           (let ((variable (jazz:source-code (%%car parameter)))
@@ -5812,7 +5827,7 @@
                                 (default (if walk? (jazz:walk walker resume declaration augmented-environment (%%car rest)) #f)))
                             (%%when walk?
                               (jazz:enqueue expressions default))
-                            (let ((optional-parameter (jazz:new-optional-parameter variable type #f default)))
+                            (let ((optional-parameter (jazz:new-optional-parameter variable type #f specifier-source default)))
                               (jazz:enqueue optionals optional-parameter)
                               (augment-environment optional-parameter)))))
                       (iterate-parameters (%%cdr scan) (%%memq section sections)))
@@ -5820,7 +5835,7 @@
                       (%%when (%%not (%%pair? (%%cdr parameter)))
                         (jazz:walk-error walker resume declaration parameter-src "Ill-formed keyword parameter: {s}" (jazz:desourcify parameter-src)))
                       (jazz:parse-specifier (if (%%eq? section #!key) (%%cdr parameter) (%%cddr parameter))
-                        (lambda (specifier rest)
+                        (lambda (specifier specifier-source rest)
                           (%%when (and walk? (%%not (%%fx= (%%length rest) 1)))
                             (jazz:walk-error walker resume declaration parameter-src "Ill-formed keyword parameter: {s}" (jazz:desourcify parameter-src)))
                           (let ((keyword (if (%%eq? section #!key) (%%string->keyword (%%symbol->string (jazz:source-code (%%car parameter)))) (jazz:source-code (%%car parameter))))
@@ -5831,7 +5846,7 @@
                               (jazz:walk-error walker resume declaration parameter-src "Mismatched key/name for keyword parameter: {s}" (jazz:desourcify parameter-src)))
                             (%%when walk?
                               (jazz:enqueue expressions default))
-                            (let ((keyword-parameter (jazz:new-named-parameter variable type #f default)))
+                            (let ((keyword-parameter (jazz:new-named-parameter variable type #f specifier-source default)))
                               (jazz:enqueue keywords keyword-parameter)
                               (augment-environment keyword-parameter)))))
                       (iterate-parameters (%%cdr scan) (%%memq section sections)))
@@ -5839,14 +5854,14 @@
                       (let ((rest parameter))
                         (%%when (%%not (%%symbol? rest))
                           (jazz:walk-error walker resume declaration scan "Ill-formed rest parameter: {s}" rest))
-                        (let ((parameter-expression (jazz:new-rest-parameter rest jazz:List #f)))
+                        (let ((parameter-expression (jazz:new-rest-parameter rest jazz:List #f #f)))
                           (augment-environment parameter-expression)
                           parameter-expression))))))))
             ((%%not (%%null? scan))
              (let ((rest (jazz:source-code scan)))
                (%%when (%%not (%%symbol? rest))
                  (jazz:walk-error walker resume declaration scan "Ill-formed rest parameter: {s}" rest))
-               (let ((parameter-expression (jazz:new-rest-parameter rest jazz:List #f)))
+               (let ((parameter-expression (jazz:new-rest-parameter rest jazz:List #f #f)))
                  (augment-environment parameter-expression)
                  parameter-expression)))
             (else

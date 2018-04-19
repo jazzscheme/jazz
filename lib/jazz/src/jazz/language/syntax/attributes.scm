@@ -121,7 +121,7 @@
            ,@(map (lambda (attribute)
                     (let ((name (cadr attribute)))
                       (parse-specifier (cddr attribute)
-                        (lambda (specifier rest)
+                        (lambda (specifier specifier-source rest)
                           (let ((initialize (getf rest 'initialize '(unspecified))))
                             `((,name) ,initialize))))))
                   attributes)
@@ -143,7 +143,7 @@
                (for-each (lambda (attribute)
                            (let ((name (cadr attribute)))
                              (parse-specifier (cddr attribute)
-                               (lambda (specifier rest)
+                               (lambda (specifier specifier-source rest)
                                  (let ((test (getf rest 'test)))
                                    (if test
                                        (enqueue clauses `((,name) (,test x y)))))))))
@@ -170,7 +170,7 @@
                 (let ((name (cadr attribute))
                       (slot-name (slot-name attribute)))
                   (parse-specifier (cddr attribute)
-                    (lambda (specifier rest)
+                    (lambda (specifier specifier-source rest)
                       (let ((getter (string->symbol (system-format "get-{a}" name)))
                             (setter (string->symbol (system-format "set-{a}" name))))
                         `(begin

@@ -518,37 +518,16 @@
 
 
 (definition (process-expose-message window msg)
-  (define (process-expose store)
-    (define (accumulate-rect rect)
-      (let ((region (new Region rect: rect))
-            (old-region (table-ref store window #f)))
-        (unless (empty? region)
-          (if old-region
-              (table-set! store window (region-union old-region region))
-            (table-set! store window region)))))
-
-    (let ((msg (XEvent-xexpose-ref msg)))
-      (let ((left (XExposeEvent-x-ref msg))
-            (top  (XExposeEvent-y-ref msg)))
-        (let ((right (+ left (XExposeEvent-width-ref msg)))
-              (bottom (+ top (XExposeEvent-height-ref msg))))
-          (let ((rect (new Rect left top right bottom)))
-            (accumulate-rect rect))))))
-
-  (define (paint-exposed store)
-    (let ((region (table-ref store window #f)))
-      (table-clear store window)
-      (when region
-        (paint window region))))
-
-  ;; process all expose events
-  (let ((store (make-table)))
-    (let (process)
-      (process-expose store)
-      (if (XCheckTypedWindowEvent x11-default-display (get-handle window) Expose msg)
-          (process)
-        (paint-exposed store)
-        processed))))
+  (let ((msg (XEvent-xexpose-ref msg)))
+    (let ((left (XExposeEvent-x-ref msg))
+          (top  (XExposeEvent-y-ref msg)))
+      (let ((right (+ left (XExposeEvent-width-ref msg)))
+            (bottom (+ top (XExposeEvent-height-ref msg))))
+        (let ((rect (new Rect left top right bottom)))
+          (let ((region (new Region rect: rect)))
+            (unless (empty? region)
+              (paint window region)))))))
+  processed)
 
 
 (definition (process-button-press-message window msg)

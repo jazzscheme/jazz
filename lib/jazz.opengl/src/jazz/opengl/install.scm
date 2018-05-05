@@ -40,8 +40,6 @@
 
 (cond-expand
   (windows
-    (jazz:register-foreign-libraries 'jazz.opengl.foreign.gl       'opengl32)
-    (jazz:register-foreign-libraries 'jazz.opengl.foreign.glu      'opengl32 'glu32)
     (jazz:register-foreign-libraries 'jazz.opengl.glew.foreign     'opengl32 'glu32 'glew32)
     (jazz:register-foreign-libraries 'jazz.opengl.glew.header      'opengl32 'glew32)
     (jazz:register-foreign-libraries 'jazz.opengl.glew.windows     'opengl32 'glew32)

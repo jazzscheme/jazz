@@ -102,7 +102,7 @@
       '())))
 
 
-(define (jazz:build-opengl descriptor #!key (unit #f) (force? #f))
+(define (jazz:build-opengl descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:opengl-units))
     (jazz:custom-compile/build unit-specs pre-build: jazz:copy-opengl-files unit: unit force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))

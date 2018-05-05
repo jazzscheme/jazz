@@ -51,14 +51,13 @@
         (position (or position {Point 50 50}))
         (size (or size {Dimension 640 480})))
     (let ((window (parameterize ((request-fullscreen? fullscreen?)) (new class fullscreen?: fullscreen? visible?: #f))))
-      (let ((context (make-context)))
-        (make-context-current (get-handle window) context)
-        (set-opengl-context? #t)
-        (set-handle window (get-handle window))
-        (set-title window "Hello world from Jazz!")
-        (set-position window position)
-        (set-size window size)
-        window))))
+      (setup-current-context (get-handle window))
+      (set-opengl-context? #t)
+      (set-handle window (get-handle window))
+      (set-title window "Hello world from Jazz!")
+      (set-position window position)
+      (set-size window size)
+      window)))
 
 
 ;;;
@@ -73,15 +72,10 @@
   (glx-swap-interval 0))
 
 
-(definition package (make-context)
-  (let* ((display x11-default-display)
-         (screen (XDefaultScreen display))
-         (visual (XDefaultVisual display screen)))
-    (glXCreateContext display visual screen)))
-
-
-(definition package (make-context-current handle context)
-  (glXMakeCurrent x11-default-display handle context))
+(definition package (setup-current-context handle)
+  (let ((code (glXSetupCurrentContext x11-default-display handle)))
+    (when (/= code 0)
+      (error "Unable to create OpenGL context ({a})" code))))
 
 
 (definition package (release-current-context)

@@ -52,7 +52,7 @@
       (list (cons "lib/jazz.opengl/foreign/mac/opengl/glew/lib/libGLEW.dylib" "libGLEW.dylib"))))
   (else
     (define jazz:opengl-files
-      '())))
+      (list (cons "lib/jazz.opengl/foreign/unix/opengl/glew/lib/libGLEW.so.1.13" "libGLEW.so.1.13")))))
 
 
 (define (jazz:copy-opengl-files)
@@ -94,9 +94,11 @@
           (jazz.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))))))
   (x11
     (define jazz:opengl-units
-      `((jazz.opengl.glew.foreign ld-options: "-lGLEW -lGLU -lGL")
-        (jazz.opengl.glew.x11     ld-options: "-lGLEW -lGLU -lGL")
-        (jazz.opengl.glew.header  ld-options: "-lGLEW -lGLU -lGL"))))
+      (let ((glew-include-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/unix/opengl/glew/include"))
+            (glew-lib-path     (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/unix/opengl/glew/lib")))
+        `((jazz.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lGLU -lGL"))
+          (jazz.opengl.glew.x11     cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lGLU -lGL"))
+          (jazz.opengl.glew.header  cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lGLU -lGL"))))))
   (else
     (define jazz:opengl-units
       '())))
@@ -118,7 +120,8 @@
       (let ((glew-lib-path (jazz:jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/lib")))
         (list (string-append "-L" glew-lib-path) "-framework" "OpenGL" "-lglew")))
     (x11
-      (list "-lGLEW" "-lGLU" "-lGL"))
+      (let ((glew-lib-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/unix/opengl/glew/lib")))
+        (list (string-append "-L" glew-lib-path) "-lGLU" "-lGL")))
     (else
      '())))
 

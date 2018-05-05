@@ -72,9 +72,13 @@
           (list cc-flags ld-flags)))))
   (else
     (define stream-flags
-      (let ((cc-flags (pkg-config-cflags "gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0"))
-            (ld-flags (pkg-config-libs "gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0")))
-        (list cc-flags ld-flags)))))
+      (let ((gstreamer-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/unix/gstreamer/include/gstreamer-1.0"))
+            (glib-include-path      (quote-jazz-pathname "lib/jazz.stream/foreign/unix/gstreamer/include/glib-2.0"))
+            (glib-lib-include-path  (quote-jazz-pathname "lib/jazz.stream/foreign/unix/gstreamer/lib/glib-2.0/include"))
+            (gstreamer-lib-path     (quote-jazz-pathname "lib/jazz.stream/foreign/unix/gstreamer/lib")))
+        (let ((cc-flags (string-append "-D_REENTRANT -I" gstreamer-include-path " -I" glib-include-path " -I" glib-lib-include-path))
+              (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../../gstreamer/lib" " -L" gstreamer-lib-path " -lgstapp-1.0 -lgstbase-1.0 -lgstpbutils-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0")))
+          (list cc-flags ld-flags))))))
 
 
 (define stream-units
@@ -130,7 +134,24 @@
        (install-dirname "libexec"))))
   (else
    (define (copy-platform-files)
-     )))
+     (let ((src-dir {Directory Jazz "lib" "jazz.stream" "foreign" "unix" "gstreamer"})
+           (dst-dir {Directory Build "gstreamer"}))
+       (define (install-dirname path (src #f) (dst #f))
+         (let ((src (new-directory src-dir (or src path)))
+               (dst (new-directory dst-dir (or dst path))))
+           (install-directory src dst
+             filter: (lambda (action pathname)
+                       (not (and (file? pathname)
+                                 (symbolic-link? pathname))))
+             feedback: (let ((first? #t))
+                         (lambda (action pathname)
+                           (when first?
+                             (build-feedback "; {a} {a}..." action (get-name pathname))
+                             (set! first? #f)))))))
+       
+       (initialize-aliases)
+       (install-dirname "lib")
+       (install-dirname "libexec")))))
 
 
 (define (build-stream descriptor #!key (unit #f) (skip-references? #f) (force? #f))
@@ -149,7 +170,8 @@
      (let ((gstreamer-lib-path (quote-jazz-pathname "lib/jazz.stream/foreign/windows/gstreamer/lib")))
        (string-append "-L" gstreamer-lib-path " -lgstapp-1.0.0 -lgstbase-1.0.0 -lgstpbutils-1.0.0 -lgstreamer-1.0.0 -lgobject-2.0.0 -lglib-2.0.0 -lintl.8 -Wl,-framework -Wl,CoreFoundation")))
     (else
-     (pkg-config-libs "gstreamer-1.0"))))
+     (let ((gstreamer-lib-path (quote-jazz-pathname "lib/jazz.stream/foreign/unix/gstreamer/lib")))
+       (string-append "-L" gstreamer-lib-path " -lgstapp-1.0 -lgstbase-1.0 -lgstpbutils-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0")))))
 
 
 ;;;

@@ -61,9 +61,12 @@
           (list cc-flags ld-flags)))))
   (else
     (define jazz:freetype-flags
-      (let ((cc-flags (jazz:pkg-config-cflags "freetype2"))
-            (ld-flags (jazz:pkg-config-libs "freetype2")))
-        (list cc-flags ld-flags)))))
+      (let ((freetype-include-path (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/unix/freetype/include"))
+            (freetype-lib-path     (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/unix/freetype/lib"))
+            (png-lib-path          (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/unix/png/lib")))
+        (let ((cc-flags (string-append "-I" freetype-include-path))
+              (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" freetype-lib-path " -L" png-lib-path " -lfreetype")))
+          (list cc-flags ld-flags))))))
 
 
 (define jazz:freetype-units
@@ -80,7 +83,7 @@
      (list (cons "lib/jazz.freetype/foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll"))))
   (else
    (define jazz:platform-files
-     '())))
+     (list (cons "lib/jazz.freetype/foreign/unix/freetype/lib/libfreetype.so.6" "libfreetype.so.6")))))
 
 
 (define (jazz:copy-platform-files)
@@ -99,7 +102,7 @@
               jazz:platform-files)))
 
 
-(define (jazz:build-freetype descriptor #!key (unit #f) (force? #f))
+(define (jazz:build-freetype descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:freetype-units))
     (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))

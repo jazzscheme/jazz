@@ -69,9 +69,15 @@
           (list cc-flags ld-flags)))))
   (else
     (define jazz:fontconfig-flags
-      (let ((cc-flags (jazz:pkg-config-cflags "fontconfig"))
-            (ld-flags (jazz:pkg-config-libs "fontconfig")))
-        (list cc-flags ld-flags)))))
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/unix/fontconfig/include"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/unix/fontconfig/lib"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/unix/freetype/include"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/unix/freetype/lib"))
+            (png-include-path        (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/unix/png/include"))
+            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/unix/png/lib")))
+        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
+              (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig")))
+          (list cc-flags ld-flags))))))
 
 
 (define jazz:fontconfig-units
@@ -88,7 +94,7 @@
      (list (cons "lib/jazz.fontconfig/foreign/windows/fontconfig/lib/libfontconfig-1.dll" "libfontconfig-1.dll"))))
   (else
    (define jazz:platform-files
-     '())))
+     (list (cons "lib/jazz.fontconfig/foreign/unix/fontconfig/lib/libfontconfig.so.1" "libfontconfig.so.1")))))
 
 
 (define (jazz:copy-platform-files)
@@ -107,7 +113,7 @@
               jazz:platform-files)))
 
 
-(define (jazz:build-fontconfig descriptor #!key (unit #f) (force? #f))
+(define (jazz:build-fontconfig descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:fontconfig-units))
     (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))

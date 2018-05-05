@@ -116,13 +116,19 @@
           (list cc-flags ld-flags)))))
   (x11
     (define (jazz:cairo-flags quoter)
-      (let ((cairo-name (jazz:guess-cairo-name)))
-        (receive (major minor build) (jazz:parse-dot-version (jazz:pkg-config-version cairo-name))
-          (if (%%fx< minor 4)
-              (jazz:error "Cairo 1.4 or higher needed")
-            (let ((cc-flags (jazz:pkg-config-cflags cairo-name))
-                  (ld-flags (jazz:pkg-config-libs cairo-name)))
-              (list cc-flags ld-flags))))))))
+      (let ((cairo-include-path      (quoter "lib/jazz.cairo/foreign/unix/cairo/include/cairo"))
+            (pixman-include-path     (quoter "lib/jazz.cairo/foreign/unix/pixman/include"))
+            (fontconfig-include-path (quoter "lib/jazz.fontconfig/foreign/unix/fontconfig/include"))
+            (freetype-include-path   (quoter "lib/jazz.freetype/foreign/unix/freetype/include"))
+            (png-include-path        (quoter "lib/jazz.cairo/foreign/unix/png/include"))
+            (cairo-lib-path          (quoter "lib/jazz.cairo/foreign/unix/cairo/lib"))
+            (pixman-lib-path         (quoter "lib/jazz.cairo/foreign/unix/pixman/lib"))
+            (fontconfig-lib-path     (quoter "lib/jazz.fontconfig/foreign/unix/fontconfig/lib"))
+            (freetype-lib-path       (quoter "lib/jazz.freetype/foreign/unix/freetype/lib"))
+            (png-lib-path            (quoter "lib/jazz.cairo/foreign/unix/png/lib")))
+        (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
+              (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfreetype" " -lcairo")))
+          (list cc-flags ld-flags))))))
 
 
 (cond-expand
@@ -161,7 +167,9 @@
            (cons "lib/jazz.cairo/foreign/windows/png/lib/libpng16-16.dll" "libpng16-16.dll"))))
   (else
    (define jazz:platform-files
-     '())))
+     (list (cons "lib/jazz.cairo/foreign/unix/cairo/lib/libcairo.so.2" "libcairo.so.2")
+           (cons "lib/jazz.cairo/foreign/unix/pixman/lib/libpixman-1.so.0" "libpixman-1.so.0")
+           (cons "lib/jazz.cairo/foreign/unix/png/lib/libpng16.so.16" "libpng16.so.16")))))
 
 
 (define (jazz:copy-platform-files)

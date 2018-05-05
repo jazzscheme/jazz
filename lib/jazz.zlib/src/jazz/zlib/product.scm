@@ -61,14 +61,13 @@
        `((jazz.zlib.foreign
            cc-options: ,(string-append "-I" zlib-include-path)
            ld-options: ,(string-append "-L" zlib-lib-path " -lz"))))))
-  (x11
-   (define jazz:zlib-units
-     (let ((cc-flags (jazz:pkg-config-cflags "zlib"))
-           (ld-flags (jazz:pkg-config-libs "zlib")))
-       `((jazz.zlib.foreign cc-options: ,cc-flags ld-options: ,ld-flags)))))
   (else
    (define jazz:zlib-units
-     '((jazz.zlib.foreign)))))
+     (let ((zlib-include-path  (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/unix/zlib/include"))
+           (zlib-lib-path      (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/unix/zlib/lib")))
+       `((jazz.zlib.foreign
+           cc-options: ,(string-append "-I" zlib-include-path)
+           ld-options: ,(string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" zlib-lib-path " -lz")))))))
 
 
 (cond-expand
@@ -80,7 +79,7 @@
      (list (cons "lib/jazz.zlib/foreign/windows/zlib/lib/zlib1.dll" "zlib1.dll"))))
   (else
    (define jazz:platform-files
-     '())))
+     (list (cons "lib/jazz.zlib/foreign/unix/zlib/lib/libz.so.1" "libz.so.1")))))
 
 
 (define (jazz:copy-platform-files)
@@ -99,7 +98,7 @@
               jazz:platform-files)))
 
 
-(define (jazz:build-zlib descriptor #!key (unit #f) (force? #f))
+(define (jazz:build-zlib descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:zlib-units))
     (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))

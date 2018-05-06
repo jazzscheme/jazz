@@ -1,0 +1,141 @@
+;;;===============
+;;;  JazzScheme
+;;;===============
+;;;
+;;;; OpenGL Sample Textures
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.opengl.sample.texture jazz
+
+
+(import (jazz.cairo)
+        (jazz.graphic)
+        (jazz.opengl.glew))
+
+
+;;;
+;;;; Image
+;;;
+
+
+(class Image-Texture extends Object
+  
+  
+  (slot width      <fx>      getter generate)
+  (slot height     <fx>      getter generate)
+  (slot depth      <fx+>     getter generate)
+  (slot data       <object>  getter generate)
+  (slot target     <object>  getter generate)
+  (slot id         <object>  getter generate)
+  (slot min-filter <object>  getter generate)
+  (slot mag-filter <object>  getter generate)
+  (slot wrap       <object>  getter generate)
+  (slot mipmap?    <bool>    getter generate)
+  (slot metadata   <object>  getter generate)
+  (slot file       <object>  accessors generate)
+  
+  
+  (method override (initialize self width height (data: data #f) (min-filter: min-filter #f) (mag-filter: mag-filter #f) (wrap: wrap #f) (mipmap?: mipmap? #f) (metadata: metadata #f) (file: file #f))
+    (set! self.width width)
+    (set! self.height height)
+    (set! self.depth #f)
+    (set! self.data data)
+    (set! self.target #f)
+    (set! self.id (gl-generate-texture))
+    (set! self.min-filter min-filter)
+    (set! self.mag-filter mag-filter)
+    (set! self.wrap wrap)
+    (set! self.mipmap? mipmap?)
+    (set! self.metadata metadata)
+    (set! self.file file))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{s}x{s}" width height))))
+  
+  
+  (method (with-texture self thunk)
+    (glBindTexture target id)
+    (glTexParameteri target GL_TEXTURE_MIN_FILTER (or min-filter (if mipmap? GL_LINEAR_MIPMAP_LINEAR GL_LINEAR)))
+    (glTexParameteri target GL_TEXTURE_MAG_FILTER (or mag-filter GL_LINEAR))
+    (glTexParameteri target GL_TEXTURE_WRAP_S (or wrap GL_REPEAT))
+    (glTexParameteri target GL_TEXTURE_WRAP_T (or wrap GL_REPEAT))
+    (thunk)
+    (when mipmap?
+      (glGenerateMipmap target))
+    (glBindTexture target 0)
+    (gl-check-error))
+  
+  
+  (method public (map-texture self (repeat?: repeat? #t))
+    (set! target GL_TEXTURE_2D)
+    (with-texture self
+      (lambda ()
+        (glTexImage2D target
+                      0
+                      GL_RGBA
+                      width
+                      height
+                      0
+                      GL_BGRA
+                      GL_UNSIGNED_BYTE
+                      data)))))
+
+
+;;;
+;;;; Cairo
+;;;
+
+
+(class Cairo-Texture extends Image-Texture
+  
+  
+  (slot surface <Surface> getter generate)
+  
+  
+  (method override (initialize self width height . rest)
+    (bind-keywords ((surface #f) . others) rest
+      (apply nextmethod self width height others)
+      (set! self.surface (or surface (new Image-Surface (new Dimension width height))))
+      (set! self.data (cairo_image_surface_get_data (get-handle self.surface)))))
+  
+  
+  (method override (destroy self)
+    (close surface)
+    (nextmethod self)))
+
+
+(definition public (make-cairo-texture width height . rest)
+  (apply new Cairo-Texture width height rest)))

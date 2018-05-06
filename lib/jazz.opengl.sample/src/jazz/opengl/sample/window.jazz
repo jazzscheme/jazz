@@ -45,7 +45,8 @@
         (jazz.opengl)
         (jazz.opengl.glew)
         (jazz.opengl.sample)
-        (jazz.opengl.sample.syntax (phase syntax)))
+        (jazz.opengl.sample.syntax (phase syntax))
+        (jazz.opengl.sample.texture))
 
 
 ;;;
@@ -533,14 +534,13 @@ void main()
     (glBindVertexArray 0)))
 
 
-@convert
 (class Texture-Array extends Array
   
   
   (slot vertex-buffer)
   
   
-  (method override (initialize program vertices)
+  (method override (initialize self program vertices)
     (set! array (glGenVertexArrays*))
     (glBindVertexArray array)
     (set! vertex-buffer (create-vertex-buffer program vertices))
@@ -554,7 +554,7 @@ void main()
   (slot vertex-buffer)
   
   
-  (method override (initialize program vertices)
+  (method override (initialize self program vertices)
     (set! array (glGenVertexArrays*))
     (glBindVertexArray array)
     (set! vertex-buffer (create-vertex-buffer program vertices))
@@ -587,6 +587,7 @@ void main()
   
   ;; Textures
   (slot texture             initialize #f getter generate)
+  (slot texture-toggle?     initialize #f getter generate)
   (slot interface           initialize #f getter generate)
   
   
@@ -602,7 +603,6 @@ void main()
   
   (method (create-programs self)
     (set! color-program (new Color-Program))
-    @convert
     (set! texture-program (new Texture-Program))
     @convert
     (set! interface-program (new Interface-Program)))
@@ -610,12 +610,10 @@ void main()
   
   (method (release-programs self)
     (glDeleteProgram (get-program Color-Program))
-    @convert
     (glDeleteProgram (get-program Texture-Program))
     @convert
     (glDeleteProgram (get-program Interface-Program))
     (set! color-program #f)
-    @convert
     (set! texture-program #f)
     @convert
     (set! interface-program #f))
@@ -629,10 +627,9 @@ void main()
   (method (initialize-arrays self)
     (set! red-array (create-red self))
     (set! blue-array (create-blue self))
+    (set! texture-array (create-texture self))
     @convert
-    (set! texture-array (create-texture))
-    @convert
-    (set! interface-array (create-interface)))
+    (set! interface-array (create-interface self)))
   
   
   (method (create-red self)
@@ -663,8 +660,7 @@ void main()
       (new Color-Array color-program vertices colors)))
   
   
-  @convert
-  (method (create-texture)
+  (method (create-texture self)
     (let ((vertices #f32( -1.0 2.0 -5.0 0.0 0.0 0.0
                            1.0 2.0 -5.0 1.0 0.0 0.0
                            0.0 4.0 -5.0 0.5 1.0 0.0)))
@@ -672,7 +668,7 @@ void main()
   
   
   @convert
-  (method (create-interface)
+  (method (create-interface self)
     (let ((vertices #f32(  0.0 10.0 0.0 0.0 0.0 0.0
                           10.0 10.0 0.0 1.0 0.0 0.0
                            0.0  0.0 0.0 0.0 1.0 0.0
@@ -705,10 +701,10 @@ void main()
     ;; View
     (make-view-matrix! view-matrix (vertex 7. 2. 6.) (lookat (vertex -.513 -.110 -.852) (vertex -.056 .994 -.094) (vertex .857 -4.195e-8 -.516)))
     
-    @convert (
     ;; Textures
     (set! texture (make-cairo-texture 100 100))
-    (set! interface (make-cairo-texture (fxround width) (fxround height)))))
+    @convert
+    (set! interface (make-cairo-texture (fxround width) (fxround height))))
   
   
   ;;;
@@ -747,12 +743,14 @@ void main()
     (unbind-uniforms color-program)
     (unuse color-program)
     
-    @convert (
     ;; Texture
-    (let ((surface (get-surface texture)))
-      (fill-rect surface {Rect 0 0 100 100} {Color Yellow})
-      (fill-rect surface {Rect 50 0 100 50} {Color Green})
-      (fill-rect surface {Rect 0 50 50 100} {Color Green})
+    (let ((surface (get-surface texture))
+          (color1 (if texture-toggle? {Color Yellow} {Color Green}))
+          (color2 (if texture-toggle? {Color Green} {Color Yellow})))
+      (set! texture-toggle? (not texture-toggle?))
+      (fill-rect surface {Rect 0 0 100 100} color1)
+      (fill-rect surface {Rect 50 0 100 50} color2)
+      (fill-rect surface {Rect 0 50 50 100} color2)
       (map-texture texture))
     (use texture-program)
     (bind-uniforms texture-program projection-matrix view-matrix (get-id texture))
@@ -760,7 +758,7 @@ void main()
     (glDrawArrays GL_TRIANGLES 0 6)
     (glBindVertexArray 0)
     (unbind-uniforms texture-program)
-    (unuse texture-program))
+    (unuse texture-program)
     
     @convert (
     ;; Interface

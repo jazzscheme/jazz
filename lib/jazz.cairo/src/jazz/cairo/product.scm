@@ -169,7 +169,8 @@
    (define jazz:platform-files
      (list (cons "lib/jazz.cairo/foreign/unix/cairo/lib/libcairo.so.2" "libcairo.so.2")
            (cons "lib/jazz.cairo/foreign/unix/pixman/lib/libpixman-1.so.0" "libpixman-1.so.0")
-           (cons "lib/jazz.cairo/foreign/unix/png/lib/libpng16.so.16" "libpng16.so.16")))))
+           (cons "lib/jazz.cairo/foreign/unix/png/lib/libpng16.so.16" "libpng16.so.16")
+           (cons "lib/jazz.cairo/foreign/unix/bz2/lib/libbz2.so.1.0" "libbz2.so.1.0")))))
 
 
 (define (jazz:copy-platform-files)

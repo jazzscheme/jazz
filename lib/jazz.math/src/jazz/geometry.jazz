@@ -370,6 +370,15 @@
 
 (definition public (justify inner outer justification)
   (define (just i o j)
+    (define (just-symbolic j)
+      (case j
+        ((head) 0)
+        ((center) (if (integer? i)
+                      (quotient (- o i) 2)
+                    (/ (- o i) 2.)))
+        ((tail) (- o i))
+        (else (error "Unknown justification: {t}" j))))
+    
     (if (number? j)
         (let ((d (if (flonum? j)
                      (fxround (percent j o))
@@ -377,13 +386,10 @@
           (if (>= d 0)
               d
             (- (+ o d) i)))
-      (case j
-        ((head) 0)
-        ((center) (if (integer? i)
-                      (quotient (- o i) 2)
-                    (/ (- o i) 2.)))
-        ((tail) (- o i))
-        (else (error "Unknown justification: {t}" j)))))
+      (if (symbol? j)
+          (just-symbolic j)
+        (bind (offset-j offset) j
+          (+ (just-symbolic offset-j) offset)))))
   
   (cond ((and (is? inner Dimension) (is? outer Dimension))
          (new Point

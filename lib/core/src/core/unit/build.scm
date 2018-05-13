@@ -197,6 +197,13 @@
     str))
 
 
+;; compilation time is just too long in core
+(define (jazz:wrap-no-optimize-cc-options str)
+  (if (eq? jazz:kernel-safety 'core)
+      (string-append "-O0 " str)
+    str))
+
+
 (define jazz:custom-cc-path
   (let ((cache (make-table test: eq?)))
     (lambda (custom-cc)
@@ -248,7 +255,7 @@
 (define (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (output-language #f) (options #f) (custom-cc #f) (cc-options #f) (ld-options #f) (skip-references? #f) (force? #f))
   (let ((references-valid? (or skip-references? (and (or obj-uptodate? bin-uptodate?) (jazz:manifest-references-valid? (or obj bin))))))
     (let ((options (or options jazz:compile-options))
-          (cc-options (jazz:wrap-single-host-cc-options (or cc-options "")))
+          (cc-options (jazz:wrap-single-host-cc-options (jazz:wrap-no-optimize-cc-options (or cc-options ""))))
           (ld-options (or ld-options ""))
           (update-obj? (or force? (not obj-uptodate?) (not references-valid?)))
           (update-bin? (or force? (not bin-uptodate?) (not references-valid?))))

@@ -301,11 +301,13 @@
   (if jazz:kernel-track-memory?
       (case (jazz:walk-for)
         ((compile)
-         `(##c-code #<<end-of-code
+         `(let ()
+            (declare (extended-bindings))
+            (##c-code #<<end-of-code
 ___RESULT = ___UPDATE_ALLOC(___ARG1);
 end-of-code
 
-            (jazz:track ,expr)))
+            (jazz:track ,expr))))
         (else
          `(jazz:track ,expr)))
     expr))

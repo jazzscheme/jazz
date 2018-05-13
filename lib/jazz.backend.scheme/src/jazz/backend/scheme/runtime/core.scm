@@ -385,7 +385,9 @@
 
 #; ;; wait as this forces module to be compiled
 (define (jazz:get-heap-pointer)
-  (##c-code "___RESULT = ___CAST(___SCMOBJ, ___hp);"))
+  (let ()
+    (declare (extended-bindings))
+    (##c-code "___RESULT = ___CAST(___SCMOBJ, ___hp);")))
 
 
 ;;;

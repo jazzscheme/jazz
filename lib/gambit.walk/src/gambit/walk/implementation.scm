@@ -33,6 +33,7 @@
 
 (define-prim (##frame-set! frame i val)
   (##declare (not interrupts-enabled))
+  (##declare (extended-bindings))
   (##c-code #<<end-of-code
 
    int i = ___INT(___ARG2);

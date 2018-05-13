@@ -166,6 +166,23 @@
               (size (rect-size rect)))
          (for-each (lambda (child)
                      (when (is? child View)
+                       (let ((proportion (get-proportion child)))
+                         (when proportion
+                           (bind (width height) proportion
+                             (define (adjust inner outer)
+                               (cond ((eq? inner 'bounds)
+                                      outer)
+                                     ((pair? inner)
+                                      (bind (bounds incr) inner
+                                        (assert (eq? bounds 'bounds)
+                                          (+ outer incr))))
+                                     (else
+                                      inner)))
+                             
+                             (let ((size (new Dimension
+                                           (adjust width (get-width size))
+                                           (adjust height (get-height size)))))
+                               (set-size child size)))))
                        (let ((justification (or (get-location child) layout-justification)))
                          (unless (eq? justification 'none)
                            (let ((pos (nu+ topleft (justify (get-size child) size justification))))

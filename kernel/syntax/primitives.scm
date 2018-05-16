@@ -268,9 +268,9 @@
 ;;;
 
 
-(jazz:define-macro (%%load path script-callback clone-cte? raise-os-exception? quiet?)
-  (%%force-uniqueness (path script-callback clone-cte? raise-os-exception? quiet?)
-    `(jazz:unsafe (##load ,path ,script-callback ,clone-cte? ,raise-os-exception? ,quiet?))))
+(jazz:define-macro (%%load path script-callback clone-cte? raise-os-exception? linker-name quiet?)
+  (%%force-uniqueness (path script-callback clone-cte? raise-os-exception? linker-name quiet?)
+    `(jazz:unsafe (##load ,path ,script-callback ,clone-cte? ,raise-os-exception? ,linker-name ,quiet?))))
 
 
 ;;;

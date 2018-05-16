@@ -657,7 +657,7 @@
 
 
 (jazz:define-method (jazz:write-object (jazz:Class class) we obj)
-  (##default-wr we obj))
+  (%%default-wr we obj))
 
 
 (define (jazz:new-class class-of-class identifier ascendant interfaces)
@@ -2509,10 +2509,10 @@
   #f)
 
 
-(set! ##wr
+(%%wr-set!
   (lambda (we obj)
     (cond ((and (%%not (%%jazz? obj)) (%%record? obj))
-           (##default-wr we (jazz:record->vector obj)))
+           (%%default-wr we (jazz:record->vector obj)))
           ((and (%%jazz? obj) jazz:print-hook)
            (jazz:print-hook obj (jazz:writeenv-port we) (jazz:writeenv-style we)))
           (else
@@ -2639,7 +2639,7 @@
   (if (jazz:use-print?)
       (let ((detail (if (eq? (jazz:writeenv-style we) 'display) ':human ':reader)))
         (call-print object (jazz:writeenv-port we) detail))
-    (##default-wr we object)))
+    (%%default-wr we object)))
 
 
 (define (jazz:print-jazz object output detail)

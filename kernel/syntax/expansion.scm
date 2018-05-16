@@ -168,9 +168,17 @@
   ##fixnum?
   "FIXNUM")
 
+(jazz:define-check-macro check-flonum
+  ##flonum?
+  "FLONUM")
+
 (jazz:define-check-macro check-foreign
   ##foreign?
   "FOREIGN")
+
+(jazz:define-check-macro check-f64vector
+  ##f64vector?
+  "F64VECTOR")
 
 (jazz:define-check-macro check-list
   list?
@@ -208,9 +216,28 @@
   ##symbol?
   "SYMBOL")
 
+(jazz:define-check-macro check-type
+  ##type?
+  "TYPE")
+
 (jazz:define-check-macro check-table
   table?
   "TABLE")
+
+(jazz:define-check-macro check-writeenv
+  jazz:writeenv?
+  "WRITEENV")
+
+
+;;;
+;;;; Code
+;;;
+
+
+(jazz:define-macro (c-code code . arguments)
+  `(let ()
+     (declare (extended-bindings))
+     (##c-code ,code ,@arguments)))
 
 
 ;;;
@@ -301,13 +328,11 @@
   (if jazz:kernel-track-memory?
       (case (jazz:walk-for)
         ((compile)
-         `(let ()
-            (declare (extended-bindings))
-            (##c-code #<<end-of-code
+         `(c-code #<<end-of-code
 ___RESULT = ___UPDATE_ALLOC(___ARG1);
 end-of-code
 
-            (jazz:track ,expr))))
+            (jazz:track ,expr)))
         (else
          `(jazz:track ,expr)))
     expr))

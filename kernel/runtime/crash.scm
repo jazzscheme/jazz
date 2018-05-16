@@ -115,8 +115,7 @@ end-of-c-code
      (jazz:crash-reporter ignore))
 
    (c-definition (jazz:call_crash_exit) () void "jazz_call_crash_exit" ""
-     (##clear-exit-jobs!)
-     (##exit 1))
+     (jazz:exit-no-jobs))
 
    (c-declaration crash #<<end-of-c-code
       #include <stdio.h>

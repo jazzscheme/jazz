@@ -67,9 +67,9 @@ end-of-c-declare
       (if log-context
           (let ((last-state (log-state log-context)))
             (log-transition log-context state)
-            (##thread-heartbeat!)
+            (jazz:thread-heartbeat!)
             (log-transition log-context last-state))
-        (##thread-heartbeat!)))))
+        (jazz:thread-heartbeat!)))))
 
 (c-external (log-setup
               log-context*         ;; log context

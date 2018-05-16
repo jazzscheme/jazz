@@ -66,10 +66,10 @@
                (loop (%%fx- i 1))))))
   
   (let ((quiet? (if (%%null? rest) #f (%%car rest))))
-    (let ((result (##load-object-file pathname quiet?)))
-      (let ((module-descrs (##vector-ref result 0)))
+    (let ((result (jazz:load-object-file pathname quiet?)))
+      (let ((module-descrs (jazz:object-file-module-descrs result 0)))
         (hack-module-descrs module-descrs)
-        (##register-module-descrs-and-load! module-descrs))))
+        (jazz:register-module-descrs-and-load! module-descrs))))
   (void))
 
 

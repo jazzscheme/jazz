@@ -39,6 +39,7 @@
   (list
     "kernel/syntax/verbose"
     "kernel/syntax/header"
+    "kernel/syntax/internal"
     "kernel/syntax/macro"
     "kernel/syntax/block"
     "kernel/syntax/expansion"

@@ -127,7 +127,7 @@
 
 (define (jazz:feature-satisfied? feature-requirement)
   (cond ((%%symbol? feature-requirement)
-         (%%memq feature-requirement (##cond-expand-features)))
+         (%%memq feature-requirement (%%cond-expand-features)))
         ((and (%%pair? feature-requirement)
               (%%eq? (%%car feature-requirement) 'and))
          (jazz:every? jazz:feature-satisfied? (%%cdr feature-requirement)))

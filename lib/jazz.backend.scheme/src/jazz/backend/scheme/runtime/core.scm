@@ -109,7 +109,7 @@
 
 
 (define (jazz:subtype obj)
-  (##subtype obj))
+  (%%subtype obj))
 
 
 ;;;
@@ -228,14 +228,14 @@
 
 
 (define (jazz:get-exception-hook)
-  ##primordial-exception-handler-hook)
+  (jazz:primordial-exception-handler-hook-ref))
 
 (define (jazz:set-exception-hook hook)
-  (set! ##primordial-exception-handler-hook hook))
+  (jazz:primordial-exception-handler-hook-set! hook))
 
 
 (define (jazz:invoke-exception-hook hook exc)
-  (hook exc ##thread-end-with-uncaught-exception!))
+  (hook exc jazz:thread-end-with-uncaught-exception!))
 
 
 ;;;
@@ -244,7 +244,7 @@
 
 
 (define (jazz:system-exception-hook exc other)
-  (##repl-exception-handler-hook exc other))
+  (jazz:repl-exception-handler-hook exc other))
 
 
 ;;;
@@ -263,26 +263,6 @@
 
 
 ;;;
-;;;; Foreign
-;;;
-
-
-;(define (jazz:still-obj-refcount foreign)
-;  (%%still-obj-refcount foreign))
-
-(define (jazz:still-obj-refcount-dec! foreign)
-  (jazz:check-foreign foreign 1 (still-obj-refcount-dec! foreign)
-    (%%still-obj-refcount-dec! foreign)))
-
-(define (jazz:still-obj-refcount-inc! foreign)
-  (jazz:check-foreign foreign 1 (still-obj-refcount-inc! foreign)
-    (%%still-obj-refcount-inc! foreign)))
-
-(define jazz:still-copy
-  ##still-copy)
-
-
-;;;
 ;;;; Memory
 ;;;
 
@@ -292,11 +272,11 @@
 
 
 (define (jazz:gc-count)
-  (%%flonum->fixnum (f64vector-ref (##process-statistics) 6)))
+  (%%flonum->fixnum (f64vector-ref (%%process-statistics) 6)))
 
 
 (define (jazz:gc-statistics)
-  (let ((vec (##process-statistics)))
+  (let ((vec (%%process-statistics)))
     (values (f64vector-ref vec 3)
             (f64vector-ref vec 4)
             (f64vector-ref vec 5)
@@ -304,15 +284,15 @@
 
 
 (define (jazz:add-gc-interrupt-job! thunk)
-  (##add-gc-interrupt-job! thunk))
+  (%%add-gc-interrupt-job! thunk))
 
 
 (define (jazz:clear-gc-interrupt-jobs!)
-  (##clear-gc-interrupt-jobs!))
+  (%%clear-gc-interrupt-jobs!))
 
 
 (define (jazz:last-gc-real-time)
-  (f64vector-ref (##process-statistics) 14))
+  (f64vector-ref (%%process-statistics) 14))
 
 
 ;;;
@@ -320,21 +300,21 @@
 ;;;
 
 
-(define jazz:get-min-heap
-  ##get-min-heap)
+(define (jazz:get-min-heap)
+  (%%get-min-heap))
 
-(define jazz:set-min-heap!
-  ##set-min-heap!)
+(define (jazz:set-min-heap! bytes)
+  (%%set-min-heap! bytes))
 
-(define jazz:get-max-heap
-  ##get-max-heap)
+(define (jazz:get-max-heap)
+  (%%get-max-heap))
 
-(define jazz:set-max-heap!
-  ##set-max-heap!)
+(define (jazz:set-max-heap! bytes)
+  (%%set-max-heap! bytes))
 
 
 (define (jazz:process-memory)
-  (let ((vec (##process-statistics)))
+  (let ((vec (%%process-statistics)))
     (let ((last_gc_heap_size  (f64vector-ref vec 15))
           (last_gc_alloc      (f64vector-ref vec 16))
           (last_gc_live       (f64vector-ref vec 17))
@@ -360,34 +340,27 @@
                           (if (%%symbol? s)
                               (loop (%%vector-ref s 2) (%%cons s lst))
                             (%%reverse lst))))
-                   (%%vector->list (##symbol-table))))
+                   (%%vector->list (%%symbol-table))))
     (values count chars)))
 
 
-(define jazz:symbol-table
-  ##symbol-table)
+(define (jazz:symbol-table)
+  (%%symbol-table))
 
-(define jazz:keyword-table
-  ##keyword-table)
+(define (jazz:keyword-table)
+  (%%keyword-table))
 
 
-(define jazz:bytes-allocated!
-  ##get-bytes-allocated!)
+(define (jazz:bytes-allocated! floats i)
+  (%%get-bytes-allocated! floats i))
 
 
 (define (jazz:get-live-percent)
-  (##get-live-percent))
+  (%%get-live-percent))
 
 
 (define (jazz:raise-heap-overflow-exception)
-  (##raise-heap-overflow-exception))
-
-
-#; ;; wait as this forces module to be compiled
-(define (jazz:get-heap-pointer)
-  (let ()
-    (declare (extended-bindings))
-    (##c-code "___RESULT = ___CAST(___SCMOBJ, ___hp);")))
+  (%%raise-heap-overflow-exception))
 
 
 ;;;
@@ -402,14 +375,15 @@
         (nb-methods 0) (sz-methods 0))
     (define (process-class class)
       (set! nb-classes (%%fx+ nb-classes 1))
-      (set! sz-classes (%%fx+ sz-classes (fx+ (jazz:vector-size class)
-                                              (jazz:table-size (%%get-category-fields class))
-                                              (jazz:vector-size (%%get-category-ancestors class))
-                                              (jazz:list-size (%%get-category-descendants class))
-                                              (jazz:list-size (%%get-class-interfaces class))
-                                              (jazz:list-size (%%get-class-instance-slots class))
-                                              (jazz:vector-vector-size (%%get-class-class-table class))
-                                              (jazz:vector-vector-size (%%get-class-interface-table class)))))
+      (set! sz-classes (%%fx+ sz-classes 
+                              (jazz:vector-size class)
+                              (jazz:table-size (%%get-category-fields class))
+                              (jazz:vector-size (%%get-category-ancestors class))
+                              (jazz:list-size (%%get-category-descendants class))
+                              (jazz:list-size (%%get-class-interfaces class))
+                              (jazz:list-size (%%get-class-instance-slots class))
+                              (jazz:vector-vector-size (%%get-class-class-table class))
+                              (jazz:vector-vector-size (%%get-class-interface-table class))))
       (jazz:iterate-table (%%get-category-fields class)
         (lambda (name field)
           (cond ((jazz:is? field jazz:Slot) (process-slot field))
@@ -473,10 +447,11 @@
         (gcht2 (%%vector-ref t 5))
         (floats (%%vector-ref t 4)))
     (%%fx* jazz:word-bytes
-           (fx+ 1 (%%vector-length t)
+           (%%fx+
+             1 (%%vector-length t)
              ;; 1 (%%vector-length floats)
-             (if (##gc-hash-table? gcht1) (%%fx+ 1 (%%vector-length gcht1)) 0)
-             (if (##gc-hash-table? gcht2) (%%fx+ 1 (%%vector-length gcht2)) 0)))))
+             (if (%%gc-hash-table? gcht1) (%%fx+ 1 (%%vector-length gcht1)) 0)
+             (if (%%gc-hash-table? gcht2) (%%fx+ 1 (%%vector-length gcht2)) 0)))))
 
 
 ;;;
@@ -522,18 +497,18 @@
 
 
 ;;;
-;;;; Flownum
+;;;; Flonum
 ;;;
 
 
 (define (jazz:flalloc)
-  (##subtype-set! (%%f64vector .0) 30))
+  (%%flalloc))
 
 (define (jazz:flref fl ignore)
-  (%%unsafe-f64vector-ref fl 0))
+  (%%flref fl ignore))
 
 (define (jazz:flset! fl ignore val)
-  (%%unsafe-f64vector-set! fl 0 val))
+  (%%flset! fl ignore val))
 
 
 ;;;
@@ -586,8 +561,8 @@
 ;;;
 
 
-(define jazz:write-string
-  ##write-string)
+(define (jazz:write-string str port)
+  (%%write-string str port))
 
 
 ;;;
@@ -695,10 +670,10 @@
 
 
 (define (jazz:six-types)
-  ##six-types)
+  (%%six-types-ref))
 
 (define (jazz:six-types-set! lst)
-  (set! ##six-types lst))
+  (%%six-types-set! lst))
 
 (define (jazz:print-marker)
   #f)
@@ -849,158 +824,6 @@
   (jazz:check-closure closure 1 (closure-ref closure)
     (%%closure-ref closure n)))
 
-(define (jazz:closure-environment closure)
-  ;; to do interpreted
-  (if (##interp-procedure? closure)
-      '()
-    (let ((len (%%closure-length closure)))
-      (let iter ((n 1) (env '()))
-           (if (%%fx>= n len)
-               env
-             (iter (%%fx+ n 1) (%%cons (%%closure-ref closure n) env)))))))
-
-
-(define jazz:hidden-frames
-  (%%list
-    ##dynamic-env-bind))
-
-(define (jazz:hidden-frame? frame)
-  (%%memq frame jazz:hidden-frames))
-
-(define (jazz:hidden-frame?-set! predicate)
-  (set! jazz:hidden-frame? predicate))
-
-
-(define (jazz:get-continuation-stack cont depth)
-  (let ((queue (jazz:new-queue)))
-    (let iter ((d 0)
-               (cont cont))
-         (if (or (%%not depth) (%%fx< d depth))
-             (and cont
-                  (begin
-                    (jazz:enqueue queue cont)
-                    (iter (%%fx+ d 1)
-                          (%%continuation-next-frame cont #f))))))
-    (jazz:queue-list queue)))
-
-
-(define (jazz:collect-var-val var val-or-box cte queue)
-  (cond ((##var-i? var)
-         (jazz:collect-var-val-aux (##var-i-name var)
-                                   val-or-box
-                                   #t
-                                   cte
-                                   queue))
-        ((##var-c-boxed? var)
-         (jazz:collect-var-val-aux (##var-c-name var)
-                                   (##unbox val-or-box)
-                                   #t
-                                   cte
-                                   queue))
-        (else
-         (jazz:collect-var-val-aux (##var-c-name var)
-                                   val-or-box
-                                   #f
-                                   cte
-                                   queue))))
-
-
-(define (jazz:collect-var-val-aux var val mutable? cte queue)
-  
-  (define (remove-quote val)
-    (if (and (pair? val)
-             (eq? (##car val) 'quote)
-             (##not (##null? (##cdr val))))
-        (##cadr val)
-      val))
-  
-  (jazz:enqueue queue
-                (%%list (##object->string var)
-                        (cond ((jazz:absent-object? val)
-                               '<absent>)
-                              ((jazz:unbound-object? val)
-                               '<unbound>)
-                              ((##procedure? val)
-                               (remove-quote
-                                 (if (##cte-top? cte)
-                                     (##inverse-eval-in-env val cte)
-                                   (##inverse-eval-in-env val (##cte-parent-cte cte)))))
-                              (else
-                               val))
-                        mutable?)))
-
-
-(define (jazz:get-continuation-dynamic-environment cont)
-  
-  (define (collect-parameters lst cte queue)
-    (let iter ((lst lst))
-         (if (%%pair? lst)
-             (let* ((param-val (%%car lst))
-                    (param (%%car param-val))
-                    (val (%%cdr param-val)))
-               (if (%%not (##hidden-parameter? param))
-                   (let ((name (jazz:reference-name (##inverse-eval-in-env param cte))))
-                     (jazz:collect-var-val-aux (%%list name) val #t cte queue)))
-               (iter (%%cdr lst))))))
-  
-  (let ((queue (jazz:new-queue)))
-    (and cont
-         (collect-parameters
-           (##dynamic-env->list (jazz:continuation-denv cont))
-           (if (%%interp-continuation? cont)
-               (let (($code (##interp-continuation-code cont)))
-                 (jazz:code-cte $code))
-             ##interaction-cte)
-           queue))
-    (jazz:queue-list queue)))
-
-
-(define (jazz:get-continuation-lexical-environment cont)
-  
-  (define (collect-rte cte rte queue)
-    (let loop1 ((c cte)
-                (r rte))
-         (cond ((##cte-top? c))
-               ((##cte-frame? c)
-                (let loop2 ((vars (##cte-frame-vars c))
-                            (vals (%%cdr (%%vector->list r))))
-                     (if (%%pair? vars)
-                         (let ((var (%%car vars)))
-                           (if (%%not (##hidden-local-var? var))
-                               (jazz:collect-var-val var (%%car vals) c queue))
-                           (loop2 (%%cdr vars)
-                                  (%%cdr vals)))
-                       (loop1 (##cte-parent-cte c)
-                              (jazz:rte-up r)))))
-               (else
-                (loop1 (##cte-parent-cte c)
-                       r)))))
-  
-  (define (collect-vars lst cte queue)
-    (let iter ((lst lst))
-         (if (%%pair? lst)
-             (let* ((var-val (%%car lst))
-                    (var (%%car var-val))
-                    (val (%%cdr var-val)))
-               (jazz:collect-var-val var val cte queue)
-               (iter (%%cdr lst))))))
-  
-  (define (collect-locals lst cte queue)
-    (and lst
-         (collect-vars lst cte queue)))
-  
-  (let ((queue (jazz:new-queue)))
-    (and cont
-         (if (%%interp-continuation? cont)
-             (let (($code (##interp-continuation-code cont))
-                   (rte (##interp-continuation-rte cont)))
-               (collect-rte (jazz:code-cte $code) rte queue)
-               (jazz:code-cte $code))
-           (begin
-             (collect-locals (%%continuation-locals cont) ##interaction-cte queue)
-             ##interaction-cte)))
-    (jazz:queue-list queue)))
-
 
 (define (jazz:get-continuation-location cont)
   (jazz:locat->container/line/col (%%continuation-locat cont)))
@@ -1008,6 +831,30 @@
 
 (define (jazz:interpreted-continuation? cont)
   (%%interp-continuation? cont))
+
+
+(define (jazz:get-continuation-stack cont depth)
+  (let ((queue (jazz:new-queue)))
+    (jazz:iterate-continuation-stack cont depth
+      (lambda (cont)
+        (jazz:enqueue queue cont)))
+    (jazz:queue-list queue)))
+
+
+(define (jazz:get-continuation-dynamic-environment cont)
+  (let ((queue (jazz:new-queue)))
+    (jazz:iterate-continuation-dynamic-environment cont jazz:reference-name
+      (lambda (info)
+        (jazz:enqueue queue info)))
+    (jazz:queue-list queue)))
+
+
+(define (jazz:get-continuation-lexical-environment cont)
+  (let ((queue (jazz:new-queue)))
+    (jazz:iterate-continuation-lexical-environment cont
+      (lambda (info)
+        (jazz:enqueue queue info)))
+    (jazz:queue-list queue)))
 
 
 (define (jazz:with-repl-context cont thunk)
@@ -1038,62 +885,6 @@
     #f))
 
 
-;;;
-;;;; Eval
-;;;
-
-
-;; copy-pasted from gambit's repl and changed to no-windind
-(define (eval-within-no-winding runner src cont repl-context receiver)
-  
-  (define (run c rte)
-    (%%continuation-graft-no-winding
-      cont
-      (lambda ()
-        (jazz:repl-context-bind
-          repl-context
-          (lambda ()
-            (receiver
-              (let ((rte rte))
-                (runner
-                  (lambda ()
-                    (jazz:code-run c rte))))))))))
-  
-  (##define-macro (macro-make-rte-from-list rte lst)
-    `(##list->vector (##cons ,rte ,lst)))
-  
-  (let ((src2 (##sourcify src (##make-source #f #f))))
-    (cond ((##interp-continuation? cont)
-           (let* (($code (##interp-continuation-code cont))
-                  (cte (jazz:code-cte $code))
-                  (rte (##interp-continuation-rte cont)))
-             (run (##compile-inner cte src2) rte)))
-          ((##with-no-result-expected-toplevel-continuation? cont)
-           (run (##compile-top ##interaction-cte src2) #f))
-          (else
-           (let* ((locals (##continuation-locals cont))
-                  (cte (##cte-frame (##cte-top-cte ##interaction-cte)
-                                    (##map ##car locals)))
-                  (rte (macro-make-rte-from-list #f (##map ##cdr locals))))
-             (run (##compile-inner cte src2) rte))))))
-
-
-(define (jazz:eval-within-no-winding runner expr cont)
-  (continuation-capture
-    (lambda (return)
-      (eval-within-no-winding
-        runner
-        expr
-        cont
-        (jazz:current-repl-context)
-        (lambda (results)
-          (call-with-values
-            (lambda ()
-              results)
-            (lambda results
-              (%%continuation-return-no-winding return (%%car results)))))))))
-
-
 (define (jazz:repl-result-history-add result)
   (let ((channel (%%thread-repl-channel-get! (%%current-thread))))
     (%%repl-channel-result-history-add channel result)))
@@ -1115,68 +906,31 @@
 
 
 ;;;
-;;;; Step
-;;;
-
-
-(define (jazz:install-step-handler proc)
-  (declare (proper-tail-calls))
-  (define (handler leapable? $code rte execute-body . other)
-    (##step-off)
-    (jazz:process-step
-      proc
-      $code
-      (lambda ()
-        (##apply execute-body (##cons $code (##cons rte other))))))
-  
-  (let ((cs (##current-stepper)))
-    (vector-set! cs 0 (vector handler handler handler handler handler handler handler))
-    (void)))
-
-
-(define (jazz:process-step proc $code execute)
-  (declare (proper-tail-calls))
-  (proc
-    (##code-locat $code)
-    (lambda (cmd)
-      (case cmd
-        ((step)
-         (##step-on)
-         (execute))
-        ((leap) ;; does this really work????
-         (let ((result (execute)))
-           (##step-on)
-           result))
-        ((continue)
-         (execute))))))
-
-
-;;;
 ;;;; Structure
 ;;;
 
 
 (define (jazz:kind? obj)
-  (##type? obj))
+  (%%type? obj))
 
 (define (jazz:kind-id type)
-  (##type-id type))
+  (%%type-id type))
 
 (define (jazz:kind-name type)
-  (##type-name type))
+  (%%type-name type))
 
 (define (jazz:kind-flags type)
-  (##type-flags type))
+  (%%type-flags type))
 
 (define (jazz:kind-super type)
-  (##type-super type))
+  (%%type-super type))
 
 (define (jazz:kind-length type)
-  (##type-field-count type))
+  (%%type-field-count type))
 
 (define (jazz:kind-fields type)
   (let loop ((index 1)
-             (fields (##type-all-fields type))
+             (fields (%%type-all-fields type))
              (alist '()))
        (if (%%pair? fields)
            (let* ((name (%%car fields))
@@ -1193,26 +947,21 @@
 
 
 (define (jazz:structure? obj)
-  (##structure? obj))
+  (%%structure? obj))
 
 (define (jazz:structure-kind obj)
-  (##structure-type obj))
+  (%%structure-type obj))
 
 (define (jazz:structure-ref obj i type)
-  (##structure-ref obj i type #f))
+  (%%structure-ref obj i type #f))
 
 (define (jazz:structure-set! obj val i type)
-  (##structure-set! obj val i type #f))
+  (%%structure-set! obj val i type #f))
 
 
 ;;;
 ;;;; Process
 ;;;
-
-
-(define (jazz:exit-no-jobs #!optional (status 1))
-  (##clear-exit-jobs!)
-  (##exit status))
 
 
 (define (jazz:switch? arg)
@@ -1332,11 +1081,11 @@
   jazz:*interrupts-enabled?*)
 
 (define (jazz:disable-interrupts!)
-  (##disable-interrupts!)
+  (%%disable-interrupts!)
   (set! jazz:*interrupts-enabled?* #f))
 
 (define (jazz:enable-interrupts!)
-  (##enable-interrupts!)
+  (%%enable-interrupts!)
   (set! jazz:*interrupts-enabled?* #t))
 
 
@@ -1349,10 +1098,11 @@
   (let ((vec (%%f64vector 0.)))
     (lambda ()
       (declare (not interrupts-enabled))
-      (##get-heartbeat-interval! vec 0)
+      (%%get-heartbeat-interval! vec 0)
       (%%f64vector-ref vec 0))))
 
-(define jazz:set-heartbeat-interval! ##set-heartbeat-interval!)
+(define (jazz:set-heartbeat-interval! seconds)
+  (%%set-heartbeat-interval! seconds))
 
 
 ;;;
@@ -1397,54 +1147,6 @@
            (iter (%%vector-ref mutex 2) (cons mutex mutexes))))))
 
 
-;; copied from _repl
-(define (jazz:write-timeout to now port)
-  (##write-string " " port)
-  (let* ((expiry (##fl- to now))
-         (e (##fl/ (##flround (##fl* 10.0 expiry)) 10.0)))
-    (##write (if (##integer? e) (##inexact->exact e) e) port))
-  (##write-string "s" port))
-
-
-;;;
-;;;; Thread With Stack
-;;;
-
-
-(define jazz:word-size
-  (%%unsafe-u8vector-length '#(0)))
-
-
-(define (jazz:header-get obj)
-  (if (= jazz:word-size 4)
-      (%%u32vector-ref obj -1)
-    (%%u64vector-ref obj -1)))
-
-(define (jazz:header-set! obj h)
-  (if (= jazz:word-size 4)
-      (%%u32vector-set! obj -1 h)
-    (%%u64vector-set! obj -1 h)))
-
-
-(define (jazz:make-thread-with-stack stack-len thunk)
-  (let* ((pt ##primordial-thread)
-         (thread-len (%%vector-length pt))
-         (total-len (+ thread-len stack-len))
-         (thread (make-vector total-len #f)))
-    (%%unsafe-vector-set! thread 0 (%%vector-ref pt 0))
-    (jazz:header-set! thread
-                      (+ (bitwise-and (jazz:header-get pt) -4)
-                         (bitwise-and (jazz:header-get thread) 3)))
-    (thread-init! thread thunk)
-    (thread-specific-set! thread (+ thread-len 1))
-    thread))
-
-
-;; work around PERM not being mutable
-(define jazz:force-f64vector-set!
-  ##f64vector-set!)
-
-
 ;;;
 ;;;; Mutex
 ;;;
@@ -1463,8 +1165,17 @@
 ;;;
 
 
-(define jazz:current-systime current-time)
-(define jazz:current-seconds! ##get-current-time!)
-(define jazz:systime? time?)
-(define jazz:systime->seconds time->seconds)
-(define jazz:seconds->systime seconds->time))
+(define jazz:current-systime
+  current-time)
+
+(define (jazz:current-seconds! floats i)
+  (%%get-current-time! floats i))
+
+(define jazz:systime?
+  time?)
+
+(define jazz:systime->seconds
+  time->seconds)
+
+(define jazz:seconds->systime
+  seconds->time))

@@ -219,7 +219,7 @@
   (let ((cache (make-table test: eq?)))
     (lambda (custom-cc)
       (or (%%table-ref cache custom-cc #f)
-          (let ((path (##string-append (##path-expand "~~bin") "gambcomp-C" ##os-bat-extension-string-saved)))
+          (let ((path (%%string-append (%%path-expand "~~bin") "gambcomp-C" jazz:os-bat-extension-string-saved)))
             (define (read-info argument)
               (let ((port (open-process (list path: path arguments: (list argument)))))
                 (let ((info (jazz:remove "" (jazz:split-string (read-line port) #\space) test: equal?)))
@@ -327,7 +327,7 @@
                      (jazz:generate-symbol-counter 0)
                      (jazz:compiled-source src))
         ;; temporary until a cleaner solution
-        (set! ##gensym-counter -1)
+        (jazz:set-gensym-counter! -1)
         (if (not (and (compile-file-to-target src-pathname output: bin-output options: options module-name: unique-module-name)
                       (if ios?
                           (let ((custom-cc-options ios-custom-cc-options))

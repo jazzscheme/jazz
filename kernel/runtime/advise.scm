@@ -49,9 +49,9 @@
 (define (jazz:advise symbol advice)
   (advice symbol
           (lambda ()
-            (##global-var-ref symbol))
+            (%%global-var-ref symbol))
           (lambda (value)
-            (##global-var-set! symbol value))))
+            (%%global-var-set! symbol value))))
 
 
 ;;;

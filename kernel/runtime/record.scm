@@ -41,6 +41,11 @@
 (jazz:kernel-declares)
 
 
+;;;
+;;;; Structure
+;;;
+
+
 (define jazz:structure-offset
   0)
 
@@ -90,6 +95,25 @@
       `(##subtype-set! ,expr (%%subtype-jazzstruct))
     `(error "Unimplemented")))
 
+
+(define (jazz:jazz? obj)
+  (%%jazz? obj))
+
+(define (jazz:jazzify obj)
+  (%%jazzify obj))
+
+(define (jazz:jazzstruct? obj)
+  (%%jazzstruct? obj))
+
+(define (jazz:jazzstructify obj)
+  (%%jazzstructify obj))
+
+
+;;;
+;;;; Record
+;;;
+
+
 #; ;; defined as functions until structure / class unification
 (jazz:define-macro (%%record? expr)
   `(or (%%jazz? ,expr)
@@ -135,19 +159,6 @@
 
 (jazz:define-macro (%%set-record-structure record structure)
   `(%%record-set! ,record ,jazz:structure-offset ,structure))
-
-
-(define (jazz:jazz? obj)
-  (%%jazz? obj))
-
-(define (jazz:jazzify obj)
-  (%%jazzify obj))
-
-(define (jazz:jazzstruct? obj)
-  (%%jazzstruct? obj))
-
-(define (jazz:jazzstructify obj)
-  (%%jazzstructify obj))
 
 
 ;; defined as functions until structure / class unification
@@ -205,4 +216,83 @@
              (begin
                (%%vector-set! content n (%%record-ref record n))
                (iter (%%fx+ n 1)))))
-    content)))
+    content))
+
+
+;;;
+;;;; Object
+;;;
+
+
+(jazz:define-macro (%%object? expr)
+  `(%%jazz? ,expr))
+
+
+(jazz:define-macro (%%object class . rest)
+  (jazz:with-uniqueness class
+    (lambda (cls)
+      `(%%jazzify (%%vector ,cls ,@rest)))))
+
+
+(define (jazz:new-object class . rest)
+  (let ((obj (%%list->vector (%%cons class rest))))
+    (%%jazzify obj)
+    obj))
+
+
+(jazz:define-macro (%%make-object class size)
+  (jazz:with-uniqueness class
+    (lambda (cls)
+      (let ((obj (jazz:generate-symbol "obj")))
+        `(let ((,obj (%%jazzify (%%make-vector ,size (%%unspecified)))))
+           (%%set-object-class ,obj ,cls)
+           ,obj)))))
+
+
+(jazz:define-macro (%%object-length object)
+  (if jazz:debug-core?
+      (jazz:with-uniqueness object
+        (lambda (obj)
+          `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
+             (%%unsafe-vector-length ,obj))))
+    `(%%vector-length ,object)))
+
+
+(jazz:define-macro (%%object-ref object n)
+  (if jazz:debug-core?
+      (jazz:with-uniqueness object
+        (lambda (obj)
+          (jazz:with-uniqueness n
+            (lambda (rnk)
+              `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
+                 (%%unsafe-vector-ref ,obj ,rnk)
+                 #; ;; costly test for a very low probability class of bugs
+                 (%%core-assertion (%%fx< ,rnk (%%vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
+                   (%%unsafe-vector-ref ,obj ,rnk)))))))
+    `(%%vector-ref ,object ,n)))
+
+
+(jazz:define-syntax %%object-set!
+  (lambda (src)
+    (let ((object (%%cadr (%%source-code src)))
+          (n (%%car (%%cddr (%%source-code src))))
+          (value (%%cadr (%%cddr (%%source-code src)))))
+      (if jazz:debug-core?
+          (jazz:with-uniqueness object
+            (lambda (obj)
+              (jazz:with-uniqueness n
+                (lambda (rnk)
+                  `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
+                     (%%unsafe-vector-set! ,obj ,rnk ,value)
+                     #; ;; costly test for a very low probability class of bugs
+                     (%%core-assertion (%%fx< ,rnk (%%vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
+                       (%%unsafe-vector-set! ,obj ,rnk ,value)))))))
+        `(%%vector-set! ,object ,n ,value)))))
+
+
+(define (jazz:not-object-error obj)
+  (jazz:error "Object expected: {s}" obj))
+
+
+(define (jazz:outside-object-error obj rnk)
+  (jazz:error "Invalid access to object outside its bounds: {s}" obj)))

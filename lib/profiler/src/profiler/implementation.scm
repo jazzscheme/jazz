@@ -317,7 +317,7 @@
 
 
 (define (process-statistics)
-  (##process-statistics))
+  (%%process-statistics))
 
 
 (define (with-profiling profile thunk)
@@ -339,8 +339,8 @@
   (profile-process-stop-info-set! profile (process-statistics))
   (profile-frames-count-set! profile (+ (profile-frames-count profile) 1))
   (let ((real-time (secs->msecs
-                     (##- (##f64vector-ref (profile-process-stop-info profile) 2)
-                          (##f64vector-ref (profile-process-start-info profile) 2)))))
+                     (- (f64vector-ref (profile-process-stop-info profile) 2)
+                        (f64vector-ref (profile-process-start-info profile) 2)))))
     (profile-frames-duration-set! profile (+ (profile-frames-duration profile) real-time)))
   (let ((stop (profiler-stop-func (profile-profiler profile))))
     (if stop
@@ -352,27 +352,27 @@
     (if at-start
         (let ((at-end (or (profile-process-stop-info profile) at-start)))
           (let ((user-time (secs->msecs
-                             (##- (##f64vector-ref at-end 0)
-                                  (##f64vector-ref at-start 0))))
+                             (- (f64vector-ref at-end 0)
+                                (f64vector-ref at-start 0))))
                 (sys-time (secs->msecs
-                            (##- (##f64vector-ref at-end 1)
-                                 (##f64vector-ref at-start 1))))
+                            (- (f64vector-ref at-end 1)
+                               (f64vector-ref at-start 1))))
                 (real-time (secs->msecs
-                             (##- (##f64vector-ref at-end 2)
-                                  (##f64vector-ref at-start 2))))
+                             (- (f64vector-ref at-end 2)
+                                (f64vector-ref at-start 2))))
                 (gc-real-time (secs->msecs
-                                (##- (##f64vector-ref at-end 5)
-                                     (##f64vector-ref at-start 5))))
-                (bytes-allocated (##flonum->exact-int
-                                   (##- (##- (##f64vector-ref at-end 7)
-                                             (##f64vector-ref at-start 7))
-                                        (##f64vector-ref at-end 9)))))
+                                (- (f64vector-ref at-end 5)
+                                   (f64vector-ref at-start 5))))
+                (bytes-allocated (%%flonum->exact-int
+                                   (- (- (f64vector-ref at-end 7)
+                                         (f64vector-ref at-start 7))
+                                      (f64vector-ref at-end 9)))))
             (list user-time sys-time real-time gc-real-time bytes-allocated)))
       (list 0 0 0 0 0))))
 
 
 (define (secs->msecs x)
-  (##inexact->exact (##round (##* x 1000))))
+  (inexact->exact (round (* x 1000))))
 
 
 ;;;

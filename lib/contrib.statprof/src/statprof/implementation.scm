@@ -36,13 +36,13 @@
 
 
 (define (start-statprof profile)
-  (##set-heartbeat-interval! heartbeat-interval)
+  (%%set-heartbeat-interval! heartbeat-interval)
   (set! *statprof-running?* #t)
   (%%interrupt-vector-set! HEARTBEAT-INTERRUPT profile-heartbeat!))
 
 
 (define (stop-statprof profile)
-  (%%interrupt-vector-set! HEARTBEAT-INTERRUPT ##thread-heartbeat!)
+  (%%interrupt-vector-set! HEARTBEAT-INTERRUPT jazz:thread-heartbeat!)
   (set! *statprof-running?* #f))
 
 
@@ -61,7 +61,7 @@
       (%%continuation-capture
         (lambda (cont)
           (parameterize ((*in-profile-heartbeat?* #t))
-            (##thread-heartbeat!)
+            (jazz:thread-heartbeat!)
             (let ((profile (active-profile)))
               (%%when profile
                 (profile-register-call profile

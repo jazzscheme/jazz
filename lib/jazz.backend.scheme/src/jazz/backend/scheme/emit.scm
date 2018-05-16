@@ -787,12 +787,12 @@
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-will                   '((%%make-will      <any*:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-parameter              '((%%make-parameter <any*:any>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flref                  '((%%unsafe-f64vector-ref <fv^fb:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((%%unsafe-f64vector-set! <fv^fb^fv:void>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flref                  '((%%flref <fv^fb:fl>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((%%flset! <fv^fb^fv:void>)))
 
 (%%when (%%not jazz:debug-user?)
-  (jazz:add-primitive-patterns 'jazz.language.runtime.functional:element            '((list-ref <list^int:any>) (%%vector-ref    <vector^int:any>)      (%%string-ref    <string^int:char>)))
-  (jazz:add-primitive-patterns 'jazz.language.runtime.functional:set-element!       '(                          (%%vector-set!   <vector^int^any:void>) (%%string-set!   <string^int^char:void>))))
+  (jazz:add-primitive-patterns   'jazz.language.runtime.functional:element            '((list-ref <list^int:any>) (%%vector-ref    <vector^int:any>)      (%%string-ref    <string^int:char>)))
+  (jazz:add-primitive-patterns   'jazz.language.runtime.functional:set-element!       '(                          (%%vector-set!   <vector^int^any:void>) (%%string-set!   <string^int^char:void>))))
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.functional:between?           '((%%fxbetween? <fx^fx^fx:bool>)))
 

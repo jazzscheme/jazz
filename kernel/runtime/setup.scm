@@ -135,9 +135,9 @@ c-end
     #f))
 
 
-(set! ##path->container-hook jazz:path->container-hook)
-(set! ##container->path-hook jazz:container->path-hook)
-(set! ##container->id-hook jazz:container->id-hook)
+(jazz:path->container-hook-set! jazz:path->container-hook)
+(jazz:container->path-hook-set! jazz:container->path-hook)
+(jazz:container->id-hook-set! jazz:container->id-hook)
 
 
 ;;;
@@ -151,13 +151,13 @@ c-end
         (if (%%source? x)
             x
           (jazz:make-source& x (jazz:readenv->locat& re))))
-    ##wrap-datum))
+    jazz:wrap-datum))
 
 (define jazz:unwrap-datum&
   (if (jazz:gambitjazz?)
       (lambda (re x)
         (%%source-code x))
-    ##unwrap-datum))
+    jazz:unwrap-datum))
 
 
 (define jazz:readenv->locat&
@@ -166,15 +166,15 @@ c-end
         (let ((container
                 (or (jazz:readenv-container re)
                     (let ((c
-                            (##port-name->container
-                              (##port-name (jazz:readenv-port re)))))
+                            (%%port-name->container
+                              (%%port-name (jazz:readenv-port re)))))
                       (jazz:readenv-container-set! re c)
                       c))))
           (jazz:make-locat& container
-                            (##filepos->position
+                            (%%filepos->position
                               (jazz:readenv-filepos re))
-                            (##filepos->position
-                              (##readenv-current-filepos re)))))
+                            (%%filepos->position
+                              (%%readenv-current-filepos re)))))
     (lambda (re)
       (jazz:unimplemented))))
 
@@ -190,7 +190,7 @@ c-end
 (define jazz:make-source&
   (if (jazz:gambitjazz?)
       (lambda (code locat)
-        (%%vector ##source1-marker
+        (%%vector jazz:source1-marker
                   code
                   (if locat (%%locat-container locat) #f)
                   (if locat (jazz:locat-start& locat) #f)
@@ -203,13 +203,13 @@ c-end
   (if (jazz:gambitjazz?)
       (lambda (code src)
         (if (jazz:source&? src)
-            (%%vector ##source1-marker
+            (%%vector jazz:source1-marker
                       code
                       (%%vector-ref src 2)
                       (%%vector-ref src 3)
                       (%%vector-ref src 4)
                       'syntax)
-          (%%vector ##source1-marker
+          (%%vector jazz:source1-marker
                     code
                     (%%vector-ref src 2)
                     (%%vector-ref src 3))))
@@ -220,13 +220,13 @@ c-end
   (if (jazz:gambitjazz?)
       (lambda (code src)
         (if (jazz:source&? src)
-            (%%vector ##source2-marker
+            (%%vector jazz:source2-marker
                       code
                       (%%vector-ref src 2)
                       (%%vector-ref src 3)
                       (%%vector-ref src 4)
                       'syntax)
-          (%%vector ##source2-marker
+          (%%vector jazz:source2-marker
                     code
                     (%%vector-ref src 2)
                     (%%vector-ref src 3))))
@@ -245,7 +245,7 @@ c-end
                 #f))
           (let ((container (%%vector-ref src 2)))
             (if container
-                (##make-locat container
+                (%%make-locat container
                               (%%vector-ref src 3))
               #f))))
     (lambda (src)
@@ -298,10 +298,10 @@ c-end
 
 (if (jazz:gambitjazz?)
     (begin
-      (set! ##wrap-datum jazz:wrap-datum&)
-      (set! ##unwrap-datum jazz:unwrap-datum&)
-      (set! ##sourcify-aux1 jazz:sourcify-aux1&)
-      (set! ##sourcify-aux2 jazz:sourcify-aux2&)))
+      (jazz:wrap-datum-set! jazz:wrap-datum&)
+      (jazz:unwrap-datum-set! jazz:unwrap-datum&)
+      (jazz:sourcify-aux1-set! jazz:sourcify-aux1&)
+      (jazz:sourcify-aux2-set! jazz:sourcify-aux2&)))
 
 
 ;;;
@@ -323,27 +323,18 @@ c-end
 
 
 ;;;
-;;;; Compiler
-;;;
-
-
-(define (jazz:compiler-present?)
-  (jazz:global-bound? '##gambcomp))
-
-
-;;;
 ;;;; Exit Jobs
 ;;;
 
 
 (define (jazz:make-exit-jobs-safe)
-  (let ((lst (jazz:fifo->list ##exit-jobs)))
-    (##clear-exit-jobs!)
-    (for-each jazz:add-exit-job! lst)))
+  (let ((lst (jazz:fifo->list (jazz:exit-jobs))))
+    (jazz:clear-exit-jobs!)
+    (for-each jazz:add-safe-exit-job! lst)))
 
 
-(define (jazz:add-exit-job! thunk)
-  (##add-exit-job!
+(define (jazz:add-safe-exit-job! thunk)
+  (jazz:add-exit-job!
     (jazz:safe-exit-job thunk)))
 
 
@@ -365,8 +356,8 @@ c-end
                 (lambda (k)
                   (display-continuation-backtrace k port #f #f 500 500)))
               (force-output port))))
-        (##clear-exit-jobs!)
-        (##exit 1))
+        (jazz:clear-exit-jobs!)
+        (jazz:exit 1))
       thunk)))
 
 
@@ -431,7 +422,7 @@ c-end
       (let ((name (%%car unit))
             (compile-time-hash (%%cadr unit)))
         (let ((unique-module-name (%%string->symbol (%%string-append jazz:lib-uniqueness-prefix (%%symbol->string name)))))
-          (let ((load-proc (lambda () (##load-required-module unique-module-name))))
+          (let ((load-proc (lambda () (jazz:load-required-module unique-module-name))))
             (jazz:set-image-unit
               name
               load-proc
@@ -534,12 +525,11 @@ c-end
                 (module (symbol-argument (or (jazz:find-option "m" options) (jazz:find-option "module" options))))
                 (dialect (symbol-argument (jazz:find-option "dialect" options))))
             (define (setup-kernel)
-              (if (and jazz:kernel-install (jazz:global-bound? '##set-gambitdir!))
+              (if jazz:kernel-install
                   (let ((gambitdir (jazz:absolutize-directory jazz:kernel-install jazz:gambit-dir)))
                     (if (and gambitdir (file-exists? gambitdir))
-                        (let ((setter (jazz:global-ref '##set-gambitdir!)))
-                          (setter gambitdir)))))
-              (set! ##allow-inner-global-define? #t)
+                        (jazz:set-gambitdir! gambitdir))))
+              (jazz:allow-inner-global-define?-set! #t)
               (set! jazz:debugger debugger)
               (if nosource?
                   (set! jazz:kernel-source-access? #f))
@@ -631,10 +621,10 @@ c-end
                         (let ((target-platform (jazz:get-configuration-platform configuration))
                               (target-processor (jazz:get-configuration-processor configuration)))
                           (if (%%eq? target-platform 'ios)
-                              (##cond-expand-features (jazz:remove 'cocoa (##cond-expand-features))))
-                          (##cond-expand-features (append (##cond-expand-features) (list target-platform)))
+                              (%%cond-expand-features (jazz:remove 'cocoa (%%cond-expand-features))))
+                          (%%cond-expand-features (append (%%cond-expand-features) (list target-platform)))
                           (if target-processor
-                              (##cond-expand-features (append (##cond-expand-features) (list target-processor)))))
+                              (%%cond-expand-features (append (%%cond-expand-features) (list target-processor)))))
                         (jazz:TARGET-HACK?-set! #t)
                         (let ((old jazz:Build-Repository))
                           ;; quick hack around the fact that the kernel doesn't know the directory from which it was built
@@ -668,16 +658,16 @@ c-end
                                (iter (%%cdr scan))))))))
             
             (define (show-version)
-              (##write-string "Gambit" ##stdout-port)
-              (##write-string " " ##stdout-port)
-              (##write-string (system-version-string) ##stdout-port)
-              (##write-string " " ##stdout-port)
-              (##write (system-stamp) ##stdout-port)
-              (##write-string " " ##stdout-port)
-              (##write-string (system-type-string) ##stdout-port)
-              (##write-string " " ##stdout-port)
-              (##write (configure-command-string) ##stdout-port)
-              (##newline ##stdout-port))
+              (%%write-string "Gambit" jazz:stdout-port)
+              (%%write-string " " jazz:stdout-port)
+              (%%write-string (system-version-string) jazz:stdout-port)
+              (%%write-string " " jazz:stdout-port)
+              (%%write (system-stamp) jazz:stdout-port)
+              (%%write-string " " jazz:stdout-port)
+              (%%write-string (system-type-string) jazz:stdout-port)
+              (%%write-string " " jazz:stdout-port)
+              (%%write (configure-command-string) jazz:stdout-port)
+              (%%newline jazz:stdout-port))
             
             (cond (version?
                    (show-version))
@@ -842,7 +832,7 @@ c-end
                  (jazz:generate-symbol-for "&")
                  (jazz:generate-symbol-context 'terminal)
                  (jazz:generate-symbol-counter 0))
-    (##repl-debug
+    (%%repl-debug
       (lambda (first output-port)
         (if jazz:warnings
             (jazz:warnings output-port))
@@ -860,11 +850,12 @@ c-end
 
 
 (define (jazz:setup-expansion-hook)
-  (set! ##expand-source (lambda (src)
-                          (let ((expansion (jazz:expand-src src)))
-                            (if (jazz:debug-expansion?)
-                                (pp (list src '---> expansion)))
-                            expansion))))
+  (jazz:expand-source-set!
+    (lambda (src)
+      (let ((expansion (jazz:expand-src src)))
+        (if (jazz:debug-expansion?)
+            (pp (list src '---> expansion)))
+        expansion))))
 
 
 (define (jazz:expand-src src)
@@ -894,7 +885,7 @@ c-end
     src))
 
 
-(jazz:add-exit-job!
+(jazz:add-safe-exit-job!
   (lambda ()
     (if jazz:*report-port*
         (begin

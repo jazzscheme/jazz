@@ -60,7 +60,7 @@
 
 
 (c-define (jazz:jazz-heartbeat) () void "jazz_heartbeat" "extern"
-  (##thread-heartbeat!)
+  (jazz:thread-heartbeat!)
   (let ((thread-process 'jazz.language.runtime.functional:thread-process))
     (if (%%global-var? thread-process)
         (let ((func (%%global-var-ref thread-process)))

@@ -265,6 +265,9 @@
 ;;;
 
 
+(define (jazz:writeenv? obj)
+  (macro-writeenv? obj))
+
 (define (jazz:writeenv-port we)
   (macro-writeenv-port we))
 

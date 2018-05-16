@@ -780,12 +780,6 @@
 ;;;
 
 
-(jazz:define-macro (%%get-current-time! . rest)
-  `(jazz:unsafe (##get-current-time! ,@rest)))
-
-(jazz:define-macro (%%get-bytes-allocated! . rest)
-  `(jazz:unsafe (##get-bytes-allocated! ,@rest)))
-
 (jazz:define-macro (%%subtype obj)
   `(jazz:unsafe (##subtype ,obj)))
 
@@ -1582,7 +1576,7 @@
   (%%force-uniqueness (floats i)
     `(%%check-f64vector ,floats 1 (%%get-current-time! ,floats ,i)
        (%%check-fixnum ,i 2 (%%get-current-time! ,floats ,i)
-         (jazz:unsafe (##get-current-time! floats i))))))
+         (jazz:unsafe (##get-current-time! ,floats ,i))))))
 
 
 ;;;

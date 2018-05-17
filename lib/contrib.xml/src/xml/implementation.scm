@@ -34,7 +34,9 @@
 ;;;   2008-09-30 - Replaced tiny ssax:predefined-parsed-entities with
 ;;;                more robust html-entity-unicode-chars.
 
-(declare (not safe)
+(declare (standard-bindings)
+         (extended-bindings)
+         (not safe)
          (mostly-fixnum)
          (fixnum)
          (block)

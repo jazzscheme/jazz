@@ -8,7 +8,9 @@
 
 (unit protected gambit.walk.implementation
 
-(declare (proper-tail-calls)
+(declare (standard-bindings)
+         (extended-bindings)
+         (proper-tail-calls)
          (optimize-dead-local-variables))
 
 (include "~~lib/_gambit#.scm")
@@ -33,7 +35,6 @@
 
 (define-prim (##frame-set! frame i val)
   (##declare (not interrupts-enabled))
-  (##declare (extended-bindings))
   (##c-code #<<end-of-code
 
    int i = ___INT(___ARG2);

@@ -47,7 +47,7 @@
 
 
 (define (jazz:continuation-graft-no-winding cont proc)
-  (jazz:check-continuation cont 1 (continuation-graft-no-winding cont values)
+  (jazz:check-continuation cont 1 (continuation-graft-no-winding cont proc)
     (%%continuation-graft-no-winding cont proc)))
 
 

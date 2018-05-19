@@ -42,9 +42,17 @@
 
 
 (jazz:define-macro (jazz:unsafe expr)
-  `(let ()
-     (declare (not safe))
-     ,expr))
+  (let ((oper (car expr))
+        (args (cdr expr)))
+    `(let ()
+       (declare (not safe))
+       (,oper ,@(map (lambda (arg)
+                       (if jazz:debug-user?
+                           `(let ()
+                              (declare (safe))
+                              ,arg)
+                         arg))
+                     args)))))
 
 
 ;;;

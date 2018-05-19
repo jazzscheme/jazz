@@ -71,6 +71,8 @@
 ;; wav
 ;; jpeg
 ;; movie
+;; flow
+;; gambit
 (definition script
   'app)
 
@@ -120,6 +122,12 @@
 (definition media
   #f)
 
+(definition spawn
+  #f)
+
+(definition period
+  #f)
+
 (definition lag
   #f)
 
@@ -136,7 +144,7 @@
   #f)
 
 
-(jazz:split-command-line (command-arguments) '("fps" "debug") '("debugger" "r" "run" "script" "audio" "audio-codec" "size" "codec" "framerate" "bitrate" "window" "media" "lag" "monitor") #f
+(jazz:split-command-line (command-arguments) '("fps" "debug") '("debugger" "r" "run" "script" "audio" "audio-codec" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
   (lambda (commands options remain)
     (define (string-argument arg)
       arg)
@@ -171,6 +179,8 @@
     (set! video-bitrate (or (number-argument (find-option "bitrate" options)) video-bitrate))
     (set! window-size (or (size-argument (find-option "window" options)) video-size))
     (set! media (string-argument (find-option "media" options)))
+    (set! spawn (number-argument (find-option "spawn" options)))
+    (set! period (number-argument (find-option "period" options)))
     (set! lag (number-argument (find-option "lag" options)))
     (set! fps? (find-option "fps" options #f))
     (set! debug? (find-option "debug" options #f))
@@ -193,6 +203,8 @@
     ((wav) (test-wav))
     ((jpeg) (test-jpeg))
     ((movie) (test-movie))
+    ((flow) (test-flow))
+    ((gambit) (test-gambit))
     (else (error "Unknown script: {a}" script))))
 
 
@@ -1059,6 +1071,120 @@
         (thread-start! video-thread))
       ;; application
       (boot-environment (new Test-Application size: video-size pipe: pipe drawer: drawer)))))
+
+
+;;;
+;;;; Flow
+;;;
+
+
+(definition public (test-flow)
+  (let ((start (current-seconds))
+        (received 0)
+        (received-mutex (make-mutex 'received))
+        (last-report (current-seconds))
+        (spawn (or spawn 1))
+        (period (or period .001)))
+    (define (received-buffer)
+      (mutex-lock! received-mutex)
+      (increase! received)
+      (let ((now (current-seconds)))
+        (when (> now (+ last-report 1))
+          (terminal (/ (- now start) (/ received spawn)))
+          (set! last-report now)))
+      (mutex-unlock! received-mutex))
+    
+    (define (start-pipeline)
+      (let ((pipeline (gst-launch "appsrc name=src"
+                                  "appsink name=sink sync=false")))
+        (gst_object_set_name pipeline "input")
+        (let ((src (gst_bin_get_by_name pipeline "src"))
+              (sink (gst_bin_get_by_name pipeline "sink")))
+          (gst_signal_new_sample sink)
+          (gst_element_set_state pipeline GST_STATE_PLAYING)
+          ;; input
+          (thread-start!
+            (new-thread
+              (lambda ()
+                (declare (proper-tail-calls))
+                (let ((buffer (object->u8vector (naturals 1 100))))
+                  (let (loop)
+                    (gst_app_src_write3 src buffer (u8vector-length buffer) 0 0)
+                    (sleep period)
+                    (loop))))
+              'input))
+          ;; output
+          (thread-start!
+            (new-thread
+              (lambda ()
+                (let ((buffer (make-u8vector 4096))
+                      (info (make-u64vector 2)))
+                  (declare (proper-tail-calls))
+                  (let (loop)
+                    (let ((size (gst_app_sink_read sink buffer info)))
+                      (when (/= size -1)
+                        (received-buffer)))
+                    (sleep period)
+                    (loop))))
+              'output)))))
+    
+    ;; pipelines
+    (loop (repeat spawn)
+          (start-pipeline))
+    ;; application
+    (boot-environment (new Test-Application))))
+
+
+;;;
+;;;; Gambit
+;;;
+
+
+(definition public (test-gambit)
+  (let ((start (current-seconds))
+        (received 0)
+        (received-mutex (make-mutex 'received))
+        (last-report (current-seconds))
+        (spawn (or spawn 1))
+        (period (or period .001)))
+    (define (received-buffer)
+      (mutex-lock! received-mutex)
+      (increase! received)
+      (let ((now (current-seconds)))
+        (when (> now (+ last-report 1))
+          (terminal (/ (- now start) (/ received spawn)))
+          (set! last-report now)))
+      (mutex-unlock! received-mutex))
+    
+    (define (start-pipeline)
+      (let ((pipe (open-vector)))
+        ;; input
+        (thread-start!
+          (new-thread
+            (lambda ()
+              (declare (proper-tail-calls))
+              (let ((buffer (object->u8vector (naturals 1 100))))
+                (let (loop)
+                  (write buffer pipe)
+                  (sleep period)
+                  (loop))))
+            'input))
+        ;; output
+        (thread-start!
+          (new-thread
+            (lambda ()
+              (declare (proper-tail-calls))
+              (let (loop)
+                (let ((buffer (read pipe)))
+                  (received-buffer))
+                (loop)))
+            'output))))
+    
+    ;; pipelines
+    (loop (repeat spawn)
+          (start-pipeline))
+    ;; application
+    (boot-environment (new Test-Application))))
 
 
 ;;;

@@ -44,9 +44,9 @@
     (cond ((not counter)
            (error "Invalid call to generate-symbol without a counter"))
           (else
-           (let ((name (##string-append prefix (or for "^") (##number->string counter))))
+           (let ((name (string-append prefix (or for "^") (number->string counter))))
              (jazz:generate-symbol-counter (+ counter 1))
-             (##string->uninterned-symbol name))))))
+             (string->uninterned-symbol name))))))
 
 
 (define (jazz:generate-global-symbol #!optional (prefix "sym"))
@@ -58,57 +58,14 @@
           ((not context)
            (error "Invalid call to generate-global-symbol without a context"))
           (else
-           (let ((module (jazz:string-replace (##symbol->string context) #\. #\/)))
-             (let ((name (##string-append module "_" prefix for (##number->string counter))))
-               ;; this test is not correct if we are compiling a syntax module that is already loaded compiled
-               ;; (if (##find-interned-symbol name)
-               ;;    (error "Detected invalid state:" name))
+           (let ((module (jazz:string-replace (symbol->string context) #\. #\/)))
+             (let ((name (string-append module "_" prefix for (number->string counter))))
                (jazz:generate-symbol-counter (+ counter 1))
-               (##string->symbol name)))))))
-
-
-(define (jazz:simplify-begin form)
-  (if (and (##pair? form)
-           (##eq? (##car form) 'begin)
-           (##pair? (##cdr form))
-           (##null? (##cddr form)))
-      (##cadr form)
-    form))
-
-
-(define (jazz:simplify-let form)
-  (if (and (##pair? form)
-           (##eq? (##car form) 'let)
-           (##pair? (##cdr form))
-           (##pair? (##cddr form)))
-      (let ((bindings (##cadr form))
-            (body (##cddr form)))
-        (cond ((and (##eqv? bindings '())
-                    (##null? (##cdr body))
-		    (let ((expr (##car body)))
-		      ;; inner define needs the let
-                      (##not (and (##pair? expr)
-                                  (##eq? (##car expr) 'define)))
-		      ;; begin might start with a define needing the let
-                      (##not (and (##pair? expr)
-                                  (##eq? (##car expr) 'begin)))))
-               (##car body))
-              ((and (##pair? bindings)
-                    (##null? (##cdr bindings))
-                    (let ((binding (##car bindings)))
-                      (and (##pair? binding)
-                           (##pair? (##cdr binding))
-                           (##null? (##cddr binding))
-                           (##symbol? (##car binding))
-                           (eq? (##car binding) (##car body)))))
-               (##cadar bindings))
-              (else
-               form)))
-    form))
+               (string->symbol name)))))))
 
 
 (define (jazz:with-uniqueness expr proc)
-  (if (##symbol? (jazz:source-code expr))
+  (if (symbol? (jazz:source-code expr))
       (proc expr)
     (let ((value (jazz:generate-symbol "val")))
       `(let ((,value ,expr))
@@ -116,7 +73,7 @@
 
 
 (define (jazz:with-uniqueness-typed expr specifier proc)
-  (if (##symbol? (jazz:source-code expr))
+  (if (symbol? (jazz:source-code expr))
       (proc expr)
     (let ((value (jazz:generate-symbol "val")))
       `(let ((,value ,specifier ,expr))
@@ -124,12 +81,12 @@
 
 
 (jazz:define-macro (%%force-uniqueness variables code)
-  (if (##null? variables)
+  (if (null? variables)
       code
-    (let ((variable (##car variables)))
+    (let ((variable (car variables)))
       `(jazz:with-uniqueness ,variable
          (lambda (,variable)
-           (%%force-uniqueness ,(##cdr variables) ,code))))))
+           (%%force-uniqueness ,(cdr variables) ,code))))))
 
 
 ;;;
@@ -146,15 +103,19 @@
            (if jazz:debug-core?
                `(if (,',test ,arg)
                     ,code
-                  (jazz:primitive-type-error ,pos ,',type ',(##car call) (##list ,@(##cdr call))))
+                  (jazz:primitive-type-error ,pos ,',type ',(car call) (list ,@(cdr call))))
              code))
          (jazz:define-macro (,debug arg pos call code)
            (if jazz:debug-user?
                `(if (,',test ,arg)
                     ,code
-                  (jazz:primitive-type-error ,pos ,',type ',(##car call) (##list ,@(##cdr call))))
+                  (jazz:primitive-type-error ,pos ,',type ',(car call) (list ,@(cdr call))))
              code))))))
 
+
+(jazz:define-check-macro check-char
+  ##char?
+  "CHAR")
 
 (jazz:define-check-macro check-closure
   ##closure?
@@ -196,6 +157,10 @@
   ##procedure?
   "PROCEDURE")
 
+(jazz:define-check-macro check-ratnum
+  ##ratnum?
+  "RATNUM")
+
 (jazz:define-check-macro check-readenv
   jazz:readenv?
   "READENV")
@@ -212,6 +177,10 @@
   ##string?
   "STRING")
 
+(jazz:define-check-macro check-structure
+  ##structure?
+  "STRUCTURE")
+
 (jazz:define-check-macro check-symbol
   ##symbol?
   "SYMBOL")
@@ -223,6 +192,22 @@
 (jazz:define-check-macro check-table
   table?
   "TABLE")
+
+(jazz:define-check-macro check-table
+  table?
+  "TABLE")
+
+(jazz:define-check-macro check-thread
+  thread?
+  "THREAD")
+
+(jazz:define-check-macro check-values
+  ##values?
+  "VALUES")
+
+(jazz:define-check-macro check-vector
+  ##vector?
+  "VECTOR")
 
 (jazz:define-check-macro check-writeenv
   jazz:writeenv?

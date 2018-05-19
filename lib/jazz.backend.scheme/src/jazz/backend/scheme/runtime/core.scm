@@ -472,6 +472,15 @@
 
 
 ;;;
+;;;; Features
+;;;
+
+
+(define (jazz:cond-expand-features)
+  (%%cond-expand-features))
+
+
+;;;
 ;;;; Fixnum
 ;;;
 

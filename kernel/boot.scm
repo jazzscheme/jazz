@@ -39,13 +39,13 @@
   (list
     "kernel/syntax/verbose"
     "kernel/syntax/header"
-    "kernel/syntax/internal"
     "kernel/syntax/macro"
     "kernel/syntax/block"
     "kernel/syntax/expansion"
-    "kernel/syntax/features"
     "kernel/syntax/declares"
     "kernel/syntax/primitives"
+    "kernel/syntax/internal"
+    "kernel/syntax/features"
     "kernel/syntax/structure"
     "kernel/syntax/syntax"
     "kernel/syntax/runtime"
@@ -86,18 +86,21 @@
       
       (define (print-version)
         (let ((output (open-output-string)))
-          (##write-string (path-expand "~~") output)
-          (##write-string " " output)
-          (##write-string "Gambit" output)
-          (##write-string " " output)
-          (##write-string (system-version-string) output)
-          (##write-string " " output)
-          (##write (system-stamp) output)
-          (##write-string " " output)
-          (##write-string (system-type-string) output)
-          (##write-string " " output)
-          (##write-string (configure-command-string) output)
+          (write-string (path-expand "~~") output)
+          (write-string " " output)
+          (write-string "Gambit" output)
+          (write-string " " output)
+          (write-string (system-version-string) output)
+          (write-string " " output)
+          (write (system-stamp) output)
+          (write-string " " output)
+          (write-string (system-type-string) output)
+          (write-string " " output)
+          (write-string (configure-command-string) output)
           (get-output-string output)))
+      
+      (define (write-string str port)
+        (write-substring str 0 (string-length str) port))
       
       ;; hack around loading header being very
       ;; time consuming because of gambit's header

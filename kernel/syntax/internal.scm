@@ -45,13 +45,13 @@
 
 (define (jazz:closure-environment closure)
   ;; to do interpreted
-  (if (##interp-procedure? closure)
+  (if (%%interp-procedure? closure)
       '()
-    (let ((len (##closure-length closure)))
+    (let ((len (%%closure-length closure)))
       (let iter ((n 1) (env '()))
-           (if (##fx>= n len)
+           (if (%%fx>= n len)
                env
-             (iter (##fx+ n 1) (##cons (##closure-ref closure n) env)))))))
+             (iter (%%fx+ n 1) (%%cons (%%closure-ref closure n) env)))))))
 
 
 ;;;
@@ -64,27 +64,13 @@
 
 
 ;;;
-;;;; Container
-;;;
-
-
-(define (jazz:path->container-hook-set! hook)
-  (##path->container-hook-set! hook))
-
-(define (jazz:container->path-hook-set! hook)
-  (##container->path-hook-set! hook))
-
-(define (jazz:container->id-hook-set! hook)
-  (##container->id-hook-set! hook))
-
-
-;;;
 ;;;; Devel
 ;;;
 
 
-(define (jazz:set-gambitdir! gambitdir)
-  (##set-gambitdir! gambitdir))
+(define (jazz:set-gambitdir! dir)
+  (jazz:check-string dir 1 (jazz:set-gambitdir! dir)
+    (##set-gambitdir! dir)))
 
 
 ;;;
@@ -96,10 +82,11 @@
   (##allow-inner-global-define?-set! val))
 
 
+;; DANGER : temporary hack until proper primitive exists
 ;; copy-pasted from gambit's repl and changed to no-windind
 (define (eval-within-no-winding runner src cont repl-context receiver)
   (define (run c rte)
-    (##continuation-graft-no-winding
+    (%%continuation-graft-no-winding
       cont
       (lambda ()
         (jazz:repl-context-bind
@@ -112,10 +99,10 @@
                     (jazz:code-run c rte))))))))))
   
   (##define-macro (macro-make-rte-from-list rte lst)
-    `(##list->vector (##cons ,rte ,lst)))
+    `(%%list->vector (%%cons ,rte ,lst)))
   
-  (let ((src2 (##sourcify src (##make-source #f #f))))
-    (cond ((##interp-continuation? cont)
+  (let ((src2 (%%sourcify src (%%make-source #f #f))))
+    (cond ((%%interp-continuation? cont)
            (let* (($code (##interp-continuation-code cont))
                   (cte (jazz:code-cte $code))
                   (rte (##interp-continuation-rte cont)))
@@ -143,7 +130,7 @@
             (lambda ()
               results)
             (lambda results
-              (##continuation-return-no-winding return (##car results)))))))))
+              (%%continuation-return-no-winding return (%%car results)))))))))
 
 
 ;;;
@@ -155,7 +142,8 @@
   ##primordial-exception-handler-hook)
 
 (define (jazz:primordial-exception-handler-hook-set! hook)
-  (set! ##primordial-exception-handler-hook hook))
+  (jazz:check-procedure hook 1 (jazz:primordial-exception-handler-hook-set! hook)
+    (set! ##primordial-exception-handler-hook hook)))
 
 (define (jazz:thread-end-with-uncaught-exception! exc)
   (##thread-end-with-uncaught-exception! exc))
@@ -171,11 +159,14 @@
 
 
 (define (jazz:exit #!optional (status 0))
-  (##exit status))
+  (jazz:check-fixnum status 1 (jazz:exit status)
+    (##exit status)))
 
 (define (jazz:exit-no-jobs #!optional (status 1))
-  (##clear-exit-jobs!)
-  (##exit status))
+  (jazz:check-fixnum status 1 (jazz:exit-no-jobs status)
+    (begin
+      (##clear-exit-jobs!)
+      (##exit status))))
 
 (define (jazz:exit-cleanup)
   (##exit-cleanup))
@@ -188,6 +179,16 @@
 
 (define jazz:os-bat-extension-string-saved
   ##os-bat-extension-string-saved)
+
+
+;;;
+;;;; Gambit
+;;;
+
+
+(define (jazz:gambitjazz?)
+  (and (jazz:global-bound? '##gambitjazz?)
+       (jazz:global-ref '##gambitjazz?)))
 
 
 ;;;
@@ -208,19 +209,11 @@
   ##exit-jobs)
 
 (define (jazz:add-exit-job! thunk)
-  (##add-exit-job! thunk))
+  (jazz:check-procedure thunk 1 (jazz:add-exit-job! thunk)
+    (##add-exit-job! thunk)))
 
 (define (jazz:clear-exit-jobs!)
   (##clear-exit-jobs!))
-
-
-;;;
-;;;; Memory
-;;;
-
-
-(define (jazz:get-heap-pointer)
-  (c-code "___RESULT = ___CAST(___SCMOBJ, ___hp);"))
 
 
 ;;;
@@ -232,10 +225,11 @@
   (##load-required-module module-ref))
 
 (define (jazz:load-object-file pathname quiet?)
-  (##load-object-file pathname quiet?))
+  (jazz:check-string pathname 1 (jazz:load-object-file pathname quiet?)
+    (##load-object-file pathname quiet?)))
 
 (define (jazz:object-file-module-descrs result)
-  ;; FIXME : temporary hack until proper primitive exists
+  ;; DANGER : temporary hack until proper primitive exists
   (##vector-ref result 0))
 
 (define (jazz:register-module-descrs-and-load! module-descrs)
@@ -243,7 +237,8 @@
 
 
 (define (jazz:main-set! proc)
-  (##main-set! proc))
+  (jazz:check-procedure proc 1 (jazz:main-set! proc)
+    (##main-set! proc)))
 
 
 ;;;
@@ -253,6 +248,15 @@
 
 (define jazz:stdout-port
   ##stdout-port)
+
+
+;;;
+;;;; Repl
+;;;
+
+
+(define (jazz:repl-debug-main)
+  (##repl-debug-main))
 
 
 ;;;
@@ -275,20 +279,25 @@
 
 
 (define (jazz:wrap-datum-set! proc)
-  (set! ##wrap-datum proc))
+  (jazz:check-procedure proc 1 (jazz:wrap-datum-set! proc)
+    (set! ##wrap-datum proc)))
 
 (define (jazz:unwrap-datum-set! proc)
-  (set! ##unwrap-datum proc))
+  (jazz:check-procedure proc 1 (jazz:unwrap-datum-set! proc)
+    (set! ##unwrap-datum proc)))
 
 (define (jazz:sourcify-aux1-set! proc)
-  (set! ##sourcify-aux1 proc))
+  (jazz:check-procedure proc 1 (jazz:sourcify-aux1-set! proc)
+    (set! ##sourcify-aux1 proc)))
 
 (define (jazz:sourcify-aux2-set! proc)
-  (set! ##sourcify-aux2 proc))
+  (jazz:check-procedure proc 1 (jazz:sourcify-aux2-set! proc)
+    (set! ##sourcify-aux2 proc)))
 
 
 (define (jazz:expand-source-set! proc)
-  (##expand-source-set! proc))
+  (jazz:check-procedure proc 1 (jazz:expand-source-set! proc)
+    (##expand-source-set! proc)))
 
 
 ;;;
@@ -297,11 +306,11 @@
 
 
 (define jazz:hidden-frames
-  (##list
+  (%%list
     ##dynamic-env-bind))
 
 (define (jazz:hidden-frame? frame)
-  (##memq frame jazz:hidden-frames))
+  (%%memq frame jazz:hidden-frames))
 
 (define (jazz:hidden-frame?-set! predicate)
   (set! jazz:hidden-frame? predicate))
@@ -310,14 +319,15 @@
 (define (jazz:iterate-continuation-stack cont depth proc)
   (let iter ((d 0)
              (cont cont))
-       (if (or (##not depth) (##fx< d depth))
+       (if (or (%%not depth) (%%fx< d depth))
            (and cont
                 (begin
                   (proc cont)
-                  (iter (##fx+ d 1)
-                        (##continuation-next-frame cont #f)))))))
+                  (iter (%%fx+ d 1)
+                        (%%continuation-next-frame cont #f)))))))
 
 
+;; DANGER : temporary hack until proper primitive exists
 (define (jazz:iterate-var-val var val-or-box cte proc)
   (cond ((##var-i? var)
          (jazz:iterate-var-val-aux (##var-i-name var)
@@ -327,7 +337,7 @@
                                    proc))
         ((##var-c-boxed? var)
          (jazz:iterate-var-val-aux (##var-c-name var)
-                                   (##unbox val-or-box)
+                                   (%%unbox val-or-box)
                                    #t
                                    cte
                                    proc))
@@ -339,21 +349,22 @@
                                    proc))))
 
 
+;; DANGER : temporary hack until proper primitive exists
 (define (jazz:iterate-var-val-aux var val mutable? cte proc)
   (define (remove-quote val)
     (if (and (pair? val)
-             (eq? (##car val) 'quote)
-             (##not (##null? (##cdr val))))
-        (##cadr val)
+             (eq? (%%car val) 'quote)
+             (%%not (%%null? (%%cdr val))))
+        (%%cadr val)
       val))
   
   (proc
-    (##list (##object->string var)
+    (%%list (%%object->string var)
             (cond ((jazz:absent-object? val)
                    '<absent>)
                   ((jazz:unbound-object? val)
                    '<unbound>)
-                  ((##procedure? val)
+                  ((%%procedure? val)
                    (remove-quote
                      (if (##cte-top? cte)
                          (##inverse-eval-in-env val cte)
@@ -363,28 +374,30 @@
             mutable?)))
 
 
+;; DANGER : temporary hack until proper primitive exists
 (define (jazz:iterate-continuation-dynamic-environment cont reference-name proc)
   (define (iterate-parameters lst cte proc)
     (let iter ((lst lst))
-         (if (##pair? lst)
-             (let* ((param-val (##car lst))
-                    (param (##car param-val))
-                    (val (##cdr param-val)))
-               (if (##not (##hidden-parameter? param))
+         (if (%%pair? lst)
+             (let* ((param-val (%%car lst))
+                    (param (%%car param-val))
+                    (val (%%cdr param-val)))
+               (if (%%not (##hidden-parameter? param))
                    (let ((name (reference-name (##inverse-eval-in-env param cte))))
-                     (jazz:iterate-var-val-aux (##list name) val #t cte proc)))
-               (iter (##cdr lst))))))
+                     (jazz:iterate-var-val-aux (%%list name) val #t cte proc)))
+               (iter (%%cdr lst))))))
   
   (and cont
        (iterate-parameters
          (##dynamic-env->list (jazz:continuation-denv cont))
-         (if (##interp-continuation? cont)
+         (if (%%interp-continuation? cont)
              (let (($code (##interp-continuation-code cont)))
                (jazz:code-cte $code))
            ##interaction-cte)
          proc)))
 
 
+;; DANGER : temporary hack until proper primitive exists
 (define (jazz:iterate-continuation-lexical-environment cont proc)
   (define (iterate-rte cte rte proc)
     (let loop1 ((c cte)
@@ -392,13 +405,13 @@
          (cond ((##cte-top? c))
                ((##cte-frame? c)
                 (let loop2 ((vars (##cte-frame-vars c))
-                            (vals (##cdr (##vector->list r))))
-                     (if (##pair? vars)
-                         (let ((var (##car vars)))
-                           (if (##not (##hidden-local-var? var))
-                               (jazz:iterate-var-val var (##car vals) c proc))
-                           (loop2 (##cdr vars)
-                                  (##cdr vals)))
+                            (vals (%%cdr (%%vector->list r))))
+                     (if (%%pair? vars)
+                         (let ((var (%%car vars)))
+                           (if (%%not (##hidden-local-var? var))
+                               (jazz:iterate-var-val var (%%car vals) c proc))
+                           (loop2 (%%cdr vars)
+                                  (%%cdr vals)))
                        (loop1 (##cte-parent-cte c)
                               (jazz:rte-up r)))))
                (else
@@ -407,25 +420,25 @@
   
   (define (iterate-vars lst cte proc)
     (let iter ((lst lst))
-         (if (##pair? lst)
-             (let* ((var-val (##car lst))
-                    (var (##car var-val))
-                    (val (##cdr var-val)))
+         (if (%%pair? lst)
+             (let* ((var-val (%%car lst))
+                    (var (%%car var-val))
+                    (val (%%cdr var-val)))
                (jazz:iterate-var-val var val cte proc)
-               (iter (##cdr lst))))))
+               (iter (%%cdr lst))))))
   
   (define (iterate-locals lst cte proc)
     (and lst
          (iterate-vars lst cte proc)))
   
   (and cont
-       (if (##interp-continuation? cont)
+       (if (%%interp-continuation? cont)
            (let (($code (##interp-continuation-code cont))
                  (rte (##interp-continuation-rte cont)))
              (iterate-rte (jazz:code-cte $code) rte proc)
              (jazz:code-cte $code))
          (begin
-           (iterate-locals (##continuation-locals cont) ##interaction-cte proc)
+           (iterate-locals (%%continuation-locals cont) ##interaction-cte proc)
            ##interaction-cte))))
 
 
@@ -434,6 +447,7 @@
 ;;;
 
 
+;; DANGER : temporary hack until proper primitive exists
 (define (jazz:install-step-handler proc)
   (define (handler leapable? $code rte execute-body . other)
     (##step-off)
@@ -441,13 +455,14 @@
       proc
       $code
       (lambda ()
-        (##apply execute-body (##cons $code (##cons rte other))))))
+        (%%apply execute-body (%%cons $code (%%cons rte other))))))
   
   (let ((cs (##current-stepper)))
     (vector-set! cs 0 (vector handler handler handler handler handler handler handler))
     (void)))
 
 
+;; DANGER : temporary hack until proper primitive exists
 (define (jazz:process-step proc $code execute)
   (proc
     (##code-locat $code)
@@ -470,12 +485,16 @@
 
 
 (define (jazz:set-gensym-counter! val)
-  (set! ##gensym-counter val))
+  (jazz:check-fixnum val 1 (jazz:set-gensym-counter! val)
+    (set! ##gensym-counter val)))
 
 
 ;;;
 ;;;; Thread With Stack
 ;;;
+
+
+;; DANGER : temporary hack until proper primitive exists
 
 
 (define jazz:word-size
@@ -519,8 +538,53 @@
 
 ;; copied from _repl
 (define (jazz:write-timeout to now port)
-  (##write-string " " port)
-  (let* ((expiry (##fl- to now))
-         (e (##fl/ (##flround (##fl* 10.0 expiry)) 10.0)))
-    (##write (if (##integer? e) (##inexact->exact e) e) port))
-  (##write-string "s" port))
+  (%%write-string " " port)
+  (let* ((expiry (%%fl- to now))
+         (e (%%fl/ (%%flround (%%fl* 10.0 expiry)) 10.0)))
+    (%%write (if (%%integer? e) (%%inexact->exact e) e) port))
+  (%%write-string "s" port))
+
+
+;;;
+;;;; Unspecified
+;;;
+
+
+(define jazz:Unspecified-Value
+  (void))
+
+
+(jazz:define-macro (%%unspecified)
+  'jazz:Unspecified-Value)
+
+
+(jazz:define-macro (%%unspecified? value)
+  `(%%eq? ,value jazz:Unspecified-Value))
+
+
+(jazz:define-macro (%%specified? value)
+  `(%%neq? ,value jazz:Unspecified-Value))
+
+
+;;;
+;;;; Values
+;;;
+
+
+(jazz:define-macro (%%values-ref values n)
+  (if jazz:debug-core?
+      (%%force-uniqueness (values n)
+        `(%%check-values ,values 1 (%%values-ref ,values ,n)
+           (if (%%fx< ,n (##vector-length ,values))
+               (##vector-ref ,values ,n)
+             (error "Out of bounds"))))
+    `(##vector-ref ,values ,n)))
+
+(jazz:define-macro (%%values-set! values n obj)
+  (if jazz:debug-core?
+      (%%force-uniqueness (values n)
+        `(%%check-values ,values 1 (%%values-set! ,values ,n ,obj)
+           (if (%%fx< ,n (##vector-length ,values))
+               (##vector-set! ,values ,n ,obj)
+             (error "Out of bounds"))))
+    `(##vector-set! ,values ,n ,obj)))

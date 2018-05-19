@@ -1931,7 +1931,7 @@
                (exit))
               ((equal? action "debug")
                (jazz:setup-kernel-build)
-               (##repl-debug-main))
+               (jazz:repl-debug-main))
               (else
                (fatal (jazz:format "Unknown build system action: {a}" action))))))))
 

@@ -135,9 +135,9 @@ c-end
     #f))
 
 
-(jazz:path->container-hook-set! jazz:path->container-hook)
-(jazz:container->path-hook-set! jazz:container->path-hook)
-(jazz:container->id-hook-set! jazz:container->id-hook)
+(%%path->container-hook-set! jazz:path->container-hook)
+(%%container->path-hook-set! jazz:container->path-hook)
+(%%container->id-hook-set! jazz:container->id-hook)
 
 
 ;;;

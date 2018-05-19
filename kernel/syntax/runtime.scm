@@ -65,6 +65,51 @@
 
 
 ;;;
+;;;; Simplify
+;;;
+
+
+(define (jazz:simplify-begin form)
+  (if (and (%%pair? form)
+           (%%eq? (%%car form) 'begin)
+           (%%pair? (%%cdr form))
+           (%%null? (%%cddr form)))
+      (%%cadr form)
+    form))
+
+
+(define (jazz:simplify-let form)
+  (if (and (%%pair? form)
+           (%%eq? (%%car form) 'let)
+           (%%pair? (%%cdr form))
+           (%%pair? (%%cddr form)))
+      (let ((bindings (%%cadr form))
+            (body (%%cddr form)))
+        (cond ((and (%%eqv? bindings '())
+                    (%%null? (%%cdr body))
+                    (let ((expr (%%car body)))
+                      ;; inner define needs the let
+                      (%%not (and (%%pair? expr)
+                                  (%%eq? (%%car expr) 'define)))
+                      ;; begin might start with a define needing the let
+                      (%%not (and (%%pair? expr)
+                                  (%%eq? (%%car expr) 'begin)))))
+               (%%car body))
+              ((and (%%pair? bindings)
+                    (%%null? (%%cdr bindings))
+                    (let ((binding (%%car bindings)))
+                      (and (%%pair? binding)
+                           (%%pair? (%%cdr binding))
+                           (%%null? (%%cddr binding))
+                           (%%symbol? (%%car binding))
+                           (eq? (%%car binding) (%%car body)))))
+               (%%car (%%cdar bindings)))
+              (else
+               form)))
+    form))
+
+
+;;;
 ;;;; Require
 ;;;
 

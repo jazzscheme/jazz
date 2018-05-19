@@ -46,8 +46,8 @@
 ;;;
 
 
+;; DANGER : temporary hack until proper primitive exists
 (define-runtime-macro (jazz:define-macro pattern . rest)
-
   (define (form-size parms)
     (let loop ((lst parms) (n 1))
       (cond ((pair? lst)
@@ -82,6 +82,7 @@
 ;;;
 
 
+;; DANGER : temporary hack until proper primitive exists
 (define-runtime-macro (jazz:define-syntax name expander)
   `(begin
      (##define-syntax ,name
@@ -134,6 +135,7 @@
 ;;;
 
 
+;; DANGER : temporary hack until proper primitive exists
 (##define-macro (macro-code-run-fixed c rte)
   `(let (($$code ,c))
      ((##vector-ref $$code 1) $$code ,rte)))

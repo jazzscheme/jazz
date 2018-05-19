@@ -10,6 +10,7 @@
 
 (declare (standard-bindings)
          (extended-bindings)
+         (not safe)
          (proper-tail-calls)
          (optimize-dead-local-variables))
 

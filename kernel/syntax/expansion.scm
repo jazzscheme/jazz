@@ -300,7 +300,7 @@
 
 
 (define (jazz:get-allocation n)
-  (%%list (jazz:get-allocation-object n)
+  (^#list (jazz:get-allocation-object n)
           (jazz:get-allocation-file n)
           (jazz:get-allocation-line n)))
 
@@ -344,47 +344,47 @@ end-of-code
 
 (define (jazz:track-continuation cont depth #!key (filter #f))
   (define (continuation-creator cont)
-    (let ((proc (%%continuation-creator cont)))
-      (if (and proc (%%closure? proc))
-          (%%closure-code proc)
+    (let ((proc (^#continuation-creator cont)))
+      (if (and proc (^#closure? proc))
+          (^#closure-code proc)
         proc)))
   
   (define (continuation-next-interesting cont)
     (let loop ((current-cont cont))
          (if current-cont
-             (if (and (or (%%not filter) (filter current-cont))
+             (if (and (or (^#not filter) (filter current-cont))
                       ;; until jazz:track is a macro
-                      (%%not (%%eq? (continuation-creator current-cont) jazz:track)))
+                      (^#not (^#eq? (continuation-creator current-cont) jazz:track)))
                  current-cont
-               (loop (%%continuation-next current-cont)))
+               (loop (^#continuation-next current-cont)))
            #f)))
   
   (define (continuation-next-distinct cont creator)
-    (let loop ((current-cont (%%continuation-next cont)))
+    (let loop ((current-cont (^#continuation-next cont)))
          (if current-cont
-             (if (%%eq? creator (continuation-creator current-cont))
-                 (loop (%%continuation-next current-cont))
+             (if (^#eq? creator (continuation-creator current-cont))
+                 (loop (^#continuation-next current-cont))
                current-cont)
            #f)))
   
   (define (identify-location locat)
-    (let ((container (and locat (%%locat-container locat))))
+    (let ((container (and locat (^#locat-container locat))))
       (if container
-          (let ((filepos (%%position->filepos (%%locat-position locat))))
-            (let ((line (%%filepos-line filepos))
-                  (col (%%filepos-col filepos)))
-              (%%list container line col)))
+          (let ((filepos (^#position->filepos (^#locat-position locat))))
+            (let ((line (^#filepos-line filepos))
+                  (col (^#filepos-col filepos)))
+              (^#list container line col)))
         #f)))
   
   (define (identify cont d)
-    (let ((cont (and cont (%%fx< d depth) (continuation-next-interesting cont))))
-      (if (%%not cont)
+    (let ((cont (and cont (^#fx< d depth) (continuation-next-interesting cont))))
+      (if (^#not cont)
           '()
         (let ((creator (continuation-creator cont))
-              (location (identify-location (%%continuation-locat cont))))
-          (%%cons (%%list creator location)
+              (location (identify-location (^#continuation-locat cont))))
+          (^#cons (^#list creator location)
                   (identify (continuation-next-distinct cont creator)
-                            (%%fx+ d 1)))))))
+                            (^#fx+ d 1)))))))
   
   (identify cont 0))
 

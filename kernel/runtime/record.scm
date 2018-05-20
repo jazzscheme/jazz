@@ -82,27 +82,27 @@
   (if (jazz:gambitjazz?)
       (jazz:with-uniqueness expr
         (lambda (expr)
-          `(or (##jazz? ,expr) (##jazzstruct? ,expr))))
-    `(##jazz? ,expr)))
+          `(or (^#jazz? ,expr) (^#jazzstruct? ,expr))))
+    `(^#jazz? ,expr)))
 
 ;; this function is here for structure / class unification
 (jazz:define-macro (%%jazzstruct? expr)
   (if (jazz:gambitjazz?)
-      `(##jazzstruct? ,expr)
+      `(^#jazzstruct? ,expr)
     #f))
 
 ;; this function is here for structure / class unification
 (jazz:define-macro (%%jazzify expr)
   (%%force-uniqueness (expr)
     `(%%check-vector ,expr 1 (%%jazzify ,expr)
-       (##subtype-set! ,expr (%%subtype-jazz)))))
+       (^#subtype-set! ,expr (%%subtype-jazz)))))
 
 ;; this function is here for structure / class unification
 (jazz:define-macro (%%jazzstructify expr)
   (if (jazz:gambitjazz?)
       (%%force-uniqueness (expr)
         `(%%check-vector ,expr 1 (%%jazzstructify ,expr)
-           (##subtype-set! ,expr (%%subtype-jazzstruct))))
+           (^#subtype-set! ,expr (%%subtype-jazzstruct))))
     `(error "Unimplemented")))
 
 
@@ -157,14 +157,14 @@
                   `(cond ((%%not (%%record? ,rec))
                           (jazz:not-record-error ,rec))
                          ((or (%%not (%%fixnum? ,rnk))
-                              (%%not (%%fx< ,rnk (##vector-length ,rec))))
+                              (%%not (%%fx< ,rnk (^#vector-length ,rec))))
                           (jazz:outside-record-error ,rec ,rnk))
                          (else
-                          (##vector-ref ,rec ,rnk)))
+                          (^#vector-ref ,rec ,rnk)))
                 `(if (%%not (%%record? ,rec))
                      (jazz:not-record-error ,rec)
-                   (##vector-ref ,rec ,rnk)))))))
-    `(##vector-ref ,record ,n)))
+                   (^#vector-ref ,rec ,rnk)))))))
+    `(^#vector-ref ,record ,n)))
 
 
 (jazz:define-macro (%%record-set! record n value)
@@ -177,14 +177,14 @@
                   `(cond ((%%not (%%record? ,rec))
                           (jazz:not-record-error ,rec))
                          ((or (%%not (%%fixnum? ,rnk))
-                              (%%not (%%fx< ,rnk (##vector-length ,rec))))
+                              (%%not (%%fx< ,rnk (^#vector-length ,rec))))
                           (jazz:outside-record-error ,rec ,rnk))
                          (else
-                          (##vector-set! ,rec ,rnk ,value)))
+                          (^#vector-set! ,rec ,rnk ,value)))
                 `(if (%%not (%%record? ,rec))
                      (jazz:not-record-error ,rec)
-                   (##vector-set! ,rec ,rnk ,value)))))))
-    `(##vector-set! ,record ,n ,value)))
+                   (^#vector-set! ,rec ,rnk ,value)))))))
+    `(^#vector-set! ,record ,n ,value)))
 
 
 (jazz:define-macro (%%get-record-structure record)
@@ -288,8 +288,8 @@
       (jazz:with-uniqueness object
         (lambda (obj)
           `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-             (##vector-length ,obj))))
-    `(##vector-length ,object)))
+             (^#vector-length ,obj))))
+    `(^#vector-length ,object)))
 
 
 (jazz:define-macro (%%object-ref object n)
@@ -300,11 +300,11 @@
             (lambda (rnk)
               (if jazz:debug-out-of-bounds?
                   `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-                     (%%core-assertion (and (%%fixnum? ,rnk) (%%fx< ,rnk (##vector-length ,obj))) (jazz:outside-object-error ,obj ,rnk)
-                       (##vector-ref ,obj ,rnk)))
+                     (%%core-assertion (and (%%fixnum? ,rnk) (%%fx< ,rnk (^#vector-length ,obj))) (jazz:outside-object-error ,obj ,rnk)
+                       (^#vector-ref ,obj ,rnk)))
                 `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-                   (##vector-ref ,obj ,rnk)))))))
-    `(##vector-ref ,object ,n)))
+                   (^#vector-ref ,obj ,rnk)))))))
+    `(^#vector-ref ,object ,n)))
 
 
 (jazz:define-syntax %%object-set!
@@ -319,11 +319,11 @@
                 (lambda (rnk)
                   (if jazz:debug-out-of-bounds?
                       `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-                         (%%core-assertion (and (%%fixnum? ,rnk) (%%fx< ,rnk (##vector-length ,obj))) (jazz:outside-object-error ,obj ,rnk)
-                           (##vector-set! ,obj ,rnk ,value)))
+                         (%%core-assertion (and (%%fixnum? ,rnk) (%%fx< ,rnk (^#vector-length ,obj))) (jazz:outside-object-error ,obj ,rnk)
+                           (^#vector-set! ,obj ,rnk ,value)))
                     `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-                       (##vector-set! ,obj ,rnk ,value)))))))
-        `(##vector-set! ,object ,n ,value)))))
+                       (^#vector-set! ,obj ,rnk ,value)))))))
+        `(^#vector-set! ,object ,n ,value)))))
 
 
 (define (jazz:not-object-error obj)

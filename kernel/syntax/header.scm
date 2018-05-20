@@ -35,9 +35,6 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(jazz:verbose-kernel 'kernel.header)
-
-
 (include "~~lib/_gambit#.scm")
 
 
@@ -136,7 +133,7 @@
 
 
 ;; DANGER : temporary hack until proper primitive exists
-(##define-macro (macro-code-run-fixed c rte)
+(define-macro (macro-code-run-fixed c rte)
   `(let (($$code ,c))
      ((##vector-ref $$code 1) $$code ,rte)))
 

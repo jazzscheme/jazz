@@ -44,19 +44,19 @@
 
 
 (define jazz:current-seconds
-  (let ((f64vec (##f64vector 0.)))
+  (let ((f64vec (^#f64vector 0.)))
     (lambda ()
       (declare (not interrupts-enabled))
-      (##get-current-time! f64vec 0)
-      (##f64vector-ref f64vec 0))))
+      (^#get-current-time! f64vec 0)
+      (^#f64vector-ref f64vec 0))))
 
 
 (define jazz:current-monotonic
-  (let ((u64vec (##u64vector 0)))
+  (let ((u64vec (^#u64vector 0)))
     (lambda ()
       (declare (not interrupts-enabled))
-      (##get-monotonic-time! u64vec 0)
-      (##u64vector-ref u64vec 0))))
+      (^#get-monotonic-time! u64vec 0)
+      (^#u64vector-ref u64vec 0))))
 
 
 ;;;

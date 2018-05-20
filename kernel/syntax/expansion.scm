@@ -114,31 +114,31 @@
 
 
 (jazz:define-check-macro check-char
-  ##char?
+  ^#char?
   "CHAR")
 
 (jazz:define-check-macro check-closure
-  ##closure?
+  ^#closure?
   "CLOSURE")
 
 (jazz:define-check-macro check-continuation
-  ##continuation?
+  ^#continuation?
   "CONTINUATION")
 
 (jazz:define-check-macro check-fixnum
-  ##fixnum?
+  ^#fixnum?
   "FIXNUM")
 
 (jazz:define-check-macro check-flonum
-  ##flonum?
+  ^#flonum?
   "FLONUM")
 
 (jazz:define-check-macro check-foreign
-  ##foreign?
+  ^#foreign?
   "FOREIGN")
 
 (jazz:define-check-macro check-f64vector
-  ##f64vector?
+  ^#f64vector?
   "F64VECTOR")
 
 (jazz:define-check-macro check-list
@@ -146,19 +146,19 @@
   "LIST")
 
 (jazz:define-check-macro check-locat
-  ##locat?
+  ^#locat?
   "LOCAT")
 
 (jazz:define-check-macro check-port
-  ##port?
+  ^#port?
   "PORT")
 
 (jazz:define-check-macro check-procedure
-  ##procedure?
+  ^#procedure?
   "PROCEDURE")
 
 (jazz:define-check-macro check-ratnum
-  ##ratnum?
+  ^#ratnum?
   "RATNUM")
 
 (jazz:define-check-macro check-readenv
@@ -166,32 +166,28 @@
   "READENV")
 
 (jazz:define-check-macro check-readtable
-  ##readtable?
+  ^#readtable?
   "READTABLE")
 
 (jazz:define-check-macro check-source
-  ##source?
+  ^#source?
   "SOURCE")
 
 (jazz:define-check-macro check-string
-  ##string?
+  ^#string?
   "STRING")
 
 (jazz:define-check-macro check-structure
-  ##structure?
+  ^#structure?
   "STRUCTURE")
 
 (jazz:define-check-macro check-symbol
-  ##symbol?
+  ^#symbol?
   "SYMBOL")
 
 (jazz:define-check-macro check-type
-  ##type?
+  ^#type?
   "TYPE")
-
-(jazz:define-check-macro check-table
-  table?
-  "TABLE")
 
 (jazz:define-check-macro check-table
   table?
@@ -202,11 +198,11 @@
   "THREAD")
 
 (jazz:define-check-macro check-values
-  ##values?
+  ^#values?
   "VALUES")
 
 (jazz:define-check-macro check-vector
-  ##vector?
+  ^#vector?
   "VECTOR")
 
 (jazz:define-check-macro check-writeenv
@@ -338,7 +334,7 @@ end-of-code
   (if (jazz:tracking-allocations?)
       (begin
         (jazz:untrack-allocations)
-        (##continuation-capture
+        (^#continuation-capture
           (lambda (cont)
             (let ((stack (jazz:track-continuation cont jazz:*track-depth*)))
               (jazz:update-stack obj stack))))

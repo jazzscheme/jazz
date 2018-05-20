@@ -56,8 +56,8 @@
 
 
 (define (jazz:source-code expr)
-  (if (##source? expr)
-      (##source-code expr)
+  (if (^#source? expr)
+      (^#source-code expr)
     expr))
 
 

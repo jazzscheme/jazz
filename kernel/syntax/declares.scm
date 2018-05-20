@@ -38,18 +38,6 @@
 (block kernel.declares
 
 
-(define jazz:debug-core?
-  (eq? jazz:kernel-safety 'core))
-
-(define jazz:debug-user?
-  (not (eq? jazz:kernel-safety 'sealed)))
-
-(define jazz:debug-flonum?
-  (if (memq 'finite jazz:kernel-features)
-      #f
-    jazz:debug-core?))
-
-
 (jazz:define-macro (jazz:kernel-declares)
   `(declare
      ,@(if (or jazz:debug-core? jazz:kernel-mutable-bindings?)

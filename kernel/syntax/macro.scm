@@ -35,9 +35,6 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(jazz:verbose-kernel 'kernel.macro)
-
-
 (define jazz:Macros
   (make-table test: eq?))
 

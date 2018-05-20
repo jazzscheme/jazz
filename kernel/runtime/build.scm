@@ -477,11 +477,12 @@
                 (load (kernel-file "_architecture"))
                 
                 ;; reload syntax to account for architecture
-                (load (source-file "kernel/syntax/verbose"))
                 ;; no architecture-dependent syntax in header so do not load
                 ;; it as it is very time consuming because of gambit's header
                 ;; (load (source-file "kernel/syntax/header"))
                 (load (source-file "kernel/syntax/macro"))
+                (load (source-file "kernel/syntax/unsafe"))
+                (load (source-file "kernel/syntax/verbose"))
                 (load (source-file "kernel/syntax/block"))
                 (load (source-file "kernel/syntax/foreign"))
                 (load (source-file "kernel/syntax/expansion"))
@@ -499,9 +500,10 @@
           (if architecture?
               (compile-kernel-file "_architecture"))
           
-          (compile-source-file "syntax/" "verbose")
           (compile-source-file "syntax/" "header")
           (compile-source-file "syntax/" "macro")
+          (compile-source-file "syntax/" "unsafe")
+          (compile-source-file "syntax/" "verbose")
           (compile-source-file "syntax/" "block")
           (compile-source-file "syntax/" "foreign")
           (compile-source-file "syntax/" "expansion")
@@ -594,11 +596,12 @@
                     (%%not (file-exists? link-file))
                     (or (%%not kernel-seconds) (< (jazz:file-last-modification-seconds link-file) kernel-seconds))
                     (touched?))
-                (let ((base-files `(,(kernel-file "syntax/verbose")
-                                    ,(kernel-file "_architecture")
+                (let ((base-files `(,(kernel-file "_architecture")
                                     ,(product-file (product-filename))
                                     ,(kernel-file "syntax/header")
                                     ,(kernel-file "syntax/macro")
+                                    ,(kernel-file "syntax/unsafe")
+                                    ,(kernel-file "syntax/verbose")
                                     ,(kernel-file "syntax/block")
                                     ,(kernel-file "syntax/foreign")
                                     ,(kernel-file "syntax/expansion")
@@ -664,9 +667,6 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
                   (lambda (output)
-                    (display "(jazz:verbose-kernel 'kernel.product)" output)
-                    (newline output)
-                    (newline output)
                     (jazz:print-variable 'jazz:product product output)
                     (newline output)
                     (jazz:print-variable 'jazz:image (or image 'executable) output)
@@ -827,11 +827,12 @@
       (define (link-image)
         (let ((kernel-dir (jazz:pathname-normalize (jazz:pathname-dir (image-file))))
               (kernel-name (jazz:pathname-name (image-file)))
-              (base-files `(,(kernel-file "syntax/verbose.o")
-                            ,(kernel-file "_architecture.o")
+              (base-files `(,(kernel-file "_architecture.o")
                             ,(product-file (string-append (product-filename) ".o"))
                             ,(kernel-file "syntax/header.o")
                             ,(kernel-file "syntax/macro.o")
+                            ,(kernel-file "syntax/unsafe.o")
+                            ,(kernel-file "syntax/verbose.o")
                             ,(kernel-file "syntax/block.o")
                             ,(kernel-file "syntax/foreign.o")
                             ,(kernel-file "syntax/expansion.o")
@@ -1407,11 +1408,6 @@
 
 
 (define (jazz:print-architecture for-kernel-interpret? system platform compiler processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? track-memory? mutable-bindings? destination features properties output)
-  (if (not for-kernel-interpret?)
-      (begin
-        (display "(jazz:verbose-kernel 'kernel.architecture)" output)
-        (newline output)
-        (newline output)))
   (jazz:print-variable 'jazz:kernel-interpreted? #f output)
   (newline output)
   (jazz:print-variable 'jazz:kernel-system system output)

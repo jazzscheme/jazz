@@ -281,8 +281,8 @@
 ;;;
 
 
-;; DANGER : temporary hack until proper primitive exists
 (jazz:define-macro (%%load path script-callback clone-cte? raise-os-exception? linker-name quiet?)
+  ;; DANGER : temporary hack until proper primitive exists
   `(^#load ,path ,script-callback ,clone-cte? ,raise-os-exception? ,linker-name ,quiet?))
 
 
@@ -782,13 +782,13 @@
 (define HIGH-LEVEL-INTERRUPT 5)
 
 
-;; DANGER : temporary hack until proper primitive exists
 (jazz:define-macro (%%interrupt-handler code)
-  `(^#interrupt-handler ,code))
+  `(%%danger %%interrupt-handler
+     (^#interrupt-handler ,code)))
 
-;; DANGER : temporary hack until proper primitive exists
 (jazz:define-macro (%%interrupt-vector-set! code handler)
-  `(^#interrupt-vector-set! ,code ,handler))
+  `(%%danger %%interrupt-vector-set!
+     (^#interrupt-vector-set! ,code ,handler)))
 
 
 (jazz:define-macro (%%disable-interrupts!)
@@ -803,9 +803,9 @@
 ;;;
 
 
-;; DANGER : temporary hack until proper primitive exists
 (jazz:define-macro (%%subtype obj)
-  `(^#subtype ,obj))
+  `(%%danger %%subtype
+     (^#subtype ,obj)))
 
 
 ;;;
@@ -1083,8 +1083,8 @@
 (jazz:define-macro (%%input-port-names-set! port names)
   (%%force-uniqueness (port names)
     `(%%check-port ,port 1 (%%input-port-names-set! ,port ,names)
-       ;; DANGER : temporary hack until proper primitive exists
-       (^#vector-set! ,port 4 ,names))))
+       (%%danger %%input-port-names-set!
+         (^#vector-set! ,port 4 ,names)))))
 
 (jazz:define-macro (%%input-port-line-set! port line)
   (%%force-uniqueness (port line)
@@ -1289,14 +1289,14 @@
 (jazz:define-macro (%%readtable-escaped-char-table readtable)
   (%%force-uniqueness (readtable)
     `(%%check-readtable ,readtable 1 (%%readtable-escaped-char-table ,readtable)
-       ;; DANGER : temporary hack until proper primitive exists
-       (^#vector-ref ,readtable 3))))
+       (%%danger %%readtable-escaped-char-table
+         (^#vector-ref ,readtable 3)))))
 
 (jazz:define-macro (%%readtable-escaped-char-table-set! readtable table)
   (%%force-uniqueness (readtable table)
     `(%%check-readtable ,readtable 1 (%%readtable-escaped-char-table-set! ,readtable ,table)
-       ;; DANGER : temporary hack until proper primitive exists
-       (^#vector-set! ,readtable 3 ,table))))
+       (%%danger %%readtable-escaped-char-table-set!
+         (^#vector-set! ,readtable 3 ,table)))))
 
 
 ;;;

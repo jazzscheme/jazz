@@ -47,6 +47,14 @@
     jazz:debug-core?))
 
 
+(jazz:define-macro (%%danger name expr)
+  `(begin
+     (pp '(***DANGER ,name))
+     ,expr)
+  #;
+  expr)
+
+
 (jazz:define-macro (jazz:unsafe expr)
   (let ((oper (car expr))
         (args (cdr expr)))

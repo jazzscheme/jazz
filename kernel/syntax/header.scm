@@ -132,17 +132,8 @@
 ;;;
 
 
-;; DANGER : temporary hack until proper primitive exists
-(define-macro (macro-code-run-fixed c rte)
-  `(let (($$code ,c))
-     ((##vector-ref $$code 1) $$code ,rte)))
-
-
 (define (jazz:code-cte c)
   (macro-code-cte c))
-
-(define (jazz:code-run c rte)
-  (macro-code-run-fixed c rte))
 
 
 ;;;

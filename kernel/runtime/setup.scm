@@ -38,9 +38,6 @@
 (block kernel.setup
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Callable
 ;;;

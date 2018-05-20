@@ -38,9 +38,6 @@
 (block kernel.repository
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Repository
 ;;;

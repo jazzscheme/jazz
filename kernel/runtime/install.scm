@@ -38,9 +38,6 @@
 (block kernel.install
 
 
-(jazz:kernel-declares)
-
-
 (cond-expand
   (mac
     (c-include "<mach-o/dyld.h>"))

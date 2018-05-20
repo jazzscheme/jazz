@@ -38,9 +38,6 @@
 (block kernel.runtime
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Unit
 ;;;

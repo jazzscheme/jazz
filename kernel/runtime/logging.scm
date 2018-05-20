@@ -38,9 +38,6 @@
 (block kernel.logging
 
 
-(jazz:kernel-declares)
-
-
 (c-declare #<<END-OF-DECLARE
 #include <stdarg.h>
 #include <stdbool.h>

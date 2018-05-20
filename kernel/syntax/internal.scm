@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(jazz:verbose-kernel 'kernel.internal)
+(block kernel.internal
 
 
 ;;;
@@ -587,4 +587,4 @@
            (if (%%fx< ,n (##vector-length ,values))
                (##vector-set! ,values ,n ,obj)
              (error "Out of bounds"))))
-    `(##vector-set! ,values ,n ,obj)))
+    `(##vector-set! ,values ,n ,obj))))

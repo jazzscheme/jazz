@@ -38,9 +38,6 @@
 (block kernel.common
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Load
 ;;;

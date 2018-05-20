@@ -38,9 +38,6 @@
 (block kernel.embedded
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Launch
 ;;;

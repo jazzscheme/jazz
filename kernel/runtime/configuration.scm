@@ -38,9 +38,6 @@
 (block kernel.configuration
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Source
 ;;;

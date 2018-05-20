@@ -38,9 +38,6 @@
 (block kernel.base
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Exception
 ;;;

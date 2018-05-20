@@ -38,9 +38,6 @@
 (block kernel.readtable
 
 
-(jazz:kernel-declares)
-
-
 (define (jazz:make-jazz-readtable)
   (let ((readtable (readtable-max-unescaped-char-set (%%make-standard-readtable) #\U0010ffff)))
     (jazz:jazzify-readtable! readtable)

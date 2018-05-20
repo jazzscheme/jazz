@@ -38,9 +38,6 @@
 (block kernel.version
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Version
 ;;;

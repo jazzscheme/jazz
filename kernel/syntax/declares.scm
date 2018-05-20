@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block kernel.declares
+(jazz:verbose-kernel 'kernel.declares)
 
 
 (jazz:define-macro (jazz:kernel-declares)
@@ -110,4 +110,4 @@
       
       ,@(if jazz:debug-user?
             '()
-          '((not safe)))))))
+          '((not safe))))))

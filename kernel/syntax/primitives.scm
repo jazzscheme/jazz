@@ -38,9 +38,6 @@
 (block kernel.primitives
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Boolean
 ;;;

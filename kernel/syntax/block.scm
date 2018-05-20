@@ -68,5 +68,6 @@
       (jazz:generate-symbol-context name)
       (jazz:generate-symbol-counter 0)
       `(begin
+         (jazz:kernel-declares)
          (jazz:verbose-kernel ',name)
          ,@body))))

@@ -38,9 +38,6 @@
 (block kernel.advise
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Advise
 ;;;

@@ -38,9 +38,6 @@
 (block kernel.structure
 
 
-(jazz:kernel-declares)
-
-
 (define jazz:structure-info
   (%%make-table test: eq?))
 

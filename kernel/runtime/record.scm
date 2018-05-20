@@ -38,9 +38,6 @@
 (block kernel.record
 
 
-(jazz:kernel-declares)
-
-
 ;; costly test for a low probability class of bugs
 (define jazz:debug-out-of-bounds?
   #f)

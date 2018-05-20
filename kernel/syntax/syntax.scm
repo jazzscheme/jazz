@@ -38,9 +38,6 @@
 (block kernel.syntax
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Setting
 ;;;

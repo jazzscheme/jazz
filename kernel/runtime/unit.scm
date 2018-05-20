@@ -39,9 +39,6 @@
 (block kernel.unit
 
 
-(jazz:kernel-declares)
-
-
 ;;;
 ;;;; Output
 ;;;

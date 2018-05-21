@@ -593,30 +593,20 @@
 
 
 (define jazz:*primitive-patterns*
-  '())
+  (%%make-table test: eq?))
 
 
 (define (jazz:primitive-patterns-get)
   jazz:*primitive-patterns*)
 
 
-(define (jazz:initialize-primitive-patterns)
-  (let ((table (%%make-table test: eq?)))
-    (for-each (lambda (pair)
-                (let ((operator (%%car pair))
-                      (patterns (%%cdr pair)))
-                  (%%table-set! table operator
-                    (map (lambda (pattern)
-                           (let ((name (%%car pattern))
-                                 (specifier (%%cadr pattern)))
-                             (%%list name (jazz:walk-specifier #f #f #f '() specifier))))
-                         patterns))))
-              jazz:*primitive-patterns*)
-    (set! jazz:*primitive-patterns* table)))
-
-
 (define (jazz:add-primitive-patterns operator patterns)
-  (set! jazz:*primitive-patterns* (%%cons (%%cons operator patterns) jazz:*primitive-patterns*)))
+  (%%table-set! jazz:*primitive-patterns* operator
+    (map (lambda (pattern)
+           (let ((name (%%car pattern))
+                 (specifier (%%cadr pattern)))
+             (%%list name (jazz:walk-specifier #f #f #f '() specifier))))
+         patterns)))
 
 
 (define (jazz:get-primitive-patterns locator)
@@ -798,9 +788,6 @@
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:current-seconds!       '((%%get-current-time! <f64vector^fb:void>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:bytes-allocated!       '((%%get-bytes-allocated! <f64vector^fb:void>)))
-
-
-(jazz:initialize-primitive-patterns)
 
 
 (jazz:define-emit (primitive-call (scheme backend) operator locator arguments arguments-codes declaration walker resume environment)

@@ -348,6 +348,7 @@
 (jazz:define-unsafe ^#structure-type)
 (jazz:define-unsafe ^#structure?)
 (jazz:define-unsafe ^#substring)
+(jazz:define-unsafe ^#subtype)
 (jazz:define-unsafe ^#subtype-set!)
 (jazz:define-unsafe ^#symbol->string)
 (jazz:define-unsafe ^#symbol-table)

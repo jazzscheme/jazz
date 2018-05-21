@@ -48,10 +48,10 @@
 
 
 (jazz:define-macro (%%danger name expr)
+  #;
   `(begin
      (pp '(***DANGER ,name))
      ,expr)
-  #;
   expr)
 
 

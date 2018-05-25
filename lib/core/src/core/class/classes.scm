@@ -124,7 +124,10 @@
    (level           accessors: #t)
    (virtual-names   accessors: #t)
    (class-table     accessors: #t)
-   (interface-table accessors: #t)))
+   (interface-table accessors: #t)
+   ;; quick hack around types being classes
+   ;; and needing a place to store information
+   (user-data       accessors: #t)))
 
 
 (jazz:define-virtual-syntax (jazz:write-object (jazz:Class class) we obj))
@@ -258,7 +261,7 @@
 (jazz:define-class-syntax jazz:Ratnum       jazz:Rational (metaclass: jazz:Ratnum-Class)       ())
 (jazz:define-class-syntax jazz:Flonum       jazz:Real     (metaclass: jazz:Flonum-Class)       ())
 (jazz:define-class-syntax jazz:Flovec       jazz:Flonum   (metaclass: jazz:Flovec-Class)       ())
-(jazz:define-class-syntax jazz:S64          jazz:Integer  (metaclass: jazz:S64-Class)       ())
+(jazz:define-class-syntax jazz:S64          jazz:Integer  (metaclass: jazz:S64-Class)          ())
 (jazz:define-class-syntax jazz:Sequence     jazz:Object   (metaclass: jazz:Sequence-Class)     ())
 (jazz:define-class-syntax jazz:List         jazz:Sequence (metaclass: jazz:List-Class)         ())
 (jazz:define-class-syntax jazz:Null         jazz:List     (metaclass: jazz:Null-Class)         ())
@@ -289,6 +292,37 @@
 (jazz:define-class-syntax jazz:EOF          jazz:Object   (metaclass: jazz:EOF-Class)          ())
 (jazz:define-class-syntax jazz:Unspecified  jazz:Object   (metaclass: jazz:Unspecified-Class)  ())
 (jazz:define-class-syntax jazz:Marker       jazz:Object   (metaclass: jazz:Marker-Class)       ())
+
+
+;;;
+;;;; Fixed Types
+;;;
+
+
+(jazz:define-class-syntax jazz:FixedVector-Class    jazz:Vector-Class    (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:FixedS8Vector-Class  jazz:S8Vector-Class  (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:FixedU8Vector-Class  jazz:U8Vector-Class  (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:FixedS16Vector-Class jazz:S16Vector-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:FixedU16Vector-Class jazz:U16Vector-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:FixedS32Vector-Class jazz:S32Vector-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:FixedU32Vector-Class jazz:U32Vector-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:FixedS64Vector-Class jazz:S64Vector-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:FixedU64Vector-Class jazz:U64Vector-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:FixedF32Vector-Class jazz:F32Vector-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:FixedF64Vector-Class jazz:F64Vector-Class (metaclass: jazz:Class) ())
+
+
+(jazz:define-class-syntax jazz:FixedVector          jazz:Vector    (metaclass: jazz:FixedVector-Class)    ())
+(jazz:define-class-syntax jazz:FixedS8Vector        jazz:S8Vector  (metaclass: jazz:FixedS8Vector-Class)  ())
+(jazz:define-class-syntax jazz:FixedU8Vector        jazz:U8Vector  (metaclass: jazz:FixedU8Vector-Class)  ())
+(jazz:define-class-syntax jazz:FixedS16Vector       jazz:S16Vector (metaclass: jazz:FixedS16Vector-Class) ())
+(jazz:define-class-syntax jazz:FixedU16Vector       jazz:U16Vector (metaclass: jazz:FixedU16Vector-Class) ())
+(jazz:define-class-syntax jazz:FixedS32Vector       jazz:S32Vector (metaclass: jazz:FixedS32Vector-Class) ())
+(jazz:define-class-syntax jazz:FixedU32Vector       jazz:U32Vector (metaclass: jazz:FixedU32Vector-Class) ())
+(jazz:define-class-syntax jazz:FixedS64Vector       jazz:S64Vector (metaclass: jazz:FixedS64Vector-Class) ())
+(jazz:define-class-syntax jazz:FixedU64Vector       jazz:U64Vector (metaclass: jazz:FixedU64Vector-Class) ())
+(jazz:define-class-syntax jazz:FixedF32Vector       jazz:F32Vector (metaclass: jazz:FixedF32Vector-Class) ())
+(jazz:define-class-syntax jazz:FixedF64Vector       jazz:F64Vector (metaclass: jazz:FixedF64Vector-Class) ())
 
 
 ;;;

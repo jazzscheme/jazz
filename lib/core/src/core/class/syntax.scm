@@ -345,7 +345,8 @@
    (level           accessors: generate)
    (virtual-names   accessors: generate)
    (class-table     accessors: generate)
-   (interface-table accessors: generate)))
+   (interface-table accessors: generate)
+   (user-data       accessors: generate)))
 
 
 ;;;

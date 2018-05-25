@@ -2484,6 +2484,69 @@
 ;; <void>
 
 
+;; interning the type is a quick solution to
+;; types being compared using eq? and also saves
+;; some memory because of the size of classes
+
+(define jazz:fixed-types
+  (%%make-table test: equal?))
+
+(define (jazz:new-fixed-type class size)
+  (let ((key (%%cons class size)))
+    (or (%%table-ref jazz:fixed-types key #f)
+        (let ((metaclass (%%get-object-class class))
+              (name (%%get-category-identifier class)))
+          (let ((type-class (jazz:new-type-class metaclass name class size)))
+            (%%table-set! jazz:fixed-types key type-class)
+            type-class)))))
+
+
+(define jazz:fixed-specifiers
+  (%%make-table test: eq?))
+
+(define jazz:fixed-classes
+  (%%make-table test: eq?))
+
+(define jazz:fixed-constructors
+  (%%make-table test: eq?))
+
+(define jazz:fixed-makers
+  (%%make-table test: eq?))
+
+
+(define (jazz:setup-fixed-metadata specifier class fixed-class fixed-metaclass constructor maker)
+  (%%table-set! jazz:fixed-specifiers specifier fixed-class)
+  (%%table-set! jazz:fixed-classes class fixed-metaclass)
+  (%%table-set! jazz:fixed-constructors constructor fixed-class)
+  (%%table-set! jazz:fixed-makers maker fixed-class))
+
+
+(define (jazz:specifier->fixed-class specifier)
+  (%%table-ref jazz:fixed-specifiers specifier #f))
+
+(define (jazz:class->fixed-metaclass class)
+  (%%table-ref jazz:fixed-classes class #f))
+
+(define (jazz:constructor->fixed-class locator)
+  (%%table-ref jazz:fixed-constructors locator #f))
+
+(define (jazz:maker->fixed-class locator)
+  (%%table-ref jazz:fixed-makers locator #f))
+
+
+(jazz:setup-fixed-metadata 'vector    jazz:Vector    jazz:FixedVector    jazz:FixedVector-Class    'scheme.language.runtime:vector    'scheme.language.runtime:make-vector)
+(jazz:setup-fixed-metadata 's8vector  jazz:S8Vector  jazz:FixedS8Vector  jazz:FixedS8Vector-Class  'gambit.language.runtime:s8vector  'gambit.language.runtime:make-s8vector)
+(jazz:setup-fixed-metadata 'u8vector  jazz:U8Vector  jazz:FixedU8Vector  jazz:FixedU8Vector-Class  'gambit.language.runtime:u8vector  'gambit.language.runtime:make-u8vector)
+(jazz:setup-fixed-metadata 's16vector jazz:S16Vector jazz:FixedS16Vector jazz:FixedS16Vector-Class 'gambit.language.runtime:s16vector 'gambit.language.runtime:make-s16vector)
+(jazz:setup-fixed-metadata 'u16vector jazz:U16Vector jazz:FixedU16Vector jazz:FixedU16Vector-Class 'gambit.language.runtime:u16vector 'gambit.language.runtime:make-u16vector)
+(jazz:setup-fixed-metadata 's32vector jazz:S32Vector jazz:FixedS32Vector jazz:FixedS32Vector-Class 'gambit.language.runtime:s32vector 'gambit.language.runtime:make-s32vector)
+(jazz:setup-fixed-metadata 'u32vector jazz:U32Vector jazz:FixedU32Vector jazz:FixedU32Vector-Class 'gambit.language.runtime:u32vector 'gambit.language.runtime:make-u32vector)
+(jazz:setup-fixed-metadata 's64vector jazz:S64Vector jazz:FixedS64Vector jazz:FixedS64Vector-Class 'gambit.language.runtime:s64vector 'gambit.language.runtime:make-s64vector)
+(jazz:setup-fixed-metadata 'u64vector jazz:U64Vector jazz:FixedU64Vector jazz:FixedU64Vector-Class 'gambit.language.runtime:u64vector 'gambit.language.runtime:make-u64vector)
+(jazz:setup-fixed-metadata 'f32vector jazz:F32Vector jazz:FixedF32Vector jazz:FixedF32Vector-Class 'gambit.language.runtime:f32vector 'gambit.language.runtime:make-f32vector)
+(jazz:setup-fixed-metadata 'f64vector jazz:F64Vector jazz:FixedF64Vector jazz:FixedF64Vector-Class 'gambit.language.runtime:f64vector 'gambit.language.runtime:make-f64vector)
+
+
 (define (jazz:parse-specifier lst proc)
   (if (and (%%pair? lst) (jazz:specifier? (jazz:source-code (%%car lst))))
       (proc (jazz:source-code (%%car lst)) (%%car lst) (%%cdr lst))
@@ -2546,10 +2609,22 @@
                          (%%eqv? c #\>)
                          (%%eqv? c #\^)
                          (%%eqv? c #\*)
+                         (%%eqv? c #\#)
                          (%%eqv? c #\:)
                          (%%eqv? c #\/)
                          (%%eqv? c #\+))
                      (%%string->symbol (get-output-string output))
+                   (begin
+                     (readc)
+                     (write-char c output)
+                     (iter)))))))
+      
+      (define (parse-string)
+        (let ((output (open-output-string)))
+          (let iter ()
+               (let ((c (peekc)))
+                 (if (%%eqv? c #\>)
+                     (get-output-string output)
                    (begin
                      (readc)
                      (write-char c output)
@@ -2565,6 +2640,16 @@
               ((#\*)
                (readc)
                (jazz:new-rest-type (lookup-type name)))
+              ((#\#)
+               (readc)
+               (let ((class (jazz:specifier->fixed-class name)))
+                 (if class
+                     (let ((str (parse-string)))
+                       (let ((size (%%string->number str)))
+                         (if (%%fixnum? size)
+                             (jazz:new-fixed-type class size)
+                           (ill-formed (jazz:format "size expected: {a}" str)))))
+                   (ill-formed (jazz:format "Invalid fixed type: {s}" name)))))
               ((#\<)
                (readc)
                (cond ((%%eq? name 'opt)
@@ -3288,7 +3373,7 @@
 (define (jazz:setup-proclaims context)
   (let ((table (jazz:get-walk-context-proclaims context)))
     (if jazz:debug-user?
-        (%%table-set! table 'generate (list 'check 'lambda-check)))))
+        (%%table-set! table 'generate (list 'check 'zero-check 'bounds-check 'lambda-check)))))
 
 
 (define (jazz:get-proclaim proclaim-name default)
@@ -3303,7 +3388,7 @@
   '(optimizations))
 
 (define jazz:all-generates
-  '(check lambda-check register))
+  '(check zero-check bounds-check lambda-check register))
 
 
 (define (jazz:parse-proclaim-clause clause)
@@ -3365,7 +3450,7 @@
                      (case value
                        ((default)
                         (proclaim (case generate
-                                    ((check lambda-check)
+                                    ((check zero-check bounds-check lambda-check)
                                      jazz:debug-user?)
                                     ((register)
                                      #f))))

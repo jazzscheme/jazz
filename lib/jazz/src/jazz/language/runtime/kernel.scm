@@ -1107,6 +1107,7 @@
 (native jazz:binding-specifier)
 (native jazz:parse-specifier)
 (native jazz:type->specifier)
+(native jazz:new-fixed-type)
 (native jazz:add-primitive-type)
 (native jazz:primitive-patterns-get)
 (native jazz:primitive-predicates-get)

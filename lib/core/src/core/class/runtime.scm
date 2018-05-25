@@ -246,6 +246,10 @@
   (jazz:create-class-class-table class))
 
 
+(define (jazz:create-type-class-tables class)
+  (jazz:create-class-class-table class))
+
+
 (define (jazz:create-class-interface-table class)
   (%%when (%%not (%%get-class-interface-table class))
     (let ((vtable (%%make-vector jazz:new-interface-rank #f))
@@ -434,12 +438,43 @@
           (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0)
           '()
           #f
+          #f
           #f)))
     (%%set-category-ancestors core-class (%%list->vector (compute-core-class-ancestors core-class ascendant)))
     (%%when ascendant
       (%%set-category-descendants ascendant (%%cons core-class (%%get-category-descendants ascendant))))
     (jazz:create-core-class-tables core-class)
     core-class))
+
+
+(define (jazz:new-type-class class name ascendant user-data)
+  (define (compute-type-class-ancestors class ascendant)
+    (%%append (%%vector->list (%%get-category-ancestors ascendant)) (%%list class)))
+  
+  (let ((type-class
+         (%%allocate-class
+          ; Object
+          class
+          ; Category
+          name
+          (%%make-table test: eq?)
+          0
+          #f
+          '()
+          ; Class
+          ascendant
+          '()
+          '()
+          (%%get-class-instance-slots ascendant)
+          (%%get-class-instance-size ascendant)
+          (%%fx+ (%%get-class-level ascendant) 1)
+          '()
+          #f
+          #f
+          user-data)))
+    (%%set-category-ancestors type-class (%%list->vector (compute-type-class-ancestors type-class ascendant)))
+    (jazz:create-type-class-tables type-class)
+    type-class))
 
 
 ;;;
@@ -1695,6 +1730,281 @@
 
 
 (jazz:define-class-runtime jazz:F64Vector)
+
+
+;;;
+;;;; FixedVector
+;;;
+
+
+(jazz:define-class-runtime jazz:FixedVector-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:FixedVector-Class class) object)
+  (and (%%vector? object)
+       (%%fx= (%%vector-length object) (%%get-class-user-data class))))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:FixedVector-Class class))
+  (%%string->symbol (%%string-append "vector#" (%%number->string (%%get-class-user-data class)))))
+
+
+(jazz:define-method (jazz:emit-test (jazz:FixedVector-Class class) value source-declaration walker resume environment backend)
+  `(and (%%vector? ,value)
+        (%%fx= (%%vector-length ,value) ,(%%get-class-user-data class))))
+
+
+(jazz:define-class-runtime jazz:FixedVector)
+
+
+;;;
+;;;; FixedS8Vector
+;;;
+
+
+(jazz:define-class-runtime jazz:FixedS8Vector-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:FixedS8Vector-Class class) object)
+  (and (%%s8vector? object)
+       (%%fx= (%%s8vector-length object) (%%get-class-user-data class))))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:FixedS8Vector-Class class))
+  (%%string->symbol (%%string-append "s8vector#" (%%number->string (%%get-class-user-data class)))))
+
+
+(jazz:define-method (jazz:emit-test (jazz:FixedS8Vector-Class class) value source-declaration walker resume environment backend)
+  `(and (%%s8vector? ,value)
+        (%%fx= (%%s8vector-length ,value) ,(%%get-class-user-data class))))
+
+
+(jazz:define-class-runtime jazz:FixedS8Vector)
+
+
+;;;
+;;;; FixedU8Vector
+;;;
+
+
+(jazz:define-class-runtime jazz:FixedU8Vector-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:FixedU8Vector-Class class) object)
+  (and (%%u8vector? object)
+       (%%fx= (%%u8vector-length object) (%%get-class-user-data class))))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:FixedU8Vector-Class class))
+  (%%string->symbol (%%string-append "u8vector#" (%%number->string (%%get-class-user-data class)))))
+
+
+(jazz:define-method (jazz:emit-test (jazz:FixedU8Vector-Class class) value source-declaration walker resume environment backend)
+  `(and (%%u8vector? ,value)
+        (%%fx= (%%u8vector-length ,value) ,(%%get-class-user-data class))))
+
+
+(jazz:define-class-runtime jazz:FixedU8Vector)
+
+
+;;;
+;;;; FixedS16Vector
+;;;
+
+
+(jazz:define-class-runtime jazz:FixedS16Vector-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:FixedS16Vector-Class class) object)
+  (and (%%s16vector? object)
+       (%%fx= (%%s16vector-length object) (%%get-class-user-data class))))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:FixedS16Vector-Class class))
+  (%%string->symbol (%%string-append "s16vector#" (%%number->string (%%get-class-user-data class)))))
+
+
+(jazz:define-method (jazz:emit-test (jazz:FixedS16Vector-Class class) value source-declaration walker resume environment backend)
+  `(and (%%s16vector? ,value)
+        (%%fx= (%%s16vector-length ,value) ,(%%get-class-user-data class))))
+
+
+(jazz:define-class-runtime jazz:FixedS16Vector)
+
+
+;;;
+;;;; FixedU16Vector
+;;;
+
+
+(jazz:define-class-runtime jazz:FixedU16Vector-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:FixedU16Vector-Class class) object)
+  (and (%%u16vector? object)
+       (%%fx= (%%u16vector-length object) (%%get-class-user-data class))))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:FixedU16Vector-Class class))
+  (%%string->symbol (%%string-append "u16vector#" (%%number->string (%%get-class-user-data class)))))
+
+
+(jazz:define-method (jazz:emit-test (jazz:FixedU16Vector-Class class) value source-declaration walker resume environment backend)
+  `(and (%%u16vector? ,value)
+        (%%fx= (%%u16vector-length ,value) ,(%%get-class-user-data class))))
+
+
+(jazz:define-class-runtime jazz:FixedU16Vector)
+
+
+;;;
+;;;; FixedS32Vector
+;;;
+
+
+(jazz:define-class-runtime jazz:FixedS32Vector-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:FixedS32Vector-Class class) object)
+  (and (%%s32vector? object)
+       (%%fx= (%%s32vector-length object) (%%get-class-user-data class))))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:FixedS32Vector-Class class))
+  (%%string->symbol (%%string-append "s32vector#" (%%number->string (%%get-class-user-data class)))))
+
+
+(jazz:define-method (jazz:emit-test (jazz:FixedS32Vector-Class class) value source-declaration walker resume environment backend)
+  `(and (%%s32vector? ,value)
+        (%%fx= (%%s32vector-length ,value) ,(%%get-class-user-data class))))
+
+
+(jazz:define-class-runtime jazz:FixedS32Vector)
+
+
+;;;
+;;;; FixedU32Vector
+;;;
+
+
+(jazz:define-class-runtime jazz:FixedU32Vector-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:FixedU32Vector-Class class) object)
+  (and (%%u32vector? object)
+       (%%fx= (%%u32vector-length object) (%%get-class-user-data class))))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:FixedU32Vector-Class class))
+  (%%string->symbol (%%string-append "u32vector#" (%%number->string (%%get-class-user-data class)))))
+
+
+(jazz:define-method (jazz:emit-test (jazz:FixedU32Vector-Class class) value source-declaration walker resume environment backend)
+  `(and (%%u32vector? ,value)
+        (%%fx= (%%u32vector-length ,value) ,(%%get-class-user-data class))))
+
+
+(jazz:define-class-runtime jazz:FixedU32Vector)
+
+
+;;;
+;;;; FixedS64Vector
+;;;
+
+
+(jazz:define-class-runtime jazz:FixedS64Vector-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:FixedS64Vector-Class class) object)
+  (and (%%s64vector? object)
+       (%%fx= (%%s64vector-length object) (%%get-class-user-data class))))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:FixedS64Vector-Class class))
+  (%%string->symbol (%%string-append "s64vector#" (%%number->string (%%get-class-user-data class)))))
+
+
+(jazz:define-method (jazz:emit-test (jazz:FixedS64Vector-Class class) value source-declaration walker resume environment backend)
+  `(and (%%s64vector? ,value)
+        (%%fx= (%%s64vector-length ,value) ,(%%get-class-user-data class))))
+
+
+(jazz:define-class-runtime jazz:FixedS64Vector)
+
+
+;;;
+;;;; FixedU64Vector
+;;;
+
+
+(jazz:define-class-runtime jazz:FixedU64Vector-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:FixedU64Vector-Class class) object)
+  (and (%%u64vector? object)
+       (%%fx= (%%u64vector-length object) (%%get-class-user-data class))))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:FixedU64Vector-Class class))
+  (%%string->symbol (%%string-append "u64vector#" (%%number->string (%%get-class-user-data class)))))
+
+
+(jazz:define-method (jazz:emit-test (jazz:FixedU64Vector-Class class) value source-declaration walker resume environment backend)
+  `(and (%%u64vector? ,value)
+        (%%fx= (%%u64vector-length ,value) ,(%%get-class-user-data class))))
+
+
+(jazz:define-class-runtime jazz:FixedU64Vector)
+
+
+;;;
+;;;; FixedF32Vector
+;;;
+
+
+(jazz:define-class-runtime jazz:FixedF32Vector-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:FixedF32Vector-Class class) object)
+  (and (%%f32vector? object)
+       (%%fx= (%%f32vector-length object) (%%get-class-user-data class))))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:FixedF32Vector-Class class))
+  (%%string->symbol (%%string-append "f32vector#" (%%number->string (%%get-class-user-data class)))))
+
+
+(jazz:define-method (jazz:emit-test (jazz:FixedF32Vector-Class class) value source-declaration walker resume environment backend)
+  `(and (%%f32vector? ,value)
+        (%%fx= (%%f32vector-length ,value) ,(%%get-class-user-data class))))
+
+
+(jazz:define-class-runtime jazz:FixedF32Vector)
+
+
+;;;
+;;;; FixedF64Vector
+;;;
+
+
+(jazz:define-class-runtime jazz:FixedF64Vector-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:FixedF64Vector-Class class) object)
+  (and (%%f64vector? object)
+       (%%fx= (%%f64vector-length object) (%%get-class-user-data class))))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:FixedF64Vector-Class class))
+  (%%string->symbol (%%string-append "f64vector#" (%%number->string (%%get-class-user-data class)))))
+
+
+(jazz:define-method (jazz:emit-test (jazz:FixedF64Vector-Class class) value source-declaration walker resume environment backend)
+  `(and (%%f64vector? ,value)
+        (%%fx= (%%f64vector-length ,value) ,(%%get-class-user-data class))))
+
+
+(jazz:define-class-runtime jazz:FixedF64Vector)
 
 
 ;;;

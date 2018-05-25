@@ -457,8 +457,11 @@
 
 (jazz:define-macro (%%fxbetween? n lower upper)
   (%%force-uniqueness (n)
-    `(and (>= ,n ,lower)
-          (<= ,n ,upper))))
+    (if jazz:debug-core?
+        `(and (>= ,n ,lower)
+              (<= ,n ,upper))
+      `(and (^#fx>= ,n ,lower)
+            (^#fx<= ,n ,upper)))))
 
 
 ;;;

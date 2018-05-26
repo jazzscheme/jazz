@@ -698,6 +698,11 @@
        (%%eq? (jazz:source-code (%%car (jazz:source-code form))) 'declare)))
 
 
+(define (jazz:proclaim-form? form)
+  (and (%%pair? (jazz:source-code form))
+       (%%eq? (jazz:source-code (%%car (jazz:source-code form))) 'proclaim)))
+
+
 ;;;
 ;;;; Declaration Reference
 ;;;
@@ -3376,12 +3381,12 @@
         (%%table-set! table 'generate (list 'check 'zero-check 'bounds-check 'lambda-check)))))
 
 
-(define (jazz:get-proclaim proclaim-name default)
-  (%%table-ref (jazz:get-walk-proclaims) proclaim-name default))
+(define (jazz:get-proclaim proclaim-name)
+  (%%table-ref (jazz:effective-proclaims) proclaim-name '()))
 
 
 (define (jazz:set-proclaim proclaim-name value)
-  (%%table-set! (jazz:get-walk-proclaims) proclaim-name value))
+  (%%table-set! (jazz:effective-proclaims) proclaim-name value))
 
 
 (define jazz:all-warnings
@@ -3418,12 +3423,12 @@
          (for-each (lambda (warning)
                      (define (proclaim on?)
                        (if on?
-                           (let ((proclaimed-warnings (jazz:get-proclaim 'warn '())))
+                           (let ((proclaimed-warnings (jazz:get-proclaim 'warn)))
                              (if (%%not (%%memq warning proclaimed-warnings))
                                  (jazz:set-proclaim 'warn (%%cons warning proclaimed-warnings))))
-                         (let ((proclaimed-warnings (jazz:get-proclaim 'warn '())))
+                         (let ((proclaimed-warnings (jazz:get-proclaim 'warn)))
                            (if (%%memq warning proclaimed-warnings)
-                               (jazz:set-proclaim 'warn (jazz:remove! warning proclaimed-warnings))))))
+                               (jazz:set-proclaim 'warn (jazz:remove warning proclaimed-warnings))))))
                      
                      (case value
                        ((default)
@@ -3440,12 +3445,12 @@
          (for-each (lambda (generate)
                      (define (proclaim on?)
                        (if on?
-                           (let ((proclaimed-generates (jazz:get-proclaim 'generate '())))
+                           (let ((proclaimed-generates (jazz:get-proclaim 'generate)))
                              (if (%%not (%%memq generate proclaimed-generates))
                                  (jazz:set-proclaim 'generate (%%cons generate proclaimed-generates))))
-                         (let ((proclaimed-generates (jazz:get-proclaim 'generate '())))
+                         (let ((proclaimed-generates (jazz:get-proclaim 'generate)))
                            (if (%%memq generate proclaimed-generates)
-                               (jazz:set-proclaim 'generate (jazz:remove! generate proclaimed-generates))))))
+                               (jazz:set-proclaim 'generate (jazz:remove generate proclaimed-generates))))))
                      
                      (case value
                        ((default)
@@ -3462,10 +3467,18 @@
 
 
 (define (jazz:get-warn? warning-name)
-  (%%memq warning-name (jazz:get-proclaim 'warn '())))
+  (%%memq warning-name (jazz:get-proclaim 'warn)))
 
 (define (jazz:get-generate? generate-name)
-  (%%memq generate-name (jazz:get-proclaim 'generate '())))
+  (%%memq generate-name (jazz:get-proclaim 'generate)))
+
+
+(define jazz:current-proclaims
+  (make-parameter #f))
+
+(define (jazz:effective-proclaims)
+  (or (jazz:current-proclaims)
+      (jazz:get-walk-proclaims)))
 
 
 ;;;
@@ -4825,27 +4838,36 @@
 
 
 (jazz:define-class jazz:Body jazz:Expression (constructor: jazz:allocate-body)
-  ((internal-defines getter: generate)
-   (expressions      getter: generate)))
+  ((internal-proclaims getter: generate)
+   (internal-defines   getter: generate)
+   (expressions        getter: generate)))
 
 
-(define (jazz:new-body internal-defines expressions)
-  (jazz:allocate-body #f #f internal-defines expressions))
+(define (jazz:new-body internal-proclaims internal-defines expressions)
+  (jazz:allocate-body #f #f internal-proclaims internal-defines expressions))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Body expression) declaration walker resume environment backend)
-  (let ((internal-defines (jazz:get-body-internal-defines expression))
-        (expressions (jazz:get-body-expressions expression)))
-    (jazz:with-annotated-frame (jazz:annotate-internal-defines internal-defines)
-      (lambda (frame)
-        (let ((augmented-environment (%%cons frame environment)))
-          (let ((internal-defines (jazz:emit-expressions internal-defines declaration walker resume augmented-environment backend))
-                (expressions (jazz:emit-expressions expressions declaration walker resume augmented-environment backend)))
-            (jazz:new-code
-              (%%append (jazz:codes-forms internal-defines)
-                        (jazz:codes-forms expressions))
-              (if (%%null? expressions) jazz:Any (jazz:get-code-type (jazz:last expressions)))
-              #f)))))))
+  (let ((internal-proclaims (jazz:get-body-internal-proclaims expression)))
+    (define (emit)
+      (let ((internal-defines (jazz:get-body-internal-defines expression))
+            (expressions (jazz:get-body-expressions expression)))
+        (jazz:with-annotated-frame (jazz:annotate-internal-defines internal-defines)
+          (lambda (frame)
+            (let ((augmented-environment (%%cons frame environment)))
+              (let ((internal-defines (jazz:emit-expressions internal-defines declaration walker resume augmented-environment backend))
+                    (expressions (jazz:emit-expressions expressions declaration walker resume augmented-environment backend)))
+                (jazz:new-code
+                  (%%append (jazz:codes-forms internal-defines)
+                            (jazz:codes-forms expressions))
+                  (if (%%null? expressions) jazz:Any (jazz:get-code-type (jazz:last expressions)))
+                  #f)))))))
+    
+    (if (%%null? internal-proclaims)
+        (emit)
+      (parameterize ((jazz:current-proclaims (table-copy (jazz:effective-proclaims))))
+        (for-each jazz:proclaim internal-proclaims)
+        (emit)))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Body expression) down up here seed environment)
@@ -5397,7 +5419,8 @@
         (let ((effective-type (if signature (jazz:signature->function-type signature type) type)))
           (jazz:new-internal-define form-src variable (jazz:walk walker resume declaration environment value) effective-type)))))
   
-  (let ((internal-defines '()))
+  (let ((internal-proclaims '())
+        (internal-defines '()))
     (define (process form)
       (cond ((jazz:begin-form? form)
              (let ((state #f))
@@ -5409,6 +5432,9 @@
                                    (jazz:error "Inconsistant internal defines")))))
                          (%%cdr (jazz:source-code form)))
                state))
+            ((jazz:proclaim-form? form)
+             (set! internal-proclaims (%%append internal-proclaims (%%cdr (%%desourcify form))))
+             'defines)
             ((or (jazz:define-form? form)
                  (jazz:declare-form? form))
              (set! internal-defines (%%cons form internal-defines))
@@ -5420,12 +5446,13 @@
       (if (or (%%null? scan)
               (%%eq? (process (%%car scan)) 'expressions))
           (if (%%null? internal-defines)
-              (jazz:new-body '() (jazz:walk-list walker resume declaration environment scan))
+              (jazz:new-body internal-proclaims '() (jazz:walk-list walker resume declaration environment scan))
             (let ((variables (jazz:new-queue))
                   (augmented-environment environment)
                   (internal-defines (jazz:reverse! internal-defines)))
               (for-each (lambda (internal-define)
-                          (if (jazz:declare-form? internal-define)
+                          (if (or (jazz:declare-form? internal-define)
+                                  (jazz:proclaim-form? internal-define))
                               (jazz:enqueue variables #f)
                             (let ((internal (%%cdr (jazz:source-code internal-define))))
                               (%%assertion (%%pair? internal) (jazz:walk-error walker resume declaration internal-define "Ill-formed internal define")
@@ -5440,7 +5467,8 @@
                                       (jazz:enqueue variables variable)
                                       (set! augmented-environment (%%cons variable augmented-environment)))))))))
                         internal-defines)
-              (jazz:new-body (map (lambda (internal-define variable)
+              (jazz:new-body internal-proclaims
+                             (map (lambda (internal-define variable)
                                     (if (jazz:declare-form? internal-define)
                                         (jazz:walk walker resume declaration environment internal-define)
                                       (let ((internal-define (walk-internal-define augmented-environment internal-define variable)))

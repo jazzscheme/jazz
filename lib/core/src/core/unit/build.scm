@@ -192,6 +192,7 @@
         ;; is a virtual machine this would be much too slow
         (windows #t)
         (else (or (eq? jazz:kernel-safety 'core)
+                  (eq? jazz:kernel-safety 'debug)
                   (eq? jazz:kernel-safety 'devel))))
       (string-append "-U___SINGLE_HOST " str)
     str))

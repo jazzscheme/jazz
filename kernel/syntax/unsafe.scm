@@ -41,6 +41,10 @@
 (define jazz:debug-user?
   (not (eq? jazz:kernel-safety 'sealed)))
 
+(define jazz:debug-check?
+  (or (eq? jazz:kernel-safety 'core)
+      (eq? jazz:kernel-safety 'debug)))
+
 (define jazz:debug-flonum?
   (if (memq 'finite jazz:kernel-features)
       #f

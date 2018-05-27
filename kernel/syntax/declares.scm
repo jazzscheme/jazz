@@ -88,7 +88,7 @@
             (extended-bindings)))
       
       ;; inlining can have a huge impact on compilation time
-      ;; and really bloat the size of the generated .o1 file
+      ;; and really bloat the size of the generated .o1 files
       ,@(if #f
             #; ;; this inline declaration or the one below breaks
             ;; compilation of jazz.git.foreign for some reason
@@ -96,12 +96,6 @@
             '()
           '((not inline)))
       
-      ;; those should be removed in a new distribution safety
-      ;; where the code is fully debugged. or even better be
-      ;; only be done in debug if we can obtain a close enough
-      ;; performance between a built debug and a built release
-      ;; (at the moment the difference is around 8 times due
-      ;; mainly to the safe declare)
       ,@(if (or jazz:kernel-optimize?
                 (eq? jazz:kernel-safety 'sealed))
             '()

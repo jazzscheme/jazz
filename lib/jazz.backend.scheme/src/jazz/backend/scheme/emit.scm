@@ -833,11 +833,13 @@
                                                                         (let ((index (jazz:source-code (jazz:get-constant-expansion arg))))
                                                                           (and (%%fixnum? index)
                                                                                (%%fx< index size)))))))))))
-                                             #; ;; warning
-                                             (%%when (%%not fixed-safe?)
-                                               (pp (list 'bounds-unsafe (jazz:get-declaration-locator declaration))))
+                                             (%%when (and (%%not fixed-safe?) (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
+                                               (let ((expression (or (jazz:call-being-inlined) (and (%%pair? least-mismatch) (%%car least-mismatch)))))
+                                                 (jazz:warning "Warning: In {a}{a}: Bounds checked call to primitive {a}"
+                                                               (jazz:get-declaration-locator declaration)
+                                                               (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
+                                                               (jazz:reference-name locator))))
                                              fixed-safe?)))))
-                                             
                          (jazz:new-code
                            `(,primitive ,@(jazz:codes-forms arguments-codes))
                            (let ((class (jazz:constructor->fixed-class locator)))

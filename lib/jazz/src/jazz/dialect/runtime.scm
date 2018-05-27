@@ -808,7 +808,7 @@
                    (let ((types (jazz:codes-types arguments-codes)))
                      (let ((mismatch (jazz:signature-mismatch (%%cons object-argument arguments) (%%cons object-type types) type #t)))
                        (if (or (%%not mismatch)
-                               (%%not (jazz:get-generate? 'check)))
+                               (%%not (jazz:get-check? 'types)))
                            (let ((locator (jazz:unsafe-locator implementation-locator))
                                  (type (jazz:get-lexical-binding-type declaration)))
                              (jazz:new-code

@@ -551,7 +551,7 @@
       '(public)
     (let ((access (jazz:get-declaration-access declaration)))
       (if access
-          (list access)
+          (%%list access)
         '()))))
 
 
@@ -1001,7 +1001,6 @@
                   (jazz:iterate-table private
                     (lambda (name declaration)
                       (%%when (%%eq? (jazz:get-declaration-toplevel declaration) invoice-module)
-                        (pp (list 'clear name))
                         (%%table-clear private name))))))
               (jazz:get-module-declaration-imports module-declaration))))
 
@@ -1399,7 +1398,7 @@
                                   (lp1 (%%cdr e))))))))))
       seed)
     #f
-    (list environment)))
+    (%%list environment)))
 
 
 (define (jazz:generate-module partial-form #!optional (backend-name 'scheme))
@@ -2421,7 +2420,7 @@
            #; ;; incompatible cast test
            (%%unless (%%eq? code-type jazz:Any)
              (pp (jazz:format "Casting {a} to incompatible type {a}" code-type type) (current-output-port)))
-           (if (jazz:get-generate? 'check)
+           (if (jazz:get-check? 'types)
                (let ((value (jazz:generate-symbol "val")))
                  (jazz:simplify-let
                    `(let ((,value ,(jazz:simplify-let `(let () ,(jazz:sourcified-form code)))))
@@ -2455,7 +2454,7 @@
 
 
 (define (jazz:emit-parameter-cast code type source-declaration walker resume environment backend)
-  (if (jazz:get-generate? 'check)
+  (if (jazz:get-check? 'types)
       (let ((type (jazz:resolve-type-safe type)))
         (if (or (%%not type) (%%eq? type jazz:Any) (%%object-class? type) (jazz:object-declaration? type))
             #f
@@ -3378,7 +3377,7 @@
 (define (jazz:setup-proclaims context)
   (let ((table (jazz:get-walk-context-proclaims context)))
     (if jazz:debug-user?
-        (%%table-set! table 'generate (list 'check 'zero-check 'bounds-check 'lambda-check)))))
+        (%%table-set! table 'check (%%list 'types 'zero 'bounds 'lambda)))))
 
 
 (define (jazz:get-proclaim proclaim-name)
@@ -3392,8 +3391,11 @@
 (define jazz:all-warnings
   '(optimizations))
 
+(define jazz:all-checks
+  '(types zero bounds lambda))
+
 (define jazz:all-generates
-  '(check zero-check bounds-check lambda-check register))
+  '(register))
 
 
 (define (jazz:parse-proclaim-clause clause)
@@ -3440,6 +3442,28 @@
                        ((off)
                         (proclaim #f))))
                    warnings)))
+      ((check)
+       (let ((checks (if (%%null? arguments) jazz:all-checks arguments)))
+         (for-each (lambda (check)
+                     (define (proclaim on?)
+                       (if on?
+                           (let ((proclaimed-checks (jazz:get-proclaim 'check)))
+                             (if (%%not (%%memq check proclaimed-checks))
+                                 (jazz:set-proclaim 'check (%%cons check proclaimed-checks))))
+                         (let ((proclaimed-checks (jazz:get-proclaim 'check)))
+                           (if (%%memq check proclaimed-checks)
+                               (jazz:set-proclaim 'check (jazz:remove check proclaimed-checks))))))
+                     
+                     (case value
+                       ((default)
+                        (proclaim (case check
+                                    ((types zero bounds lambda)
+                                     jazz:debug-user?))))
+                       ((on)
+                        (proclaim #t))
+                       ((off)
+                        (proclaim #f))))
+                   checks)))
       ((generate)
        (let ((generates (if (%%null? arguments) jazz:all-generates arguments)))
          (for-each (lambda (generate)
@@ -3455,8 +3479,6 @@
                      (case value
                        ((default)
                         (proclaim (case generate
-                                    ((check zero-check bounds-check lambda-check)
-                                     jazz:debug-user?)
                                     ((register)
                                      #f))))
                        ((on)
@@ -3468,6 +3490,10 @@
 
 (define (jazz:get-warn? warning-name)
   (%%memq warning-name (jazz:get-proclaim 'warn)))
+
+(define (jazz:get-check? check-name)
+  (or jazz:debug-check?
+      (%%memq check-name (jazz:get-proclaim 'check))))
 
 (define (jazz:get-generate? generate-name)
   (%%memq generate-name (jazz:get-proclaim 'generate)))

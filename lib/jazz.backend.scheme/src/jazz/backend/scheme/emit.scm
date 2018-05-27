@@ -799,8 +799,8 @@
     (let ((patterns (jazz:get-primitive-patterns locator)))
       (if (%%not patterns)
           #f
-        (let ((zero-unsafe? (%%not (jazz:get-generate? 'zero-check)))
-              (bounds-unsafe? (%%not (jazz:get-generate? 'bounds-check)))
+        (let ((zero-unsafe? (%%not (jazz:get-check? 'zero)))
+              (bounds-unsafe? (%%not (jazz:get-check? 'bounds)))
               (types (jazz:codes-types arguments-codes)))
           (let iter ((scan patterns) (least-mismatch #f))
                (if (%%null? scan)
@@ -895,7 +895,7 @@
                                 (cond ((%%not jazz:kernel-source-access?)
                                        #f)
                                       ((or (%%not mismatch)
-                                           (%%not (jazz:get-generate? 'check)))
+                                           (%%not (jazz:get-check? 'types)))
                                        (jazz:new-code
                                          (let ((locator (jazz:unsafe-locator locator)))
                                            `(,locator ,@(map (lambda (code type)
@@ -921,7 +921,7 @@
                             (let ((types (jazz:codes-types arguments-codes)))
                               (let ((mismatch (jazz:signature-mismatch arguments types type #t)))
                                 (if (or (%%not mismatch)
-                                        (%%not (jazz:get-generate? 'check)))
+                                        (%%not (jazz:get-check? 'types)))
                                     (jazz:new-code
                                       `(,(jazz:get-lexical-binding-name binding) ,@(map (lambda (code type)
                                                                                           (jazz:emit-implicit-cast code type))

@@ -439,7 +439,7 @@
         (let ((augmented-environment (%%cons frame environment)))
           (let ((signature-emit (jazz:emit-signature signature declaration walker resume augmented-environment backend)))
             (let ((body-code (jazz:emit-expression body declaration walker resume augmented-environment backend)))
-              (let ((signature-casts (and (jazz:get-generate? 'lambda-check) (jazz:emit-signature-casts signature declaration walker resume augmented-environment backend)))
+              (let ((signature-casts (and (jazz:get-check? 'lambda) (jazz:emit-signature-casts signature declaration walker resume augmented-environment backend)))
                     (body-emit (jazz:emit backend 'begin expression declaration walker resume environment body-code)))
                 (let ((cast-body (jazz:simplify-begin (jazz:emit-return-cast (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type (jazz:get-expression-source expression) declaration walker resume environment backend))))
                   (jazz:new-code

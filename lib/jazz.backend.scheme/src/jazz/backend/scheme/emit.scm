@@ -406,6 +406,10 @@
                                                ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) source source-declaration walker resume environment backend)))
                                            (jazz:get-signature-positional signature)
                                            (%%cons object arguments))
+                                  ,(jazz:sourcify-deep-if (jazz:desourcify-all (jazz:get-code-form body-code)) source)
+                                  ;; an interesting idea to get the position in the inlined code but
+                                  ;; it turns out it is really annoying not to be at the place of call
+                                  #;
                                   ,(jazz:get-code-form body-code))
                                (jazz:call-return-type (jazz:get-lexical-binding-type declaration))
                                #f)))))

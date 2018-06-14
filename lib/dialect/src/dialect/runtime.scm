@@ -60,6 +60,11 @@
 (unit protected dialect.runtime
 
 
+;; mega hack to test idea
+(define jazz:call-being-inlined
+  (make-parameter #f))
+
+
 ;;;
 ;;;; Dialect
 ;;;

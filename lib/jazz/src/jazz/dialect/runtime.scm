@@ -74,7 +74,8 @@
                         (lambda (frame)
                           (let ((augmented-environment (%%cons frame environment)))
                             (let ((type (jazz:call-return-type (jazz:get-lexical-binding-type declaration)))
-                                  (body-code (jazz:emit-expression body source-declaration walker resume augmented-environment backend)))
+                                  (body-code (parameterize ((jazz:call-being-inlined call))
+                                               (jazz:emit-expression body source-declaration walker resume augmented-environment backend))))
                               (jazz:new-code
                                 (jazz:simplify-let
                                   `(let ,(map (lambda (parameter argument)
@@ -82,6 +83,10 @@
                                                   ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) (jazz:get-expression-source value) source-declaration walker resume environment backend)))
                                               (jazz:get-signature-positional signature)
                                               arguments)
+                                     #;
+                                     ,(jazz:sourcify-deep (jazz:desourcify-all (jazz:simplify-begin (jazz:emit-return-cast (jazz:new-code (jazz:simplify-begin `(begin ,@(jazz:get-code-form body-code))) (jazz:get-code-type body-code) #f) type (jazz:get-declaration-source declaration) declaration walker resume environment backend))) (jazz:get-expression-source call))
+                                     ;; an interesting idea to get the position in the inlined code but
+                                     ;; it turns out it is really annoying not to be at the place of call
                                      ,(jazz:simplify-begin (jazz:emit-return-cast (jazz:new-code (jazz:simplify-begin `(begin ,@(jazz:get-code-form body-code))) (jazz:get-code-type body-code) #f) type (jazz:get-declaration-source declaration) declaration walker resume environment backend))))
                                 type
                                 #f)))))

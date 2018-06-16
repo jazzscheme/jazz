@@ -2775,7 +2775,6 @@
 (jazz:add-primitive-type 'integer      jazz:Integer)
 (jazz:add-primitive-type 'int          jazz:Integer)
 (jazz:add-primitive-type 'fx           jazz:Fixnum)
-(jazz:add-primitive-type 'fb           jazz:Fixbound)
 (jazz:add-primitive-type 'rt           jazz:Ratnum)
 (jazz:add-primitive-type 'fl           jazz:Flonum)
 (jazz:add-primitive-type 'fv           jazz:Flovec)

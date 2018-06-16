@@ -288,15 +288,6 @@
             (cond ;; bool
                   ((%%eq? expect jazz:Bool)
                    #t)
-                  ;; fixbound
-                  ((%%eq? expect jazz:Fixbound)
-                   ;; TEMPORARY PATCH FOR UNIFICATION TESTS UNTIL A SATISFACTORY SOLUTION TO FIXBOUND IN DEBUG
-                   (%%subtype? type jazz:Fixnum)
-                   #;
-                   (if jazz:debug-user?
-                       (and (%%class-is? arg jazz:Constant)
-                            (%%subtype? type jazz:Fixnum))
-                     (%%subtype? type jazz:Fixnum)))
                   ;; flonum
                   ((%%eq? expect jazz:Flonum)
                    (or (%%subtype? type jazz:Flonum)

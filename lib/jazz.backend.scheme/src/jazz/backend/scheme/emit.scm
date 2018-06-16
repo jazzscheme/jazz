@@ -660,15 +660,15 @@
 (jazz:add-primitive-patterns     'scheme.language.runtime:null?                       '((safe %%null?  <any:bool>)))
 
 (jazz:add-primitive-patterns     'scheme.language.runtime:string-length               '((safe          %%string-length <string:fx>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:string-ref                  '((bounds-unsafe %%string-ref    <string^fb:char>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:string-ref                  '((bounds-unsafe %%string-ref    <string^fx:char>)))
 
 (jazz:add-primitive-patterns     'scheme.language.runtime:vector                      '((safe          %%vector        <any*:vector>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime:vector-length               '((safe          %%vector-length <vector:fx>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:vector-ref                  '((bounds-unsafe %%vector-ref    <vector^fb:any>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:vector-set!                 '((bounds-unsafe %%vector-set!   <vector^fb^any:void>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:vector-ref                  '((bounds-unsafe %%vector-ref    <vector^fx:any>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:vector-set!                 '((bounds-unsafe %%vector-set!   <vector^fx^any:void>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-ref             '((bounds-unsafe %%values-ref  <values^fb:any>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-set!            '((bounds-unsafe %%values-set! <values^fb^any:void>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-ref             '((bounds-unsafe %%values-ref  <values^fx:any>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-set!            '((bounds-unsafe %%values-set! <values^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:table-ref                   '((safe %%table-ref  <table^any:any>) (safe %%table-ref <table^any^any:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:table-set!                  '((safe %%table-set! <table^any^any:void>)))
@@ -703,53 +703,53 @@
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:s8vector                    '((safe          %%s8vector         <fx*:s8vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:s8vector-length             '((safe          %%s8vector-length  <s8vector:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:s8vector-ref                '((bounds-unsafe %%s8vector-ref     <s8vector^fb:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:s8vector-set!               '((bounds-unsafe %%s8vector-set!    <s8vector^fb^any:void>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s8vector-ref                '((bounds-unsafe %%s8vector-ref     <s8vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s8vector-set!               '((bounds-unsafe %%s8vector-set!    <s8vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:u8vector                    '((safe          %%u8vector         <fx*:u8vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:u8vector-length             '((safe          %%u8vector-length  <u8vector:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:u8vector-ref                '((bounds-unsafe %%u8vector-ref     <u8vector^fb:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:u8vector-set!               '((bounds-unsafe %%u8vector-set!    <u8vector^fb^any:void>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u8vector-ref                '((bounds-unsafe %%u8vector-ref     <u8vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u8vector-set!               '((bounds-unsafe %%u8vector-set!    <u8vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:s16vector                   '((safe          %%s16vector        <fx*:s16vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:s16vector-length            '((safe          %%s16vector-length <s16vector:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:s16vector-ref               '((bounds-unsafe %%s16vector-ref    <s16vector^fb:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:s16vector-set!              '((bounds-unsafe %%s16vector-set!   <s16vector^fb^any:void>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s16vector-ref               '((bounds-unsafe %%s16vector-ref    <s16vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s16vector-set!              '((bounds-unsafe %%s16vector-set!   <s16vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:u16vector                   '((safe          %%u16vector        <fx*:u16vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:u16vector-length            '((safe          %%u16vector-length <u16vector:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:u16vector-ref               '((bounds-unsafe %%u16vector-ref    <u16vector^fb:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:u16vector-set!              '((bounds-unsafe %%u16vector-set!   <u16vector^fb^any:void>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u16vector-ref               '((bounds-unsafe %%u16vector-ref    <u16vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u16vector-set!              '((bounds-unsafe %%u16vector-set!   <u16vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:s32vector                   '((safe          %%s32vector        <fx*:s32vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:s32vector-length            '((safe          %%s32vector-length <s32vector:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:s32vector-ref               '((bounds-unsafe %%s32vector-ref    <s32vector^fb:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:s32vector-set!              '((bounds-unsafe %%s32vector-set!   <s32vector^fb^any:void>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s32vector-ref               '((bounds-unsafe %%s32vector-ref    <s32vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s32vector-set!              '((bounds-unsafe %%s32vector-set!   <s32vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:u32vector                   '((safe          %%u32vector        <fx*:u32vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:u32vector-length            '((safe          %%u32vector-length <u32vector:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:u32vector-ref               '((bounds-unsafe %%u32vector-ref    <u32vector^fb:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:u32vector-set!              '((bounds-unsafe %%u32vector-set!   <u32vector^fb^any:void>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u32vector-ref               '((bounds-unsafe %%u32vector-ref    <u32vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u32vector-set!              '((bounds-unsafe %%u32vector-set!   <u32vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:s64vector                   '((safe          %%s64vector        <fx*:s64vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:s64vector-length            '((safe          %%s64vector-length <s64vector:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:s64vector-ref               '((bounds-unsafe %%s64vector-ref    <s64vector^fb:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:s64vector-set!              '((bounds-unsafe %%s64vector-set!   <s64vector^fb^any:void>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s64vector-ref               '((bounds-unsafe %%s64vector-ref    <s64vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s64vector-set!              '((bounds-unsafe %%s64vector-set!   <s64vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:u64vector                   '((safe          %%u64vector        <fx*:u64vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:u64vector-length            '((safe          %%u64vector-length <u64vector:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:u64vector-ref               '((bounds-unsafe %%u64vector-ref    <u64vector^fb:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:u64vector-set!              '((bounds-unsafe %%u64vector-set!   <u64vector^fb^any:void>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u64vector-ref               '((bounds-unsafe %%u64vector-ref    <u64vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u64vector-set!              '((bounds-unsafe %%u64vector-set!   <u64vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:f32vector                   '((safe          %%f32vector        <fl*:f32vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:f32vector-length            '((safe          %%f32vector-length <f32vector:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:f32vector-ref               '((bounds-unsafe %%f32vector-ref    <f32vector^fb:fl>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:f32vector-set!              '((bounds-unsafe %%f32vector-set!   <f32vector^fb^any:void>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:f32vector-ref               '((bounds-unsafe %%f32vector-ref    <f32vector^fx:fl>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:f32vector-set!              '((bounds-unsafe %%f32vector-set!   <f32vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:f64vector                   '((safe          %%f64vector        <fl*:f64vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:f64vector-length            '((safe          %%f64vector-length <f64vector:fx>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:f64vector-ref               '((bounds-unsafe %%f64vector-ref    <f64vector^fb:fl>)))
-(jazz:add-primitive-patterns     'gambit.language.runtime:f64vector-set!              '((bounds-unsafe %%f64vector-set!   <f64vector^fb^any:void>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:f64vector-ref               '((bounds-unsafe %%f64vector-ref    <f64vector^fx:fl>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:f64vector-set!              '((bounds-unsafe %%f64vector-set!   <f64vector^fx^any:void>)))
 
 ;; use at your own risk versions that do not initialize memory
 (jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s8vector  '((safe %%allocate-s8vector  <any*:s8vector>)))
@@ -784,8 +784,8 @@
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-will                   '((safe %%make-will      <any*:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-parameter              '((safe %%make-parameter <any*:any>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flref                  '((safe %%flref <fv^fb:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((safe %%flset! <fv^fb^fv:void>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flref                  '((safe %%flref <fv^fx:fl>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((safe %%flset! <fv^fx^fv:void>)))
 
 (%%when (%%not jazz:debug-user?)
   (jazz:add-primitive-patterns   'jazz.language.runtime.functional:element            '((safe list-ref <list^int:any>) (bounds-unsafe %%vector-ref    <vector^int:any>)      (bounds-unsafe %%string-ref    <string^int:char>)))
@@ -793,8 +793,8 @@
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.functional:between?           '((safe %%fxbetween? <fx^fx^fx:bool>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:current-seconds!       '((safe %%get-current-time! <f64vector^fb:void>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:bytes-allocated!       '((safe %%get-bytes-allocated! <f64vector^fb:void>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:current-seconds!       '((safe %%get-current-time! <f64vector^fx:void>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:bytes-allocated!       '((safe %%get-bytes-allocated! <f64vector^fx:void>)))
 
 
 (jazz:define-emit (primitive-call (scheme backend) operator locator arguments arguments-codes declaration walker resume environment)

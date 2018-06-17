@@ -403,9 +403,9 @@
             (let ((signature-emit (jazz:emit-signature signature declaration walker resume augmented-environment backend)))
               (let ((body-code (jazz:emit-expression body declaration walker resume augmented-environment backend)))
                 (let ((body-emit (jazz:emit backend 'begin expression declaration walker resume environment body-code)))
-                  (let ((body (jazz:simplify-begin (jazz:sourcified-form (jazz:new-code body-emit (jazz:get-code-type body-code) #f)))))
+                  (let ((cast-body (jazz:simplify-begin (jazz:emit-return-cast (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type (jazz:get-expression-source expression) declaration walker resume environment backend))))
                     (jazz:new-code
-                      (jazz:emit backend 'lambda expression declaration walker resume environment signature-emit '() body)
+                      (jazz:emit backend 'lambda expression declaration walker resume environment signature-emit '() cast-body)
                       (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
                       (jazz:get-expression-source expression))))))))))))
 
@@ -423,11 +423,10 @@
                 (let ((signature-casts (jazz:emit-signature-casts signature declaration walker resume augmented-environment backend))
                       (unsafe-locator (jazz:unsafe-locator (jazz:get-declaration-locator declaration))))
                   (let ((call-expression `(,unsafe-locator ,@(map jazz:get-lexical-binding-name (jazz:get-signature-positional signature)))))
-                    (let ((call-body (jazz:simplify-begin (jazz:emit-return-cast (jazz:new-code call-expression (jazz:get-code-type body-code) #f) type (jazz:get-expression-source expression) declaration walker resume environment backend))))
-                      (jazz:new-code
-                        (jazz:emit backend 'lambda expression declaration walker resume environment signature-emit signature-casts call-body)
-                        (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
-                        (jazz:get-expression-source expression)))))))))))))
+                    (jazz:new-code
+                      (jazz:emit backend 'lambda expression declaration walker resume environment signature-emit signature-casts call-expression)
+                      (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
+                      (jazz:get-expression-source expression))))))))))))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Lambda expression) declaration walker resume environment backend)

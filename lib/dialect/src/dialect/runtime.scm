@@ -2428,7 +2428,7 @@
            (if (jazz:get-check? 'types)
                (let ((value (jazz:generate-symbol "val")))
                  (jazz:simplify-let
-                   `(let ((,value ,(jazz:simplify-let `(let () ,(jazz:sourcified-form code)))))
+                   `(let ((,value ,(jazz:simplify-let `(let () ,(jazz:simplify-begin (jazz:sourcified-form code))))))
                       ,(jazz:emit-cast type value source-declaration walker resume environment backend))))
              (jazz:sourcified-form code))))))
 

@@ -89,6 +89,10 @@
            (%%force-uniqueness ,(cdr variables) ,code))))))
 
 
+(define (jazz:null/pair? obj)
+  (or (##null? obj) (##pair? obj)))
+
+
 ;;;
 ;;;; Check
 ;;;
@@ -141,8 +145,9 @@
   ^#f64vector?
   "F64VECTOR")
 
+;; not 100% correct because of Scheme's semantic for list? that is costly
 (jazz:define-check-macro check-list
-  list?
+  jazz:null/pair?
   "LIST")
 
 (jazz:define-check-macro check-locat

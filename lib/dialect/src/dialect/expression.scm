@@ -383,7 +383,7 @@
 (jazz:add-primitive-predicate 'scheme.language.runtime:integer?            jazz:Integer)
 (jazz:add-primitive-predicate 'scheme.language.runtime:number?             jazz:Number)
 (jazz:add-primitive-predicate 'scheme.language.runtime:boolean?            jazz:Boolean)
-;; not 100% correct because of Scheme's semantic for list?
+;; not 100% correct because of Scheme's semantic for list? that is costly
 (jazz:add-primitive-predicate 'scheme.language.runtime:list?               jazz:List)
 (jazz:add-primitive-predicate 'scheme.language.runtime:null?               jazz:Null)
 (jazz:add-primitive-predicate 'scheme.language.runtime:pair?               jazz:Pair)

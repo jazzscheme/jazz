@@ -109,7 +109,8 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Definition-Declaration declaration) walker resume environment backend)
   (let ((value (jazz:get-definition-declaration-value declaration))
-        (type (jazz:get-lexical-binding-type declaration)))
+        (type (jazz:get-lexical-binding-type declaration))
+        (source (jazz:get-declaration-source declaration)))
     (if (and jazz:debug-user?
              (%%class-is? value jazz:Lambda)
              ;; no need to emit unsafe and safe when inline because as the checks are not included
@@ -119,8 +120,8 @@
              ;; safe first iteration simplification
              (jazz:only-positional-signature? (jazz:get-lambda-signature value))
              (jazz:typed-signature? (jazz:get-lambda-signature value)))
-        (let ((safe (jazz:emit-type-cast (jazz:emit-safe value declaration walker resume environment backend) type (jazz:get-expression-source value) declaration walker resume environment backend))
-              (unsafe (jazz:emit-type-cast (jazz:emit-unsafe value declaration walker resume environment backend) type (jazz:get-expression-source value) declaration walker resume environment backend)))
+        (let ((safe (jazz:emit-type-cast (jazz:emit-safe value source declaration walker resume environment backend) type (jazz:get-expression-source value) declaration walker resume environment backend))
+              (unsafe (jazz:emit-type-cast (jazz:emit-unsafe value source declaration walker resume environment backend) type (jazz:get-expression-source value) declaration walker resume environment backend)))
           (jazz:emit backend 'definition declaration walker resume environment safe unsafe))
       (let ((expression (jazz:emit-type-cast (jazz:emit-expression value declaration walker resume environment backend) type (jazz:get-expression-source value) declaration walker resume environment backend)))
         (jazz:emit backend 'definition declaration walker resume environment expression #f)))))

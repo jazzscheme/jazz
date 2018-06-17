@@ -4933,7 +4933,9 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:Internal-Define expression) declaration walker resume environment backend)
   (let ((variable (jazz:get-internal-define-variable expression))
-        (value (jazz:get-internal-define-value expression)))
+        (value (jazz:get-internal-define-value expression))
+        (type (jazz:get-expression-type expression))
+        (source (jazz:get-expression-source expression)))
     (let ((type (jazz:get-lexical-binding-type variable)))
       (if (and (%%is? type jazz:Function-Type)
                ;; safe first iteration simplification
@@ -4941,14 +4943,14 @@
                (jazz:typed-function-type? type))
           (jazz:new-code
             `(define ,(jazz:emit-binding-symbol variable declaration environment backend)
-               ,(jazz:sourcified-form (jazz:emit-unsafe value declaration walker resume environment backend)))
-            (jazz:get-expression-type expression)
-            (jazz:get-expression-source expression))
+               ,(jazz:sourcified-form (jazz:emit-unsafe value source declaration walker resume environment backend)))
+            type
+            source)
         (jazz:new-code
           `(define ,(jazz:emit-binding-symbol variable declaration environment backend)
              ,(jazz:sourcified-form (jazz:emit-expression value declaration walker resume environment backend)))
-          (jazz:get-expression-type expression)
-          (jazz:get-expression-source expression))))))
+          type
+          source)))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Internal-Define expression) down up here seed environment)

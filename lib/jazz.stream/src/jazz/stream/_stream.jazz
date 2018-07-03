@@ -59,8 +59,10 @@
   
   
   (slot state initialize #f getter generate)
-  (slot sink  initialize #f accessors generate)
   (slot src   initialize #f accessors generate)
+  (slot sink  initialize #f accessors generate)
+  ;; quicky to test tees
+  (slot sink2 initialize #f accessors generate)
   
   
   (method package (ready? self)
@@ -176,17 +178,30 @@
 
 
 (definition public (pipeline . elements)
+  (let ((sink2? #f))
   (let ((len (length elements)))
     (if (< len 2)
         (error "Invalid pipeline length: {s}" len)
       (let (loop (previous #f) (scan elements))
         (when (not-null? scan)
           (let ((elem (car scan)))
-            (when previous
-              (set-src elem previous)
-              (set-sink previous elem))
-            (loop elem (cdr scan)))))))
-  (new Stream-Pipeline elements))
+            ;; quicky to test tees
+            (if (pair? elem)
+                (bind (sink sink2) elem
+                  (set-src sink previous)
+                  (set-sink previous sink)
+                  (set-src sink2 previous)
+                  (set-sink2 previous sink2)
+                  (set! sink2? #t))
+              (when previous
+                (set-src elem previous)
+                (set-sink previous elem))
+              (loop elem (cdr scan))))))))
+  ;; quicky to test tees
+  (if sink2?
+      (bind (src (sink sink2)) elements
+        (new Stream-Pipeline (list src sink sink2)))
+    (new Stream-Pipeline elements))))
 
 
 (class Stream-Pipeline extends Stream-Element

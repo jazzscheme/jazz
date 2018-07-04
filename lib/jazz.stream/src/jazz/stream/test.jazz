@@ -66,6 +66,7 @@
 ;; none
 ;; audio
 ;; video
+;; reset
 ;; app
 ;; ogg
 ;; wav
@@ -197,6 +198,7 @@
     ((none))
     ((audio) (test-audio))
     ((video) (test-video))
+    ((reset) (test-reset))
     ((draw) (test-draw))
     ((app) (test-app))
     ((ogg) (test-ogg))
@@ -341,6 +343,84 @@
           'video))
       ;; application
       (boot-environment (new Test-Application size: window-size pipe: pipe drawer: drawer)))))
+
+
+;;;
+;;;; Reset
+;;;
+
+
+(definition public (test-reset)
+  (declare (proper-tail-calls))
+  (let ((width (get-width video-size))
+        (height (get-height video-size))
+        (codec video-codec)
+        (framerate video-framerate)
+        (bitrate video-bitrate))
+    (let ((video-buffer (make-u8vector (* width height 4)))
+          (video-info (make-u64vector 2))
+          (pipe (open-vector))
+          (test-pipeline #f)
+          (test-source #f)
+          (test-valve #f)
+          (test-encoder #f))
+      (define (keyer view key)
+        (reset (lambda ())))
+      
+      (define (reset empty)
+        (let ((valve test-valve)
+              (encoder test-encoder))
+          (g_object_set valve "drop" (g_value_int 1))
+          (terminal 1)
+          (gst_element_set_state encoder GST_STATE_READY)
+          (terminal 2)
+          (gst_element_set_state encoder GST_STATE_PLAYING)
+          (terminal 3)
+          (g_object_set valve "drop" (g_value_int 0))))
+      
+      ;; video
+      (thread-start!
+        (new-thread
+          (lambda ()
+            (let ((view (read pipe)))
+              (let ((pipeline (gst-launch ;"videotestsrc name=src"
+                                          "avfvideosrc name=src"
+                                          "videoscale name=scale"
+                                          "videoconvert name=convert"
+                                          (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
+                                          "valve name=valve"
+                                          (and (eq? codec 'h264) (tie "x264enc bitrate={bitrate} tune=zerolatency speed-preset=superfast name=enc"))
+                                          (and (eq? codec 'vp8) (tie "vp8enc deadline=1 name=enc"))
+                                          (and (eq? codec 'none) "videoflip video-direction=horiz name=enc")
+                                          "appsink name=sink")))
+                (gst_object_set_name pipeline "pipeline")
+                (let ((src (gst_bin_get_by_name pipeline "src"))
+                      (valve (gst_bin_get_by_name pipeline "valve"))
+                      (encoder (gst_bin_get_by_name pipeline "enc"))
+                      (sink (gst_bin_get_by_name pipeline "sink"))
+                      (process-messages (pipeline-messages-processor pipeline print?: debug?)))
+                  (set! test-pipeline pipeline)
+                  (set! test-source src)
+                  (set! test-valve valve)
+                  (set! test-encoder encoder)
+                  (when debug?
+                    (gst_monitor pipeline monitor "enc" "sink"))
+                  (gst_element_set_state pipeline GST_STATE_PLAYING)
+                  (process-messages)
+                  (let (loop)
+                    (input-port-timeout-set! pipe 0)
+                    (let ((size (gst_app_sink_read sink video-buffer video-info)))
+                      (when (/= size -1)
+                        (let ((full? (= (u8vector-ref video-buffer 5) 16)))
+                          (when full?
+                            (terminal '********************)))
+                        (terminal-string ".")))
+                    (process-messages)
+                    (sleep .001)
+                    (loop))))))
+          'test))
+      ;; application
+      (boot-environment (new Test-Application size: {Dimension 500 250} pipe: pipe keyer: keyer)))))
 
 
 ;;;
@@ -1198,12 +1278,16 @@
   (slot size   getter generate)
   (slot pipe   getter generate)
   (slot drawer getter generate)
+  (slot mouser getter generate)
+  (slot keyer  getter generate)
   
   
-  (method override (initialize self (size: size #f) (pipe: pipe #f) (drawer: drawer #f))
+  (method override (initialize self (size: size #f) (pipe: pipe #f) (drawer: drawer #f) (mouser: mouser #f) (keyer: keyer #f))
     (set! self.size (or size {Dimension 640 360}))
     (set! self.pipe pipe)
-    (set! self.drawer drawer))
+    (set! self.drawer drawer)
+    (set! self.mouser mouser)
+    (set! self.keyer keyer))
   
   
   (method override (new-toplevel self)
@@ -1212,7 +1296,7 @@
   
   (method override (finish-process self)
     (nextmethod self)
-    (let ((view (get-guest (new-frame Test-View host-title: (->string script) drawer: drawer))))
+    (let ((view (get-guest (new-frame Test-View host-title: (->string script) drawer: drawer mouser: mouser keyer: keyer))))
       (when pipe
         (write view pipe)))))
 
@@ -1226,11 +1310,23 @@
   
   
   (property drawer initialize #f accessors generate)
+  (property mouser initialize #f accessors generate)
+  (property keyer  initialize #f accessors generate)
   
   
   (method override (draw self surface context)
     (when drawer
-      (drawer self surface))))
+      (drawer self surface)))
+  
+  
+  (method override (mouse-down self evt)
+    (when mouser
+      (mouser self (get-position evt))))
+  
+  
+  (method override (key-press self evt)
+    (when keyer
+      (keyer self (get-key evt)))))
 
 
 ;;;

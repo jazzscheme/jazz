@@ -39,7 +39,26 @@
 
 
 (import (jazz.foreign)
-        (jazz.platform.types))
+        (jazz.platform.types)
+        (jazz.stream.syntax (phase syntax))
+        (jazz.syntax (phase syntax)))
+
+
+;;;
+;;;; Trace
+;;;
+
+
+(define-setting trace-gst?
+  #f)
+
+(define-setting trace-gst
+  terminal)
+
+
+;;;
+;;;; GLib
+;;;
 
 
 (c-include "<string.h>")
@@ -50,11 +69,6 @@
 (c-include "<gst/app/gstappsrc.h>")
 (c-include "<gst/app/gstappsink.h>")
 (c-include "<gst/pbutils/pbutils.h>")
-
-
-;;;
-;;;; GLib
-;;;
 
 
 (c-type gint     int)
@@ -634,90 +648,90 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
 //#)
 
 
-(c-external (gst_init NULL NULL) void)
-(c-external (gst_parse_launch char-string NULL) GstElement*)
-(c-external (gst_object_get_name (call GST_OBJECT GstElement*)) char-string)
-(c-external (gst_object_set_name (call GST_OBJECT GstElement*) char-string) gboolean)
-(c-external (gst_object_unref gpointer) void)
-(c-external (gst_value_get_fraction_numerator GValue*) int)
-(c-external (gst_value_get_fraction_denominator GValue*) int)
-(c-external (gst_value_set_fraction GValue* int int) void)
-(c-external (gst_pad_get_current_caps GstPad*) GstCaps*)
-(c-external (gst_caps_new_empty_simple char-string) GstCaps*)
-(c-external (gst_caps_is_fixed GstCaps*) gboolean)
-(c-external (gst_caps_get_structure GstCaps* int) GstStructure*)
-(c-external (gst_caps_set_value GstCaps* char-string GValue*) void)
-(c-external (gst_caps_to_string GstCaps*) char-string)
-(c-external (gst_structure_get_int GstStructure* char-string) int "gst_structure_get_int_aux")
-(c-external (gst_element_set_state GstElement* GstState) GstStateChangeReturn "gst_element_set_state_aux")
-(c-external (gst_element_get_state GstElement*) GstState "gst_element_get_state_aux")
-(c-external (gst_element_wait_state GstElement*) void "gst_element_wait_state_aux")
-(c-external (gst_element_seek_simple GstElement* GstFormat GstSeekFlags int64) gboolean)
-(c-external (gst_element_get_bus GstElement*) GstBus*)
-(c-external (gst_element_get_base_time GstElement*) GstClockTime)
-(c-external (gst_element_factory_make char-string char-string) GstElement*)
-(c-external (gst_element_link GstElement* GstElement*) gboolean)
-(c-external (gst_element_get_static_pad GstElement* char-string) GstPad*)
-(c-external (gst_element_iterate_pads GstElement*) GstIterator*)
-(c-external (gst_element_query_position GstElement* GstFormat) int64 "gst_element_query_position_aux")
-(c-external (gst_element_query_duration GstElement* GstFormat) int64 "gst_element_query_duration_aux")
-(c-external (gst_iterator_next_element GstIterator*) GstElement*)
-(c-external (gst_iterator_next_pad GstIterator*) GstPad*)
-(c-external (gst_signal_connect_to gpointer char-string gpointer) gulong)
-(c-external (gst_signal_new_sample GstElement*) gulong)
-(c-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
-(c-external (gst_bus_pop GstBus*) GstMessage*)
-(c-external (gst_bin_add (call GST_BIN GstElement*) GstElement*) gboolean)
-(c-external (gst_bin_get_by_name (call GST_BIN GstElement*) char-string) GstElement*)
-(c-external (gst_bin_iterate_elements (call GST_BIN GstElement*)) GstIterator*)
-(c-external (gst_pipeline_new char-string) GstElement*)
-(c-external (gst_pipeline_get_bus (call GST_PIPELINE GstElement*)) GstBus*)
-(c-external (gst_pipeline_get_clock (call GST_PIPELINE GstElement*)) GstClock*)
-(c-external (gst_pipeline_get_latency (call GST_PIPELINE GstElement*)) GstClockTime)
-(c-external (gst_pipeline_set_latency (call GST_PIPELINE GstElement*) GstClockTime) void)
-(c-external (gst_message_state_changed_get_new_state GstMessage*) GstState)
-(c-external (gst_message_unref GstMessage*) void)
-(c-external (gst_clock_get_time GstClock*) GstClockTime)
-(c-external (gst_discoverer_new) GstDiscoverer* "gst_discoverer_new_aux")
-(c-external (gst_discoverer_discover_uri GstDiscoverer* char-string) GstDiscovererInfo* "gst_discoverer_discover_uri_aux")
-(c-external (gst_discoverer_info_get_duration GstDiscovererInfo*) GstClockTime)
-(c-external (gst_discoverer_info_get_stream_info GstDiscovererInfo*) GstDiscovererStreamInfo*)
-(c-external (gst_discoverer_video_info_get_width (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
-(c-external (gst_discoverer_video_info_get_height (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
-(c-external (gst_discoverer_video_info_get_depth (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
-(c-external (gst_present_time GstClockTime) double "present_time")
-(c-external (gst_print_pipeline (call GST_PIPELINE GstElement*)) void)
-(c-external (gst_print_pad GstElement* char-string) void)
-(c-external (gst_print_message char-string GstMessage*) void)
-(c-external (gst_print_error GstMessage*) void)
-(c-external (gst_monitor_data (call GST_PIPELINE GstElement*) GstPad*) void)
-(c-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) void)
-(c-external (gst_app_src_set_caps (call GST_APP_SRC GstElement*) GstCaps*) void)
-(c-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)
-(c-external (gst_app_src_write GstElement* scheme-object int uint64 uint64) GstFlowReturn)
-(c-external (gst_app_src_write2 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
-(c-external (gst_app_src_write3 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
-(c-external (gst_app_src_write4 GstElement* void* int uint64 uint64) GstFlowReturn)
-(c-external (gst_app_sink_pull GstElement* void* scheme-object) int)
-(c-external (gst_app_sink_read GstElement* scheme-object scheme-object) int)
-(c-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")
-(c-external (GST_MESSAGE_TYPE GstMessage*) GstMessageType)
-(c-external (GST_MESSAGE_SRC GstMessage*) GstElement*)
+(gst-external (gst_init NULL NULL) void)
+(gst-external (gst_parse_launch char-string NULL) GstElement*)
+(gst-external (gst_object_get_name (call GST_OBJECT GstElement*)) char-string)
+(gst-external (gst_object_set_name (call GST_OBJECT GstElement*) char-string) gboolean)
+(gst-external (gst_object_unref gpointer) void)
+(gst-external (gst_value_get_fraction_numerator GValue*) int)
+(gst-external (gst_value_get_fraction_denominator GValue*) int)
+(gst-external (gst_value_set_fraction GValue* int int) void)
+(gst-external (gst_pad_get_current_caps GstPad*) GstCaps*)
+(gst-external (gst_caps_new_empty_simple char-string) GstCaps*)
+(gst-external (gst_caps_is_fixed GstCaps*) gboolean)
+(gst-external (gst_caps_get_structure GstCaps* int) GstStructure*)
+(gst-external (gst_caps_set_value GstCaps* char-string GValue*) void)
+(gst-external (gst_caps_to_string GstCaps*) char-string)
+(gst-external (gst_structure_get_int GstStructure* char-string) int "gst_structure_get_int_aux")
+(gst-external (gst_element_set_state GstElement* GstState) GstStateChangeReturn "gst_element_set_state_aux")
+(gst-external (gst_element_get_state GstElement*) GstState "gst_element_get_state_aux")
+(gst-external (gst_element_wait_state GstElement*) void "gst_element_wait_state_aux")
+(gst-external (gst_element_seek_simple GstElement* GstFormat GstSeekFlags int64) gboolean)
+(gst-external (gst_element_get_bus GstElement*) GstBus*)
+(gst-external (gst_element_get_base_time GstElement*) GstClockTime)
+(gst-external (gst_element_factory_make char-string char-string) GstElement*)
+(gst-external (gst_element_link GstElement* GstElement*) gboolean)
+(gst-external (gst_element_get_static_pad GstElement* char-string) GstPad*)
+(gst-external (gst_element_iterate_pads GstElement*) GstIterator*)
+(gst-external (gst_element_query_position GstElement* GstFormat) int64 "gst_element_query_position_aux")
+(gst-external (gst_element_query_duration GstElement* GstFormat) int64 "gst_element_query_duration_aux")
+(gst-external (gst_iterator_next_element GstIterator*) GstElement*)
+(gst-external (gst_iterator_next_pad GstIterator*) GstPad*)
+(gst-external (gst_signal_connect_to gpointer char-string gpointer) gulong)
+(gst-external (gst_signal_new_sample GstElement*) gulong)
+(gst-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
+(gst-external (gst_bus_pop GstBus*) GstMessage*)
+(gst-external (gst_bin_add (call GST_BIN GstElement*) GstElement*) gboolean)
+(gst-external (gst_bin_get_by_name (call GST_BIN GstElement*) char-string) GstElement*)
+(gst-external (gst_bin_iterate_elements (call GST_BIN GstElement*)) GstIterator*)
+(gst-external (gst_pipeline_new char-string) GstElement*)
+(gst-external (gst_pipeline_get_bus (call GST_PIPELINE GstElement*)) GstBus*)
+(gst-external (gst_pipeline_get_clock (call GST_PIPELINE GstElement*)) GstClock*)
+(gst-external (gst_pipeline_get_latency (call GST_PIPELINE GstElement*)) GstClockTime)
+(gst-external (gst_pipeline_set_latency (call GST_PIPELINE GstElement*) GstClockTime) void)
+(gst-external (gst_message_state_changed_get_new_state GstMessage*) GstState)
+(gst-external (gst_message_unref GstMessage*) void)
+(gst-external (gst_clock_get_time GstClock*) GstClockTime)
+(gst-external (gst_discoverer_new) GstDiscoverer* "gst_discoverer_new_aux")
+(gst-external (gst_discoverer_discover_uri GstDiscoverer* char-string) GstDiscovererInfo* "gst_discoverer_discover_uri_aux")
+(gst-external (gst_discoverer_info_get_duration GstDiscovererInfo*) GstClockTime)
+(gst-external (gst_discoverer_info_get_stream_info GstDiscovererInfo*) GstDiscovererStreamInfo*)
+(gst-external (gst_discoverer_video_info_get_width (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
+(gst-external (gst_discoverer_video_info_get_height (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
+(gst-external (gst_discoverer_video_info_get_depth (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
+(gst-external (gst_present_time GstClockTime) double "present_time")
+(gst-external (gst_print_pipeline (call GST_PIPELINE GstElement*)) void)
+(gst-external (gst_print_pad GstElement* char-string) void)
+(gst-external (gst_print_message char-string GstMessage*) void)
+(gst-external (gst_print_error GstMessage*) void)
+(gst-external (gst_monitor_data (call GST_PIPELINE GstElement*) GstPad*) void)
+(gst-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) void)
+(gst-external (gst_app_src_set_caps (call GST_APP_SRC GstElement*) GstCaps*) void)
+(gst-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)
+(gst-external (gst_app_src_write GstElement* scheme-object int uint64 uint64) GstFlowReturn)
+(gst-external (gst_app_src_write2 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
+(gst-external (gst_app_src_write3 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
+(gst-external (gst_app_src_write4 GstElement* void* int uint64 uint64) GstFlowReturn)
+(gst-external (gst_app_sink_pull GstElement* void* scheme-object) int)
+(gst-external (gst_app_sink_read GstElement* scheme-object scheme-object) int)
+(gst-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")
+(gst-external (GST_MESSAGE_TYPE GstMessage*) GstMessageType)
+(gst-external (GST_MESSAGE_SRC GstMessage*) GstElement*)
 
 
-(c-external (move-u8vector->pointer! scheme-object void*) void
+(gst-external (move-u8vector->pointer! scheme-object void*) void
   #/C/
     memmove(___arg2, ___BODY(___arg1), ___HD_BYTES(___HEADER(___arg1)));
 //#)
 
 
-(c-external (move-pointer->u8vector! void* scheme-object) void
+(gst-external (move-pointer->u8vector! void* scheme-object) void
   #/C/
     memmove(___BODY(___arg2), ___arg1, ___HD_BYTES(___HEADER(___arg2)));
 //#)
 
 
-(c-external (separate-alpha void* void* int) void
+(gst-external (separate-alpha void* void* int) void
   #/C/
     char* data = (char*) ___arg1;
     char* alpha = (char*) ___arg2;
@@ -733,7 +747,7 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
 //#)
 
 
-(c-external (combine-alpha scheme-object scheme-object void* int) void
+(gst-external (combine-alpha scheme-object scheme-object void* int) void
   #/C/
     char* color = (char*) ___BODY(___arg1);
     char* alpha = (char*) ___BODY(___arg2);

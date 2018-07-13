@@ -20,6 +20,8 @@
         (jazz.syntax (phase syntax)))
 
 
+(c-include "<stdarg.h>")
+(c-include "<syslog.h>")
 (c-include "<git2.h>")
 
 
@@ -499,17 +501,18 @@
 ;;;; Interrupts
 ;;;
 
+;___mask_heartbeat_interrupts_begin/end
+;  structure to capture / restore current state of interrupts
+;___mask_heartbeat_interrupts
+;___mask_os_int
+;___mask_user_int
 
-   ;___mask_heartbeat_interrupts_begin/end
-   ;  structure to capture / restore current state of interrupts
-   ;___mask_heartbeat_interrupts
-   ;___mask_os_int
-   ;___mask_user_int
+; unix self pipe
+; windows something else
+; marc used those for the parallel gc
+; there is pretty much already an abstraction of those
+
    
-   ; unix self pipe
-   ; windows something else
-   ; marc used those for the parallel gc
-   ; there is pretty much already an abstraction of those
 (definition protected (without-gambit-interrupts thunk)
   (let ((enabled? (interrupts-enabled?)))
     (unwind-protect
@@ -529,36 +532,33 @@
 (cond-expand
   (windows
 (c-declare git.foreign #/C/
-#define gambit_disable_os_interrupts()
-#define gambit_enable_os_interrupts()
-//#)
-
-(definition public (with-gambit-os-interrupts thunk)
-  (thunk)))
+#define gambit_disable_interrupts()
+#define gambit_enable_interrupts()
+//#))
   (else
 (c-declare git.foreign #/C/
-// are these gone from gambit?
-// void ___disable_os_interrupts();
-// void ___enable_os_interrupts();
+___mask_all_interrupts_state all_interrupts;
+int mask_interrupts_calls = 0;
 
-void gambit_disable_os_interrupts()
+void gambit_disable_interrupts()
 {
-//    ___disable_os_interrupts();
+    // failsafe to using a global variable for the state
+    if (mask_interrupts_calls > 0)
+    {
+        syslog(LOG_ERR, "%s", "***** BAILOUT!!! *****");
+        exit(-1);
+    }
+    
+    mask_interrupts_calls++;
+    ___EXT(___mask_all_interrupts_begin)(&all_interrupts);
 }
 
-void gambit_enable_os_interrupts()
+void gambit_enable_interrupts()
 {
-//    ___enable_os_interrupts();
+    ___EXT(___mask_all_interrupts_end)(&all_interrupts);
+    mask_interrupts_calls--;
 }
-//#)
-
-(c-external (gambit-disable-os-interrupts) void "gambit_disable_os_interrupts")
-(c-external (gambit-enable-os-interrupts) void "gambit_enable_os_interrupts")
-
-(definition public (with-gambit-os-interrupts thunk)
-  (dynamic-wind gambit-enable-os-interrupts
-                thunk
-                gambit-disable-os-interrupts))))
+//#)))
 
 
 ;;;
@@ -773,10 +773,10 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 @convert (git-external (git-cred-userpass git_cred** char-string char-string uint void*) :error "git_cred_userpass")
 (git-external (git-cred-userpass-plaintext-new char-string char-string) git_cred*
   #/C/
-    gambit_disable_os_interrupts();
+    gambit_disable_interrupts();
     git_cred* cred;
     int result = git_cred_userpass_plaintext_new(&cred, ___arg1, ___arg2);
-    gambit_enable_os_interrupts();
+    gambit_enable_interrupts();
     if (result != 0)
     {
         git_call_error_handler(result);
@@ -1271,9 +1271,9 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 
 (git-external (git-remote-connect git_remote* int) void
   #/C/
-    gambit_disable_os_interrupts();
+    gambit_disable_interrupts();
     int result = git_remote_connect(___arg1, (git_direction) ___arg2);
-    gambit_enable_os_interrupts();
+    gambit_enable_interrupts();
     if (result != 0)
         git_call_error_handler(result);
 //#)
@@ -1281,9 +1281,9 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 
 (git-external (git-remote-fetch git_remote*) void
   #/C/
-    gambit_disable_os_interrupts();
+    gambit_disable_interrupts();
     int result = git_remote_fetch(___arg1, NULL, NULL);
-    gambit_enable_os_interrupts();
+    gambit_enable_interrupts();
     if (result != 0)
         git_call_error_handler(result);
 //#)
@@ -1299,7 +1299,9 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
     int credentials_cb(git_cred **out, const char * url, const char * username_from_url, unsigned int allowed_types, void * payload)
     {
         git_cred* cred;
+        gambit_enable_interrupts();
         cred = credentials_acquire_procedure(___EXT(___data_rc)(payload));
+        gambit_disable_interrupts();
         if (cred)
         {
             *out = cred;

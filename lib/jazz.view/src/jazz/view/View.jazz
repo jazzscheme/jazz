@@ -3463,7 +3463,8 @@
                   (logical->device surface (if (inhibit-clipping?)
                                                 rect
                                               (rect-intersection rect (get-clipper surface))))))))
-        (invalidate-rect player acquired))))
+        (invalidate-rect player acquired)
+        (invalidate-hook self))))
   
   
   ;; todo: not using acquire is a potentiel scaling bug...
@@ -3476,7 +3477,8 @@
             (unless (inhibit-clipping?)
               (with ((clipper (new Region rect: (logical->device surface (get-clipper surface)))))
                 (combine-and! region clipper))))))
-      (invalidate-region player region)))
+      (invalidate-region player region)
+      (invalidate-hook self)))
   
   
   (method public (redraw-view self (rect: rect #f) (region: region #f))
@@ -3502,7 +3504,8 @@
                        (with-clipped-transformation-surface self
                          (lambda (surface)
                            (logical->device surface (rect-intersection (get-bounds self) (get-clipper surface)))))))
-                 (redraw-window player rect: acquired)))))))
+                 (redraw-window player rect: acquired))))
+        (invalidate-hook self))))
   
 
   ;; Mainly used by the scrollbar to only redraw itself when scrolling
@@ -3510,14 +3513,20 @@
     (let ((player (get-player self)))
       (when player
         (let ((hwnd (get-handle player)))
-          (platform-redraw-view-only self hwnd)))))
+          (platform-redraw-view-only self hwnd)
+          (invalidate-hook self)))))
   
   
   (method public (update-view self (effect: effect #f))
     (let ((player (get-player self)))
       (when player
         (set-effect self effect)
-        (update-window player))))
+        (update-window player)
+        (invalidate-hook self))))
+  
+  
+  (method protected virtual (invalidate-hook self)
+    )
   
   
   (method public (without-invalidates self thunk)

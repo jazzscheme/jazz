@@ -52,7 +52,6 @@
   
   
   (slot thread initialize #f)
-  (slot mutex  initialize (make-mutex))
   
   
   (method override (initialize self name period execute . rest)
@@ -67,13 +66,10 @@
   
   
   (method override (destroy self)
-    (mutex-lock! mutex)
     (when thread
       (let ((thread self.thread))
         (set! self.thread #f)
-        (mutex-unlock! mutex)
         (exit-thread thread)))
-    (mutex-unlock! mutex)
     (nextmethod self))
   
   
@@ -94,7 +90,10 @@
           (let (loop (timeout (or delay period)))
             (sleep timeout)
             (unless (terminated? self)
-              (execute))
+              (execute-event
+                (lambda ()
+                  (unless (terminated? self)
+                    (execute)))))
             (when repeat?
               (loop period))))
         name)))))

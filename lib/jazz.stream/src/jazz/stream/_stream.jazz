@@ -62,7 +62,7 @@
   (slot src   initialize #f accessors generate)
   (slot sink  initialize #f accessors generate)
   ;; quicky to test tees
-  (slot sink2 initialize #f accessors generate)
+  (slot sinkself initialize #f accessors generate)
   
   
   (method package (ready? self)
@@ -178,7 +178,7 @@
 
 
 (definition public (pipeline . elements)
-  (let ((sink2? #f))
+  (let ((sinkself? #f))
   (let ((len (length elements)))
     (if (< len 2)
         (error "Invalid pipeline length: {s}" len)
@@ -187,20 +187,20 @@
           (let ((elem (car scan)))
             ;; quicky to test tees
             (if (pair? elem)
-                (bind (sink sink2) elem
+                (bind (sink sinkself) elem
                   (set-src sink previous)
                   (set-sink previous sink)
-                  (set-src sink2 previous)
-                  (set-sink2 previous sink2)
-                  (set! sink2? #t))
+                  (set-src sinkself previous)
+                  (set-sinkself previous sinkself)
+                  (set! sinkself? #t))
               (when previous
                 (set-src elem previous)
                 (set-sink previous elem))
               (loop elem (cdr scan))))))))
   ;; quicky to test tees
-  (if sink2?
-      (bind (src (sink sink2)) elements
-        (new Stream-Pipeline (list src sink sink2)))
+  (if sinkself?
+      (bind (src (sink sinkself)) elements
+        (new Stream-Pipeline (list src sink sinkself)))
     (new Stream-Pipeline elements))))
 
 

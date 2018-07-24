@@ -88,6 +88,9 @@
 (definition audio-codec
   'vorbis)
 
+(definition video?
+  #f)
+
 ;; 1200 1920x1200
 ;; 720  1280x720
 ;; 540  960x540
@@ -146,10 +149,15 @@
   #f)
 
 
-(jazz:split-command-line (command-arguments) '("fps" "debug") '("debugger" "r" "run" "script" "audio" "audio-codec" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
+(jazz:split-command-line (command-arguments) '("fps" "debug") '("debugger" "r" "run" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
   (lambda (commands options remain)
     (define (string-argument arg)
       arg)
+    
+    (define (boolean-argument arg)
+      (if (string? arg)
+          (parse-boolean arg)
+        arg))
     
     (define (number-argument arg)
       (if (string? arg)
@@ -173,8 +181,9 @@
         (else #f)))
     
     (set! script (or (symbol-argument (find-option "script" options)) script))
-    (set! audio? (find-option "audio" options #f))
+    (set! audio? (boolean-argument (find-option "audio" options #f)))
     (set! audio-codec (or (symbol-argument (find-option "audio-codec" options)) audio-codec))
+    (set! video? (boolean-argument (find-option "video" options #t)))
     (set! video-size (or (size-argument (find-option "size" options)) video-size))
     (set! video-codec (or (symbol-argument (find-option "codec" options)) video-codec))
     (set! video-framerate (or (number-argument (find-option "framerate" options)) video-framerate))
@@ -191,7 +200,7 @@
 
 
 @comment
-(debug script audio-codec video-size video-codec video-framerate video-bitrate window-size lag fps? debug? remaining)
+(debug script audio audio-codec video video-size video-codec video-framerate video-bitrate window-size lag fps? debug? remaining)
 
 
 (definition public (test-gstreamer)
@@ -670,39 +679,40 @@
                         (loop)))))))
             'audio-input)))
       ;; video input
-      (thread-start!
-        (new-thread
-          (lambda ()
-            (let ((pipeline (gst-launch (cond-expand
-                                          (mac "avfvideosrc name=src")
-                                          (windows "ksvideosrc name=src")
-                                          (else "v4l2src name=src"))
-                                        "videoscale name=scale"
-                                        "videoconvert name=convert"
-                                        (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
-                                        (and (eq? codec 'h264) (tie "x264enc pass=qual quantizer=20 bitrate={bitrate} tune=zerolatency speed-preset=superfast name=enc"))
-                                        (and (eq? codec 'vp8) "vp8enc deadline=1 name=enc")
-                                        "appsink name=sink")))
-              (gst_object_set_name pipeline "input")
-              (let ((sink (gst_bin_get_by_name pipeline "sink"))
-                    (process-messages (pipeline-messages-processor pipeline print?: debug?)))
-                (when debug?
-                  (gst_monitor pipeline monitor "src" "sink"))
-                (gst_element_set_state pipeline GST_STATE_PLAYING)
-                (process-messages)
-                (let ((buffer (make-u8vector (* width height 4)))
-                      (info (make-u64vector 2)))
-                  (let (loop)
-                    (let ((size (gst_app_sink_read sink buffer info)))
-                      (when (/= size -1)
-                        (let ((timestamp (u64vector-ref info 0))
-                              (duration (u64vector-ref info 1)))
-                          (write (list (u8vector-copy buffer) size timestamp duration) video-pipe)
-                          (force-output video-pipe))))
-                    (process-messages)
-                    (sleep .001)
-                    (loop))))))
-          'video-input))
+      (when video?
+        (thread-start!
+          (new-thread
+            (lambda ()
+              (let ((pipeline (gst-launch (cond-expand
+                                            (mac "avfvideosrc name=src")
+                                            (windows "ksvideosrc name=src")
+                                            (else "v4l2src name=src"))
+                                          "videoscale name=scale"
+                                          "videoconvert name=convert"
+                                          (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
+                                          (and (eq? codec 'h264) (tie "x264enc pass=qual quantizer=20 bitrate={bitrate} tune=zerolatency speed-preset=superfast name=enc"))
+                                          (and (eq? codec 'vp8) "vp8enc deadline=1 name=enc")
+                                          "appsink name=sink")))
+                (gst_object_set_name pipeline "input")
+                (let ((sink (gst_bin_get_by_name pipeline "sink"))
+                      (process-messages (pipeline-messages-processor pipeline print?: debug?)))
+                  (when debug?
+                    (gst_monitor pipeline monitor "src" "sink"))
+                  (gst_element_set_state pipeline GST_STATE_PLAYING)
+                  (process-messages)
+                  (let ((buffer (make-u8vector (* width height 4)))
+                        (info (make-u64vector 2)))
+                    (let (loop)
+                      (let ((size (gst_app_sink_read sink buffer info)))
+                        (when (/= size -1)
+                          (let ((timestamp (u64vector-ref info 0))
+                                (duration (u64vector-ref info 1)))
+                            (write (list (u8vector-copy buffer) size timestamp duration) video-pipe)
+                            (force-output video-pipe))))
+                      (process-messages)
+                      (sleep .001)
+                      (loop))))))
+            'video-input)))
       ;; lag
       (when lag
         (sleep lag))
@@ -750,73 +760,74 @@
                       (loop))))))
             'audio-output)))
       ;; video output
-      (thread-start!
-        (new-thread
-          (lambda ()
-            (let ((view (read pipe)))
-              (let ((pipeline (gst-launch "appsrc name=src"
-                                          (and (eq? codec 'h264) "avdec_h264 name=dec")
-                                          (and (eq? codec 'vp8) "vp8dec name=dec")
-                                          "videoconvert name=convert"
-                                          "videoflip video-direction=horiz"
-                                          (tie "video/x-raw, format=BGRA, width={width}, height={height}, framerate={framerate}/1")
-                                          (if fps?
-                                              "fpsdisplaysink video-sink=appsink name=sink"
-                                            "appsink name=sink"))))
-                (gst_object_set_name pipeline "output")
-                (let ((src (gst_bin_get_by_name pipeline "src"))
-                      (sink (gst_bin_get_by_name pipeline "sink"))
-                      (process-messages (pipeline-messages-processor pipeline print?: debug?)))
-                  (when debug?
-                    (gst_monitor pipeline monitor "src" "convert" "sink")
-                    (when (neq? codec 'none)
-                      (gst_monitor pipeline monitor "dec")))
-                  (case codec
-                    ((h264)
-                     (gst_app_src_set_caps src
-                                           (gst_caps "video/x-h264"
-                                                     "width"         (g_value_int width)
-                                                     "height"        (g_value_int height)
-                                                     "framerate"     (g_value_fraction framerate 1)
-                                                     "stream-format" (g_value_string "avc")
-                                                     "alignment"     (g_value_string "au"))))
-                    ((vp8)
-                     (gst_app_src_set_caps src
-                                           (gst_caps "video/x-vp8"
-                                                     "width"         (g_value_int width)
-                                                     "height"        (g_value_int height)
-                                                     "framerate"     (g_value_fraction framerate 1)
-                                                     "stream-format" (g_value_string "avc")
-                                                     "alignment"     (g_value_string "au"))))
-                    (else
-                     (gst_app_src_set_caps src
-                                           (gst_caps "video/x-raw"
-                                                     "format"    (g_value_string "I420")
-                                                     "width"     (g_value_int width)
-                                                     "height"    (g_value_int height)
-                                                     "framerate" (g_value_fraction framerate 1)))))
-                  (g_object_set src
-                                "is-live"     (g_value_boolean #t)
-                                "stream-type" (g_value_int GST_APP_STREAM_TYPE_STREAM)
-                                "format"      (g_value_int GST_FORMAT_TIME))
-                  (gst_element_set_state pipeline GST_STATE_PLAYING)
-                  (process-messages)
-                  (let (loop)
-                    (let ((info (read video-pipe)))
-                      (bind (buffer size timestamp duration) info
-                        (set! frame-size size)
-                        (gst_app_src_write3 src buffer size timestamp duration)))
-                    (let ((size (with-video-mutex
-                                  (lambda ()
-                                    (gst_app_sink_read sink video-buffer video-info)))))
-                      (when (/= size -1)
-                        (increase! frame-count)
-                        (invalidate-view view)))
+      (when video?
+        (thread-start!
+          (new-thread
+            (lambda ()
+              (let ((view (read pipe)))
+                (let ((pipeline (gst-launch "appsrc name=src"
+                                            (and (eq? codec 'h264) "avdec_h264 name=dec")
+                                            (and (eq? codec 'vp8) "vp8dec name=dec")
+                                            "videoconvert name=convert"
+                                            "videoflip video-direction=horiz"
+                                            (tie "video/x-raw, format=BGRA, width={width}, height={height}, framerate={framerate}/1")
+                                            (if fps?
+                                                "fpsdisplaysink video-sink=appsink name=sink"
+                                              "appsink name=sink"))))
+                  (gst_object_set_name pipeline "output")
+                  (let ((src (gst_bin_get_by_name pipeline "src"))
+                        (sink (gst_bin_get_by_name pipeline "sink"))
+                        (process-messages (pipeline-messages-processor pipeline print?: debug?)))
+                    (when debug?
+                      (gst_monitor pipeline monitor "src" "convert" "sink")
+                      (when (neq? codec 'none)
+                        (gst_monitor pipeline monitor "dec")))
+                    (case codec
+                      ((h264)
+                       (gst_app_src_set_caps src
+                                             (gst_caps "video/x-h264"
+                                                       "width"         (g_value_int width)
+                                                       "height"        (g_value_int height)
+                                                       "framerate"     (g_value_fraction framerate 1)
+                                                       "stream-format" (g_value_string "avc")
+                                                       "alignment"     (g_value_string "au"))))
+                      ((vp8)
+                       (gst_app_src_set_caps src
+                                             (gst_caps "video/x-vp8"
+                                                       "width"         (g_value_int width)
+                                                       "height"        (g_value_int height)
+                                                       "framerate"     (g_value_fraction framerate 1)
+                                                       "stream-format" (g_value_string "avc")
+                                                       "alignment"     (g_value_string "au"))))
+                      (else
+                       (gst_app_src_set_caps src
+                                             (gst_caps "video/x-raw"
+                                                       "format"    (g_value_string "I420")
+                                                       "width"     (g_value_int width)
+                                                       "height"    (g_value_int height)
+                                                       "framerate" (g_value_fraction framerate 1)))))
+                    (g_object_set src
+                                  "is-live"     (g_value_boolean #t)
+                                  "stream-type" (g_value_int GST_APP_STREAM_TYPE_STREAM)
+                                  "format"      (g_value_int GST_FORMAT_TIME))
+                    (gst_element_set_state pipeline GST_STATE_PLAYING)
                     (process-messages)
-                    (loop))))))
-          'video-output))
+                    (let (loop)
+                      (let ((info (read video-pipe)))
+                        (bind (buffer size timestamp duration) info
+                          (set! frame-size size)
+                          (gst_app_src_write3 src buffer size timestamp duration)))
+                      (let ((size (with-video-mutex
+                                    (lambda ()
+                                      (gst_app_sink_read sink video-buffer video-info)))))
+                        (when (/= size -1)
+                          (increase! frame-count)
+                          (invalidate-view view)))
+                      (process-messages)
+                      (loop))))))
+            'video-output)))
       ;; application
-      (boot-environment (new Test-Application size: video-size pipe: pipe drawer: drawer)))))
+      (boot-environment (new Test-Application size: video-size pipe: pipe drawer: (and video? drawer))))))
 
 
 ;;;

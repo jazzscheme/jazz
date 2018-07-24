@@ -648,6 +648,66 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
 //#)
 
 
+(c-declare jazz.stream.foreign #/C/
+#include <stdbool.h>
+#include <pthread.h>
+#include <rnnoise.h>
+
+pthread_mutex_t mutex;
+bool mutexInited = false;
+
+#define THREADPROC(name, payload) void* name(void* payload)
+
+typedef void*(*threadproc)(void*);
+
+/*
+void create_thread(threadproc proc, void* payload)
+{
+    #define FRAME_SIZE 480
+    float x[FRAME_SIZE];
+    DenoiseState *st;
+    st = rnnoise_create();
+    pthread_t thread;
+    pthread_create(&thread, NULL, proc, payload);
+    rnnoise_process_frame(st, x, x);
+    rnnoise_destroy(st);
+}
+*/
+
+void lock_mutex()
+{
+    if (! mutexInited)
+    {
+        pthread_mutex_init(&mutex, NULL);
+        mutexInited = true;
+    }
+    pthread_mutex_lock(&mutex);
+}
+
+void unlock_mutex()
+{
+    pthread_mutex_unlock(&mutex);
+}
+
+#define FRAME_SIZE 480
+float x[FRAME_SIZE];
+DenoiseState *st = NULL;
+
+static void gst_denoise(___SCMOBJ vec, int size)
+{
+    if (! st)
+        st = rnnoise_create();
+    
+    short *ptr = ___CAST(short *, ___BODY(vec));
+    int i;
+    
+    for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[i];
+    rnnoise_process_frame(st, x, x);
+    for (i=0;i<FRAME_SIZE;i++) ptr[i] = x[i];
+}
+//#)
+
+
 (gst-external (gst_init NULL NULL) void)
 (gst-external (gst_parse_launch char-string NULL) GstElement*)
 (gst-external (gst_object_get_name (call GST_OBJECT GstElement*)) char-string)
@@ -717,6 +777,7 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
 (gst-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")
 (gst-external (GST_MESSAGE_TYPE GstMessage*) GstMessageType)
 (gst-external (GST_MESSAGE_SRC GstMessage*) GstElement*)
+(gst-external (gst_denoise scheme-object int) void)
 
 
 (gst-external (move-u8vector->pointer! scheme-object void*) void

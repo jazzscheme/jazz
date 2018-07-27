@@ -35,6 +35,8 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+;; gst-launch --gst-debug-help
+;; - these can be applied to individual elements in the pipeline
 ;; GST_DEBUG=2 cache/release/jazz -run stream
 ;; G_DEBUG=fatal-criticals ...
 ;; G_DEBUG=fatal-warnings ...
@@ -653,7 +655,14 @@
           (new-thread
             (lambda ()
               (let ((codec audio-codec))
-                (let ((pipeline (gst-launch "autoaudiosrc format=F32LE layout=interleaved rate=80000 channels=2 name=src"
+                (let ((pipeline (gst-launch (cond ((eq? codec 'opus)
+                                                   "autoaudiosrc format=S16LE layout=interleaved rate=48000 channels=1 name=src")
+                                                  ((eq? codec 'vorbis)
+                                                   "autoaudiosrc format=F32LE layout=interleaved rate=80000 channels=2 name=src")
+                                                  (else
+                                                   "autoaudiosrc format=F32LE layout=interleaved rate=80000 channels=2 name=src"))
+                                            (and (eq? codec 'opus)
+                                                 "audioresample")
                                             (and (eq? codec 'opus) (tie "opusenc name=enc"))
                                             (and (eq? codec 'vorbis) (tie "vorbisenc name=enc"))
                                             "appsink name=sink")))
@@ -739,6 +748,10 @@
                       ((vorbis)
                        (gst_app_src_set_caps src
                                              (gst_caps "audio/x-vorbis")))
+                      ((opus)
+                       (gst_app_src_set_caps src
+                                             (gst_caps "audio/x-opus"
+                                                       "channel-mapping-family" (g_value_int 0))))
                       (else
                        (gst_app_src_set_caps src
                                              (gst_caps "audio/x-raw"

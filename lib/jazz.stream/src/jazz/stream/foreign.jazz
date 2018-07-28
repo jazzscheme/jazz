@@ -83,6 +83,8 @@
 (c-type GValue*  (pointer "GValue" GValue*))
 (c-type GObject  (native "GObject"))
 (c-type GObject* (pointer GObject #f))
+(c-type GThread  (native "GThread"))
+(c-type GThread* (pointer GThread GThread*))
 
 
 (c-enumerant G_TYPE_BOOLEAN)
@@ -660,69 +662,77 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
   (mac
 (c-declare jazz.stream.foreign #/C/
 #include <stdbool.h>
-#include <pthread.h>
+#include <glib.h>
 #include <rnnoise.h>
 
-pthread_mutex_t mutex;
-bool mutexInited = false;
-
-#define THREADPROC(name, payload) void* name(void* payload)
-
-typedef void*(*threadproc)(void*);
-
-/*
-void create_thread(threadproc proc, void* payload)
-{
-    #define FRAME_SIZE 480
-    float x[FRAME_SIZE];
-    DenoiseState *st;
-    st = rnnoise_create();
-    pthread_t thread;
-    pthread_create(&thread, NULL, proc, payload);
-    rnnoise_process_frame(st, x, x);
-    rnnoise_destroy(st);
-}
-*/
-
-void lock_mutex()
-{
-    if (! mutexInited)
-    {
-        pthread_mutex_init(&mutex, NULL);
-        mutexInited = true;
-    }
-    pthread_mutex_lock(&mutex);
-}
-
-void unlock_mutex()
-{
-    pthread_mutex_unlock(&mutex);
-}
-
 #define FRAME_SIZE 480
-float x[FRAME_SIZE];
-DenoiseState *st = NULL;
 
-static void gst_denoise(___SCMOBJ vec, int size)
+bool denoising = true;
+
+GstElement *mic_sink, *codec_src;
+
+static bool get_denoising()
 {
-    if (! st)
-        st = rnnoise_create();
-    
-    short *ptr = ___CAST(short *, ___BODY(vec));
-    int i;
-    
-    for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[i];
-    rnnoise_process_frame(st, x, x);
-    for (i=0;i<FRAME_SIZE;i++) ptr[i] = x[i];
+    return denoising;
 }
 
-static void gst_denoise_off()
+static void set_denoising(bool flag)
 {
-    if (st)
+    denoising = flag;
+}
+
+static void* denoise(void* data)
+{
+    float x[FRAME_SIZE];
+    
+    int done = 0;
+    
+    GstAppSink* sink = GST_APP_SINK(mic_sink);
+    GstAppSrc* src = GST_APP_SRC(codec_src);
+    
+    DenoiseState* st = rnnoise_create();
+    
+    while (! done)
     {
-        rnnoise_destroy(st);
-        st = NULL;
+        GstSample *sample;
+        sample = gst_app_sink_pull_sample(sink);
+        if (sample)
+        {
+            GstBuffer* buffer = gst_sample_get_buffer(sample);
+            if (buffer)
+            {
+                if (denoising)
+                {
+                    GstMapInfo map;
+                    gst_buffer_map(buffer, &map, GST_MAP_READ);
+                    int i;
+                    short *ptr = (short*) map.data;
+                    for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[i];
+                    rnnoise_process_frame(st, x, x);
+                    for (i=0;i<FRAME_SIZE;i++) ptr[i] = x[i];
+                    gst_buffer_unmap(buffer, &map);
+                }
+                gst_app_src_push_buffer(src, buffer);
+            }
+        }
+        else
+            done = 1;
     }
+    
+    rnnoise_destroy(st);
+    
+    return NULL;
+}
+
+static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
+{
+    mic_sink = sink;
+    codec_src = src;
+    
+    return g_thread_new("denoise", denoise, NULL);
+    
+    // where do we call this
+    // g_thread_unref(thread);
 }
 //#))
   (else))
@@ -800,8 +810,9 @@ static void gst_denoise_off()
 
 (cond-expand
   (mac
-(gst-external (gst_denoise scheme-object int) void)
-(gst-external (gst_denoise_off) void))
+(gst-external (get_denoising) bool)
+(gst-external (set_denoising bool) void)
+(gst-external (create_denoiser_thread GstElement* GstElement*) GThread*))
   (else))
 
 

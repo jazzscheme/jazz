@@ -93,8 +93,12 @@
 (native / <number*:number>)
 (native abs <number:number>)
 (native quotient <number^number:number>)
+;; quicky for together
+(native %%quotient <number^number:number>)
 (native remainder <number^number:number>)
 (native modulo <number^number:number>)
+;; quicky for together
+(native %%modulo <number^number:number>)
 (native gcd <number*:number>)
 (native lcm <number*:number>)
 (native numerator <rational:number>)

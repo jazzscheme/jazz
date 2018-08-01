@@ -630,6 +630,8 @@
 
 (jazz:add-primitive-patterns     'scheme.language.runtime:/                           '(                          (safe %%fl/  <fv^fv*:fl>)                   (zero-unsafe %%/ <number^number:number>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime:quotient                    '((zero-unsafe %%fxquotient <fx^fx:fx>)))
+;; quicky for together
+(jazz:add-primitive-patterns     'scheme.language.runtime:%%quotient                  '((safe %%fxquotient <fx^fx:fx>)))
 
 (jazz:add-primitive-patterns     'scheme.language.runtime:floor                       '(                          (safe %%flfloor    <fv:fl>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime:ceiling                     '(                          (safe %%flceiling  <fv:fl>)))
@@ -676,6 +678,8 @@
 (jazz:add-primitive-patterns     'scheme.language.runtime:min                         '((safe %%fxmin <fx^fx:fx>) (safe %%flmin <fv^fv:fl>) (safe %%flmin <fv^fv^fv:fl>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime:max                         '((safe %%fxmax <fx^fx:fx>) (safe %%flmax <fv^fv:fl>) (safe %%flmax <fv^fv^fv:fl>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime:modulo                      '((zero-unsafe %%fxmodulo <fx^fx:fx>)))
+;; quicky for together
+(jazz:add-primitive-patterns     'scheme.language.runtime:%%modulo                    '((safe %%fxmodulo <fx^fx:fx>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime:even?                       '((safe %%fxeven? <fx:bool>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime:odd?                        '((safe %%fxodd? <fx:bool>)))
 

@@ -139,7 +139,7 @@
 
 (cond-expand
   (ios
-    (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
+    (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
                           ,@jazz:ios-units)))
@@ -147,7 +147,7 @@
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor)))))
   (cocoa
-    (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
+    (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
                           ,@jazz:cocoa-units)))
@@ -155,7 +155,7 @@
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor)))))
   (windows
-    (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
+    (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
                           ,@jazz:windows-units)))
@@ -163,7 +163,7 @@
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor)))))
   (x11
-    (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
+    (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
                           ,@jazz:x11-units)))

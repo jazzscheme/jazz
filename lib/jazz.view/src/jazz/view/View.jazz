@@ -54,6 +54,7 @@
         (jazz.print)
         (jazz.reference)
         (jazz.resource)
+        (jazz.screen)
         (jazz.text)
         (jazz.tree)
         (jazz.ui)
@@ -1048,24 +1049,27 @@
   
   
   (method override (get-offscreen self surface <Surface+>)
-    (let ((width (get-width size))
-          (height (get-height size)))
-      (if (and offscreen
-               (let ((handle (get-handle offscreen)))
-                 (let ((actual-width (cairo_image_surface_get_width handle))
-                       (actual-height (cairo_image_surface_get_height handle)))
-                   (and (<= width actual-width)
-                        (<= height actual-height)))))
-          (begin
-            (renew-context offscreen)
-            offscreen)
-        (close-offscreen self)
-        (set! offscreen (new-offscreen surface width height))
-        offscreen)))
-  
-  
-  (definition (new-offscreen surface <Surface+> width <fx> height <fx>)
-    (new Memory-Surface surface (new Dimension width height)))
+    (let ((scale-factor (main-screen-scale-factor)))
+      (define (new-offscreen width height)
+        (let ((offscreen (new Memory-Surface surface (new Dimension width height)))
+              (scale (cast <fl> scale-factor)))
+          (cairo_surface_set_device_scale (get-handle offscreen) scale scale)
+          offscreen))
+      
+      (let ((width (* scale-factor (get-width size)))
+            (height (* scale-factor (get-height size))))
+        (if (and offscreen
+                 (let ((handle (get-handle offscreen)))
+                   (let ((actual-width (cairo_image_surface_get_width handle))
+                         (actual-height (cairo_image_surface_get_height handle)))
+                     (and (<= width actual-width)
+                          (<= height actual-height)))))
+            (begin
+              (renew-context offscreen)
+              offscreen)
+          (close-offscreen self)
+          (set! offscreen (new-offscreen width height))
+          offscreen))))
   
   
   (method package (close-offscreen self)

@@ -39,15 +39,20 @@
 
 
 (import (jazz.cairo)
-        (jazz.graphic))
+        (jazz.graphic)
+        (jazz.screen))
 
 
 (class Image-Surface extends Surface
   
   
-  (method override (initialize self size)
-    (let ((handle (cairo_image_surface_create CAIRO_FORMAT_ARGB32 (get-width size) (get-height size))))
-      (nextmethod self handle)))
+  (method override (initialize self size (retina?: retina? #f))
+    (let ((scale-factor (if retina? (main-screen-scale-factor) 1)))
+      (let ((handle (cairo_image_surface_create CAIRO_FORMAT_ARGB32 (* scale-factor (get-width size)) (* scale-factor (get-height size)))))
+        (when retina?
+          (let ((scale (cast <fl> scale-factor)))
+            (cairo_surface_set_device_scale handle scale scale)))
+        (nextmethod self handle))))
   
   
   (method package (renew-context self)

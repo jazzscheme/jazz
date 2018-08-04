@@ -46,7 +46,8 @@
         (jazz.opengl.glew)
         (jazz.opengl.sample)
         (jazz.opengl.sample.syntax (phase syntax))
-        (jazz.opengl.sample.texture))
+        (jazz.opengl.sample.texture)
+        (jazz.screen))
 
 
 ;;;
@@ -547,7 +548,6 @@ void main()
     (glBindVertexArray 0)))
 
 
-@convert
 (class Interface-Array extends Array
   
   
@@ -604,18 +604,15 @@ void main()
   (method (create-programs self)
     (set! color-program (new Color-Program))
     (set! texture-program (new Texture-Program))
-    @convert
     (set! interface-program (new Interface-Program)))
   
   
   (method (release-programs self)
     (glDeleteProgram (get-program Color-Program))
     (glDeleteProgram (get-program Texture-Program))
-    @convert
     (glDeleteProgram (get-program Interface-Program))
     (set! color-program #f)
     (set! texture-program #f)
-    @convert
     (set! interface-program #f))
   
   
@@ -628,7 +625,6 @@ void main()
     (set! red-array (create-red self))
     (set! blue-array (create-blue self))
     (set! texture-array (create-texture self))
-    @convert
     (set! interface-array (create-interface self)))
   
   
@@ -667,7 +663,6 @@ void main()
       (new Texture-Array texture-program vertices)))
   
   
-  @convert
   (method (create-interface self)
     (let ((vertices #f32(  0.0 10.0 0.0 0.0 0.0 0.0
                           10.0 10.0 0.0 1.0 0.0 0.0
@@ -689,7 +684,8 @@ void main()
   
   (method override (resize-scene self width <fl> height <fl>)
     ;; Viewport
-    (glViewport 0 0 (fxround width) (fxround height))
+    (let ((scale-factor (main-screen-scale-factor)))
+      (glViewport 0 0 (* scale-factor (fxround width)) (* scale-factor (fxround height))))
     
     ;; Projection
     (let ((ratio (/ width height)))
@@ -703,8 +699,7 @@ void main()
     
     ;; Textures
     (set! texture (make-cairo-texture 100 100))
-    @convert
-    (set! interface (make-cairo-texture (fxround width) (fxround height))))
+    (set! interface (make-cairo-texture (fxround width) (fxround height) retina?: #t)))
   
   
   ;;;
@@ -760,13 +755,12 @@ void main()
     (unbind-uniforms texture-program)
     (unuse texture-program)
     
-    @convert (
     ;; Interface
     (let ((surface (get-surface interface)))
       (set-operator surface CAIRO_OPERATOR_CLEAR)
       (paint surface)
       (set-operator surface CAIRO_OPERATOR_OVER)
-      (let ((size (get-size)))
+      (let ((size (get-size self)))
         (let ((width (get-width size))
               (height (get-height size)))
           (let ((w/2 (quotient width 2))
@@ -774,9 +768,13 @@ void main()
             (fill-rect surface (new Rect 0 0 w/2 h/2) {Color Orange alpha: .5})
             (fill-rect surface (new Rect w/2 h/2 width height) {Color Orange alpha: .5})
             (fill-rect surface (new Rect w/2 0 width h/2) {Color Purple alpha: .5})
-            (fill-rect surface (new Rect 0 h/2 w/2 height) {Color Purple alpha: .5}))))
+            (fill-rect surface (new Rect 0 h/2 w/2 height) {Color Purple alpha: .5})
+            (set-font surface {Font Label point-size: 16})
+            (draw-text surface 10 10 "OpenGL sample" {Color White}))))
       (map-texture interface))
     (glEnable GL_BLEND)
+    (glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA)
+    (glDisable GL_DEPTH_TEST)
     (use interface-program)
     (bind-uniforms interface-program orthographic-matrix (get-id interface))
     (glBindVertexArray (get-array interface-array))
@@ -784,4 +782,5 @@ void main()
     (glBindVertexArray 0)
     (unbind-uniforms interface-program)
     (unuse interface-program)
-    (glDisable GL_BLEND)))))
+    (glEnable GL_DEPTH_TEST)
+    (glDisable GL_BLEND))))

@@ -40,7 +40,8 @@
 
 (import (jazz.cairo)
         (jazz.graphic)
-        (jazz.opengl.glew))
+        (jazz.opengl.glew)
+        (jazz.screen))
 
 
 ;;;
@@ -65,9 +66,10 @@
   (slot file       <object>  accessors generate)
   
   
-  (method override (initialize self width height (data: data #f) (min-filter: min-filter #f) (mag-filter: mag-filter #f) (wrap: wrap #f) (mipmap?: mipmap? #f) (metadata: metadata #f) (file: file #f))
-    (set! self.width width)
-    (set! self.height height)
+  (method override (initialize self width height (retina?: retina? #f) (data: data #f) (min-filter: min-filter #f) (mag-filter: mag-filter #f) (wrap: wrap #f) (mipmap?: mipmap? #f) (metadata: metadata #f) (file: file #f))
+    (let ((scale-factor (if retina? (main-screen-scale-factor) 1)))
+      (set! self.width (* scale-factor width))
+      (set! self.height (* scale-factor height)))
     (set! self.depth #f)
     (set! self.data data)
     (set! self.target #f)
@@ -126,9 +128,9 @@
   
   
   (method override (initialize self width height . rest)
-    (bind-keywords ((surface #f) . others) rest
-      (apply nextmethod self width height others)
-      (set! self.surface (or surface (new Image-Surface (new Dimension width height))))
+    (bind-keywords ((surface #f) (retina? #f) . others) rest
+      (apply nextmethod self width height retina?: retina? others)
+      (set! self.surface (or surface (new Image-Surface (new Dimension width height) retina?: retina?)))
       (set! self.data (cairo_image_surface_get_data (get-handle self.surface)))))
   
   

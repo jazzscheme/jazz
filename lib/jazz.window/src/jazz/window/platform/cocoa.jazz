@@ -616,8 +616,34 @@
 
 
 (definition package (platform-scroll-window handle delta rect clip-rect)
-  (platform-invalidate-rect handle clip-rect)
-  @wait (platform-update-window handle))
+  (invalidate-offscreen-rect handle rect)
+  (let* ((dh (get-x delta))
+         (dv (get-y delta))
+         (rect (rect-intersection rect clip-rect))
+         (dst-rect (offset-rect rect dh dv))
+         (modified-rect (rect-intersection (rect-union rect dst-rect) clip-rect)))
+    ;; scroll rect
+    (let ((rect (offset-rect (rect-intersection dst-rect rect) (- dh) (- dv))))
+      (with-NSRect rect
+        (lambda (rect)
+          (with-NSSize (distance->dimension delta)
+            (lambda (delta)
+              (platformScrollRect handle rect delta))))))
+    ;; invalidate rects
+    (let ((ml (get-left modified-rect))
+          (mt (get-top modified-rect))
+          (mr (get-right modified-rect))
+          (mb (get-bottom modified-rect)))
+      (when (< dh 0)
+        (platform-invalidate-rect handle (new Rect (+ mr dh) mt mr mb)))
+      (when (< dv 0)
+        (platform-invalidate-rect handle (new Rect ml (+ mb dv) mr mb)))
+      (when (> dh 0)
+        (platform-invalidate-rect handle (new Rect ml mt (+ ml dh) mb)))
+      (when (> dv 0)
+        (platform-invalidate-rect handle (new Rect ml mt mr (+ mt dv)))))
+    ;; update window
+    (platform-update-window handle)))
 
 
 (definition package (platform-invalidate-rect handle rect)
@@ -640,7 +666,8 @@
 
 (definition package (platform-redraw-window handle rect region)
   (cond (rect (platform-invalidate-rect handle rect))
-        (region (platform-invalidate-region handle region))))
+        (region (platform-invalidate-region handle region)))
+  (platform-update-window handle))
 
 
 (definition package (platform-get-update-rect handle)
@@ -651,17 +678,19 @@
   (unimplemented 'platform-get-update-region))
 
 
-(definition package (platform-redraw-view-only view handle)
+(definition package (platform-redraw-scrollbar view handle)
   (let ((rct (acquire (get-root view) view (get-bounds view))))
-    (platform-invalidate-rect handle rct)))
+    ;; clear any invalidations
+    (platform-update-window handle)
+    ;; going through the offscreen to redraw the
+    ;; scrollbar is extremely costly on retina display
+    (parameterize ((inhibit-offscreen? #t))
+      (platform-invalidate-rect handle rct)
+      (platform-update-window handle))))
 
 
 (definition package (platform-update-window handle)
-  @wait
-  (when handle
-    (let* ((size (platform-get-content-size handle))
-           (rct (new Rect 0 0 (get-width size) (get-height size))))
-      (platform-invalidate-rect handle rct))))
+  (platformDisplayIfNeeded handle))
 
 
 (definition package (platform-show-noactivate handle)

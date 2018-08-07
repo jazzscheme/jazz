@@ -38,7 +38,8 @@
 (module jazz.logger jazz
 
 
-(import (jazz.io))
+(import (jazz.io)
+        (time))
 
 
 (definition *logger-directory*
@@ -49,6 +50,9 @@
 
 (definition *logger-prefix*
   "log")
+
+(definition *logger-port*
+  #f)
 
 
 (definition public (logger-directory)
@@ -77,21 +81,38 @@
   *logger-file*)
 
 
+(definition public (logger-port)
+  (when (not *logger-port*)
+    (set! *logger-port* (open-output-file (path-settings (logger-file) append: #t))))
+  *logger-port*)
+
+
+(definition public (logger-close)
+  (when *logger-port*
+    (close-port *logger-port*)
+    (set! *logger-port* #f)))
+
+
 (definition public (with-logger-output proc)
-  (call-with-output-file (path-settings (logger-file) append: #t)
-    (lambda (port)
-      (proc port))))
+  (let ((port (logger-port)))
+    (proc port)
+    (force-output port)))
 
 
 (definition public (logger-log . rest)
   (with-logger-output
     (lambda (port)
-      (apply format port rest)
-      (force-output port))))
+      (apply format port rest))))
 
 
 (definition public (logger-line line)
   (logger-log "{a}{%}" line))
+
+
+(definition public (logger . rest)
+  (let ((date (date->string (current-date) "~Y-~M-~d ~H:~M:~S"))
+        (line (apply format rest)))
+    (logger-log "{a} {a}{%}" date line)))
 
 
 (definition public (logger-expr expr)

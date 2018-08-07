@@ -2103,8 +2103,15 @@
                         quiet?)))))
 
 
+(define jazz:verbose-port
+  #f)
+
+(define (jazz:set-verbose-port port)
+  (set! jazz:verbose-port port))
+
+
 (define (jazz:with-verbose flag action path proc)
-  (let ((port (repl-output-port)))
+  (let ((port (or jazz:verbose-port (repl-output-port))))
     (define (verbose-load)
       (display (%%make-string (jazz:load-indent) #\space) port)
       (display "; " port)

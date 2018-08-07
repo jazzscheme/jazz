@@ -565,6 +565,8 @@
 (native jazz:unit-loaded?)
 (native jazz:unit-status)
 (native jazz:unit-uptodate-binary?)
+(native jazz:verbose-port)
+(native jazz:set-verbose-port)
 (native jazz:load-unit)
 (native jazz:load-hook)
 (native jazz:unload-unit)

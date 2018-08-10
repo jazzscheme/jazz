@@ -961,6 +961,8 @@ void activate_callback(PlatformWindow* window);
 void deactivate_callback(PlatformWindow* window);
 void terminate_callback();
 void finished_playing_callback(NSString* alias);
+void will_sleep_callback();
+void did_wake_callback();
 void user_callback(int data1, int data2);
 
 //#)
@@ -1974,6 +1976,32 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 @implementation JazzApplication
 
+- (void) registerWorkspaceNotifications
+{
+    NSNotificationCenter *center;
+    center = [[NSWorkspace sharedWorkspace] notificationCenter];
+    
+    [center addObserver: self
+            selector: @selector(receiveSleepNote:)
+            name: NSWorkspaceWillSleepNotification
+            object: nil];
+    
+    [center addObserver: self
+            selector: @selector(receiveWakeNote:)
+            name: NSWorkspaceDidWakeNotification
+            object: nil];
+}
+
+- (void) receiveSleepNote: (NSNotification*) note
+{
+    will_sleep_callback();
+}
+ 
+- (void) receiveWakeNote: (NSNotification*) note
+{
+    did_wake_callback();
+}
+
 // From http://cocoadev.com/index.pl?GameKeyboardHandlingAlmost
 // This works around an AppKit bug, where key up events while holding
 // down the command key don't get sent to the key window.
@@ -2110,6 +2138,8 @@ static void initializeAppKit()
     
     // In case we are unbundled, make us a proper UI application
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    
+    [NSApp registerWorkspaceNotifications];
 
     // Menu bar setup must go between sharedApplication above and
     // finishLaunching below, in order to properly emulate the behavior
@@ -4145,6 +4175,14 @@ void platformPlaySound(char* filename, double volume)
 
 (c-callback (finished-playing-callback alias) (NSString*) void "finished_playing_callback" "" #f
   (music-played-callback alias))
+
+
+(c-callback (will-sleep-callback) () void "will_sleep_callback" "" #f
+  (sleep-callback))
+
+
+(c-callback (did-wake-callback) () void "did_wake_callback" "" #f
+  (wake-callback))
 
 
 (c-callback (user-callback data1 data2) (int int) void "user_callback" "" #f

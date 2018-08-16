@@ -270,8 +270,11 @@
   jazz:source-repositories)
 
 
-(define jazz:kernel-c/home-homedir?
-  jazz:c/home-homedir?)
+(define jazz:kernel-windows-homedir
+  ;; the build system needs access to home
+  (if (%%not jazz:product)
+      #f
+    jazz:windows-homedir))
 
 
 (define (jazz:jazz-product)

@@ -145,7 +145,7 @@
 (jazz:define-setting jazz:build-single-objects?
   #f)
 
-(jazz:define-setting jazz:build-c/home-homedir?
+(jazz:define-setting jazz:build-windows-homedir
   #f)
 
 (jazz:define-setting jazz:build-link

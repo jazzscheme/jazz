@@ -376,13 +376,16 @@
      (let ((home-dir #f))
        (lambda ()
          (define (home-heuristic)
-           (if (and (file-exists? "~")
-                    (%%not jazz:kernel-c/home-homedir?))
-               "~"
-             (let ((dir "c:/Home"))
-               (if (%%not (file-exists? dir))
-                   (create-directory dir))
-               dir)))
+           (if jazz:kernel-windows-homedir
+               (if (jazz:string-starts-with? jazz:kernel-windows-homedir ".")
+                   (string-append jazz:kernel-install jazz:kernel-windows-homedir)
+                 (let ((dir jazz:kernel-windows-homedir))
+                   (if (%%not (file-exists? dir))
+                       (create-directory dir))
+                   dir))
+             (if (file-exists? "~")
+                 "~"
+               (jazz:error "Unable to find homedir"))))
          
          (or home-dir
              (let ((home (home-heuristic)))

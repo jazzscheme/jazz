@@ -65,7 +65,7 @@
 (define jazz:jazzini-access?
   #f)
 
-(define jazz:c/home-homedir?
+(define jazz:windows-homedir
   #f)
 
 (define jazz:single-objects?

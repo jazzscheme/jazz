@@ -570,6 +570,16 @@
 ;;;
 
 
+(define (jazz:standard-input-port)
+  jazz:stdin-port)
+
+(define (jazz:standard-output-port)
+  jazz:stdout-port)
+
+(define (jazz:standard-error-port)
+  jazz:stderr-port)
+
+
 (define (jazz:write-string str port)
   (%%write-string str port))
 

@@ -260,8 +260,14 @@
 ;;;
 
 
+(define jazz:stdin-port
+  ##stdin-port)
+
 (define jazz:stdout-port
   ##stdout-port)
+
+(define jazz:stderr-port
+  ##stderr-port)
 
 
 ;;;

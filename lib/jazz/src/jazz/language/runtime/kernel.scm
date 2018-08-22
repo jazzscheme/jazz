@@ -777,6 +777,9 @@
 ;;;
 
 
+(native jazz:standard-input-port)
+(native jazz:standard-output-port)
+(native jazz:standard-error-port)
 (native jazz:controlling-terminal?)
 (native jazz:eof-object)
 (native jazz:write-string)

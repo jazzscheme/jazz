@@ -46,7 +46,25 @@
 ;;;
 
 
-(class Connection-Broke extends Exception)
+(class Connection-Broke extends Exception
+  
+  
+  (slot reason getter generate)
+  
+  
+  (method override (initialize self rs)
+    (nextmethod self)
+    (set! reason rs))
+  
+  
+  (method override (print self printer readably)
+    (print-unreadable self printer
+      (lambda (printer)
+        (format printer "{a}" reason)))))
+
+
+(definition public (throw-connection-broke reason)
+  (throw (new Connection-Broke reason)))
 
 
 ;;;
@@ -119,7 +137,7 @@
          (b11 (read-u8 port))
          (b12 (read-u8 port)))
     (if (eof-object? b12)
-        (throw (new Connection-Broke))
+        (throw-connection-broke "Read header received eof")
       (let ((code (bytes->32-bit-integer b1 b2 b3 b4))
             (version-code (bytes->64-bit-integer b5 b6 b7 b8 b9 b10 b11 b12)))
         (values code (64-bit-integer->version version-code))))))
@@ -132,7 +150,7 @@
 (definition (read-data port)
   (let ((data (read-binary port)))
     (if (eof-object? data)
-        (throw (new Connection-Broke))
+        (throw-connection-broke "Read data received eof")
       data)))
 
 

@@ -156,6 +156,7 @@
 (hub read-message)
 (hub register-object)
 (hub remote-class)
+(hub request-close-connection)
 (hub require-connection)
 (hub require-object)
 (hub set-protocol)
@@ -420,6 +421,12 @@
       (lambda ()
         (table-clear connections remote-uuid)
         (close-port (get-port connection)))))
+  
+  
+  (method (request-close-connection self remote-uuid connection)
+    (with-connections-mutex self
+      (lambda ()
+        (set-request-close? connection #t))))
 
   
   ;;;
@@ -465,6 +472,7 @@
   (slot title             getter generate)
   (slot service           getter generate)   ; the peer's listener port
   (slot address           getter generate)   ; the peer's address of us
+  (slot request-close?    accessors generate)
   (slot protocol          accessors generate)
   (slot lag               accessors generate)
   (slot slave?            getter generate)
@@ -482,6 +490,7 @@
     (set! self.title title)
     (set! self.service service)
     (set! self.address address)
+    (set! self.request-close? #f)
     (set! self.protocol protocol)
     (set! self.lag lag)
     (set! self.slave? slave?))
@@ -516,7 +525,12 @@
                        (read-message self))
                      @gazrob (read-message self)))
         (if (eof-object? message) ;; gazrob
-            (throw-connection-broke "Process received eof")
+            ;; normal termination closes the connection
+            (when (find-connection presence remote-uuid)
+              (if request-close?
+                  (close-connection presence remote-uuid self)
+                (close-connection presence remote-uuid self)
+                (throw-connection-broke "Process received eof")))
           (bind (kind . rest) message
             (case kind
               ((post exec call)
@@ -789,6 +803,15 @@
           (uuid (get-uuid (get-ior remote-proxy))))
       (let ((connection (require-connection presence uuid)))
         (close-connection presence uuid connection)))))
+
+
+(definition public (request-close-remote-proxy remote-proxy)
+  (catch (Connection-Broke exc
+           #f)
+    (let ((presence (get-presence remote-proxy))
+          (uuid (get-uuid (get-ior remote-proxy))))
+      (let ((connection (require-connection presence uuid)))
+        (request-close-connection presence uuid connection)))))
 
 
 ;;;

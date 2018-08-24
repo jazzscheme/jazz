@@ -735,7 +735,64 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
     // g_thread_unref(thread);
 }
 //#))
-  (else))
+  (else
+(c-declare jazz.stream.foreign #/C/
+#include <stdbool.h>
+#include <glib.h>
+
+#define FRAME_SIZE 480
+
+bool denoising = true;
+
+GstElement *mic_sink, *codec_src;
+
+static bool get_denoising()
+{
+    return denoising;
+}
+
+static void set_denoising(bool flag)
+{
+    denoising = flag;
+}
+
+static void* denoise(void* data)
+{
+    int done = 0;
+    
+    GstAppSink* sink = GST_APP_SINK(mic_sink);
+    GstAppSrc* src = GST_APP_SRC(codec_src);
+    
+    while (! done)
+    {
+        GstSample *sample;
+        sample = gst_app_sink_pull_sample(sink);
+        if (sample)
+        {
+            GstBuffer* buffer = gst_sample_get_buffer(sample);
+            if (buffer)
+            {
+                gst_app_src_push_buffer(src, buffer);
+            }
+        }
+        else
+            done = 1;
+    }
+    
+    return NULL;
+}
+
+static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
+{
+    mic_sink = sink;
+    codec_src = src;
+    
+    return g_thread_new("denoise", denoise, NULL);
+    
+    // where do we call this
+    // g_thread_unref(thread);
+}
+//#)))
 
 
 (gst-external (gst_init NULL NULL) void)
@@ -808,14 +865,9 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (GST_MESSAGE_TYPE GstMessage*) GstMessageType)
 (gst-external (GST_MESSAGE_SRC GstMessage*) GstElement*)
 
-(cond-expand
-  (mac
 (gst-external (get-denoising?) bool "get_denoising")
 (gst-external (set-denoising? bool) void "set_denoising")
-(gst-external (create-denoiser-thread GstElement* GstElement*) GThread* "create_denoiser_thread"))
-  (else
-(definition public (get-denoising?) #f)
-(definition public (set-denoising? flag))))
+(gst-external (create-denoiser-thread GstElement* GstElement*) GThread* "create_denoiser_thread")
 
 
 (gst-external (move-u8vector->pointer! scheme-object void*) void

@@ -78,6 +78,8 @@
 (export (jazz.console.autoload))
 (import (jazz.component)
         (jazz.editor.lisp)
+        (jazz.exemplar)
+        (jazz.text)
         (jazz.view))
 
 
@@ -90,4 +92,142 @@
 
 
 (definition package (get-console-text-manager text)
-  (get-creator (get-parent (get-creator text)))))
+  (get-creator (get-parent (get-creator text))))
+
+
+;;;
+;;;; Inserted
+;;;
+
+
+(class Inserted extends Object
+  
+  
+  (slot rank  initialize #f accessors generate)
+  (slot where initialize #f accessors generate)
+  
+  
+  (method (reset self)
+    (set! rank #f)
+    (set! where #f)))
+
+
+;;;
+;;;; Style
+;;;
+
+
+(definition package (console-backward-style text pos predicate)
+  (let ((explorer (new (explorer-class text) (get-model text) start: pos end: pos)))
+    (backward-style explorer predicate)
+    (get-range explorer)))
+
+
+(definition package (console-forward-style text pos predicate)
+  (let ((explorer (new (explorer-class text) (get-model text) start: pos end: pos)))
+    (forward-style explorer predicate)
+    (get-range explorer)))
+
+
+(definition package (console-select-style text pos predicate)
+  (let ((explorer (new (explorer-class text) (get-model text) start: pos end: pos)))
+    (select-style explorer predicate)
+    (get-range explorer)))
+
+
+;;;
+;;;; Navigation
+;;;
+
+
+(definition (text-style? style)
+  (or (inherits? style 'Banner)
+      (inherits? style 'Prompt)
+      (inherits? style 'Output)
+      (inherits? style 'Error)))
+
+
+(definition (user-style? style)
+  (not (text-style? style)))
+
+
+(definition package (console-block-at text pos)
+  (new-range text
+             (get-start (console-backward-style text pos user-style?))
+             (get-end (console-forward-style text pos user-style?))))
+
+
+(definition (console-next-block text block)
+  (let* ((next-start (get-end (console-forward-style text (get-end block) text-style?)))
+         (next-end (get-end (console-forward-style text next-start user-style?))))
+    (new-range text next-start next-end)))
+
+
+(definition (console-previous-block text block)
+  (let* ((previous-end (get-start (console-backward-style text (get-start block) text-style?)))
+         (previous-start (get-start (console-backward-style text previous-end user-style?))))
+    (new-range text previous-start previous-end)))
+
+
+(definition package (console-last-block text)
+  (let ((ending (text-ending text)))
+    (console-backward-style text ending user-style?)))
+
+
+(definition (console-find-block text rank)
+  (let (iterate (block (console-last-block text)) (n rank))
+    (if (<= n 0)
+        block
+      (iterate (console-previous-block text block) (- n 1)))))
+
+
+(definition (empty-block? block)
+  (nu=? (get-start block)
+        (get-end block)))
+
+
+(definition package (console-insert-previous-block text inserted)
+  (let* ((current (or (get-rank inserted) 0))
+         (previous (+ current 1))
+         (block (console-find-block text previous)))
+    (unless (empty-block? block)
+      (when (get-where inserted)
+        (set-selection text (get-where inserted)))
+      (let ((start (get-start text)))
+        (insert-string text (remove-enclosing #\newline (get-string text block)))
+        (set-rank inserted previous)
+        (set-where inserted (new-range text start (get-start text)))))))
+
+
+(definition package (console-insert-next-block text inserted)
+  (let* ((current (or (get-rank inserted) 0))
+         (next (- current 1)))
+    (when (> next 0)
+      (let ((block (console-find-block text next)))
+        (unless (empty-block? block)
+          (when (get-where inserted)
+            (set-selection text (get-where inserted)))
+          (let ((start (get-start text)))
+            (insert-string text (remove-enclosing #\newline (get-string text (console-find-block text next))))
+            (set-rank inserted next)
+            (set-where inserted (new-range text start (get-start text)))))))))
+
+
+(definition package (console-return text evaluate)
+  (let ((block (console-block-at text (get-end text))))
+    (cond ((empty-block? block)
+           (set-caret text (text-ending text)))
+          ((nu=? block (console-last-block text))
+           (evaluate))
+          (else
+           (set-caret text (text-ending text))
+           (insert-string text (remove-enclosing #\newline (get-string text block)))))))
+
+
+;;;
+;;;; Console
+;;;
+
+
+(definition public (console-insert-previous text)
+  ))

@@ -54,8 +54,7 @@
 (class undocumented Console-Text-View extends IDE-Text-View
 
 
-  (slot inserted-rank  initialize #f)
-  (slot inserted-where initialize #f)
+  (slot inserted       initialize (new Inserted))
   (slot banner         initialize #f accessors generate)
   (slot banner-prompt  initialize #f accessors generate)
   (slot console-port   initialize #f accessors generate)
@@ -137,23 +136,18 @@
     (fresh-prompt self))
   
   
-  (method (on-console-evaluate self evt)
-    (let ((block (block-at self (get-end self))))
-      (cond ((empty-block? block)
-             (set-caret self (text-ending self)))
-            ((nu=? block (last-block self))
-             (console-evaluate self))
-            (else
-             (set-caret self (text-ending self))
-             (insert-string self (remove-enclosing #\newline (get-string self block)))))))
+  (method (on-console-return self evt)
+    (console-return self
+      (lambda ()
+        (console-evaluate self))))
   
   
   (method (on-insert-previous self evt)
-    (insert-previous-block self))
+    (console-insert-previous-block self inserted))
   
   
   (method (on-insert-next self evt)
-    (insert-next-block self))
+    (console-insert-next-block self inserted))
 
 
   (method override (tab-press self evt)
@@ -162,9 +156,9 @@
           ((not (get-auto-complete? (preferences self)))
            (complete-at self (get-start self) auto-complete?: #t))
           ((get-shift? evt)
-           (insert-next-block self))
+           (console-insert-next-block self inserted))
           (else
-           (insert-previous-block self))))
+           (console-insert-previous-block self inserted))))
   
   
   (method override (delete-char self)
@@ -192,7 +186,7 @@
   
   (method override (set-selection self range . rest)
     (apply nextmethod self range rest)
-    (set! inserted-where #f))
+    (set-where inserted #f))
 
 
   ;;;
@@ -213,11 +207,11 @@
           (display command console-port)
           (force-output console-port)
           (stylize-range model range (locate-style self 'Input))
-          (reset-inserted self)))))
+          (reset inserted)))))
   
   
   (method (current-command self)
-    (select-style self (text-ending self)
+    (console-select-style self (text-ending self)
       (lambda (style)
         (inherits? style 'Entry))))
 
@@ -311,29 +305,6 @@
            (stylize-range model range (locate-style self 'Prompt)))))
       (else
        (nextmethod self directive input))))
-
-
-  ;;;
-  ;;;; Style
-  ;;;
-  
-  
-  (method package (backward-style self pos predicate)
-    (let ((explorer (new (explorer-class self) model start: pos end: pos)))
-      (backward-style explorer predicate)
-      (get-range explorer)))
-  
-  
-  (method package (forward-style self pos predicate)
-    (let ((explorer (new (explorer-class self) model start: pos end: pos)))
-      (forward-style explorer predicate)
-      (get-range explorer)))
-  
-  
-  (method package (select-style self pos predicate)
-    (let ((explorer (new (explorer-class self) model start: pos end: pos)))
-      (select-style explorer predicate)
-      (get-range explorer)))
     
 
   ;;;
@@ -347,10 +318,11 @@
   
   
   (method public virtual (determine-banner self)
-    (let ((range (forward-style self (text-beginning self) (lambda (style)
-                                                   (or (inherits? style 'Banner)
-                                                       (inherits? style 'Prompt)
-                                                       (inherits? style 'Output))))))
+    (let ((range (console-forward-style self (text-beginning self)
+                   (lambda (style)
+                     (or (inherits? style 'Banner)
+                         (inherits? style 'Prompt)
+                         (inherits? style 'Output))))))
       (when range
         (get-string self range))))
   
@@ -369,7 +341,7 @@
   
   
   (method public (fresh-prompt self)
-    (stylize-range model (block-at self (get-end self)) (locate-style self 'Comment))
+    (stylize-range model (console-block-at self (get-end self)) (locate-style self 'Comment))
     (let ((end (text-ending self)))
       (set-caret self end)
       (let ((prompt-range (last-prompt self)))
@@ -378,49 +350,6 @@
             (when (/= (get-col end) 0)
               (insert-newline self)
               (insert-styled self prompt 'Prompt)))))))
-  
-  
-  ;;;
-  ;;;; Navigation
-  ;;;
-  
-  
-  (method (reset-inserted self)
-    (set! inserted-rank #f)
-    (set! inserted-where #f))
-  
-  
-  (definition (text-style? style)
-    (or (inherits? style 'Banner)
-        (inherits? style 'Prompt)
-        (inherits? style 'Output)))
-  
-  
-  (definition (user-style? style)
-    (not (text-style? style)))
-  
-  
-  (method package (block-at self pos)
-    (new-range self
-      (get-start (backward-style self pos user-style?))
-      (get-end (forward-style self pos user-style?))))
-  
-  
-  (method (next-block self block)
-    (let* ((next-start (get-end (forward-style self (get-end block) text-style?)))
-           (next-end (get-end (forward-style self next-start user-style?))))
-      (new-range self next-start next-end)))
-  
-  
-  (method (previous-block self block)
-    (let* ((previous-end (get-start (backward-style self (get-start block) text-style?)))
-           (previous-start (get-start (backward-style self previous-end user-style?))))
-      (new-range self previous-start previous-end)))
-  
-  
-  (method package (last-block self)
-    (let ((ending (text-ending self)))
-      (backward-style self ending user-style?)))
   
   
   (method (last-prompt self)
@@ -438,47 +367,8 @@
             (new Range$Cell$ (new Cell (get-line end) 0) end)))))
     
     (let ((ending (text-ending self)))
-      (let ((range (backward-style self ending (lambda (style) (not (prompt-style? style))))))
-        (prompt (backward-style self (get-start range) (lambda (style) (prompt-style? style)))))))
-  
-  
-  (method (find-block self rank)
-    (let (iterate (block (last-block self)) (n rank))
-      (if (<= n 0)
-          block
-        (iterate (previous-block self block) (- n 1)))))
-  
-  
-  (definition (empty-block? block)
-    (nu=? (get-start block)
-          (get-end block)))
-
-  
-  (method (insert-previous-block self)
-    (let* ((current (or inserted-rank 0))
-           (previous (+ current 1))
-           (block (find-block self previous)))
-      (unless (empty-block? block)
-        (when inserted-where
-          (set-selection self inserted-where))
-        (let ((start (get-start self)))
-          (insert-string self (remove-enclosing #\newline (get-string self block)))
-          (set! inserted-rank previous)
-          (set! inserted-where (new-range self start (get-start self)))))))
-
-  
-  (method (insert-next-block self)
-    (let* ((current (or inserted-rank 0))
-           (next (- current 1)))
-      (when (> next 0)
-        (let ((block (find-block self next)))
-          (unless (empty-block? block)
-            (when inserted-where
-              (set-selection self inserted-where))
-            (let ((start (get-start self)))
-              (insert-string self (remove-enclosing #\newline (get-string self (find-block self next))))
-              (set! inserted-rank next)
-              (set! inserted-where (new-range self start (get-start self))))))))))
+      (let ((range (console-backward-style self ending (lambda (style) (not (prompt-style? style))))))
+        (prompt (console-backward-style self (get-start range) (lambda (style) (prompt-style? style))))))))
 
 
 ;;;

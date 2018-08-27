@@ -202,6 +202,38 @@
   (date->string date "~H:~M"))
 
 
+(definition public (count-down delay feedback action)
+  (define slices
+    '(60 15 5 1))
+  
+  (define (present delay)
+    (let ((mn (quotient delay 60))
+          (sec (remainder delay 60)))
+      (cond ((= mn 0)
+             (format "{a}s" sec))
+            ((= sec 0)
+             (format "{a}mn" mn))
+            (else
+             (format "{a}mn {a}s" mn sec)))))
+  
+  (let (loop-slices (slices slices) (delay delay))
+    (if (null? slices)
+        (begin
+          (feedback (present delay))
+          (sleep delay)
+          (action))
+      (let ((slice (car slices)))
+        (let ((n (quotient delay slice))
+              (r (remainder delay slice)))
+          (if (or (= n 0)
+                  (and (= n 1) (= r 0)))
+              (loop-slices (cdr slices) delay)
+            (feedback (present delay))
+            (let ((period (if (/= r 0) r slice)))
+              (sleep period)
+              (loop-slices slices (- delay period)))))))))
+
+
 ;;;
 ;;;; Arithmetic
 ;;;

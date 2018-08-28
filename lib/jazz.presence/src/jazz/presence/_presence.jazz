@@ -165,6 +165,7 @@
 (hub start-listener)
 (hub stop-listener)
 (hub stub-reference)
+(hub unlock-invocations)
 (hub unregister-object)
 (hub write-message)
 
@@ -420,7 +421,8 @@
     (with-connections-mutex self
       (lambda ()
         (table-clear connections remote-uuid)
-        (close-port (get-port connection)))))
+        (close-port (get-port connection))
+        (unlock-invocations connection))))
   
   
   (method (request-close-connection self remote-uuid connection)
@@ -555,6 +557,15 @@
       (mutex-unlock! invocations-mutex)))
   
   
+  (method (unlock-invocations self)
+    (with-invocations self
+      (lambda ()
+        (iterate-table-safe invocations
+          (lambda (cookie mutex)
+            (mutex-unlock! mutex)
+            (table-clear invocations cookie))))))
+  
+  
   (method (invoke self kind method-name remote-proxy arguments)
     (when debug-remote?
       (debug-remote presence kind method-name))
@@ -571,7 +582,10 @@
             (write-message self `(,kind ,cookie ,method-name ,ior ,arguments))
             (mutex-lock! mutex)
             (mutex-unlock! mutex)
-            (mutex-specific mutex))))))
+            (let ((result (mutex-specific mutex)))
+              (if (eq? result invoke-noresult)
+                  (throw-connection-broke "Invocation broke")
+                result)))))))
   
   
   (method (result self rest)

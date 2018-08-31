@@ -723,7 +723,7 @@
   (method override (cursor-update self evt)
     (let ((view (get-position evt)))
       (show-text-cursor self)
-      (when (and (view-enabled? self) selectable?)
+      (when (and (view-enabled? self) (mouse-copyable? self))
         (if (mouse-copy? self evt)
             (set-cursor :finger)
           (let ((par (get-paragraph self (get-line (view->text self view)))))
@@ -832,13 +832,19 @@
                   (update-caret self)))
               (reset-mode self)
               (set! previous-position pos)))))))
+  
+  
+  (method protected virtual (mouse-copyable? self)
+    selectable?)
 
   
   (method override (mouse-copy self event destination)
-    (set! mouse-copy-selection (get-selection self))
-    (set! mouse-copy-destination destination)
-    (call-mouse-down self event)
-    #t)
+    (if (not selectable?)
+        (nextmethod self event destination)
+      (set! mouse-copy-selection (get-selection self))
+      (set! mouse-copy-destination destination)
+      (call-mouse-down self event)
+      #t))
   
   
   (method override (drag-move self evt)

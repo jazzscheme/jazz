@@ -56,6 +56,49 @@
 
 
 ;;;
+;;;; Binary
+;;;
+
+
+(native scan-s8)
+(native put-s8)
+(native scan-u8)
+(native put-u8)
+(native scan-s16)
+(native put-s16)
+(native scan-s16-big-endian)
+(native put-s16-big-endian)
+(native scan-u16)
+(native put-u16)
+(native scan-s32)
+(native put-s32)
+(native scan-s32-big-endian)
+(native put-s32-big-endian)
+(native scan-u32-big-endian)
+(native put-u32-big-endian)
+(native scan-s64)
+(native put-s64)
+(native scan-s64-big-endian)
+(native put-s64-big-endian)
+(native scan-float)
+(native put-float)
+(native scan-floats32!)
+(native scan-floats64!)
+(native scan-float-big-endian)
+(native put-float-big-endian)
+(native scan-double)
+(native put-double)
+(native scan-double-big-endian)
+(native put-double-big-endian)
+(native scan-c-string)
+(native put-c-string)
+(native scan-size-string)
+(native put-size-string)
+(native scan-utf-8-string)
+(native put-utf-8-string)
+
+
+;;;
 ;;;; Boolean
 ;;;
 

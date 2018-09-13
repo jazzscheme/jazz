@@ -342,6 +342,22 @@ static void gst_print_error(GstMessage *msg)
     g_error_free(error);
 }
 
+static double present_time(GstClockTime time)
+{
+    if (time == GST_CLOCK_TIME_NONE)
+        return -1;
+    else
+        return GST_TIME_AS_SECONDS((double) time);
+}
+
+static double present_timediff(GstClockTimeDiff diff)
+{
+    if (diff == GST_CLOCK_TIME_NONE)
+        return -1;
+    else
+        return GST_TIME_AS_SECONDS((double) diff);
+}
+
 static int gst_app_sink_pull(GstElement* elem, void* data, ___SCMOBJ info)
 {
     int size;
@@ -362,10 +378,14 @@ static int gst_app_sink_pull(GstElement* elem, void* data, ___SCMOBJ info)
             
             pts = GST_BUFFER_PTS(buffer);
             duration = GST_BUFFER_DURATION(buffer);
-            GstClock* clock = gst_element_get_clock(elem);
+               
+            // return the clock time of buffer instead of pts
+            // as a way of ensuring a monotonic sequence of pts
+            // shielding us from h264 adjusting pts
+            GstSegment* segment = gst_sample_get_segment(sample);
             GstClockTime base_time = gst_element_get_base_time(elem);
-            GstClockTime abs_time = gst_clock_get_time(clock);
-            GstPipeline* pipeline = (GstPipeline*) GST_ELEMENT_PARENT(elem);
+            GstClockTime running_time = gst_segment_to_running_time(segment, GST_FORMAT_TIME, pts);
+            pts = base_time + running_time;
         }
         gst_sample_unref(sample);
         // not completely sure about this hack around audio receiving
@@ -449,22 +469,6 @@ static GstFlowReturn gst_app_src_write4(GstElement* elem, void* ptr, int size, _
     GST_BUFFER_DTS(buffer) = GST_BUFFER_PTS(buffer);
     GST_BUFFER_DURATION(buffer) = duration;
     return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
-}
-
-static double present_time(GstClockTime time)
-{
-    if (time == GST_CLOCK_TIME_NONE)
-        return -1;
-    else
-        return GST_TIME_AS_SECONDS((double) time);
-}
-
-static double present_timediff(GstClockTimeDiff diff)
-{
-    if (diff == GST_CLOCK_TIME_NONE)
-        return -1;
-    else
-        return GST_TIME_AS_SECONDS((double) diff);
 }
 
 static void gst_print_pipeline(GstPipeline* pipeline)

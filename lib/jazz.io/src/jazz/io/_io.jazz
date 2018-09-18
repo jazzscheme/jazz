@@ -1323,41 +1323,36 @@
   (is? object File))
 
 
-(definition timestamped-file-mutex
+(definition timestamped-mutex
   (make-mutex))
 
 
-(definition public (timestamped-file dir prefix ext)
-  (mutex-lock! timestamped-file-mutex)
+(definition public (timestamped-directory dir prefix)
+  (mutex-lock! timestamped-mutex)
   ;; if dir doesn't exists or is read-only we should provide a secondary dir that is always writable
   (prog1 (let ((prefix (if prefix (format "{a}_" prefix) ""))
-               (timestamp (date->string (system-date) "~Y-~m-~d_~H-~M-~S"))
-               (uuid (make-uuid-suffix)))
+               (timestamp (date->string (system-date) "~Y-~m-~d_~H-~M-~S")))
            (let (iterate (n 0))
              (let ((suffix (if (= n 0) "" (format "_{a}" n))))
-               (let ((file (new-file dir (add-extension (format "{a}{a}_{a}{a}" prefix timestamp uuid suffix) ext))))
+               (let ((directory (new-directory dir (format "{a}{a}" prefix timestamp))))
+                 (if (exists? directory)
+                     (iterate (+ n 1))
+                   directory)))))
+    (mutex-unlock! timestamped-mutex)))
+
+
+(definition public (timestamped-file dir prefix ext)
+  (mutex-lock! timestamped-mutex)
+  ;; if dir doesn't exists or is read-only we should provide a secondary dir that is always writable
+  (prog1 (let ((prefix (if prefix (format "{a}_" prefix) ""))
+               (timestamp (date->string (system-date) "~Y-~m-~d_~H-~M-~S")))
+           (let (iterate (n 0))
+             (let ((suffix (if (= n 0) "" (format "_{a}" n))))
+               (let ((file (new-file dir (add-extension (format "{a}{a}{a}" prefix timestamp suffix) ext))))
                  (if (exists? file)
                      (iterate (+ n 1))
                    file)))))
-    (mutex-unlock! timestamped-file-mutex)))
-
-
-;; will help making timestamped file unique
-(definition public (make-uuid-suffix)
-  (define hex
-    '#(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\a #\b #\c #\d #\e #\f))
-  
-  (let ((n1 (random-integer-65536))
-        (n2 (random-integer-65536)))
-    (string
-      (vector-ref hex (extract-bit-field 4 12 n1))
-      (vector-ref hex (extract-bit-field 4  8 n1))
-      (vector-ref hex (extract-bit-field 4  4 n1))
-      (vector-ref hex (extract-bit-field 4  0 n1))
-      (vector-ref hex (extract-bit-field 4 12 n2))
-      (vector-ref hex (extract-bit-field 4  8 n2))
-      (vector-ref hex (extract-bit-field 4  4 n2))
-      (vector-ref hex (extract-bit-field 4  0 n2)))))
+    (mutex-unlock! timestamped-mutex)))
 
 
 (definition public (ensure-read/write moniker (cancel-action: cancel-action 'throw))

@@ -726,10 +726,14 @@
       (when (and (view-enabled? self) (mouse-copyable? self))
         (if (mouse-copy? self evt)
             (set-cursor :finger)
-          (let ((par (get-paragraph self (get-line (view->text self view)))))
-            (if (< (get-h view) (paragraph-left par))
-                (set-cursor :left-arrow)
-              (set-cursor :ibeam)))))))
+          (let ((pos (view->text self view)))
+            (let ((par (get-paragraph self (get-line pos))))
+              (if (< (get-h view) (paragraph-left par))
+                  (set-cursor :left-arrow)
+                (let ((style (get-style-at model pos)))
+                  (if (is? style Link-Style)
+                      (set-cursor :finger)
+                    (set-cursor :ibeam))))))))))
   
   
   ;;;
@@ -812,26 +816,27 @@
         (let ((focus? (has-focus? self))
               (mouse-copy? (mouse-copy? self evt))
               (pos (view->text self view)))
-          (end-completion self)
-          (unless mouse-copy?
-            (acquire-focus self))
-          (when pos
-            (acquire-capture self)
-            (unlock-anchor self)
-            (set! mouse-selecting? #t)
-            (set! selection-mode 'char)
-            (unless (or (get-shift? evt) (not focus?))
-              (reset-caret self pos generate-event?: #f))
-            (let ((par (get-paragraph self (get-line pos))))
-              (if (< (get-h view) (paragraph-left par))
-                  (set-selection self (selection-line self (get-line pos)) generate-event?: #f set-anchor?: #t)
-                (when (or focus? (not focus-selects-all?))
-                  (if (get-shift? evt)
-                      (change-selection self pos generate-event?: #f)
-                    (set-caret self pos generate-event?: #f))
-                  (update-caret self)))
-              (reset-mode self)
-              (set! previous-position pos)))))))
+          (unless (is? (get-style-at model pos) Link-Style)
+            (end-completion self)
+            (unless mouse-copy?
+              (acquire-focus self))
+            (when pos
+              (acquire-capture self)
+              (unlock-anchor self)
+              (set! mouse-selecting? #t)
+              (set! selection-mode 'char)
+              (unless (or (get-shift? evt) (not focus?))
+                (reset-caret self pos generate-event?: #f))
+              (let ((par (get-paragraph self (get-line pos))))
+                (if (< (get-h view) (paragraph-left par))
+                    (set-selection self (selection-line self (get-line pos)) generate-event?: #f set-anchor?: #t)
+                  (when (or focus? (not focus-selects-all?))
+                    (if (get-shift? evt)
+                        (change-selection self pos generate-event?: #f)
+                      (set-caret self pos generate-event?: #f))
+                    (update-caret self)))
+                (reset-mode self)
+                (set! previous-position pos))))))))
   
   
   (method protected virtual (mouse-copyable? self)
@@ -859,42 +864,71 @@
   
   
   (method override (drag-up self evt . rest)
-    (when mouse-selecting?
-      (let ((view     (get-position evt))
-            (alt?     (get-alt? evt))
-            (control? (get-control? evt))
-            (shift?   (get-shift? evt))
-            (appl     (current-application)))
-        (release-capture self)
-        (kill-autoscroll self)
-        (drag-select self view #t)
-        (set! mouse-selecting? #f)
-        (set! previous-position #f)
-        (update-caret self)
-        (set! selection-mode 'char)
-        (unless alt?
-          (process-selection-change self))
-        @cant-replace-a-selection-by-pasting!
-        (mouse-select-copy
-          (lambda ()
-            (get-selected-string)))
-        (if mouse-copy-selection
-            (let ((range (if (has-selection? self) (get-selection self) (expr-range self (get-start self)))))
-              (if (or (not range)
-                      (empty? range))
-                  (set-selection self mouse-copy-selection ensure-displayed?: #f)
-                (let ((copy (get-string self range)))
-                  (set-selection self mouse-copy-selection ensure-displayed?: #f)
-                  (mouse-insert mouse-copy-destination copy))))
-          (ensure-displayed self))
-        (set! selection-inhibit? #f)
-        (set! mouse-copy-selection #f)
-        (set! mouse-copy-destination #f)
-        (when (and (not alt?) control? (not shift?))
-          (let ((recorder (get-recorder appl)))
-            (when recorder
-              (jazz.recorder:play-current-recording recorder))))
-        (update-focus-actions appl))))
+    (if mouse-selecting?
+        (let ((view     (get-position evt))
+              (alt?     (get-alt? evt))
+              (control? (get-control? evt))
+              (shift?   (get-shift? evt))
+              (appl     (current-application)))
+          (release-capture self)
+          (kill-autoscroll self)
+          (drag-select self view #t)
+          (set! mouse-selecting? #f)
+          (set! previous-position #f)
+          (update-caret self)
+          (set! selection-mode 'char)
+          (unless alt?
+            (process-selection-change self))
+          @cant-replace-a-selection-by-pasting!
+          (mouse-select-copy
+            (lambda ()
+              (get-selected-string)))
+          (if mouse-copy-selection
+              (let ((range (if (has-selection? self) (get-selection self) (expr-range self (get-start self)))))
+                (if (or (not range)
+                        (empty? range))
+                    (set-selection self mouse-copy-selection ensure-displayed?: #f)
+                  (let ((copy (get-string self range)))
+                    (set-selection self mouse-copy-selection ensure-displayed?: #f)
+                    (mouse-insert mouse-copy-destination copy))))
+            (ensure-displayed self))
+          (set! selection-inhibit? #f)
+          (set! mouse-copy-selection #f)
+          (set! mouse-copy-destination #f)
+          (when (and (not alt?) control? (not shift?))
+            (let ((recorder (get-recorder appl)))
+              (when recorder
+                (jazz.recorder:play-current-recording recorder))))
+          (update-focus-actions appl))
+        ;; link
+      (when (view-enabled? self)
+        (let* ((pos (view->text self (get-position evt)))
+               (style (get-style-at model pos)))
+          (when (is? style Link-Style)
+            (let (@convert (anchor (get-anchor style))
+                  (action (get-action style)))
+              (define (invoke-action action pos style)
+                (cond ((is? action Event-Handler)
+                       (invoke action self (apply make-event Event :link self (get-properties action))))
+                      (else
+                       (action self pos style))))
+              
+              @convert
+              (define (goto-anchor anchor)
+                (for-each-heading model
+                  (lambda (name heading line string)
+                    (when (equal? string anchor)
+                      (set-selection self (new Range$Cell$
+                                            (new Cell line 0)
+                                            (new Cell line (cardinality string))))))))
+              
+              (cond (action
+                     (invoke-action action pos style))
+                    @convert
+                    (anchor
+                     (goto-anchor anchor))
+                    (else
+                     (bell)))))))))
   
   
   (method (drag-select self view final?)

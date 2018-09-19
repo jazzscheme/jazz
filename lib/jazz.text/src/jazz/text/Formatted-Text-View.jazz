@@ -116,71 +116,7 @@
   ;; until converted
   (method override (get-context-menu self)
     #f)
-
-
-  ;;;
-  ;;;; Cursor
-  ;;;
-
-
-  (method override (cursor-update self evt)
-    (let ((view (get-position evt)))
-      (show-text-cursor self)
-      (when (and (view-enabled? self) selectable?)
-        (if (mouse-copy? self evt)
-            (set-cursor :finger)
-          (let* ((pos (view->text self view))
-                 (par (get-paragraph self (get-line pos))))
-            (if (< (get-h view) (paragraph-left par))
-                (set-cursor :left-arrow)
-              (let ((style (get-style-at model pos)))
-                (if (is? style Link-Style)
-                    (set-cursor :finger)
-                  (set-cursor :ibeam)))))))))
-
   
-  ;;;
-  ;;;; Mouse
-  ;;;
-
-
-  (method override (mouse-down self evt)
-    (let* ((pos (view->text self (get-position evt)))
-           (style (get-style-at model pos)))
-      (unless (is? style Link-Style)
-        (nextmethod self evt))))
-
-
-  (method override (drag-up self evt . rest)
-    (define (invoke-action action pos style)
-      (cond ((is? action Event-Handler)
-             (invoke action self (apply make-event Event :link self (get-properties action))))
-            (else
-             (action self pos style))))
-    
-    (define (goto-anchor anchor)
-      (for-each-heading model
-        (lambda (name heading line string)
-          (when (equal? string anchor)
-            (set-selection self (new Range$Cell$
-                             (new Cell line 0)
-                             (new Cell line (cardinality string))))))))
-    
-    (let ((mouse-selecting? mouse-selecting?))
-      (nextmethod self evt)
-      (when (and (view-enabled? self) (not mouse-selecting?))
-        (let* ((pos (view->text self (get-position evt)))
-               (style (get-style-at model pos)))
-          (when (is? style Link-Style)
-            (let ((anchor (get-anchor style))
-                  (action (get-action style)))
-              (cond (action
-                     (invoke-action action pos style))
-                    (anchor
-                     (goto-anchor anchor))
-                    (else
-                     (bell)))))))))
-
 
   ;;;
   ;;;; Edition

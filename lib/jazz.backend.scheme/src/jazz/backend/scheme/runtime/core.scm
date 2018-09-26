@@ -1197,4 +1197,44 @@
   time->seconds)
 
 (define jazz:seconds->systime
-  seconds->time))
+  seconds->time)
+
+
+;; adapted from ##display-gc-report
+(define (jazz:present-seconds secs)
+  (define (scale x m)
+    (##flonum->exact-int (##flround (##fl* x m))))
+  
+  (define (show x*1000 unit)
+    (define (decimals d)
+      (let* ((n (##round (##/ x*1000 (##expt 10 (##fx- 3 d)))))
+             (n-str (##number->string n 10))
+             (n-str-len (##string-length n-str))
+             (str (if (##fx< n-str-len d)
+                      (##string-append
+                        (##make-string (##fx- d n-str-len) #\0)
+                        n-str)
+                    n-str))
+             (len (##string-length str))
+             (split (##fx- len d)))
+        (##string-append
+          (if (##fx= d 0)
+              str
+            (##string-append (##substring str 0 split)
+              "."
+              (##substring str split len)))
+          unit)))
+    
+    (cond ((##< x*1000 10000)
+           (decimals 1))
+          (else
+           (decimals 0))))
+  
+  (let ((us (scale secs 1.0e9)))
+    (if (##< us 1000000)
+        (show us "us")
+      (let ((ms (scale secs 1.0e6)))
+        (if (##< ms 1000000)
+            (show ms "ms")
+          (let ((s (scale secs 1.0e3)))
+            (show s "s"))))))))

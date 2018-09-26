@@ -1100,6 +1100,7 @@
 (native jazz:current-seconds!)
 (native jazz:current-seconds <:fl>)
 (native jazz:current-monotonic)
+(native jazz:present-seconds)
 
 
 ;;;

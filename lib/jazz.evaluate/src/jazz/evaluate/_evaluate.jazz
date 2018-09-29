@@ -94,9 +94,17 @@
                                      ((scheme) scheme-readtable)
                                      ((jazz) jazz-readtable))
                      (lambda ()
-                       (call-with-input-string str
-                         (lambda (port)
-                           (read-source-all port container line col))))))))
+                       ;; hack around the worker giving me a -1 line that was
+                       ;; probably a hack around gambit's first line being 1!?
+                       (let ((line (max 0 line)))
+                         ;; hack around what seems to be a change in the semantics
+                         ;; of ##input-port-line-set! and ##input-port-column-set!
+                         (let ((str (string-append (make-string line #\newline) (make-string col #\space) str))
+                               (line 0)
+                               (col 0))
+                           (call-with-input-string str
+                             (lambda (port)
+                               (read-source-all port container line col))))))))))
       (let ((first (car forms)))
         (if (and (eq? syntax 'jazz) (toplevel-form? first) (null? (cdr forms)))
             (let ((expression first))

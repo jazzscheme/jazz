@@ -50,7 +50,8 @@
   
   
   (property default? initialize #f accessors explicit)
-  (property flat?    initialize #f accessors generate)
+  (property flat?    initialize #f accessors explicit)
+  (property color    initialize #f accessors explicit)
   
   
   (slot state initialize 'inactive)
@@ -75,6 +76,24 @@
   
   (method public (set-default? self flag)
     (set! default? flag)
+    (invalidate-view self))
+  
+  
+  (method public (get-flat? self)
+    flat?)
+  
+  
+  (method public (set-flat? self flag)
+    (set! flat? flag)
+    (invalidate-view self))
+
+
+  (method public (get-color self)
+    color)
+
+
+  (method public (set-color self value)
+    (set! color value)
     (invalidate-view self))
 
 
@@ -190,14 +209,19 @@
                (width (get-width size))
                (height (get-height size))
                (extent (get-text-extent surface title))
-               (h (quotient (- width (get-width extent)) 2))
+               (h (if (eq? style 'text) 0 (quotient (- width (get-width extent)) 2)))
                (v (- (quotient (- height (get-height extent)) 2) (if (eq? style 'text) 1 0)))
-               (color (if background?
-                          (if enabled? {Color Black} {Color Dark})
-                        (if enabled? {Color red: .809 green: .701 blue: .263} {Color red: 130 green: 130 blue: 130}))))
+               (color (or color
+                          (if background?
+                              (if enabled? {Color Black} {Color Dark})
+                            (if enabled? {Color red: .809 green: .701 blue: .263} {Color red: 130 green: 130 blue: 130})))))
           (when (not background?)
             (set-font surface (effective-font self)))
-          (draw-text surface (+ h offset) (+ v offset) title color enabled?: enabled?)))))
+          (draw-text-at self surface (+ h offset) (+ v offset) title color enabled?)))))
+  
+  
+  (method protected virtual (draw-text-at self surface h v title color enabled?)
+    (draw-text surface h v title color enabled?: enabled?))
   
   
   ;;;

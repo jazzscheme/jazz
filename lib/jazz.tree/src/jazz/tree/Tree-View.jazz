@@ -111,6 +111,7 @@
   (slot protected columns                       initialize '()  getter generate)
   (slot protected node-column                   initialize #f   getter generate)
   (slot protected sorted-columns                initialize '()  getter generate)
+  (slot protected filtered-columns              initialize '()  getter generate)
   (slot protected selection-pivot               initialize #f)
   (slot protected highlighted                   initialize '())
   (slot protected indentation                   initialize 16   getter generate)
@@ -937,6 +938,71 @@
   
   
   ;;;
+  ;;;; Filter
+  ;;;
+  
+  
+  (method public (filter-column self column values)
+    (let ((pair (assq column filtered-columns)))
+      (if pair
+          (set-cdr! pair values)
+        (set! filtered-columns (cons (cons column values) filtered-columns))))
+    (filter-rows self #f row-filter: (columns-filter self)))
+  
+  
+  (method public (unfilter-column self column)
+    (let ((pair (assq column filtered-columns)))
+      (when pair
+        (set! filtered-columns (remove! pair filtered-columns))
+        (filter-rows self #f row-filter: (columns-filter self)))))
+  
+  
+  (method (columns-filter self)
+    (lambda (row)
+      (every? (lambda (pair)
+                (bind (column . values) pair
+                  (member? (get-title (get-child row (get-rank column))) values)))
+              filtered-columns)))
+  
+  
+  (method public (column-filtering self column)
+    (let ((pair (assq column filtered-columns)))
+      (and pair
+           (cdr pair))))
+  
+  
+  (method public (filter-rows self cell-title-filter (row-filter: row-filter #f))
+    (define (determine-visible? row)
+      (and (or (not row-filter) (row-filter row))
+           (or (not cell-title-filter)
+               (some? (lambda (cell)
+                        (let ((title (get-title cell)))
+                          (and title
+                               (cell-title-filter title))))
+                      (get-children row)))))
+  
+    (define (make-row-visible row visible?)
+      (set-visible? row visible?)
+      (when visible?
+        (let loop ((node (get-father row)))
+             (when node
+               (set-visible? node #t)
+               (loop (get-father node))))))
+    
+    (scroll-to self {Point 0 0})                   ; quicky
+    (set-selection self '() generate-event?: #f)   ; quicky
+    (with-update-locked self
+      (lambda ()
+        (for-each-row self
+          (lambda (row rank)
+            (make-row-visible row (determine-visible? row)))))))
+    
+  
+  (method public (unfilter-rows self)
+    (filter-rows self #f))
+  
+  
+  ;;;
   ;;;; Selector
   ;;;
   
@@ -1073,42 +1139,6 @@
              (lambda (son)
                (unless (get-visible? son)
                  (set-visible? son #t)))))
-  
-  
-  ;;;
-  ;;;; Filter
-  ;;;
-  
-  
-  (method public (filter-rows self cell-title-filter (row-filter: row-filter #f))
-    (define (determine-visible? row)
-      (and (or (not row-filter) (row-filter row))
-           (or (not cell-title-filter)
-               (some? (lambda (cell)
-                        (let ((title (get-title cell)))
-                          (and title
-                               (cell-title-filter title))))
-                      (get-children row)))))
-  
-    (define (make-row-visible row visible?)
-      (set-visible? row visible?)
-      (when visible?
-        (let loop ((node (get-father row)))
-             (when node
-               (set-visible? node #t)
-               (loop (get-father node))))))
-    
-    (scroll-to self {Point 0 0})                   ; quicky
-    (set-selection self '() generate-event?: #f)   ; quicky
-    (with-update-locked self
-      (lambda ()
-        (for-each-row self
-          (lambda (row rank)
-            (make-row-visible row (determine-visible? row)))))))
-    
-  
-  (method public (unfilter-rows self)
-    (filter-rows self #f))
 
 
   ;;;

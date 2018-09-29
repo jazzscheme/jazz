@@ -321,17 +321,17 @@
                (memv? line (get-selection parent))))))
   
   
-  (method public virtual (draw-header self surface context h v width height look sorted spaced? flat? enabled?)
-    (draw-header-at self surface h v width height look (localize title) down? sorted spaced? flat? enabled?))
+  (method public virtual (draw-header self surface context h v width height look sorted filtered spaced? flat? enabled?)
+    (draw-header-at self surface h v width height look (localize title) down? sorted filtered spaced? flat? enabled?))
   
   
-  (method (draw-header-at self surface h v width height look title down? sorted spaced? flat? enabled?)
+  (method (draw-header-at self surface h v width height look title down? sorted filtered spaced? flat? enabled?)
     (if down?
-        (draw-sunken-button self surface h v width height look title sorted spaced? flat? enabled?)
-      (draw-raised-button self surface h v width height look title sorted spaced? flat? enabled?)))
+        (draw-sunken-button self surface h v width height look title sorted filtered spaced? flat? enabled?)
+      (draw-raised-button self surface h v width height look title sorted filtered spaced? flat? enabled?)))
   
   
-  (method (draw-raised-button self surface h v width height look title sorted spaced? flat? enabled?)
+  (method (draw-raised-button self surface h v width height look title sorted filtered spaced? flat? enabled?)
     (let ((thick (if flat? -1 -2)))
       ;; when spaced, it's the background that draws the right side shadow
       (let* ((outer (new Rect h v (+ h width) (+ v height)))
@@ -352,10 +352,11 @@
         (with-clipping-transformation surface h v width (- height 1) #f
           (lambda ()
             (draw-text surface text-h 1 title color)
-            (draw-sorted surface width 0 title sorted))))))
+            (draw-sorted surface width 0 0 title sorted)
+            (draw-filtered surface width 0 0 title filtered))))))
   
   
-  (method (draw-sunken-button self surface h v width height look title sorted spaced? flat? enabled?)
+  (method (draw-sunken-button self surface h v width height look title sorted filtered spaced? flat? enabled?)
     (let* ((outer (new Rect h v (+ h width) (+ v height)))
            (inner (inflate-rect outer -1 -1))
            (text-h (+ (header-title-h self surface width height look title) 1))
@@ -368,7 +369,8 @@
       (with-clipping-transformation surface h v width (- height 1) #f
         (lambda ()
           (draw-text surface text-h 2 title color)
-          (draw-sorted surface (+ width 1) 1 title sorted)))))
+          (draw-sorted surface width 0 1 title sorted)
+          (draw-filtered surface width 0 1 title filtered)))))
   
   
   (method protected virtual (header-title-offset self look)
@@ -391,15 +393,26 @@
                     (list justification justification))))
 
   
-  (definition (draw-sorted surface h v title sorted)
+  (definition (draw-sorted surface h v offset title sorted)
     (when sorted
       (set-color surface {Color Dark})
-      (let ((h (- h 10))
-            (v (+ v 6))
+      (let ((h (+ (- h 11) offset))
+            (v (+ (+ v 7) offset))
             (size 4))
         (case sorted
           ((ascending) (draw-arrow-tip surface h v size 'up))
           ((descending #f) (draw-arrow-tip surface h v size 'down))))))
+  
+  
+  (definition (draw-filtered surface h v offset title filtered)
+    (when filtered
+      (set-color surface {Color Dark})
+      (let ((extent (get-text-extent surface title)))
+        (let ((h (+ (get-width extent) 6 offset))
+              (v (+ (+ v 5) offset))
+              (size 4))
+          (draw-arrow-tip surface h v size 'up)
+          (draw-arrow-tip surface h (+ v 4) size 'down)))))
 
   
   ;;;

@@ -1352,7 +1352,7 @@
           (values-emit (jazz:emit-expressions values declaration walker resume environment backend)))
       (jazz:new-code
         (jazz:emit backend 'allocate expression declaration walker resume environment class-emit values-emit)
-        jazz:Any
+        (jazz:get-binding-reference-binding class)
         #f))))
 
 

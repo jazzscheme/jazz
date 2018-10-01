@@ -795,7 +795,7 @@
   (jazz:add-primitive-patterns   'jazz.language.runtime.functional:element            '((safe list-ref <list^int:any>) (bounds-unsafe %%vector-ref    <vector^int:any>)      (bounds-unsafe %%string-ref    <string^int:char>)))
   (jazz:add-primitive-patterns   'jazz.language.runtime.functional:set-element!       '(                               (bounds-unsafe %%vector-set!   <vector^int^any:void>) (bounds-unsafe %%string-set!   <string^int^char:void>))))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:between?           '((safe %%fxbetween? <fx^fx^fx:bool>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:between?           '((safe %%fxbetween? <fx^fx^fx:bool>) (safe %%flbetween? <fl^fl^fl:bool>)))
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:current-seconds!       '((safe %%get-current-time! <f64vector^fx:void>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:bytes-allocated!       '((safe %%get-bytes-allocated! <f64vector^fx:void>)))

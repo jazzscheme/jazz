@@ -623,6 +623,14 @@
     `(%%check-flonum ,fl 1 (%%flonum->exact-int ,fl)
        (^#flonum->exact-int ,fl))))
 
+(jazz:define-macro (%%flbetween? n lower upper)
+  (%%force-uniqueness (n)
+    (if jazz:debug-core?
+        `(and (>= ,n ,lower)
+              (<= ,n ,upper))
+      `(and (^#fl>= ,n ,lower)
+            (^#fl<= ,n ,upper)))))
+
 
 ;;;
 ;;;; Foreign

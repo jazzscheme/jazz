@@ -942,13 +942,15 @@
   ;;;
   
   
-  (method public (filter-column self column values)
-    (let ((pair (assq column filtered-columns)))
-      (if pair
-          (set-cdr! pair values)
-        (set! filtered-columns (cons (cons column values) filtered-columns))))
-    (filter-rows self #f row-filter: (columns-filter self))
-    (invalidate-header self))
+  (method public (filter-column self column values (type: type #f))
+    (let ((type (or type 'text)))
+      (let ((info (cons type values)))
+        (let ((pair (assq column filtered-columns)))
+          (if pair
+              (set-cdr! pair info)
+            (set! filtered-columns (cons (cons column info) filtered-columns))))
+        (filter-rows self #f row-filter: (columns-filter self))
+        (invalidate-header self))))
   
   
   (method public (unfilter-column self column)
@@ -962,15 +964,25 @@
   (method (columns-filter self)
     (lambda (row)
       (every? (lambda (pair)
-                (bind (column . values) pair
-                  (member? (get-title (get-child row (get-rank column))) values)))
+                (bind (column type . values) pair
+                  (case type
+                    ((text)
+                     (member? (get-title (get-child row (get-rank column))) values))
+                    ((number)
+                     (let ((value (string->number (get-title (get-child row (get-rank column))))))
+                       (and value
+                            (member? value values test: (lambda (value value/range)
+                                                          (if (pair? value/range)
+                                                              (bind (start end) value/range
+                                                                (between? value start end))
+                                                            (= value value/range))))))))))
               filtered-columns)))
   
   
   (method public (column-filtering self column)
     (let ((pair (assq column filtered-columns)))
       (and pair
-           (cdr pair))))
+           (cddr pair))))
   
   
   (method public (filter-rows self cell-title-filter (row-filter: row-filter #f))

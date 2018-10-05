@@ -40,6 +40,7 @@
 
 (import (jazz.event)
         (jazz.foreign)
+        (jazz.platform.callback)
         (jazz.platform.requests)
         (jazz.platform.types)
         (jazz.window.hubs))
@@ -4049,12 +4050,16 @@ void platformPlaySound(char* filename, double volume)
           (context (platformCurrentGraphics)))
       ;; the mac can call this before the window is registered
       (when window
+        (when event-callback
+          (event-callback 'paint))
         (paint-cocoa window context rect)))))
 
 
 (c-callback (reshape-callback handle width height) (platformwindow int int) void "reshape_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
+      (when event-callback
+        (event-callback 'reshape))
       (call-size-change window 'restored width height))))
 
 
@@ -4063,6 +4068,8 @@ void platformPlaySound(char* filename, double volume)
     (lambda ()
       (when registered-window
         (let ((window (registered-window handle)))
+          (when event-callback
+            (event-callback 'close))
           (close-window window))))))
 
 
@@ -4083,6 +4090,8 @@ void platformPlaySound(char* filename, double volume)
                     #t)
              (let ((window (registered-window handle)))
                (let ((char (integer->char key)))
+                 (when event-callback
+                   (event-callback 'key))
                  (if (eq? action PLATFORM_PRESS)
                      (begin
                        (key-down window char)
@@ -4099,6 +4108,8 @@ void platformPlaySound(char* filename, double volume)
     (catch (Cancel-Signal exc)
       (let ((window (registered-window handle))
             (c (integer->char c)))
+        (when event-callback
+          (event-callback 'char))
         (call-key-press window c)))))
 
 
@@ -4106,6 +4117,8 @@ void platformPlaySound(char* filename, double volume)
   (when registered-window
     (catch (Cancel-Signal exc)
       (let ((window (registered-window handle)))
+        (when event-callback
+          (event-callback 'button))
         (ecase button
           ((PLATFORM_MOUSE_BUTTON_LEFT)
            (ecase action
@@ -4123,12 +4136,16 @@ void platformPlaySound(char* filename, double volume)
 (c-callback (moved-callback handle x y) (platformwindow double double) void "moved_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
+      (when event-callback
+        (event-callback 'moved))
       (call-mouse-moved window x y))))
 
 
 (c-callback (wheel-callback handle x y dx dy) (platformwindow double double double double) void "wheel_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
+      (when event-callback
+        (event-callback 'wheel))
       (mouse-wheel window (fxround x) (fxround y) (new Point (fxround (* 30. dx)) (fxround (* 30. dy)))))))
 
 
@@ -4138,24 +4155,32 @@ void platformPlaySound(char* filename, double volume)
   ;; this can fail when launching from the command line using gambit's -:
   ;; where for some reason this triggers the mac into calling this callback
   (when (file-exists? filename)
+    (when event-callback
+      (event-callback 'file))
     (drop-file-callback filename)))
 
 
 (c-callback (drop-callback handle filenames) (platformwindow NSArray*) void "drop_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
+      (when event-callback
+        (event-callback 'drop))
       (drop-files window filenames))))
 
 
 (c-callback (entered-callback handle) (platformwindow) void "entered_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
+      (when event-callback
+        (event-callback 'enter))
       (mouse-enter window))))
 
 
 (c-callback (exited-callback handle) (platformwindow) void "exited_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
+      (when event-callback
+        (event-callback 'leave))
       (mouse-leave window))))
 
 
@@ -4163,6 +4188,8 @@ void platformPlaySound(char* filename, double volume)
   (when registered-window
     (let ((window (registered-window handle)))
       (when window
+        (when event-callback
+          (event-callback 'activate))
         (focus-gain (get-focus window))
         (activate-application window)))))
 
@@ -4171,6 +4198,8 @@ void platformPlaySound(char* filename, double volume)
   (when registered-window
     (let ((window (registered-window handle)))
       (when window
+        (when event-callback
+          (event-callback 'deactivate))
         (deactivate-application window)
         (focus-lose (get-focus window))))))
 
@@ -4178,6 +4207,8 @@ void platformPlaySound(char* filename, double volume)
 (c-callback (terminate-callback) () void "terminate_callback" "" #f
   (delay-event
     (lambda ()
+      (when event-callback
+        (event-callback 'quit))
       (quit-callback))))
 
 
@@ -4194,6 +4225,8 @@ void platformPlaySound(char* filename, double volume)
 
 
 (c-callback (user-callback data1 data2) (int int) void "user_callback" "" #f
+  (when event-callback
+    (event-callback 'user))
   (user-notification data1 data2))
 
 

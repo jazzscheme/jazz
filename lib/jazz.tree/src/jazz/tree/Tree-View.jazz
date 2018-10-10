@@ -942,23 +942,25 @@
   ;;;
   
   
-  (method public (filter-column self column values (type: type #f))
+  (method public (filter-column self column values (type: type #f) (filter-rows?: filter-rows? #t))
     (let ((type (or type 'text)))
       (let ((info (cons type values)))
         (let ((pair (assq column filtered-columns)))
           (if pair
               (set-cdr! pair info)
             (set! filtered-columns (cons (cons column info) filtered-columns))))
-        (filter-rows self #f row-filter: (columns-filter self))
-        (invalidate-header self))))
+        (when filter-rows?
+          (filter-rows self #f row-filter: (columns-filter self))
+          (invalidate-header self)))))
   
   
-  (method public (unfilter-column self column)
+  (method public (unfilter-column self column (filter-rows?: filter-rows? #t))
     (let ((pair (assq column filtered-columns)))
       (when pair
         (set! filtered-columns (remove! pair filtered-columns))
-        (filter-rows self #f row-filter: (columns-filter self))
-        (invalidate-header self))))
+        (when filter-rows?
+          (filter-rows self #f row-filter: (columns-filter self))
+          (invalidate-header self)))))
   
   
   (method (columns-filter self)

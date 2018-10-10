@@ -503,7 +503,7 @@
 
 
 (jazz:define-emit (self-reference (scheme backend) declaration source-declaration)
-  (jazz:get-declaration-parent source-declaration))
+  (jazz:get-code-type (jazz:*self*)))
 
 
 (jazz:define-emit (slot-reference (scheme backend) declaration self)

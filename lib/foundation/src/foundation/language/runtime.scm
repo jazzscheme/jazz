@@ -60,6 +60,9 @@
 
 (native jazz:debug-core?)
 (native jazz:debug-user?)
+(native jazz:valid-conditional-requirement)
+(native jazz:conditional-satisfied?)
+(native jazz:process-conditional)
 (native jazz:cond-expand-features)
 (native jazz:feature-satisfied?)
 (native jazz:generate-symbol)

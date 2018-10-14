@@ -836,7 +836,7 @@
       (for-each (lambda (expr)
                   (if (and (%%pair? (jazz:source-code expr))
                            (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'require))
-                      (set! requires (append requires (map jazz:listify (jazz:filter-features (%%cdr (%%desourcify expr))))))))
+                      (set! requires (append requires (map jazz:listify (jazz:filter-invoices (%%cdr (%%desourcify expr))))))))
                 body)
       requires))
   
@@ -1810,7 +1810,7 @@
   
   (let ((form (%%desourcify form-src)))
     (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
-      (let ((export-invoices (walk-exports (jazz:filter-features (%%cdr form)))))
+      (let ((export-invoices (walk-exports (jazz:filter-invoices (%%cdr form)))))
         (for-each (lambda (export-invoice)
                     (jazz:add-module-export walker resume declaration form-src module-declaration export-invoice))
                   export-invoices)))))
@@ -5688,7 +5688,7 @@
 (define (jazz:walk-require-declaration walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
-      (let ((requires (jazz:filter-features (%%cdr form))))
+      (let ((requires (jazz:filter-invoices (%%cdr form))))
         (for-each (lambda (clause)
                     (%%unless (or (%%symbol? clause)
                                   (and (%%pair? clause)
@@ -5731,7 +5731,7 @@
   
   (let ((form (%%desourcify form-src)))
     (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
-      (let ((import-invoices (walk-imports (jazz:filter-features (%%cdr form)))))
+      (let ((import-invoices (walk-imports (jazz:filter-invoices (%%cdr form)))))
         ;; so units with errors are not added to the module when evaluating code
         #;
         ;; commented as this is not correct and creates problems in the

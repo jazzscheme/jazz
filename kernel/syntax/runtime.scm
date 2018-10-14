@@ -39,6 +39,90 @@
 
 
 ;;;
+;;;; Conditional
+;;;
+
+
+(define (jazz:valid-conditional-requirement clause)
+  (if (%%pair? clause)
+      (let ((requirement (%%car clause)))
+        (if (or (%%symbol? requirement)
+                (and (%%pair? requirement)
+                     (%%memq (%%car requirement) '(and or not))))
+            requirement
+          #f))
+    #f))
+
+
+(define (jazz:conditional-satisfied? name requirement features)
+  (cond ((%%symbol? requirement)
+         (%%memq requirement features))
+        ((and (%%pair? requirement)
+              (%%eq? (%%car requirement) 'and))
+         (jazz:every? jazz:feature-satisfied? (%%cdr requirement)))
+        ((and (%%pair? requirement)
+              (%%eq? (%%car requirement) 'or))
+         (jazz:some? jazz:feature-satisfied? (%%cdr requirement)))
+        ((and (%%pair? requirement)
+              (%%eq? (%%car requirement) 'not)
+              (%%pair? (%%cdr requirement)))
+         (%%not (jazz:feature-satisfied? (%%cadr requirement))))
+        (else
+         (error (jazz:format "Invalid {a} requirement" name requirement)))))
+
+
+(define (jazz:process-conditional name conditional features fulfill? proc)
+  (let ((clauses (%%cdr conditional)))
+    (let iter ((scan clauses))
+         (if (%%null? scan)
+             (if fulfill?
+                 (error (jazz:format "Unfulfilled {a}" name)))
+           (let ((clause (%%car scan)))
+             (let ((requirement (jazz:valid-conditional-requirement clause)))
+               (if (%%not requirement)
+                   (error (jazz:format "Ill-formed {a} clause: {s}" name clause))
+                 (if (or (jazz:conditional-satisfied? name requirement features)
+                         (%%eq? requirement 'else))
+                     (proc (%%cdr clause))
+                   (iter (%%cdr scan))))))))))
+
+
+;;;
+;;;; Feature
+;;;
+
+
+(define (jazz:feature-satisfied? feature-requirement)
+  (jazz:conditional-satisfied? 'cond-expand feature-requirement (%%cond-expand-features)))
+
+
+;;;
+;;;; Invoice
+;;;
+
+
+(define (jazz:filter-invoices invoices)
+  (define (extract-feature-requirement invoice)
+    (if (and (%%pair? invoice)
+             (%%not (%%null? (%%cdr invoice)))
+             (%%pair? (%%cadr invoice))
+             (%%eq? (%%car (%%cadr invoice)) 'cond))
+        (%%cadr (%%cadr invoice))
+      #f))
+  
+  (%%apply append
+           (map (lambda (invoice)
+                  (let ((feature-requirement (extract-feature-requirement invoice)))
+                    (cond ((%%not feature-requirement)
+                           (%%list invoice))
+                          ((jazz:feature-satisfied? feature-requirement)
+                           (%%list (%%cons (%%car invoice) (%%cddr invoice))))
+                          (else
+                           '()))))
+                invoices)))
+
+
+;;;
 ;;;; Unit
 ;;;
 
@@ -121,7 +205,7 @@
                     (if (%%eq? phase 'syntax)
                         (jazz:load-unit unit-name))
                     `(jazz:load-unit ',unit-name))))
-              (jazz:filter-features (map (lambda (src) (%%desourcify src)) rest))))))
+              (jazz:filter-invoices (map (lambda (src) (%%desourcify src)) rest))))))
 
 
 (define (jazz:parse-require require proc)
@@ -143,42 +227,4 @@
           (set! scan (%%cdr scan))))
     (proc name
           feature-requirement
-          phase)))
-
-
-(define (jazz:filter-features invoices)
-  (define (extract-feature-requirement invoice)
-    (if (and (%%pair? invoice)
-             (%%not (%%null? (%%cdr invoice)))
-             (%%pair? (%%cadr invoice))
-             (%%eq? (%%car (%%cadr invoice)) 'cond))
-        (%%cadr (%%cadr invoice))
-      #f))
-  
-  (%%apply append
-           (map (lambda (invoice)
-                  (let ((feature-requirement (extract-feature-requirement invoice)))
-                    (cond ((%%not feature-requirement)
-                           (%%list invoice))
-                          ((jazz:feature-satisfied? feature-requirement)
-                           (%%list (%%cons (%%car invoice) (%%cddr invoice))))
-                          (else
-                           '()))))
-                invoices)))
-
-
-(define (jazz:feature-satisfied? feature-requirement)
-  (cond ((%%symbol? feature-requirement)
-         (%%memq feature-requirement (%%cond-expand-features)))
-        ((and (%%pair? feature-requirement)
-              (%%eq? (%%car feature-requirement) 'and))
-         (jazz:every? jazz:feature-satisfied? (%%cdr feature-requirement)))
-        ((and (%%pair? feature-requirement)
-              (%%eq? (%%car feature-requirement) 'or))
-         (jazz:some? jazz:feature-satisfied? (%%cdr feature-requirement)))
-        ((and (%%pair? feature-requirement)
-              (%%eq? (%%car feature-requirement) 'not)
-              (%%pair? (%%cdr feature-requirement)))
-         (%%not (jazz:feature-satisfied? (%%cadr feature-requirement))))
-        (else
-         (error "Invalid cond-expand feature" feature-requirement)))))
+          phase))))

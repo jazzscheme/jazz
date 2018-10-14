@@ -239,14 +239,37 @@
     file)
 
 
-  (method public (set-file self value)
+  (method public (set-file self value (traits: traits #f))
     (set! file value)
     (when file
       (with-jazz-readtable
         (lambda ()
           (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
             (lambda (port)
-              (table-load content port #f)))))    
+              (if (not traits)
+                  (table-load content port #f)
+                (let ((settings (read-all port)))
+                  (define (cond-expression? expr)
+                    (and (pair? expr)
+                         (eq? (car expr) 'cond)))
+                  
+                  (define (filter settings)
+                    (let (loop (scan settings))
+                      (when (not-null? scan)
+                        (let ((expr (car scan)))
+                          (if (cond-expression? expr)
+                              (begin
+                                (process-conditional 'cond expr traits #f filter)
+                                (loop (cdr scan)))
+                            (let ((value (cadr scan)))
+                              (let ((effective-value
+                                      (if (cond-expression? value)
+                                          (process-conditional 'cond value traits #t car)
+                                        value)))
+                                (table-set! content expr effective-value)))
+                            (loop (cddr scan)))))))
+                  
+                  (filter settings)))))))
       (set! modified? #f)))
   
   

@@ -241,6 +241,24 @@ end-of-code
 )
 
 
+(c-external (scan-u64 scheme-object int) unsigned-int64
+  #<<end-of-code
+    char *ptr = ___CAST(char*,___BODY(___arg1));
+    int index = ___arg2;
+    ___return(* (___U64*) (ptr + index));
+end-of-code
+)
+
+
+(c-external (put-u64 scheme-object int unsigned-int64) void
+  #<<end-of-code
+    char *ptr = ___CAST(char*,___BODY(___arg1));
+    int index = ___arg2;
+    * (___U64*) (ptr + index) = ___arg3;
+end-of-code
+)
+
+
 ;; quick hack hardcoded for little endian machines
 (c-external (scan-s64-big-endian scheme-object int) int64
   #<<end-of-code

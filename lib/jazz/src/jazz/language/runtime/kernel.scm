@@ -80,6 +80,8 @@
 (native put-s64)
 (native scan-s64-big-endian)
 (native put-s64-big-endian)
+(native scan-u64)
+(native put-u64)
 (native scan-float)
 (native put-float)
 (native scan-floats32!)

@@ -2898,6 +2898,12 @@
     (force-output port)))
 
 
+(define (jazz:debug-newline)
+  (let ((port (console-port)))
+    (newline port)
+    (force-output port)))
+
+
 (define jazz:terminal
   jazz:debug)
 
@@ -2908,6 +2914,10 @@
 
 (define jazz:terminal-line
   jazz:debug-line)
+
+
+(define jazz:terminal-newline
+  jazz:debug-newline)
 
 
 (define (jazz:terminal-port)

@@ -1201,7 +1201,7 @@
 
 
 ;; adapted from ##display-gc-report
-(define (jazz:present-seconds secs)
+(define (jazz:present-absolute-seconds secs)
   (define (scale x m)
     (##flonum->exact-int (##flround (##fl* x m))))
   
@@ -1237,4 +1237,10 @@
         (if (##< ms 1000000)
             (show ms "ms")
           (let ((s (scale secs 1.0e3)))
-            (show s "s"))))))))
+            (show s "s")))))))
+
+
+(define (jazz:present-seconds secs)
+  (if (>= secs 0.)
+      (jazz:present-absolute-seconds secs)
+    (%%string-append "-" (jazz:present-absolute-seconds (- secs))))))

@@ -38,7 +38,8 @@
 (module jazz.script.relocate jazz
 
 
-(import (jazz.io))
+(import (jazz.io)
+        (jazz.platform.library))
 
 
 ;;;
@@ -49,113 +50,60 @@
 (definition (relocate)
   (split-command-line (command-arguments) '() '("debugger" "r" "run") #f
     (lambda (commands options remain)
-      (assertion (= 3 (length remain)) (error "Expected 3 arguments")
-        (bind (dirname old-prefix new-prefix) remain
-          (let ((dir (new-directory (current-directory-get) (tokenise-filename dirname))))
-            (relocate-directory dir old-prefix new-prefix)))))))
+      (case (length remain)
+        ((3)
+         (bind (dirname old-prefix new-prefix) remain
+           (let ((dir (new-directory (current-directory-get) (tokenise-filename dirname))))
+             (relocate-directory dir old-prefix new-prefix))))
+        ((4)
+         (bind (dirname filename old-prefix new-prefix) remain
+           (let ((dir (new-directory (current-directory-get) (tokenise-filename dirname))))
+             (let ((file (new-file dir (tokenise-filename filename))))
+               (relocate-file dir file old-prefix new-prefix)))))
+        (else
+         (error "Expected 3 or 4 arguments"))))))
 
 
 (definition (relocate-directory dir old-prefix new-prefix)
-  (define (executable? file)
-    (and (or (ends-with? (get-name file) "-1.0")
-             (not (get-extension file)))
-         (let ((filename (parse file)))
-           (and (not (string-contains? filename "gstreamer/etc"))
-                (not (string-contains? filename "gstreamer/share"))
-                (not (ends-with? filename "/gst-shell"))
-                (not (ends-with? filename "/gst-validate-launcher"))))))
-
-  (define (shared? file)
-    (filename=? (get-extension file) "dylib"))
-
-  (define (bundle? file)
-    (filename=? (get-extension file) "so"))
-  
   (let ((executables 0)
         (libraries 0))
     (iterate-directory dir
       (lambda (file)
-        (unless (symbolic-link? file)
-          (let ((kind (cond ((executable? file) (increase! executables) 'executable)
-                            ((shared? file) (increase! libraries) 'shared)
-                            ((bundle? file) (increase! libraries) 'bundle)
-                            (else #f))))
-            (when kind
-              (relocate-file dir file kind old-prefix new-prefix)))))
+        (receive (exe lib) (relocate-file dir file old-prefix new-prefix)
+          (increase! executables exe)
+          (increase! libraries lib)))
       files?: #t
       directories?: #f
       recursive?: #t)
     (format :terminal "relocated {a} executables and {a} libraries{%}" executables libraries)))
 
 
-(definition (relocate-file dir file kind old-prefix new-prefix)
-  (define (add-rpath)
-    (let ((level (length (subpath dir file))))
-      (let ((up (map (lambda (n) "..") (naturals 0 level))))
-        (let ((rpath (join (cons "@executable_path" up) "/")))
-          (let ((port (open-process (list path: "install_name_tool" arguments: `("-add_rpath" ,rpath ,(parse file))))))
-            (let ((status (process-status port)))
-              (unless (= status 0)
-                (error "System call install_name_tool -add_rpath failed"))))))))
-  
-  (define (change-name new-name)
-    (let ((port (open-process (list path: "install_name_tool" arguments: `("-id" ,new-name ,(parse file))))))
-      (let ((status (process-status port)))
-        (unless (= status 0)
-          (error "System call install_name_tool -id failed")))))
-  
-  (define (change-dependency dependency new-dependency)
-    (let ((port (open-process (list path: "install_name_tool" arguments: `("-change" ,dependency ,new-dependency ,(parse file))))))
-      (let ((status (process-status port)))
-        (unless (= status 0)
-          (error "System call install_name_tool -change failed")))))
-  
-  (define (relocate path)
-    (and (starts-with? path old-prefix)
-         (string-append new-prefix (substring path (string-length old-prefix) (string-length path)))))
-  
-  (format :terminal "relocating {a}...{%}" (get-name file))
-  (when (eq? kind 'executable)
-    (add-rpath))
-  (receive (name dependencies) (library-name/dependencies file kind)
-    (when (eq? kind 'shared)
-      (let ((new-name (relocate name)))
-        (when new-name
-          (change-name new-name))))
-    (for-each (lambda (dependency)
-                (let ((new-dependency (relocate dependency)))
-                  (when new-dependency
-                    (change-dependency dependency new-dependency))))
-              dependencies)))
-
-
-;;;
-;;;; Library
-;;;
-
-
-(definition (library-name/dependencies file kind)
-  (define (remove-tabulation path)
-    (substring path 1 (string-length path)))
-  
-  (define (remove-version path)
-    (let ((pos (search path " (compatibility version")))
-      (if pos
-          (substring path 0 pos)
-        path)))
-  
-  (let ((port (open-process (list path: "otool" arguments: `("-L" ,(parse file))))))
-    (let ((status (process-status port)))
-      (if (= status 0)
-          (let ((lines (read-all port read-line)))
-            (close-port port)
-            (let ((all (map (lambda (path)
-                              (remove-version (remove-tabulation path)))
-                            (cdr lines))))
-              (if (eq? kind 'shared)
-                  (values (car all) (cdr all))
-                (values #f all))))
-        (error "System call otool -L failed")))))
+(definition (relocate-file dir file old-prefix new-prefix)
+  (let ((executables 0)
+        (libraries 0))
+    (define (executable? file)
+      (and (or (ends-with? (get-name file) "-1.0")
+               (not (get-extension file)))
+           (let ((filename (parse file)))
+             (and (not (string-contains? filename "gstreamer/etc"))
+                  (not (string-contains? filename "gstreamer/share"))
+                  (not (ends-with? filename "/gst-shell"))
+                  (not (ends-with? filename "/gst-validate-launcher"))))))
+    
+    (define (shared? file)
+      (filename=? (get-extension file) "dylib"))
+    
+    (define (bundle? file)
+      (filename=? (get-extension file) "so"))
+    
+    (unless (symbolic-link? file)
+      (let ((kind (cond ((executable? file) (increase! executables) 'executable)
+                        ((shared? file) (increase! libraries) 'shared)
+                        ((bundle? file) (increase! libraries) 'bundle)
+                        (else #f))))
+        (when kind
+          (relocate-subfile dir file kind old-prefix new-prefix))))
+    (values executables libraries)))
 
 
 ;;;

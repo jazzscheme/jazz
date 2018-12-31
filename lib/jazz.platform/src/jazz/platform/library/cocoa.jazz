@@ -1,0 +1,116 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Library
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.platform.library.cocoa jazz
+
+
+(import (jazz.io))
+
+
+;;;
+;;;; Relocate
+;;;
+
+
+(definition public (relocate-subfile dir file kind old-prefix new-prefix)
+  (define (add-rpath)
+    (let ((level (length (subpath dir file))))
+      (let ((up (map (lambda (n) "..") (naturals 0 level))))
+        (let ((rpath (join (cons "@executable_path" up) "/")))
+          (let ((port (open-process (list path: "install_name_tool" arguments: `("-add_rpath" ,rpath ,(parse file))))))
+            (let ((status (process-status port)))
+              (unless (= status 0)
+                (error "System call install_name_tool -add_rpath failed"))))))))
+  
+  (define (change-name new-name)
+    (let ((port (open-process (list path: "install_name_tool" arguments: `("-id" ,new-name ,(parse file))))))
+      (let ((status (process-status port)))
+        (unless (= status 0)
+          (error "System call install_name_tool -id failed")))))
+  
+  (define (change-dependency dependency new-dependency)
+    (let ((port (open-process (list path: "install_name_tool" arguments: `("-change" ,dependency ,new-dependency ,(parse file))))))
+      (let ((status (process-status port)))
+        (unless (= status 0)
+          (error "System call install_name_tool -change failed")))))
+  
+  (define (relocate path)
+    (and (starts-with? path old-prefix)
+         (string-append new-prefix (substring path (string-length old-prefix) (string-length path)))))
+  
+  (format :terminal "relocating {a}...{%}" (get-name file))
+  (when (eq? kind 'executable)
+    (add-rpath))
+  (receive (name dependencies) (library-name/dependencies file kind)
+    (when (eq? kind 'shared)
+      (let ((new-name (relocate name)))
+        (when new-name
+          (change-name new-name))))
+    (for-each (lambda (dependency)
+                (let ((new-dependency (relocate dependency)))
+                  (when new-dependency
+                    (change-dependency dependency new-dependency))))
+              dependencies)))
+
+
+;;;
+;;;; Dependencies
+;;;
+
+
+(definition public (library-name/dependencies file kind)
+  (define (remove-tabulation path)
+    (substring path 1 (string-length path)))
+  
+  (define (remove-version path)
+    (let ((pos (search path " (compatibility version")))
+      (if pos
+          (substring path 0 pos)
+        path)))
+  
+  (let ((port (open-process (list path: "otool" arguments: `("-L" ,(parse file))))))
+    (let ((status (process-status port)))
+      (if (= status 0)
+          (let ((lines (read-all port read-line)))
+            (close-port port)
+            (let ((all (map (lambda (path)
+                              (remove-version (remove-tabulation path)))
+                            (cdr lines))))
+              (if (eq? kind 'shared)
+                  (values (car all) (cdr all))
+                (values #f all))))
+        (error "System call otool -L failed"))))))

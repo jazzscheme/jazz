@@ -635,11 +635,12 @@
    (getter-name       getter: generate)
    (setter-name       getter: generate)
    (getter-generation getter: generate)
-   (setter-generation getter: generate)))
+   (setter-generation getter: generate)
+   (dynamic?          getter: generate)))
 
 
-(define (jazz:new-slot-declaration name type access compatibility modifiers attributes parent specifier-source initialize getter-name setter-name getter-generation setter-generation)
-  (let ((new-declaration (jazz:allocate-slot-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f specifier-source initialize getter-name setter-name getter-generation setter-generation)))
+(define (jazz:new-slot-declaration name type access compatibility modifiers attributes parent specifier-source initialize getter-name setter-name getter-generation setter-generation dynamic?)
+  (let ((new-declaration (jazz:allocate-slot-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f specifier-source initialize getter-name setter-name getter-generation setter-generation dynamic?)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -715,8 +716,8 @@
    (setter getter: generate setter: generate)))
 
 
-(define (jazz:new-property-declaration name type access compatibility modifiers attributes parent specifier-source initialize getter-name setter-name getter-generation setter-generation)
-  (let ((new-declaration (jazz:allocate-property-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f specifier-source initialize getter-name setter-name getter-generation setter-generation #f #f)))
+(define (jazz:new-property-declaration name type access compatibility modifiers attributes parent specifier-source initialize getter-name setter-name getter-generation setter-generation dynamic?)
+  (let ((new-declaration (jazz:allocate-property-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f specifier-source initialize getter-name setter-name getter-generation setter-generation dynamic? #f #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -2229,7 +2230,7 @@
         (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
               (new (if (%%eq? (%%car form) '%property) jazz:new-property-declaration jazz:new-slot-declaration)))
           (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                     (new name type access compatibility modifiers '() declaration specifier #f getter-name setter-name getter-generation setter-generation))))
+                                     (new name type access compatibility modifiers '() declaration specifier #f getter-name setter-name getter-generation setter-generation (%%eq? (jazz:walk-for) 'eval)))))
             (jazz:set-declaration-source new-declaration form-src)
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
               effective-declaration)))))))

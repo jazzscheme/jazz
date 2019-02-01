@@ -507,8 +507,12 @@
 
 
 (jazz:define-emit (slot-reference (scheme backend) declaration self)
-  (let ((offset-locator (%%compose-helper (jazz:get-declaration-locator declaration) 'offset)))
-    `(%%object-ref ,(jazz:sourcified-form self) ,offset-locator)))
+  (let ((locator (jazz:get-declaration-locator declaration)))
+    (if (jazz:get-slot-declaration-dynamic? declaration)
+        (let ((slot-locator (%%compose-helper locator 'slot)))
+          `(jazz:slot-ref ,(jazz:sourcified-form self) ,slot-locator))
+      (let ((offset-locator (%%compose-helper locator 'offset)))
+        `(%%object-ref ,(jazz:sourcified-form self) ,offset-locator)))))
 
 
 ;;;
@@ -970,5 +974,10 @@
 
 
 (jazz:define-emit (slot-assignment (scheme backend) declaration source-declaration walker resume environment self value-code)
-  (let ((offset-locator (%%compose-helper (jazz:get-declaration-locator declaration) 'offset)))
-    `(%%object-set! ,(jazz:sourcified-form self) ,offset-locator ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type declaration) source-declaration declaration walker resume environment backend)))))
+  (let ((locator (jazz:get-declaration-locator declaration))
+        (value (jazz:emit-type-cast value-code (jazz:get-lexical-binding-type declaration) source-declaration declaration walker resume environment backend)))
+    (if (jazz:get-slot-declaration-dynamic? declaration)
+        (let ((slot-locator (%%compose-helper locator 'slot)))
+          `(jazz:slot-set! ,(jazz:sourcified-form self) ,slot-locator ,value))
+      (let ((offset-locator (%%compose-helper locator 'offset)))
+        `(%%object-set! ,(jazz:sourcified-form self) ,offset-locator ,value))))))

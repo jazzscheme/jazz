@@ -339,14 +339,15 @@
 
 
 (define (jazz:add-slot class slot-name slot-initialize slot-allocate?)
-  (let ((actual (%%get-category-field class slot-name)))
+  (let ((actual (%%get-category-field class slot-name))
+        (eval? (%%eq? (jazz:walk-for) 'eval)))
     (cond (actual
-           (if (%%eq? (jazz:walk-for) 'eval)
+           (if eval?
                (%%set-slot-initialize actual slot-initialize))
            actual)
           (else
            (let* ((instance-size (%%get-class-instance-size class))
-                  (slot-offset (and slot-allocate? instance-size))
+                  (slot-offset (and slot-allocate? (if eval? #f instance-size)))
                   (slot (%%allocate-slot jazz:Slot slot-name slot-offset slot-initialize)))
              (jazz:add-field class slot)
              (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
@@ -801,7 +802,8 @@
                    (let ((field (jazz:category-field class (%%string->symbol (%%keyword->string key)))))
                      (%%debug-assert (%%class-is? field jazz:Slot)
                        (let ((offset (%%get-slot-offset field)))
-                         (jazz:set-object-slot object offset value))))
+                         (if offset
+                             (jazz:set-object-slot object offset value)))))
                    (iter remain))))))
     (jazz:initialize object)
     object))
@@ -897,18 +899,26 @@
   (%%class-is? object jazz:Slot))
 
 
+(define (jazz:slot-ref object slot)
+  (let ((offset (%%get-slot-offset slot)))
+    (if offset
+        (jazz:get-object-slot object offset)
+      (jazz:get-dynamic object slot (%%get-slot-initialize slot)))))
+
+
+(define (jazz:slot-set! object slot value)
+  (let ((offset (%%get-slot-offset slot)))
+    (if offset
+        (jazz:set-object-slot object offset value)
+      (jazz:set-dynamic object slot value))))
+
+
 (define (jazz:slot-value object slot-name)
-  (jazz:get-object-slot object (jazz:find-slot-offset object slot-name)))
+  (jazz:slot-ref object (jazz:require-object-field object slot-name)))
 
 
 (define (jazz:set-slot-value object slot-name value)
-  (jazz:set-object-slot object (jazz:find-slot-offset object slot-name) value))
-
-
-(define (jazz:find-slot-offset object slot-name)
-  (%%debug-assert (%%object? object)
-    (let ((slot (jazz:require-object-field object slot-name)))
-      (%%get-slot-offset slot))))
+  (jazz:slot-set! object (jazz:require-object-field object slot-name) value))
 
 
 (define (jazz:initialize-slots object)
@@ -916,8 +926,46 @@
     (for-each (lambda (slot)
                 (let ((initialize (%%get-slot-initialize slot)))
                   (%%when initialize
-                    (%%object-set! object (%%get-slot-offset slot) (initialize object)))))
+                    (let ((offset (%%get-slot-offset slot)))
+                      (%%when offset
+                        (%%object-set! object offset (initialize object)))))))
               slots)))
+
+
+(define jazz:dynamics-mutex
+  (make-mutex 'dynamics))
+
+
+(define jazz:dynamics
+  (%%make-table test: eq? weak-keys: #t))
+
+
+(define (jazz:require-dynamics object)
+  (or (%%table-ref jazz:dynamics object #f)
+      (let ((dynamics (%%make-table test: eq?)))
+        (%%table-set! jazz:dynamics object dynamics)
+        dynamics)))
+
+
+(define (jazz:get-dynamic object slot initialize)
+  (mutex-lock! jazz:dynamics-mutex)
+  (let ((dynamics (jazz:require-dynamics object)))
+    (let ((value (%%table-ref dynamics slot slot)))
+      (let ((effective-value
+              (if (%%eq? value slot)
+                  (let ((initialize-value (if initialize (initialize object) (%%unspecified))))
+                    (%%table-set! dynamics slot initialize-value)
+                    initialize-value)
+                value)))
+        (mutex-unlock! jazz:dynamics-mutex)
+        effective-value))))
+
+
+(define (jazz:set-dynamic object slot value)
+  (mutex-lock! jazz:dynamics-mutex)
+  (%%table-set! (jazz:require-dynamics object) slot value)
+  (mutex-unlock! jazz:dynamics-mutex)
+  (%%unspecified))
 
 
 ;;;

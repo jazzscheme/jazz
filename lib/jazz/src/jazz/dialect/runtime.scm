@@ -1922,7 +1922,7 @@
 
 
 (define (jazz:expand-class walker resume declaration environment form-src)
-  (define (preprocess-meta name body)
+  (define (preprocess-class name body)
     (let ((metaclass (jazz:new-queue))
           (class (jazz:new-queue))
           (nodes (jazz:new-queue)))
@@ -1962,7 +1962,7 @@
               (jazz:queue-list nodes))))
   
   (receive (name type access abstraction compatibility implementor modifiers metaclass-name ascendant-name interface-names attributes body) (jazz:parse-class walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (receive (metaclass-body class-body nodes) (preprocess-meta name body)
+    (receive (metaclass-body class-body nodes) (preprocess-class name body)
       (cond ((and (%%not-null? metaclass-body)
                   (%%specified? metaclass-name))
              (jazz:walk-error walker resume declaration form-src "Ambiguous use of both metaclass and meta keywords: {s}" name))
@@ -2094,7 +2094,93 @@
           (values name type access compatibility implementor modifiers metaclass-name ascendant-names attributes body))))))
 
 
-(define (jazz:walk-interface-declaration walker resume declaration environment form-src)
+;; copy/paste of expand-class
+(define (jazz:expand-interface walker resume declaration environment form-src)
+  (define (preprocess-interface name body)
+    (let ((metaclass (jazz:new-queue))
+          (interface (jazz:new-queue))
+          (nodes (jazz:new-queue)))
+      (define (preprocess expr)
+        (let ((expr (parameterize ((jazz:current-declaration-name name))
+                      (jazz:expand-macros walker resume declaration environment expr))))
+          (cond ((and (%%pair? (jazz:source-code expr))
+                      (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'begin))
+                 (for-each preprocess (%%cdr (jazz:source-code expr))))
+                ((and (%%pair? (jazz:source-code expr))
+                      (%%pair? (%%cdr (jazz:source-code expr)))
+                      (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'meta))
+                 (jazz:enqueue metaclass (jazz:sourcify-deep-if (%%cons (%%car (jazz:source-code expr)) (%%cddr (jazz:source-code expr))) expr)))
+                ;; first draft lets not worry about meta public methods generating nodes
+                ((and (%%pair? (jazz:source-code expr))
+                      (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'method)
+                      (%%pair? (%%cdr (jazz:source-code expr)))
+                      (or 
+                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'public)
+                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'package)
+                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'protected)))
+                 (jazz:enqueue interface expr)
+                 ;; is there a function to just skip the modifiers?
+                 (receive (access compatibility propagation abstraction expansion remote synchronized modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:method-modifiers (%%cdr (jazz:source-code expr)))
+                   (let ((signature (jazz:source-code (%%car rest))))
+                     (let ((method-name (jazz:source-code (%%car signature)))
+                           (parameters (%%cdr signature)))
+                         ;; quicky for tests as parameters are not needed at the moment and break some code in jazz.locale
+                         (set! parameters '())
+                         (jazz:enqueue nodes `(node (,method-name (,(jazz:name->specifier name) self) ,@parameters)))))))
+                (else
+                 (jazz:enqueue interface expr)))))
+      
+      (for-each preprocess body)
+      (values (jazz:queue-list metaclass)
+              (jazz:queue-list interface)
+              (jazz:queue-list nodes))))
+  
+  (receive (name type access compatibility implementor modifiers metaclass-name ascendant-names attributes body) (jazz:parse-interface walker resume declaration (%%cdr (jazz:source-code (%%desourcify form-src))))
+    (receive (metaclass-body interface-body nodes) (preprocess-interface name body)
+      (cond ((and (%%not-null? metaclass-body)
+                  (%%specified? metaclass-name))
+             (jazz:walk-error walker resume declaration form-src "Ambiguous use of both metaclass and meta keywords: {s}" name))
+            (else
+             (jazz:sourcify-deep-if
+               `(begin
+                  (%interface ,@(%%cdr (jazz:source-code (%%desourcify form-src))))
+                  ,@(map (lambda (node)
+                           (jazz:sourcify-deep-if
+                             node
+                             form-src))
+                         nodes))
+               form-src))
+            #; ;; convert from expand-class
+            ((%%specified? metaclass-name)
+             (jazz:sourcify-deep-if
+               `(begin
+                  (%interface ,@(%%cdr (jazz:source-code form-src)))
+                  ,@(map (lambda (node)
+                           (jazz:sourcify-deep-if
+                             node
+                             form-src))
+                         nodes))
+               form-src))
+            #; ;; convert from expand-class
+            (else
+             (let ((metaclass-name (%%string->symbol (%%string-append (%%symbol->string name) "~Class"))))
+               `(begin
+                  ,(jazz:sourcify-deep-if
+                     `(%interface ,metaclass-name extends (:interface ,ascendant-names)
+                        ,@metaclass-body)
+                     form-src)
+                  ,(jazz:sourcify-deep-if
+                     `(%interface ,access ,compatibility ,implementor ,name metaclass (:generated ,metaclass-name) extends ,ascendant-names
+                        ,@interface-body)
+                     form-src)
+                  ,@(map (lambda (node)
+                           (jazz:sourcify-deep-if
+                             node
+                             form-src))
+                         nodes))))))))
+
+
+(define (jazz:walk-%interface-declaration walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (receive (name type access compatibility implementor modifiers metaclass-name ascendant-names attributes body) (jazz:parse-interface walker resume declaration (%%cdr form))
       (%%assertion (%%class-is? declaration jazz:Module-Declaration) (jazz:walk-error walker resume declaration form-src "Interfaces can only be defined at the module level: {s}" name)
@@ -2110,7 +2196,7 @@
                 effective-declaration))))))))
 
 
-(define (jazz:walk-interface walker resume declaration environment form-src)
+(define (jazz:walk-%interface walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (receive (name type access compatibility implementor modifiers metaclass-name ascendant-names attributes body) (jazz:parse-interface walker resume declaration (%%cdr form))
       (%%assertion (%%class-is? declaration jazz:Module-Declaration) (jazz:walk-error walker resume declaration form-src "Interfaces can only be defined at the module level: {s}" name)
@@ -2663,7 +2749,8 @@
 (jazz:define-walker-special     specific             jazz jazz:walk-specific)
 (jazz:define-walker-syntax      class                jazz jazz:expand-class)
 (jazz:define-walker-declaration %class               jazz jazz:walk-%class-declaration jazz:walk-%class)
-(jazz:define-walker-declaration interface            jazz jazz:walk-interface-declaration jazz:walk-interface)
+(jazz:define-walker-syntax      interface            jazz jazz:expand-interface)
+(jazz:define-walker-declaration %interface           jazz jazz:walk-%interface-declaration jazz:walk-%interface)
 (jazz:define-walker-syntax      slot                 jazz jazz:expand-slot)
 (jazz:define-walker-syntax      property             jazz jazz:expand-property)
 (jazz:define-walker-declaration %slot                jazz jazz:walk-%slot-declaration jazz:walk-%slot)

@@ -147,7 +147,10 @@
     (jazz:sourcify-deep-if
       `(begin
          (define ,locator
-           (jazz:new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
+           ;; this is a quicky that needs to be well tought out
+           (if (jazz:global-bound? ',locator)
+               (jazz:global-ref ',locator)
+             (jazz:new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses))))
          (define ,rank-locator
            (%%get-interface-rank ,locator))
          ,@(let ((toplevel-declaration (jazz:get-declaration-toplevel declaration)))

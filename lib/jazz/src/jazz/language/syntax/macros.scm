@@ -53,8 +53,7 @@
         catch
         ~
         ~
-        local-context
-        hook)
+        local-context)
 
 (import (jazz.language.runtime.kernel)
         (scheme.syntax-rules (phase syntax)))

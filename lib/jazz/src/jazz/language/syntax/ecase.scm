@@ -38,7 +38,8 @@
 (module protected jazz.language.syntax.ecase scheme
 
 
-(export ecase)
+(export ecase
+        nucase)
 
 (import (jazz.language.runtime.kernel))
 
@@ -75,6 +76,35 @@
                                                                   (if (integer? (source-code value))
                                                                       (list '= symbol value)
                                                                     (list 'eqv? symbol value)))
+                                                                (source-code selector)))
+                                                 body))
+                                          (else
+                                           (error "Ill-formed selector list: {s}" (desourcify selector))))))
+                                clauses))))
+              form-src)))))))
+
+
+;; quick try
+(define-syntax nucase
+  (lambda (form-src usage-environment macro-environment)
+    (let ((form (cdr (source-code form-src))))
+      (if (null? form)
+          (error "Ill-formed nucase")
+        (let ((target (car form))
+              (clauses (cdr form)))
+          (if (null? clauses)
+              (error "Ill-formed nucase")
+            (sourcify-deep-if
+              (with-uniqueness target
+                (lambda (symbol)
+                  `(cond ,@(map (lambda (clause)
+                                  (let ((selector (car (source-code clause)))
+                                        (body (cdr (source-code clause))))
+                                    (cond ((eq? (source-code selector) 'else)
+                                           (cons 'else body))
+                                          ((pair? (source-code selector))
+                                           (cons (cons 'or (map (lambda (value)
+                                                                  (list 'nu=? symbol value))
                                                                 (source-code selector)))
                                                  body))
                                           (else

@@ -1065,7 +1065,7 @@
     (%%table-keys table)))
 
 
-(define (jazz:map-table table proc)
+(define (jazz:map-table proc table)
   (%%debug-assert (%%table? table)
     (let ((queue (jazz:new-queue)))
       (jazz:iterate-table table

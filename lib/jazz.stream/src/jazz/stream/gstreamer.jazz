@@ -287,12 +287,16 @@
 
 
 (definition public (gst_app_sink_signal_new_sample elem fifo)
-  (gst_signal_new_sample elem (get-filename fifo)))
+  (gst_signal_new_sample elem (get-write-file fifo)))
 
 
 (definition public (gst_app_sink_read fifo elem vec info)
-  (wait fifo)
-  (gst_app_sink_try_pull elem vec info))
+  (if (get-released? fifo)
+      #f
+    (let ((c (wait fifo)))
+      (if (eqv? c #\@)
+          #f
+        (gst_app_sink_try_pull elem vec info)))))
 
 
 ;;;
@@ -324,6 +328,11 @@
             (new Stream-Fifo filename)))))))
 
 
+(definition public (release-stream-fifo fifo)
+  (set-released? fifo #t)
+  (gst_fifo_release (get-write-file fifo)))
+
+
 (definition public (close-stream-fifo fifo)
   (close fifo))
 
@@ -331,24 +340,27 @@
 (class Stream-Fifo extends Object
   
   
-  (slot filename getter generate)
-  (slot port     getter generate)
+  (slot filename   getter generate)
+  (slot read-port  getter generate)
+  (slot write-file getter generate)
+  (slot released?  accessors generate)
   
   
   (method override (initialize self filename)
     (nextmethod self)
     (set! self.filename filename)
-    (set! self.port (open-input-file filename)))
+    (set! self.read-port (open-input-file filename))
+    (set! self.write-file (gst_fifo_open filename))
+    (set! self.released? #f))
   
   
   (method override (destroy self)
-    @wait
-    (close-port port)
-    @wait
+    (gst_fifo_close write-file)
+    (close-port read-port)
     (when (file-exists? filename)
       (delete-file filename))
     (nextmethod self))
   
   
   (method public (wait self)
-    (read-char port))))
+    (read-char read-port))))

@@ -290,7 +290,9 @@ static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
 
 static GstFlowReturn on_new_sample(GstElement* object, gpointer user_data)
 {
-    printf("new-sample\n");
+    FILE* fifo = (FILE*) user_data;
+    fwrite(".", 1, 1, fifo);
+    fflush(fifo);
     return GST_FLOW_OK;
 }
 
@@ -299,10 +301,11 @@ static gulong gst_signal_connect_to(gpointer instance, char* signal, gpointer da
     return g_signal_connect(instance, signal, G_CALLBACK(on_pad_added), data);
 }
 
-static gulong gst_signal_new_sample(GstElement* elem)
+static gulong gst_signal_new_sample(GstElement* elem, char* fifo_name)
 {
+    FILE* fifo = fopen(fifo_name, "w");
     gst_app_sink_set_emit_signals(GST_APP_SINK(elem), 1);
-    return g_signal_connect(elem, "new-sample", G_CALLBACK(on_new_sample), NULL);
+    return g_signal_connect(elem, "new-sample", G_CALLBACK(on_new_sample), fifo);
 }
 
 static GstDiscoverer* gst_discoverer_new_aux()
@@ -358,9 +361,10 @@ static double present_timediff(GstClockTimeDiff diff)
         return GST_TIME_AS_SECONDS((double) diff);
 }
 
-static int gst_app_sink_pull(GstElement* elem, void* data, ___SCMOBJ info)
+static int gst_app_sink_try_pull(GstElement* elem, ___SCMOBJ vec, ___SCMOBJ info)
 {
     int size;
+    ___U8 *data = ___CAST(___U8*, ___BODY(vec));
     ___U64 *info_ptr = ___CAST(___U64*, ___BODY(info));
     GstSample *sample;
     sample = gst_app_sink_try_pull_sample(GST_APP_SINK(elem), 0);
@@ -398,12 +402,6 @@ static int gst_app_sink_pull(GstElement* elem, void* data, ___SCMOBJ info)
     }
     else
         return -1;
-}
-
-static int gst_app_sink_read(GstElement* elem, ___SCMOBJ vec, ___SCMOBJ info)
-{
-    ___U8 *ptr = ___CAST(___U8*, ___BODY(vec));
-    return gst_app_sink_pull(elem, (void*) ptr, info);
 }
 
 static GstFlowReturn gst_app_src_write(GstElement* elem, ___SCMOBJ vec, int size, ___U64 timestamp, ___U64 duration)
@@ -772,7 +770,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_iterator_next_element GstIterator*) GstElement*)
 (gst-external (gst_iterator_next_pad GstIterator*) GstPad*)
 (gst-external (gst_signal_connect_to gpointer char-string gpointer) gulong)
-(gst-external (gst_signal_new_sample GstElement*) gulong)
+(gst-external (gst_signal_new_sample GstElement* char-string) gulong)
 (gst-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
 (gst-external (gst_bus_pop GstBus*) GstMessage*)
 (gst-external (gst_bin_add (call GST_BIN GstElement*) GstElement*) gboolean)
@@ -806,8 +804,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_app_src_write2 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
 (gst-external (gst_app_src_write3 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
 (gst-external (gst_app_src_write4 GstElement* void* int uint64 uint64) GstFlowReturn)
-(gst-external (gst_app_sink_pull GstElement* void* scheme-object) int)
-(gst-external (gst_app_sink_read GstElement* scheme-object scheme-object) int)
+(gst-external (gst_app_sink_try_pull GstElement* scheme-object scheme-object) int)
 (gst-external (gst_app_sink_is_eos (call GST_APP_SINK GstElement*)) bool)
 (gst-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")
 (gst-external (GST_MESSAGE_TYPE GstMessage*) GstMessageType)

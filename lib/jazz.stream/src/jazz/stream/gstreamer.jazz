@@ -40,6 +40,7 @@
 
 (import (jazz.stream.foreign)
         (jazz.foreign)
+        (jazz.io)
         (jazz.platform.types)
         (jazz.syntax (phase syntax)))
 
@@ -277,4 +278,77 @@
                                  (gst_monitor_data pipeline pad)
                                  (gst_monitor_events pipeline pad))))
                             (gst_element_pads elem)))))
-            names)))
+            names))
+
+
+;;;
+;;;; AppSink
+;;;
+
+
+(definition public (gst_app_sink_signal_new_sample elem fifo)
+  (gst_signal_new_sample elem (get-filename fifo)))
+
+
+(definition public (gst_app_sink_read fifo elem vec info)
+  (wait fifo)
+  (gst_app_sink_try_pull elem vec info))
+
+
+;;;
+;;;; Fifo
+;;;
+
+
+(definition fifo-directory
+  {Directory Settings "work" "fifos"})
+
+
+(definition protected next-fifo-no <fx>
+  0)
+
+(definition protected (next-fifo-no!) <fx>
+  (prog1 next-fifo-no
+    (increase! next-fifo-no)))
+
+
+(definition public (make-stream-fifo)
+  (create-directories fifo-directory)
+  (let (iterate (no (next-fifo-no!)))
+    (let ((name (format "fifo{a}" no)))
+      (let ((file (new-file fifo-directory name)))
+        (if (exists? file)
+            (iterate (+ no 1))
+          (let ((filename (parse file)))
+            (create-fifo filename)
+            (new Stream-Fifo filename)))))))
+
+
+(definition public (close-stream-fifo fifo)
+  (close fifo))
+
+
+(class Stream-Fifo extends Object
+  
+  
+  (slot filename getter generate)
+  (slot port     getter generate)
+  
+  
+  (method override (initialize self filename)
+    (nextmethod self)
+    (set! self.filename filename)
+    (set! self.port (open-input-file filename)))
+  
+  
+  (method override (destroy self)
+    @wait
+    (close-port port)
+    @wait
+    (when (file-exists? filename)
+      (delete-file filename))
+    (nextmethod self))
+  
+  
+  (method public (wait self)
+    (read-char port))))

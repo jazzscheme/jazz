@@ -80,7 +80,8 @@
     (let ((location (parse file))
           (size (* width height 4)))
       (let ((buffer (make-u8vector size))
-            (info (make-u64vector 2)))
+            (info (make-u64vector 2))
+            (fifo (make-stream-fifo)))
         (let ((pipeline (gst-launch (tie "filesrc name=src")
                                     "jpegdec"
                                     "videoscale"
@@ -90,22 +91,15 @@
           (gst_object_set_name pipeline "pipeline")
           (let ((src (gst_bin_get_by_name pipeline "src"))
                 (sink (gst_bin_get_by_name pipeline "sink")))
+            (gst_app_sink_signal_new_sample sink fifo)
             (g_object_set_string src "location" (path-normalize location))
             (gst_element_set_state pipeline GST_STATE_PLAYING)
             (let (loop (count 0))
-              (let ((read (gst_app_sink_read sink buffer info)))
-                ;; quick hack to some jpeg never returning frames
-                ;; running the same jpeg on the command line says
-                ;; that the decoder never returned any frame, so
-                ;; how can we know that correctly in gstreamer?
-                (if (> count 500)
-                    (error "Unable to decode jpeg: {a}" location)
-                  (if (/= read -1)
-                      (assert (= read size)
-                        (gst_element_release pipeline)
-                        (values width height buffer))
-                    (sleep .001)
-                    (loop (+ count 1))))))))))))
+              (let ((read (gst_app_sink_read fifo sink buffer info)))
+                (assert (= read size)
+                  (gst_element_release pipeline)
+                  (close-stream-fifo fifo)
+                  (values width height buffer))))))))))
 
 
 (definition public (create-cairo-surface-from-jpeg file)

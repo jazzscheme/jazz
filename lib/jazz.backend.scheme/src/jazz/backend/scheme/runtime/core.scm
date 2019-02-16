@@ -1167,19 +1167,6 @@
 
 
 ;;;
-;;;; Mutex
-;;;
-
-
-(define (jazz:mutex-owner mutex)
-  (jazz:btq-owner mutex))
-
-(define (jazz:mutex-wait mutex)
-  (mutex-lock! mutex)
-  (mutex-unlock! mutex))
-
-
-;;;
 ;;;; Time
 ;;;
 

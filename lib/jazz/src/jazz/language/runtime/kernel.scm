@@ -761,15 +761,6 @@
 
 
 ;;;
-;;;; Mutex
-;;;
-
-
-(native jazz:mutex-wait)
-(native jazz:mutex-owner)
-
-
-;;;
 ;;;; Network
 ;;;
 

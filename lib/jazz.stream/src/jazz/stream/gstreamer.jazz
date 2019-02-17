@@ -291,14 +291,24 @@
 
 
 (definition public (gst_app_sink_read fifo elem vec info)
-  (if (get-released? fifo)
-      #f
-    (let ((c (wait fifo)))
-      (if (eqv? c #\@)
-          #f
-        (let ((size (gst_app_sink_try_pull elem vec info)))
-          (assert (/= size -1)
-            size))))))
+  (cond-expand
+    (windows
+     (declare (proper-tail-calls))
+     (let (loop)
+       (let ((size (gst_app_sink_try_pull elem vec info)))
+         (if (/= size -1)
+             size
+           (sleep .01)
+           (loop)))))
+    (else
+     (if (get-released? fifo)
+         #f
+       (let ((c (wait fifo)))
+         (if (eqv? c #\@)
+             #f
+           (let ((size (gst_app_sink_try_pull elem vec info)))
+             (assert (/= size -1)
+               size))))))))
 
 
 ;;;
@@ -319,24 +329,34 @@
 
 
 (definition public (make-stream-fifo (prefix #f))
-  (create-directories fifo-directory)
-  (let (iterate (no (next-fifo-no!)))
-    (let ((name (format "{a}{a}" (or prefix "fifo") no)))
-      (let ((file (new-file fifo-directory name)))
-        (if (exists? file)
-            (iterate (+ no 1))
-          (let ((filename (parse file)))
-            (create-fifo filename)
-            (new Stream-Fifo filename)))))))
+  (cond-expand
+    (windows
+     #f)
+    (else
+     (create-directories fifo-directory)
+     (let (iterate (no (next-fifo-no!)))
+       (let ((name (format "{a}{a}" (or prefix "fifo") no)))
+         (let ((file (new-file fifo-directory name)))
+           (if (exists? file)
+               (iterate (+ no 1))
+             (let ((filename (parse file)))
+               (create-fifo filename)
+               (new Stream-Fifo filename)))))))))
 
 
 (definition public (release-stream-fifo fifo)
-  (set-released? fifo #t)
-  (gst_fifo_release (get-write-file fifo)))
+  (cond-expand
+    (windows)
+    (else
+     (set-released? fifo #t)
+     (gst_fifo_release (get-write-file fifo)))))
 
 
 (definition public (close-stream-fifo fifo)
-  (close fifo))
+  (cond-expand
+    (windows)
+    (else
+     (close fifo))))
 
 
 (class Stream-Fifo extends Object

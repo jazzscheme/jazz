@@ -61,9 +61,12 @@
 ;;;
 
 
+(c-include "<stdbool.h>")
 (c-include "<string.h>")
 (c-include "<stdlib.h>")
 (c-include "<stdio.h>")
+(c-include "<unistd.h>")
+(c-include "<fcntl.h>")
 (c-include "<glib.h>")
 (c-include "<gst/gst.h>")
 (c-include "<gst/app/gstappsrc.h>")
@@ -85,8 +88,6 @@
 (c-type GObject* (pointer GObject #f))
 (c-type GThread  (native "GThread"))
 (c-type GThread* (pointer GThread GThread*))
-(c-type FILE     (native "FILE"))
-(c-type FILE*    (pointer FILE FILE*))
 
 
 (c-enumerant G_TYPE_BOOLEAN)
@@ -278,27 +279,25 @@ static GstPad* gst_iterator_next_pad(GstIterator *it)
         return (GstPad*) g_value_get_object(&elem);
 }
 
-static FILE* gst_fifo_open(char* filename)
+static int gst_fifo_open(char* filename)
 {
-    FILE* fifo = fopen(filename, "w");
-    return fifo;
+    int fd = open(filename, O_WRONLY|O_NONBLOCK);
+    return fd;
 }
 
-static void gst_fifo_wakeup(FILE* fifo)
+static void gst_fifo_wakeup(int fifo)
 {
-    fwrite(".", 1, 1, fifo);
-    fflush(fifo);
+    write(fifo, ".", 1);
 }
 
-static void gst_fifo_release(FILE* fifo)
+static void gst_fifo_release(int fifo)
 {
-    fwrite("@", 1, 1, fifo);
-    fflush(fifo);
+    write(fifo, "@", 1);
 }
 
-static void gst_fifo_close(FILE* fifo)
+static void gst_fifo_close(int fifo)
 {
-    fclose(fifo);
+    close(fifo);
 }
 
 static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
@@ -315,7 +314,10 @@ static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
 
 static GstFlowReturn on_new_sample(GstElement* object, gpointer user_data)
 {
-    FILE* fifo = (FILE*) user_data;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fifo = (int) user_data;
+    #pragma GCC diagnostic pop
     gst_fifo_wakeup(fifo);
     return GST_FLOW_OK;
 }
@@ -325,10 +327,13 @@ static gulong gst_signal_connect_to(gpointer instance, char* signal, gpointer da
     return g_signal_connect(instance, signal, G_CALLBACK(on_pad_added), data);
 }
 
-static gulong gst_signal_new_sample(GstElement* elem, FILE* fifo)
+static gulong gst_signal_new_sample(GstElement* elem, int fifo)
 {
     gst_app_sink_set_emit_signals(GST_APP_SINK(elem), 1);
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wint-conversion"
     return g_signal_connect(elem, "new-sample", G_CALLBACK(on_new_sample), fifo);
+    #pragma GCC diagnostic pop
 }
 
 static GstDiscoverer* gst_discoverer_new_aux()
@@ -687,7 +692,6 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
   (unix)
   (else
 (c-declare jazz.stream.foreign #/C/
-#include <stdbool.h>
 #include <glib.h>
 #include <rnnoise.h>
 
@@ -792,11 +796,11 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_element_query_duration GstElement* GstFormat) int64 "gst_element_query_duration_aux")
 (gst-external (gst_iterator_next_element GstIterator*) GstElement*)
 (gst-external (gst_iterator_next_pad GstIterator*) GstPad*)
-(gst-external (gst_fifo_open char-string) FILE*)
-(gst-external (gst_fifo_release FILE*) void)
-(gst-external (gst_fifo_close FILE*) void)
+(gst-external (gst_fifo_open char-string) int)
+(gst-external (gst_fifo_release int) void)
+(gst-external (gst_fifo_close int) void)
 (gst-external (gst_signal_connect_to gpointer char-string gpointer) gulong)
-(gst-external (gst_signal_new_sample GstElement* FILE*) gulong)
+(gst-external (gst_signal_new_sample GstElement* int) gulong)
 (gst-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
 (gst-external (gst_bus_pop GstBus*) GstMessage*)
 (gst-external (gst_bin_add (call GST_BIN GstElement*) GstElement*) gboolean)

@@ -304,7 +304,7 @@
            (sleep .01)
            (loop)))))
     (else
-     (if (get-released? fifo)
+     (if (get-stopped? fifo)
          #f
        (let ((c (wait fifo)))
          (if (eqv? c #\@)
@@ -347,12 +347,12 @@
                (new Stream-Fifo filename)))))))))
 
 
-(definition public (release-stream-fifo fifo)
+(definition public (stop-stream-fifo fifo)
   (cond-expand
     (windows)
     (else
-     (set-released? fifo #t)
-     (gst_fifo_release (get-write-file fifo)))))
+     (set-stopped? fifo #t)
+     (gst_fifo_stop (get-write-file fifo)))))
 
 
 (definition public (close-stream-fifo fifo)
@@ -368,7 +368,7 @@
   (slot filename   getter generate)
   (slot read-port  getter generate)
   (slot write-file getter generate)
-  (slot released?  accessors generate)
+  (slot stopped?   accessors generate)
   
   
   (method override (initialize self filename)
@@ -376,7 +376,7 @@
     (set! self.filename filename)
     (set! self.read-port (open-input-file filename))
     (set! self.write-file (gst_fifo_open filename))
-    (set! self.released? #f))
+    (set! self.stopped? #f))
   
   
   (method override (destroy self)

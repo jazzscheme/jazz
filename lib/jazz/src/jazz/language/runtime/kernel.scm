@@ -807,6 +807,7 @@
 (native jazz:current-directory)
 (native jazz:with-current-directory)
 (native jazz:directory-content)
+(native jazz:directory-collect)
 
 
 ;;;

@@ -304,6 +304,12 @@
                    (jazz:directory-content directory)))
 
 
+(define (jazz:directory-collect directory type)
+  (jazz:collect-if (lambda (name)
+                     (%%eq? (jazz:pathname-type (string-append directory name)) type))
+                   (jazz:directory-content directory)))
+
+
 (define (jazz:delete-directory directory #!optional (level 0) (delete-file? #f) (delete-directory? #f) (feedback #f))
   (if (jazz:empty-directory directory level delete-file? delete-directory? feedback)
       (begin

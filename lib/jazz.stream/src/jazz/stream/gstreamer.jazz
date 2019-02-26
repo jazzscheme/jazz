@@ -347,6 +347,14 @@
                (new Stream-Fifo filename)))))))))
 
 
+(definition public (start-stream-fifo fifo)
+  (cond-expand
+    (windows)
+    (else
+     (flush fifo)
+     (set-stopped? fifo #f))))
+
+
 (definition public (stop-stream-fifo fifo)
   (cond-expand
     (windows)
@@ -394,6 +402,15 @@
     (when (file-exists? filename)
       (delete-file filename))
     (nextmethod self))
+  
+  
+  (method public (flush self)
+    (declare (proper-tail-calls))
+    (input-port-timeout-set! read-port 0)
+    (let (loop)
+      (when (not (eof-object? (read-char read-port)))
+        (loop)))
+    (input-port-timeout-set! read-port +inf.0))
   
   
   (method public (wait self)

@@ -278,7 +278,7 @@
           (video-mutex (make-mutex 'video))
           (transferer (make-transferer video-size))
           (pipe (open-vector))
-          (fifo (make-stream-fifo))
+          (fifo (open-stream-fifo))
           (frame-count 0)
           (draw-count 0))
       (define (with-video-mutex thunk)
@@ -396,7 +396,7 @@
         (new-thread
           (lambda ()
             (let ((view (read pipe)))
-              (let ((fifo (make-stream-fifo))
+              (let ((fifo (open-stream-fifo))
                     (pipeline (gst-launch ;"videotestsrc name=src"
                                           "avfvideosrc name=src"
                                           "videoscale name=scale"
@@ -480,7 +480,7 @@
       (thread-start!
         (new-thread
           (lambda ()
-            (let ((color-fifo (make-stream-fifo))
+            (let ((color-fifo (open-stream-fifo))
                   (color-pipeline (gst-launch "appsrc name=src"
                                               "videoconvert name=convert"
                                               (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
@@ -491,7 +491,7 @@
                 (gst_app_sink_signal_new_sample color-sink color-fifo)
                 (gst-setup-source color-src "video/x-raw" "BGRA" width height framerate)
                 (gst_element_set_state color-pipeline GST_STATE_PLAYING)
-                (let ((alpha-fifo (make-stream-fifo))
+                (let ((alpha-fifo (open-stream-fifo))
                       (alpha-pipeline (gst-launch "appsrc name=src"
                                                   (tie "x264enc pass=qual quantizer=20 bitrate={bitrate} tune=zerolatency speed-preset=superfast name=enc")
                                                   "appsink name=sink")))
@@ -542,7 +542,7 @@
         (new-thread
           (lambda ()
             (let ((view (read view-pipe)))
-              (let ((color-fifo (make-stream-fifo))
+              (let ((color-fifo (open-stream-fifo))
                     (color-pipeline (gst-launch "appsrc name=src"
                                                 "avdec_h264 name=dec"
                                                 "videoconvert name=convert"
@@ -553,7 +553,7 @@
                   (gst_app_sink_signal_new_sample color-sink color-fifo)
                   (gst-setup-source color-src "video/x-h264" "I420" width height framerate stream-format: "avc" alignment: "au")
                   (gst_element_set_state color-pipeline GST_STATE_PLAYING)
-                  (let ((alpha-fifo (make-stream-fifo))
+                  (let ((alpha-fifo (open-stream-fifo))
                         (alpha-pipeline (gst-launch "appsrc name=src"
                                                     "avdec_h264 name=dec"
                                                     "appsink name=sink")))
@@ -659,7 +659,7 @@
           (new-thread
             (lambda ()
               (let ((codec audio-codec))
-                (let ((fifo (make-stream-fifo))
+                (let ((fifo (open-stream-fifo))
                       (pipeline (gst-launch (cond ((eq? codec 'opus)
                                                    "autoaudiosrc format=S16LE layout=interleaved rate=48000 channels=1 name=src")
                                                   ((eq? codec 'vorbis)
@@ -696,7 +696,7 @@
         (thread-start!
           (new-thread
             (lambda ()
-              (let ((fifo (make-stream-fifo))
+              (let ((fifo (open-stream-fifo))
                     (pipeline (gst-launch (cond-expand
                                             (mac "avfvideosrc name=src")
                                             (windows "ksvideosrc name=src")
@@ -782,7 +782,7 @@
           (new-thread
             (lambda ()
               (let ((view (read pipe)))
-                (let ((fifo (make-stream-fifo))
+                (let ((fifo (open-stream-fifo))
                       (pipeline (gst-launch "appsrc name=src"
                                             (and (eq? codec 'h264) "avdec_h264 name=dec")
                                             (and (eq? codec 'vp8) "vp8dec name=dec")
@@ -1023,8 +1023,8 @@
             (input-thread
               (new-thread
                 (lambda ()
-                  (let ((fifo (make-stream-fifo))
-                        (audio-fifo (make-stream-fifo))
+                  (let ((fifo (open-stream-fifo))
+                        (audio-fifo (open-stream-fifo))
                         (pipeline (gst-launch (tie "filesrc name=filesrc")
                                               "decodebin name=decoder"
                                               (list "decoder."
@@ -1115,7 +1115,7 @@
               (new-thread
                 (lambda ()
                   (let ((view (read pipe)))
-                    (let ((fifo (make-stream-fifo))
+                    (let ((fifo (open-stream-fifo))
                           (pipeline (gst-launch "appsrc name=src"
                                                 (and (eq? codec 'h264) "avdec_h264 name=dec")
                                                 (and (eq? codec 'vp8) "vp8dec name=dec")

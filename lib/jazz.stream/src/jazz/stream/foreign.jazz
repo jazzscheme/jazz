@@ -290,6 +290,11 @@ static void gst_fifo_wakeup(int fifo)
     write(fifo, ".", 1);
 }
 
+static void gst_fifo_eos(int fifo)
+{
+    write(fifo, "^", 1);
+}
+
 static void gst_fifo_stop(int fifo)
 {
     write(fifo, "@", 1);
@@ -322,17 +327,28 @@ static GstFlowReturn on_new_sample(GstElement* object, gpointer user_data)
     return GST_FLOW_OK;
 }
 
+static GstFlowReturn on_eos(GstElement* object, gpointer user_data)
+{
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fifo = (int) user_data;
+    #pragma GCC diagnostic pop
+    gst_fifo_eos(fifo);
+    return GST_FLOW_OK;
+}
+
 static gulong gst_signal_connect_to(gpointer instance, char* signal, gpointer data)
 {
     return g_signal_connect(instance, signal, G_CALLBACK(on_pad_added), data);
 }
 
-static gulong gst_signal_new_sample(GstElement* elem, int fifo)
+static void gst_app_sink_connect_fifo_signals(GstElement* elem, int fifo)
 {
     gst_app_sink_set_emit_signals(GST_APP_SINK(elem), 1);
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wint-conversion"
-    return g_signal_connect(elem, "new-sample", G_CALLBACK(on_new_sample), fifo);
+    g_signal_connect(elem, "new-sample", G_CALLBACK(on_new_sample), fifo);
+    g_signal_connect(elem, "eos", G_CALLBACK(on_eos), fifo);
     #pragma GCC diagnostic pop
 }
 
@@ -800,7 +816,6 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_fifo_stop int) void)
 (gst-external (gst_fifo_close int) void)
 (gst-external (gst_signal_connect_to gpointer char-string gpointer) gulong)
-(gst-external (gst_signal_new_sample GstElement* int) gulong)
 (gst-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
 (gst-external (gst_bus_pop GstBus*) GstMessage*)
 (gst-external (gst_bin_add (call GST_BIN GstElement*) GstElement*) gboolean)
@@ -834,6 +849,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_app_src_write2 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
 (gst-external (gst_app_src_write3 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
 (gst-external (gst_app_src_write4 GstElement* void* int uint64 uint64) GstFlowReturn)
+(gst-external (gst_app_sink_connect_fifo_signals GstElement* int) void)
 (gst-external (gst_app_sink_try_pull GstElement* scheme-object scheme-object) int)
 (gst-external (gst_app_sink_is_eos (call GST_APP_SINK GstElement*)) bool)
 (gst-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")

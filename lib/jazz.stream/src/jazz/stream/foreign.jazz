@@ -461,37 +461,7 @@ static int gst_app_sink_try_pull(GstElement* elem, ___SCMOBJ vec, ___SCMOBJ info
         return -1;
 }
 
-static GstFlowReturn gst_app_src_write(GstElement* elem, ___SCMOBJ vec, int size, ___U64 timestamp, ___U64 duration)
-{
-    ___U8 *ptr = ___CAST(___U8*, ___BODY(vec));
-    GstBuffer *buffer = gst_buffer_new_allocate(NULL, size, NULL);
-    GstMapInfo map;
-    gst_buffer_map(buffer, &map, GST_MAP_WRITE);
-    memmove(map.data, ptr, size);
-    gst_buffer_unmap(buffer, &map);
-    GST_BUFFER_PTS(buffer) = timestamp;
-    GST_BUFFER_DTS(buffer) = timestamp;
-    GST_BUFFER_DURATION(buffer) = duration;
-    return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
-}
-
-static GstFlowReturn gst_app_src_write2(GstElement* elem, ___SCMOBJ vec, int size, ___U64 timestamp, ___U64 duration)
-{
-    static GstClockTime ts = 0;
-    ___U8 *ptr = ___CAST(___U8*, ___BODY(vec));
-    GstBuffer *buffer = gst_buffer_new_allocate(NULL, size, NULL);
-    GstMapInfo map;
-    gst_buffer_map(buffer, &map, GST_MAP_WRITE);
-    memmove(map.data, ptr, size);
-    gst_buffer_unmap(buffer, &map);
-    GST_BUFFER_PTS(buffer) = ts;
-    GST_BUFFER_DTS(buffer) = ts;
-    GST_BUFFER_DURATION(buffer) = duration;
-    ts += GST_BUFFER_DURATION(buffer);
-    return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
-}
-
-static GstFlowReturn gst_app_src_write3(GstElement* elem, ___SCMOBJ vec, int size, ___U64 timestamp, ___U64 duration)
+static GstFlowReturn gst_app_src_write_u8vector(GstElement* elem, ___SCMOBJ vec, int size, ___U64 timestamp, ___U64 duration)
 {
     ___U8 *ptr = ___CAST(___U8*, ___BODY(vec));
     GstBuffer *buffer = gst_buffer_new_allocate(NULL, size, NULL);
@@ -509,7 +479,7 @@ static GstFlowReturn gst_app_src_write3(GstElement* elem, ___SCMOBJ vec, int siz
     return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
 }
 
-static GstFlowReturn gst_app_src_write4(GstElement* elem, void* ptr, int size, ___U64 timestamp, ___U64 duration)
+static GstFlowReturn gst_app_src_write_pointer(GstElement* elem, void* ptr, int size, ___U64 timestamp, ___U64 duration)
 {
     GstBuffer *buffer = gst_buffer_new_allocate(NULL, size, NULL);
     GstMapInfo map;
@@ -859,10 +829,8 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) void)
 (gst-external (gst_app_src_set_caps (call GST_APP_SRC GstElement*) GstCaps*) void)
 (gst-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)
-(gst-external (gst_app_src_write GstElement* scheme-object int uint64 uint64) GstFlowReturn)
-(gst-external (gst_app_src_write2 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
-(gst-external (gst_app_src_write3 GstElement* scheme-object int uint64 uint64) GstFlowReturn)
-(gst-external (gst_app_src_write4 GstElement* void* int uint64 uint64) GstFlowReturn)
+(gst-external (gst_app_src_write_u8vector GstElement* scheme-object int uint64 uint64) GstFlowReturn)
+(gst-external (gst_app_src_write_pointer GstElement* void* int uint64 uint64) GstFlowReturn)
 (gst-external (gst_app_sink_connect_fifo_signals GstElement* int) void)
 (gst-external (gst_app_sink_try_pull GstElement* scheme-object scheme-object) int)
 (gst-external (gst_app_sink_is_eos (call GST_APP_SINK GstElement*)) bool)

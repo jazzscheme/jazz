@@ -219,6 +219,20 @@ static double g_object_get_double(GObject* obj, char* name)
 
 
 (c-declare jazz.stream.foreign #/C/
+static int gst_version_fill(___SCMOBJ info)
+{
+    ___U32 *ptr = ___CAST(___U32*, ___BODY(info));
+  
+    guint major, minor, micro, nano;
+    
+    gst_version(&major, &minor, &micro, &nano);
+    
+    ptr[0] = major;
+    ptr[1] = minor;
+    ptr[2] = micro;
+    ptr[3] = nano;
+}
+
 static int gst_structure_get_int_aux(GstStructure* struc, char* name)
 {
     int result;
@@ -691,6 +705,11 @@ static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
 {
     gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_EVENT_BOTH, (GstPadProbeCallback) cb_have_event, pipeline, NULL);
 }
+
+static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
+{
+    gst_debug_bin_to_dot_file(bin, GST_DEBUG_GRAPH_SHOW_ALL, filename);
+}
 //#)
 
 
@@ -774,6 +793,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 
 
 (gst-external (gst_init NULL NULL) void)
+(gst-external (gst_version_fill scheme-object) void)
 (gst-external (gst_parse_launch char-string NULL) GstElement*)
 (gst-external (gst_object_get_name (call GST_OBJECT GstElement*)) char-string)
 (gst-external (gst_object_set_name (call GST_OBJECT GstElement*) char-string) gboolean)
@@ -812,6 +832,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_bin_add (call GST_BIN GstElement*) GstElement*) gboolean)
 (gst-external (gst_bin_get_by_name (call GST_BIN GstElement*) char-string) GstElement*)
 (gst-external (gst_bin_iterate_elements (call GST_BIN GstElement*)) GstIterator*)
+(gst-external (gst_debug_bin_to_dot_file (call GST_BIN GstElement*) char-string) void "gst_debug_bin_to_dot_file_aux")
 (gst-external (gst_pipeline_new char-string) GstElement*)
 (gst-external (gst_pipeline_get_bus (call GST_PIPELINE GstElement*)) GstBus*)
 (gst-external (gst_pipeline_get_clock (call GST_PIPELINE GstElement*)) GstClock*)

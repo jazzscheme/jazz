@@ -766,12 +766,17 @@ static void* denoise(void* data)
                 
                 if (denoising)
                 {
-                    int i;
-                    int count = map.size / sizeof(short);
-                    short *ptr = (short*) denoised_map.data;
-                    for (i=0;i<count;i++) x[i] = ptr[i];
-                    rnnoise_process_frame(st, x, x);
-                    for (i=0;i<count;i++) ptr[i] = x[i];
+                    int count = denoised_map.size / sizeof(short);
+                    // it is possible to receive incorrect sizes
+                    // in the first few frames so guard against it
+                    if (count == FRAME_SIZE)
+                    {
+                        int i;
+                        short *ptr = (short*) denoised_map.data;
+                        for (i=0;i<count;i++) x[i] = ptr[i];
+                        rnnoise_process_frame(st, x, x);
+                        for (i=0;i<count;i++) ptr[i] = x[i];
+                    }
                 }
                 
                 gst_buffer_unmap(denoised_buffer, &denoised_map);

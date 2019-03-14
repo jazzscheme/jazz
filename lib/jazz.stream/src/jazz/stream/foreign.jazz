@@ -756,19 +756,30 @@ static void* denoise(void* data)
             GstBuffer* buffer = gst_sample_get_buffer(sample);
             if (buffer)
             {
+                GstMapInfo map;
+                gst_buffer_map(buffer, &map, GST_MAP_READ);
+                
+                GstBuffer *denoised_buffer = gst_buffer_new_allocate(NULL, map.size, NULL);
+                GstMapInfo denoised_map;
+                gst_buffer_map(denoised_buffer, &denoised_map, GST_MAP_WRITE);
+                memmove(denoised_map.data, map.data, map.size);
+                
                 if (denoising)
                 {
-                    GstMapInfo map;
-                    gst_buffer_map(buffer, &map, GST_MAP_READ);
                     int i;
-                    short *ptr = (short*) map.data;
-                    for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[i];
+                    int count = map.size / sizeof(short);
+                    short *ptr = (short*) denoised_map.data;
+                    for (i=0;i<count;i++) x[i] = ptr[i];
                     rnnoise_process_frame(st, x, x);
-                    for (i=0;i<FRAME_SIZE;i++) ptr[i] = x[i];
-                    gst_buffer_unmap(buffer, &map);
+                    for (i=0;i<count;i++) ptr[i] = x[i];
                 }
-                gst_app_src_push_buffer(src, buffer);
+                
+                gst_buffer_unmap(denoised_buffer, &denoised_map);
+                gst_buffer_unmap(buffer, &map);
+                
+                gst_app_src_push_buffer(src, denoised_buffer);
             }
+            gst_sample_unref(sample);
         }
         else
             done = 1;

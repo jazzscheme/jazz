@@ -41,6 +41,30 @@
 (import (jazz.io))
 
 
+;; cflags and libs obtained from the following calls inside the uninstalled shell
+;; $ pkg-config --cflags gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0
+;; $ pkg-config --libs gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0
+
+(definition gstreamer-source
+  (getenv "GST_SOURCE" #f))
+
+(definition gstreamer-cflags
+  (getenv "GST_SOURCE_CFLAGS" #f))
+
+(definition gstreamer-libs
+  (getenv "GST_SOURCE_LIBS" #f))
+
+(definition gstreamer-rpaths
+  (getenv "GST_SOURCE_RPATHS" #f))
+
+
+(definition (stream-rpaths)
+  (and gstreamer-source
+       (map (lambda (path)
+              (string-append gstreamer-source path))
+            (split gstreamer-rpaths ";"))))
+
+
 ;;;
 ;;;; Build
 ;;;
@@ -52,16 +76,20 @@
 
 (cond-expand
   (cocoa
-    (define (stream-flags)
-      (let ((gstreamer-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/include/gstreamer-1.0"))
-            (glib-include-path      (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/include/glib-2.0"))
-            (glib-lib-include-path  (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/lib/glib-2.0/include"))
-            (gstreamer-lib-path     (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/lib"))
-            (rnnoise-include-path   (quote-jazz-pathname "lib/jazz.stream/foreign/mac/rnnoise/include"))
-            (rnnoise-lib-path       (quote-jazz-pathname "lib/jazz.stream/foreign/mac/rnnoise/lib")))
-        (let ((cc-flags (string-append "-D_REENTRANT -I" gstreamer-include-path " -I" glib-include-path " -I" glib-lib-include-path " -I" rnnoise-include-path))
-              (ld-flags (string-append "-L" gstreamer-lib-path " -L" rnnoise-lib-path " -lgstapp-1.0.0 -lgstbase-1.0.0 -lgstpbutils-1.0.0 -lgstreamer-1.0.0 -lgobject-2.0.0 -lglib-2.0.0 -lrnnoise.0 -lintl.8 -Wl,-framework -Wl,CoreFoundation")))
-          (list cc-flags ld-flags)))))
+   (define (stream-flags)
+     (let ((rnnoise-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/mac/rnnoise/include"))
+           (rnnoise-lib-path     (quote-jazz-pathname "lib/jazz.stream/foreign/mac/rnnoise/lib")))
+       (if gstreamer-source
+           (let ((cc-flags (string-append gstreamer-cflags " -I" rnnoise-include-path))
+                 (ld-flags (string-append gstreamer-libs " -L" rnnoise-lib-path " -lrnnoise.0")))
+             (list cc-flags ld-flags))
+         (let ((gstreamer-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/include/gstreamer-1.0"))
+               (glib-include-path      (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/include/glib-2.0"))
+               (glib-lib-include-path  (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/lib/glib-2.0/include"))
+               (gstreamer-lib-path     (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/lib")))
+           (let ((cc-flags (string-append "-D_REENTRANT -I" gstreamer-include-path " -I" glib-include-path " -I" glib-lib-include-path " -I" rnnoise-include-path))
+                 (ld-flags (string-append "-L" gstreamer-lib-path " -L" rnnoise-lib-path " -lgstapp-1.0.0 -lgstbase-1.0.0 -lgstpbutils-1.0.0 -lgstreamer-1.0.0 -lgobject-2.0.0 -lglib-2.0.0 -lrnnoise.0 -lintl.8 -Wl,-framework -Wl,CoreFoundation")))
+             (list cc-flags ld-flags)))))))
   (windows
     (define (stream-flags)
       (let ((gstreamer-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/windows/gstreamer/gstreamer/include/gstreamer-1.0"))
@@ -87,7 +115,7 @@
 
 (define (stream-units)
   (bind (cc-flags ld-flags) (stream-flags)
-    `((jazz.stream.foreign cc-options: ,cc-flags ld-options: ,ld-flags))))
+    `((jazz.stream.foreign cc-options: ,cc-flags ld-options: ,ld-flags rpaths: ,(stream-rpaths)))))
 
 
 (cond-expand

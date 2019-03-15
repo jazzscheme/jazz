@@ -400,7 +400,11 @@
                     bin-o1
                     cc-options
                     ""
-                    ld-options
+                    (case platform
+                      ((mac)
+                       (string-append ld-options " -headerpad_max_install_names"))
+                      (else
+                       ld-options))
                     options))))
           (if (not (= exit-status 0))
               (jazz:error "C compilation failed while linking module"))

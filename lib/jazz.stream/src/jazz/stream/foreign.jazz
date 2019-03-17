@@ -74,8 +74,6 @@
 (c-include "<stdio.h>")
 (c-include "<unistd.h>")
 (c-include "<fcntl.h>")
-(c-include "<netdb.h>")
-(c-include "<netinet/in.h>")
 (c-include "<glib.h>")
 (c-include "<gst/gst.h>")
 (c-include "<gst/app/gstappsrc.h>")
@@ -312,12 +310,25 @@ static GstPad* gst_iterator_next_pad(GstIterator *it)
 
 static int gst_fifo_open(char* filename)
 {
+#ifdef _WIN32
+    return 0;
+#else
     int fd = open(filename, O_WRONLY|O_NONBLOCK);
     return fd;
+#endif
 }
+
+#ifdef _WIN32
+#else
+#include <netdb.h>
+#include <netinet/in.h>
+#endif
 
 static int gst_socket_open(char* hostname, int portno)
 {
+#ifdef _WIN32
+    return 0;
+#else
     int sockfd, n;
     struct sockaddr_in serv_addr;
     struct hostent *server;
@@ -339,6 +350,7 @@ static int gst_socket_open(char* hostname, int portno)
     ___EXT(___mask_heartbeat_interrupts_end)(&heartbeat_interrupts);
     
     return sockfd;
+#endif
 }
 
 static void gst_descriptor_wakeup(int fd)

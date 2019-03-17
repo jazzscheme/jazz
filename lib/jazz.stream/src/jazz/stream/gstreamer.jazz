@@ -278,14 +278,14 @@
 ;;;
 
 
-(definition public (gst_app_sink_connect_signals elem fifo)
+(definition public (gst_app_sink_connect_signals elem listener)
   (cond-expand
     (windows)
     (else
-     (gst_app_sink_connect_fifo_signals elem (get-write-file fifo)))))
+     (gst_app_sink_connect_descriptor_signals elem (get-write-file listener)))))
 
 
-(definition public (gst_app_sink_read fifo elem vec info)
+(definition public (gst_app_sink_read listener elem vec info)
   (cond-expand
     (windows
      (declare (proper-tail-calls))
@@ -296,15 +296,53 @@
            (sleep .01)
            (loop)))))
     (else
-     (if (get-stopped? fifo)
+     (if (get-stopped? listener)
          #f
-       (let ((c (wait fifo)))
+       (let ((c (wait listener)))
          (if (or (eqv? c #\^)
                  (eqv? c #\@))
              #f
            (let ((size (gst_app_sink_try_pull elem vec info)))
              (assert (/= size -1)
                size))))))))
+
+
+;;;
+;;;; Socket
+;;;
+
+
+(definition listener-sockets?
+  #f)
+
+
+(definition socket-server-port
+  (open-vector))
+
+(definition socket-server-mutex
+  (make-mutex 'socket-server))
+
+
+(definition socket-server-address
+  "localhost")
+
+(definition socket-server-service
+  57000)
+
+
+(definition protected (start-socket-server)
+  (when listener-sockets?
+    (thread-start!
+      (new-thread
+        (lambda ()
+          (declare (proper-tail-calls))
+          (let ((server (open-tcp-server (list server-address: socket-server-address port-number: socket-server-service))))
+            (let (loop)
+              (let ((port (read server)))
+                (write port socket-server-port)
+                (force-output socket-server-port)
+                (loop)))))
+        'socket-server))))
 
 
 ;;;
@@ -331,58 +369,71 @@
     (increase! next-fifo-no)))
 
 
-(definition public (open-stream-fifo (name #f))
+(definition public (open-stream-listener (name #f))
   (cond-expand
     (windows
      #f)
     (else
-     (create-directories fifo-directory)
-     (let (iterate (no (next-fifo-no!)))
-       (let ((name (format "{a}{a}{a}" fifo-prefix (or name "fifo") no)))
-         (let ((file (new-file fifo-directory name)))
-           (if (exists? file)
-               (iterate (+ no 1))
-             (let ((filename (parse file)))
-               (create-fifo filename)
-               (new Stream-Fifo filename)))))))))
-
-
-(definition public (start-stream-fifo fifo)
-  (cond-expand
-    (windows)
-    (else
-     (flush fifo)
-     (set-stopped? fifo #f))))
-
-
-(definition public (stop-stream-fifo fifo)
-  (cond-expand
-    (windows)
-    (else
-     (set-stopped? fifo #t)
-     (gst_fifo_stop (get-write-file fifo)))))
-
-
-(definition public (close-stream-fifo fifo)
-  (cond-expand
-    (windows)
-    (else
-     (close fifo))))
+     (cond (listener-sockets?
+            (mutex-lock! socket-server-mutex)
+            (prog1 (let ((file (gst_socket_open socket-server-address socket-server-service)))
+                     (let ((port (read socket-server-port)))
+                       (new Stream-Listener #f file port)))
+              (mutex-unlock! socket-server-mutex)))
+           (else
+            (create-directories fifo-directory)
+            (let (iterate (no (next-fifo-no!)))
+              (let ((name (format "{a}{a}{a}" fifo-prefix (or name "fifo") no)))
+                (let ((file (new-file fifo-directory name)))
+                  (if (exists? file)
+                      (iterate (+ no 1))
+                    (let ((filename (parse file)))
+                      (create-fifo filename)
+                      (new Stream-Listener filename)))))))))))
 
 
 (definition protected (empty-fifo-directory (feedback?: feedback? #f))
   (cond-expand
     (windows)
     (else
-     (for-each (lambda (filename)
-                 (let ((file (new-file fifo-directory filename)))
-                   (when feedback?
-                     (terminal 'delete 'fifo filename))
-                   (delete file)))
-               (directory-collect (parse fifo-directory) 'fifo)))))
+     (unless listener-sockets?
+       (for-each (lambda (filename)
+                   (let ((file (new-file fifo-directory filename)))
+                     (when feedback?
+                       (terminal 'delete 'fifo filename))
+                     (delete file)))
+                 (directory-collect (parse fifo-directory) 'fifo))))))
 
 
-(class Stream-Fifo extends Object
+;;;
+;;;; Listener
+;;;
+
+
+(definition public (start-stream-listener listener)
+  (cond-expand
+    (windows)
+    (else
+     (flush listener)
+     (set-stopped? listener #f))))
+
+
+(definition public (stop-stream-listener listener)
+  (cond-expand
+    (windows)
+    (else
+     (set-stopped? listener #t)
+     (gst_descriptor_stop (get-write-file listener)))))
+
+
+(definition public (close-stream-listener listener)
+  (cond-expand
+    (windows)
+    (else
+     (close listener))))
+
+
+(class Stream-Listener extends Object
   
   
   (slot filename   getter generate)
@@ -391,26 +442,35 @@
   (slot stopped?   accessors generate)
   
   
-  (method override (initialize self filename)
+  (method override (initialize self filename . rest)
     (nextmethod self)
-    (set! self.filename filename)
-    (set! self.read-port (open-input-file filename))
-    (set! self.write-file (gst_fifo_open filename))
-    (set! self.stopped? #f))
+    (cond (listener-sockets?
+           (bind (file port) rest
+             (set! self.filename #f)
+             (set! self.read-port port)
+             (set! self.write-file file)
+             (set! self.stopped? #f)))
+          (else
+           (set! self.filename filename)
+           (set! self.read-port (open-input-file filename))
+           (set! self.write-file (gst_fifo_open filename))
+           (set! self.stopped? #f))))
   
   
   (method override (destroy self)
-    (gst_fifo_close write-file)
+    (gst_descriptor_close write-file)
     (close-port read-port)
-    (when (file-exists? filename)
-      (delete-file filename))
+    (unless listener-sockets?
+      (when (file-exists? filename)
+        (delete-file filename)))
     (nextmethod self))
   
   
   (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
-        (format output "{a}" (filename-name filename)))))
+        (unless listener-sockets?
+          (format output "{a}" (filename-name filename))))))
   
   
   (method public (flush self)

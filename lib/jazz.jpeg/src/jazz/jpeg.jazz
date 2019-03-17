@@ -81,7 +81,7 @@
           (size (* width height 4)))
       (let ((buffer (make-u8vector size))
             (info (make-u64vector 2))
-            (fifo (open-stream-fifo "jpeg")))
+            (listener (open-stream-listener "jpeg")))
         (let ((pipeline (gst-launch (tie "filesrc name=src")
                                     "jpegdec"
                                     "videoscale"
@@ -91,14 +91,14 @@
           (gst_object_set_name pipeline "pipeline")
           (let ((src (gst_bin_get_by_name pipeline "src"))
                 (sink (gst_bin_get_by_name pipeline "sink")))
-            (gst_app_sink_connect_signals sink fifo)
+            (gst_app_sink_connect_signals sink listener)
             (g_object_set_string src "location" (path-normalize location))
             (gst_element_set_state pipeline GST_STATE_PLAYING)
             (let (loop (count 0))
-              (let ((read (gst_app_sink_read fifo sink buffer info)))
+              (let ((read (gst_app_sink_read listener sink buffer info)))
                 (assert (= read size)
                   (gst_element_release pipeline)
-                  (close-stream-fifo fifo)
+                  (close-stream-listener listener)
                   (values width height buffer))))))))))
 
 

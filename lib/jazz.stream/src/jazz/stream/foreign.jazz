@@ -74,6 +74,8 @@
 (c-include "<stdio.h>")
 (c-include "<unistd.h>")
 (c-include "<fcntl.h>")
+(c-include "<netdb.h>")
+(c-include "<netinet/in.h>")
 (c-include "<glib.h>")
 (c-include "<gst/gst.h>")
 (c-include "<gst/app/gstappsrc.h>")
@@ -314,29 +316,54 @@ static int gst_fifo_open(char* filename)
     return fd;
 }
 
-static void gst_fifo_wakeup(int fifo)
+static int gst_socket_open(char* hostname, int portno)
 {
-    write(fifo, ".", 1);
+    int sockfd, n;
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
+    
+    ___mask_heartbeat_interrupts_state heartbeat_interrupts;
+    ___EXT(___mask_heartbeat_interrupts_begin)(&heartbeat_interrupts);
+     
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	
+    server = gethostbyname(hostname);
+    
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
+    serv_addr.sin_port = htons(portno);
+    
+    connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+
+    ___EXT(___mask_heartbeat_interrupts_end)(&heartbeat_interrupts);
+    
+    return sockfd;
 }
 
-static void gst_fifo_eos(int fifo)
+static void gst_descriptor_wakeup(int fd)
 {
-    write(fifo, "^", 1);
+    write(fd, ".", 1);
 }
 
-static void gst_fifo_reset(int fifo)
+static void gst_descriptor_eos(int fd)
 {
-    write(fifo, "!", 1);
+    write(fd, "^", 1);
 }
 
-static void gst_fifo_stop(int fifo)
+static void gst_descriptor_reset(int fd)
 {
-    write(fifo, "@", 1);
+    write(fd, "!", 1);
 }
 
-static void gst_fifo_close(int fifo)
+static void gst_descriptor_stop(int fd)
 {
-    close(fifo);
+    write(fd, "@", 1);
+}
+
+static void gst_descriptor_close(int fd)
+{
+    close(fd);
 }
 
 static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
@@ -355,9 +382,9 @@ static GstFlowReturn on_new_sample(GstElement* object, gpointer user_data)
 {
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fifo = (int) user_data;
+    int fd = (int) user_data;
     #pragma GCC diagnostic pop
-    gst_fifo_wakeup(fifo);
+    gst_descriptor_wakeup(fd);
     return GST_FLOW_OK;
 }
 
@@ -365,9 +392,9 @@ static GstFlowReturn on_eos(GstElement* object, gpointer user_data)
 {
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fifo = (int) user_data;
+    int fd = (int) user_data;
     #pragma GCC diagnostic pop
-    gst_fifo_eos(fifo);
+    gst_descriptor_eos(fd);
     return GST_FLOW_OK;
 }
 
@@ -376,13 +403,13 @@ static gulong gst_signal_connect_to(gpointer instance, char* signal, gpointer da
     return g_signal_connect(instance, signal, G_CALLBACK(on_pad_added), data);
 }
 
-static void gst_app_sink_connect_fifo_signals(GstElement* elem, int fifo)
+static void gst_app_sink_connect_descriptor_signals(GstElement* elem, int fd)
 {
     gst_app_sink_set_emit_signals(GST_APP_SINK(elem), 1);
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wint-conversion"
-    g_signal_connect(elem, "new-sample", G_CALLBACK(on_new_sample), fifo);
-    g_signal_connect(elem, "eos", G_CALLBACK(on_eos), fifo);
+    g_signal_connect(elem, "new-sample", G_CALLBACK(on_new_sample), fd);
+    g_signal_connect(elem, "eos", G_CALLBACK(on_eos), fd);
     #pragma GCC diagnostic pop
 }
 
@@ -839,9 +866,10 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_iterator_next_element GstIterator*) GstElement*)
 (gst-external (gst_iterator_next_pad GstIterator*) GstPad*)
 (gst-external (gst_fifo_open char-string) int)
-(gst-external (gst_fifo_reset int) void)
-(gst-external (gst_fifo_stop int) void)
-(gst-external (gst_fifo_close int) void)
+(gst-external (gst_socket_open char-string int) int)
+(gst-external (gst_descriptor_reset int) void)
+(gst-external (gst_descriptor_stop int) void)
+(gst-external (gst_descriptor_close int) void)
 (gst-external (gst_signal_connect_to gpointer char-string gpointer) gulong)
 (gst-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
 (gst-external (gst_bus_pop GstBus*) GstMessage*)
@@ -875,7 +903,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)
 (gst-external (gst_app_src_write GstElement* scheme-object int uint64 uint64) GstFlowReturn)
 (gst-external (gst_app_src_write_pointer GstElement* void* int uint64 uint64) GstFlowReturn)
-(gst-external (gst_app_sink_connect_fifo_signals GstElement* int) void)
+(gst-external (gst_app_sink_connect_descriptor_signals GstElement* int) void)
 (gst-external (gst_app_sink_try_pull GstElement* scheme-object scheme-object) int)
 (gst-external (gst_app_sink_is_eos (call GST_APP_SINK GstElement*)) bool)
 (gst-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")

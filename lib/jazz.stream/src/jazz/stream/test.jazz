@@ -278,7 +278,7 @@
           (video-mutex (make-mutex 'video))
           (transferer (make-transferer video-size))
           (pipe (open-vector))
-          (fifo (open-stream-fifo))
+          (listener (open-stream-listener))
           (frame-count 0)
           (draw-count 0))
       (define (with-video-mutex thunk)
@@ -338,7 +338,7 @@
                 (gst_object_set_name pipeline "pipeline")
                 (let ((sink (gst_bin_get_by_name pipeline "sink"))
                       (process-messages (pipeline-messages-processor pipeline print?: debug?)))
-                  (gst_app_sink_connect_signals sink fifo)
+                  (gst_app_sink_connect_signals sink listener)
                   (when debug?
                     (when (neq? codec 'none)
                       (gst_monitor pipeline monitor "enc" "identity" "dec"))
@@ -348,7 +348,7 @@
                   (let (loop)
                     (let ((size (with-video-mutex
                                   (lambda ()
-                                    (gst_app_sink_read fifo sink video-buffer video-info)))))
+                                    (gst_app_sink_read listener sink video-buffer video-info)))))
                       (increase! frame-count)
                       (invalidate-view view))
                     (process-messages)
@@ -396,7 +396,7 @@
         (new-thread
           (lambda ()
             (let ((view (read pipe)))
-              (let ((fifo (open-stream-fifo))
+              (let ((listener (open-stream-listener))
                     (pipeline (gst-launch ;"videotestsrc name=src"
                                           "avfvideosrc name=src"
                                           "videoscale name=scale"
@@ -419,12 +419,12 @@
                   (set! test-encoder encoder)
                   (when debug?
                     (gst_monitor pipeline monitor "enc" "sink"))
-                  (gst_app_sink_connect_signals sink fifo)
+                  (gst_app_sink_connect_signals sink listener)
                   (gst_element_set_state pipeline GST_STATE_PLAYING)
                   (process-messages)
                   (let (loop)
                     (input-port-timeout-set! pipe 0)
-                    (let ((size (gst_app_sink_read fifo sink video-buffer video-info)))
+                    (let ((size (gst_app_sink_read listener sink video-buffer video-info)))
                       (let ((full? (= (u8vector-ref video-buffer 5) 16)))
                         (when full?
                           (terminal '********************)))
@@ -480,7 +480,7 @@
       (thread-start!
         (new-thread
           (lambda ()
-            (let ((color-fifo (open-stream-fifo))
+            (let ((color-listener (open-stream-listener))
                   (color-pipeline (gst-launch "appsrc name=src"
                                               "videoconvert name=convert"
                                               (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
@@ -488,16 +488,16 @@
                                               "appsink name=sink")))
               (let ((color-src (gst_bin_get_by_name color-pipeline "src"))
                     (color-sink (gst_bin_get_by_name color-pipeline "sink")))
-                (gst_app_sink_connect_signals color-sink color-fifo)
+                (gst_app_sink_connect_signals color-sink color-listener)
                 (gst-setup-source color-src "video/x-raw" "BGRA" width height framerate)
                 (gst_element_set_state color-pipeline GST_STATE_PLAYING)
-                (let ((alpha-fifo (open-stream-fifo))
+                (let ((alpha-listener (open-stream-listener))
                       (alpha-pipeline (gst-launch "appsrc name=src"
                                                   (tie "x264enc pass=qual quantizer=20 bitrate={bitrate} tune=zerolatency speed-preset=superfast name=enc")
                                                   "appsink name=sink")))
                   (let ((alpha-src (gst_bin_get_by_name alpha-pipeline "src"))
                         (alpha-sink (gst_bin_get_by_name alpha-pipeline "sink")))
-                    (gst_app_sink_connect_signals alpha-sink alpha-fifo)
+                    (gst_app_sink_connect_signals alpha-sink alpha-listener)
                     (gst-setup-source alpha-src "video/x-raw" "I420" width height framerate)
                     (gst_element_set_state alpha-pipeline GST_STATE_PLAYING)
                     (let ((color-buffer (make-u8vector (* width height 4)))
@@ -522,10 +522,10 @@
                             (gst_app_src_write_pointer color-src data size timestamp duration)
                             (gst_app_src_write_pointer alpha-src alpha-data alpha-size timestamp duration)))
                         (when (not color-bytes)
-                          (let ((size (gst_app_sink_read color-fifo color-sink color-buffer color-info)))
+                          (let ((size (gst_app_sink_read color-listener color-sink color-buffer color-info)))
                             (set! color-bytes size)))
                         (when (not alpha-bytes)
-                          (let ((size (gst_app_sink_read alpha-fifo alpha-sink alpha-buffer alpha-info)))
+                          (let ((size (gst_app_sink_read alpha-listener alpha-sink alpha-buffer alpha-info)))
                             (set! alpha-bytes size)))
                         (when (and color-bytes alpha-bytes)
                           ;(terminal (- (real-time) start) color-bytes alpha-bytes)
@@ -542,7 +542,7 @@
         (new-thread
           (lambda ()
             (let ((view (read view-pipe)))
-              (let ((color-fifo (open-stream-fifo))
+              (let ((color-listener (open-stream-listener))
                     (color-pipeline (gst-launch "appsrc name=src"
                                                 "avdec_h264 name=dec"
                                                 "videoconvert name=convert"
@@ -550,16 +550,16 @@
                                                 "appsink name=sink")))
                 (let ((color-src (gst_bin_get_by_name color-pipeline "src"))
                       (color-sink (gst_bin_get_by_name color-pipeline "sink")))
-                  (gst_app_sink_connect_signals color-sink color-fifo)
+                  (gst_app_sink_connect_signals color-sink color-listener)
                   (gst-setup-source color-src "video/x-h264" "I420" width height framerate stream-format: "avc" alignment: "au")
                   (gst_element_set_state color-pipeline GST_STATE_PLAYING)
-                  (let ((alpha-fifo (open-stream-fifo))
+                  (let ((alpha-listener (open-stream-listener))
                         (alpha-pipeline (gst-launch "appsrc name=src"
                                                     "avdec_h264 name=dec"
                                                     "appsink name=sink")))
                     (let ((alpha-src (gst_bin_get_by_name alpha-pipeline "src"))
                           (alpha-sink (gst_bin_get_by_name alpha-pipeline "sink")))
-                      (gst_app_sink_connect_signals alpha-sink alpha-fifo)
+                      (gst_app_sink_connect_signals alpha-sink alpha-listener)
                       (gst-setup-source alpha-src "video/x-h264" "I420" width height framerate stream-format: "avc" alignment: "au")
                       (gst_element_set_state alpha-pipeline GST_STATE_PLAYING)
                       (let ((color-buffer (make-u8vector (* width height 4)))
@@ -575,10 +575,10 @@
                                 (gst_app_src_write color-src buffer bytes timestamp duration)
                                 (gst_app_src_write alpha-src alpha-buffer alpha-bytes timestamp duration))))
                           (when (not color-bytes)
-                            (let ((size (gst_app_sink_read color-fifo color-sink color-buffer color-info)))
+                            (let ((size (gst_app_sink_read color-listener color-sink color-buffer color-info)))
                               (set! color-bytes size)))
                           (when (not alpha-bytes)
-                            (let ((size (gst_app_sink_read alpha-fifo alpha-sink alpha-buffer alpha-info)))
+                            (let ((size (gst_app_sink_read alpha-listener alpha-sink alpha-buffer alpha-info)))
                               (set! alpha-bytes size)))
                           (when (and color-bytes alpha-bytes)
                             (increase! frame-count)
@@ -659,7 +659,7 @@
           (new-thread
             (lambda ()
               (let ((codec audio-codec))
-                (let ((fifo (open-stream-fifo))
+                (let ((listener (open-stream-listener))
                       (pipeline (gst-launch (cond ((eq? codec 'opus)
                                                    "autoaudiosrc format=S16LE layout=interleaved rate=48000 channels=1 name=src")
                                                   ((eq? codec 'vorbis)
@@ -678,12 +678,12 @@
                       (when (neq? codec 'none)
                         (gst_monitor pipeline monitor "enc" "identity" "dec"))
                       (gst_monitor pipeline monitor "sink"))
-                    (gst_app_sink_connect_signals sink fifo)
+                    (gst_app_sink_connect_signals sink listener)
                     (gst_element_set_state pipeline GST_STATE_PLAYING)
                     (let ((buffer (make-u8vector 4096))
                           (info (make-u64vector 2)))
                       (let (loop)
-                        (let ((size (gst_app_sink_read fifo sink buffer info)))
+                        (let ((size (gst_app_sink_read listener sink buffer info)))
                           (let ((timestamp (u64vector-ref info 0))
                                 (duration (u64vector-ref info 1)))
                             (write (list (u8vector-copy buffer) size timestamp duration) audio-pipe)
@@ -696,7 +696,7 @@
         (thread-start!
           (new-thread
             (lambda ()
-              (let ((fifo (open-stream-fifo))
+              (let ((listener (open-stream-listener))
                     (pipeline (gst-launch (cond-expand
                                             (mac "avfvideosrc name=src")
                                             (windows "ksvideosrc name=src")
@@ -712,13 +712,13 @@
                       (process-messages (pipeline-messages-processor pipeline print?: debug?)))
                   (when debug?
                     (gst_monitor pipeline monitor "src" "sink"))
-                  (gst_app_sink_connect_signals sink fifo)
+                  (gst_app_sink_connect_signals sink listener)
                   (gst_element_set_state pipeline GST_STATE_PLAYING)
                   (process-messages)
                   (let ((buffer (make-u8vector (* width height 4)))
                         (info (make-u64vector 2)))
                     (let (loop)
-                      (let ((size (gst_app_sink_read fifo sink buffer info)))
+                      (let ((size (gst_app_sink_read listener sink buffer info)))
                         (let ((timestamp (u64vector-ref info 0))
                               (duration (u64vector-ref info 1)))
                           (write (list (u8vector-copy buffer) size timestamp duration) video-pipe)
@@ -782,7 +782,7 @@
           (new-thread
             (lambda ()
               (let ((view (read pipe)))
-                (let ((fifo (open-stream-fifo))
+                (let ((listener (open-stream-listener))
                       (pipeline (gst-launch "appsrc name=src"
                                             (and (eq? codec 'h264) "avdec_h264 name=dec")
                                             (and (eq? codec 'vp8) "vp8dec name=dec")
@@ -800,7 +800,7 @@
                       (gst_monitor pipeline monitor "src" "convert" "sink")
                       (when (neq? codec 'none)
                         (gst_monitor pipeline monitor "dec")))
-                    (gst_app_sink_connect_signals sink fifo)
+                    (gst_app_sink_connect_signals sink listener)
                     (case codec
                       ((h264)
                        (gst_app_src_set_caps src
@@ -838,7 +838,7 @@
                           (gst_app_src_write src buffer size timestamp duration)))
                       (let ((size (with-video-mutex
                                     (lambda ()
-                                      (gst_app_sink_read fifo sink video-buffer video-info)))))
+                                      (gst_app_sink_read listener sink video-buffer video-info)))))
                         (increase! frame-count)
                         (invalidate-view view))
                       (process-messages)
@@ -1023,8 +1023,8 @@
             (input-thread
               (new-thread
                 (lambda ()
-                  (let ((fifo (open-stream-fifo))
-                        (audio-fifo (open-stream-fifo))
+                  (let ((listener (open-stream-listener))
+                        (audio-listener (open-stream-listener))
                         (pipeline (gst-launch (tie "filesrc name=filesrc")
                                               "decodebin name=decoder"
                                               (list "decoder."
@@ -1047,17 +1047,17 @@
                           (audio-buffer (make-u8vector 65536))
                           (audio-info (make-u64vector 2))
                           (process-messages (pipeline-messages-processor pipeline print?: debug?)))
-                      (gst_app_sink_connect_signals video-appsink fifo)
-                      (gst_app_sink_connect_signals audio-appsink audio-fifo)
+                      (gst_app_sink_connect_signals video-appsink listener)
+                      (gst_app_sink_connect_signals audio-appsink audio-listener)
                       (g_object_set_string source "location" (path-normalize filename))
                       (gst_element_set_state pipeline GST_STATE_PLAYING)
                       (let (loop)
-                        (let ((size (gst_app_sink_read fifo video-appsink video-buffer video-info)))
+                        (let ((size (gst_app_sink_read listener video-appsink video-buffer video-info)))
                           (let ((timestamp (u64vector-ref video-info 0))
                                 (duration (u64vector-ref video-info 1)))
                             (write (list (u8vector-copy video-buffer) size timestamp duration) video-pipe)
                             (force-output video-pipe)))
-                        (let ((size (gst_app_sink_read audio-fifo audio-appsink audio-buffer audio-info)))
+                        (let ((size (gst_app_sink_read audio-listener audio-appsink audio-buffer audio-info)))
                           (let ((timestamp (u64vector-ref audio-info 0))
                                 (duration (u64vector-ref audio-info 1)))
                             (write (list (u8vector-copy audio-buffer) size timestamp duration) audio-pipe)
@@ -1115,7 +1115,7 @@
               (new-thread
                 (lambda ()
                   (let ((view (read pipe)))
-                    (let ((fifo (open-stream-fifo))
+                    (let ((listener (open-stream-listener))
                           (pipeline (gst-launch "appsrc name=src"
                                                 (and (eq? codec 'h264) "avdec_h264 name=dec")
                                                 (and (eq? codec 'vp8) "vp8dec name=dec")
@@ -1132,7 +1132,7 @@
                           (gst_monitor pipeline monitor "src" "convert" "sink")
                           (when (neq? codec 'none)
                             (gst_monitor pipeline monitor "dec")))
-                        (gst_app_sink_connect_signals sink fifo)
+                        (gst_app_sink_connect_signals sink listener)
                         (case codec
                           ((h264)
                            (gst_app_src_set_caps src
@@ -1170,7 +1170,7 @@
                               (gst_app_src_write src buffer size timestamp duration)))
                           (let ((size (with-video-mutex
                                         (lambda ()
-                                          (gst_app_sink_read fifo sink video-buffer video-info)))))
+                                          (gst_app_sink_read listener sink video-buffer video-info)))))
                             (increase! frame-count)
                             (invalidate-view view))
                           (process-messages)

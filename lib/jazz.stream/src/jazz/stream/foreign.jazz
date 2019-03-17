@@ -308,13 +308,16 @@ static GstPad* gst_iterator_next_pad(GstIterator *it)
         return (GstPad*) g_value_get_object(&elem);
 }
 
-static int gst_fifo_open(char* filename)
+static void* gst_fifo_open(char* filename)
 {
 #ifdef _WIN32
-    return 0;
+    return NULL;
 #else
     int fd = open(filename, O_WRONLY|O_NONBLOCK);
-    return fd;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    return (void*) fd;
+    #pragma GCC diagnostic pop
 #endif
 }
 
@@ -350,7 +353,7 @@ static void* gst_socket_open(char* hostname, int portno)
           // Do the clean up
           WSACleanup();
           // Exit with error
-          return -1;
+          return NULL;
      }
 
      // IPv4
@@ -371,10 +374,13 @@ static void* gst_socket_open(char* hostname, int portno)
           // Do the clean up
           WSACleanup();
           // Exit with error
-          return -1;
+          return NULL;
      }
 
-     return (void*) SendingSocket;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    return (void*) SendingSocket;
+    #pragma GCC diagnostic pop
 #else
     int sockfd, n;
     struct sockaddr_in serv_addr;
@@ -396,33 +402,76 @@ static void* gst_socket_open(char* hostname, int portno)
 
     ___EXT(___mask_heartbeat_interrupts_end)(&heartbeat_interrupts);
     
-    return sockfd;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    return (void*) sockfd;
+    #pragma GCC diagnostic pop
 #endif
 }
 
-static void gst_descriptor_wakeup(int fd)
+static void gst_listener_wakeup(void* user_data)
 {
+#ifdef _WIN32
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) user_data;
+    #pragma GCC diagnostic pop
+    
     write(fd, ".", 1);
+#endif
 }
 
-static void gst_descriptor_eos(int fd)
+static void gst_listener_eos(void* user_data)
 {
+#ifdef _WIN32
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) user_data;
+    #pragma GCC diagnostic pop
+    
     write(fd, "^", 1);
+#endif
 }
 
-static void gst_descriptor_reset(int fd)
+static void gst_listener_reset(void* user_data)
 {
+#ifdef _WIN32
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) user_data;
+    #pragma GCC diagnostic pop
+    
     write(fd, "!", 1);
+#endif
 }
 
-static void gst_descriptor_stop(int fd)
+static void gst_listener_stop(void* user_data)
 {
+#ifdef _WIN32
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) user_data;
+    #pragma GCC diagnostic pop
+    
     write(fd, "@", 1);
+#endif
 }
 
-static void gst_descriptor_close(int fd)
+static void gst_listener_close(void* user_data)
 {
+#ifdef _WIN32
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) user_data;
+    #pragma GCC diagnostic pop
+    
     close(fd);
+#endif
 }
 
 static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
@@ -439,21 +488,13 @@ static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
 
 static GstFlowReturn on_new_sample(GstElement* object, gpointer user_data)
 {
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) user_data;
-    #pragma GCC diagnostic pop
-    gst_descriptor_wakeup(fd);
+    gst_listener_wakeup(user_data);
     return GST_FLOW_OK;
 }
 
 static GstFlowReturn on_eos(GstElement* object, gpointer user_data)
 {
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) user_data;
-    #pragma GCC diagnostic pop
-    gst_descriptor_eos(fd);
+    gst_listener_eos(user_data);
     return GST_FLOW_OK;
 }
 
@@ -462,14 +503,11 @@ static gulong gst_signal_connect_to(gpointer instance, char* signal, gpointer da
     return g_signal_connect(instance, signal, G_CALLBACK(on_pad_added), data);
 }
 
-static void gst_app_sink_connect_descriptor_signals(GstElement* elem, int fd)
+static void gst_app_sink_connect_listener_signals(GstElement* elem, void* data)
 {
     gst_app_sink_set_emit_signals(GST_APP_SINK(elem), 1);
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wint-conversion"
-    g_signal_connect(elem, "new-sample", G_CALLBACK(on_new_sample), fd);
-    g_signal_connect(elem, "eos", G_CALLBACK(on_eos), fd);
-    #pragma GCC diagnostic pop
+    g_signal_connect(elem, "new-sample", G_CALLBACK(on_new_sample), data);
+    g_signal_connect(elem, "eos", G_CALLBACK(on_eos), data);
 }
 
 static GstDiscoverer* gst_discoverer_new_aux()
@@ -924,11 +962,11 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_element_query_duration GstElement* GstFormat) int64 "gst_element_query_duration_aux")
 (gst-external (gst_iterator_next_element GstIterator*) GstElement*)
 (gst-external (gst_iterator_next_pad GstIterator*) GstPad*)
-(gst-external (gst_fifo_open char-string) int)
+(gst-external (gst_fifo_open char-string) void*)
 (gst-external (gst_socket_open char-string int) void*)
-(gst-external (gst_descriptor_reset int) void)
-(gst-external (gst_descriptor_stop int) void)
-(gst-external (gst_descriptor_close int) void)
+(gst-external (gst_listener_reset void*) void)
+(gst-external (gst_listener_stop void*) void)
+(gst-external (gst_listener_close void*) void)
 (gst-external (gst_signal_connect_to gpointer char-string gpointer) gulong)
 (gst-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
 (gst-external (gst_bus_pop GstBus*) GstMessage*)
@@ -962,7 +1000,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)
 (gst-external (gst_app_src_write GstElement* scheme-object int uint64 uint64) GstFlowReturn)
 (gst-external (gst_app_src_write_pointer GstElement* void* int uint64 uint64) GstFlowReturn)
-(gst-external (gst_app_sink_connect_descriptor_signals GstElement* int) void)
+(gst-external (gst_app_sink_connect_listener_signals GstElement* void*) void)
 (gst-external (gst_app_sink_try_pull GstElement* scheme-object scheme-object) int)
 (gst-external (gst_app_sink_is_eos (call GST_APP_SINK GstElement*)) bool)
 (gst-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")

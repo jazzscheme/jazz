@@ -319,15 +319,62 @@ static int gst_fifo_open(char* filename)
 }
 
 #ifdef _WIN32
+#include <winsock2.h>
+#include <stdio.h>
 #else
 #include <netdb.h>
 #include <netinet/in.h>
 #endif
 
-static int gst_socket_open(char* hostname, int portno)
+static void* gst_socket_open(char* hostname, int portno)
 {
 #ifdef _WIN32
-    return 0;
+    WSADATA              wsaData;
+    SOCKET               SendingSocket;
+
+    // Server/receiver address
+    SOCKADDR_IN          ServerAddr, ThisSenderInfo;
+
+     int  RetCode;
+
+     // Initialize Winsock version 2.2
+     WSAStartup(MAKEWORD(2,2), &wsaData);
+
+     // Create a new socket to make a client connection.
+     // AF_INET = 2, The Internet Protocol version 4 (IPv4) address family, TCP protocol
+     SendingSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+     if(SendingSocket == INVALID_SOCKET)
+     {
+          printf("Client: socket() failed! Error code: %ld\n", WSAGetLastError());
+          // Do the clean up
+          WSACleanup();
+          // Exit with error
+          return -1;
+     }
+
+     // IPv4
+     ServerAddr.sin_family = AF_INET;
+     // Port no.
+     ServerAddr.sin_port = htons(portno);
+     // The IP address
+     ServerAddr.sin_addr.s_addr = inet_addr(hostname);
+
+     // Make a connection to the server with socket SendingSocket.
+     RetCode = connect(SendingSocket, (SOCKADDR *) &ServerAddr, sizeof(ServerAddr));
+
+     if(RetCode != 0)
+     {
+          printf("Client: connect() failed! Error code: %ld\n", WSAGetLastError());
+          // Close the socket
+          closesocket(SendingSocket);
+          // Do the clean up
+          WSACleanup();
+          // Exit with error
+          return -1;
+     }
+
+     return (void*) SendingSocket;
 #else
     int sockfd, n;
     struct sockaddr_in serv_addr;
@@ -878,7 +925,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_iterator_next_element GstIterator*) GstElement*)
 (gst-external (gst_iterator_next_pad GstIterator*) GstPad*)
 (gst-external (gst_fifo_open char-string) int)
-(gst-external (gst_socket_open char-string int) int)
+(gst-external (gst_socket_open char-string int) void*)
 (gst-external (gst_descriptor_reset int) void)
 (gst-external (gst_descriptor_stop int) void)
 (gst-external (gst_descriptor_close int) void)

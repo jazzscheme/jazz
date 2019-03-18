@@ -279,32 +279,19 @@
 
 
 (definition public (gst_app_sink_connect_signals elem listener)
-  (cond-expand
-    (windows)
-    (else
-     (gst_app_sink_connect_listener_signals elem (get-write-file listener)))))
+  (gst_app_sink_connect_listener_signals elem (get-write-file listener)))
 
 
 (definition public (gst_app_sink_read listener elem vec info)
-  (cond-expand
-    (windows
-     (declare (proper-tail-calls))
-     (let (loop)
-       (let ((size (gst_app_sink_try_pull elem vec info)))
-         (if (/= size -1)
-             size
-           (sleep .01)
-           (loop)))))
-    (else
-     (if (get-stopped? listener)
-         #f
-       (let ((c (wait listener)))
-         (if (or (eqv? c #\^)
-                 (eqv? c #\@))
-             #f
-           (let ((size (gst_app_sink_try_pull elem vec info)))
-             (assert (/= size -1)
-               size))))))))
+  (if (get-stopped? listener)
+      #f
+    (let ((c (wait listener)))
+      (if (or (eqv? c #\^)
+              (eqv? c #\@))
+          #f
+        (let ((size (gst_app_sink_try_pull elem vec info)))
+          (assert (/= size -1)
+            size))))))
 
 
 ;;;
@@ -313,7 +300,11 @@
 
 
 (definition listener-sockets?
-  #f)
+  (cond-expand
+    (windows
+     #t)
+    (else
+     #f)))
 
 
 (definition socket-server-port
@@ -324,7 +315,7 @@
 
 
 (definition socket-server-address
-  "localhost")
+  "127.0.0.1")
 
 (definition socket-server-service
   57000)
@@ -370,39 +361,32 @@
 
 
 (definition public (open-stream-listener (name #f))
-  (cond-expand
-    (windows
-     #f)
-    (else
-     (cond (listener-sockets?
-            (mutex-lock! socket-server-mutex)
-            (prog1 (let ((file (gst_socket_open socket-server-address socket-server-service)))
-                     (let ((port (read socket-server-port)))
-                       (new Stream-Listener #f file port)))
-              (mutex-unlock! socket-server-mutex)))
-           (else
-            (create-directories fifo-directory)
-            (let (iterate (no (next-fifo-no!)))
-              (let ((name (format "{a}{a}{a}" fifo-prefix (or name "fifo") no)))
-                (let ((file (new-file fifo-directory name)))
-                  (if (exists? file)
-                      (iterate (+ no 1))
-                    (let ((filename (parse file)))
-                      (create-fifo filename)
-                      (new Stream-Listener filename)))))))))))
+  (cond (listener-sockets?
+         (mutex-lock! socket-server-mutex)
+         (prog1 (let ((file (gst_socket_open socket-server-address socket-server-service)))
+                  (let ((port (read socket-server-port)))
+                    (new Stream-Listener #f file port)))
+           (mutex-unlock! socket-server-mutex)))
+        (else
+         (create-directories fifo-directory)
+         (let (iterate (no (next-fifo-no!)))
+           (let ((name (format "{a}{a}{a}" fifo-prefix (or name "fifo") no)))
+             (let ((file (new-file fifo-directory name)))
+               (if (exists? file)
+                   (iterate (+ no 1))
+                 (let ((filename (parse file)))
+                   (create-fifo filename)
+                   (new Stream-Listener filename)))))))))
 
 
 (definition protected (empty-fifo-directory (feedback?: feedback? #f))
-  (cond-expand
-    (windows)
-    (else
-     (unless listener-sockets?
-       (for-each (lambda (filename)
-                   (let ((file (new-file fifo-directory filename)))
-                     (when feedback?
-                       (terminal 'delete 'fifo filename))
-                     (delete file)))
-                 (directory-collect (parse fifo-directory) 'fifo))))))
+  (unless listener-sockets?
+    (for-each (lambda (filename)
+                (let ((file (new-file fifo-directory filename)))
+                  (when feedback?
+                    (terminal 'delete 'fifo filename))
+                  (delete file)))
+              (directory-collect (parse fifo-directory) 'fifo))))
 
 
 ;;;
@@ -411,26 +395,17 @@
 
 
 (definition public (start-stream-listener listener)
-  (cond-expand
-    (windows)
-    (else
-     (flush listener)
-     (set-stopped? listener #f))))
+  (flush listener)
+  (set-stopped? listener #f))
 
 
 (definition public (stop-stream-listener listener)
-  (cond-expand
-    (windows)
-    (else
-     (set-stopped? listener #t)
-     (gst_listener_stop (get-write-file listener)))))
+  (set-stopped? listener #t)
+  (gst_listener_stop (get-write-file listener)))
 
 
 (definition public (close-stream-listener listener)
-  (cond-expand
-    (windows)
-    (else
-     (close listener))))
+  (close listener))
 
 
 (class Stream-Listener extends Object

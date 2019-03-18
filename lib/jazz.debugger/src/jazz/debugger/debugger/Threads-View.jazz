@@ -50,9 +50,17 @@
         (jazz.platform)
         (jazz.process)
         (jazz.resource)
+        (jazz.settings)
         (jazz.tree)
         (jazz.ui)
         (jazz.view))
+
+
+(definition priority-base
+  (find-setting 'jazz.debugger.priority-base 0))
+
+(definition priority-sort?
+  (find-setting 'jazz.debugger.priority-sort? #f))
 
 
 (class Threads-View extends Layout-View
@@ -324,13 +332,20 @@
               (car (split reason "\n"))
             default)))
       
+      (define (normalize-priority priority)
+        (let ((priority (+ priority priority-base)))
+          (if (integer? priority)
+              (inexact->exact priority)
+            priority)))
+      
       (let ((name (present-thread-name (get-name thread)))
+            (priority (get-priority thread))
             (id (get-id thread)))
         (case (if stop (get-kind stop) 'run)
-          ((exception) (format "{a}{? #{a}~} - {a}" name (and detailed? id) (stop-title stop "Exception")))
-          ((break)     (format "{a}{? #{a}~} - {a}" name (and detailed? id) (stop-title stop "Break")))
+          ((exception) (format "{a}{? #{a}~} ({a}) - {a}" name (and detailed? id) (normalize-priority priority) (stop-title stop "Exception")))
+          ((break)     (format "{a}{? #{a}~} ({a}) - {a}" name (and detailed? id) (normalize-priority priority) (stop-title stop "Break")))
           (else        (if detailed?
-                           (format "{a}{? #{a}~} - {a}" name id (get-state thread))
+                           (format "{a}{? #{a}~} ({a}) - {a}" name id (normalize-priority priority) (get-state thread))
                          (->string name))))))
     
     (define (thread-image thread stop)
@@ -355,7 +370,8 @@
                               (frame-color (get-stopped-frame-color manager thread))
                               (background (get-visited-highlight-color manager thread)))
                           (add-row tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))
-                      detailed?: (show-detailed? self)))))
+                      detailed?: (show-detailed? self)
+                      sort-priority?: priority-sort?))))
               use: 'data
               test: debugged=?
               generate-event?: user-origin)

@@ -38,8 +38,8 @@
 (module jazz.stream jazz
 
 
-(hub set-sink)
 (hub set-src)
+(hub set-sinks)
 
 
 (require (jazz.stream.setup))
@@ -73,17 +73,31 @@
 (class Stream-Element extends Object
   
   
-  (slot state initialize #f getter generate)
-  (slot src   initialize #f accessors generate)
-  (slot sink  initialize #f accessors generate)
-  ;; quicky to test tees
-  (slot sinkself initialize #f accessors generate)
+  (slot state initialize #f  getter generate)
+  (slot src   initialize #f  accessors generate)
+  (slot sinks initialize '() accessors generate)
   
   
   (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{a}" state))))
+  
+  
+  ;; CONVERTCONSUMER
+  (method protected (find-consumer self caps)
+    (find-if (lambda (sink)
+               (and (is? sink Stream-Consumer)
+                    (eqv? (get-caps sink) caps)))
+             sinks))
+  
+  
+  ;; CONVERTCONSUMER
+  (method protected (release-consumers self)
+    (for-each (lambda (sink)
+                (when (is? sink Stream-Consumer)
+                  (release-consumer sink)))
+              sinks))
   
   
   (method package (ready? self)
@@ -208,6 +222,60 @@
 
 
 ;;;
+;;;; Consumer
+;;;
+
+
+(class Stream-Consumer extends Stream-Sink
+  
+  
+  (slot caps                  initialize #f accessors generate)
+  (slot listener              initialize #f accessors generate)
+  (slot element               initialize #f accessors generate)
+  (slot data     <u8vector+>  initialize #f accessors generate)
+  (slot info     <u64vector+> initialize #f accessors generate)
+  
+  
+  (method override (initialize self (caps: caps #f) (consumer: consumer #f))
+    (nextmethod self consumer: consumer)
+    (set! self.caps caps))
+  
+  
+  (method protected (setup-consumer self listener element size)
+    (set! self.listener listener)
+    (set! self.element element)
+    (set! self.data (make-u8vector size))
+    (set! self.info (make-u64vector 2)))
+  
+  
+  (method protected (release-consumer self)
+    (consume self #f #f #f)
+    (close-stream-listener listener)
+    (set! listener #f)
+    (set! element #f)
+    (set! data #f)
+    (set! info #f))
+  
+  
+  (method protected (start-listener self)
+    (when listener
+      (start-stream-listener listener)))
+  
+  
+  (method protected (stop-listener self)
+    (when listener
+      (stop-stream-listener listener)))
+  
+  
+  (method protected virtual (reset-action self)
+    )
+  
+  
+  (method protected virtual (eos-action self)
+    (consume self #f #f #f)))
+
+
+;;;
 ;;;; Debug-Sink
 ;;;
 
@@ -232,45 +300,39 @@
 ;;;
 
 
-(definition public (pipeline . elements)
-  (let ((sinkself? #f))
-  (let ((len (length elements)))
-    (if (< len 2)
-        (error "Invalid pipeline length: {s}" len)
-      (let (loop (previous #f) (scan elements))
-        (when (not-null? scan)
-          (let ((elem (car scan)))
-            ;; quicky to test tees
-            (if (pair? elem)
-                (bind (sink sinkself) elem
-                  (set-src sink previous)
-                  (set-sink previous sink)
-                  (set-src sinkself previous)
-                  (set-sinkself previous sinkself)
-                  (set! sinkself? #t))
-              (when previous
-                (set-src elem previous)
-                (set-sink previous elem))
-              (loop elem (cdr scan))))))))
-  ;; quicky to test tees
-  (if sinkself?
-      (bind (src (sink sinkself)) elements
-        (let ((pipeline (new Stream-Pipeline (list src sink sinkself))))
-          (set-src pipeline src)
-          (set-sink pipeline sink)
-          (set-sinkself pipeline sinkself)
-          pipeline))
-    (bind (src sink) elements
+(definition public (pipeline desc)
+  (define (parse desc)
+    (if (is? desc Stream-Element)
+        desc
+      (bind (src . descs) desc
+        (let ((sinks (map parse descs)))
+          (for-each (lambda (sink)
+                      (set-src sink src))
+                    sinks)
+          (set-sinks src sinks)
+          src))))
+  
+  (let ((src (parse desc))
+        (elements (new-queue))
+        (sinks (new-queue)))
+    (define (walk elem)
+      (enqueue elements elem)
+      (when (is? elem Stream-Sink)
+        (enqueue sinks elem))
+      (for-each walk (get-sinks elem)))
+    
+    (walk src)
+    (let ((elements (queue-list elements))
+          (sinks (queue-list sinks)))
       (let ((pipeline (new Stream-Pipeline elements)))
         (set-src pipeline src)
-        (set-sink pipeline sink)
-        pipeline)))))
+        (set-sinks pipeline sinks)
+        pipeline))))
 
 
 ;; quick hack around order being important
 (definition public (play-reversed pipeline)
-  (play (get-sink pipeline))
-  (play (get-src pipeline))
+  (for-each-reversed play (get-elements pipeline))
   (set-slot-value pipeline 'state 'play))
 
 
@@ -283,6 +345,11 @@
   (method override (initialize self elements)
     (nextmethod self)
     (set! self.elements elements))
+  
+  
+  (method override (destroy self)
+    (for-each close elements)
+    (nextmethod self))
   
   
   (method override (setup-element self)

@@ -73,15 +73,26 @@
 (class Stream-Element extends Object
   
   
+  (slot name  initialize #f  getter generate)
   (slot state initialize #f  getter generate)
   (slot src   initialize #f  accessors generate)
   (slot sinks initialize '() accessors generate)
   
   
+  (method override (initialize self (name: name #f))
+    (nextmethod self)
+    (set! self.name name))
+  
+  
   (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
-        (format output "{a}" state))))
+        (format output "{a} {a}" name state))))
+  
+  
+  (method protected (single-consumer self)
+    (and (= 1 (length sinks))
+         (car sinks)))
   
   
   ;; CONVERTCONSUMER
@@ -212,8 +223,8 @@
   (slot consumer initialize #f accessors generate)
   
   
-  (method override (initialize self (consumer: consumer #f))
-    (nextmethod self)
+  (method override (initialize self (name: name #f) (consumer: consumer #f))
+    (nextmethod self name: name)
     (set! self.consumer consumer))
   
   
@@ -236,8 +247,8 @@
   (slot info     <u64vector+> initialize #f accessors generate)
   
   
-  (method override (initialize self (caps: caps #f) (consumer: consumer #f))
-    (nextmethod self consumer: consumer)
+  (method override (initialize self (caps: caps #f) (name: name #f) (consumer: consumer #f))
+    (nextmethod self name: name consumer: consumer)
     (set! self.caps caps))
   
   
@@ -281,14 +292,6 @@
 
 
 (class Debug-Sink extends Stream-Sink
-  
-  
-  (slot name initialize #f accessors generate)
-  
-  
-  (method override (initialize self name . rest)
-    (apply nextmethod self rest)
-    (set! self.name name))
   
   
   (method override (consume self buffer timestamp duration)

@@ -282,25 +282,26 @@
       (mutex-unlock! mutex))))
 
 
-(definition (stop-register stop)
+(definition (stop-register stop-info)
   (with-stops-mutex
     (lambda ()
-      (set! *stops* (append *stops* (list stop))))))
+      (set! *stops* (append *stops* (list stop-info))))))
 
 
-(definition (stop-unregister stop)
+(definition (stop-unregister stop-info)
   (with-stops-mutex
     (lambda ()
-      (set! *stops* (remove! stop *stops*)))))
+      (set! *stops* (remove! stop-info *stops*)))))
 
 
 (definition package (thread-active-stops thread)
   (let ((queue (new-queue)))
     (with-stops-mutex
       (lambda ()
-        (for-each (lambda (stop)
-                    (when (eq? (get-thread stop) thread)
-                      (enqueue queue (new Debuggee-Stop-Local-Proxy stop))))
+        (for-each (lambda (stop-info)
+                    (bind (stop thread-proxy stop-proxy) stop-info
+                      (when (eq? (get-thread stop) thread)
+                        (enqueue queue stop-proxy))))
                   *stops*)))
     (queue-list queue)))
 
@@ -375,17 +376,20 @@
 (class Console extends Object
   
   
-  (slot remote      getter generate)
-  (slot pump        getter generate)
-  (slot tail        getter generate)
-  (slot head        getter generate)
-  (slot readtable   accessors generate)
-  (slot repl-thread accessors generate)
-  (slot context     accessors generate)
-  (slot history     accessors generate)
+  ;; gc protect
+  (slot thread-proxy getter generate)
+  (slot remote       getter generate)
+  (slot pump         getter generate)
+  (slot tail         getter generate)
+  (slot head         getter generate)
+  (slot readtable    accessors generate)
+  (slot repl-thread  accessors generate)
+  (slot context      accessors generate)
+  (slot history      accessors generate)
   
   
-  (method override (initialize self remote pump tail head)
+  (method override (initialize self thread-proxy remote pump tail head)
+    (set! self.thread-proxy thread-proxy)
     (set! self.remote remote)
     (set! self.pump pump)
     (set! self.tail tail)
@@ -440,7 +444,7 @@
     (receive (head tail) (open-string-pipe `(permanent-close: #f ,@readtable-parameters))
       (let ((console (register-console debugger local-process thread-proxy select?)))
         (let ((pump (start-debuggee-console-pump debugger console tail)))
-          (new Console console pump tail head))))))
+          (new Console thread-proxy console pump tail head))))))
 
 
 (definition package (select-debugger-console)
@@ -1310,23 +1314,24 @@
           (let ((stop (new Jazz-Debuggee-Stop thread kind reason detail exc continuation (compute-restarts thread) locat stepper)))
             (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Jazz-Debuggee-Thread thread)))
                   (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
-              (dynamic-wind
-                (lambda ()
-                  (stop-register stop)
-                  (register-stop controller-debugger local-process thread-proxy stop-proxy step?: (boolean stepper))
-                  (hook-debuggee thread (+ level 1)))
-                (lambda ()
-                  (with-current-loop
-                    (lambda ()
-                      (let ((process (current-process)))
-                        (if (not process)
-                            (debuggee-loop)
-                          (process-debuggee-loop process))))))
-                (lambda ()
-                  (stop-unregister stop)
-                  (when controller-debugger
-                    (unregister-stop controller-debugger local-process thread-proxy stop-proxy))
-                  (hook-debuggee thread level)))))))
+              (let ((stop-info (list stop thread-proxy stop-proxy)))
+                (dynamic-wind
+                  (lambda ()
+                    (stop-register stop-info)
+                    (register-stop controller-debugger local-process thread-proxy stop-proxy step?: (boolean stepper))
+                    (hook-debuggee thread (+ level 1)))
+                  (lambda ()
+                    (with-current-loop
+                      (lambda ()
+                        (let ((process (current-process)))
+                          (if (not process)
+                              (debuggee-loop)
+                            (process-debuggee-loop process))))))
+                  (lambda ()
+                    (stop-unregister stop-info)
+                    (when controller-debugger
+                      (unregister-stop controller-debugger local-process thread-proxy stop-proxy))
+                    (hook-debuggee thread level))))))))
       step?: (boolean stepper))))
 
 

@@ -590,10 +590,41 @@ void main()
   (slot texture-toggle?     initialize #f getter generate)
   (slot interface           initialize #f getter generate)
   
+  ;; Render
+  (slot render-thread       initialize #f getter generate)
+  
+  
+  (method override (destroy self)
+    (stop-render self)
+    (nextmethod self))
+  
   
   (method override (setup-opengl self)
     (create-programs self)
-    (initialize-arrays self))
+    (initialize-arrays self)
+    (start-render self))
+  
+  
+  (method (start-render self)
+    (let ((thread
+            (new-thread
+              (lambda ()
+                (declare (proper-tail-calls))
+                (let ((period (/ 1. 30.)))
+                  (let (loop)
+                    (render-scene self)
+                    (sleep period)
+                    (loop))))
+              'render)))
+      (set! render-thread thread)
+      (thread-start! thread)))
+  
+  
+  (method (stop-render self)
+    ;; quicky
+    (when render-thread
+      (thread-terminate! render-thread)
+      (set! render-thread #f)))
   
   
   ;;;

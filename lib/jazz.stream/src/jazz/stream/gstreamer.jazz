@@ -256,20 +256,34 @@
 
 
 (definition public (gst_monitor pipeline what . names)
+  (define (parse-name name)
+    (let ((parts (split name ".")))
+      (if (= 1 (length parts))
+          (values name #f)
+        (bind (name dir) parts
+          (values name (cond ((equal? dir "src") GST_PAD_SRC)
+                             ((equal? dir "sink") GST_PAD_SINK)
+                             (else (error "Unknown pad direction: {a}" dir))))))))
+  
   (for-each (lambda (name)
-              (let ((elem (gst_bin_get_by_name pipeline name)))
-                (if (not elem)
-                    (error "Unable to find element {a}" name)
-                  (for-each (lambda (pad)
-                              (case what
-                                ((data)
-                                 (gst_monitor_data pipeline pad))
-                                ((events)
-                                 (gst_monitor_events pipeline pad))
-                                ((all)
-                                 (gst_monitor_data pipeline pad)
-                                 (gst_monitor_events pipeline pad))))
-                            (gst_element_pads elem)))))
+              (receive (name direction) (parse-name name)
+                (let ((elem (gst_bin_get_by_name pipeline name)))
+                  (if (not elem)
+                      (error "Unable to find element {a}" name)
+                    (for-each (lambda (pad)
+                                (when (or (not direction)
+                                          (= (gst_pad_get_direction pad) direction))
+                                  (case what
+                                    ((data)
+                                     (gst_monitor_data pipeline pad))
+                                    ((events)
+                                     (gst_monitor_events pipeline pad))
+                                    ((all)
+                                     (gst_monitor_data pipeline pad)
+                                     (gst_monitor_events pipeline pad))
+                                    (else
+                                     (error "Unknown monitor: {a}" what)))))
+                              (gst_element_pads elem))))))
             names))
 
 

@@ -260,8 +260,10 @@
   (object->serial-number obj))
 
 
-(define (jazz:serial->object number)
-  (serial-number->object number))
+(define (jazz:serial->object number #!optional (default #!void))
+  (if (%%eq? default #!void)
+      (serial-number->object number)
+    (serial-number->object number default)))
 
 
 ;; for debugging

@@ -305,7 +305,7 @@
 
 
 (definition public (gst_app_sink_read listener elem vec info)
-  (if (get-stopped? listener)
+  (if (get-closed? listener)
       #f
     (let ((c (wait listener)))
       (if (or (eqv? c #\^)
@@ -415,16 +415,15 @@
 
 
 (definition public (start-stream-listener listener)
-  (flush listener)
-  (set-stopped? listener #f))
+  )
 
 
 (definition public (stop-stream-listener listener)
-  (set-stopped? listener #t)
   (gst_listener_stop (get-write-file listener)))
 
 
 (definition public (close-stream-listener listener)
+  (set-closed? listener #t)
   (close listener))
 
 
@@ -434,7 +433,7 @@
   (slot filename   getter generate)
   (slot read-port  getter generate)
   (slot write-file getter generate)
-  (slot stopped?   accessors generate)
+  (slot closed?    accessors generate)
   
   
   (method override (initialize self filename . rest)
@@ -444,12 +443,12 @@
              (set! self.filename #f)
              (set! self.read-port port)
              (set! self.write-file file)
-             (set! self.stopped? #f)))
+             (set! self.closed? #f)))
           (else
            (set! self.filename filename)
            (set! self.read-port (open-input-file filename))
            (set! self.write-file (gst_fifo_open filename))
-           (set! self.stopped? #f))))
+           (set! self.closed? #f))))
   
   
   (method override (destroy self)
@@ -466,15 +465,6 @@
       (lambda (output)
         (unless listener-sockets?
           (format output "{a}" (filename-name filename))))))
-  
-  
-  (method public (flush self)
-    (declare (proper-tail-calls))
-    (input-port-timeout-set! read-port 0)
-    (let (loop)
-      (when (not (eof-object? (read-char read-port)))
-        (loop)))
-    (input-port-timeout-set! read-port +inf.0))
   
   
   (method public (wait self)

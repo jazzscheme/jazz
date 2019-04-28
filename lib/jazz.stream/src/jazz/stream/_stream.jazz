@@ -41,6 +41,10 @@
 (hub set-src)
 (hub set-sinks)
 
+;; CONVERTCONSUMER
+(hub get-caps)
+(hub release-consumer)
+
 
 (require (jazz.stream.setup))
 
@@ -90,15 +94,21 @@
         (format output "{a} {a}" name state))))
   
   
+  (method protected virtual (consumer? self)
+    #f)
+  
+  
   (method protected (single-consumer self)
     (and (= 1 (length sinks))
-         (car sinks)))
+         (let ((sink (car sinks)))
+           (and (consumer? sink)
+                sink))))
   
   
   ;; CONVERTCONSUMER
   (method protected (find-consumer self caps)
     (find-if (lambda (sink)
-               (and (is? sink Stream-Consumer)
+               (and (consumer? sink)
                     (eqv? (get-caps sink) caps)))
              sinks))
   
@@ -106,7 +116,7 @@
   ;; CONVERTCONSUMER
   (method protected (release-consumers self)
     (for-each (lambda (sink)
-                (when (is? sink Stream-Consumer)
+                (when (consumer? sink)
                   (release-consumer sink)))
               sinks))
   
@@ -235,60 +245,6 @@
   (method override (consume self buffer timestamp duration)
     (when consumer
       (consumer buffer timestamp duration))))
-
-
-;;;
-;;;; Consumer
-;;;
-
-
-(class Stream-Consumer extends Stream-Sink
-  
-  
-  (slot caps                  initialize #f accessors generate)
-  (slot listener              initialize #f accessors generate)
-  (slot element               initialize #f accessors generate)
-  (slot data     <u8vector+>  initialize #f accessors generate)
-  (slot info     <u64vector+> initialize #f accessors generate)
-  
-  
-  (method override (initialize self (caps: caps #f) (name: name #f) (consumer: consumer #f))
-    (nextmethod self name: name consumer: consumer)
-    (set! self.caps caps))
-  
-  
-  (method protected (setup-consumer self listener element size)
-    (set! self.listener listener)
-    (set! self.element element)
-    (set! self.data (make-u8vector size))
-    (set! self.info (make-u64vector 2)))
-  
-  
-  (method protected (release-consumer self)
-    (consume self #f #f #f)
-    (close-stream-listener listener)
-    (set! listener #f)
-    (set! element #f)
-    (set! data #f)
-    (set! info #f))
-  
-  
-  (method protected (start-listener self)
-    (when listener
-      (start-stream-listener listener)))
-  
-  
-  (method protected (stop-listener self)
-    (when listener
-      (stop-stream-listener listener)))
-  
-  
-  (method protected virtual (reset-action self)
-    )
-  
-  
-  (method protected virtual (eos-action self)
-    (consume self #f #f #f)))
 
 
 ;;;

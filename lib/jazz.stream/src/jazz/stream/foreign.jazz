@@ -212,6 +212,8 @@ static double g_object_get_double(GObject* obj, char* name)
 (c-type GstBus*                  (pointer GstBus GstBus*))
 (c-type GstClock                 (native "GstClock"))
 (c-type GstClock*                (pointer GstClock GstClock*))
+(c-type GstEvent                 (native "GstEvent"))
+(c-type GstEvent*                (pointer GstEvent GstEvent*))
 (c-type GstMessage               (native "GstMessage"))
 (c-type GstMessage*              (pointer GstMessage GstMessage*))
 (c-type GstIterator              (native "GstIterator"))
@@ -752,6 +754,14 @@ static void gst_print_message(char* pipeline_name, GstMessage *msg)
     }
 }
 
+static  GstPadProbeReturn
+cb_drop_data(GstPad          *pad,
+             GstPadProbeInfo *info,
+             gpointer         user_data)
+{
+    return GST_PAD_PROBE_DROP;
+}
+
 static GstPadProbeReturn
 cb_have_data(GstPad          *pad,
              GstPadProbeInfo *info,
@@ -847,14 +857,19 @@ cb_have_event(GstPad          *pad,
     return GST_PAD_PROBE_OK;
 }
 
-static void gst_monitor_data(GstPipeline* pipeline, GstPad* pad)
+static gulong gst_pad_add_drop_probe(GstPad* pad)
 {
-    gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_have_data, pipeline, NULL);
+    return gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_drop_data, NULL, NULL);
 }
 
-static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
+static gulong gst_monitor_data(GstPipeline* pipeline, GstPad* pad)
 {
-    gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_EVENT_BOTH, (GstPadProbeCallback) cb_have_event, pipeline, NULL);
+    return gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_have_data, pipeline, NULL);
+}
+
+static gulong gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
+{
+    return gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_EVENT_BOTH, (GstPadProbeCallback) cb_have_event, pipeline, NULL);
 }
 
 static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
@@ -962,6 +977,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_init NULL NULL) void)
 (gst-external (gst_version_fill scheme-object) void)
 (gst-external (gst_parse_launch char-string NULL) GstElement*)
+(gst-external (gst_parse_bin_from_description char-string gboolean NULL) GstElement*)
 (gst-external (gst_object_get_name (call GST_OBJECT GstElement*)) char-string)
 (gst-external (gst_object_set_name (call GST_OBJECT GstElement*) char-string) gboolean)
 (gst-external (gst_object_unref gpointer) void)
@@ -971,6 +987,8 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_value_get_buffer GValue*) GstBuffer*)
 (gst-external (gst_pad_get_current_caps GstPad*) GstCaps*)
 (gst-external (gst_pad_get_direction GstPad*) GstPadDirection)
+(gst-external (gst_pad_add_drop_probe GstPad*) gulong)
+(gst-external (gst_pad_remove_probe GstPad* gulong) void)
 (gst-external (gst_caps_new_empty_simple char-string) GstCaps*)
 (gst-external (gst_caps_from_string char-string) GstCaps*)
 (gst-external (gst_caps_is_fixed GstCaps*) gboolean)
@@ -984,6 +1002,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_element_get_state GstElement*) GstState "gst_element_get_state_aux")
 (gst-external (gst_element_wait_state GstElement*) void "gst_element_wait_state_aux")
 (gst-external (gst_element_seek_simple GstElement* GstFormat GstSeekFlags int64) gboolean)
+(gst-external (gst_element_send_event GstElement* GstEvent*) gboolean)
 (gst-external (gst_element_get_bus GstElement*) GstBus*)
 (gst-external (gst_element_get_base_time GstElement*) GstClockTime)
 (gst-external (gst_element_factory_make char-string char-string) GstElement*)
@@ -1011,6 +1030,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_pipeline_get_clock (call GST_PIPELINE GstElement*)) GstClock*)
 (gst-external (gst_pipeline_get_latency (call GST_PIPELINE GstElement*)) GstClockTime)
 (gst-external (gst_pipeline_set_latency (call GST_PIPELINE GstElement*) GstClockTime) void)
+(gst-external (gst_event_new_eos) GstEvent*)
 (gst-external (gst_message_state_changed_get_new_state GstMessage*) GstState)
 (gst-external (gst_message_unref GstMessage*) void)
 (gst-external (gst_clock_get_time GstClock*) GstClockTime)
@@ -1026,8 +1046,8 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_print_pad GstElement* char-string) void)
 (gst-external (gst_print_message char-string GstMessage*) void)
 (gst-external (gst_print_error GstMessage*) void)
-(gst-external (gst_monitor_data (call GST_PIPELINE GstElement*) GstPad*) void)
-(gst-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) void)
+(gst-external (gst_monitor_data (call GST_PIPELINE GstElement*) GstPad*) gulong)
+(gst-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) gulong)
 (gst-external (gst_app_src_set_caps (call GST_APP_SRC GstElement*) GstCaps*) void)
 (gst-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)
 (gst-external (gst_app_src_write GstElement* scheme-object int uint64 uint64) GstFlowReturn)

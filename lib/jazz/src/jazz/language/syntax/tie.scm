@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz
+;;;; Tie
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,13 +35,42 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz gambit:
+(module protected jazz.language.syntax.tie jazz.dialect
 
 
-(export (gambit (except break current-directory current-time error print seconds->time time->seconds time? trace unbreak untrace))
-        
-        (jazz.dialect (phase syntax))
-        (jazz.language.syntax (phase syntax))
-        (jazz.language.runtime)
-        (jazz.dialect.classes.jazz)
-        (jazz.language.syntax.tie)))
+(import (jazz.language.runtime.kernel)
+        (jazz.language.runtime.format)
+        (jazz.language.runtime.functional))
+
+
+(native private jazz:error)
+
+
+(macro public (tie . objects)
+  (define (process-char c out)
+    (when (memq? c '(#\~ #\{))
+      (display "~" out))
+    (format out "{c}" c))
+  
+  (define (process-string control out out-parameters)
+    (bind (command . arguments) (read-delimited control "tie parameter" #\})
+      (if (not (symbol? command))
+          (error "Tie currently only accepts variables as parameters: {t}" command)
+        (if (null? arguments)
+            (display "{a}" out)
+          (format out "~{{l}}" arguments))
+        (put out-parameters command))))
+  
+  (call-with-input-string (apply string-append objects)
+    (lambda (control)
+      (let ((out (open-output-string))
+            (out-parameters (new List-Factory)))
+        (let (iterate)
+          (let ((c (read-char control)))
+            (unless (eof-object? c)
+              (case c
+                ((#\~) (process-char (read-char control) out))
+                ((#\{) (process-string control out out-parameters))
+                (else (process-char c out)))
+              (iterate))))
+        (cons 'format (cons :string (cons (get-output-string out) (get-output out-parameters)))))))))

@@ -23,7 +23,8 @@
 (cond-expand
   (mac
    (c-include "<stdarg.h>")
-   (c-include "<syslog.h>"))
+   (c-include "<syslog.h>")
+   (c-include "<unistd.h>"))
   (else))
 (c-include "<git2.h>")
 
@@ -688,6 +689,124 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 
 
 ;;;
+;;;; Thread
+;;;
+
+
+(c-declare jiri.git #/C/
+    #include <stdbool.h>
+    
+    bool abortRequested = false;
+    
+    #define DOWNLOAD_PROGRESS "."
+    #define DOWNLOAD_DONE     "@"
+    #define CHECKOUT_PROGRESS "."
+    #define CHECKOUT_DONE     "@"
+//#)
+
+
+(cond-expand
+  (windows
+(c-declare jiri.git #/C/
+    HANDLE mutex = NULL;
+    HWND hwnd = NULL;
+    
+    #define THREADPROC(name, payload) DWORD WINAPI name(LPVOID payload)
+    
+    void create_thread(LPTHREAD_START_ROUTINE proc, void* payload)
+    {
+        CreateThread(NULL, 0, proc, payload, 0, NULL);
+    }
+    
+    void lock_mutex()
+    {
+        if (! mutex)
+            mutex = CreateMutex(NULL, FALSE, NULL);
+        WaitForSingleObject(mutex, INFINITE);
+    }
+    
+    void unlock_mutex()
+    {
+        ReleaseMutex(mutex);
+    }
+//#)
+
+(c-external (discard-application-events) void
+  #/C/
+//#)
+
+(c-external (git-callback-hwnd HWND) void
+  #/C/
+    hwnd = ___arg1;
+//#))
+  (else
+(c-declare jiri.git #/C/
+    #include <pthread.h>
+    
+    pthread_mutex_t mutex;
+    bool mutexInited = false;
+    
+    #define THREADPROC(name, payload) void* name(void* payload)
+    
+    typedef void*(*threadproc)(void*);
+    
+    void create_thread(threadproc proc, void* payload)
+    {
+        pthread_t thread;
+        pthread_create(&thread, NULL, proc, payload);
+    }
+    
+    void lock_mutex()
+    {
+        if (! mutexInited)
+        {
+            pthread_mutex_init(&mutex, NULL);
+            mutexInited = true;
+        }
+        pthread_mutex_lock(&mutex);
+    }
+    
+    void unlock_mutex()
+    {
+        pthread_mutex_unlock(&mutex);
+    }
+    
+    void post_notification(const char *what, int fd, int result)
+    {
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) payload;
+    send(socket, ".", 1, 0);
+#else
+    write(fd, what, 1);
+#endif
+    }
+//#)
+
+(c-external (git-callback-hwnd scheme-object) void
+  #/C/
+//#)))
+
+
+(c-external (git-lock-mutex) void
+  #/C/
+    lock_mutex();
+//#)
+
+(c-external (git-unlock-mutex) void
+  #/C/
+    unlock_mutex();
+//#)
+
+
+(git-external (git-request-abort) void
+  #/C/
+    lock_mutex();
+    abortRequested = true;
+    unlock_mutex();
+//#)
+
+
+;;;
 ;;;; Checkout
 ;;;
 
@@ -697,6 +816,39 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 (git-external (git-checkout-tree git_repository* git_object* git_checkout_options*) :error "git_checkout_tree")
 
 
+(c-declare git.foreign #/C/
+    #define MAX_CONNECTIONS 16
+    
+    git_repository* checkout_repository = NULL;
+    
+    struct CheckoutInfo
+    {
+        int fd;
+        size_t checkout_completed_steps;
+        size_t checkout_total_steps;
+    };
+    
+    struct CheckoutInfo checkoutInfos[MAX_CONNECTIONS];
+//#)
+
+(git-external (git-checkout-completed-steps int) int
+  #/C/
+    ___return(checkoutInfos[___arg1].checkout_completed_steps);
+//#)
+
+(git-external (git-checkout-total-steps int) int
+  #/C/
+    ___return(checkoutInfos[___arg1].checkout_total_steps);
+//#)
+
+(definition public (git-checkout-state id proc)
+  (git-lock-mutex)
+  (let ((completed-steps (git-checkout-completed-steps id))
+        (total-steps (git-checkout-total-steps id)))
+    (git-unlock-mutex)
+    (proc completed-steps total-steps)))
+
+
 (git-external (git-checkout-head-force git_repository*) void
   #/C/
     git_checkout_options options = GIT_CHECKOUT_OPTIONS_INIT;
@@ -704,6 +856,79 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
     int result = git_checkout_head(___arg1, &options);
     if (result != 0)
         git_call_error_handler(result);
+//#)
+
+
+(c-declare jiri.git #/C/
+    void checkout_callback(const char *path, size_t completed_steps, size_t total_steps, void *payload)
+    {
+        int id = *((int*)(&payload));
+        lock_mutex();
+        struct CheckoutInfo* info = &checkoutInfos[id];
+        info->checkout_completed_steps = completed_steps;
+        info->checkout_total_steps = total_steps;
+        unlock_mutex();
+        int fd = info->fd;
+        post_notification(CHECKOUT_PROGRESS, fd, 0);
+    }
+
+    THREADPROC(checkout_head_proc, payload)
+    {
+        int id = *((int*)(&payload));
+        git_checkout_options options = GIT_CHECKOUT_OPTIONS_INIT;
+        options.checkout_strategy = GIT_CHECKOUT_FORCE;
+        options.progress_cb = checkout_callback;
+        options.progress_payload = payload;
+        int result = git_checkout_head(checkout_repository, &options);
+        int fd = checkoutInfos[id].fd;
+        post_notification(CHECKOUT_DONE, fd, result);
+        return 0;
+    }
+//#)
+
+(git-external (git-checkout-head-force-threaded int git_repository*) void
+  #/C/
+    int id = ___arg1;
+    checkout_repository = ___arg2;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-void-pointer-cast"
+    create_thread(&checkout_head_proc, (void*) id);
+#pragma GCC diagnostic pop
+//#)
+
+(c-declare jiri.git #/C/
+    git_repository* reset_repository = NULL;
+    git_object* reset_commit = NULL;
+    
+    THREADPROC(reset_hard_proc, payload)
+    {
+        int id = *((int*)(&payload));
+        git_checkout_options options = GIT_CHECKOUT_OPTIONS_INIT;
+        options.checkout_strategy = GIT_CHECKOUT_FORCE;
+        options.progress_cb = checkout_callback;
+        options.progress_payload = payload;
+        int result = git_reset(reset_repository, reset_commit, GIT_RESET_HARD, &options);
+        int fd = checkoutInfos[id].fd;
+        post_notification(CHECKOUT_DONE, fd, result);
+        return 0;
+    }
+//#)
+
+(git-external (git-reset-hard-threaded int void* git_repository* git_object*) void
+  #/C/
+    int id = ___arg1;
+    int fd = (int) ___arg2;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-void-pointer-cast"
+    void* payload = (void*) id;
+#pragma GCC diagnostic pop
+    struct CheckoutInfo* info = &checkoutInfos[id];
+    info->fd = fd;
+    info->checkout_completed_steps = 0;
+    info->checkout_total_steps = 0;
+    reset_repository = ___arg3;
+    reset_commit = ___arg4;
+    create_thread(&reset_hard_proc, payload);
 //#)
 
 
@@ -1248,12 +1473,12 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 ;;;
 
 
-(git-external (git-remote-add-fetch git_remote* char-string) :error "git_remote_add_fetch")
-(git-external (git-remote-add-push git_remote* char-string) :error "git_remote_add_push")
-(git-external (git-remote-clear-refspecs git_remote*) void "git_remote_clear_refspecs")
+@errors (git-external (git-remote-add-fetch git_remote* char-string) :error "git_remote_add_fetch")
+@errors (git-external (git-remote-add-push git_remote* char-string) :error "git_remote_add_push")
+@errors (git-external (git-remote-clear-refspecs git_remote*) void "git_remote_clear_refspecs")
 (git-external (git-remote-connected git_remote*) int "git_remote_connected")
 (git-external (git-remote-create (out git_remote*) git_repository* char-string char-string) :error "git_remote_create")
-(git-external (git-remote-create-anonymous (out git_remote*) git_repository* char-string NULL) :error "git_remote_create_anonymous")
+@errors (git-external (git-remote-create-anonymous (out git_remote*) git_repository* char-string NULL) :error "git_remote_create_anonymous")
 (git-external (git-remote-disconnect git_remote*) void "git_remote_disconnect")
 (git-external (git-remote-free git_remote*) void "git_remote_free")
 (git-external (git-remote-list git_strarray* git_repository*) :error "git_remote_list")
@@ -1261,10 +1486,9 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 @warnings (git-external (git-remote-ls git_remote* git_headlist_cb void*) :error "git_remote_ls")
 @warnings (git-external (git-remote-name git_remote*) char-string "git_remote_name")
 @warnings (git-external (git-remote-rename git_remote* char-string void* void*) :error "git_remote_rename")
-(git-external (git-remote-save git_remote*) :error "git_remote_save")
-(git-external (git-remote-set-callbacks git_remote* git_remote_callbacks*) void "git_remote_set_callbacks")
+@errors (git-external (git-remote-save git_remote*) :error "git_remote_save")
+@errors (git-external (git-remote-set-callbacks git_remote* git_remote_callbacks*) void "git_remote_set_callbacks")
 @convert (git-external (git-remote-supported-url char-string) int "git_remote_supported_url")
-(git-external (git-remote-update-tips git_remote* NULL) :error "git_remote_update_tips")
 (git-external (git-remote-url git_remote*) char-string @warnings "git_remote_url"
   #/C/
     ___return((char*) git_remote_url(___arg1));
@@ -1272,38 +1496,62 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 @convert (git-external (git-remote-valid-url char-string) int "git_remote_valid_url")
 
 
-(git-external (git-remote-connect git_remote* int) void
+(git-external (git-remote-update-tips git_remote*) void
   #/C/
-    gambit_disable_interrupts();
-    int result = git_remote_connect(___arg1, (git_direction) ___arg2);
-    gambit_enable_interrupts();
-    if (result != 0)
-        git_call_error_handler(result);
+    git_remote_update_tips(___arg1, NULL, 0, 0, NULL);
 //#)
 
-
-(git-external (git-remote-fetch git_remote*) void
-  #/C/
-    gambit_disable_interrupts();
-    int result = git_remote_fetch(___arg1, NULL, NULL);
-    gambit_enable_interrupts();
-    if (result != 0)
-        git_call_error_handler(result);
+(c-declare git.foreign #/C/
+    struct DownloadInfo
+    {
+        int fd;
+        void* data_rc;
+        git_remote* remote;
+        unsigned int total_objects;
+        unsigned int received_objects;
+        size_t received_bytes;
+    };
+    
+    struct DownloadInfo downloadInfos[MAX_CONNECTIONS];
 //#)
+
+(git-external (git-remote-download-total-objects int) int
+  #/C/
+    ___return(downloadInfos[___arg1].total_objects);
+//#)
+
+(git-external (git-remote-download-received-objects int) int
+  #/C/
+    ___return(downloadInfos[___arg1].received_objects);
+//#)
+
+(git-external (git-remote-download-received-bytes int) int
+  #/C/
+    ___return(downloadInfos[___arg1].received_bytes);
+//#)
+
+(definition public (git-download-state id proc)
+  (git-lock-mutex)
+  (let ((total-objects (git-remote-download-total-objects id))
+        (received-objects (git-remote-download-received-objects id))
+        (received-bytes (git-remote-download-received-bytes id)))
+    (git-unlock-mutex)
+    (proc total-objects received-objects received-bytes)))
 
 
 (c-definition (credentials-acquire-procedure callbacks) (scheme-object) git_cred* "credentials_acquire_procedure" ""
-  (when callbacks
-    (let ((credentials-callback (get-credentials-callback callbacks)))
-      (when credentials-callback
-        (credentials-callback)))))
+  (and callbacks
+       (let ((credentials-callback (get-credentials-callback callbacks)))
+         (and credentials-callback
+              (credentials-callback)))))
 
 (c-declare git.foreign #/C/
     int credentials_cb(git_cred **out, const char * url, const char * username_from_url, unsigned int allowed_types, void * payload)
     {
+        int id = *((int*)(&payload));
         git_cred* cred;
         gambit_enable_interrupts();
-        cred = credentials_acquire_procedure(___EXT(___data_rc)(payload));
+        cred = credentials_acquire_procedure(___EXT(___data_rc)(downloadInfos[id].data_rc));
         gambit_disable_interrupts();
         if (cred)
         {
@@ -1313,6 +1561,93 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
         else
             return GIT_PASSTHROUGH;
     }
+//#)
+
+
+(c-declare jiri.git #/C/
+    int remote_download_callback(const git_transfer_progress *stats, void *payload)
+    {
+        int id = *((int*)(&payload));
+        bool abort;
+      
+        lock_mutex();
+        abort = abortRequested;
+        downloadInfos[id].total_objects = stats->total_objects;
+        downloadInfos[id].received_objects = stats->received_objects;
+        downloadInfos[id].received_bytes = stats->received_bytes;
+        unlock_mutex();
+        
+        if (! abort)
+        {
+            int fd = downloadInfos[id].fd;
+            post_notification(DOWNLOAD_PROGRESS, fd, 0);
+            return 0;
+        }
+        else
+            return -1;
+    }
+
+    THREADPROC(remote_download_proc, payload)
+    {
+        int id = *((int*)(&payload));
+        git_remote* remote = downloadInfos[0].remote;
+        
+        
+    
+    git_remote_callbacks callbacks = GIT_REMOTE_CALLBACKS_INIT;
+    callbacks.transfer_progress = remote_download_callback;
+    callbacks.payload = payload;
+        
+        git_fetch_options options = GIT_FETCH_OPTIONS_INIT;
+        options.callbacks = callbacks;
+        
+        int result = git_remote_download(remote, NULL, &options);
+        
+        int fd = downloadInfos[id].fd;
+        post_notification(DOWNLOAD_DONE, fd, result);
+        return 0;
+    }
+//#)
+
+
+(git-external (git-remote-connect git_remote* int int void* scheme-object) void
+  #/C/
+    git_remote* remote = ___arg1;
+    git_direction direction = (git_direction) ___arg2;
+    int id = ___arg3;
+    int fd = (int) ___arg4;
+    void* p = ___EXT(___alloc_rc)(0);
+    ___EXT(___set_data_rc)(p, ___arg5);
+    void* payload = (void*) id;
+
+    downloadInfos[id].fd = fd;
+    downloadInfos[id].data_rc = p;
+    downloadInfos[id].remote = remote;
+    downloadInfos[id].total_objects = 0;
+    downloadInfos[id].received_objects = 0;
+    downloadInfos[id].received_bytes = 0;
+    
+    git_remote_callbacks callbacks = GIT_REMOTE_CALLBACKS_INIT;
+    callbacks.credentials = credentials_cb;
+    callbacks.transfer_progress = remote_download_callback;
+    callbacks.payload = payload;
+
+    gambit_disable_interrupts();
+    int result = git_remote_connect(remote, direction, &callbacks, NULL, NULL);
+    gambit_enable_interrupts();
+    
+    if (result != 0)
+        git_call_error_handler(result);
+//#)
+
+
+(git-external (git-remote-fetch git_remote*) void
+  #/C/
+    gambit_disable_interrupts();
+    int result = git_remote_fetch(___arg1, NULL, NULL, NULL);
+    gambit_enable_interrupts();
+    if (result != 0)
+        git_call_error_handler(result);
 //#)
 
 (c-definition (remote-download-procedure callbacks total_objects indexed_objects received_objects received_bytes) (scheme-object unsigned-int unsigned-int unsigned-int unsigned-int) void "remote_download_procedure" ""
@@ -1337,18 +1672,34 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
     callbacks.credentials = credentials_cb;
     callbacks.transfer_progress = transfer_progress_cb;
     callbacks.payload = p;
-    int result = git_remote_set_callbacks(___arg1, &callbacks);
-    if (result != 0)
-        git_call_error_handler(result);
+    // CONVERT
+    // int result = git_remote_set_callbacks(___arg1, &callbacks);
+    // if (result != 0)
+    //     git_call_error_handler(result);
     // to free the memory
     // ___EXT(___release_rc)(p);
 //#)
 
+@errors
 (git-external (git-remote-download git_remote*) void
   #/C/
     int result = git_remote_download(___arg1, NULL);
     if (result != 0)
         git_call_error_handler(result);
+//#)
+
+
+(git-external (git-remote-download-threaded int) void
+  #/C/
+    int id = ___arg1;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-void-pointer-cast"
+    void* payload = (void*) id;
+#pragma GCC diagnostic pop
+    ___mask_heartbeat_interrupts_state heartbeat_interrupts;
+    ___EXT(___mask_heartbeat_interrupts_begin)(&heartbeat_interrupts);
+    create_thread(&remote_download_proc, payload);
+    ___EXT(___mask_heartbeat_interrupts_end)(&heartbeat_interrupts);
 //#)
 
 

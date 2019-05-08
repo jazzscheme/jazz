@@ -50,7 +50,7 @@
            (git-lib-path      (jazz:quote-jazz-pathname "lib/jazz.git/foreign/mac/libgit2/lib")))
        `((jazz.git.foreign
            cc-options: ,(string-append "-I" git-include-path)
-           ld-options: ,(string-append "-L" git-lib-path " -lgit2.22"))))))
+           ld-options: ,(string-append "-L" git-lib-path " -lgit2.0.28.1"))))))
   (windows
    (define jazz:git-units
      (let ((git-include-path  (jazz:quote-jazz-pathname "lib/jazz.git/foreign/windows/libgit2/include"))
@@ -67,7 +67,7 @@
 (cond-expand
   (cocoa
    (define jazz:platform-files
-     (list (cons "lib/jazz.git/foreign/mac/libgit2/lib/libgit2.22.dylib" "libgit2.22.dylib"))))
+     (list (cons "lib/jazz.git/foreign/mac/libgit2/lib/libgit2.0.28.1.dylib" "libgit2.0.28.1.dylib"))))
   (windows
    (define jazz:platform-files
      (list (cons "lib/jazz.git/foreign/windows/libgit2/lib/libgit2.dll" "libgit2.dll"))))
@@ -92,7 +92,7 @@
               jazz:platform-files)))
 
 
-(define (jazz:build-git descriptor #!key (unit #f) (force? #f))
+(define (jazz:build-git descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:git-units))
     (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))
@@ -103,7 +103,7 @@
   (cond-expand
     (cocoa
       (let ((git-lib-path (jazz:jazz-pathname "lib/jazz.git/foreign/mac/libgit2/lib")))
-        (list (string-append "-L" git-lib-path) "-lgit2.22" "-lgambit")))
+        (list (string-append "-L" git-lib-path) "-lgit2.0.28.1" "-lgambit")))
     (windows
       (let ((git-lib-path (jazz:jazz-pathname "lib/jazz.git/foreign/windows/libgit2/lib")))
         (list (string-append "-L" git-lib-path) "-lgit2")))

@@ -748,7 +748,7 @@
 (define jazz:valid-safeties
   '(core
     debug
-    devel
+    develop
     release
     sealed))
 
@@ -1958,7 +1958,7 @@
   #f)
 
 (define jazz:kernel-safety
-  'devel)
+  'develop)
 
 (define jazz:kernel-optimize?
   #t)
@@ -2093,7 +2093,7 @@
     compiler: (jazz:unspecified-option)
     processor: (jazz:unspecified-option)
     windowing: (jazz:unspecified-option)
-    safety: 'devel
+    safety: 'develop
     optimize?: #f
     debug-environments?: #t
     debug-location?: #t

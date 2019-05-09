@@ -321,107 +321,6 @@ static GstPad* gst_iterator_next_pad(GstIterator *it)
         return (GstPad*) g_value_get_object(&elem);
 }
 
-static void* gst_fifo_open(char* filename)
-{
-#ifdef _WIN32
-    return NULL;
-#else
-    int fd = open(filename, O_WRONLY|O_NONBLOCK);
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    return (void*) fd;
-    #pragma GCC diagnostic pop
-#endif
-}
-
-#ifdef _WIN32
-#include <winsock2.h>
-#include <stdio.h>
-#else
-#include <netdb.h>
-#include <netinet/in.h>
-#endif
-
-static void* gst_socket_open(char* hostname, int portno)
-{
-#ifdef _WIN32
-    WSADATA              wsaData;
-    SOCKET               SendingSocket;
-
-    // Server/receiver address
-    SOCKADDR_IN          ServerAddr, ThisSenderInfo;
-
-     int  RetCode;
-
-     // Initialize Winsock version 2.2
-     WSAStartup(MAKEWORD(2,2), &wsaData);
-
-     // Create a new socket to make a client connection.
-     // AF_INET = 2, The Internet Protocol version 4 (IPv4) address family, TCP protocol
-     SendingSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-     if(SendingSocket == INVALID_SOCKET)
-     {
-          printf("Client: socket() failed! Error code: %ld\n", WSAGetLastError());
-          // Do the clean up
-          WSACleanup();
-          // Exit with error
-          return NULL;
-     }
-
-     // IPv4
-     ServerAddr.sin_family = AF_INET;
-     // Port no.
-     ServerAddr.sin_port = htons(portno);
-     // The IP address
-     ServerAddr.sin_addr.s_addr = inet_addr(hostname);
-
-     // Make a connection to the server with socket SendingSocket.
-     RetCode = connect(SendingSocket, (SOCKADDR *) &ServerAddr, sizeof(ServerAddr));
-
-     if(RetCode != 0)
-     {
-          printf("Client: connect() failed! Error code: %ld\n", WSAGetLastError());
-          // Close the socket
-          closesocket(SendingSocket);
-          // Do the clean up
-          WSACleanup();
-          // Exit with error
-          return NULL;
-     }
-
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    return (void*) SendingSocket;
-    #pragma GCC diagnostic pop
-#else
-    int sockfd, n;
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
-    
-    ___mask_heartbeat_interrupts_state heartbeat_interrupts;
-    ___EXT(___mask_heartbeat_interrupts_begin)(&heartbeat_interrupts);
-     
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	
-    server = gethostbyname(hostname);
-    
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
-    serv_addr.sin_port = htons(portno);
-    
-    connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-
-    ___EXT(___mask_heartbeat_interrupts_end)(&heartbeat_interrupts);
-    
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-    return (void*) sockfd;
-    #pragma GCC diagnostic pop
-#endif
-}
-
 static void gst_listener_wakeup(void* user_data)
 {
 #ifdef _WIN32
@@ -449,52 +348,6 @@ static void gst_listener_eos(void* user_data)
     #pragma GCC diagnostic pop
     
     write(fd, "^", 1);
-#endif
-}
-
-static void gst_listener_reset(void* user_data)
-{
-#ifdef _WIN32
-    SOCKET socket = (SOCKET) user_data;
-    send(socket, "!", 1, 0);
-#else
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) user_data;
-    #pragma GCC diagnostic pop
-    
-    write(fd, "!", 1);
-#endif
-}
-
-static void gst_listener_stop(void* user_data)
-{
-#ifdef _WIN32
-    SOCKET socket = (SOCKET) user_data;
-    send(socket, "@", 1, 0);
-#else
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) user_data;
-    #pragma GCC diagnostic pop
-    
-    write(fd, "@", 1);
-#endif
-}
-
-static void gst_listener_close(void* user_data)
-{
-#ifdef _WIN32
-    SOCKET socket = (SOCKET) user_data;
-    shutdown(socket, SD_SEND);
-    closesocket(socket);
-#else
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) user_data;
-    #pragma GCC diagnostic pop
-    
-    close(fd);
 #endif
 }
 
@@ -1141,11 +994,6 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_element_query_duration GstElement* GstFormat) int64 "gst_element_query_duration_aux")
 (gst-external (gst_iterator_next_element GstIterator*) GstElement*)
 (gst-external (gst_iterator_next_pad GstIterator*) GstPad*)
-(gst-external (gst_fifo_open char-string) void*)
-(gst-external (gst_socket_open char-string int) void*)
-(gst-external (gst_listener_reset void*) void)
-(gst-external (gst_listener_stop void*) void)
-(gst-external (gst_listener_close void*) void)
 (gst-external (gst_signal_connect_to gpointer char-string gpointer) gulong)
 (gst-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
 (gst-external (gst_bus_pop GstBus*) GstMessage*)

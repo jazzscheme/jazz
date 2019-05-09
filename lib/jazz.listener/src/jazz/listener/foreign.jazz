@@ -1,0 +1,207 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Listener Foreign
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.listener.foreign jazz
+
+
+(import (jazz.foreign)
+        (jazz.platform.types))
+
+
+(c-include "<stdbool.h>")
+(c-include "<string.h>")
+(c-include "<stdlib.h>")
+(c-include "<stdio.h>")
+(c-include "<unistd.h>")
+(c-include "<fcntl.h>")
+
+
+(c-declare jazz.listener.foreign #/C/
+static void* listener_fifo_open(char* filename)
+{
+#ifdef _WIN32
+    return NULL;
+#else
+    int fd = open(filename, O_WRONLY|O_NONBLOCK);
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    return (void*) fd;
+    #pragma GCC diagnostic pop
+#endif
+}
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <stdio.h>
+#else
+#include <netdb.h>
+#include <netinet/in.h>
+#endif
+
+static void* listener_socket_open(char* hostname, int portno)
+{
+#ifdef _WIN32
+    WSADATA              wsaData;
+    SOCKET               SendingSocket;
+
+    // Server/receiver address
+    SOCKADDR_IN          ServerAddr, ThisSenderInfo;
+
+     int  RetCode;
+
+     // Initialize Winsock version 2.2
+     WSAStartup(MAKEWORD(2,2), &wsaData);
+
+     // Create a new socket to make a client connection.
+     // AF_INET = 2, The Internet Protocol version 4 (IPv4) address family, TCP protocol
+     SendingSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+     if(SendingSocket == INVALID_SOCKET)
+     {
+          printf("Client: socket() failed! Error code: %ld\n", WSAGetLastError());
+          // Do the clean up
+          WSACleanup();
+          // Exit with error
+          return NULL;
+     }
+
+     // IPv4
+     ServerAddr.sin_family = AF_INET;
+     // Port no.
+     ServerAddr.sin_port = htons(portno);
+     // The IP address
+     ServerAddr.sin_addr.s_addr = inet_addr(hostname);
+
+     // Make a connection to the server with socket SendingSocket.
+     RetCode = connect(SendingSocket, (SOCKADDR *) &ServerAddr, sizeof(ServerAddr));
+
+     if(RetCode != 0)
+     {
+          printf("Client: connect() failed! Error code: %ld\n", WSAGetLastError());
+          // Close the socket
+          closesocket(SendingSocket);
+          // Do the clean up
+          WSACleanup();
+          // Exit with error
+          return NULL;
+     }
+
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    return (void*) SendingSocket;
+    #pragma GCC diagnostic pop
+#else
+    int sockfd, n;
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
+    
+    ___mask_heartbeat_interrupts_state heartbeat_interrupts;
+    ___EXT(___mask_heartbeat_interrupts_begin)(&heartbeat_interrupts);
+     
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	
+    server = gethostbyname(hostname);
+    
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
+    serv_addr.sin_port = htons(portno);
+    
+    connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+
+    ___EXT(___mask_heartbeat_interrupts_end)(&heartbeat_interrupts);
+    
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    return (void*) sockfd;
+    #pragma GCC diagnostic pop
+#endif
+}
+
+static void listener_reset(void* user_data)
+{
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) user_data;
+    send(socket, "!", 1, 0);
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) user_data;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "!", 1);
+#endif
+}
+
+static void listener_stop(void* user_data)
+{
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) user_data;
+    send(socket, "@", 1, 0);
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) user_data;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "@", 1);
+#endif
+}
+
+static void listener_close(void* user_data)
+{
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) user_data;
+    shutdown(socket, SD_SEND);
+    closesocket(socket);
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) user_data;
+    #pragma GCC diagnostic pop
+    
+    close(fd);
+#endif
+}
+//#)
+
+
+(c-external (listener_fifo_open char-string) void*)
+(c-external (listener_socket_open char-string int) void*)
+(c-external (listener_reset void*) void)
+(c-external (listener_stop void*) void)
+(c-external (listener_close void*) void))

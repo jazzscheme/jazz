@@ -1,0 +1,209 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Stream Listener
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.listener jazz
+
+
+(import (jazz.listener.foreign)
+        (jazz.io))
+
+(export (jazz.listener.foreign))
+
+
+;;;
+;;;; Socket
+;;;
+
+
+(definition listener-sockets?
+  #t)
+
+
+(definition socket-server-port
+  (open-vector))
+
+(definition socket-server-mutex
+  (make-mutex 'socket-server))
+
+(definition socket-server-started-mutex
+  (make-mutex 'socket-server-started))
+
+
+(definition socket-server-address
+  "127.0.0.1")
+
+(definition socket-server-service
+  #f)
+
+
+(definition protected (start-socket-server)
+  (when listener-sockets?
+    (mutex-lock! socket-server-started-mutex)
+    (thread-start!
+      (new-thread
+        (lambda ()
+          (declare (proper-tail-calls))
+          (let ((server-port (open-tcp-server (list server-address: socket-server-address port-number: 0))))
+            (set! socket-server-service (socket-info-port-number (tcp-server-socket-info server-port)))
+            (mutex-unlock! socket-server-started-mutex)
+            (let (loop)
+              (let ((port (read server-port)))
+                (write port socket-server-port)
+                (force-output socket-server-port)
+                (loop)))))
+        'socket-server))))
+
+
+(definition protected (wait-socket-server)
+  (mutex-lock! socket-server-started-mutex)
+  (mutex-unlock! socket-server-started-mutex))
+
+
+;;;
+;;;; Fifo
+;;;
+
+
+(definition fifo-directory
+  {Directory Settings "work" "fifos"})
+
+
+(definition fifo-prefix
+  "")
+
+(definition protected (set-fifo-prefix prefix)
+  (set! fifo-prefix prefix))
+
+
+(definition protected next-fifo-no <fx>
+  0)
+
+(definition protected (next-fifo-no!) <fx>
+  (prog1 next-fifo-no
+    (increase! next-fifo-no)))
+
+
+(definition public (open-stream-listener (name #f))
+  (cond (listener-sockets?
+         (mutex-lock! socket-server-mutex)
+         (prog1 (let ((file (listener_socket_open socket-server-address socket-server-service)))
+                  (let ((port (read socket-server-port)))
+                    (new Stream-Listener #f file port)))
+           (mutex-unlock! socket-server-mutex)))
+        (else
+         (create-directories fifo-directory)
+         (let (iterate (no (next-fifo-no!)))
+           (let ((name (format "{a}{a}{a}" fifo-prefix (or name "fifo") no)))
+             (let ((file (new-file fifo-directory name)))
+               (if (exists? file)
+                   (iterate (+ no 1))
+                 (let ((filename (parse file)))
+                   (create-fifo filename)
+                   (new Stream-Listener filename)))))))))
+
+
+(definition protected (empty-fifo-directory (feedback?: feedback? #f))
+  (unless listener-sockets?
+    (when (exists? fifo-directory)
+      (for-each (lambda (filename)
+                  (let ((file (new-file fifo-directory filename)))
+                    (when feedback?
+                      (terminal 'delete 'fifo filename))
+                    (delete file)))
+                (directory-collect (parse fifo-directory) 'fifo)))))
+
+
+;;;
+;;;; Listener
+;;;
+
+
+(definition public (start-stream-listener listener)
+  )
+
+
+(definition public (stop-stream-listener listener)
+  (listener_stop (get-write-file listener)))
+
+
+(definition public (close-stream-listener listener)
+  (set-closed? listener #t)
+  (close listener))
+
+
+(class Stream-Listener extends Object
+  
+  
+  (slot filename   getter generate)
+  (slot read-port  getter generate)
+  (slot write-file getter generate)
+  (slot closed?    accessors generate)
+  
+  
+  (method override (initialize self filename . rest)
+    (nextmethod self)
+    (cond (listener-sockets?
+           (bind (file port) rest
+             (set! self.filename #f)
+             (set! self.read-port port)
+             (set! self.write-file file)
+             (set! self.closed? #f)))
+          (else
+           (set! self.filename filename)
+           (set! self.read-port (open-input-file filename))
+           (set! self.write-file (listener_fifo_open filename))
+           (set! self.closed? #f))))
+  
+  
+  (method override (destroy self)
+    (listener_close write-file)
+    (close-port read-port)
+    (unless listener-sockets?
+      (when (file-exists? filename)
+        (delete-file filename)))
+    (nextmethod self))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (unless listener-sockets?
+          (format output "{a}" (filename-name filename))))))
+  
+  
+  (method public (wait self)
+    (read-char read-port))))

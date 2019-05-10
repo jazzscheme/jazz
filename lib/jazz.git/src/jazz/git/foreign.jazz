@@ -66,9 +66,8 @@
   (throw (new Git-Exception error (error-message))))
 
 
-(definition protected (git-check-error error)
-  (when (/= error 0)
-    (throw-git-error error)))
+(definition protected (git-error)
+  (throw-git-error #f))
 
 
 (class Git-Exception extends Exception
@@ -699,10 +698,9 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
     
     bool abortRequested = false;
     
-    #define DOWNLOAD_PROGRESS "."
-    #define DOWNLOAD_DONE     "@"
-    #define CHECKOUT_PROGRESS "."
-    #define CHECKOUT_DONE     "@"
+    #define PROGRESS "."
+    #define DONE     "@"
+    #define ERROR    "!"
 //#)
 
 
@@ -730,10 +728,6 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
     {
         ReleaseMutex(mutex);
     }
-//#)
-
-(c-external (discard-application-events) void
-  #/C/
 //#)
 
 (c-external (git-callback-hwnd HWND) void
@@ -772,7 +766,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
         pthread_mutex_unlock(&mutex);
     }
     
-    void post_notification(const char *what, int fd, int result)
+    void post_notification(const char *what, int fd)
     {
 #ifdef _WIN32
     SOCKET socket = (SOCKET) payload;
@@ -870,7 +864,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
         info->checkout_total_steps = total_steps;
         unlock_mutex();
         int fd = info->fd;
-        post_notification(CHECKOUT_PROGRESS, fd, 0);
+        post_notification(PROGRESS, fd);
     }
 
     THREADPROC(checkout_head_proc, payload)
@@ -882,7 +876,10 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
         options.progress_payload = payload;
         int result = git_checkout_head(checkout_repository, &options);
         int fd = checkoutInfos[id].fd;
-        post_notification(CHECKOUT_DONE, fd, result);
+        if (result == 0)
+            post_notification(DONE, fd);
+        else
+            post_notification(ERROR, fd);
         return 0;
     }
 //#)
@@ -910,7 +907,10 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
         options.progress_payload = payload;
         int result = git_reset(reset_repository, reset_commit, GIT_RESET_HARD, &options);
         int fd = checkoutInfos[id].fd;
-        post_notification(CHECKOUT_DONE, fd, result);
+        if (result == 0)
+            post_notification(DONE, fd);
+        else
+            post_notification(ERROR, fd);
         return 0;
     }
 //#)
@@ -1581,7 +1581,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
         if (! abort)
         {
             int fd = downloadInfos[id].fd;
-            post_notification(DOWNLOAD_PROGRESS, fd, 0);
+            post_notification(PROGRESS, fd);
             return 0;
         }
         else
@@ -1603,7 +1603,11 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
         int result = git_remote_download(remote, NULL, &options);
         
         int fd = downloadInfos[id].fd;
-        post_notification(DOWNLOAD_DONE, fd, result);
+        if (result == 0)
+            post_notification(DONE, fd);
+        else
+            post_notification(ERROR, fd);
+        
         return 0;
     }
 //#)
@@ -1671,10 +1675,6 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
     callbacks.credentials = credentials_cb;
     callbacks.transfer_progress = transfer_progress_cb;
     callbacks.payload = p;
-    // CONVERT
-    // int result = git_remote_set_callbacks(___arg1, &callbacks);
-    // if (result != 0)
-    //     git_call_error_handler(result);
     // to free the memory
     // ___EXT(___release_rc)(p);
 //#)

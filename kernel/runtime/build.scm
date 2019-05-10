@@ -330,6 +330,9 @@
           (static-units (%%car static-info))
           (static-options (%%cadr static-info))
           (static-languages (%%cddr static-info)))
+      (define mac?
+        (eq? platform 'mac))
+      
       (define ios?
         (and (jazz:build-configuration) (eq? (jazz:get-configuration-platform (jazz:build-configuration)) 'ios)))
       
@@ -905,16 +908,22 @@
                      (list
                        path: "install_name_tool"
                        arguments: `("-add_rpath" "@executable_path/../../.." ,(image-file)))))))
-            (if ios?
-                (let ((id (and (jazz:global-bound? 'apple-developer-id)
-                               (jazz:global-ref 'apple-developer-id))))
-                  (if id
-                      (begin
-                        (feedback-message "; signing {a}..." (if library-image? "library" "executable"))
-                        (jazz:call-process
-                          (list
-                            path: "/usr/bin/codesign"
-                            arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,(string-append kernel-dir "/" kernel-name))))))))
+            (let ((id (and (jazz:global-bound? 'apple-developer-id)
+                           (jazz:global-ref 'apple-developer-id))))
+              (if id
+                  (cond #;
+                        (mac?
+                         (feedback-message "; signing {a}..." (if library-image? "library" "executable"))
+                         (jazz:call-process
+                           (list
+                             path: "/usr/bin/codesign"
+                             arguments: `("--sign" ,id ,(string-append kernel-dir "/" kernel-name)))))
+                        (ios?
+                         (feedback-message "; signing {a}..." (if library-image? "library" "executable"))
+                         (jazz:call-process
+                           (list
+                             path: "/usr/bin/codesign"
+                             arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,(string-append kernel-dir "/" kernel-name))))))))
             (case platform
               ((windows)
                (if (jazz:build-single-objects?)

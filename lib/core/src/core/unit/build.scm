@@ -287,6 +287,9 @@
   (define bin-extension
     (%%string-append "." (jazz:language-extension (or output-language 'c))))
   
+  (define mac?
+    (eq? jazz:kernel-platform 'mac))
+  
   (define ios?
     (and (jazz:build-configuration) (eq? (jazz:get-configuration-platform (jazz:build-configuration)) 'ios)))
   
@@ -408,15 +411,22 @@
                     options))))
           (if (not (= exit-status 0))
               (jazz:error "C compilation failed while linking module"))
-          (if ios?
-              (let ((id (and (jazz:global-bound? 'apple-developer-id)
-                             (jazz:global-ref 'apple-developer-id))))
-                (if id
-                    (jazz:call-process
-                      (list
-                        path: "/usr/bin/codesign"
-                        arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,bin-o1)
-                        show-console: #f)))))
+          (let ((id (and (jazz:global-bound? 'apple-developer-id)
+                         (jazz:global-ref 'apple-developer-id))))
+            (if id
+                (cond #;
+                      (mac?
+                       (jazz:call-process
+                         (list
+                           path: "/usr/bin/codesign"
+                           arguments: `("--sign" ,id ,bin-o1)
+                           show-console: #f)))
+                      (ios?
+                       (jazz:call-process
+                         (list
+                           path: "/usr/bin/codesign"
+                           arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,bin-o1)
+                           show-console: #f))))))
           (case platform
             ((mac)
              (if rpaths

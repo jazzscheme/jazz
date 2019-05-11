@@ -902,12 +902,17 @@
                (jazz:call-process
                  (list
                    path: "install_name_tool"
-                   arguments: `("-add_rpath" "@executable_path" ,(image-file))))
+                   arguments: `("-add_rpath" "@executable_path/Libraries" ,(image-file))))
                (if (and bundle (not library-image?))
-                   (jazz:call-process
-                     (list
-                       path: "install_name_tool"
-                       arguments: `("-add_rpath" "@executable_path/../../.." ,(image-file)))))))
+                   (begin
+                     (jazz:call-process
+                       (list
+                         path: "install_name_tool"
+                         arguments: `("-add_rpath" "@executable_path/../Libraries" ,(image-file))))
+                     (jazz:call-process
+                       (list
+                         path: "install_name_tool"
+                         arguments: `("-add_rpath" "@executable_path/../../../Libraries" ,(image-file))))))))
             (let ((id (and (jazz:global-bound? 'apple-developer-id)
                            (jazz:global-ref 'apple-developer-id))))
               (if id

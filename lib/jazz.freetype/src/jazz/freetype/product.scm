@@ -77,7 +77,7 @@
 (cond-expand
   (cocoa
    (define jazz:platform-files
-     (list (cons "lib/jazz.freetype/foreign/mac/freetype/lib/libfreetype.6.dylib" "libfreetype.6.dylib"))))
+     (list (cons "lib/jazz.freetype/foreign/mac/freetype/lib/libfreetype.6.dylib" "Libraries/libfreetype.6.dylib"))))
   (windows
    (define jazz:platform-files
      (list (cons "lib/jazz.freetype/foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll"))))

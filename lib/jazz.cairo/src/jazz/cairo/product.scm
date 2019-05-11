@@ -156,9 +156,9 @@
      '()))
   (cocoa
    (define jazz:platform-files
-     (list (cons "lib/jazz.cairo/foreign/mac/cairo/lib/libcairo.2.dylib" "libcairo.2.dylib")
-           (cons "lib/jazz.cairo/foreign/mac/pixman/lib/libpixman-1.0.dylib" "libpixman-1.0.dylib")
-           (cons "lib/jazz.cairo/foreign/mac/png/lib/libpng16.16.dylib" "libpng16.16.dylib"))))
+     (list (cons "lib/jazz.cairo/foreign/mac/cairo/lib/libcairo.2.dylib" "Libraries/libcairo.2.dylib")
+           (cons "lib/jazz.cairo/foreign/mac/pixman/lib/libpixman-1.0.dylib" "Libraries/libpixman-1.0.dylib")
+           (cons "lib/jazz.cairo/foreign/mac/png/lib/libpng16.16.dylib" "Libraries/libpng16.16.dylib"))))
   (windows
    (define jazz:platform-files
      (list (cons "lib/jazz.cairo/foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")

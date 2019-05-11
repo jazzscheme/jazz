@@ -212,15 +212,21 @@
         (error "Unable to determine kernel install"))))
 
 
-(define jazz:kernel-bundle-install
+(define jazz:kernel-bundle-contents
   (if jazz:bundle-depth
-      (jazz:nth-parent-directory jazz:kernel-install jazz:bundle-depth)
+      (jazz:nth-parent-directory jazz:kernel-install 1)
     #f))
 
 
 (define jazz:kernel-bundle-root
   (if jazz:bundle-depth
       (jazz:nth-parent-directory jazz:kernel-install (%%fx- jazz:bundle-depth 1))
+    #f))
+
+
+(define jazz:kernel-bundle-install
+  (if jazz:bundle-depth
+      (jazz:nth-parent-directory jazz:kernel-install jazz:bundle-depth)
     #f))
 
 
@@ -367,11 +373,20 @@
                 (append repositories-list binary-list source-list #; dynamic-binary-list #; dynamic-source-list build-list jazz-list))
             (jazz:error "Invalid .dependencies"))))))
   
-  (let ((build (if (and jazz:kernel-bundle-install (file-exists? (%%string-append jazz:kernel-bundle-install "lib")))
-                   (jazz:make-repository 'Build "lib" jazz:kernel-bundle-install binary?: #t dynamic?: #t)
-                 (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t dynamic?: #t))))
-    (set! jazz:Build-Repository build)
-    (set! jazz:Repositories (%%append jazz:Repositories (all-repositories build)))))
+  (define (build-directory/lib)
+    (if (%%eq? jazz:kernel-platform 'mac)
+        (cond ((and jazz:kernel-bundle-install (file-exists? (%%string-append jazz:kernel-bundle-install "Libraries/lib")))
+               (values jazz:kernel-bundle-install "Libraries/lib"))
+              ((and jazz:kernel-bundle-contents (file-exists? (%%string-append jazz:kernel-bundle-contents "Libraries/lib")))
+               (values jazz:kernel-bundle-contents "Libraries/lib"))
+              (else
+               (values (or (jazz:build-repository) jazz:kernel-install) "Libraries/lib")))
+      (values (or (jazz:build-repository) jazz:kernel-install) "lib")))
+  
+  (receive (directory lib) (build-directory/lib)
+    (let ((build (jazz:make-repository 'Build lib directory binary?: #t dynamic?: #t)))
+      (set! jazz:Build-Repository build)
+      (set! jazz:Repositories (%%append jazz:Repositories (all-repositories build))))))
 
 
 (define (jazz:make-repository name library directory #!key (binary? #f) (dynamic? #f))

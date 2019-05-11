@@ -73,6 +73,8 @@
               (let ((src-contents (new-directory src-app '("Contents")))
                     (dst-contents (new-directory dst-app '("Contents"))))
                 (let ((dst-macos (new-directory dst-contents '("MacOS")))
+                      (src-libraries (new-directory src-root '("Libraries")))
+                      (dst-libraries (new-directory dst-contents '("Libraries")))
                       (libraries (append (if platform? platform-libraries '())
                                          (if opengl? opengl-libraries '())
                                          (if git? git-libraries '())
@@ -82,10 +84,13 @@
                     filter: (lambda (action pathname)
                               (let ((parent-dir (get-parent pathname)))
                                 (cond ((pathname=? parent-dir dst-contents)
-                                       (not (and ignored-contents
-                                                 (eq? action 'delete)
-                                                 (let ((filename (get-name pathname)))
-                                                   (member? filename ignored-contents test: filename=?)))))
+                                       (and (not (and (eq? action 'delete)
+                                                      (let ((filename (get-name pathname)))
+                                                        (filename=? filename "Libraries"))))
+                                            (not (and ignored-contents
+                                                      (eq? action 'delete)
+                                                      (let ((filename (get-name pathname)))
+                                                        (member? filename ignored-contents test: filename=?))))))
                                       ((pathname=? parent-dir dst-macos)
                                        (not (and (eq? action 'delete)
                                                  (let ((filename (get-name pathname)))
@@ -100,17 +105,17 @@
                                 (build-feedback "; {a} {a}..." action (get-name pathname))))
                   ;; libraries
                   (for-each (lambda (library)
-                              (install-file (new-file src-root library) (new-file dst-macos library)
+                              (install-file (new-file src-libraries library) (new-file dst-libraries library)
                                 feedback: (lambda (action pathname)
                                             (build-feedback "; {a} {a}..." action (get-name pathname)))))
                             libraries)
                   ;; gstreamer
                   (when gstreamer?
-                    (install-directory (new-directory src-root "gstreamer") (new-directory dst-macos "gstreamer")
+                    (install-directory (new-directory src-libraries "gstreamer") (new-directory dst-libraries "gstreamer")
                       feedback: (lambda (action pathname)
                                   (build-feedback "; {a} {a}..." action (get-name pathname)))))
                   ;; lib
-                  (install-directory (new-directory src-root "lib") (new-directory dst-macos "lib")
+                  (install-directory (new-directory src-libraries "lib") (new-directory dst-libraries "lib")
                     filter: (let ((ignored-extensions (ignored-extensions source-access? scriptable?)))
                               (lambda (action pathname)
                                 (not (and (file? pathname)

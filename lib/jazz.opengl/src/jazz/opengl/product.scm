@@ -49,7 +49,7 @@
       (list (cons "lib/jazz.opengl/foreign/windows/opengl/glew/bin/glew32.dll" "glew32.dll"))))
   (cocoa
     (define jazz:opengl-files
-      (list (cons "lib/jazz.opengl/foreign/mac/opengl/glew/lib/libGLEW.dylib" "libGLEW.dylib"))))
+      (list (cons "lib/jazz.opengl/foreign/mac/opengl/glew/lib/libGLEW.dylib" "Libraries/libGLEW.dylib"))))
   (else
     (define jazz:opengl-files
       (list (cons "lib/jazz.opengl/foreign/unix/opengl/glew/lib/libGLEW.so.1.13" "libGLEW.so.1.13")))))

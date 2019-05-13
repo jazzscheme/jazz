@@ -558,19 +558,20 @@
       
       (define (prepare-bundle rebuild?)
         (if (and bundle (eq? windowing 'cocoa) (not library-image?))
-            (let ((bundle-src (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "/")))
-                  (bundle-dst (build-file (%%string-append bundle ".app" "/"))))
-              (if (or rebuild?
-                      (not (file-exists? bundle-dst)))
-                  (begin
-                    (feedback-message "; preparing bundle...")
-                    (if (file-exists? bundle-dst)
-                        (jazz:delete-directory bundle-dst))
-                    (jazz:copy-directory bundle-src bundle-dst)
-                    ;; quick hack because git doesnt support empty directories
-                    (let ((macos-dir (%%string-append bundle-dst "/Contents/MacOS/")))
-                      (if (not (file-exists? macos-dir))
-                          (create-directory macos-dir))))))))
+            (let ((bundle-suffix (if (%%memq 'triage features) "_triage" "")))
+              (let ((bundle-src (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle bundle-suffix "/")))
+                    (bundle-dst (build-file (%%string-append bundle ".app" "/"))))
+                (if (or rebuild?
+                        (not (file-exists? bundle-dst)))
+                    (begin
+                      (feedback-message "; preparing bundle...")
+                      (if (file-exists? bundle-dst)
+                          (jazz:delete-directory bundle-dst))
+                      (jazz:copy-directory bundle-src bundle-dst)
+                      ;; quick hack because git doesnt support empty directories
+                      (let ((macos-dir (%%string-append bundle-dst "/Contents/MacOS/")))
+                        (if (not (file-exists? macos-dir))
+                            (create-directory macos-dir)))))))))
       
       (define (compile-product rebuild? touch touched?)
         (let ((kernel-seconds (kernel-seconds))

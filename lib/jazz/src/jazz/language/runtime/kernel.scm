@@ -589,6 +589,7 @@
 (native jazz:current-process-version)
 (native jazz:current-process-version-set!)
 (native jazz:current-process-present)
+(native jazz:parent-directory)
 (native jazz:destination-directory)
 (native jazz:executable-extension)
 (native jazz:quote-pathname)

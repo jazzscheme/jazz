@@ -1147,6 +1147,12 @@
   (not (member (jazz:pathname-name dir) ignored-toplevel-dirnames)))
 
 
+(define (jazz:ignored-libraries-directory configuration)
+  (if (eq? (jazz:get-configuration-platform configuration) 'mac)
+      "Libraries"
+    "lib"))
+
+
 (define (jazz:make-clean configuration)
   (define delete-feedback
     (jazz:delete-feedback 1))
@@ -1173,14 +1179,15 @@
     (jazz:delete-feedback 1))
   
   (jazz:feedback "make cleankernel")
-  (let ((dir (jazz:configuration-directory configuration)))
+  (let ((dir (jazz:configuration-directory configuration))
+        (ignored-lib (jazz:ignored-libraries-directory configuration)))
     (if (file-exists? dir)
         (jazz:delete-directory dir
                                0
                                jazz:clean-toplevel-file?
                                (lambda (dir level)
                                  (if (and (jazz:clean-toplevel-directory? dir level)
-                                          (not (string=? (jazz:pathname-name dir) "lib")))
+                                          (not (string=? (jazz:pathname-name dir) ignored-lib)))
                                      (jazz:empty-directory dir
                                                            level
                                                            #f
@@ -1229,14 +1236,15 @@
     (jazz:cleanup-package dir level delete-feedback))
   
   (jazz:feedback "make cleanobject")
-  (let ((dir (jazz:configuration-directory configuration)))
+  (let ((dir (jazz:configuration-directory configuration))
+        (ignored-lib (jazz:ignored-libraries-directory configuration)))
     (if (file-exists? dir)
         (jazz:delete-directory dir
                                0
                                (lambda (file level)
                                  #f)
                                (lambda (dir level)
-                                 (if (string=? (jazz:pathname-name dir) "lib")
+                                 (if (string=? (jazz:pathname-name dir) ignored-lib)
                                      (jazz:empty-directory dir
                                                            level
                                                            (lambda (file level)
@@ -1272,14 +1280,15 @@
     (jazz:cleanup-package dir level delete-feedback))
   
   (jazz:feedback "make cleanlibrary")
-  (let ((dir (jazz:configuration-directory configuration)))
+  (let ((dir (jazz:configuration-directory configuration))
+        (ignored-lib (jazz:ignored-libraries-directory configuration)))
     (if (file-exists? dir)
         (jazz:delete-directory dir
                                0
                                (lambda (file level)
                                  #f)
                                (lambda (dir level)
-                                 (if (string=? (jazz:pathname-name dir) "lib")
+                                 (if (string=? (jazz:pathname-name dir) ignored-lib)
                                      (jazz:empty-directory dir
                                                            level
                                                            (lambda (file level)

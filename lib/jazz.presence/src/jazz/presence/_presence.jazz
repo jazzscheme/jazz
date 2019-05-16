@@ -121,7 +121,6 @@
 
 
 (hub accept-remote)
-(hub alive?)
 (hub close-connection)
 (hub connect-remote)
 (hub debug-remote)
@@ -148,6 +147,7 @@
 (hub get-values)
 (hub get-write-mutex)
 (hub invoke)
+(hub live?)
 (hub load-object)
 (hub local-class)
 (hub new-register-proxy)
@@ -178,6 +178,14 @@
         (jazz.network)
         (jazz.settings)
         (jazz.version))
+
+
+(definition public send-timeout
+  (make-parameter 2))
+(definition public receive-timeout
+  (make-parameter 10))
+(definition public (delay-close-remote-proxy remote-proxy)
+  (terminal 'delay-close-remote-proxy remote-proxy))
 
 
 (definition read-message-timeout
@@ -314,6 +322,9 @@
         ;; already connected!
         (if (find-connection self remote-uuid)
             (write-port port 'already-connected)
+          ;; PRESENCE quick try
+          (when (not listener)
+            (start-listener self #f #f #f))
           (let ((local-uuid uuid)
                 (local-title (current-process-title))
                 (local-service (listening-port listener))
@@ -340,6 +351,9 @@
   (method (connect-remote self host service (slave? #f))
     (when debug-remote?
       (debug-remote self 'open host service))
+    ;; PRESENCE quick try
+    (when (not listener)
+      (start-listener self #f #f #f))
     (let ((port (open-tcp-client (list server-address: host port-number: service readtable: jazz-readtable))))
       (let ((local-uuid uuid)
             (local-title (current-process-title))
@@ -517,6 +531,8 @@
               (if request-close?
                   (close-connection presence remote-uuid self)
                 (close-connection presence remote-uuid self)
+                ;; PRESENCE quick try
+                @w
                 (throw-connection-broke "Process received eof")))
           (bind (kind . rest) message
             (case kind
@@ -715,19 +731,19 @@
 
 
 ;;;
-;;;; Alive
+;;;; Live
 ;;;
 
 
-(definition public alive-timeout
+(definition public live-timeout
   0.5)
 
 
-(definition package (remote-proxy-alive? remote-proxy)
+(definition package (remote-proxy-live? remote-proxy)
   (catch (Connection-Broke exc
            #f)
-    (parameterize ((read-message-timeout alive-timeout))
-      (call-remote 'alive? remote-proxy))))
+    (parameterize ((read-message-timeout live-timeout))
+      (call-remote 'live? remote-proxy))))
 
 
 ;;;

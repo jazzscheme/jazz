@@ -120,8 +120,8 @@
         (jazz.io)
         (jazz.inspector)
         (jazz.network)
+        (jazz.presence)
         (jazz.process (cond (not ios)))
-        (jazz.remote)
         (jazz.syntax (phase syntax)))
 
 
@@ -147,8 +147,8 @@
 
 (definition public (setup-local-process)
   (when (not local-process)
-    (set! local-process (new Debuggee-Process-Local-Proxy (new Jazz-Debuggee-Process)))
-    (register-object (get-local-register) 'debuggee local-process)))
+    (set! local-process (new Debuggee-Process-Local-Proxy (require-presence 'debugging) (new Jazz-Debuggee-Process)))
+    (register-object (get-local-register 'debugging) 'debuggee local-process)))
 
 
 ;;;
@@ -204,9 +204,8 @@
   (when controller-debugger
     (when (live? controller-debugger)
       (detach-process controller-debugger local-process)
-      (flush-remote-switchboard)
       (when (remote-proxy? controller-debugger)
-        (delay-close-remote-proxy controller-debugger)))
+        (request-close-remote-proxy controller-debugger)))
     (set! controller-debugger #f)
     (detach-consoles)))
 
@@ -223,8 +222,7 @@
 
 (definition package (attach-debuggee host port (focus?: focus? #f))
   (load-debuggee-units)
-  (start-remote-switchboard)
-  (attach-debuggee-to-controller (connect-remote-register (or host #u8(127 0 0 1)) port) focus?: focus?))
+  (attach-debuggee-to-controller (connect-remote-register (or host #u8(127 0 0 1)) port purpose: 'debugging) focus?: focus?))
 
 
 (definition package (attach-debuggee-to-controller controller-register (focus?: focus? #f))
@@ -420,7 +418,7 @@
         (lambda ()
           (or (table-ref *consoles* thread #f)
               (let ((readtable (or readtable (and (current-process) (default-console-readtable (current-process))))))
-                (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Jazz-Debuggee-Thread thread)) debugger readtable select?)))
+                (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (require-presence 'debugging) (new Jazz-Debuggee-Thread thread)) debugger readtable select?)))
                   (table-set! *consoles* thread console)
                   console))))))))
 
@@ -640,7 +638,7 @@
 
 
 (definition public (start-local-debugger-repl)
-  (let ((local-debugger (find-object (get-local-register) 'debugger)))
+  (let ((local-debugger (find-object (get-local-register 'debugging) 'debugger)))
     (when local-debugger
       (thread-start!
         (new-thread
@@ -1301,7 +1299,7 @@
   
   (define (compute-restarts thread)
     (map (lambda (restart)
-           (new Debuggee-Restart-Local-Proxy (new Jazz-Debuggee-Restart thread restart)))
+           (new Debuggee-Restart-Local-Proxy (require-presence 'debugging) (new Jazz-Debuggee-Restart thread restart)))
          (current-restarts)))
   
   (invoke-releases)
@@ -1312,8 +1310,8 @@
       (lambda ()
         (parameterize ((current-repl-frame (box #f)))
           (let ((stop (new Jazz-Debuggee-Stop thread kind reason detail exc continuation (compute-restarts thread) locat stepper)))
-            (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Jazz-Debuggee-Thread thread)))
-                  (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
+            (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (require-presence 'debugging) (new Jazz-Debuggee-Thread thread)))
+                  (stop-proxy (new Debuggee-Stop-Local-Proxy (require-presence 'debugging) stop)))
               (let ((stop-info (list stop thread-proxy stop-proxy)))
                 (dynamic-wind
                   (lambda ()

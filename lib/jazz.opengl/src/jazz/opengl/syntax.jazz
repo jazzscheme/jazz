@@ -39,19 +39,24 @@
 
 
 (definition checkable?
-  #f)
+  (cond-expand
+    (triage #t)
+    (else #f)))
 
 
 (macro public (opengl-external signature . rest)
   (if (not checkable?)
       `(c-external ,signature ,@rest)
-    (let* ((s-name (car signature))
-           (params (cdr signature))
-           (unchecked-name (string->symbol (string-append (symbol->string s-name) "$untraced"))))
-      `(begin
-         (c-external (,s-name ,@params) ,@rest)
-         (definition ,unchecked-name ,s-name)
-         (set! ,s-name (lambda rest
-                         (when (trace-gst?)
-                           ((trace-gst) ',s-name rest))
-                         (apply ,unchecked-name rest))))))))
+    (let ((s-name (car signature))
+          (params (cdr signature)))
+      (let ((unchecked-name (string->symbol (string-append (symbol->string s-name) "$unchecked")))
+            (args (map (lambda (n)
+                         (string->symbol (format "a{s}" n)))
+                       (naturals 0 (length params)))))
+        `(begin
+           (c-external (,s-name ,@params) ,@rest)
+           (definition ,unchecked-name ,s-name)
+           (set! ,s-name (lambda ,args
+                           (let ((result (,unchecked-name ,@args)))
+                             (opengl-check-error ',s-name)
+                             result)))))))))

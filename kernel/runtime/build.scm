@@ -416,7 +416,10 @@
                                   (list
                                     path: ios-custom-cc
                                     arguments: `(,@custom-cc-options ,(%%string-append "-I" ios-gambit-include-dir) "-D___DYNAMIC" "-c" "-o" ,(string-append output name ".o") ,dst))))
-                            (compile-file dst options: (%%cons 'obj options) cc-options: "-D___DYNAMIC"))
+                            (let ((cc-options (case platform
+                                                  ((mac) "-D___DYNAMIC -mmacosx-version-min=10.10")
+                                                  (else "-D___DYNAMIC"))))
+                              (compile-file dst options: (%%cons 'obj options) cc-options: cc-options)))
                           (jazz:update-manifest-compile-time name digest mnf src #f))))
                   #t)
               #f))))
@@ -821,7 +824,7 @@
                        '("-mconsole")
                      '("-mwindows"))))
             ((mac)
-             '("-headerpad_max_install_names"))
+             '("-headerpad_max_install_names" "-mmacosx-version-min=10.10"))
             (else
              '()))))
       

@@ -39,6 +39,7 @@
 
 
 (import (jazz.foreign)
+        (jazz.listener)
         (jazz.platform.types)
         (jazz.stream.syntax (phase syntax))
         (jazz.syntax (phase syntax)))
@@ -255,17 +256,76 @@ static GValue* gst_structure_get_value_aux(GstStructure* struc, char* name)
     return (GValue*) gst_structure_get_value(struc, name);
 }
 
-static GstStateChangeReturn gst_element_set_state_aux(GstElement* elem, GstState state)
+static void gst_listener_set(void* user_data)
 {
-    GstStateChangeReturn state_change;
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) user_data;
+    send(socket, "!", 1, 0);
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) user_data;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "!", 1);
+#endif
+}
+
+typedef struct state_element
+{
+    GstElement* element;
+    GstState state;
+    void* desc;
+    GThread* thread;
+} element_state;
+
+static void* set_state(void* data)
+{
+    element_state* es = (element_state*) data;
+    GstElement* elem = es->element;
+    GstState state = es->state;
+    void* desc = es->desc;
   
     ___mask_heartbeat_interrupts_state heartbeat_interrupts;
     ___EXT(___mask_heartbeat_interrupts_begin)(&heartbeat_interrupts);
-    state_change = gst_element_set_state(elem, state);
+    gst_element_set_state(elem, state);
     ___EXT(___mask_heartbeat_interrupts_end)(&heartbeat_interrupts);
+    
+    gst_listener_set(desc);
   
-    return state_change;
+    return NULL;
 }
+
+static void* gst_element_set_state_threaded(GstElement* elem, GstState state, void* desc)
+{
+    element_state* es = malloc(sizeof(element_state));
+    es->element = elem;
+    es->state = state;
+    es->desc = desc;
+    es->thread = g_thread_new("set_state", set_state, (void*) es);
+    
+    return (void*) es;
+}
+
+static void gst_element_set_state_free(void* data)
+{
+    element_state* es = (element_state*) data;
+    g_thread_join(es->thread);
+    g_thread_unref(es->thread);
+    free(data);
+}
+
+// static GstStateChangeReturn gst_element_set_state_aux(GstElement* elem, GstState state, void* yo)
+// {
+//     GstStateChangeReturn state_change;
+//   
+//     ___mask_heartbeat_interrupts_state heartbeat_interrupts;
+//     ___EXT(___mask_heartbeat_interrupts_begin)(&heartbeat_interrupts);
+//     state_change = gst_element_set_state(elem, state);
+//     ___EXT(___mask_heartbeat_interrupts_end)(&heartbeat_interrupts);
+//   
+//     return state_change;
+// }
 
 static GstState gst_element_get_state_aux(GstElement* elem)
 {
@@ -979,7 +1039,9 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_structure_get_int GstStructure* char-string) int "gst_structure_get_int_aux")
 (gst-external (gst_structure_get_value GstStructure* char-string) GValue* "gst_structure_get_value_aux")
 (gst-external (gst_buffer_get_size GstBuffer*) int)
-(gst-external (gst_element_set_state GstElement* GstState) GstStateChangeReturn "gst_element_set_state_aux")
+(gst-external (gst_element_set_state_threaded GstElement* GstState void*) void*)
+(gst-external (gst_element_set_state_free void*) void)
+;(gst-external (gst_element_set_state GstElement* GstState) GstStateChangeReturn "gst_element_set_state_aux")
 (gst-external (gst_element_get_state GstElement*) GstState "gst_element_get_state_aux")
 (gst-external (gst_element_wait_state GstElement*) void "gst_element_wait_state_aux")
 (gst-external (gst_element_seek_simple GstElement* GstFormat GstSeekFlags int64) gboolean)
@@ -1044,6 +1106,15 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (get-denoising?) bool "get_denoising")
 (gst-external (set-denoising? bool) void "set_denoising")
 (gst-external (create-denoiser-thread GstElement* GstElement*) GThread* "create_denoiser_thread")))
+
+
+(definition public (gst_element_set_state elem state)
+  (let ((listener (open-stream-listener)))
+    (let ((data (gst_element_set_state_threaded elem state (get-write-file listener))))
+      (let ((c (wait listener)))
+        (assert (eqv? c #\!)
+          (gst_element_set_state_free data)
+          (close-stream-listener listener))))))
 
 
 (gst-external (move-u8vector->pointer! scheme-object void*) void

@@ -62,7 +62,7 @@
 (define-setting snapshot-prefix
   #f)
 
-(define-setting snapshot-properties
+(define-setting snapshot-user
   #f)
 
 (define-setting snapshot-max-depth
@@ -73,6 +73,19 @@
 
 (define-setting snapshot-max-content
   256)
+
+
+;;;
+;;;; Properties
+;;;
+
+
+(definition protected snapshot-properties
+  (make-table test: eq?))
+
+
+(definition public (add-snapshot-property property value)
+  (table-set! snapshot-properties property value))
 
 
 ;;;
@@ -194,18 +207,31 @@
       (let ((name (current-process-present))
             (version (present-process-version))
             (date (present-date (system-date)))
-            (id (current-process-id))
-            (properties (snapshot-properties)))
-        (format output "(<process> name: {s}{? version: {s}~} date: {s} id: {s}{? {l}~}" name version date id properties))
+            (user (snapshot-user)))
+        (format output "(<process> name: {s}{? version: {s}~} date: {s}{? user: {s}~}" name version date user))
       (when reason
         (format output " reason: {s}" reason))
       (when exception
         (format output " exception: {s}" (exception-reason exception)))
       (force-output output)
+      (print-properties)
+      (force-output output)
       (print-threads)
       (force-output output)
       (print-values)
       (format output "){%}"))
+    
+    (define (print-properties)
+      (let ((properties (table->list snapshot-properties)))
+        (when (not-null? properties)
+          (format output "{%}")
+          (format output "  (<properties>")
+          (for-each (lambda (pair)
+                      (bind (property . value) pair
+                        (format output "{%}")
+                        (format output "    (<property> name: {s} value: {s})" property value)))
+                    (sort string<? properties key: (lambda (pair) (symbol->string (car pair)))))
+          (format output ")"))))
     
     (define (print-threads)
       (format output "{%}")

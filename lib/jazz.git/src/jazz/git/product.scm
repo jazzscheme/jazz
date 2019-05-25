@@ -70,7 +70,9 @@
      (list (cons "lib/jazz.git/foreign/mac/libgit2/lib/libgit2.0.28.1.dylib" "Libraries/libgit2.0.28.1.dylib"))))
   (windows
    (define jazz:platform-files
-     (list (cons "lib/jazz.git/foreign/windows/libgit2/lib/libgit2.dll" "libgit2.dll"))))
+     (list (cons "lib/jazz.git/foreign/windows/libgit2/lib/libgit2.dll" "libgit2.dll")
+           (cons "lib/jazz.git/foreign/windows/libgit2/lib/libssh2-1.dll" "libssh2-1.dll")
+           (cons "lib/jazz.git/foreign/windows/libgit2/lib/libcrypto-1_1.dll" "libcrypto-1_1.dll"))))
   (else
    (define jazz:platform-files
      '())))

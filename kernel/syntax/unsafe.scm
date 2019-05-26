@@ -223,6 +223,8 @@
 (jazz:define-unsafe ^#get-max-heap)
 (jazz:define-unsafe ^#get-min-heap)
 (jazz:define-unsafe ^#get-monotonic-time!)
+(jazz:define-unsafe ^#get-monotonic-time-real!)
+(jazz:define-unsafe ^#get-monotonic-time-frequency!)
 (jazz:define-unsafe ^#global-var-ref)
 (jazz:define-unsafe ^#global-var-set!)
 (jazz:define-unsafe ^#global-var?)

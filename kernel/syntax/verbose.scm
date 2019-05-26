@@ -47,13 +47,33 @@
   ##current-time-point)
 
 
-;; u64vec needs to be thread-local for
-;; this code to be completely thread-safe
+;; gambit uses thread-local for vec
+;; is this code really thread-safe?
 (define jazz:current-monotonic
+  (let ((f64vec (^#f64vector 0.)))
+    (lambda ()
+      (declare (not interrupts-enabled))
+      (^#get-monotonic-time-real! f64vec 0)
+      (^#f64vector-ref f64vec 0))))
+
+
+;; gambit uses thread-local for vec
+;; is this code really thread-safe?
+(define jazz:current-monotonic-integer ;; named -integer while testing an hypothesis
   (let ((u64vec (^#u64vector 0)))
     (lambda ()
       (declare (not interrupts-enabled))
       (^#get-monotonic-time! u64vec 0)
+      (^#u64vector-ref u64vec 0))))
+
+
+;; gambit uses thread-local for vec
+;; is this code really thread-safe?
+(define jazz:current-monotonic-frequency
+  (let ((u64vec (^#u64vector 0)))
+    (lambda ()
+      (declare (not interrupts-enabled))
+      (^#get-monotonic-time-frequency! u64vec 0)
       (^#u64vector-ref u64vec 0))))
 
 

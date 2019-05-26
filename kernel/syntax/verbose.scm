@@ -86,6 +86,9 @@
 (define jazz:kernel-boot
   (jazz:current-seconds))
 
+(define jazz:kernel-boot-monotonic
+  (jazz:current-monotonic))
+
 
 ;;;
 ;;;; Verbose

@@ -476,6 +476,7 @@
 (native jazz:kernel-source-access?)
 (native jazz:kernel-version)
 (native jazz:kernel-boot)
+(native jazz:kernel-boot-monotonic)
 (native jazz:install-path)
 (native jazz:bundle-depth)
 (native jazz:get-update-version)
@@ -1097,6 +1098,8 @@
 (native jazz:current-seconds!)
 (native jazz:current-seconds <:fl>)
 (native jazz:current-monotonic)
+(native jazz:current-monotonic-integer)
+(native jazz:current-monotonic-frequency)
 (native jazz:present-seconds)
 
 

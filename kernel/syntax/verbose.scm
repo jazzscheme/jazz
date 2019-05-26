@@ -47,6 +47,8 @@
   ##current-time-point)
 
 
+;; u64vec needs to be thread-local for
+;; this code to be completely thread-safe
 (define jazz:current-monotonic
   (let ((u64vec (^#u64vector 0)))
     (lambda ()

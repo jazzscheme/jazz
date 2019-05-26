@@ -1113,6 +1113,8 @@
 ;;;
 
 
+;; vec needs to be thread-local for
+;; this code to be completely thread-safe
 (define jazz:get-heartbeat-interval
   (let ((vec (%%f64vector 0.)))
     (lambda ()

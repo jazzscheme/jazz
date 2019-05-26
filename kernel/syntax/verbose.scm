@@ -44,11 +44,7 @@
 
 
 (define jazz:current-seconds
-  (let ((f64vec (^#f64vector 0.)))
-    (lambda ()
-      (declare (not interrupts-enabled))
-      (^#get-current-time! f64vec 0)
-      (^#f64vector-ref f64vec 0))))
+  ##current-time-point)
 
 
 (define jazz:current-monotonic

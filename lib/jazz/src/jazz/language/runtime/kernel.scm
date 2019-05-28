@@ -1098,7 +1098,7 @@
 (native jazz:current-seconds!)
 (native jazz:current-seconds <:fl>)
 (native jazz:current-monotonic)
-(native jazz:current-monotonic-integer)
+(native jazz:current-monotonic-nanoseconds)
 (native jazz:current-monotonic-frequency)
 (native jazz:present-seconds)
 

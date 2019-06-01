@@ -1,0 +1,323 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; IDE Snapshots
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.ide.snapshots jazz
+
+
+(import (jazz.application)
+        (jazz.editor)
+        (jazz.graphic)
+        (jazz.handler)
+        (jazz.io)
+        (jazz.layout)
+        (jazz.markup)
+        (jazz.outline)
+        (jazz.resource)
+        (jazz.text)
+        (jazz.tree)
+        (jazz.ui)
+        (jazz.view))
+
+
+(class Snapshots-Explorer extends Layout-View implements Filterable
+  
+  
+  (property directory initialize #f accessors generate)
+  
+  
+  (slot snapshots initialize (make-table test: pathname=? hash: pathname-hash))
+  
+  
+  (form
+    (<install>                                             layout-type: border
+      (<Layout-View>                  name: toolbar        size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Separator>                                       size: {Dimension 2 0})
+        (<Label-View>                 name: dir-label      justification: (head -3) title: "Dir:" size: {Dimension 37 20} font: {Font Label})
+        (<Border-View>                                     size: {Dimension 300 20} border-type: fill border-insets: {Rect 0 1 0 0}
+          (<Border-View>              name: dir-border     border-type: edge style: entry
+            (<Moniker-Widget>         name: dir            protocol: dir display-protocol?: #f display-logical?: #f return-press-handler: {Event-Handler :form on-return-press} moniker-update-handler: {Event-Handler :form on-moniker-update})))
+        (<Separator>                                       size: {Dimension 24 0})
+        (<Label-View>                 name: filter-label   justification: (head -3) title: "Filter:" size: {Dimension 37 20} font: {Font Label})
+        (<Border-View>                                     size: {Dimension 250 20} border-type: fill border-insets: {Rect 0 1 0 0}
+          (<Border-View>                                   border-type: edge style: entry
+            (<Scroller-View>                               hscroll?: #f vscroll?: #f
+              (<!>                    name: content        layout-type: fill
+                (<Filter-Text-View>   name: filter-text)))))
+        (<Separator>                                       size: {Dimension 4 0})
+        (<Push-Tool>                  name: filter         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Filter" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-filter})
+        (<Push-Tool>                  name: delete         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Delete Snapshot" resource: {Image-Resource "Delete"} portfolio: :images action-handler: {Event-Handler :form on-delete-snapshot})
+        (<Separator>                                       size: {Dimension 30 0} location: tail)
+        (<Push-Tool>                  name: update         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Update" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-update-snapshots}))
+      (<Splitter-View>                                     location: center orientation: vert mode: relative division: 50 style: document
+        (<Border-View>                name: tree-border    location: first border-type: edge style: entry
+          (<Scroller-View>                                 style: document hscroll?: #t vscroll?: #t
+            (<!>                      name: content        layout-type: fill
+              (<Tree-Header>                               style: document
+                (<!>                  name: content
+                  (<Snapshots-Tree>   name: snapshots-tree selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click}))))))
+        (<Border-View>                name: text-border    location: second border-type: edge style: entry
+          (<Scroller-View>                                 style: document hscroll?: #t vscroll?: #t
+            (<!>                      name: content        layout-type: fill
+              (<Properties-Text>      name: properties-text)))))))
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-icon self)
+    {Image-Resource "Configure"})
+  
+  
+  (method meta override (host-title self)
+    "Snapshots Explorer")
+  
+  
+  (method meta override (host-position self)
+    {Point 28 14})
+  
+  
+  (method meta override (host-size self)
+    {Dimension 900 500})
+  
+  
+  (method override (host-workspaces self)
+    '(groupware))
+  
+  
+  (method override (focus-default self)
+    (acquire-focus (locate self 'filter-text)))
+  
+  
+  ;;;
+  ;;;; Filter
+  ;;;
+  
+  
+  (method override (filter self filter-search)
+    (filter-rows (locate self 'snapshots-tree)
+      (lambda (title)
+        (search title filter-search))))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method override (resize self dh dv)
+    (nextmethod self dh dv)
+    (move-figure (locate self 'delete) dh 0))
+  
+  
+  (method (on-moniker-update self evt)
+    (update-snapshots self))
+  
+  
+  (method override (on-return-press self evt)
+    (open-snapshot self))
+  
+  
+  (method (on-double-click self evt)
+    (open-snapshot self))
+  
+  
+  (method (on-selection-change self evt)
+    (update-properties self))
+  
+  
+  (method (on-filter self evt)
+    (filter-target (locate self 'filter-text)))
+  
+  
+  (method (on-delete-snapshot self evt)
+    (delete-snapshot self))
+  
+  
+  (method (on-update-snapshots self evt)
+    (if (not directory)
+        (bell)
+      (update-snapshots self)))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-snapshots self)
+    (set! directory (get-moniker (locate self 'dir)))
+    (update self))
+  
+  
+  (method package (update self)
+    (define (split-name file)
+      (let ((base (get-base file)))
+        (let ((pos (search base "_2")))
+          (if (not pos)
+              (values base "")
+            (values (substring base 0 pos)
+                    (substring base (+ pos 1) (string-length base)))))))
+    
+    (define (extract-snapshot file)
+      (or (table-ref snapshots file #f)
+          (let ((snapshot
+                  (with-exception-catcher
+                    (lambda (exc)
+                      exc)
+                    (lambda ()
+                      (let ((snapshot (load-markup file)))
+                        (set-property snapshot 'file file)
+                        snapshot)))))
+            (table-set! snapshots file snapshot)
+            snapshot)))
+    
+    (with-cursor :wait
+      (lambda ()
+        (let ((tree (locate self 'snapshots-tree)))
+          (remove-every-row tree)
+          (with-update-locked tree
+            (lambda ()
+              (iterate-directory directory
+                (lambda (dir)
+                  (iterate-directory dir
+                    (lambda (file)
+                      (when (extension=? (get-extension file) "snapshot")
+                        (let ((snapshot (extract-snapshot file)))
+                          (receive (name date) (split-name file)
+                            (if (is? snapshot Markup-Element)
+                                (add-row tree children: (list (new Tree-Node title: (get-name dir))
+                                                              (new Tree-Label title: name)
+                                                              (new Tree-Label title: date)
+                                                              (new Tree-Label title: (or (get-property snapshot 'exception) ""))
+                                                              (new Tree-Label title: (or (get-property snapshot 'user) "")))
+                                  user-data: snapshot)
+                              (add-row tree children: (list (new Tree-Node title: (get-name dir))
+                                                            (new Tree-Label title: name)
+                                                            (new Tree-Label title: date)
+                                                            (new Tree-Label title: "*** corrupted ***")
+                                                            (new Tree-Label title: ""))
+                                user-data: file))))))
+                    files?: #t
+                    directories?: #f
+                    recursive?: #f))
+                files?: #f
+                directories?: #t
+                recursive?: #f))))
+        (set-string-content (locate self 'properties-text) ""))))
+  
+  
+  (method (update-properties self)
+    (let ((tree (locate self 'snapshots-tree))
+          (text (locate self 'properties-text)))
+      (let ((snapshot (get-single-selected-data tree)))
+        (if (is? snapshot Markup-Element)
+            (let ((properties (find-node snapshot 'properties)))
+              (if properties
+                  (let ((output (open-output-string))
+                        (first? #t))
+                    (for-each (lambda (node)
+                                (if first?
+                                    (set! first? #f)
+                                  (format output "{%}"))
+                                (let ((name (get-property node 'name))
+                                      (value (get-property node 'value)))
+                                  (format output "{a} {s}" name value)))
+                              (get-children properties))
+                    (set-string-content text (get-output-string output)))
+                (set-string-content text "")))
+          (set-string-content text "")))))
+  
+  
+  ;;;
+  ;;;; Manage
+  ;;;
+  
+  
+  (method (delete-snapshot self)
+    (let ((tree (locate self 'snapshots-tree)))
+      (let ((selected (get-selected-data tree)))
+        (when (not-null? selected)
+          (for-each (lambda (snapshot)
+                      (let ((file (if (is? snapshot Markup-Element)
+                                      (get-property snapshot 'file)
+                                    snapshot)))
+                        (delete file)
+                        (table-clear snapshots file)))
+                    selected)
+          (update-snapshots self)))))
+  
+  
+  (method (open-snapshot self)
+    (let ((appl (current-application))
+          (tree (locate self 'snapshots-tree))
+          (text (locate self 'properties-text)))
+      (let ((snapshot (get-single-selected-data tree)))
+        (when snapshot
+          (if (is? snapshot Markup-Element)
+              (edit-snapshot appl snapshot)
+            (edit-document appl snapshot)))))))
+
+
+;;;
+;;;; Snapshots-Tree
+;;;
+
+
+(class Snapshots-Tree extends Tree-View
+  
+  
+  (form
+    (<install>                               filled-column: exception multiple-selection?: #t
+      (<Tree-Node-Column>  name: environment title: "Environment" width: 120 toplevel-controls?: #f display-images?: #f)
+      (<Tree-Label-Column> name: name        title: "Name" width: 100)
+      (<Tree-Label-Column> name: date        title: "Date" width: 175)
+      (<Tree-Label-Column> name: exception   title: "Exception" width: 300)
+      (<Tree-Label-Column> name: user        title: "User" width: 150))))
+
+
+;;;
+;;;; Properties-Text
+;;;
+
+
+(class Properties-Text extends Code-Text-View
+  
+  
+  (method override (new-model self)
+    (new Text-Model base-style: {Text-Style Text-Base font: {Font font-name: vera-mono point-size: 14}} left-padding: 4))))

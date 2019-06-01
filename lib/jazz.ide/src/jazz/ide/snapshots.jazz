@@ -46,6 +46,7 @@
         (jazz.layout)
         (jazz.markup)
         (jazz.outline)
+        (jazz.platform)
         (jazz.resource)
         (jazz.text)
         (jazz.tree)
@@ -69,7 +70,7 @@
         (<Label-View>                 name: dir-label      justification: (head -3) title: "Dir:" size: {Dimension 37 20} font: {Font Label})
         (<Border-View>                                     size: {Dimension 300 20} border-type: fill border-insets: {Rect 0 1 0 0}
           (<Border-View>              name: dir-border     border-type: edge style: entry
-            (<Moniker-Widget>         name: dir            protocol: dir display-protocol?: #f display-logical?: #f return-press-handler: {Event-Handler :form on-return-press} moniker-update-handler: {Event-Handler :form on-moniker-update})))
+            (<Moniker-Widget>         name: dir            protocol: dir display-protocol?: #f display-logical?: #f moniker-update-handler: {Event-Handler :form on-moniker-update})))
         (<Separator>                                       size: {Dimension 24 0})
         (<Label-View>                 name: filter-label   justification: (head -3) title: "Filter:" size: {Dimension 37 20} font: {Font Label})
         (<Border-View>                                     size: {Dimension 250 20} border-type: fill border-insets: {Rect 0 1 0 0}
@@ -79,7 +80,7 @@
                 (<Filter-Text-View>   name: filter-text)))))
         (<Separator>                                       size: {Dimension 4 0})
         (<Push-Tool>                  name: filter         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Filter" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-filter})
-        (<Push-Tool>                  name: delete         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Delete Snapshot" resource: {Image-Resource "Delete"} portfolio: :images action-handler: {Event-Handler :form on-delete-snapshot})
+        (<Push-Tool>                  name: delete         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Delete Snapshot" resource: {Image-Resource "Delete"} portfolio: :images action-handler: {Event-Handler :form on-delete-snapshots})
         (<Separator>                                       size: {Dimension 30 0} location: tail)
         (<Push-Tool>                  name: update         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Update" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-update-snapshots}))
       (<Splitter-View>                                     location: center orientation: vert mode: relative division: 50 style: document
@@ -89,10 +90,15 @@
               (<Tree-Header>                               style: document
                 (<!>                  name: content
                   (<Snapshots-Tree>   name: snapshots-tree selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click}))))))
-        (<Border-View>                name: text-border    location: second border-type: edge style: entry
-          (<Scroller-View>                                 style: document hscroll?: #t vscroll?: #t
-            (<!>                      name: content        layout-type: fill
-              (<Properties-Text>      name: properties-text)))))))
+        (<Splitter-View>                                   location: second orientation: horz mode: relative division: 50 style: document
+          (<Border-View>              name: text-border    location: first border-type: edge style: entry
+            (<Scroller-View>                               style: document hscroll?: #t vscroll?: #t
+              (<!>                    name: content        layout-type: fill
+                (<Properties-Text>    name: properties-text))))
+          (<Border-View>              name: text-border    location: second border-type: edge style: entry
+            (<Scroller-View>                               style: document hscroll?: #t vscroll?: #t
+              (<!>                    name: content        layout-type: fill
+                (<Frames-Text>        name: frames-text))))))))
   
   
   ;;;
@@ -149,24 +155,21 @@
     (update-snapshots self))
   
   
-  (method override (on-return-press self evt)
-    (open-snapshot self))
-  
-  
   (method (on-double-click self evt)
-    (open-snapshot self))
+    (open-snapshots self))
   
   
   (method (on-selection-change self evt)
-    (update-properties self))
+    (update-properties self)
+    (update-frames self))
   
   
   (method (on-filter self evt)
     (filter-target (locate self 'filter-text)))
   
   
-  (method (on-delete-snapshot self evt)
-    (delete-snapshot self))
+  (method (on-delete-snapshots self evt)
+    (delete-snapshots self))
   
   
   (method (on-update-snapshots self evt)
@@ -264,12 +267,36 @@
           (set-string-content text "")))))
   
   
+  (method (update-frames self)
+    (let ((tree (locate self 'snapshots-tree))
+          (text (locate self 'frames-text)))
+      (let ((snapshot (get-single-selected-data tree)))
+        (if (is? snapshot Markup-Element)
+            (let ((threads (find-node snapshot 'threads)))
+              (if threads
+                  (let ((thread (first-child threads)))
+                    (if thread
+                        (let ((output (open-output-string))
+                              (first? #t))
+                          (for-each (lambda (node)
+                                      (if first?
+                                          (set! first? #f)
+                                        (format output "{%}"))
+                                      (let ((name (get-property node 'name)))
+                                        (format output "{a}" name)))
+                                    (get-children thread))
+                          (set-string-content text (get-output-string output)))
+                      (set-string-content text "")))
+                (set-string-content text "")))
+          (set-string-content text "")))))
+  
+  
   ;;;
   ;;;; Manage
   ;;;
   
   
-  (method (delete-snapshot self)
+  (method (delete-snapshots self)
     (let ((tree (locate self 'snapshots-tree)))
       (let ((selected (get-selected-data tree)))
         (when (not-null? selected)
@@ -283,15 +310,18 @@
           (update-snapshots self)))))
   
   
-  (method (open-snapshot self)
+  (method (open-snapshots self)
     (let ((appl (current-application))
           (tree (locate self 'snapshots-tree))
           (text (locate self 'properties-text)))
-      (let ((snapshot (get-single-selected-data tree)))
-        (when snapshot
-          (if (is? snapshot Markup-Element)
-              (edit-snapshot appl snapshot)
-            (edit-document appl snapshot)))))))
+      (let ((selected (get-selected-data tree)))
+        (for-each (lambda (snapshot)
+                    (if (is? snapshot Markup-Element)
+                        (if (shift-down?)
+                            (edit-document appl (get-property snapshot 'file))
+                          (edit-snapshot appl snapshot))
+                      (edit-document appl snapshot)))
+                  selected)))))
 
 
 ;;;
@@ -317,6 +347,18 @@
 
 
 (class Properties-Text extends Code-Text-View
+  
+  
+  (method override (new-model self)
+    (new Text-Model base-style: {Text-Style Text-Base font: {Font font-name: vera-mono point-size: 14}} left-padding: 4)))
+
+
+;;;
+;;;; Frames-Text
+;;;
+
+
+(class Frames-Text extends Code-Text-View
   
   
   (method override (new-model self)

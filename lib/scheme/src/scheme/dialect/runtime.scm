@@ -402,21 +402,26 @@
           (let ((augmented-environment (%%cons frame environment)))
             (let ((signature-emit (jazz:emit-signature signature declaration walker resume augmented-environment backend)))
               (let ((body-code (jazz:emit-expression body declaration walker resume augmented-environment backend)))
-                (let ((body-emit (jazz:emit backend 'begin expression declaration walker resume environment body-code)))
-                  (let ((cast-body (jazz:emit-return-cast (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type (jazz:get-expression-source expression) declaration walker resume environment backend)))
-                    ;; the simplify-begin is a quicky to make sure we are
-                    ;; eq? to emit-return-cast that also calls simplify-begin
-                    #;
-                    (let ((cast-needed? (%%neq? (jazz:simplify-begin body-emit) (jazz:simplify-begin cast-body))))
-                      (%%when cast-needed?
-                        (jazz:warning "Warning: In {a}{a}: Typed definition needs return cast"
-                                      (jazz:get-declaration-locator declaration)
-                                      (jazz:present-expression-location source #f))))
-                    (let ((cast-body (jazz:simplify-begin cast-body)))
-                      (jazz:new-code
-                        (jazz:emit backend 'lambda expression declaration walker resume environment signature-emit '() cast-body)
-                        (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
-                        (jazz:get-expression-source expression)))))))))))))
+                (jazz:emit-unsafe-code expression source declaration walker resume environment augmented-environment signature-emit body-code backend)))))))))
+
+
+(define (jazz:emit-unsafe-code expression source declaration walker resume environment augmented-environment signature-emit body-code backend)
+  (let ((type (jazz:get-expression-type expression))
+        (body-emit (jazz:emit backend 'begin expression declaration walker resume environment body-code)))
+    (let ((cast-body (jazz:emit-return-cast (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type (jazz:get-expression-source expression) declaration walker resume environment backend)))
+      ;; the simplify-begin is a quicky to make sure we are
+      ;; eq? to emit-return-cast that also calls simplify-begin
+      #;
+      (let ((cast-needed? (%%neq? (jazz:simplify-begin body-emit) (jazz:simplify-begin cast-body))))
+        (%%when cast-needed?
+          (jazz:warning "Warning: In {a}{a}: Typed definition needs return cast"
+                        (jazz:get-declaration-locator declaration)
+                        (jazz:present-expression-location source #f))))
+      (let ((cast-body (jazz:simplify-begin cast-body)))
+        (jazz:new-code
+          (jazz:emit backend 'lambda expression declaration walker resume environment signature-emit '() cast-body)
+          (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
+          (jazz:get-expression-source expression))))))
 
 
 (jazz:define-variable-override jazz:emit-safe
@@ -429,13 +434,32 @@
           (let ((augmented-environment (%%cons frame environment)))
             (let ((signature-emit (jazz:emit-signature signature declaration walker resume augmented-environment backend)))
               (let ((body-code (jazz:emit-expression body declaration walker resume augmented-environment backend)))
-                (let ((signature-casts (jazz:emit-signature-casts signature declaration walker resume augmented-environment backend))
-                      (unsafe-locator (jazz:unsafe-locator (jazz:get-declaration-locator declaration))))
-                  (let ((call-expression `(,unsafe-locator ,@(map jazz:get-lexical-binding-name (jazz:get-signature-positional signature)))))
-                    (jazz:new-code
-                      (jazz:emit backend 'lambda expression declaration walker resume environment signature-emit signature-casts call-expression)
-                      (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
-                      (jazz:get-expression-source expression))))))))))))
+                (jazz:emit-safe-code expression source declaration walker resume environment augmented-environment signature-emit body-code backend)))))))))
+
+
+(define (jazz:emit-safe-code expression source declaration walker resume environment augmented-environment signature-emit body-code backend)
+  (let ((signature (jazz:get-lambda-signature expression)))
+    (let ((signature-casts (jazz:emit-signature-casts signature declaration walker resume augmented-environment backend))
+          (unsafe-locator (jazz:unsafe-locator (jazz:get-declaration-locator declaration))))
+      (let ((call-expression `(,unsafe-locator ,@(map jazz:get-lexical-binding-name (jazz:get-signature-positional signature)))))
+        (jazz:new-code
+          (jazz:emit backend 'lambda expression declaration walker resume environment signature-emit signature-casts call-expression)
+          (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
+          (jazz:get-expression-source expression))))))
+
+
+(jazz:define-variable-override jazz:emit-safe/unsafe
+  (lambda (expression source declaration walker resume environment backend)
+    (let ((type (jazz:get-expression-type expression))
+          (signature (jazz:get-lambda-signature expression))
+          (body (jazz:get-lambda-body expression)))
+      (jazz:with-annotated-frame (jazz:annotate-signature signature)
+        (lambda (frame)
+          (let ((augmented-environment (%%cons frame environment)))
+            (let ((signature-emit (jazz:emit-signature signature declaration walker resume augmented-environment backend)))
+              (let ((body-code (jazz:emit-expression body declaration walker resume augmented-environment backend)))
+                (values (jazz:emit-safe-code expression source declaration walker resume environment augmented-environment signature-emit body-code backend)
+                        (jazz:emit-unsafe-code expression source declaration walker resume environment augmented-environment signature-emit body-code backend))))))))))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Lambda expression) declaration walker resume environment backend)

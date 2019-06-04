@@ -120,9 +120,10 @@
              ;; safe first iteration simplification
              (jazz:only-positional-signature? (jazz:get-lambda-signature value))
              (jazz:typed-signature? (jazz:get-lambda-signature value)))
-        (let ((safe (jazz:emit-type-cast (jazz:emit-safe value source declaration walker resume environment backend) type (jazz:get-expression-source value) declaration walker resume environment backend))
-              (unsafe (jazz:emit-type-cast (jazz:emit-unsafe value source declaration walker resume environment backend) type (jazz:get-expression-source value) declaration walker resume environment backend)))
-          (jazz:emit backend 'definition declaration walker resume environment safe unsafe))
+        (receive (safe-code unsafe-code) (jazz:emit-safe/unsafe value source declaration walker resume environment backend)
+          (let ((safe (jazz:emit-type-cast safe-code type (jazz:get-expression-source value) declaration walker resume environment backend))
+                (unsafe (jazz:emit-type-cast unsafe-code type (jazz:get-expression-source value) declaration walker resume environment backend)))
+            (jazz:emit backend 'definition declaration walker resume environment safe unsafe)))
       (let ((expression (jazz:emit-type-cast (jazz:emit-expression value declaration walker resume environment backend) type (jazz:get-expression-source value) declaration walker resume environment backend)))
         (jazz:emit backend 'definition declaration walker resume environment expression #f)))))
 

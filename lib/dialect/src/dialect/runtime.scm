@@ -4920,6 +4920,7 @@
 
 (jazz:define-variable jazz:emit-unsafe)
 (jazz:define-variable jazz:emit-safe)
+(jazz:define-variable jazz:emit-safe/unsafe)
 
 
 (jazz:define-class jazz:Internal-Define jazz:Expression (constructor: jazz:allocate-internal-define)

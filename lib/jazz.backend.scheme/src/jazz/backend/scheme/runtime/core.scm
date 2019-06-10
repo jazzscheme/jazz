@@ -1232,4 +1232,21 @@
 (define (jazz:present-seconds secs)
   (if (>= secs 0.)
       (jazz:present-absolute-seconds secs)
-    (%%string-append "-" (jazz:present-absolute-seconds (- secs))))))
+    (%%string-append "-" (jazz:present-absolute-seconds (- secs)))))
+
+
+;;;
+;;;; UDP
+;;;
+
+
+(define (jazz:udp-socket-receive-buffer-size port)
+  (##udp-socket-receive-buffer-size port))
+
+
+(define (jazz:udp-socket-send-buffer-size port)
+  (##udp-socket-send-buffer-size port))
+
+
+(define (jazz:udp-socket-send-again-count port)
+  (##udp-socket-send-again-count port)))

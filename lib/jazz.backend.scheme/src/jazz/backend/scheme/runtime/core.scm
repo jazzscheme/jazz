@@ -1243,10 +1243,14 @@
 (define (jazz:udp-socket-receive-buffer-size port)
   (##udp-socket-receive-buffer-size port))
 
+(define (jazz:udp-socket-receive-buffer-size-set! port size)
+  (##udp-socket-receive-buffer-size-set! port size))
 
 (define (jazz:udp-socket-send-buffer-size port)
   (##udp-socket-send-buffer-size port))
 
+(define (jazz:udp-socket-send-buffer-size-set! port size)
+  (##udp-socket-send-buffer-size-set! port size))
 
 (define (jazz:udp-socket-send-again-count port)
   (##udp-socket-send-again-count port)))

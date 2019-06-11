@@ -1129,7 +1129,9 @@
 
 
 (native jazz:udp-socket-receive-buffer-size)
+(native jazz:udp-socket-receive-buffer-size-set!)
 (native jazz:udp-socket-send-buffer-size)
+(native jazz:udp-socket-send-buffer-size-set!)
 (native jazz:udp-socket-send-again-count)
 
 

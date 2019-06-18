@@ -52,7 +52,7 @@
       '((jazz.crash.unix))))
   (windows
     (define jazz:crash-units
-      (let ((base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
+      (let ((base-windows-cc-options "-DUNICODE"))
         `((jazz.crash.windows cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))))
 
 

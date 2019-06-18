@@ -64,7 +64,7 @@
 (define jazz:windows-units
   (let ((pdh-include-path   (jazz:quote-jazz-pathname "lib/jazz.platform/foreign/windows/pdh/include"))
         (pdh-lib-path       (jazz:quote-jazz-pathname "lib/jazz.platform/foreign/windows/pdh/lib"))
-        (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
+        (base-windows-cc-options "-DUNICODE"))
     `((jazz.platform.windows)
       (jazz.platform.windows.WinDef      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinTypes    cc-options: ,base-windows-cc-options ld-options: "-mwindows")

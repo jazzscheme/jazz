@@ -79,7 +79,7 @@
         `((jazz.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglew32"))
           (jazz.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglew32"))
           (jazz.opengl.glew.windows cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglew32"))
-          (jazz.opengl.platform.windows cc-options: "-DUNICODE -D_WIN32_WINNT=0x0502" ld-options: "-mwindows -lopengl32")))))
+          (jazz.opengl.platform.windows cc-options: "-DUNICODE" ld-options: "-mwindows -lopengl32")))))
   (cocoa
     (define jazz:opengl-units
       (let ((glew-include-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/include"))

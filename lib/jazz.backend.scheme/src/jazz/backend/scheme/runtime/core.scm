@@ -1093,6 +1093,10 @@
 ;;;
 
 
+(define (jazz:interrupt-vector-set! code handler)
+  (%%interrupt-vector-set! code handler))
+
+
 (define jazz:*interrupts-enabled?*
   #t)
 
@@ -1113,8 +1117,6 @@
 ;;;
 
 
-;; vec needs to be thread-local for
-;; this code to be completely thread-safe
 (define jazz:get-heartbeat-interval
   (let ((vec (%%f64vector 0.)))
     (lambda ()
@@ -1124,6 +1126,10 @@
 
 (define (jazz:set-heartbeat-interval! seconds)
   (%%set-heartbeat-interval! seconds))
+
+
+(define (jazz:get-heartbeat-thread)
+  (##get-heartbeat-thread))
 
 
 ;;;

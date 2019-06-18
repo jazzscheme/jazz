@@ -210,8 +210,8 @@
 ;;;
 
 
-(define (jazz:thread-heartbeat!)
-  (##thread-heartbeat!))
+(define jazz:thread-heartbeat!
+  ##thread-heartbeat!)
 
 
 ;;;

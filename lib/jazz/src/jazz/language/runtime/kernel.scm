@@ -406,6 +406,7 @@
 ;;;
 
 
+(native jazz:thread-heartbeat!)
 (native jazz:jazz-heartbeat)
 
 
@@ -1073,11 +1074,18 @@
 ;;;
 
 
+(native TERMINATE-INTERRUPT)
+(native HEARTBEAT-INTERRUPT)
+(native USER-INTERRUPT)
+(native GC-INTERRUPT)
+(native HIGH-LEVEL-INTERRUPT)
+(native jazz:interrupt-vector-set!)
 (native jazz:interrupts-enabled?)
 (native jazz:disable-interrupts!)
 (native jazz:enable-interrupts!)
 (native jazz:get-heartbeat-interval)
 (native jazz:set-heartbeat-interval!)
+(native jazz:get-heartbeat-thread)
 (native jazz:thread-interrupt!)
 (native jazz:thread-cont)
 (native jazz:thread-continuation)

@@ -329,7 +329,10 @@
         (jazz:error "Unable to find configuration: {s}" name))))
 
 (define (jazz:require-default-configuration)
-  (or (jazz:find-configuration #f)
+  (or (let ((jazconf (getenv "JAZCONF" #f)))
+        (if jazconf
+            (jazz:find-configuration (string->symbol jazconf))
+          (jazz:find-configuration #f)))
       (begin
         (jazz:feedback "configure")
         (jazz:configure jazz:unspecified-configuration)

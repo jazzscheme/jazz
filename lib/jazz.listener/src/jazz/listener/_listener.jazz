@@ -53,14 +53,8 @@
   #t)
 
 
-(definition socket-server-port
-  (open-vector))
-
 (definition socket-server-mutex
   (make-mutex 'socket-server))
-
-(definition socket-server-started-mutex
-  (make-mutex 'socket-server-started))
 
 
 (definition socket-server-address
@@ -70,27 +64,14 @@
   #f)
 
 
+(definition socket-server-port
+  #f)
+
+
 (definition protected (start-socket-server)
   (when listener-sockets?
-    (mutex-lock! socket-server-started-mutex)
-    (thread-start!
-      (new-thread
-        (lambda ()
-          (declare (proper-tail-calls))
-          (let ((server-port (open-tcp-server (list server-address: socket-server-address port-number: 0))))
-            (set! socket-server-service (socket-info-port-number (tcp-server-socket-info server-port)))
-            (mutex-unlock! socket-server-started-mutex)
-            (let (loop)
-              (let ((port (read server-port)))
-                (write port socket-server-port)
-                (force-output socket-server-port)
-                (loop)))))
-        'socket-server))))
-
-
-(definition protected (wait-socket-server)
-  (mutex-lock! socket-server-started-mutex)
-  (mutex-unlock! socket-server-started-mutex))
+    (set! socket-server-port (open-tcp-server (list server-address: socket-server-address port-number: 0 reuse-address: #f)))
+    (set! socket-server-service (socket-info-port-number (tcp-server-socket-info socket-server-port)))))
 
 
 ;;;

@@ -38,6 +38,11 @@
 (module jazz.stream.syntax jazz
 
 
+;;;
+;;;; External
+;;;
+
+
 (definition tracable?
   #t)
 
@@ -54,4 +59,30 @@
          (set! ,s-name (lambda rest
                          (when (trace-gst?)
                            ((trace-gst) ',s-name rest))
-                         (apply ,untraced-name rest))))))))
+                         (apply ,untraced-name rest)))))))
+
+
+;;;
+;;;; Unref
+;;;
+
+
+(define (expand-with-unref bindings body)
+  `(let ,bindings
+     (prog1 (begin
+              ,@(if (null? body)
+                    '((unspecified))
+                  body))
+       ,@(map (lambda (binding)
+                (let ((variable (car (source-code binding))))
+                  `(gst_object_unref ,variable)))
+              bindings))))
+
+
+(syntax public with-unref
+  (lambda (form-src usage-environment macro-environment)
+    (let ((bindings (source-code (cadr (source-code form-src))))
+          (body (cddr (source-code form-src))))
+      (sourcify-deep-if
+        (expand-with-unref bindings body)
+        form-src)))))

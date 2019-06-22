@@ -41,6 +41,7 @@
 ;; G_DEBUG=fatal-criticals ...
 ;; G_DEBUG=fatal-warnings ...
 ;; G_DEBUG=fatal-criticals gdb -ex run --args ./test arg1 arg2 ...
+;; GST_TRACERS="leaks" GST_DEBUG="GST_TRACER:7"
 
 
 (module jazz.stream.test jazz
@@ -80,6 +81,7 @@
 ;; wav
 ;; jpeg
 ;; movie
+;; leak
 ;; gambit
 (definition script
   'app)
@@ -221,6 +223,7 @@
     ((wav) (test-wav))
     ((jpeg) (test-jpeg))
     ((movie) (test-movie))
+    ((leak) (test-leak))
     ((gambit) (test-gambit))
     (else (error "Unknown script: {a}" script))))
 
@@ -1175,6 +1178,50 @@
         (thread-start! video-thread))
       ;; application
       (boot-environment (new Test-Application size: video-size pipe: pipe drawer: drawer)))))
+
+
+;;;
+;;;; Leak
+;;;
+
+
+(definition public (test-leak)
+  (let ((pipeline (gst-pipeline "appsrc name=src ! avdec_h264 name=dec ! appsink name=sink")))
+    (let ((appsrc (gst_bin_get_by_name pipeline "src")))
+      (gst_object_unref appsrc)
+      (gst_object_unref pipeline)
+      (gst_deinit)))
+  @w
+  (let ((pipeline (gst-pipeline "appsrc name=src ! avdec_h264 name=dec ! appsink name=sink"))
+        (width 640)
+        (height 360)
+        (framerate 10))
+    (let ((appsrc (gst_bin_get_by_name pipeline "src"))
+          (appsink (gst_bin_get_by_name pipeline "sink"))
+          (dec (gst_bin_get_by_name pipeline "dec"))
+          (data (make-u8vector (* width height 4)))
+          (info (make-u64vector 2)))
+      (gst-app-src-set-caps appsrc "video/x-h264"
+        "width"         'int      width
+        "height"        'int      height
+        "framerate"     'fraction (cons framerate 1)
+        "stream-format" 'string   "avc"
+        "alignment"     'string   "au")
+      (g-object-set appsrc
+                    "is-live"     'boolean #t
+                    "stream-type" 'int GST_APP_STREAM_TYPE_STREAM
+                    "format"      'int GST_FORMAT_TIME)
+      (gst_element_set_state_blocking pipeline GST_STATE_PLAYING)
+      (receive (buffer timestamp duration) (read-sample)
+        (gst_app_src_write appsrc buffer (u8vector-length buffer) 0 duration)
+        (let (loop)
+          (let ((size (gst_app_sink_try_pull appsink data info)))
+            (if (/= size -1)
+                (terminal 'GOT size)
+              (sleep .01)
+              (loop)))))
+      (gst_element_set_state_blocking pipeline GST_STATE_NULL)
+      (gst_object_unref pipeline))))
 
 
 ;;;

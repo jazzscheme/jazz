@@ -564,6 +564,7 @@ static GstFlowReturn gst_app_src_write(GstElement* elem, ___SCMOBJ vec, int size
     GST_BUFFER_PTS(buffer) = abs_time - base_time + timestamp;
     GST_BUFFER_DTS(buffer) = GST_BUFFER_PTS(buffer);
     GST_BUFFER_DURATION(buffer) = duration;
+    gst_object_unref(clock);
     return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
 }
 
@@ -581,6 +582,7 @@ static GstFlowReturn gst_app_src_write_pointer(GstElement* elem, void* ptr, int 
     GST_BUFFER_PTS(buffer) = abs_time - base_time + timestamp;
     GST_BUFFER_DTS(buffer) = GST_BUFFER_PTS(buffer);
     GST_BUFFER_DURATION(buffer) = duration;
+    gst_object_unref(clock);
     return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
 }
 
@@ -795,8 +797,9 @@ cb_have_data(GstPad          *pad,
     element_name = gst_element_get_name(element);
     name = gst_pad_get_name(pad);
     size = gst_buffer_get_size(buffer);
+    GstClock* clock = gst_pipeline_get_clock(pipeline);
     GstClockTime timestamp = GST_BUFFER_PTS(buffer);
-    GstClockTime clockstamp = gst_clock_get_time(gst_pipeline_get_clock(pipeline)) - gst_element_get_base_time(GST_ELEMENT(pipeline));
+    GstClockTime clockstamp = gst_clock_get_time(clock) - gst_element_get_base_time(GST_ELEMENT(pipeline));
     // printf("DATA %s %s %s %ld %.3f %.3f %.3f\n", pipeline_name, element_name, name, size, present_time(gst_element_get_start_time(element)), present_time(GST_BUFFER_PTS(buffer)), present_time(GST_BUFFER_DURATION(buffer)));
     // printf("DATA %s %s %s %.3f %.3f %.3f\n", pipeline_name, element_name, name, present_time(gst_element_get_start_time(element)), present_time(GST_BUFFER_PTS(buffer)), present_time(GST_BUFFER_DURATION(buffer)));
     // printf("DATA %s %s %s %ld %.3f %.3f %.3f\n", pipeline_name, element_name, name, size, present_time(timestamp), present_time(clockstamp), present_time(timestamp) - present_time(clockstamp));
@@ -811,6 +814,7 @@ cb_have_data(GstPad          *pad,
     gst_buffer_unmap(buffer, &map);
     g_free(name);
     g_free(element_name);
+    gst_object_unref(clock);
     gst_object_unref(element);
 
     return GST_PAD_PROBE_OK;

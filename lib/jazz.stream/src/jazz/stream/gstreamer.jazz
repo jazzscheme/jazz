@@ -84,16 +84,32 @@
     value))
 
 
-(definition public (g_value_fraction n d)
-  (let ((value (g_value_new (GST_TYPE_FRACTION))))
-    (gst_value_set_fraction value n d)
-    value))
+(definition public (g_value_fraction fraction)
+  (bind (n . d) fraction
+    (let ((value (g_value_new (GST_TYPE_FRACTION))))
+      (gst_value_set_fraction value n d)
+      value)))
 
 
-(definition public (g_object_set obj . rest)
-  (for-each-property (lambda (name value)
-                       (g_object_set_property obj name value))
-                     rest))
+(definition public (for-each-typed-property proc lst)
+  (let (iterate (lst lst))
+    (when (not-null? lst)
+      (proc (car lst) (cadr lst) (caddr lst))
+      (iterate (cdddr lst)))))
+
+
+(definition protected value-new
+  (make-table test: eq?))
+
+(definition protected (register-value-new name new)
+  (table-set! value-new name new))
+
+(register-value-new 'boolean  g_value_boolean)
+(register-value-new 'int      g_value_int)
+(register-value-new 'uint64   g_value_uint64)
+(register-value-new 'double   g_value_double)
+(register-value-new 'string   g_value_string)
+(register-value-new 'fraction g_value_fraction)
 
 
 ;;;
@@ -124,6 +140,19 @@
       (u32vector-ref info 1)
       (u32vector-ref info 2)
       (u32vector-ref info 3))))
+
+
+;;;
+;;;; Object
+;;;
+
+
+(definition public (g-object-set obj . rest)
+  (for-each-typed-property (lambda (name type value)
+                             (let ((new (table-ref value-new type)))
+                               (let ((value (new value)))
+                                 (g_object_set_property obj name value))))
+                             rest))
 
 
 ;;;
@@ -204,27 +233,18 @@
 ;;;
 
 
-(definition public (gst_caps type . rest)
-  (let ((caps (gst_caps_new_empty_simple type)))
-    (for-each-property (lambda (name value)
-                         (gst_caps_set_value caps name value))
-                       rest)
-    caps))
-
-
 (definition public (gst-setup-source src type format width height framerate (stream-format: stream-format #f) (alignment: alignment #f))
-  (gst_app_src_set_caps src
-                        (apply gst_caps type
-                          `("format"        ,(g_value_string format)
-                            "width"         ,(g_value_int width)
-                            "height"        ,(g_value_int height)
-                            "framerate"     ,(g_value_fraction framerate 1)
-                            ,@(if stream-format `("stream-format" ,(g_value_string "avc")) '())
-                            ,@(if alignment `("alignment" ,(g_value_string "au")) '()))))
-  (g_object_set src
-                "is-live"     (g_value_boolean #t)
-                "stream-type" (g_value_int GST_APP_STREAM_TYPE_STREAM)
-                "format"      (g_value_int GST_FORMAT_TIME)))
+  (apply gst-app-src-set-caps src type
+    `("format"        string   ,format
+      "width"         int      ,width
+      "height"        int      ,height
+      "framerate"     fraction ,(cons framerate 1)
+      ,@(if stream-format `("stream-format" string "avc") '())
+      ,@(if alignment `("alignment" string "au") '())))
+  (g-object-set src
+    "is-live"     'boolean #t
+    "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+    "format"      'int     GST_FORMAT_TIME))
 
 
 ;;;
@@ -294,6 +314,22 @@
                                      (error "Unknown monitor: {a}" what)))))
                               (gst_element_pads elem))))))
             names))
+
+
+;;;
+;;;; AppSrc
+;;;
+
+
+(definition public (gst-app-src-set-caps appsrc type . rest)
+  (let ((caps (gst_caps_new_empty_simple type)))
+    (for-each-typed-property (lambda (name type value)
+                               (let ((new (table-ref value-new type)))
+                                 (let ((value (new value)))
+                                   (gst_caps_set_value caps name value))))
+                             rest)
+    (gst_app_src_set_caps appsrc caps)
+    (gst_caps_unref caps)))
 
 
 ;;;

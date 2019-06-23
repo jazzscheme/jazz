@@ -659,6 +659,7 @@
 (native jazz:global-ref)
 (native jazz:global-set!)
 (native jazz:global-unbind!)
+(native jazz:global-setting)
 (native jazz:testing?)
 (native jazz:testing)
 (native jazz:generate-symbol-for)

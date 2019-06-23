@@ -194,6 +194,12 @@
   (%%global-var-unbind! symbol))
 
 
+(define (jazz:global-setting name default)
+  (if (jazz:global-bound? name)
+      (jazz:global-ref name)
+    default))
+
+
 (define (jazz:break-reference identifier)
   (let ((str (%%symbol->string identifier)))
     (let ((n (jazz:string-find str #\:)))

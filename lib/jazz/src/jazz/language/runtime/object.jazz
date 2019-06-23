@@ -61,7 +61,7 @@
 
   
   (method core chained (destroy self)
-    (table-set! *destroy-mandatory-objects* self))
+    )
   
   
   (method core public virtual (call-print self output detail)
@@ -137,15 +137,6 @@
 
   (method public virtual (close self)
     (destroy self))
-
-
-  (method protected virtual (destroy-mandatory self (info #t))
-    (table-set! *destroy-mandatory-objects* self info)
-    (make-will self
-               (lambda (obj)
-                 (let ((info (table-ref *destroy-mandatory-objects* obj #f)))
-                   (when info
-                     (leaked-object obj info))))))
 
 
   (method public virtual (destroying? self)
@@ -299,19 +290,39 @@
 ;;;
 
 
-(definition public *destroy-mandatory-objects* <table>
+(definition protected backtrace-allocated?
+  (global-setting 'backtrace-allocated? #f))
+
+
+(definition public *allocated* <table>
   (make-table weak-keys: #t test: eq?))
 
-(definition *leaked-objects-mutex*
+(definition public (allocated obj (info (if backtrace-allocated?
+                                            (jazz.language.runtime.debug:execution-stack)
+                                          #t)))
+  (table-set! *allocated* obj info)
+  (make-will obj
+    (lambda (obj)
+      (let ((info (table-ref *allocated* obj #f)))
+        (when info
+          (leaked obj info))))))
+
+(definition public (freed obj)
+  (if (table-ref *allocated* obj #f)
+      (table-set! *allocated* obj)
+    (terminal 'not 'allocated 'or 'double 'freed obj)))
+
+
+(definition *leaks-mutex*
   (make-mutex))
 
-(definition *leaked-objects*
+(definition *leaks*
   '())
 
-(definition public (get-leaked-objects)
-  *leaked-objects*)
+(definition public (leaks)
+  *leaks*)
 
-(definition (leaked-object obj info)
-  (mutex-lock! *leaked-objects-mutex*)
-  (set! *leaked-objects* (cons (cons obj info) *leaked-objects*))
-  (mutex-unlock! *leaked-objects-mutex*)))
+(definition (leaked obj info)
+  (mutex-lock! *leaks-mutex*)
+  (set! *leaks* (cons (cons obj info) *leaks*))
+  (mutex-unlock! *leaks-mutex*)))

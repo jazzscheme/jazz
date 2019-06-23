@@ -897,28 +897,58 @@
 
 (syntax public c-external
   (lambda (form-src usage-environment macro-environment)
-    (bind (signature result-type . rest) (cdr (source-code form-src))
-      (define (parse-specifier proc)
-        (if (and (not-null? rest)
-                 (specifier? (source-code (car rest))))
-            (proc (source-code (car rest)) (car rest) (cdr rest))
-          (proc #f #f rest)))
+    (bind (signature . rest) (cdr (source-code form-src))
+      (define (parse-kind proc)
+        (if (memq? (source-code (car rest)) '(:alloc :free))
+            (proc (source-code (car rest)) (cadr rest) (cddr rest))
+          (proc #f (car rest) (cdr rest))))
       
-      (parse-specifier
-        (lambda (specifier specifier-source rest)
-          (let ((signature (source-code signature)))
-            (let ((name (car signature))
-                  (types (cdr signature)))
-              (define (specifier->function-type)
-                (let ((str (symbol->string specifier)))
-                  (let ((len (string-length str)))
-                    (string->symbol (string-append "<:" (substring str 1 (- len 1)) ">")))))
-              
-              (let ((c-name-or-code (if (null? rest) (symbol->string (source-code name)) (car rest))))
-                (sourcify-deep-if
-                  `(definition public ,name ,@(if specifier (list (specifier->function-type)) '())
-                     (c-function ,name ,types ,result-type ,c-name-or-code))
-                  form-src)))))))))
+      (parse-kind
+        (lambda (kind result-type rest)
+          (define (parse-specifier proc)
+            (if (and (not-null? rest)
+                     (specifier? (source-code (car rest))))
+                (proc (source-code (car rest)) (car rest) (cdr rest))
+              (proc #f #f rest)))
+          
+          (parse-specifier
+            (lambda (specifier specifier-source rest)
+              (let ((signature (source-code signature)))
+                (let ((name (car signature))
+                      (types (cdr signature)))
+                  (define (specifier->function-type)
+                    (let ((str (symbol->string specifier)))
+                      (let ((len (string-length str)))
+                        (string->symbol (string-append "<:" (substring str 1 (- len 1)) ">")))))
+                  
+                  (define (generate-args types)
+                    (map (lambda (type n)
+                           (string->symbol (string-append "arg" (number->string (+ n 1)))))
+                         types
+                         (naturals 0 (length types))))
+                  
+                  (let ((c-name-or-code (if (null? rest) (symbol->string (source-code name)) (car rest))))
+                    (sourcify-deep-if
+                      `(definition public ,name ,@(if specifier (list (specifier->function-type)) '())
+                         ,(let ((fn `(c-function ,name ,types ,result-type ,c-name-or-code)))
+                           (case kind
+                             ((:alloc)
+                              (let ((args (generate-args types)))
+                                `(let ((fn ,fn))
+                                   (lambda ,args
+                                     (let ((result (fn ,@args)))
+                                       (allocated result)
+                                       result)))))
+                             ((:free)
+                              (let ((args (generate-args types)))
+                                `(let ((fn ,fn))
+                                   (lambda ,args
+                                     (let ((result (fn ,@args)))
+                                       (freed arg1)
+                                       result)))))
+                             (else
+                              fn))))
+                      form-src)))))))))))
 
 
 ;;;

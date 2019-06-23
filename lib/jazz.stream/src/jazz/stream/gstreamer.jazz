@@ -152,8 +152,9 @@
   (for-each-typed-property (lambda (name type value)
                              (let ((new (table-ref value-new type)))
                                (let ((value (new value)))
-                                 (g_object_set_property obj name value))))
-                             rest))
+                                 (g_object_set_property obj name value)
+                                 (g_value_free value))))
+                           rest))
 
 
 ;;;
@@ -304,14 +305,17 @@
 
 
 (definition public (gst-app-src-set-caps appsrc type . rest)
-  (let ((caps (gst_caps_new_empty_simple type)))
+  (let ((caps (gst_caps_new_empty_simple type))
+        (values '()))
     (for-each-typed-property (lambda (name type value)
                                (let ((new (table-ref value-new type)))
                                  (let ((value (new value)))
+                                   (set! values (cons value values))
                                    (gst_caps_set_value caps name value))))
                              rest)
     (gst_app_src_set_caps appsrc caps)
-    (gst_caps_unref caps)))
+    (gst_caps_unref caps)
+    (for-each g_value_free values)))
 
 
 (definition public (gst-setup-source src type format width height framerate (stream-format: stream-format #f) (alignment: alignment #f))

@@ -129,14 +129,14 @@ static double g_object_get_double(GObject* obj, char* name)
 //#)
 
 
-(c-external (g_value_new GType) GValue*
+(c-external (g_value_new GType) :alloc GValue*
   #/C/
     GValue* value = (GValue*) calloc(sizeof(GValue), 1);
     g_value_init(value, ___arg1);
     ___return(value);
 //#)
 
-(c-external (g_value_free GValue*) void
+(c-external (g_value_free GValue*) :free void
   #/C/
     g_value_unset(___arg1);
     free(___arg1);
@@ -899,11 +899,9 @@ static void* gst_pad_add_rate_probe(GstPad* pad, int rate)
     return (void*) data;
 }
 
-static void gst_pad_remove_probe_aux(GstPad* pad, void* info)
+static void gst_pad_probe_free(void* info)
 {
     any_probe* data = (any_probe*) info;
-    gulong id = data->probe_id;
-    gst_pad_remove_probe(pad, id);
     switch (data->probe_kind) {
         case DROP_PROBE: {
             free_drop_probe((drop_probe*) data);
@@ -914,6 +912,14 @@ static void gst_pad_remove_probe_aux(GstPad* pad, void* info)
             break;
         }
     }
+}
+
+static void gst_pad_remove_probe_aux(GstPad* pad, void* info)
+{
+    any_probe* data = (any_probe*) info;
+    gulong id = data->probe_id;
+    gst_pad_remove_probe(pad, id);
+    gst_pad_probe_free(info);
 }
 
 static gulong gst_monitor_data(GstPipeline* pipeline, GstPad* pad)
@@ -1042,9 +1048,10 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_value_get_buffer GValue*) GstBuffer*)
 (gst-external (gst_pad_get_current_caps GstPad*) GstCaps*)
 (gst-external (gst_pad_get_direction GstPad*) GstPadDirection)
-(gst-external (gst_pad_add_drop_probe GstPad*) void*)
-(gst-external (gst_pad_add_rate_probe GstPad* int) void*)
-(gst-external (gst_pad_remove_probe GstPad* void*) void "gst_pad_remove_probe_aux")
+(gst-external (gst_pad_add_drop_probe GstPad*) :alloc void*)
+(gst-external (gst_pad_add_rate_probe GstPad* int) :alloc void*)
+(gst-external (gst_pad_probe_free void*) :free void "gst_pad_probe_free")
+(gst-external (gst_pad_remove_probe GstPad* void*) (:free 2) void "gst_pad_remove_probe_aux")
 (gst-external (gst_caps_new_empty_simple char-string) GstCaps*)
 (gst-external (gst_caps_from_string char-string) GstCaps*)
 (gst-external (gst_caps_is_fixed GstCaps*) gboolean)
@@ -1055,8 +1062,8 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_structure_get_int GstStructure* char-string) int "gst_structure_get_int_aux")
 (gst-external (gst_structure_get_value GstStructure* char-string) GValue* "gst_structure_get_value_aux")
 (gst-external (gst_buffer_get_size GstBuffer*) int)
-(gst-external (gst_element_set_state_threaded GstElement* GstState void*) void*)
-(gst-external (gst_element_set_state_free void*) void)
+(gst-external (gst_element_set_state_threaded GstElement* GstState void*) :alloc void*)
+(gst-external (gst_element_set_state_free void*) :free void)
 ;(gst-external (gst_element_set_state_blocking GstElement* GstState) GstStateChangeReturn)
 (gst-external (gst_element_get_state GstElement*) GstState "gst_element_get_state_aux")
 (gst-external (gst_element_wait_state GstElement*) void "gst_element_wait_state_aux")

@@ -487,10 +487,8 @@
         `(begin
            (c-type ,struct (type ,c-struct-string ,@tag-rest))
            (c-type ,struct* (pointer ,struct ,@tag*-rest))
-           (definition public ,make-name
-             (c-function ,make-name () ,struct* ,(string-append "___return(calloc(1," sizeof "));")))
-           (definition public ,free-name
-             (c-function ,free-name (,struct*) (native void) "free(___arg1);"))
+           (c-external (,make-name) :alloc ,struct* ,(string-append "___return(calloc(1," sizeof "));"))
+           (c-external (,free-name ,struct*) :free (native void) "free(___arg1);")
            (definition public ,sizeof-name
              (c-function ,sizeof-name () (native unsigned-int) ,(string-append "___return(" sizeof ");")))
            ,@(apply append (map expand-acc clauses)))))))
@@ -899,12 +897,16 @@
   (lambda (form-src usage-environment macro-environment)
     (bind (signature . rest) (cdr (source-code form-src))
       (define (parse-kind proc)
-        (if (memq? (source-code (car rest)) '(:alloc :free))
-            (proc (source-code (car rest)) (cadr rest) (cddr rest))
-          (proc #f (car rest) (cdr rest))))
+        (let ((first (source-code (car rest))))
+          (cond ((memq? first '(:alloc :free))
+                 (proc first 1 (cadr rest) (cddr rest)))
+                ((and (pair? first) (eq? (source-code (car first)) :free))
+                 (proc :free (source-code (cadr first)) (cadr rest) (cddr rest)))
+                (else
+                 (proc #f #f (car rest) (cdr rest))))))
       
       (parse-kind
-        (lambda (kind result-type rest)
+        (lambda (kind rank result-type rest)
           (define (parse-specifier proc)
             (if (and (not-null? rest)
                      (specifier? (source-code (car rest))))
@@ -923,9 +925,12 @@
                   
                   (define (generate-args types)
                     (map (lambda (type n)
-                           (string->symbol (string-append "arg" (number->string (+ n 1)))))
+                           (rank->arg (+ n 1)))
                          types
                          (naturals 0 (length types))))
+                  
+                  (define (rank->arg rank)
+                    (string->symbol (string-append "arg" (number->string rank))))
                   
                   (let ((c-name-or-code (if (null? rest) (symbol->string (source-code name)) (car rest))))
                     (sourcify-deep-if
@@ -944,7 +949,7 @@
                                 `(let ((fn ,fn))
                                    (lambda ,args
                                      (let ((result (fn ,@args)))
-                                       (freed arg1)
+                                       (freed ,(rank->arg rank))
                                        result)))))
                              (else
                               fn))))

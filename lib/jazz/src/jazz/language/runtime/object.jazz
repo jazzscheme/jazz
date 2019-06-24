@@ -286,31 +286,41 @@
 
 
 ;;;
-;;;; Memory leak detection
+;;;; Leak detection
 ;;;
+
+
+(definition public track-leaks?
+  (global-setting 'track-leaks? #f))
 
 
 (definition protected backtrace-allocated?
   (global-setting 'backtrace-allocated? #f))
 
+(definition protected backtrace-depth
+  (global-setting 'backtrace-depth 8))
+
 
 (definition public *allocated* <table>
   (make-table weak-keys: #t test: eq?))
 
-(definition public (allocated obj (info (if backtrace-allocated?
-                                            (jazz.language.runtime.debug:execution-backtrace)
-                                          #t)))
-  (table-set! *allocated* obj info)
-  (make-will obj
-    (lambda (obj)
-      (let ((info (table-ref *allocated* obj #f)))
-        (when info
-          (leaked obj info))))))
+(definition public (allocated obj)
+  (when track-leaks?
+    (let ((info (if backtrace-allocated?
+                    (jazz.language.runtime.debug:execution-backtrace backtrace-depth)
+                  #t)))
+      (table-set! *allocated* obj info)
+      (make-will obj
+        (lambda (obj)
+          (let ((info (table-ref *allocated* obj #f)))
+            (when info
+              (leaked obj info))))))))
 
 (definition public (freed obj)
-  (if (table-ref *allocated* obj #f)
-      (table-set! *allocated* obj)
-    (terminal 'not 'allocated 'or 'double 'freed obj)))
+  (when track-leaks?
+    (if (table-ref *allocated* obj #f)
+        (table-set! *allocated* obj)
+      (terminal 'not 'allocated 'or 'double 'freed obj))))
 
 
 (definition *leaks-mutex*

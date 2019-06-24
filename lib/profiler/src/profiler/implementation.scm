@@ -111,6 +111,15 @@
       (profiler-ignored-modules-set! profiler (%%cons module (profiler-ignored-modules profiler)))))
 
 
+(define (profiler-procedure-ignore? profiler)
+  (lambda (procedure)
+    (profiler-ignore-procedure? profiler procedure)))
+
+(define (profiler-module-ignore? profiler)
+  (lambda (module)
+    (profiler-ignore-module? profiler module)))
+
+
 ;;;
 ;;;; Profile
 ;;;
@@ -372,56 +381,4 @@
 
 
 (define (secs->msecs x)
-  (inexact->exact (round (* x 1000))))
-
-
-;;;
-;;;; Stack
-;;;
-
-
-(define (get-continuation-stack-for-profile cont depth profiler)
-  (define (continuation-creator cont)
-    (let ((proc (%%continuation-creator cont)))
-      (if (and proc (%%closure? proc))
-          (%%closure-code proc)
-        proc)))
-  
-  (define (continuation-next-interesting cont)
-    (let loop ((current-cont cont))
-         (if current-cont
-             (if (or (profiler-ignore-procedure? profiler (continuation-creator current-cont))
-                     (let ((current-location (%%continuation-locat current-cont)))
-                       (and current-location (profiler-ignore-module? profiler (%%locat-container current-location)))))
-                 (loop (%%continuation-next current-cont))
-               current-cont)
-           #f)))
-  
-  (define (continuation-next-distinct cont creator)
-    (let loop ((current-cont (%%continuation-next cont)))
-         (if current-cont
-             (if (%%eq? creator (continuation-creator current-cont))
-                 (loop (%%continuation-next current-cont))
-               current-cont)
-           #f)))
-  
-  (define (identify-location locat)
-    (let ((container (and locat (%%locat-container locat))))
-      (if container
-          (let ((filepos (%%position->filepos (%%locat-position locat))))
-            (let ((line (%%filepos-line filepos))
-                  (col (%%filepos-col filepos)))
-              (%%list container line col)))
-        #f)))
-  
-  (define (identify cont d)
-    (let ((cont (and cont (%%fx< d depth) (continuation-next-interesting cont))))
-      (if (%%not cont)
-          '()
-        (let ((creator (continuation-creator cont))
-              (location (identify-location (%%continuation-locat cont))))
-          (%%cons (%%list creator location)
-                  (identify (continuation-next-distinct cont creator)
-                            (%%fx+ d 1)))))))
-  
-  (identify cont 0)))
+  (inexact->exact (round (* x 1000)))))

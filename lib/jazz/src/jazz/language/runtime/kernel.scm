@@ -166,7 +166,7 @@
 (native jazz:continuation-creator)
 (native jazz:continuation-locat)
 (native jazz:continuation-next)
-(native jazz:continuation-frames)
+(native jazz:continuation-backtrace)
 (native jazz:track)
 
 

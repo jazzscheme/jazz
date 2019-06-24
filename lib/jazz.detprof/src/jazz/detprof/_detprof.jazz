@@ -86,29 +86,35 @@
 (definition public (profile-code original proc)
   (let ((profile (active-profile))
         (original-call (and original (list original (locat->container/line/col (procedure-locat original))))))
-    (define (profile-stack)
-      (continuation-capture
-        (lambda (cont)
-          (if original-call
-              (cons original-call (get-continuation-stack-for-profile cont
-                                                                      (- (profile-depth profile) 1)
-                                                                      (profile-profiler profile)))
-            (get-continuation-stack-for-profile cont
-                                                (profile-depth profile)
-                                                (profile-profiler profile))))))
-    
-    (if profile
-        (let ((outer-start-time (profiler-real-time)))
-          (let ((result (parameterize ((time-spent-in-children 0))
-                          (let ((inner-start-time (profiler-real-time)))
-                            (let ((result (proc)))
-                              (let ((total-elapsed-time (- (profiler-real-time) inner-start-time (get-inner-overhead))))
-                                (profile-register-call profile (profile-stack) (- total-elapsed-time (time-spent-in-children))))
-                              result)))))
-            (let ((total-elapsed-time (- (profiler-real-time) outer-start-time (get-outer-overhead))))
-              (time-spent-in-children (+ (time-spent-in-children) total-elapsed-time)))
-            result))
-      (proc))))
+    (let ((depth (profile-depth profile))
+          (profiler (profile-profiler profile)))
+      (let ((procedure-ignore? (profiler-procedure-ignore? profiler))
+            (module-ignore? (profiler-module-ignore? profiler)))
+        (define (profile-stack)
+          (continuation-capture
+            (lambda (cont)
+              (if original-call
+                  (cons original-call (continuation-backtrace cont
+                                                              (- depth 1)
+                                                              procedure-ignore?
+                                                              module-ignore?))
+                (continuation-backtrace cont
+                                        depth
+                                        procedure-ignore?
+                                        module-ignore?)))))
+        
+        (if profile
+            (let ((outer-start-time (profiler-real-time)))
+              (let ((result (parameterize ((time-spent-in-children 0))
+                              (let ((inner-start-time (profiler-real-time)))
+                                (let ((result (proc)))
+                                  (let ((total-elapsed-time (- (profiler-real-time) inner-start-time (get-inner-overhead))))
+                                    (profile-register-call profile (profile-stack) (- total-elapsed-time (time-spent-in-children))))
+                                  result)))))
+                (let ((total-elapsed-time (- (profiler-real-time) outer-start-time (get-outer-overhead))))
+                  (time-spent-in-children (+ (time-spent-in-children) total-elapsed-time)))
+                result))
+          (proc))))))
 
 
 ;;;

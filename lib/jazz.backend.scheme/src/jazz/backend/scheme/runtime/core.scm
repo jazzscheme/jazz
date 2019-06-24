@@ -71,6 +71,53 @@
     (%%continuation-next cont)))
 
 
+(define (jazz:continuation-backtrace cont depth procedure-ignore? module-ignore?)
+  (define (continuation-creator cont)
+    (let ((proc (%%continuation-creator cont)))
+      (if (and proc (%%closure? proc))
+          (%%closure-code proc)
+        proc)))
+  
+  (define (continuation-next-interesting cont)
+    (let loop ((current-cont cont))
+         (if current-cont
+             (if (or (and procedure-ignore? (procedure-ignore? (continuation-creator current-cont)))
+                     (let ((current-location (%%continuation-locat current-cont)))
+                       (and current-location module-ignore? (module-ignore? (%%locat-container current-location)))))
+                 (loop (%%continuation-next current-cont))
+               current-cont)
+           #f)))
+  
+  (define (continuation-next-distinct cont creator)
+    (let loop ((current-cont (%%continuation-next cont)))
+         (if current-cont
+             (if (%%eq? creator (continuation-creator current-cont))
+                 (loop (%%continuation-next current-cont))
+               current-cont)
+           #f)))
+  
+  (define (identify-location locat)
+    (let ((container (and locat (%%locat-container locat))))
+      (if container
+          (let ((filepos (%%position->filepos (%%locat-position locat))))
+            (let ((line (%%filepos-line filepos))
+                  (col (%%filepos-col filepos)))
+              (%%list container line col)))
+        #f)))
+  
+  (define (identify cont d)
+    (let ((cont (and cont (or (%%not depth) (%%fx< d depth)) (continuation-next-interesting cont))))
+      (if (%%not cont)
+          '()
+        (let ((creator (continuation-creator cont))
+              (location (identify-location (%%continuation-locat cont))))
+          (%%cons (%%list creator location)
+                  (identify (continuation-next-distinct cont creator)
+                            (%%fx+ d 1)))))))
+  
+  (identify cont 0))
+
+
 ;;;
 ;;;; Debug
 ;;;

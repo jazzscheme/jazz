@@ -64,11 +64,16 @@
             (jazz:thread-heartbeat!)
             (let ((profile (active-profile)))
               (%%when profile
-                (profile-register-call profile
-                                       (get-continuation-stack-for-profile cont
-                                                                           (profile-depth profile)
-                                                                           (profile-profiler profile))
-                                       0))))))))
+                (let ((depth (profile-depth profile))
+                      (profiler (profile-profiler profile)))
+                  (let ((procedure-ignore? (profiler-procedure-ignore? profiler))
+                        (module-ignore? (profiler-module-ignore? profiler)))
+                    (profile-register-call profile
+                                           (jazz:continuation-backtrace cont
+                                                                        depth
+                                                                        procedure-ignore?
+                                                                        module-ignore?)
+                                           0))))))))))
 
 
 ;;;

@@ -38,6 +38,48 @@
 (jazz:verbose-kernel 'kernel.features)
 
 
+(define-macro (jazz:feature name)
+  `(if ,name
+       '(,name)
+     '()))
+
+
+(define jazz:c-features
+  (append
+    ;; os
+    (jazz:feature USE_POSIX)
+    (jazz:feature USE_WIN32)
+    ;; pumps
+    (jazz:feature USE_PUMPS)
+    ;; real time
+    (jazz:feature USE_clock_gettime_realtime)
+    (jazz:feature USE_getclock)
+    (jazz:feature USE_GetSystemTimeAsFileTime)
+    (jazz:feature USE_gettimeofday)
+    (jazz:feature USE_ftime)
+    (jazz:feature USE_time)
+    (jazz:feature USE_CLASSIC_MACOS)
+    ;; monotonic time
+    (jazz:feature USE_mach_absolute_time)
+    (jazz:feature USE_QueryPerformanceCounter)
+    (jazz:feature USE_clock_gettime_monotonic)
+    ;; sleep
+    (jazz:feature USE_nanosleep)
+    (jazz:feature USE_Sleep)
+    (jazz:feature USE_sleep)
+    ;; heartbeat
+    (jazz:feature USE_setitimer)
+    (jazz:feature USE_dos_setvect)
+    (jazz:feature USE_DosStartTimer)
+    (jazz:feature USE_VInstall)
+    (jazz:feature USE_CreateThread)
+    ;; select
+    (jazz:feature USE_MsgWaitForMultipleObjects)
+    (jazz:feature USE_poll)
+    (jazz:feature USE_ppoll)
+    (jazz:feature USE_select)))
+
+
 ;;;
 ;;;; Features
 ;;;

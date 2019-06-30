@@ -565,9 +565,9 @@
 
 
 ;; copied from _repl
-(define (jazz:write-timeout to now port)
+(define (jazz:write-timeout to moment port)
   (%%write-string " " port)
-  (let* ((expiry (%%fl- to now))
+  (let* ((expiry (%%fl- to moment))
          (e (%%fl/ (%%flround (%%fl* 10.0 expiry)) 10.0)))
     (%%write (if (%%integer? e) (%%inexact->exact e) e) port))
   (%%write-string "s" port))

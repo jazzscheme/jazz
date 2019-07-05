@@ -525,10 +525,6 @@
   ;;;
   
   
-  (definition invoke-noresult
-    (list 'invoke-noresult))
-  
-  
   (method (invoke self kind method-name remote-proxy arguments)
     (when debug-remote?
       (debug-remote presence kind method-name))
@@ -538,14 +534,10 @@
         (let ((mutex (make-mutex 'invoke)))
           (let ((cookie (object->serial mutex)))
             (mutex-lock! mutex)
-            (mutex-specific-set! mutex invoke-noresult)
             (write-message self `(,kind ,cookie ,method-name ,ior ,arguments))
             (mutex-lock! mutex)
             (mutex-unlock! mutex)
-            (let ((result (mutex-specific mutex)))
-              (if (eq? result invoke-noresult)
-                  (throw-connection-broke "Invocation broke")
-                result)))))))
+            (mutex-specific mutex))))))
   
   
   (method (result self rest)

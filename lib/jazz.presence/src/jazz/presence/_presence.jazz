@@ -49,8 +49,6 @@
 ;;     - could (should?) inter-thread communication include
 ;;       a similar system as presences for inter-process!?
 ;; - remove the new-register-proxy hack!?
-;; - maybe a monitoring presence for yownu to monitor the
-;;   remote invocations!?
 ;; - review all usage of new-system-thread that are clearly
 ;;   meant as a way to not infinite loop if an error occurs
 ;;   inside the remote debugger
@@ -154,7 +152,6 @@
 (hub start-listener)
 (hub stop-listener)
 (hub stub-reference)
-(hub unlock-invocations)
 (hub unregister-object)
 (hub write-message)
 
@@ -409,8 +406,7 @@
     (with-connections-mutex self
       (lambda ()
         (table-clear connections remote-uuid)
-        (close-port (get-port connection))
-        (unlock-invocations connection))))
+        (close-port (get-port connection)))))
   
   
   (method (request-close-connection self remote-uuid connection)
@@ -450,20 +446,18 @@
 (class Remote-Connection extends Object
   
   
-  (slot presence          getter generate)
-  (slot port              getter generate)
-  (slot thread            accessors generate)
-  (slot read-mutex        getter generate)
-  (slot write-mutex       getter generate)
-  (slot invocations       getter generate)
-  (slot invocations-mutex getter generate)
-  (slot title             getter generate)
-  (slot service           getter generate)   ; the peer's listener port
-  (slot address           getter generate)   ; the peer's address of us
-  (slot request-close?    accessors generate)
-  (slot protocol          accessors generate)
-  (slot lag               accessors generate)
-  (slot slave?            getter generate)
+  (slot presence       getter generate)
+  (slot port           getter generate)
+  (slot thread         accessors generate)
+  (slot read-mutex     getter generate)
+  (slot write-mutex    getter generate)
+  (slot title          getter generate)
+  (slot service        getter generate)   ; the peer's listener port
+  (slot address        getter generate)   ; the peer's address of us
+  (slot request-close? accessors generate)
+  (slot protocol       accessors generate)
+  (slot lag            accessors generate)
+  (slot slave?         getter generate)
   
   
   (method override (initialize self presence port title service address protocol lag slave?)
@@ -471,8 +465,6 @@
     (set! self.port port)
     (set! self.read-mutex (make-mutex 'read))
     (set! self.write-mutex (make-mutex 'write))
-    (set! self.invocations (make-table test: eq?))
-    (set! self.invocations-mutex (make-mutex 'invocations))
     (set! self.title title)
     (set! self.service service)
     (set! self.address address)
@@ -537,21 +529,6 @@
     (list 'invoke-noresult))
   
   
-  (method (with-invocations self thunk)
-    (mutex-lock! invocations-mutex)
-    (prog1 (thunk)
-      (mutex-unlock! invocations-mutex)))
-  
-  
-  (method (unlock-invocations self)
-    (with-invocations self
-      (lambda ()
-        (iterate-table-safe invocations
-          (lambda (cookie mutex)
-            (mutex-unlock! mutex)
-            (table-clear invocations cookie))))))
-  
-  
   (method (invoke self kind method-name remote-proxy arguments)
     (when debug-remote?
       (debug-remote presence kind method-name))
@@ -560,9 +537,6 @@
           (write-message self `(,kind #f ,method-name ,ior ,arguments))
         (let ((mutex (make-mutex 'invoke)))
           (let ((cookie (object->serial mutex)))
-            (with-invocations self
-              (lambda ()
-                (table-set! invocations cookie mutex)))
             (mutex-lock! mutex)
             (mutex-specific-set! mutex invoke-noresult)
             (write-message self `(,kind ,cookie ,method-name ,ior ,arguments))
@@ -578,10 +552,7 @@
     (bind (cookie result) rest
       (when debug-remote?
         (debug-remote presence 'result (debug-simplify presence result)))
-      (let ((mutex (with-invocations self
-                     (lambda ()
-                       (prog1 (table-ref invocations cookie)
-                         (table-clear invocations cookie))))))
+      (let ((mutex (serial->object cookie)))
         (mutex-specific-set! mutex result)
         (mutex-unlock! mutex))))
   

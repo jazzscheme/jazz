@@ -494,30 +494,21 @@
   (method (process self remote-uuid)
     (declare (proper-tail-calls))
     (let (loop)
-      (let ((message (catch (connection-exception? exc
-                              (when slave?
-                                (delay-event
-                                  (lambda ()
-                                    (quit))))
-                              (eof-object))
-                       (read-message self))
-                     @gazrob (read-message self)))
-        (if (eof-object? message) ;; gazrob
-            ;; normal termination closes the connection
-            (when (find-connection presence remote-uuid)
-              (if request-close?
-                  (close-connection presence remote-uuid self)
-                (close-connection presence remote-uuid self)
-                ;; PRESENCE quick try
-                @w
-                (throw-connection-broke "Process received eof")))
-          (bind (kind . rest) message
-            (case kind
-              ((post exec call)
-               (execute self kind rest))
-              ((result)
-               (result self rest))))
-          (loop)))))
+      (let ((message (with-exception-filter
+                       (lambda (exc)
+                         request-close?)
+                       (lambda (exc)
+                         (when (find-connection presence remote-uuid)
+                           (close-connection presence remote-uuid self)))
+                       (lambda ()
+                         (read-message self)))))
+        (bind (kind . rest) message
+          (case kind
+            ((post exec call)
+             (execute self kind rest))
+            ((result)
+             (result self rest)))))
+      (loop)))
   
   
   ;;;

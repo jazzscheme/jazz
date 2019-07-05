@@ -49,12 +49,8 @@
 ;;     - could (should?) inter-thread communication include
 ;;       a similar system as presences for inter-process!?
 ;; - remove the new-register-proxy hack!?
-;; - the package should stay jazz.remote as the presence is
-;;   just a part of the remoting system. in the same way
-;;   start-remote-presence should stay start-remote-listener
 ;; - maybe a monitoring presence for yownu to monitor the
 ;;   remote invocations!?
-;; - why did read-remote-message have a +inf.0 timeout???
 ;; - review all usage of new-system-thread that are clearly
 ;;   meant as a way to not infinite loop if an error occurs
 ;;   inside the remote debugger
@@ -71,16 +67,9 @@
 ;;   the read unserialize ending up loading code that was
 ;;   blocked in the load-mutex because the code was invoked
 ;;   directly in the world.settings module
-;; - wow I wonder if when everything is working I should not
-;;   still keep remote separate and only used by the debugger
-;;   so that I can always always always debug the remoting
-;;   system while I develop it
-;; - a working presence would I think completely solve all
-;;   the problems of the server needing a specific port as
-;;   both presence would have their own port!!?!
 ;; - no need for a read-mutex I think
 ;; - any call to gambit that accesses a port has to be very
-;;   careful of os-exceptions. also want to cleary preserve
+;;   careful of os-exceptions. also want to clearly preserve
 ;;   that it was an os exceptions and show err-code->string
 
 
@@ -468,8 +457,6 @@
   (slot write-mutex       getter generate)
   (slot invocations       getter generate)
   (slot invocations-mutex getter generate)
-  (slot executions        getter generate)
-  (slot executions-mutex  getter generate)
   (slot title             getter generate)
   (slot service           getter generate)   ; the peer's listener port
   (slot address           getter generate)   ; the peer's address of us
@@ -486,8 +473,6 @@
     (set! self.write-mutex (make-mutex 'write))
     (set! self.invocations (make-table test: eq?))
     (set! self.invocations-mutex (make-mutex 'invocations))
-    (set! self.executions (make-table test: eq?))
-    (set! self.executions-mutex (make-mutex 'executions))
     (set! self.title title)
     (set! self.service service)
     (set! self.address address)
@@ -606,34 +591,21 @@
   ;;;
   
   
-  (method (with-executions self thunk)
-    (mutex-lock! executions-mutex)
-    (prog1 (thunk)
-      (mutex-unlock! executions-mutex)))
-  
-  
   (method (execute self kind rest)
     (bind (cookie method-name ior arguments) rest
       (when debug-remote?
         (debug-remote presence 'execute method-name))
-      (let ((thread
-              (new-thread
-                (lambda ()
-                  (let ((local-proxy (ior->proxy ior)))
-                    (let ((result (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments)))
-                      (case kind
-                        ((exec)
-                         (write-message self `(result ,cookie ,(unspecified))))
-                        ((call)
-                         (write-message self `(result ,cookie ,result))))
-                      (with-executions self
-                        (lambda ()
-                          (table-clear executions cookie))))))
-                'presence-execution)))
-        (with-executions self
+      (thread-start!
+        (new-thread
           (lambda ()
-            (table-set! executions cookie thread)))
-        (thread-start! thread))))
+            (let ((local-proxy (ior->proxy ior)))
+              (let ((result (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments)))
+                (case kind
+                  ((exec)
+                   (write-message self `(result ,cookie ,(unspecified))))
+                  ((call)
+                   (write-message self `(result ,cookie ,result)))))))
+          'presence-execution))))
   
   
   ;;;
@@ -1055,10 +1027,10 @@
 
 
 (definition (caller-garble-hack)
-  ;; gazoum quick hack to help output from getting garbled
+  ;; quick hack to help output from getting garbled
   (sleep .01))
 
 
 (definition (callee-garble-hack)
-  ;; gazoum quick hack to help output from getting garbled
+  ;; quick hack to help output from getting garbled
   (sleep .01)))

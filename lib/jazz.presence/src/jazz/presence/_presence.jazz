@@ -35,42 +35,6 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;; REDESIGN
-;; - really think where mutexes should go
-;; - rethinking of exception handling
-;;   - principle of user code should handle exceptions!?
-;;   - rethink timeouts also as a timeout implies an exception
-;; - rethink protocol also: header, version, ...
-;; - should we really always send the current-seconds?
-;; - reflect on the statement: there should be no timeouts!
-;;   are not timeouts always reflection of some exception!?
-;; - debugging code should be 100% independant and 100% robust
-;;   - this needs to include inter-thread communication
-;;     - could (should?) inter-thread communication include
-;;       a similar system as presences for inter-process!?
-;; - remove the new-register-proxy hack!?
-;; - review all usage of new-system-thread that are clearly
-;;   meant as a way to not infinite loop if an error occurs
-;;   inside the remote debugger
-;; - wow. investigate and think about if it is true that a
-;;   read timeout stays active even after the read is done
-;;   - if so then we should have a clean one place to call
-;;     that always sets the timeout before reading
-;; - reading the doc I don't think it is not correct to use
-;;   a port's timeout thunk to throw an exception!?
-;; - is alive? really necessary. are we not always going to
-;;   receive an eof in the connection read as soon as the
-;;   remote process dies?
-;; - think deeply about the deadlock bug that was caused by
-;;   the read unserialize ending up loading code that was
-;;   blocked in the load-mutex because the code was invoked
-;;   directly in the world.settings module
-;; - no need for a read-mutex I think
-;; - any call to gambit that accesses a port has to be very
-;;   careful of os-exceptions. also want to clearly preserve
-;;   that it was an os exceptions and show err-code->string
-
-
 ;; OVERVIEW
 ;;   Socket is persistent between two connected processes
 ;;   and messages and responses travel through the bidirectional
@@ -123,7 +87,6 @@
 (hub get-port)
 (hub get-presence)
 (hub get-protocol)
-(hub get-read-mutex)
 (hub get-reason)
 (hub get-reference)
 (hub get-service)
@@ -426,7 +389,6 @@
   (slot presence    getter generate)
   (slot port        getter generate)
   (slot thread      accessors generate)
-  (slot read-mutex  getter generate)
   (slot write-mutex getter generate)
   (slot title       getter generate)
   (slot service     getter generate)   ; the peer's listener port
@@ -440,7 +402,6 @@
   (method override (initialize self presence port title service address protocol lag slave?)
     (set! self.presence presence)
     (set! self.port port)
-    (set! self.read-mutex (make-mutex 'read))
     (set! self.write-mutex (make-mutex 'write))
     (set! self.title title)
     (set! self.service service)
@@ -577,17 +538,13 @@
   
   
   (method (read-message self)
-    (unwind-protect
-        (begin
-          (mutex-lock! read-mutex)
-          (let ((message (read-port port)))
-            (when debug-io?
-              (callee-garble-hack)
-              (debug-remote presence 'read message))
-            (if (eof-object? message)
-                (throw-connection-broke "Read message received eof")
-              message)))
-      (mutex-unlock! read-mutex))))
+    (let ((message (read-port port)))
+      (when debug-io?
+        (callee-garble-hack)
+        (debug-remote presence 'read message))
+      (if (eof-object? message)
+          (throw-connection-broke "Read message received eof")
+        message))))
 
 
 ;;;

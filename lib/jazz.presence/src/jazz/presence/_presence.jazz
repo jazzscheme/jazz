@@ -143,7 +143,7 @@
 (hub read-message)
 (hub register-object)
 (hub remote-class)
-(hub request-close-connection)
+(hub close-requested-connection)
 (hub require-connection)
 (hub require-object)
 (hub set-protocol)
@@ -409,10 +409,10 @@
         (close-port (get-port connection)))))
   
   
-  (method (request-close-connection self remote-uuid connection)
+  (method (close-requested-connection self remote-uuid connection)
     (with-connections-mutex self
       (lambda ()
-        (set-request-close? connection #t))))
+        (set-close-requested? connection #t))))
 
   
   ;;;
@@ -446,18 +446,18 @@
 (class Remote-Connection extends Object
   
   
-  (slot presence       getter generate)
-  (slot port           getter generate)
-  (slot thread         accessors generate)
-  (slot read-mutex     getter generate)
-  (slot write-mutex    getter generate)
-  (slot title          getter generate)
-  (slot service        getter generate)   ; the peer's listener port
-  (slot address        getter generate)   ; the peer's address of us
-  (slot request-close? accessors generate)
-  (slot protocol       accessors generate)
-  (slot lag            accessors generate)
-  (slot slave?         getter generate)
+  (slot presence         getter generate)
+  (slot port             getter generate)
+  (slot thread           accessors generate)
+  (slot read-mutex       getter generate)
+  (slot write-mutex      getter generate)
+  (slot title            getter generate)
+  (slot service          getter generate)   ; the peer's listener port
+  (slot address          getter generate)   ; the peer's address of us
+  (slot close-requested? accessors generate)
+  (slot protocol         accessors generate)
+  (slot lag              accessors generate)
+  (slot slave?           getter generate)
   
   
   (method override (initialize self presence port title service address protocol lag slave?)
@@ -468,7 +468,7 @@
     (set! self.title title)
     (set! self.service service)
     (set! self.address address)
-    (set! self.request-close? #f)
+    (set! self.close-requested? #f)
     (set! self.protocol protocol)
     (set! self.lag lag)
     (set! self.slave? slave?))
@@ -493,25 +493,25 @@
   
   (method (process self remote-uuid)
     (declare (proper-tail-calls))
-    (let (loop)
-      (let ((message (with-exception-filter
-                       (lambda (exc)
-                         request-close?)
-                       (lambda (exc)
-                         (when (find-connection presence remote-uuid)
-                           (close-connection presence remote-uuid self))
-                         ;; quicky
-                         #f)
-                       (lambda ()
-                         (read-message self)))))
-        ;; quicky
-        (when message
-          (bind (kind . rest) message
-            (case kind
-              ((post exec call)
-               (execute self kind rest))
-              ((result)
-               (result self rest))))
+    (continuation-capture
+      (lambda (closed)
+        (let (loop)
+          (let ((message (with-exception-filter
+                           (lambda (exc)
+                             close-requested?)
+                           (lambda (exc)
+                             (when (find-connection presence remote-uuid)
+                               (close-connection presence remote-uuid self))
+                             (terminal 'closed)
+                             (continuation-return closed #f))
+                           (lambda ()
+                             (read-message self)))))
+            (bind (kind . rest) message
+              (case kind
+                ((post exec call)
+                 (execute self kind rest))
+                ((result)
+                 (result self rest)))))
           (loop)))))
   
   
@@ -742,21 +742,17 @@
 
 
 (definition public (close-remote-proxy remote-proxy)
-  (catch (Connection-Broke exc
-           #f)
-    (let ((presence (get-presence remote-proxy))
-          (uuid (get-uuid (get-ior remote-proxy))))
-      (let ((connection (require-connection presence uuid)))
-        (close-connection presence uuid connection)))))
+  (let ((presence (get-presence remote-proxy))
+        (uuid (get-uuid (get-ior remote-proxy))))
+    (let ((connection (require-connection presence uuid)))
+      (close-connection presence uuid connection))))
 
 
-(definition public (request-close-remote-proxy remote-proxy)
-  (catch (Connection-Broke exc
-           #f)
-    (let ((presence (get-presence remote-proxy))
-          (uuid (get-uuid (get-ior remote-proxy))))
-      (let ((connection (require-connection presence uuid)))
-        (request-close-connection presence uuid connection)))))
+(definition public (close-requested-remote-proxy remote-proxy)
+  (let ((presence (get-presence remote-proxy))
+        (uuid (get-uuid (get-ior remote-proxy))))
+    (let ((connection (require-connection presence uuid)))
+      (close-requested-connection presence uuid connection))))
 
 
 ;;;

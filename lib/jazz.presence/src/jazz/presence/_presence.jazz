@@ -134,6 +134,7 @@
 (hub get-values)
 (hub get-write-mutex)
 (hub invoke)
+(hub invoke-live?)
 (hub live?)
 (hub load-object)
 (hub local-class)
@@ -172,10 +173,6 @@
   (make-parameter 10))
 (definition public (delay-close-remote-proxy remote-proxy)
   (terminal 'delay-close-remote-proxy remote-proxy))
-
-
-(definition read-message-timeout
-  (make-parameter #f))
 
 
 (definition protected (set-presence-problem-handler problem-handler (purpose: purpose #f))
@@ -535,6 +532,19 @@
             (mutex-specific mutex))))))
   
   
+  (method (invoke-live? self remote-proxy timeout)
+    (let ((ior (get-ior remote-proxy)))
+      (let ((mutex (make-mutex 'invoke)))
+        (let ((cookie (object->serial mutex)))
+          (mutex-lock! mutex)
+          (write-message self `(call ,cookie live? ,ior ()))
+          (let ((timed-out (not (mutex-lock! mutex timeout))))
+            (mutex-unlock! mutex)
+            (if timed-out
+                #f
+              (mutex-specific mutex)))))))
+  
+  
   (method (result self rest)
     (bind (cookie result) rest
       (when debug-remote?
@@ -590,7 +600,6 @@
     (unwind-protect
         (begin
           (mutex-lock! read-mutex)
-          (input-port-timeout-set! port (or (read-message-timeout) +inf.0))
           (let ((message (read-port port)))
             (when debug-io?
               (callee-garble-hack)
@@ -672,8 +681,8 @@
 (definition package (remote-proxy-live? remote-proxy)
   (catch (Connection-Broke exc
            #f)
-    (parameterize ((read-message-timeout live-timeout))
-      (call-remote 'live? remote-proxy))))
+    (let ((connection (remote-proxy->connection remote-proxy)))
+      (invoke-live? connection remote-proxy live-timeout))))
 
 
 ;;;

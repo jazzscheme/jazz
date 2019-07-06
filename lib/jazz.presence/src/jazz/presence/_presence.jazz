@@ -178,11 +178,9 @@
   (make-parameter #f))
 
 
-(definition protected connection-problem-handler
-  #f)
-
-(definition protected (set-connection-problem-handler problem-handler)
-  (set! connection-problem-handler problem-handler))
+(definition protected (set-presence-problem-handler problem-handler (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (set-problem-handler presence problem-handler)))
 
 
 ;;;
@@ -255,6 +253,7 @@
   (slot listener          getter generate)
   (slot connections       getter generate)
   (slot connections-mutex getter generate)
+  (slot problem-handler   accessors generate)
   
   
   (method override (initialize self purpose)
@@ -265,6 +264,7 @@
     (set! self.listener #f)
     (set! self.connections (make-table))
     (set! self.connections-mutex (make-mutex 'connections))
+    (set! self.problem-handler #f)
     (when debug-remote?
       (debug-remote self 'setup register)))
   
@@ -486,9 +486,10 @@
   
   
   (method (startup-process self remote-uuid)
-    (if connection-problem-handler
-        (connection-problem-handler process self remote-uuid)
-      (process self remote-uuid)))
+    (let ((problem-handler (get-problem-handler presence)))
+      (if problem-handler
+          (problem-handler process self remote-uuid)
+        (process self remote-uuid))))
   
   
   (method (process self remote-uuid)

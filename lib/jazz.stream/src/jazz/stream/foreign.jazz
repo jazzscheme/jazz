@@ -192,6 +192,7 @@ static double g_object_get_double(GObject* obj, char* name)
 
 
 (c-type GstClockTime         uint64)
+(c-type GstClockTimeDiff     int64)
 (c-type GstStateChangeReturn enum)
 (c-type GstState             enum)
 (c-type GstFormat            enum)
@@ -550,7 +551,31 @@ static int gst_app_sink_try_pull(GstElement* elem, ___SCMOBJ vec, ___SCMOBJ info
         return -1;
 }
 
-static GstFlowReturn gst_app_src_write(GstElement* elem, ___SCMOBJ vec, int size, ___S64 timestamp, ___U64 duration)
+static GstClockTimeDiff gst_app_src_write(GstElement* elem, ___SCMOBJ vec, int size, ___S64 timestamp, ___U64 duration, GstClockTimeDiff offset)
+{
+    ___U8 *ptr = ___CAST(___U8*, ___BODY(vec));
+    GstBuffer *buffer = gst_buffer_new_allocate(NULL, size, NULL);
+    GstMapInfo map;
+    gst_buffer_map(buffer, &map, GST_MAP_WRITE);
+    memmove(map.data, ptr, size);
+    gst_buffer_unmap(buffer, &map);
+    if (offset == -1)
+    {
+        GstPipeline* pipeline = (GstPipeline*) GST_ELEMENT_PARENT(elem);
+        GstClock* clock = gst_pipeline_get_clock(pipeline);
+        GstClockTime abs_time = gst_clock_get_time(clock);
+        GstClockTime base_time = gst_element_get_base_time(elem);
+        gst_object_unref(clock);
+        offset = (abs_time - base_time) - timestamp;
+    }
+    GST_BUFFER_PTS(buffer) = timestamp + offset;
+    GST_BUFFER_DTS(buffer) = GST_BUFFER_PTS(buffer);
+    GST_BUFFER_DURATION(buffer) = duration;
+    gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
+    return offset;
+}
+
+static GstFlowReturn gst_app_src_write_now(GstElement* elem, ___SCMOBJ vec, int size, ___S64 adjustment, ___U64 duration)
 {
     ___U8 *ptr = ___CAST(___U8*, ___BODY(vec));
     GstBuffer *buffer = gst_buffer_new_allocate(NULL, size, NULL);
@@ -562,14 +587,14 @@ static GstFlowReturn gst_app_src_write(GstElement* elem, ___SCMOBJ vec, int size
     GstClock* clock = gst_pipeline_get_clock(pipeline);
     GstClockTime base_time = gst_element_get_base_time(elem);
     GstClockTime abs_time = gst_clock_get_time(clock);
-    GST_BUFFER_PTS(buffer) = abs_time - base_time + timestamp;
+    GST_BUFFER_PTS(buffer) = abs_time - base_time + adjustment;
     GST_BUFFER_DTS(buffer) = GST_BUFFER_PTS(buffer);
     GST_BUFFER_DURATION(buffer) = duration;
     gst_object_unref(clock);
     return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
 }
 
-static GstFlowReturn gst_app_src_write_pointer(GstElement* elem, void* ptr, int size, ___S64 timestamp, ___U64 duration)
+static GstFlowReturn gst_app_src_write_pointer_now(GstElement* elem, void* ptr, int size, ___S64 adjustment, ___U64 duration)
 {
     GstBuffer *buffer = gst_buffer_new_allocate(NULL, size, NULL);
     GstMapInfo map;
@@ -580,7 +605,7 @@ static GstFlowReturn gst_app_src_write_pointer(GstElement* elem, void* ptr, int 
     GstClock* clock = gst_pipeline_get_clock(pipeline);
     GstClockTime base_time = gst_element_get_base_time(elem);
     GstClockTime abs_time = gst_clock_get_time(clock);
-    GST_BUFFER_PTS(buffer) = abs_time - base_time + timestamp;
+    GST_BUFFER_PTS(buffer) = abs_time - base_time + adjustment;
     GST_BUFFER_DTS(buffer) = GST_BUFFER_PTS(buffer);
     GST_BUFFER_DURATION(buffer) = duration;
     gst_object_unref(clock);
@@ -1111,8 +1136,9 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) gulong)
 (gst-external (gst_app_src_set_caps (call GST_APP_SRC GstElement*) GstCaps*) void)
 (gst-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)
-(gst-external (gst_app_src_write GstElement* scheme-object int int64 uint64) GstFlowReturn)
-(gst-external (gst_app_src_write_pointer GstElement* void* int int64 uint64) GstFlowReturn)
+(gst-external (gst_app_src_write GstElement* scheme-object int int64 uint64 GstClockTimeDiff) GstClockTimeDiff)
+(gst-external (gst_app_src_write_now GstElement* scheme-object int int64 uint64) GstFlowReturn)
+(gst-external (gst_app_src_write_pointer_now GstElement* void* int int64 uint64) GstFlowReturn)
 (gst-external (gst_app_sink_connect_listener_signals GstElement* void*) void)
 (gst-external (gst_app_sink_try_pull GstElement* scheme-object scheme-object) int)
 (gst-external (gst_app_sink_is_eos (call GST_APP_SINK GstElement*)) bool)

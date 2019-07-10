@@ -191,7 +191,7 @@ static double g_object_get_double(GObject* obj, char* name)
 (c-enumerant GST_PAD_SINK)
 
 
-(c-type GstClockTime         int64)
+(c-type GstClockTime         uint64)
 (c-type GstStateChangeReturn enum)
 (c-type GstState             enum)
 (c-type GstFormat            enum)
@@ -322,17 +322,17 @@ static void gst_element_set_state_free(void* data)
     free(data);
 }
 
-// static GstStateChangeReturn gst_element_set_state_blocking(GstElement* elem, GstState state)
-// {
-//     GstStateChangeReturn state_change;
-//   
-//     ___mask_heartbeat_interrupts_state heartbeat_interrupts;
-//     ___EXT(___mask_heartbeat_interrupts_begin)(&heartbeat_interrupts);
-//     state_change = gst_element_set_state(elem, state);
-//     ___EXT(___mask_heartbeat_interrupts_end)(&heartbeat_interrupts);
-//   
-//     return state_change;
-// }
+static GstStateChangeReturn gst_element_set_state_blocking(GstElement* elem, GstState state)
+{
+    GstStateChangeReturn state_change;
+  
+    ___mask_heartbeat_interrupts_state heartbeat_interrupts;
+    ___EXT(___mask_heartbeat_interrupts_begin)(&heartbeat_interrupts);
+    state_change = gst_element_set_state(elem, state);
+    ___EXT(___mask_heartbeat_interrupts_end)(&heartbeat_interrupts);
+  
+    return state_change;
+}
 
 static GstState gst_element_get_state_aux(GstElement* elem)
 {
@@ -1064,7 +1064,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_buffer_get_size GstBuffer*) int)
 (gst-external (gst_element_set_state_threaded GstElement* GstState void*) :alloc void*)
 (gst-external (gst_element_set_state_free void*) :free void)
-;(gst-external (gst_element_set_state_blocking GstElement* GstState) GstStateChangeReturn)
+(gst-external (gst_element_set_state_blocking GstElement* GstState) GstStateChangeReturn)
 (gst-external (gst_element_get_state GstElement*) GstState "gst_element_get_state_aux")
 (gst-external (gst_element_wait_state GstElement*) void "gst_element_wait_state_aux")
 (gst-external (gst_element_seek_simple GstElement* GstFormat GstSeekFlags int64) gboolean)
@@ -1131,6 +1131,10 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (create-denoiser-thread GstElement* GstElement*) GThread* "create_denoiser_thread")))
 
 
+(definition public gst_element_set_state
+  gst_element_set_state_blocking)
+
+@w
 (definition public (gst_element_set_state elem state)
   (let ((listener (open-stream-listener)))
     (let ((data (gst_element_set_state_threaded elem state (get-write-file listener))))

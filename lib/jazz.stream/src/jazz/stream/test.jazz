@@ -74,6 +74,7 @@
 
 
 ;; none
+;; xp
 ;; audio
 ;; video
 ;; reset
@@ -215,6 +216,7 @@
 (definition public (test-gstreamer)
   (case script
     ((none))
+    ((xp) (test-xp))
     ((audio) (test-audio))
     ((video) (test-video))
     ((reset) (test-reset))
@@ -227,6 +229,31 @@
     ((leak) (test-leak))
     ((gambit) (test-gambit))
     (else (error "Unknown script: {a}" script))))
+
+
+;;;
+;;;; XP
+;;;
+
+
+(definition public (test-xp)
+  (thread-start!
+    (new-thread
+      (lambda ()
+        (let ((pipeline (gst-pipeline "filesrc location=/Users/cartier/Nahko.mp4"
+                                      "decodebin"
+                                      "audioconvert"
+                                      "audioresample"
+                                      "vorbisenc"
+                                      "vorbisdec"
+                                      "audioconvert"
+                                      "audioresample"
+                                      (cond-expand
+                                        (windows "directsoundsink name=sink buffer-time=200000")
+                                        (else "osxaudiosink buffer-time=200000 name=sink")))))
+          (gst_element_set_state pipeline GST_STATE_PLAYING)))))
+  ;; application
+  (boot-environment (new Test-Application)))
 
 
 ;;;

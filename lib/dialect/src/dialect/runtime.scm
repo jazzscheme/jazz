@@ -5168,7 +5168,11 @@
           ((%%keyword? form)
            (jazz:new-constant form-src jazz:Keyword))
           ((%%fixnum? form)
-           (jazz:new-constant form-src jazz:Fixnum))
+           ;; quick hack to minimize the danger of the fixnum
+           ;; primitive patterns that are not formally correct
+           (if (%%fx<= form-src 4096)
+               (jazz:new-constant form-src jazz:Fixnum)
+             (jazz:new-constant form-src jazz:Integer)))
           ((%%ratnum? form)
            (jazz:new-constant form-src jazz:Ratnum))
           ((%%flonum? form)

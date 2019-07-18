@@ -199,7 +199,11 @@
   (slot listener          getter generate)
   (slot connections       getter generate)
   (slot connections-mutex getter generate)
-  (slot problem-handler   accessors generate)
+  (slot accept-handler    accessors generate)
+  (slot connect-handler   accessors generate)
+  (slot invoke-handler    accessors generate)
+  (slot process-handler   accessors generate)
+  (slot execute-handler   accessors generate)
   
   
   (method override (initialize self purpose)
@@ -210,7 +214,11 @@
     (set! self.listener #f)
     (set! self.connections (make-table))
     (set! self.connections-mutex (make-mutex 'connections))
-    (set! self.problem-handler #f)
+    (set! self.accept-handler (lambda (proc presence) (proc presence)))
+    (set! self.connect-handler (lambda (proc presence) (proc presence)))
+    (set! self.invoke-handler (lambda (proc connection) (proc connection)))
+    (set! self.process-handler (lambda (proc connection) (proc connection)))
+    (set! self.execute-handler (lambda (proc connection) (proc connection)))
     (when debug-remote?
       (debug-remote self 'setup register)))
   
@@ -257,22 +265,25 @@
           ;; PRESENCE quick try
           (when (not listener)
             (start-listener self #f #f #f))
-          (let ((local-uuid uuid)
-                (local-title (current-process-title))
-                (local-service (listening-port listener))
-                (local-address (socket-info-address (tcp-client-peer-socket-info port)))
-                (local-protocol simulated-protocol)
-                (start (current-monotonic)))
-            (write-port port (list local-uuid local-title local-service local-address local-protocol))
-            (assert (eq? (read-port port) 'handshake)
-              (let ((lag (- (current-monotonic) start)))
-                (let ((connection (new Remote-Connection self port remote-title remote-service remote-address remote-protocol lag #f)))
-                  (when debug-remote?
-                    (callee-garble-hack)
-                    (debug-remote self 'accept remote-uuid connection))
-                  (register-connection self remote-uuid connection)
-                  (set-thread connection (current-thread))
-                  (startup-process connection remote-uuid)))))))))
+          (accept-handler
+            (lambda (presence)
+              (let ((local-uuid uuid)
+                    (local-title (current-process-title))
+                    (local-service (listening-port listener))
+                    (local-address (socket-info-address (tcp-client-peer-socket-info port)))
+                    (local-protocol simulated-protocol)
+                    (start (current-monotonic)))
+                (write-port port (list local-uuid local-title local-service local-address local-protocol))
+                (assert (eq? (read-port port) 'handshake)
+                  (let ((lag (- (current-monotonic) start)))
+                    (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address remote-protocol lag #f invoke-handler process-handler execute-handler)))
+                      (when debug-remote?
+                        (callee-garble-hack)
+                        (debug-remote self 'accept remote-uuid connection))
+                      (register-connection self remote-uuid connection)
+                      (set-thread connection (current-thread))
+                      (process connection))))))
+            self)))))
   
   
   ;;;
@@ -286,35 +297,38 @@
     ;; PRESENCE quick try
     (when (not listener)
       (start-listener self #f #f #f))
-    (let ((port (open-tcp-client (list server-address: host port-number: service readtable: jazz-readtable))))
-      (let ((local-uuid uuid)
-            (local-title (current-process-title))
-            (local-service (listening-port listener))
-            (local-address (socket-info-address (tcp-client-peer-socket-info port)))
-            (local-protocol simulated-protocol)
-            (start (current-monotonic)))
-        (write-port port (list 'connect local-uuid local-title local-service local-address local-protocol))
-        (let ((reply (read-port port)))
-          (cond ((eof-object? reply)
-                 (throw-connection-broke (format "Connecting to {a} {a} received eof" host service)))
-                ((eq? reply 'already-connected)
-                 (error "Already connected to {a} {a}" host service))
-                (else
-                 (bind (remote-uuid remote-title remote-service remote-address remote-protocol) reply
-                   (let ((lag (- (current-monotonic) start)))
-                     (write-port port 'handshake)
-                     (let ((connection (new Remote-Connection self port remote-title remote-service remote-address remote-protocol lag slave?)))
-                       (when debug-remote?
-                         (debug-remote self 'connect remote-uuid connection)
-                         (caller-garble-hack))
-                       (register-connection self remote-uuid connection)
-                       (let ((thread (new-thread
-                                       (lambda ()
-                                         (startup-process connection remote-uuid))
-                                       'presence-connection)))
-                         (set-thread connection thread)
-                         (thread-start! thread)
-                         remote-uuid))))))))))
+    (connect-handler
+      (lambda (presence)
+        (let ((port (open-tcp-client (list server-address: host port-number: service readtable: jazz-readtable))))
+          (let ((local-uuid uuid)
+                (local-title (current-process-title))
+                (local-service (listening-port listener))
+                (local-address (socket-info-address (tcp-client-peer-socket-info port)))
+                (local-protocol simulated-protocol)
+                (start (current-monotonic)))
+            (write-port port (list 'connect local-uuid local-title local-service local-address local-protocol))
+            (let ((reply (read-port port)))
+              (cond ((eof-object? reply)
+                     (throw-connection-broke (format "Connecting to {a} {a} received eof" host service)))
+                    ((eq? reply 'already-connected)
+                     (error "Already connected to {a} {a}" host service))
+                    (else
+                     (bind (remote-uuid remote-title remote-service remote-address remote-protocol) reply
+                       (let ((lag (- (current-monotonic) start)))
+                         (write-port port 'handshake)
+                         (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address remote-protocol lag slave? invoke-handler process-handler execute-handler)))
+                           (when debug-remote?
+                             (debug-remote self 'connect remote-uuid connection)
+                             (caller-garble-hack))
+                           (register-connection self remote-uuid connection)
+                           (let ((thread (new-thread
+                                           (lambda ()
+                                             (process connection))
+                                           'presence-connection)))
+                             (set-thread connection thread)
+                             (thread-start! thread)
+                             remote-uuid))))))))))
+      self))
   
   
   ;;;
@@ -386,30 +400,38 @@
 (class Remote-Connection extends Object
   
   
-  (slot presence    getter generate)
-  (slot port        getter generate)
-  (slot thread      accessors generate)
-  (slot write-mutex getter generate)
-  (slot title       getter generate)
-  (slot service     getter generate)   ; the peer's listener port
-  (slot address     getter generate)   ; the peer's address of us
-  (slot protocol    accessors generate)
-  (slot lag         accessors generate)
-  (slot closing?    accessors generate)
-  (slot slave?      getter generate)
+  (slot presence        getter generate)
+  (slot port            getter generate)
+  (slot thread          accessors generate)
+  (slot write-mutex     getter generate)
+  (slot remote-uuid     getter generate)
+  (slot title           getter generate)
+  (slot service         getter generate)   ; the peer's listener port
+  (slot address         getter generate)   ; the peer's address of us
+  (slot protocol        accessors generate)
+  (slot lag             accessors generate)
+  (slot closing?        accessors generate)
+  (slot slave?          getter generate)
+  (slot invoke-handler  getter generate)
+  (slot process-handler getter generate)
+  (slot execute-handler getter generate)
   
   
-  (method override (initialize self presence port title service address protocol lag slave?)
+  (method override (initialize self presence port remote-uuid title service address protocol lag slave? invoke-handler process-handler execute-handler)
     (set! self.presence presence)
     (set! self.port port)
     (set! self.write-mutex (make-mutex 'write))
+    (set! self.remote-uuid remote-uuid)
     (set! self.title title)
     (set! self.service service)
     (set! self.address address)
     (set! self.protocol protocol)
     (set! self.lag lag)
     (set! self.closing? #f)
-    (set! self.slave? slave?))
+    (set! self.slave? slave?)
+    (set! self.invoke-handler invoke-handler)
+    (set! self.process-handler process-handler)
+    (set! self.execute-handler execute-handler))
   
   
   (method override (print self output readably)
@@ -423,34 +445,30 @@
   ;;;
   
   
-  (method (startup-process self remote-uuid)
-    (let ((problem-handler (get-problem-handler presence)))
-      (if problem-handler
-          (problem-handler process self remote-uuid)
-        (process self remote-uuid))))
-  
-  
-  (method (process self remote-uuid)
+  (method (process self)
     (declare (proper-tail-calls))
-    (continuation-capture
-      (lambda (exit)
-        (let (loop)
-          (let ((message (with-exception-filter
-                           (lambda (exc)
-                             closing?)
-                           (lambda (exc)
-                             (when (find-connection presence remote-uuid)
-                               (close-connection presence remote-uuid self))
-                             (continuation-return exit #f))
-                           (lambda ()
-                             (read-message self)))))
-            (bind (kind . rest) message
-              (case kind
-                ((post exec call)
-                 (execute self kind rest))
-                ((result)
-                 (result self rest)))))
-          (loop)))))
+    (process-handler
+      (lambda (connection)
+        (continuation-capture
+          (lambda (exit)
+            (let (loop)
+              (let ((message (with-exception-filter
+                               (lambda (exc)
+                                 closing?)
+                               (lambda (exc)
+                                 (when (find-connection presence remote-uuid)
+                                   (close-connection presence remote-uuid self))
+                                 (continuation-return exit #f))
+                               (lambda ()
+                                 (read-message self)))))
+                (bind (kind . rest) message
+                  (case kind
+                    ((post exec call)
+                     (execute self kind rest))
+                    ((result)
+                     (result self rest)))))
+              (loop)))))
+      self))
   
   
   ;;;
@@ -462,15 +480,18 @@
     (when debug-remote?
       (debug-remote presence kind method-name))
     (let ((ior (get-ior remote-proxy)))
-      (if (eq? kind 'post)
-          (write-message self `(,kind #f ,method-name ,ior ,arguments))
-        (let ((mutex (make-mutex 'invoke)))
-          (let ((cookie (object->serial mutex)))
-            (mutex-lock! mutex)
-            (write-message self `(,kind ,cookie ,method-name ,ior ,arguments))
-            (mutex-lock! mutex)
-            (mutex-unlock! mutex)
-            (mutex-specific mutex))))))
+      (invoke-handler
+        (lambda (connection)
+          (if (eq? kind 'post)
+              (write-message self `(,kind #f ,method-name ,ior ,arguments))
+            (let ((mutex (make-mutex 'invoke)))
+              (let ((cookie (object->serial mutex)))
+                (mutex-lock! mutex)
+                (write-message self `(,kind ,cookie ,method-name ,ior ,arguments))
+                (mutex-lock! mutex)
+                (mutex-unlock! mutex)
+                (mutex-specific mutex)))))
+        self)))
   
   
   (method (invoke-live? self remote-proxy timeout)
@@ -509,11 +530,14 @@
           (lambda ()
             (let ((local-proxy (ior->proxy ior)))
               (let ((result (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments)))
-                (case kind
-                  ((exec)
-                   (write-message self `(result ,cookie ,(unspecified))))
-                  ((call)
-                   (write-message self `(result ,cookie ,result)))))))
+                (execute-handler
+                  (lambda (connection)
+                    (case kind
+                      ((exec)
+                       (write-message self `(result ,cookie ,(unspecified))))
+                      ((call)
+                       (write-message self `(result ,cookie ,result)))))
+                  self))))
           'presence-execution))))
   
   
@@ -623,13 +647,30 @@
 
 
 ;;;
-;;;; Problem
+;;;; Handler
 ;;;
 
 
-(definition protected (set-presence-problem-handler problem-handler (purpose: purpose #f))
+(definition protected (set-presence-accept-handler accept-handler (purpose: purpose #f))
   (let ((presence (require-presence purpose)))
-    (set-problem-handler presence problem-handler)))
+    (set-accept-handler presence accept-handler)))
+
+(definition protected (set-presence-connect-handler connect-handler (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (set-connect-handler presence connect-handler)))
+
+
+(definition protected (set-presence-invoke-handler invoke-handler (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (set-invoke-handler presence invoke-handler)))
+
+(definition protected (set-presence-process-handler process-handler (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (set-process-handler presence process-handler)))
+
+(definition protected (set-presence-execute-handler execute-handler (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (set-execute-handler presence execute-handler)))
 
 
 ;;;

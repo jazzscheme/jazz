@@ -221,6 +221,8 @@ static double g_object_get_double(GObject* obj, char* name)
 (c-type GstBus*                  (pointer GstBus GstBus*))
 (c-type GstClock                 (native "GstClock"))
 (c-type GstClock*                (pointer GstClock GstClock*))
+(c-type GstQuery                 (native "GstQuery"))
+(c-type GstQuery*                (pointer GstQuery GstQuery*))
 (c-type GstEvent                 (native "GstEvent"))
 (c-type GstEvent*                (pointer GstEvent GstEvent*))
 (c-type GstMessage               (native "GstMessage"))
@@ -346,6 +348,40 @@ static void gst_element_wait_state_aux(GstElement* elem)
 {
     GstState state, pending;
     gst_element_get_state(elem, &state, &pending, GST_CLOCK_TIME_NONE);
+}
+
+static GstClockTime gst_pipeline_get_time(GstPipeline* pipeline)
+{
+    GstClock* clock = gst_pipeline_get_clock(pipeline);
+    GstClockTime time = gst_clock_get_time(clock);
+    gst_object_unref(clock);
+    return time;
+}
+
+static GstClockTime gst_element_get_running_time(GstElement* elem)
+{
+    GstPipeline* pipeline = (GstPipeline*) GST_ELEMENT_PARENT(elem);
+    GstClock* clock = gst_pipeline_get_clock(pipeline);
+    GstClockTime abs_time = gst_clock_get_time(clock);
+    GstClockTime base_time = gst_element_get_base_time(elem);
+    gst_object_unref(clock);
+    return abs_time - base_time;
+}
+
+static void gst_element_query_latency_aux(GstElement* elem, ___SCMOBJ info)
+{
+    ___U64 *info_ptr = ___CAST(___U64*, ___BODY(info));
+    GstQuery *query;
+    gboolean live;
+    GstClockTime min_latency;
+    GstClockTime max_latency;
+    query = gst_query_new_latency();
+    gst_element_query(elem, query);
+    gst_query_parse_latency (query, &live, &min_latency, &max_latency);
+    gst_query_unref(query);
+    info_ptr[0] = live;
+    info_ptr[1] = min_latency;
+    info_ptr[2] = max_latency;
 }
 
 static gint64 gst_element_query_position_aux(GstElement* elem, GstFormat format)
@@ -1104,6 +1140,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_pad_add_rate_probe GstPad* int) :alloc void*)
 (gst-external (gst_pad_probe_free void*) :free void "gst_pad_probe_free")
 (gst-external (gst_pad_remove_probe GstPad* void*) (:free 2) void "gst_pad_remove_probe_aux")
+(gst-external (gst_pad_push_event GstPad* GstEvent*) gboolean)
 (gst-external (gst_caps_new_empty_simple char-string) GstCaps*)
 (gst-external (gst_caps_from_string char-string) GstCaps*)
 (gst-external (gst_caps_is_fixed GstCaps*) gboolean)
@@ -1123,10 +1160,13 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_element_send_event GstElement* GstEvent*) gboolean)
 (gst-external (gst_element_get_bus GstElement*) GstBus*)
 (gst-external (gst_element_get_base_time GstElement*) GstClockTime)
+(gst-external (gst_element_get_running_time GstElement*) GstClockTime "gst_element_get_running_time")
 (gst-external (gst_element_factory_make char-string char-string) GstElement*)
 (gst-external (gst_element_link GstElement* GstElement*) gboolean)
 (gst-external (gst_element_get_static_pad GstElement* char-string) GstPad*)
 (gst-external (gst_element_iterate_pads GstElement*) GstIterator*)
+(gst-external (gst_element_query GstElement* GstQuery*) gboolean)
+(gst-external (gst_element_query_latency GstElement* scheme-object) void "gst_element_query_latency_aux")
 (gst-external (gst_element_query_position GstElement* GstFormat) int64 "gst_element_query_position_aux")
 (gst-external (gst_element_query_duration GstElement* GstFormat) int64 "gst_element_query_duration_aux")
 (gst-external (gst_iterator_next_element GstIterator*) GstElement*)
@@ -1141,9 +1181,13 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_pipeline_new char-string) GstElement*)
 (gst-external (gst_pipeline_get_bus (call GST_PIPELINE GstElement*)) GstBus*)
 (gst-external (gst_pipeline_get_clock (call GST_PIPELINE GstElement*)) GstClock*)
+(gst-external (gst_pipeline_get_time (call GST_PIPELINE GstElement*)) GstClockTime)
 (gst-external (gst_pipeline_get_latency (call GST_PIPELINE GstElement*)) GstClockTime)
 (gst-external (gst_pipeline_set_latency (call GST_PIPELINE GstElement*) GstClockTime) void)
+(gst-external (gst_query_new_latency) GstQuery*)
 (gst-external (gst_event_new_eos) GstEvent*)
+(gst-external (gst_event_new_stream_start char-string) GstEvent*)
+(gst-external (gst_event_new_caps GstCaps*) GstEvent*)
 (gst-external (gst_message_state_changed_get_new_state GstMessage*) GstState)
 (gst-external (gst_message_unref GstMessage*) void)
 (gst-external (gst_clock_get_time GstClock*) GstClockTime)
@@ -1162,6 +1206,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_monitor_data (call GST_PIPELINE GstElement*) GstPad*) gulong)
 (gst-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) gulong)
 (gst-external (gst_monitor_messages (call GST_PIPELINE GstElement*)) void)
+(gst-external (gst_app_src_get_caps (call GST_APP_SRC GstElement*)) GstCaps*)
 (gst-external (gst_app_src_set_caps (call GST_APP_SRC GstElement*) GstCaps*) void)
 (gst-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)
 (gst-external (gst_app_src_write GstElement* scheme-object int int64 uint64 GstClockTimeDiff) GstClockTimeDiff)
@@ -1185,6 +1230,10 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (create-denoiser-thread GstElement* GstElement*) GThread* "create_denoiser_thread")))
 
 
+;; go back to using the blocking api as a workaround
+;; for wasapi not initializing com multithreaded on windows
+;; this might bring back the problem that I cannot remember
+;; what it was for which I created the non-blocking api...
 (definition public gst_element_set_state
   gst_element_set_state_blocking)
 

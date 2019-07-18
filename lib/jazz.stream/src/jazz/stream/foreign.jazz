@@ -962,6 +962,28 @@ static gulong gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
     return gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_EVENT_BOTH, (GstPadProbeCallback) cb_have_event, pipeline, NULL);
 }
 
+static GstBusSyncReply bus_sync_handler(GstBus* bus,
+                                        GstMessage* message,
+                                        gpointer user_data)
+{
+    GstPipeline* pipeline = (GstPipeline*) user_data;
+    char* name = GST_OBJECT_NAME(pipeline);
+    
+    gst_print_message(name, message);
+    
+    return GST_BUS_PASS;
+}
+
+static void gst_monitor_messages(GstPipeline* pipeline)
+{
+    GstBus* bus = gst_pipeline_get_bus(pipeline);
+    gst_bus_set_sync_handler(bus,
+                             bus_sync_handler,
+                             pipeline,
+                             NULL);
+    gst_object_unref(bus);
+}
+
 static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
 {
     gst_debug_bin_to_dot_file(bin, GST_DEBUG_GRAPH_SHOW_ALL, filename);
@@ -1139,6 +1161,7 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (gst_print_error GstMessage*) void)
 (gst-external (gst_monitor_data (call GST_PIPELINE GstElement*) GstPad*) gulong)
 (gst-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) gulong)
+(gst-external (gst_monitor_messages (call GST_PIPELINE GstElement*)) void)
 (gst-external (gst_app_src_set_caps (call GST_APP_SRC GstElement*) GstCaps*) void)
 (gst-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)
 (gst-external (gst_app_src_write GstElement* scheme-object int int64 uint64 GstClockTimeDiff) GstClockTimeDiff)

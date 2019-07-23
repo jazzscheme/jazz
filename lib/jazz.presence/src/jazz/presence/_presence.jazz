@@ -257,16 +257,16 @@
   
   
   (method (accept-remote self port)
-    (let ((message (read-port port)))
-      (bind (remote-kind remote-uuid remote-title remote-service remote-address remote-protocol) message
-        ;; already connected!
-        (if (find-connection self remote-uuid)
-            (write-port port 'already-connected)
-          ;; PRESENCE quick try
-          (when (not listener)
-            (start-listener self #f #f #f))
-          (accept-handler
-            (lambda (presence)
+    ;; PRESENCE quick try
+    (when (not listener)
+      (start-listener self #f #f #f))
+    (accept-handler
+      (lambda (presence)
+        (let ((message (read-port port)))
+          (bind (remote-kind remote-uuid remote-title remote-service remote-address remote-protocol) message
+            ;; already connected!
+            (if (find-connection self remote-uuid)
+                (write-port port 'already-connected)
               (let ((local-uuid uuid)
                     (local-title (current-process-title))
                     (local-service (listening-port listener))
@@ -282,8 +282,8 @@
                         (debug-remote self 'accept remote-uuid connection))
                       (register-connection self remote-uuid connection)
                       (set-thread connection (current-thread))
-                      (process connection))))))
-            self)))))
+                      (process connection)))))))))
+      self))
   
   
   ;;;

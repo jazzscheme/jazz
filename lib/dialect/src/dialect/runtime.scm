@@ -5170,7 +5170,7 @@
           ((%%fixnum? form)
            ;; quick hack to minimize the danger of the fixnum
            ;; primitive patterns that are not formally correct
-           (if (%%fx<= form-src 4096)
+           (if (%%fx<= form 4096)
                (jazz:new-constant form-src jazz:Fixnum)
              (jazz:new-constant form-src jazz:Integer)))
           ((%%ratnum? form)

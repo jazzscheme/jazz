@@ -1038,6 +1038,8 @@ static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
 #include <rnnoise.h>
 
 #define FRAME_SIZE 480
+#define DOUBLE_FRAME_SIZE 960
+#define TRIPLE_FRAME_SIZE 1440
 
 bool denoising = true;
 
@@ -1084,16 +1086,47 @@ static void* denoise(void* data)
                 if (denoising)
                 {
                     int count = denoised_map.size / sizeof(short);
-                    // it is possible to receive incorrect sizes
-                    // in the first few frames so guard against it
                     if (count == FRAME_SIZE)
                     {
                         int i;
                         short *ptr = (short*) denoised_map.data;
+                        
                         for (i=0;i<count;i++) x[i] = ptr[i];
                         rnnoise_process_frame(st, x, x);
                         for (i=0;i<count;i++) ptr[i] = x[i];
                     }
+                    else if (count == DOUBLE_FRAME_SIZE)
+                    {
+                        int i;
+                        short *ptr = (short*) denoised_map.data;
+                        
+                        for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[i];
+                        rnnoise_process_frame(st, x, x);
+                        for (i=0;i<FRAME_SIZE;i++) ptr[i] = x[i];
+                        
+                        for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[FRAME_SIZE+i];
+                        rnnoise_process_frame(st, x, x);
+                        for (i=0;i<FRAME_SIZE;i++) ptr[FRAME_SIZE+i] = x[i];
+                    }
+                    else if (count == TRIPLE_FRAME_SIZE)
+                    {
+                        int i;
+                        short *ptr = (short*) denoised_map.data;
+                        
+                        for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[i];
+                        rnnoise_process_frame(st, x, x);
+                        for (i=0;i<FRAME_SIZE;i++) ptr[i] = x[i];
+                        
+                        for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[FRAME_SIZE+i];
+                        rnnoise_process_frame(st, x, x);
+                        for (i=0;i<FRAME_SIZE;i++) ptr[FRAME_SIZE+i] = x[i];
+                        
+                        for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[DOUBLE_FRAME_SIZE+i];
+                        rnnoise_process_frame(st, x, x);
+                        for (i=0;i<FRAME_SIZE;i++) ptr[DOUBLE_FRAME_SIZE+i] = x[i];
+                    }
+                    // it is possible to receive other sizes
+                    // in the first few frames so do nothing
                 }
                 
                 gst_buffer_unmap(denoised_buffer, &denoised_map);

@@ -554,6 +554,14 @@
   (path-expand (string-append jazz:kernel-source suffix)))
 
 
+;; patch around ld: warning: text-based stub file x.tbd and library file x are out of sync. Falling back to library file for linking.
+(define (jazz:patch-mac-ld-warnings cc-flags)
+  (let ((sysroot "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"))
+    (if (file-exists? sysroot)
+        (string-append "-isysroot " sysroot " " cc-flags)
+      cc-flags)))
+
+
 (define (jazz:build-dynamic-path destination-root source-path)
   (let ((root (path-strip-trailing-directory-separator destination-root))
         (branch (path-strip-directory (path-strip-trailing-directory-separator source-path)))

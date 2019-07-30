@@ -104,7 +104,7 @@
 (cond-expand
   (cocoa
    (define jazz:cocoa-units
-     `((jazz.platform.cocoa.foreign ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" custom-cc: ,jazz:custom-cc output-language: objc))))
+     `((jazz.platform.cocoa.foreign cc-options: ,(jazz:patch-mac-ld-warnings "") ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" custom-cc: ,jazz:custom-cc output-language: objc))))
   (else))
 
 

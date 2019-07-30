@@ -94,7 +94,7 @@
             (png-lib-path            (quoter "lib/jazz.cairo/foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfreetype.6" " -lcairo.2")))
-          (list cc-flags ld-flags)))))
+          (list (jazz:patch-mac-ld-warnings cc-flags) ld-flags)))))
   (windows
     (define (jazz:cairo-flags quoter)
       (let ((cairo-include-path      (quoter "lib/jazz.cairo/foreign/windows/cairo/include"))

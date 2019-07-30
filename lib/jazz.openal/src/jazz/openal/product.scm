@@ -52,11 +52,11 @@
       '())))
 
 
-(define (jazz:build-openal descriptor #!key (unit #f) (force? #f))
+(define (jazz:build-openal descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:openal-units))
     (jazz:custom-compile/build unit-specs unit: unit force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))
-        (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
+        (jazz:build-product-descriptor descriptor unit: unit skip-references?: skip-references? force?: force?))))
 
 
 ;;;

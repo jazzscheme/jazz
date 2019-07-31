@@ -151,6 +151,30 @@
 
 
 ;;;
+;;;; Handle
+;;;
+
+
+(define (jazz:handle-exception-filter filter handler thunk)
+  (let ((previous-handler (current-exception-handler)))
+    (%%continuation-capture
+      (lambda (catcher-cont)
+        (with-exception-handler
+          (lambda (exc)
+            (with-exception-handler
+              (lambda (handler-exc)
+                (%%continuation-graft catcher-cont
+                  (lambda ()
+                    (previous-handler handler-exc))))
+              (lambda ()
+                (if (filter exc)
+                    (let ((value (handler exc)))
+                      (%%continuation-return catcher-cont value))
+                  (previous-handler exc)))))
+          thunk)))))
+
+
+;;;
 ;;;; Catch
 ;;;
 

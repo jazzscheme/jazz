@@ -332,6 +332,7 @@
 (native jazz:set-exception-hook)
 (native jazz:invoke-exception-hook)
 (native jazz:system-exception-hook)
+(native jazz:handle-exception-filter)
 (native jazz:catch-exception-filter)
 (native jazz:dump-exception)
 

@@ -647,7 +647,7 @@
    (define (jazz:controlling-terminal?)
      (if (jazz:unspecified? jazz:cached-controlling-terminal?)
          (set! jazz:cached-controlling-terminal?
-               (jazz:with-exception-filter
+               (jazz:catch-exception-filter
                  os-exception?
                  (lambda (exception)
                    #f)
@@ -1189,7 +1189,7 @@
 
 ;; need to fix this correctly
 (define jazz:thread-interrupt! (lambda rest
-                                 (jazz:with-exception-filter
+                                 (jazz:catch-exception-filter
                                    (lambda (exc)
                                      #t)
                                    (lambda (exc)

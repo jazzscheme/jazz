@@ -6098,7 +6098,7 @@
                   ((%%eq? (%%car rest) ':error) jazz:Walk-Error)
                   (else (jazz:error "Ill-formed walk-failed?")))))
       (let ((answer
-              (jazz:with-exception-filter
+              (jazz:catch-exception-filter
                 (lambda (exc)
                   #t)
                 (lambda (exc)

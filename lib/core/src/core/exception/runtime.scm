@@ -151,11 +151,11 @@
 
 
 ;;;
-;;;; Filter
+;;;; Catch
 ;;;
 
 
-(define (jazz:with-exception-filter filter catcher thunk)
+(define (jazz:catch-exception-filter filter catcher thunk)
   (let ((previous-handler (current-exception-handler)))
     (%%continuation-capture
       (lambda (catcher-cont)

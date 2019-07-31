@@ -49,7 +49,7 @@
 (define (jazz:outline-subunit unit-name)
   (let ((continue (jazz:for-each-subunit-continue)))
     (if continue
-        (jazz:with-exception-filter
+        (jazz:catch-exception-filter
           (lambda (exc)
             (or (%%is? exc jazz:Walk-Source-Not-Found)
                 (%%is? exc jazz:Walk-Problems)))

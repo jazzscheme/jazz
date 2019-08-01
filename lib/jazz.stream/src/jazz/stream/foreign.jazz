@@ -1267,14 +1267,19 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
 (gst-external (create-denoiser-thread GstElement* GstElement*) GThread* "create_denoiser_thread")))
 
 
-;; go back to using the blocking api as a workaround
-;; for wasapi not initializing com multithreaded on windows
-;; this might bring back the problem that I cannot remember
-;; what it was for which I created the non-blocking api...
+;; to enable testing wasapi use the blocking api as a work
+;; around wasapi not initializing com multithreaded on windows
+@wasapi
 (definition public gst_element_set_state
   gst_element_set_state_blocking)
 
-@w
+
+;; non-blocking listener-based set state
+;; - for some reason this is needed for screen share
+;; - without it it will not work on windows and on some
+;;   macs turning screen share off will result in a crash
+;; - the non-blocking set state might also result in a better
+;;   behavior by not being in a C call during a blocking set state
 (definition public (gst_element_set_state elem state)
   (let ((listener (open-stream-listener)))
     (let ((data (gst_element_set_state_threaded elem state (get-write-file listener))))

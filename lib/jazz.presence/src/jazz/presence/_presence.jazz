@@ -199,6 +199,7 @@
   (slot listener          getter generate)
   (slot connections       getter generate)
   (slot connections-mutex getter generate)
+  (slot already-connected accessors generate)
   (slot accept-handler    accessors generate)
   (slot connect-handler   accessors generate)
   (slot invoke-handler    accessors generate)
@@ -214,6 +215,7 @@
     (set! self.listener #f)
     (set! self.connections (make-table))
     (set! self.connections-mutex (make-mutex 'connections))
+    (set! self.already-connected #f)
     (set! self.accept-handler (lambda (proc presence) (proc presence)))
     (set! self.connect-handler (lambda (proc presence) (proc presence)))
     (set! self.invoke-handler (lambda (proc connection) (proc connection)))
@@ -264,9 +266,7 @@
       (lambda (presence)
         (let ((message (read-port port)))
           (bind (remote-kind remote-uuid remote-title remote-service remote-address remote-protocol) message
-            ;; already connected!
-            (if (find-connection self remote-uuid)
-                (write-port port 'already-connected)
+            (define (accept)
               (let ((local-uuid uuid)
                     (local-title (current-process-title))
                     (local-service (listening-port listener))
@@ -282,7 +282,14 @@
                         (debug-remote self 'accept remote-uuid connection))
                       (register-connection self remote-uuid connection)
                       (set-thread connection (current-thread))
-                      (process connection)))))))))
+                      (process connection))))))
+            
+            (let ((existing-connection (find-connection self remote-uuid)))
+              (if existing-connection
+                  (if already-connected
+                      (already-connected self remote-uuid existing-connection accept)
+                    (write-port port 'already-connected))
+                (accept))))))
       self))
   
   
@@ -650,6 +657,10 @@
 ;;;; Handler
 ;;;
 
+
+(definition protected (set-presence-already-connected already-connected (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (set-already-connected presence already-connected)))
 
 (definition protected (set-presence-accept-handler accept-handler (purpose: purpose #f))
   (let ((presence (require-presence purpose)))

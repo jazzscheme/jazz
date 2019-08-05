@@ -1089,7 +1089,6 @@ static void* denoise(void* data)
                 GstBuffer *denoised_buffer = gst_buffer_new_allocate(NULL, map.size, NULL);
                 GstMapInfo denoised_map;
                 gst_buffer_map(denoised_buffer, &denoised_map, GST_MAP_WRITE);
-                memmove(denoised_map.data, map.data, map.size);
                 
                 if (denoising)
                 {
@@ -1132,9 +1131,14 @@ static void* denoise(void* data)
                         rnnoise_process_frame(st, x, x);
                         for (i=0; i<FRAME_SIZE; i++) ptr[DOUBLE_FRAME_SIZE+i] = x[i];
                     }
-                    // it is possible to receive other sizes
-                    // in the first few frames so do nothing
+                    else
+                        // it is possible to receive other sizes
+                        // in the first few frames so do nothing
+                        memmove(denoised_map.data, map.data, map.size);
                 }
+                else
+                    memmove(denoised_map.data, map.data, map.size);
+                
                 gst_buffer_unmap(denoised_buffer, &denoised_map);
                 gst_buffer_unmap(buffer, &map);
                 

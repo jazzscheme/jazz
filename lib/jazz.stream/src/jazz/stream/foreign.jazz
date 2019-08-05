@@ -290,7 +290,7 @@ static void gst_listener_set(void* user_data)
 #endif
 }
 
-typedef struct state_element
+typedef struct element_state_struct
 {
     GstElement* element;
     GstState state;
@@ -1036,18 +1036,27 @@ static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
 #define DOUBLE_FRAME_SIZE 960
 #define TRIPLE_FRAME_SIZE 1440
 
-bool denoising = true;
-
-GstElement *mic_sink, *codec_src;
-
-static bool get_denoising()
+typedef struct denoiser_struct
 {
-    return denoising;
+    GstElement* mic_sink;
+    GstElement* codec_src;
+    GstElement* volume_elem;
+    bool denoising;
+    GThread* thread;
+} denoiser;
+
+static bool get_denoising(void* data)
+{
+    denoiser* dn = (denoiser*) data;
+    
+    return dn->denoising;
 }
 
-static void set_denoising(bool flag)
+static void set_denoising(void* data, bool flag)
 {
-    denoising = flag;
+    denoiser* dn = (denoiser*) data;
+    
+    dn->denoising = flag;
 }
 
 static void* denoise(void* data)
@@ -1056,8 +1065,12 @@ static void* denoise(void* data)
     
     int done = 0;
     
-    GstAppSink* sink = GST_APP_SINK(mic_sink);
-    GstAppSrc* src = GST_APP_SRC(codec_src);
+    denoiser* dn = (denoiser*) data;
+    
+    GstAppSink* sink = GST_APP_SINK(dn->mic_sink);
+    GstAppSrc* src = GST_APP_SRC(dn->codec_src);
+    
+    bool denoising = dn->denoising;
     
     DenoiseState* st = rnnoise_create();
     
@@ -1081,49 +1094,47 @@ static void* denoise(void* data)
                 if (denoising)
                 {
                     int count = denoised_map.size / sizeof(short);
+                    short *ptr = (short*) denoised_map.data;
+                    
                     if (count == FRAME_SIZE)
                     {
                         int i;
-                        short *ptr = (short*) denoised_map.data;
                         
-                        for (i=0;i<count;i++) x[i] = ptr[i];
+                        for (i=0; i<count; i++) x[i] = ptr[i];
                         rnnoise_process_frame(st, x, x);
-                        for (i=0;i<count;i++) ptr[i] = x[i];
+                        for (i=0; i<count; i++) ptr[i] = x[i];
                     }
                     else if (count == DOUBLE_FRAME_SIZE)
                     {
                         int i;
-                        short *ptr = (short*) denoised_map.data;
                         
-                        for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[i];
+                        for (i=0; i<FRAME_SIZE; i++) x[i] = ptr[i];
                         rnnoise_process_frame(st, x, x);
-                        for (i=0;i<FRAME_SIZE;i++) ptr[i] = x[i];
+                        for (i=0; i<FRAME_SIZE; i++) ptr[i] = x[i];
                         
-                        for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[FRAME_SIZE+i];
+                        for (i=0; i<FRAME_SIZE; i++) x[i] = ptr[FRAME_SIZE+i];
                         rnnoise_process_frame(st, x, x);
-                        for (i=0;i<FRAME_SIZE;i++) ptr[FRAME_SIZE+i] = x[i];
+                        for (i=0; i<FRAME_SIZE; i++) ptr[FRAME_SIZE+i] = x[i];
                     }
                     else if (count == TRIPLE_FRAME_SIZE)
                     {
                         int i;
-                        short *ptr = (short*) denoised_map.data;
                         
-                        for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[i];
+                        for (i=0; i<FRAME_SIZE; i++) x[i] = ptr[i];
                         rnnoise_process_frame(st, x, x);
-                        for (i=0;i<FRAME_SIZE;i++) ptr[i] = x[i];
+                        for (i=0; i<FRAME_SIZE; i++) ptr[i] = x[i];
                         
-                        for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[FRAME_SIZE+i];
+                        for (i=0; i<FRAME_SIZE; i++) x[i] = ptr[FRAME_SIZE+i];
                         rnnoise_process_frame(st, x, x);
-                        for (i=0;i<FRAME_SIZE;i++) ptr[FRAME_SIZE+i] = x[i];
+                        for (i=0; i<FRAME_SIZE; i++) ptr[FRAME_SIZE+i] = x[i];
                         
-                        for (i=0;i<FRAME_SIZE;i++) x[i] = ptr[DOUBLE_FRAME_SIZE+i];
+                        for (i=0; i<FRAME_SIZE; i++) x[i] = ptr[DOUBLE_FRAME_SIZE+i];
                         rnnoise_process_frame(st, x, x);
-                        for (i=0;i<FRAME_SIZE;i++) ptr[DOUBLE_FRAME_SIZE+i] = x[i];
+                        for (i=0; i<FRAME_SIZE; i++) ptr[DOUBLE_FRAME_SIZE+i] = x[i];
                     }
                     // it is possible to receive other sizes
                     // in the first few frames so do nothing
                 }
-                
                 gst_buffer_unmap(denoised_buffer, &denoised_map);
                 gst_buffer_unmap(buffer, &map);
                 
@@ -1140,15 +1151,174 @@ static void* denoise(void* data)
     return NULL;
 }
 
-static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
+static void* denoise_dynamic(void* data)
 {
-    mic_sink = sink;
-    codec_src = src;
+    float x[FRAME_SIZE];
     
-    return g_thread_new("denoise", denoise, NULL);
+    int filled = 0;
+    int done = 0;
     
-    // where do we call this
-    // g_thread_unref(thread);
+    GstClockTime first_pts = GST_CLOCK_TIME_NONE;
+    GstClockTime time = 0;
+    
+    denoiser* dn = (denoiser*) data;
+    
+    GstAppSink* sink = GST_APP_SINK(dn->mic_sink);
+    GstAppSrc* src = GST_APP_SRC(dn->codec_src);
+    GstElement* volume_elem = dn->volume_elem;
+    
+    bool denoising = dn->denoising;
+    
+    DenoiseState* st = rnnoise_create();
+    
+    while (! done)
+    {
+        GstSample *sample;
+        sample = gst_app_sink_pull_sample(sink);
+        if (sample)
+        {
+            GstBuffer* buffer = gst_sample_get_buffer(sample);
+            if (buffer)
+            {
+                if (! denoising)
+                {
+                    GstMapInfo map;
+                    gst_buffer_map(buffer, &map, GST_MAP_READ);
+                    
+                    GstBuffer *denoised_buffer = gst_buffer_new_allocate(NULL, map.size, NULL);
+                    GstMapInfo denoised_map;
+                    gst_buffer_map(denoised_buffer, &denoised_map, GST_MAP_WRITE);
+                    memmove(denoised_map.data, map.data, map.size);
+                
+                    GST_BUFFER_DTS(denoised_buffer) = GST_BUFFER_DTS(buffer);
+                    GST_BUFFER_PTS(denoised_buffer) = GST_BUFFER_PTS(buffer);
+                    GST_BUFFER_DURATION(denoised_buffer) = GST_BUFFER_DURATION(buffer);
+                
+                    gst_buffer_unmap(denoised_buffer, &denoised_map);
+                    gst_buffer_unmap(buffer, &map);
+                    
+                    gst_app_src_push_buffer(src, denoised_buffer);
+                }
+                else
+                {
+                    GstMapInfo map;
+                    gst_buffer_map(buffer, &map, GST_MAP_READ);
+                    
+                    GstClockTime pts = GST_BUFFER_PTS(buffer);
+                    if (first_pts == GST_CLOCK_TIME_NONE)
+                        first_pts = pts;
+                    
+                    // denoiser takes about 5s to ramp up
+                    GstClockTime elapsed = pts - first_pts;
+                    if (pts < 5000000000)
+                        g_object_set(volume_elem, "volume", (double) pts / 5000000000., NULL);
+                    
+                    int count = map.size / sizeof(short);
+                    short *ptr = (short*) map.data;
+                    float *x_ptr = x + filled;
+                    int remain = count;
+                    
+                    while (remain > 0)
+                    {
+                        int avail = FRAME_SIZE - filled;
+                        
+                        if (remain < avail)
+                        {
+                            int i;
+                        
+                            for (i=0; i<remain; i++)
+                                *x_ptr++ = *ptr++;
+                            
+                            filled += remain;
+                            remain = 0;
+                        }
+                        else
+                        {
+                            int i;
+                        
+                            for (i=0; i<avail; i++)
+                                *x_ptr++ = *ptr++;
+                            
+                            rnnoise_process_frame(st, x, x);
+                            
+                            GstBuffer *denoised_buffer = gst_buffer_new_allocate(NULL, FRAME_SIZE * sizeof(short), NULL);
+                            GstMapInfo denoised_map;
+                            gst_buffer_map(denoised_buffer, &denoised_map, GST_MAP_WRITE);
+                            short* denoised_ptr = (short*) denoised_map.data;
+                            
+                            for (i=0; i<FRAME_SIZE; i++)
+                                denoised_ptr[i] = x[i];
+                            
+                            GST_BUFFER_DTS(denoised_buffer) = GST_CLOCK_TIME_NONE;
+                            GST_BUFFER_PTS(denoised_buffer) = time;
+                            GST_BUFFER_DURATION(denoised_buffer) = 10000000;
+                            
+                            time += 10000000;
+                            
+                            gst_buffer_unmap(denoised_buffer, &denoised_map);
+                            
+                            gst_app_src_push_buffer(src, denoised_buffer);
+                            
+                            x_ptr = x;
+                            filled = 0;
+                            remain -= avail;
+                        }
+                    }
+                    gst_buffer_unmap(buffer, &map);
+                }
+            }
+            gst_sample_unref(sample);
+        }
+        else
+        {
+            if (filled > 0)
+            {
+                int i;
+                
+                GstBuffer *denoised_buffer = gst_buffer_new_allocate(NULL, filled * sizeof(short), NULL);
+                GstMapInfo denoised_map;
+                gst_buffer_map(denoised_buffer, &denoised_map, GST_MAP_WRITE);
+                short* denoised_ptr = (short*) denoised_map.data;
+                
+                for (i=0; i<filled; i++)
+                    denoised_ptr[i] = x[i];
+                
+                GST_BUFFER_DTS(denoised_buffer) = GST_CLOCK_TIME_NONE;
+                GST_BUFFER_PTS(denoised_buffer) = time;
+                GST_BUFFER_DURATION(denoised_buffer) = (filled * 1000000000.) / 48000.;
+                
+                gst_buffer_unmap(denoised_buffer, &denoised_map);
+                
+                gst_app_src_push_buffer(src, denoised_buffer);
+            }
+            gst_app_src_end_of_stream(src);
+            done = 1;
+        }
+    }
+    
+    rnnoise_destroy(st);
+    
+    return NULL;
+}
+
+static void* create_denoiser(GstElement* sink, GstElement* src, GstElement* volume, bool dynamic, bool denoising)
+{
+    denoiser* dn = malloc(sizeof(denoiser));
+    dn->mic_sink = sink;
+    dn->codec_src = src;
+    dn->volume_elem = volume;
+    dn->denoising = denoising;
+    dn->thread = g_thread_new("denoise", (dynamic) ? denoise_dynamic : denoise, (void*) dn);
+    
+    return (void*) dn;
+}
+
+static void free_denoiser(void* data)
+{
+    denoiser* dn = (denoiser*) data;
+    g_thread_join(dn->thread);
+    g_thread_unref(dn->thread);
+    free(data);
 }
 //#)))
 
@@ -1255,11 +1425,13 @@ static GThread* create_denoiser_thread(GstElement* sink, GstElement* src)
  (unix
 (definition public (get-denoising?) #f)
 (definition public (set-denoising? flag))
-(definition public (create-denoiser-thread . rest)))
+(definition public (create-denoiser . rest))
+(definition public (free-denoiser . rest)))
  (else
-(gst-external (get-denoising?) bool "get_denoising")
-(gst-external (set-denoising? bool) void "set_denoising")
-(gst-external (create-denoiser-thread GstElement* GstElement*) GThread* "create_denoiser_thread")))
+(gst-external (get-denoising? void*) bool "get_denoising")
+(gst-external (set-denoising? void* bool) void "set_denoising")
+(gst-external (create-denoiser GstElement* GstElement* GstElement* bool bool) void* "create_denoiser")
+(gst-external (free-denoiser void*) void "free_denoiser")))
 
 
 ;; to enable testing wasapi use the blocking api as a work

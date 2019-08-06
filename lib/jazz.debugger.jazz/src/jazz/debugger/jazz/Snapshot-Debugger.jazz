@@ -42,7 +42,13 @@
         (jazz.event)
         (jazz.markup)
         (jazz.project)
-        (jazz.resource))
+        (jazz.resource)
+        (jazz.settings))
+
+
+(definition snapshot-relocations
+  (find-setting 'jazz.snapshot-relocations '()))
+
 
 (class Snapshot-Debugger extends Debugger
   
@@ -301,7 +307,18 @@
   
   (method override (frame-location self process frame)
     (define (location-from-location)
-      (get-property frame 'location))
+      (let ((location (get-property frame 'location)))
+        (and location
+             (bind (container line col) location
+               (continuation-capture
+                 (lambda (found)
+                   (for-each (lambda (relocation)
+                               (bind (from . to) relocation
+                                 (when (starts-with? container from)
+                                   (let ((relocated (string-append to (substring container (string-length from) (string-length container)))))
+                                     (continuation-return found (list relocated line col))))))
+                             snapshot-relocations)
+                   location))))))
     
     (define (location-from-name)
       (let ((name (get-property frame 'name)))

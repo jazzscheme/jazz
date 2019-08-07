@@ -199,6 +199,8 @@
   (slot listener          getter generate)
   (slot connections       getter generate)
   (slot connections-mutex getter generate)
+  (slot code              accessors generate)
+  (slot version           accessors generate)
   (slot already-connected accessors generate)
   (slot accept-handler    accessors generate)
   (slot connect-handler   accessors generate)
@@ -215,6 +217,8 @@
     (set! self.listener #f)
     (set! self.connections (make-table))
     (set! self.connections-mutex (make-mutex 'connections))
+    (set! self.code *presence-code*)
+    (set! self.version *presence-version*)
     (set! self.already-connected #f)
     (set! self.accept-handler (lambda (proc presence) (proc presence)))
     (set! self.connect-handler (lambda (proc presence) (proc presence)))
@@ -264,7 +268,7 @@
       (start-listener self #f #f #f))
     (accept-handler
       (lambda (presence)
-        (let ((message (read-port port)))
+        (let ((message (read-port port code version)))
           (bind (remote-kind remote-uuid remote-title remote-service remote-address remote-protocol) message
             (define (accept)
               (let ((local-uuid uuid)
@@ -273,8 +277,8 @@
                     (local-address (socket-info-address (tcp-client-peer-socket-info port)))
                     (local-protocol simulated-protocol)
                     (start (current-monotonic)))
-                (write-port port (list local-uuid local-title local-service local-address local-protocol))
-                (assert (eq? (read-port port) 'handshake)
+                (write-port port code version (list local-uuid local-title local-service local-address local-protocol))
+                (assert (eq? (read-port port code version) 'handshake)
                   (let ((lag (- (current-monotonic) start)))
                     (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address remote-protocol lag #f invoke-handler process-handler execute-handler)))
                       (when debug-remote?
@@ -288,7 +292,7 @@
               (if existing-connection
                   (if already-connected
                       (already-connected self remote-uuid existing-connection accept)
-                    (write-port port 'already-connected))
+                    (write-port port code version 'already-connected))
                 (accept))))))
       self))
   
@@ -313,8 +317,8 @@
                 (local-address (socket-info-address (tcp-client-peer-socket-info port)))
                 (local-protocol simulated-protocol)
                 (start (current-monotonic)))
-            (write-port port (list 'connect local-uuid local-title local-service local-address local-protocol))
-            (let ((reply (read-port port)))
+            (write-port port code version (list 'connect local-uuid local-title local-service local-address local-protocol))
+            (let ((reply (read-port port code version)))
               (cond ((eof-object? reply)
                      (throw-connection-broke (format "Connecting to {a} {a} received eof" host service)))
                     ((eq? reply 'already-connected)
@@ -322,7 +326,7 @@
                     (else
                      (bind (remote-uuid remote-title remote-service remote-address remote-protocol) reply
                        (let ((lag (- (current-monotonic) start)))
-                         (write-port port 'handshake)
+                         (write-port port code version 'handshake)
                          (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address remote-protocol lag slave? invoke-handler process-handler execute-handler)))
                            (when debug-remote?
                              (debug-remote self 'connect remote-uuid connection)
@@ -564,12 +568,12 @@
           (when debug-io?
             (debug-remote presence 'write message)
             (caller-garble-hack))
-          (write-port port message))
+          (write-port port (get-code presence) (get-version presence) message))
       (mutex-unlock! write-mutex)))
   
   
   (method (read-message self)
-    (let ((message (read-port port)))
+    (let ((message (read-port port (get-code presence) (get-version presence))))
       (when debug-io?
         (callee-garble-hack)
         (debug-remote presence 'read message))
@@ -651,6 +655,20 @@
            #f)
     (let ((connection (remote-proxy->connection remote-proxy)))
       (invoke-live? connection remote-proxy live-timeout))))
+
+
+;;;
+;;;; Validation
+;;;
+
+
+(definition protected (set-presence-code code (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (set-code presence code)))
+
+(definition protected (set-presence-version version (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (set-version presence version)))
 
 
 ;;;

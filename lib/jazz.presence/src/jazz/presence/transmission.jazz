@@ -102,8 +102,8 @@
 
 (definition public (read-port port)
   (receive (code version) (read-header port)
-    ;(validate-code *presence-code* code)
-    ;(validate-version *presence-version* version)
+    (validate-code *presence-code* code)
+    (validate-version *presence-version* version)
     (read-data port)))
 
 
@@ -159,39 +159,21 @@
 
 
 ;;;
-;;;; Protocol-Exception
+;;;; Validate
 ;;;
 
 
-(class Protocol-Exception extends Exception
-  
-  
-  (slot message-text)
-  
-  
-  (method override (initialize self text)
-    (nextmethod self)
-    (set! message-text text))
-  
-  
-  (method override (get-message self)
-    message-text))
-
-
-@wait
 (definition public (validate-code expected-code code)
   (unless (= code expected-code)
-    (throw (new Protocol-Exception
-             (format "Invalid code: {a} (expected {a})"
-                     code
-                     expected-code)))))
+    (throw-connection-broke
+      (format "Invalid code: {a} (expected {a})"
+              code
+              expected-code))))
 
 
-@wait
-(definition public (validate-version remote-version (server-side?: server-side? #t))
-  (let ((local-version (process-version (get-process))))
-    (unless (compatible? local-version remote-version)
-      (throw (new Protocol-Exception
-               (format "Client version {a} is incompatible with server version {a}."
-                       (present (if server-side? remote-version local-version))
-                       (present (if server-side? local-version remote-version)))))))))
+(definition public (validate-version expected-version version)
+  (unless (compatible? version expected-version)
+    (throw-connection-broke
+      (format "Invalid version: {a} (expected {a})"
+              (present version)
+              (present expected-version))))))

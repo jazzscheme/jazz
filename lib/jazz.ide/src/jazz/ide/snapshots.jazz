@@ -80,7 +80,9 @@
                 (<Filter-Text-View>   name: filter-text)))))
         (<Separator>                                       size: {Dimension 4 0})
         (<Push-Tool>                  name: filter         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Filter" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-filter})
-        (<Push-Tool>                  name: delete         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Delete Snapshot" resource: {Image-Resource "Delete"} portfolio: :images action-handler: {Event-Handler :form on-delete-snapshots})
+        (<Push-Tool>                  name: delete         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Delete Snapshots" resource: {Image-Resource "Delete"} portfolio: :images action-handler: {Event-Handler :form on-delete-snapshots})
+        (<Separator>                                       size: {Dimension 30 0} location: tail)
+        (<Push-Tool>                  name: watch          location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Watch Snapshots" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-watch-snapshots})
         (<Separator>                                       size: {Dimension 30 0} location: tail)
         (<Push-Tool>                  name: update         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Update" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-update-snapshots}))
       (<Splitter-View>                                     location: center orientation: vert mode: relative division: 50 style: document
@@ -170,6 +172,10 @@
   
   (method (on-delete-snapshots self evt)
     (delete-snapshots self))
+  
+  
+  (method (on-watch-snapshots self evt)
+    (watch-snapshots self))
   
   
   (method (on-update-snapshots self evt)
@@ -306,6 +312,21 @@
                                     snapshot)))
                         (delete file)
                         (table-clear snapshots file)))
+                    selected)
+          (update-snapshots self)))))
+  
+  
+  (method (watch-snapshots self)
+    (let ((tree (locate self 'snapshots-tree)))
+      (let ((selected (get-selected-data tree)))
+        (when (not-null? selected)
+          (for-each (lambda (snapshot)
+                      (let ((file (if (is? snapshot Markup-Element)
+                                      (get-property snapshot 'file)
+                                    snapshot)))
+                        (let ((dest-file (new-file directory (list "watched" (get-name file)))))
+                          (rename file dest-file)
+                          (table-clear snapshots file))))
                     selected)
           (update-snapshots self)))))
   

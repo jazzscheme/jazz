@@ -110,8 +110,8 @@
 (definition (write-header code version port)
   (32-bit-integer->bytes code
     (lambda (b1 b2 b3 b4)
-      (64-bit-integer->bytes (->64-bit-integer version)
-        (lambda (b5 b6 b7 b8 b9 b10 b11 b12)
+      (version->bytes version
+        (lambda (b5 b6 b7 b8)
           (write-u8 b1 port)
           (write-u8 b2 port)
           (write-u8 b3 port)
@@ -120,10 +120,6 @@
           (write-u8 b6 port)
           (write-u8 b7 port)
           (write-u8 b8 port)
-          (write-u8 b9 port)
-          (write-u8 b10 port)
-          (write-u8 b11 port)
-          (write-u8 b12 port)
           (force-output port))))))
 
 
@@ -135,16 +131,12 @@
          (b5 (read-u8 port))
          (b6 (read-u8 port))
          (b7 (read-u8 port))
-         (b8 (read-u8 port))
-         (b9 (read-u8 port))
-         (b10 (read-u8 port))
-         (b11 (read-u8 port))
-         (b12 (read-u8 port)))
-    (if (eof-object? b12)
+         (b8 (read-u8 port)))
+    (if (eof-object? b8)
         (throw-connection-broke "Read header received eof")
       (let ((code (bytes->32-bit-integer b1 b2 b3 b4))
-            (version-code (bytes->64-bit-integer b5 b6 b7 b8 b9 b10 b11 b12)))
-        (values code (64-bit-integer->version version-code))))))
+            (version (bytes->version b5 b6 b7 b8)))
+        (values code version)))))
 
 
 (definition (write-data data port)

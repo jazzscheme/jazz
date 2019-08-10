@@ -1175,13 +1175,6 @@
   (%%set-heartbeat-interval! seconds))
 
 
-(cond-expand
-  (windows
-   (define (jazz:get-heartbeat-thread)
-     (##get-heartbeat-thread)))
-  (else))
-
-
 ;;;
 ;;;; Thread
 ;;;

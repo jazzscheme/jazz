@@ -562,6 +562,7 @@ static int gst_app_sink_try_pull(GstElement* elem, ___SCMOBJ vec, ___SCMOBJ info
 {
     int size;
     ___U8 *data = ___CAST(___U8*, ___BODY(vec));
+    int data_size = ___HD_BYTES(___HEADER(vec));
     ___U64 *info_ptr = ___CAST(___U64*, ___BODY(info));
     GstSample *sample;
     sample = gst_app_sink_try_pull_sample(GST_APP_SINK(elem), 0);
@@ -573,8 +574,13 @@ static int gst_app_sink_try_pull(GstElement* elem, ___SCMOBJ vec, ___SCMOBJ info
         {
             GstMapInfo map;
             gst_buffer_map(buffer, &map, GST_MAP_READ);
-            memmove(data, map.data, map.size);
-            size = map.size;
+            if (map.size > data_size)
+                size = -2;
+            else
+            {
+                memmove(data, map.data, map.size);
+                size = map.size;
+            }
             gst_buffer_unmap(buffer, &map);
             
             dts = GST_BUFFER_DTS(buffer);

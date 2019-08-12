@@ -510,7 +510,12 @@
 
 
 (define (jazz:parse-binding walker resume declaration environment form-src)
-  (%%assertion (and (%%pair? (jazz:source-code form-src)) (%%pair? (%%cdr (jazz:source-code form-src)))) (jazz:walk-error walker resume declaration form-src "Ill-formed binding: {s}" (%%desourcify form-src))
+  (%%assertion (and (list? (jazz:source-code form-src))
+                    (let ((len (%%length (jazz:source-code form-src))))
+                      (or (%%fx= len 2)
+                          (and (%%fx= len 3)
+                               (jazz:specifier? (jazz:source-code (%%cadr (jazz:source-code form-src))))))))
+      (jazz:walk-error walker resume declaration form-src "Ill-formed binding: {s}" (%%desourcify form-src))
     (let ((symbol-src (%%car (jazz:source-code form-src))))
       (let ((symbol (jazz:source-code symbol-src)))
         (jazz:parse-specifier (%%cdr (jazz:source-code form-src))

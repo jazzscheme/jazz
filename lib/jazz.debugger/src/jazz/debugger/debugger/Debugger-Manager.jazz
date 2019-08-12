@@ -42,6 +42,7 @@
         (jazz.component)
         (jazz.debuggee)
         (jazz.debugger)
+        (jazz.event)
         (jazz.feedback)
         (jazz.graphic)
         (jazz.media)
@@ -690,13 +691,24 @@
   
   
   (method public (evaluate-filename-expressions self filename forms syntax str container line col evaluation-mode)
-    (let ((processes (filename-processes self filename)))
+    (let ((processes (collect-if (lambda (process) (get-alive? self process)) (filename-processes self filename))))
       (let ((walk-debugger (find-object (get-local-register 'debugging) 'debugger))
-            (walk-cookie (register-debugger-cookie)))
+            (walk-cookie (register-debugger-cookie))
+            (evaluated '())
+            (problems '()))
         (for-each (lambda (process)
-                    (evaluate-expressions process forms syntax str container line col evaluation-mode walk-debugger walk-cookie))
-                  processes))
-      (map get-reference processes)))
+                    (catch (Cancel-Signal exc
+                             (set! problems (cons process problems)))
+                      (parameterize ((inhibit-connection-failed-dialog? #t))
+                        (evaluate-expressions process forms syntax str container line col evaluation-mode walk-debugger walk-cookie))
+                      (set! evaluated (cons process evaluated))))
+                  processes)
+        (when (not-null? problems)
+          (message-box (format "Connection to {l detail: :human} failed" (map get-title problems)))
+          (delay-event
+            (lambda ()
+              (update (get-processes-view)))))
+        (map get-reference evaluated))))
   
   
   (method public (has-information? self process)

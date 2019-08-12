@@ -121,6 +121,7 @@
         (jazz.inspector)
         (jazz.network)
         (jazz.presence)
+        (jazz.presence.transmission)
         (jazz.process (cond (not ios)))
         (jazz.syntax (phase syntax)))
 
@@ -216,7 +217,12 @@
       (receive (host port alternate-port) (parse-host/service debugger-arg)
         (if (not port)
             (error "Ill-formed debugger argument: {a}" debugger-arg)
-          (attach-debuggee host port focus?: #t @annoying-when-starting-from-terminal (parse-boolean interactive-arg)))))))
+          (catch (connection-exception? exc
+                   (jazz.platform:system-message "Unable to connect to debugger"
+                     title: "Application"
+                     type: 'problem)
+                   (exit 1))
+            (attach-debuggee host port focus?: #t @annoying-when-starting-from-terminal (parse-boolean interactive-arg))))))))
 
 
 (definition package (attach-debuggee host port (focus?: focus? #f))

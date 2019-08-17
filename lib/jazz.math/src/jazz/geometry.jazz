@@ -148,12 +148,23 @@
     (rect-width rect)
     (rect-height rect)))
 
+(definition public (rect-size$fl$ rect <Rect$fl$>) <Dimension$fl$>
+  (new Dimension$fl$
+    (rect-width$fl$ rect)
+    (rect-height$fl$ rect)))
+
 
 (definition public (rect-width rect <Rect>) <fx>
   (- (get-right rect) (get-left rect)))
 
+(definition public (rect-width$fl$ rect <Rect$fl$>) <fl>
+  (- (get-right rect) (get-left rect)))
+
 
 (definition public (rect-height rect <Rect>) <fx>
+  (- (get-bottom rect) (get-top rect)))
+
+(definition public (rect-height$fl$ rect <Rect$fl$>) <fl>
   (- (get-bottom rect) (get-top rect)))
 
 
@@ -224,11 +235,11 @@
   (offset-rect rect (- (get-left rect)) (- (get-top rect))))
 
 
-(definition public (fit-dimensions src dst mode) <fl>
-  (let ((dw (get-width dst))
-        (dh (get-height dst))
-        (sw (get-width src))
-        (sh (get-height src)))
+(definition public (fit-dimensions inner <Dimension> outer <Dimension> mode) <fl>
+  (let ((dw (get-width outer))
+        (dh (get-height outer))
+        (sw (get-width inner))
+        (sh (get-height inner)))
     (let ((rw (/ (cast <fl> dw) (cast <fl> sw)))
           (rh (/ (cast <fl> dh) (cast <fl> sh))))
       (case mode
@@ -239,8 +250,33 @@
         ((both) (if (> rw rh) rh rw))))))
 
 
-(definition public (fit-rects src dst mode)
-  (fit-dimensions (rect-size src) (rect-size dst) mode))
+(definition public (fit-dimensions$fl$ inner <Dimension$fl$> outer <Dimension$fl$> mode) <fl>
+  (let ((dw (get-width outer))
+        (dh (get-height outer))
+        (sw (get-width inner))
+        (sh (get-height inner)))
+    (let ((rw (/ dw sw))
+          (rh (/ dh sh)))
+      (case mode
+        ((fill) (max rw rh))
+        ((fit) (min rw rh))
+        ((width) rw)
+        ((height) rh)
+        ((both) (if (> rw rh) rh rw))))))
+
+
+(definition public (fit-both inner <Dimension> outer <Rect>) <Rect>
+  (let ((ratio (fit-dimensions inner (rect-size outer) 'both)))
+    (let ((new-width (fxround (* (cast <fl> (get-width inner)) ratio)))
+          (new-height (fxround (* (cast <fl> (get-height inner)) ratio))))
+      (let ((pos (center (new Dimension new-width new-height) (rect-size outer))))
+        (let ((h (+ (get-left outer) (get-h pos)))
+              (v (+ (get-top outer) (get-v pos))))
+          (new Rect h v (+ h new-width) (+ v new-height)))))))
+
+
+(definition public (fit-rects inner <Rect> outer <Rect> mode) <fl>
+  (fit-dimensions (rect-size inner) (rect-size outer) mode))
 
 
 (definition public (fit-within outer rect (minimum-size: minimum-size {Dimension 0 0}) (padding: padding 0))

@@ -1174,7 +1174,7 @@ static void* denoise_dynamic(void* data)
     int filled = 0;
     int done = 0;
     
-    GstClockTime first_pts = GST_CLOCK_TIME_NONE;
+    GstClockTime first_dts = GST_CLOCK_TIME_NONE;
     GstClockTime time = 0;
     
     denoiser* dn = (denoiser*) data;
@@ -1218,14 +1218,13 @@ static void* denoise_dynamic(void* data)
                     GstMapInfo map;
                     gst_buffer_map(buffer, &map, GST_MAP_READ);
                     
-                    GstClockTime pts = GST_BUFFER_PTS(buffer);
-                    if (first_pts == GST_CLOCK_TIME_NONE)
-                        first_pts = pts;
-                    
                     // denoiser takes about 5s to ramp up
-                    GstClockTime elapsed = pts - first_pts;
-                    if (pts < 5000000000)
-                        g_object_set(volume_elem, "volume", (double) pts / 5000000000., NULL);
+                    GstClockTime dts = GST_BUFFER_DTS(buffer);
+                    if (first_dts == GST_CLOCK_TIME_NONE)
+                        first_dts = dts;
+                    GstClockTime elapsed = dts - first_dts;
+                    if (elapsed < 5000000000)
+                        g_object_set(volume_elem, "volume", (double) elapsed / 5000000000., NULL);
                     
                     int count = map.size / sizeof(short);
                     short *ptr = (short*) map.data;

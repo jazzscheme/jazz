@@ -387,4 +387,65 @@
   (case size
     ((-1) (error "Appsink try-pull no sample returned"))
     ((-2) (error "Appsink try-pull buffer too small"))
-    (else size))))
+    (else size)))
+
+
+;;;
+;;;; Discoverer
+;;;
+
+
+(definition public (discover-audio file)
+  (with-unref ((discoverer (gst_discoverer_new)))
+    (with-unref ((discoverer-info (gst_discoverer_discover_uri discoverer (format "file://{a}" (parse file)))))
+      (let ((container-info (gst_discoverer_info_get_stream_info discoverer-info)))
+        (if (= (G_OBJECT_TYPE container-info) GST_TYPE_DISCOVERER_CONTAINER_INFO)
+            (let ((streams (gst_discoverer_container_info_get_streams container-info)))
+              (prog1 (let (loop (streams streams))
+                       (if (not streams)
+                           #f
+                         (let ((stream-info (gst_discoverer_stream_info_list_data streams)))
+                           (if (= (G_OBJECT_TYPE stream-info) GST_TYPE_DISCOVERER_AUDIO_INFO)
+                               (list (gst_discoverer_audio_info_get_bitrate stream-info)
+                                     (gst_discoverer_audio_info_get_sample_rate stream-info)
+                                     (gst_discoverer_audio_info_get_channels stream-info)
+                                     (gst_caps_to_string (gst_discoverer_stream_info_get_caps stream-info)))
+                             (loop (gst_discoverer_stream_info_list_next streams))))))
+                (gst_discoverer_stream_info_list_free streams)))
+          #f)))))
+
+
+(definition public (discover-video file)
+  (with-unref ((discoverer (gst_discoverer_new)))
+    (with-unref ((discoverer-info (gst_discoverer_discover_uri discoverer (format "file://{a}" (parse file)))))
+      (let ((container-info (gst_discoverer_info_get_stream_info discoverer-info)))
+        (if (= (G_OBJECT_TYPE container-info) GST_TYPE_DISCOVERER_CONTAINER_INFO)
+            (let ((streams (gst_discoverer_container_info_get_streams container-info)))
+              (prog1 (let (loop (streams streams))
+                       (if (not streams)
+                           #f
+                         (let ((stream-info (gst_discoverer_stream_info_list_data streams)))
+                           (if (= (G_OBJECT_TYPE stream-info) GST_TYPE_DISCOVERER_VIDEO_INFO)
+                               (list (new Dimension
+                                       (gst_discoverer_video_info_get_width stream-info)
+                                       (gst_discoverer_video_info_get_height stream-info))
+                                     (/ (cast <fl> (gst_discoverer_video_info_get_framerate_num stream-info))
+                                        (cast <fl> (gst_discoverer_video_info_get_framerate_denom stream-info)))
+                                     (/ (cast <fl> (gst_discoverer_video_info_get_bitrate stream-info))
+                                        1000.)
+                                     (gst_caps_to_string (gst_discoverer_stream_info_get_caps stream-info)))
+                             (loop (gst_discoverer_stream_info_list_next streams))))))
+                (gst_discoverer_stream_info_list_free streams)))
+          #f)))))
+
+
+(definition public (discover-image file)
+  (with-unref ((discoverer (gst_discoverer_new)))
+    (with-unref ((discoverer-info (gst_discoverer_discover_uri discoverer (format "file://{a}" (parse file)))))
+      (let ((stream-info (gst_discoverer_info_get_stream_info discoverer-info)))
+        (if (= (G_OBJECT_TYPE stream-info) GST_TYPE_DISCOVERER_VIDEO_INFO)
+            (list (new Dimension
+                    (gst_discoverer_video_info_get_width stream-info)
+                    (gst_discoverer_video_info_get_height stream-info))
+                  (gst_caps_to_string (gst_discoverer_stream_info_get_caps stream-info)))
+          #f))))))

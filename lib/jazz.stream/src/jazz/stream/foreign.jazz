@@ -96,6 +96,8 @@
 (c-type GObject* (pointer GObject #f))
 (c-type GThread  (native "GThread"))
 (c-type GThread* (pointer GThread GThread*))
+(c-type GList    (native "GList"))
+(c-type GList*   (pointer GList GList*))
 
 
 (c-enumerant G_TYPE_BOOLEAN)
@@ -171,6 +173,8 @@ static double g_object_get_double(GObject* obj, char* name)
 (c-external (g_object_get_double (call G_OBJECT GObject*) char-string) double "g_object_get_double")
 (c-external (g_object_set_double (call G_OBJECT GObject*) char-string double NULL) void "g_object_set")
 (c-external (g_object_set_string (call G_OBJECT GObject*) char-string char-string NULL) void "g_object_set")
+(c-external (G_OBJECT_TYPE (call G_OBJECT GObject*)) uint64)
+;; (c-external (G_OBJECT_TYPE_NAME (call G_OBJECT GObject*)) char-string)
 
 
 ;;;
@@ -198,6 +202,9 @@ static double g_object_get_double(GObject* obj, char* name)
 (c-enumerant GST_PAD_UNKNOWN)
 (c-enumerant GST_PAD_SRC)
 (c-enumerant GST_PAD_SINK)
+(c-enumerant GST_TYPE_DISCOVERER_CONTAINER_INFO)
+(c-enumerant GST_TYPE_DISCOVERER_AUDIO_INFO)
+(c-enumerant GST_TYPE_DISCOVERER_VIDEO_INFO)
 
 
 (c-type GstClockTime         uint64)
@@ -526,11 +533,14 @@ static GstDiscovererInfo* gst_discoverer_discover_uri_aux(GstDiscoverer* disc, c
     return info;
 }
 
-static int gst_discoverer_video_info_get_width_aux(GstDiscovererInfo* info)
+static GstDiscovererStreamInfo* gst_discoverer_stream_info_list_data(GList* list)
 {
-    GstDiscovererVideoInfo* video_info = (GstDiscovererVideoInfo*) info;
-  
-    return gst_discoverer_video_info_get_width(video_info);
+    return (GstDiscovererStreamInfo *) list->data;
+}
+
+static GList* gst_discoverer_stream_info_list_next(GList* list)
+{
+    return list->next;
 }
 
 static void gst_print_error(GstMessage *msg)
@@ -1410,9 +1420,19 @@ static void free_denoiser(void* data)
 (gst-external (gst_discoverer_discover_uri GstDiscoverer* char-string) GstDiscovererInfo* "gst_discoverer_discover_uri_aux")
 (gst-external (gst_discoverer_info_get_duration GstDiscovererInfo*) GstClockTime)
 (gst-external (gst_discoverer_info_get_stream_info GstDiscovererInfo*) GstDiscovererStreamInfo*)
+(gst-external (gst_discoverer_stream_info_get_caps GstDiscovererStreamInfo*) GstCaps*)
+(gst-external (gst_discoverer_container_info_get_streams (call GST_DISCOVERER_CONTAINER_INFO GstDiscovererStreamInfo*)) GList*)
+(gst-external (gst_discoverer_stream_info_list_data GList*) GstDiscovererStreamInfo*)
+(gst-external (gst_discoverer_stream_info_list_next GList*) GList*)
+(gst-external (gst_discoverer_stream_info_list_free GList*) void)
+(gst-external (gst_discoverer_audio_info_get_bitrate (call GST_DISCOVERER_AUDIO_INFO GstDiscovererStreamInfo*)) int)
+(gst-external (gst_discoverer_audio_info_get_sample_rate (call GST_DISCOVERER_AUDIO_INFO GstDiscovererStreamInfo*)) int)
+(gst-external (gst_discoverer_audio_info_get_channels (call GST_DISCOVERER_AUDIO_INFO GstDiscovererStreamInfo*)) int)
 (gst-external (gst_discoverer_video_info_get_width (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
 (gst-external (gst_discoverer_video_info_get_height (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
-(gst-external (gst_discoverer_video_info_get_depth (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
+(gst-external (gst_discoverer_video_info_get_bitrate (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
+(gst-external (gst_discoverer_video_info_get_framerate_num (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
+(gst-external (gst_discoverer_video_info_get_framerate_denom (call GST_DISCOVERER_VIDEO_INFO GstDiscovererStreamInfo*)) int)
 (gst-external (gst_present_time GstClockTime) double "present_time")
 (gst-external (gst_print_pipeline (call GST_PIPELINE GstElement*)) void)
 (gst-external (gst_print_pad GstElement* char-string) void)

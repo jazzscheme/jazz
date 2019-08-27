@@ -310,7 +310,7 @@
 ;; info="$(./jaz -l info)"
 ;; message="`echo -e "$header\\n\\n$info"`"
 
-(definition public (deploy-application descriptor installation-directory (make: make #f) (install: install #f))
+(definition public (deploy-application descriptor installation-directory (make: make #f) (install: install #f) (commit-message: commit-message #f))
   (let ((jazz (string-append kernel-install "jazz"))
         (name (product-descriptor-name descriptor)))
     (let ((make (or make name))
@@ -329,12 +329,13 @@
           arguments: `("-install"
                        ,(symbol->string install))))
       (feedback "")
-      (deploy-directory name installation-directory))))
+      (deploy-directory name installation-directory commit-message: commit-message))))
 
 
-(definition public (deploy-directory name dir)
+(definition public (deploy-directory name dir (commit-message: commit-message #f))
   (feedback "Deploying {a}" name)
-  (let ((dirname (parse dir)))
+  (let ((dirname (parse dir))
+        (commit-message (or commit-message "Update")))
     (call-process
       (list
         path: "git"
@@ -343,7 +344,7 @@
     (call-process
       (list
         path: "git"
-        arguments: `("commit" "-a" "-m" "Update" "--allow-empty")
+        arguments: `("commit" "-a" "-m" ,commit-message "--allow-empty")
         directory: dirname))
     (call-process
       (list

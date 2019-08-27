@@ -19,7 +19,8 @@
         (jazz.platform)
         (jazz.platform.types)
         (jazz.platform.types-syntax (phase syntax))
-        (jazz.syntax (phase syntax)))
+        (jazz.syntax (phase syntax))
+        (jazz.time))
 
 
 (cond-expand
@@ -934,21 +935,21 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 ;;;
 
 
-@warnings (git-external (git-commit-author git_commit*) git_signature* "git_commit_author")
+(git-external (git-commit-author git_commit*) git_signature* "git_commit_author")
 @warnings (git-external (git-commit-committer git_commit*) git_signature* "git_commit_committer")
 @warnings (git-external (git-commit-create git_oid* git_repository* char-string git_signature* git_signature* char-string char-string git_tree* int git_commit**) :error "git_commit_create")
 (git-external (git-commit-create-v git_oid* git_repository* char-string git_signature* git_signature* char-string char-string git_tree* int) :error "git_commit_create_v")
 (git-external (git-commit-free git_commit*) void "git_commit_free")
-@warnings (git-external (git-commit-id git_commit*) git_oid* "git_commit_id")
+(git-external (git-commit-id git_commit*) git_oid* "git_commit_id")
 (git-external (git-commit-lookup (out git_commit*) git_repository* git_oid*) :lookup "git_commit_lookup")
 (git-external (git-commit-lookup-prefix (out git_commit*) git_repository* git_oid* size_t) :lookup "git_commit_lookup_prefix")
-@warnings (git-external (git-commit-message git_commit*) char-string "git_commit_message")
+(git-external (git-commit-message git_commit*) char-string "git_commit_message")
 @warnings (git-external (git-commit-message-encoding git_commit*) char-string "git_commit_message_encoding")
 (git-external (git-commit-owner git_commit*) git_repository* "git_commit_owner")
 (git-external (git-commit-parent (out git_commit*) git_commit* uint) :error "git_commit_parent")
 @warnings (git-external (git-commit-parent-id git_commit* uint) git_oid* "git_commit_parent_id")
 (git-external (git-commit-parentcount git_commit*) uint "git_commit_parentcount")
-(git-external (git-commit-time git_commit*) git_time_t "git_commit_time")
+(git-external (git-commit-time git_commit*) int @wait git_time_t "git_commit_time")
 (git-external (git-commit-time-offset git_commit*) int "git_commit_time_offset")
 (git-external (git-commit-tree (out git_tree*) git_commit*) :error "git_commit_tree")
 @warnings (git-external (git-commit-tree-id git_commit*) git_oid* "git_commit_tree_id")
@@ -1378,7 +1379,7 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
 @convert (git-external (git-reference-rename (out git_reference*) git_reference* char-string int) :error "git_reference_rename")
 (git-external (git-reference-resolve (out git_reference*) git_reference*) :error "git_reference_resolve")
 @convert (git-external (git-reference-set-target (out git_reference*) git_reference* git_oid*) :error "git_reference_set_target")
-@warnings (git-external (git-reference-target git_reference*) git_oid* "git_reference_target")
+(git-external (git-reference-target git_reference*) git_oid* "git_reference_target")
 (git-external (git-reference-type git_reference*) git_ref_t "git_reference_type")
 
 
@@ -1738,6 +1739,35 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
           (proc repo))
       (when repo
         (git-repository-free repo)))))
+   
+   
+(definition protected (with-repository-head-commit dir proc)
+  (with-repository dir
+    (lambda (repo)
+      (let ((head (git-repository-head repo)))
+        (let ((name (git-reference-name head))
+              (target (git-reference-target head)))
+          (let ((commit (git-commit-lookup repo target)))
+            (prog1 (proc commit)
+              (git-commit-free commit)
+              (git-reference-free head))))))))
+
+
+(definition public (repository-head-info dir)
+  (with-repository-head-commit dir
+    (lambda (commit)
+      (let ((digest (git-id->string (git-commit-id commit)))
+            (author (git_signature-name-ref (git-commit-author commit)))
+            (email (git_signature-email-ref (git-commit-author commit)))
+            (date (time-utc->date (seconds->time (git-commit-time commit))))
+            (message (git-commit-message commit)))
+        (values digest author email date message)))))
+
+
+(definition public (repository-head-digest dir)
+  (with-repository-head-commit dir
+    (lambda (commit)
+      (git-id->string (git-commit-id commit)))))
 
 
 ;;;

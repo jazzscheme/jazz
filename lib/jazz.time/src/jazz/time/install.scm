@@ -38,5 +38,5 @@
 (unit jazz.time.install
 
 
-(jazz:define-literal Date time:construct-date)
-(jazz:define-literal Time time:construct-time))
+(jazz:define-literal Date jazz.time:construct-date)
+(jazz:define-literal Time jazz.time:construct-time))

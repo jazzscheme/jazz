@@ -72,6 +72,8 @@
 (native put-u16)
 (native scan-s32)
 (native put-s32)
+(native scan-u32)
+(native put-u32)
 (native scan-s32-big-endian)
 (native put-s32-big-endian)
 (native scan-u32-big-endian)

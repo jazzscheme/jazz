@@ -205,6 +205,17 @@
     str))
 
 
+;; hack around some antivirus like avast and avg
+;; returning sometimes an evo-gen false positive
+(define (jazz:wrap-antivirus-hack-around manifest-name str)
+  (if (cond-expand
+        (windows (or (eq? manifest-name 'jazz.platform.windows.WinUser)
+                     (eq? manifest-name 'jazz.ui.view.Tab-View)))
+        (else #f))
+      (string-append "-Os " str)
+    str))
+
+
 (define jazz:custom-cc-path
   (let ((cache (make-table test: eq?)))
     (lambda (custom-cc)
@@ -256,7 +267,7 @@
 (define (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (output-language #f) (options #f) (custom-cc #f) (cc-options #f) (ld-options #f) (rpaths #f) (skip-references? #f) (force? #f))
   (let ((references-valid? (or skip-references? (and (or obj-uptodate? bin-uptodate?) (jazz:manifest-references-valid? (or obj bin))))))
     (let ((options (or options jazz:compile-options))
-          (cc-options (jazz:wrap-single-host-cc-options (jazz:wrap-no-optimize-cc-options (or cc-options ""))))
+          (cc-options (jazz:wrap-single-host-cc-options (jazz:wrap-no-optimize-cc-options (jazz:wrap-antivirus-hack-around manifest-name (or cc-options "")))))
           (ld-options (or ld-options ""))
           (update-obj? (or force? (not obj-uptodate?) (not references-valid?)))
           (update-bin? (or force? (not bin-uptodate?) (not references-valid?))))

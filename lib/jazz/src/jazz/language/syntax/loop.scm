@@ -352,8 +352,8 @@
              (let ((for (unique "for")))
                (add-variable for '<Object> lst)
                (add-test `(not (null? ,for)))
-               (add-binding keyword `(car ,for))
-               (add-binding value `(cadr ,for))
+               (add-binding keyword '<Object> `(car ,for))
+               (add-binding value '<Object> `(cadr ,for))
                (add-iteration for `(cddr ,for))))))
         ((from)
          (bind (from . rest) rest

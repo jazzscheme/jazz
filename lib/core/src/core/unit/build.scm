@@ -208,12 +208,15 @@
 ;; hack around some antivirus like avast and avg
 ;; returning sometimes an evo-gen false positive
 (define (jazz:wrap-antivirus-hack-around manifest-name str)
-  (if (cond-expand
-        (windows (or (eq? manifest-name 'jazz.platform.windows.WinUser)
-                     (eq? manifest-name 'jazz.ui.view.Tab-View)))
-        (else #f))
-      (string-append "-Os " str)
-    str))
+  (cond-expand
+    (windows (case manifest-name
+               ((jazz.platform.windows.WinUser)
+                (string-append "-O0 " str))
+               ((jazz.ui.view.Tab-View)
+                (string-append "-Os " str))
+               (else
+                str)))
+    (else str)))
 
 
 (define jazz:custom-cc-path

@@ -172,15 +172,24 @@
 ;;;
 
 
+;; make exit overridable as a temporary hack around
+;; libgit2 corrupting exiting process on some windows
+(define jazz:_exit
+  ##exit)
+
+(define (jazz:_exit-set! proc)
+  (set! jazz:_exit proc))
+
+
 (define (jazz:exit #!optional (status 0))
   (jazz:check-fixnum status 1 (jazz:exit status)
-    (##exit status)))
+    (jazz:_exit status)))
 
 (define (jazz:exit-no-jobs #!optional (status 1))
   (jazz:check-fixnum status 1 (jazz:exit-no-jobs status)
     (begin
       (##clear-exit-jobs!)
-      (##exit status))))
+      (jazz:_exit status))))
 
 (define (jazz:exit-cleanup)
   (##exit-cleanup))

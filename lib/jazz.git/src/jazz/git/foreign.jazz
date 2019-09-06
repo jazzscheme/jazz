@@ -1985,6 +1985,27 @@ static int status_foreach_cb(const char *path, unsigned int status_flags, void *
 ;;;
 
 
+;; - work around a bug where quit on some versions
+;;   of windows will abort with the following dialog
+;;   "This application has requested the Runtime to
+;;   terminate it in an unusual way"
+;; - the bug only happens when we call git-libgit2-init
+;; - from reading on the net I think the bug is due to
+;;   some dll fuck up that occurs because libgit2 was
+;;   compiled using mingw-w64 (the 32bit version) to run
+;;   under mingw and this also makes it almost impossible
+;;   to fix in any clean way (for example calling _exit
+;;   to bypass cleanup code doesn't fix the problem)
+(cond-expand
+  (windows
+   (let ((terminate-process
+           (lambda ()
+             (TerminateProcess (GetCurrentProcess) 0))))
+     (_exit-set! terminate-process)
+     (quit-set! terminate-process)))
+  (else))
+
+
 (git-libgit2-init))
   
   (else)))

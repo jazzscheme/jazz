@@ -214,6 +214,8 @@
                 (string-append "-O0 " str))
                ((jazz.ui.view.Tab-View)
                 (string-append "-Os " str))
+               ((jazz.project.project.Project)
+                (string-append "-Os " str))
                (else
                 str)))
     (else str)))

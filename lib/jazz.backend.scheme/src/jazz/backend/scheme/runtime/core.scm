@@ -638,15 +638,16 @@
 
 (cond-expand
   (windows
-   (define (jazz:controlling-terminal?)
+   (define (jazz:terminal-available?)
+     ;; terminal is always available on windows
      #t))
   (else
-   (define jazz:cached-controlling-terminal?
+   (define jazz:cached-unix-controlling-terminal?
      (jazz:unspecified))
    
-   (define (jazz:controlling-terminal?)
-     (if (jazz:unspecified? jazz:cached-controlling-terminal?)
-         (set! jazz:cached-controlling-terminal?
+   (define (jazz:unix-controlling-terminal?)
+     (if (jazz:unspecified? jazz:cached-unix-controlling-terminal?)
+         (set! jazz:cached-unix-controlling-terminal?
                (jazz:catch-exception-filter
                  os-exception?
                  (lambda (exception)
@@ -654,7 +655,10 @@
                  (lambda ()
                    (close-port (open-file "/dev/tty"))
                    #t))))
-     jazz:cached-controlling-terminal?)))
+     jazz:cached-unix-controlling-terminal?)
+   
+   (define (jazz:terminal-available?)
+     (jazz:unix-controlling-terminal?))))
 
 
 ;;;

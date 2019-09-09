@@ -345,6 +345,21 @@ ___EXT(___release_scmobj)(dst); }
 
 
 ;;;
+;;;; Cocoa NSRunningApplication
+;;;
+
+
+(c-type NSRunningApplication "NSRunningApplication")
+(c-type NSRunningApplication* (pointer NSRunningApplication))
+
+
+(c-external (id->nsrunningapplication id) :alloc NSRunningApplication*
+  #/Objective-C/
+  ___return(retain_id((id) ___arg1));
+  //#)
+
+
+;;;
 ;;;; Cocoa NSCursor
 ;;;
 
@@ -3860,6 +3875,30 @@ void platformPlaySound(char* filename, double volume)
 }
 
 
+NSArray* platformRunningApplications()
+{
+    return [[NSWorkspace sharedWorkspace] runningApplications];
+}
+
+
+NSString* platformRunningApplicationProcessIdentifier(NSRunningApplication* app)
+{
+    return [app processIdentifier];
+}
+
+
+NSString* platformRunningApplicationLocalizedName(NSRunningApplication* app)
+{
+    return [app localizedName];
+}
+
+
+NSString* platformRunningApplicationExecutableURL(NSRunningApplication* app)
+{
+    return [[app executableURL] absoluteString];
+}
+
+
 bool platformTerminateApplication(int pid)
 {
     NSRunningApplication* app = [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
@@ -3961,6 +4000,10 @@ bool platformTerminateApplication(int pid)
 (c-external (platformBell) void)
 (c-external (platformSystemSound char-string double) void)
 (c-external (platformPlaySound char-string double) void)
+(c-external (platformRunningApplications) NSArray*)
+(c-external (platformRunningApplicationProcessIdentifier NSRunningApplication*) int)
+(c-external (platformRunningApplicationLocalizedName NSRunningApplication*) NSString*)
+(c-external (platformRunningApplicationExecutableURL NSRunningApplication*) NSString*)
 (c-external (platformTerminateApplication int) bool)
 
 
@@ -4285,7 +4328,15 @@ bool platformTerminateApplication(int pid)
 
 
 (definition public (collect-processes-info)
-  '())
+  (let ((info-table (make-table))
+        (apps (map id->nsrunningapplication (nsarray->list (platformRunningApplications)))))
+    (for-each (lambda (app)
+                (let ((id (platformRunningApplicationProcessIdentifier app))
+                      (name (platformRunningApplicationLocalizedName app))
+                      (exe (platformRunningApplicationExecutableURL app)))
+                  (table-set! info-table id (list id name exe))))
+              apps)
+    info-table))
 
 
 ;;;

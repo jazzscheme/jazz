@@ -213,14 +213,28 @@
 ;;;
 
 
-(definition protected (process-already-running? target-name target-exe-suffix)
-  (let ((pid (current-process-id)))
-    (table-search (lambda (key info)
-                    (bind (id name exe) info
-                      (and (/= id pid)
-                           (equal? name target-name)
-                           (ends-with? exe target-exe-suffix))))
-                  (collect-processes-info))))
+(definition protected (process-already-running?)
+  (let ((pid (current-process-id))
+        (info-table (collect-processes-info)))
+    (let ((my-info (table-ref info-table pid #f)))
+      ;; this is probably not necessary and
+      ;; also covers unix not implemented yet
+      (and my-info
+           (bind (my-id my-name my-exe) my-info
+             (table-search (lambda (key info)
+                             (bind (id name exe) info
+                               (and (/= id my-id)
+                                    (equal? name my-name)
+                                    (equal? exe my-exe))))
+                           info-table))))))
+
+
+;;;
+;;;; Prime
+;;;
+
+
+(prime-platform)
 
 
 ;;;

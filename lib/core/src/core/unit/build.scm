@@ -210,8 +210,6 @@
 (define (jazz:wrap-antivirus-hack-around manifest-name str)
   (cond-expand
     (windows (case manifest-name
-               ((jazz.platform.windows.WinUser)
-                (string-append "-O0 " str))
                ((jazz.ui.view.Tab-View)
                 (string-append "-Os " str))
                ((jazz.project.project.Project)

@@ -1,0 +1,200 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Windows User1
+;;;
+
+
+;; this arbitrary splitting of User into User
+;; and User1 is a work around TotalAV returning
+;; a false positive on User.o1
+
+
+(module protected jazz.platform.windows.User1 jazz
+
+
+(import (jazz.foreign)
+        (jazz.platform.types)
+        (jazz.platform.windows.Types)
+        (jazz.platform.windows.Def))
+
+
+(c-structure (MONITORINFO1 "MONITORINFO")
+  (DWORD cbSize)
+  (RECT rcMonitor)
+  (RECT rcWork)
+  (DWORD dwFlags))
+
+
+(c-structure (LASTINPUTINFO1 "LASTINPUTINFO")
+  (UINT cbSize)
+  (DWORD dwTime))
+
+
+(c-type PLASTINPUTINFO1 LASTINPUTINFO1*)
+
+
+(c-external (OpenClipboard              HWND) BOOL)
+(c-external (CloseClipboard) BOOL)
+(c-external (EmptyClipboard) BOOL)
+(c-external (RegisterClipboardFormat    LPCWSTR) INT                                                                     "RegisterClipboardFormatW")
+(c-external (EnumClipboardFormats       INT) INT)
+(c-external (SystemParametersInfo       INT INT LPRECT INT) BOOL)
+(c-external (GetDC                      HWND) :alloc HDC)
+(c-external (ReleaseDC                  HWND HDC) (:free 2) INT)
+(c-external (GetGuiResources            HANDLE DWORD) DWORD)
+(c-external (GetLastInputInfo           PLASTINPUTINFO1) BOOL)
+(c-external (GetTickCount) DWORD)
+
+
+(c-callable (WindowFromPoint LPPOINT) HWND
+  #/C/
+    ___return(WindowFromPoint(*___arg1));
+//#)
+
+
+(c-external (ChildWindowFromPointEx HWND LPPOINT UINT) HWND
+  #/C/
+    ___return(ChildWindowFromPointEx( ___arg1, *(___arg2), ___arg3 ));
+//#)
+
+
+(c-external (LoadCursorInt WORD) HCURSOR
+  #/C/
+    ___return(LoadImage(NULL,MAKEINTRESOURCE(___arg1),IMAGE_CURSOR,0,0,LR_SHARED));
+//#)
+
+
+(c-external (GetClipboardText UINT) scheme-object
+  #/C/
+    ___SCMOBJ r = ___FIX(___UNKNOWN_ERR);
+     HGLOBAL global_copy = GetClipboardData (___arg1);
+
+     if (global_copy != NULL)
+     {
+         ___U16 *locked_copy = GlobalLock (global_copy);
+
+         if (locked_copy != NULL)
+         {
+             int i;
+             ___U16 *vec;
+             int len = 0;
+
+             while (locked_copy[len] != 0)
+                 len++;
+
+             r = ___EXT(___alloc_scmobj) (___ps, ___sU8VECTOR, len * sizeof (___U16));
+             
+             if (___FIXNUMP(r))
+                 r = ___FIX(___HEAP_OVERFLOW_ERR);
+             else
+             {
+                 vec = ___CAST(___U16*, ___BODY_AS(r, ___tSUBTYPED));
+
+                 while (len-- > 0)
+                     vec[len] = locked_copy[len];
+             }
+             GlobalUnlock (locked_copy);
+         }
+     }
+     ___return(r);
+//#)
+
+
+(c-external (SetClipboardText scheme-object UINT) void
+  #/C/
+    int len = (___INT(___U8VECTORLENGTH(___arg1))/2) - 1;
+     ___U16 *vec = ___CAST(___U16*, ___BODY_AS(___arg1, ___tSUBTYPED)) + 1;
+     HGLOBAL global_copy = GlobalAlloc (GMEM_MOVEABLE, (len+1) * sizeof(___U16));
+
+     if (global_copy != NULL)
+     {
+         ___U16 *locked_copy = GlobalLock (global_copy);
+
+         if (locked_copy == NULL)
+             GlobalFree (global_copy);
+         else
+         {
+             int i;
+
+             for (i=0; i<len; i++)
+                 locked_copy[i] = vec[i];
+             locked_copy[len] = 0;
+
+             GlobalUnlock (global_copy);
+  
+             EmptyClipboard ();
+
+             if (!SetClipboardData (___arg2, global_copy))
+                 GlobalFree (global_copy);
+         }
+     }
+//#)
+
+
+;;;
+;;;; Timezone
+;;;
+
+
+(c-external (get-timezone-offset) LONG
+  #/C/
+    TIME_ZONE_INFORMATION tzi;
+    DWORD result = GetTimeZoneInformation(&tzi);
+    switch (result)
+    {
+    case TIME_ZONE_ID_UNKNOWN:
+    case TIME_ZONE_ID_STANDARD:
+      ___return(tzi.Bias * -60);
+      break;
+    case TIME_ZONE_ID_DAYLIGHT:
+      ___return((tzi.Bias + tzi.DaylightBias) * -60);
+      break;
+    case TIME_ZONE_ID_INVALID:
+    default:
+      ___return(0);
+    }
+//#)
+
+
+;;;
+;;;; Windows
+;;;
+
+
+(c-external (convert-HINSTANCE UINT) HINSTANCE
+  #/C/
+    ___return((void*)___arg1);
+//#)
+
+
+(definition process-hwnd-message
+  #f)
+
+(definition package (set-process-hwnd-message proc)
+  (set! process-hwnd-message proc))
+
+
+(c-callback (call-process-hwnd-message hwnd umsg wparam lparam) (HWND UINT WPARAM LPARAM) LRESULT "windowproc" "static"
+    0
+  (process-hwnd-message hwnd umsg wparam lparam))
+
+
+;;;
+;;;; Monitors
+;;;
+
+
+(c-type HMONITOR        (pointer VOID handle))
+(c-type MONITORENUMPROC (function (HMONITOR HDC LPRECT LPARAM) BOOL))
+
+
+(c-external (EnumDisplayMonitors HDC LPRECT MONITORENUMPROC LPARAM) BOOL)
+(c-external (MonitorFromWindow   HWND DWORD) HMONITOR)
+(c-external (GetMonitorInfo      HMONITOR MONITORINFO1*) BOOL)
+
+
+(c-definition (enum-monitors-proc monitor dc rect data) (HMONITOR HDC LPRECT LPARAM) BOOL "enum_monitors_proc" ""
+  (enqueue (serial->object data) monitor)
+  1))

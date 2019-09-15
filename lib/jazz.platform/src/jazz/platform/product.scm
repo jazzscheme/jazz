@@ -75,6 +75,7 @@
       (jazz.platform.windows.IDL      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.MM       cc-options: ,base-windows-cc-options ld-options: "-mwindows -lwinmm")
       (jazz.platform.windows.User     cc-options: ,base-windows-cc-options ld-options: "-mwindows")
+      (jazz.platform.windows.User1    cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.Shell    cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.Ctrl     cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.Dlg      cc-options: ,base-windows-cc-options ld-options: "-mwindows")

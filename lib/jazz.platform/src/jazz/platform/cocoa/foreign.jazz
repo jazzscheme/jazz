@@ -745,7 +745,7 @@ int platformGetError();
 const char* platformErrorString(int error);
 
 // Window handling
-PlatformWindow* platformCreateWindow(int width, int height, int mode, int kind, const char* title, bool closable, bool miniaturizable, bool resizable, bool opengl);
+PlatformWindow* platformCreateWindow(int width, int height, int mode, int kind, const char* title, bool closable, bool miniaturizable, bool resizable, bool opengl, bool retina);
 void platformDestroyWindow(PlatformWindow* window);
 void platformGetWindowSize(PlatformWindow* window, int* width, int* height);
 void platformIconifyWindow(PlatformWindow* window);
@@ -810,6 +810,7 @@ struct PlatformWindowConfig
     GLboolean       closable;
     GLboolean       miniaturizable;
     GLboolean       resizable;
+    GLboolean       retina;
     GLboolean       visible;
     int             clientAPI;
     int             glMajor;
@@ -2231,7 +2232,9 @@ static GLboolean createWindow(PlatformWindow* window,
 
     [window->object setPlatformWindow:window];
     window->view = [[JazzContentView alloc] initWithPlatformWindow:window];
-    [window->view setWantsBestResolutionOpenGLSurface:YES];
+    
+    if (wndconfig->retina)
+        [window->view setWantsBestResolutionOpenGLSurface:YES];
 
     [window->object setTitle:[NSString stringWithUTF8String:wndconfig->title]];
     [window->object setContentView:window->view];
@@ -2973,7 +2976,7 @@ void platformInputWindowVisibility(PlatformWindow* window, int visible)
 
 PlatformWindow* platformCreateWindow(int width, int height,
                                      int mode, int kind, const char* title,
-                                     bool closable, bool miniaturizable, bool resizable, bool opengl)
+                                     bool closable, bool miniaturizable, bool resizable, bool opengl, bool retina)
 {
     initializeAppKit();
 
@@ -3004,6 +3007,7 @@ PlatformWindow* platformCreateWindow(int width, int height,
     wndconfig.closable       = closable;
     wndconfig.miniaturizable = miniaturizable;
     wndconfig.resizable      = resizable;
+    wndconfig.retina         = retina;
     wndconfig.visible        = GL_FALSE;
     wndconfig.clientAPI      = PLATFORM_OPENGL_API;
     wndconfig.glMajor        = 3;
@@ -3930,7 +3934,7 @@ bool platformTerminateApplication(int pid)
 (platform-external (platformGetWindowScreenFrameHeight platformwindow) double)
 (platform-external (platformGetScreenFrameRect NSScreen* NSRect*) void)
 (platform-external (platformGetScreenContentRect NSScreen* NSRect*) void)
-(c-callable (platformCreateWindow int int int int char-string bool bool bool bool) platformwindow)
+(c-callable (platformCreateWindow int int int int char-string bool bool bool bool bool) platformwindow)
 (platform-external (platformMakeContextCurrent platformwindow) void)
 (platform-external (platformGetWindowTitle platformwindow) NSString*)
 (platform-external (platformSetWindowTitle platformwindow char-string) void)

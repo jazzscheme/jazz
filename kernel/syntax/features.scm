@@ -49,6 +49,10 @@
     ;; os
     (jazz:feature USE_POSIX)
     (jazz:feature USE_WIN32)
+    ;; threads
+    (jazz:feature ___USE_POSIX_THREAD_SYSTEM)
+    (jazz:feature ___USE_WIN32_THREAD_SYSTEM)
+    (jazz:feature ___USE_NO_THREAD_SYSTEM)
     ;; pumps
     (jazz:feature USE_PUMPS)
     ;; real time

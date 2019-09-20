@@ -39,7 +39,10 @@
 
 
 (define-macro (jazz:feature name)
-  `(if ,name
+  ;; make feature robust to not being defined
+  `(if (and (##global-var? ',name)
+            (##not (##unbound? (##global-var-ref ',name)))
+            (##global-var-ref ',name))
        '(,name)
      '()))
 

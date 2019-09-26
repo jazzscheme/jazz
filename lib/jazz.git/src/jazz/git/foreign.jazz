@@ -36,24 +36,36 @@
 ;;;
 
 
-;; hack around a bug where throwing an exception from
+;; work around a bug where throwing an exception from
 ;; inside a c-definition will crash Gambit miserably
-(definition git-current-error
-  #f)
 
 
-(definition protected (set-git-current-error error)
-  (set! git-current-error error))
+(c-declare git.foreign #/C/
+int git_current_error = 0;
+
+void set_git_current_error(int err)
+{
+    git_current_error = err;
+}
+//#)
 
 
-(definition protected (clear-git-current-error)
-  (set! git-current-error #f))
+(c-external (get-git-current-error) int
+  #/C/
+    ___return(git_current_error);
+//#)
+
+
+(c-external (clear-git-current-error) void
+  #/C/
+    git_current_error = 0;
+//#)
 
 
 (definition protected (check-git-current-error)
-  (when git-current-error
-    (let ((error git-current-error))
-      (set! git-current-error #f)
+  (let ((error (get-git-current-error)))
+    (when (/= error 0)
+      (clear-git-current-error)
       (throw-git-error error))))
 
 
@@ -65,10 +77,6 @@
         #f)))
   
   (throw (new Git-Exception error (error-message))))
-
-
-(definition protected (git-error)
-  (throw-git-error #f))
 
 
 (class Git-Exception extends Exception
@@ -96,23 +104,7 @@
   (method override (get-message self)
     (or message (format "Git exception (#x{x})" code))))
 
-
-(c-definition (git-call-error-handler error) (int) void "git_call_error_handler" ""
-  (handle-git-error error))
-
-
-(definition protected (handle-git-error error)
-  (set-git-current-error error))
-
-
-@wait-hack
-(definition protected (handle-git-error error)
-  (throw (let ((err (giterr-last)))
-           (if err
-               (new Git-Exception error (git-error-message err))
-             (new Git-Exception error #f)))))
-
-
+   
 ;;;
 ;;;; Trace
 ;;;
@@ -616,7 +608,7 @@ void gambit_enable_interrupts()
     int result = git_branch_create(&ref, ___arg1, ___arg2, (const git_commit*) ___arg3, ___arg4);
     if (result != 0)
     {
-        git_call_error_handler(result);
+        set_git_current_error(result);
         ___return(NULL);
     }
     else
@@ -839,7 +831,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
     options.checkout_strategy = GIT_CHECKOUT_FORCE;
     int result = git_checkout_head(___arg1, &options);
     if (result != 0)
-        git_call_error_handler(result);
+        set_git_current_error(result);
 //#)
 
 
@@ -868,7 +860,10 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
         if (result == 0)
             post_notification(GIT_DONE, fd);
         else
+        {
+            set_git_current_error(result);
             post_notification(GIT_ERROR, fd);
+        }
         return 0;
     }
 //#)
@@ -899,7 +894,10 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
         if (result == 0)
             post_notification(GIT_DONE, fd);
         else
+        {
+            set_git_current_error(result);
             post_notification(GIT_ERROR, fd);
+        }
         return 0;
     }
 //#)
@@ -997,7 +995,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
     gambit_enable_interrupts();
     if (result != 0)
     {
-        git_call_error_handler(result);
+        set_git_current_error(result);
         ___return(NULL);
     }
     else
@@ -1055,7 +1053,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
     int result = git_graph_ahead_behind(&ahead, &behind, ___arg1, ___arg2, ___arg3);
     if (result != 0)
     {
-        git_call_error_handler(result);
+        set_git_current_error(result);
         ___return(___FAL);
     }
     else
@@ -1389,7 +1387,7 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
     int result = git_reference_name_to_id(oid, ___arg1, ___arg2);
     if (result != 0)
     {
-        git_call_error_handler(result);
+        set_git_current_error(result);
         ___return(NULL);
     }
     else
@@ -1594,7 +1592,10 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
         if (result == 0)
             post_notification(GIT_DONE, fd);
         else
+        {
+            set_git_current_error(result);
             post_notification(GIT_ERROR, fd);
+        }
         
         return 0;
     }
@@ -1628,7 +1629,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
     gambit_enable_interrupts();
     
     if (result != 0)
-        git_call_error_handler(result);
+        set_git_current_error(result);
 //#)
 
 
@@ -1638,7 +1639,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
     int result = git_remote_fetch(___arg1, NULL, NULL, NULL);
     gambit_enable_interrupts();
     if (result != 0)
-        git_call_error_handler(result);
+        set_git_current_error(result);
 //#)
 
 (c-definition (remote-download-procedure callbacks total_objects indexed_objects received_objects received_bytes) (scheme-object unsigned-int unsigned-int unsigned-int unsigned-int) void "remote_download_procedure" ""
@@ -1672,7 +1673,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
   #/C/
     int result = git_remote_download(___arg1, NULL);
     if (result != 0)
-        git_call_error_handler(result);
+        set_git_current_error(result);
 //#)
 
 

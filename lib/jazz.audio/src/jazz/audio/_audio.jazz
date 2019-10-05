@@ -91,15 +91,36 @@
 
 
 ;;;
-;;;; Sound
+;;;; Audible
 ;;;
 
 
-(definition public (new-sound file)
-  (new Sound file))
+(class Audible extends Object
+  
+  
+  (method public virtual abstract (play self)
+    )
+  
+  (method public virtual abstract (rewind self)
+    )
+  
+  (method public virtual abstract (get-volume self)
+    )
+  
+  (method public virtual abstract (set-volume self vol)
+    ))
 
 
-(class Sound extends Object
+;;;
+;;;; Song
+;;;
+
+
+(definition public (new-song file)
+  (new Song file))
+
+
+(class Song extends Audible
   
   
   (slot file     initialize #f getter generate)
@@ -134,7 +155,7 @@
     (nextmethod self))
   
   
-  (method public (play self)
+  (method override (play self)
     (when audio?
       (gst_element_set_state pipeline GST_STATE_PLAYING)))
 
@@ -154,7 +175,7 @@
       (gst_element_set_state pipeline GST_STATE_PLAYING)))
   
   
-  (method public (rewind self)
+  (method override (rewind self)
     (when audio?
       (when (playing? self)
         (gst_element_seek_simple pipeline GST_FORMAT_TIME GST_SEEK_FLAG_FLUSH 0))))
@@ -188,14 +209,14 @@
         (g_object_set_boolean volume "mute" #f))))
   
   
-  (method public (get-volume self)
+  (method override (get-volume self)
     (if audio?
         (with-unref ((volume (gst_bin_get_by_name pipeline "volume")))
           (g_object_get_double volume "volume"))
       1.))
   
   
-  (method public (set-volume self vol)
+  (method override (set-volume self vol)
     (when audio?
       (with-unref ((volume (gst_bin_get_by_name pipeline "volume")))
         (g_object_set_double volume "volume" vol))))

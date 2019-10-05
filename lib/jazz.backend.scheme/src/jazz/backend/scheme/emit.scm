@@ -276,8 +276,8 @@
                   `((define (,method-locator ,@signature-emit)
                       ,@(jazz:add-signature-casts signature-casts body-emit)))
                 (if (eq? abstraction 'abstract)
-                    `((define (,method-locator . rest)
-                        (jazz:call-into-abstract ',class-locator ',name rest)))
+                    `((define (,method-locator self . rest)
+                        (jazz:call-into-abstract ',class-locator ',name self rest)))
                   '()))
             (define ,method-rank-locator
               (,add-method-proc ,class-locator ',name

@@ -100,11 +100,13 @@
 
 (definition public (open-stream-listener (name #f))
   (cond (listener-sockets?
-         (mutex-lock! socket-server-mutex)
-         (prog1 (let ((file (listener_socket_open socket-server-address socket-server-service)))
-                  (let ((port (read socket-server-port)))
-                    (new Stream-Listener #f file port)))
-           (mutex-unlock! socket-server-mutex)))
+         (if (not socket-server-service)
+             (error "Socket server not started")
+           (mutex-lock! socket-server-mutex)
+           (prog1 (let ((file (listener_socket_open socket-server-address socket-server-service)))
+                    (let ((port (read socket-server-port)))
+                      (new Stream-Listener #f file port)))
+             (mutex-unlock! socket-server-mutex))))
         (else
          (create-directories fifo-directory)
          (let (iterate (no (next-fifo-no!)))

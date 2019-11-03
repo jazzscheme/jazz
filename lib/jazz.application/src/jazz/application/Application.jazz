@@ -1415,6 +1415,7 @@
     (register-nickname :focus       (lambda () (active-focus)))
     (register-nickname :focus-host  (lambda () (focused-host)))
     (register-nickname :focus-guest (lambda () (focused-guest)))
+    (register-nickname :icons       (lambda () (get-icons-portfolio self)))
     (register-nickname :images      (lambda () (get-images-portfolio self)))
     (register-nickname :bindings    (lambda () (current-bindings))))
   
@@ -1782,19 +1783,35 @@
   ;;;
   
   
-  (method public (get-resource self type name)
+  (method public virtual (get-resource self type name)
     (case type
       ((image) (new-file (resources-dir self) (list "images" (format "{a}.png" name))))
       ((cursor) (new-file (resources-dir self) (cond-expand
                                                  (cocoa (list "cursors" name "cursor.pdf"))
                                                  (windows (list "cursors" (format "{a}.cur" name)))
-                                                 (else (error "Custom cursors not supported on this platform")))))))
+                                                 (else (error "Custom cursors not supported on this platform")))))
+      (else (error "Unknown resource type: {s}" type))))
   
   
   (method protected virtual (resources-dir self)
     (if (is-alias? 'Jazz)
         {Directory Jazz "lib" "jazz.resources" "resources"}
       {Directory Libraries "lib" "jazz.resources" "resources"}))
+
+
+  ;;;
+  ;;;; Icons
+  ;;;
+  
+  
+  (definition Icons-Portfolio
+    #f)
+  
+  
+  (method public (get-icons-portfolio self)
+    (unless Icons-Portfolio
+      (set! Icons-Portfolio (new Portfolio name: :icons)))
+    Icons-Portfolio)
 
 
   ;;;

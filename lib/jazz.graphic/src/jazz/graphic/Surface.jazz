@@ -522,11 +522,20 @@
       (fill self)))
 
   
-  (method public (draw-surface self handle x <fl> y <fl> (alpha: alpha #f))
+  (method public (draw-surface self handle x <fl> y <fl> (filter: filter #f) (alpha: alpha #f))
+    (define (draw)
+      (if alpha
+          (paint-with-alpha self alpha)
+        (paint self)))
+    
     (set-source-surface self handle x y)
-    (if alpha
-        (paint-with-alpha self alpha)
-      (paint self)))
+    (if filter
+        (let ((pattern (cairo_get_source context)))
+          (let ((preserved (cairo_pattern_get_filter pattern)))
+            (cairo_pattern_set_filter pattern filter)
+            (draw)
+            (cairo_pattern_set_filter pattern preserved)))
+      (draw)))
   
   
   (method public (fill-background self rect background)

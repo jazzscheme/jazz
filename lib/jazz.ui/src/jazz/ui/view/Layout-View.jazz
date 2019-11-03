@@ -55,6 +55,7 @@
   ;; flow    : flow the children accross the layout
   ;; box
   ;; gravity
+  ;; radial
   (property layout-type          initialize #f             accessors explicit)
   (property layout-insets        initialize {Rect 0 0 0 0} accessors explicit)
   (property layout-justification initialize 'center        accessors explicit)
@@ -185,12 +186,25 @@
                                (set-size child size)))))
                        (let ((justification (or (get-location child) layout-justification)))
                          (unless (eq? justification 'none)
-                           (if (eq? justification 'fill)
-                               (begin
-                                 (set-position child {Point 0 0})
-                                 (set-size child size))
-                             (let ((pos (nu+ topleft (justify (get-size child) size justification))))
-                               (set-position child pos)))))))
+                           (cond ((eq? justification 'fill)
+                                  (set-position child {Point 0 0})
+                                  (set-size child size))
+                                 ((and (pair? justification)
+                                       (eq? (car justification) 'attach))
+                                  (let ((linked (find-component self (cadr justification)))
+                                        (spacing 42))
+                                    (case (get-layout-justification linked)
+                                      ((horizontal)
+                                       (let ((pos (nu+ (get-position linked) (new Dimension (+ (get-width linked) spacing) 0))))
+                                         (set-position child pos)))
+                                      ((vertical)
+                                       (let ((pos (nu+ (get-position linked) (new Dimension 0 (+ (get-height linked) spacing)))))
+                                         (set-position child pos)))
+                                      (else
+                                       (error "Unsupported justification: {s}" (get-layout-justification linked))))))
+                                 (else
+                                  (let ((pos (nu+ topleft (justify (get-size child) size justification))))
+                                    (set-position child pos))))))))
                    children)))
       ((border)
        (let ((ly (new Border-Layout insets: layout-insets padding: layout-padding fit: layout-fit justification: layout-justification)))
@@ -203,6 +217,9 @@
          (layout ly children (get-width self) (get-height self))))
       ((box)
        (let ((ly (new Flow-Layout insets: layout-insets justification: layout-justification padding: layout-padding fill?: #t)))
+         (layout ly children (get-width self) (get-height self))))
+      ((radial)
+       (let ((ly (new Radial-Layout insets: layout-insets justification: layout-justification padding: layout-padding)))
          (layout ly children (get-width self) (get-height self))))
       (else
        (error "Unknown layout type: {s}" layout-type)))

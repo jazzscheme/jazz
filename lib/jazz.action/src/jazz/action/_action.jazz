@@ -66,7 +66,8 @@
 
 (export (jazz.action.autoload))
 (import (jazz.action.autoload)
-        (jazz.component))
+        (jazz.component)
+        (jazz.locale))
 
 
 ;;;
@@ -216,6 +217,52 @@
 (definition public (shortcut-hash shortcut <Shortcut>)
   (fxwrap+ (eqv?-hash (get-key shortcut))
            (equal?-hash (get-modifiers shortcut))))
+
+
+(definition public (present-modifiers modifiers)
+  (let ((str ""))
+    (define (add modifier name)
+      (when (memq? modifier modifiers)
+        (when (not (empty-string? str))
+          (set! str (string-append str "+")))
+        (set! str (string-append str (localize name)))))
+    
+    (add :control "Ctrl")
+    (add :alt "Alt")
+    (add :meta "Meta")
+    (add :shift "Shift")
+    str))
+
+
+(definition public (present-key key)
+  (define Localized-Shortcuts
+    '((Backspace . "Backspace")
+      (Return    . "Return")
+      (Space     . "Space")
+      (Tab       . "Tab")
+      (Home      . "Home")
+      (End       . "End")
+      (Left      . "Left")
+      (Up        . "Up")
+      (Right     . "Right")
+      (Down      . "Down")
+      (Prior     . "Prior")
+      (Next      . "Next")
+      (Insert    . "Insert")
+      (Delete    . "Delete")
+      (Add       . "Add")
+      (Subtract  . "Subtract")
+      (Multiply  . "Multiply")))
+  
+  (define (localize-shortcut shortcut)
+    (let ((info (assq shortcut Localized-Shortcuts)))
+      (if (not info)
+          shortcut
+        (localize (cdr info)))))
+    
+  (localize-shortcut (if (char? key)
+                         (format "{c}" key)
+                       (->string key))))
 
 
 ;;;

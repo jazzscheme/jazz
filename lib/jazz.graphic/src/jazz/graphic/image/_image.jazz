@@ -130,11 +130,23 @@
 
 
 ;;;
+;;;; Portfolio
+;;;
+
+
+(definition protected image-portfolio-size
+  16)
+
+(definition protected (set-image-portfolio-size size)
+  (set! image-portfolio-size size))
+
+
+;;;
 ;;;; Resize
 ;;;
 
 
-(definition public (resize-image handle new-width new-height)
+(definition public (resize-image handle new-width new-height (filter: filter #f))
   (let ((new-handle (cairo_surface_create_similar handle CAIRO_CONTENT_COLOR_ALPHA new-width new-height)))
     (let ((context (cairo_create new-handle))
           (width (cairo_image_surface_get_width handle))
@@ -143,6 +155,12 @@
                    (/ (cast <fl> new-width) width)
                    (/ (cast <fl> new-height) height))
       (cairo_set_source_surface context handle 0. 0.)
-      (cairo_paint context)
+      (if (not filter)
+          (cairo_paint context)
+        (let ((pattern (cairo_get_source context)))
+          (let ((preserved (cairo_pattern_get_filter pattern)))
+            (cairo_pattern_set_filter pattern filter)
+            (cairo_paint context)
+            (cairo_pattern_set_filter pattern preserved))))
       (cairo_destroy context)
       new-handle))))

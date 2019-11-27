@@ -3920,6 +3920,58 @@ bool platformTerminateApplication(int pid)
         return false;
 }
 
+
+___SCMOBJ platformProcessThreads()
+{
+    kern_return_t error;
+    struct task_basic_info t_info;
+    thread_array_t th_array;
+    mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT, th_count;
+    size_t i;
+    double my_user_time = 0, my_system_time = 0, my_percent = 0;
+    
+    if ((error = task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&t_info, &t_info_count)) != KERN_SUCCESS)
+        return NULL;
+
+    if ((error = task_threads(mach_task_self(), &th_array, &th_count)) != KERN_SUCCESS)
+        return NULL;
+    
+     ___SCMOBJ r = ___EXT(___alloc_scmobj) (NULL, ___sF64VECTOR, th_count*sizeof(___F64));
+     double *ptr = ___CAST(double*,___BODY(r));
+
+    // iterate live threads
+    for (i = 0; i < th_count; i++)
+    {
+        double th_user_time, th_system_time, th_percent;
+
+        struct thread_basic_info th_info;
+        mach_msg_type_number_t th_info_count = THREAD_BASIC_INFO_COUNT;
+        if ((error = thread_info(th_array[i], THREAD_BASIC_INFO,
+              (thread_info_t)&th_info, &th_info_count)) != KERN_SUCCESS)
+            return NULL;
+
+        th_user_time = th_info.user_time.seconds + th_info.user_time.microseconds / 1e6;
+        th_system_time = th_info.system_time.seconds + th_info.system_time.microseconds / 1e6;
+        th_percent = (double)th_info.cpu_usage / TH_USAGE_SCALE;
+        
+        ptr[i] = th_percent;
+    }
+
+    // destroy thread array
+    for (i = 0; i < th_count; i++)
+    {
+        mach_port_deallocate(mach_task_self(), th_array[i]);
+    }
+    vm_deallocate(mach_task_self(), (vm_address_t)th_array, sizeof(thread_t) * th_count);
+
+    // check last error
+    if (error != KERN_SUCCESS)
+        return NULL;
+    
+     ___EXT(___release_scmobj)(r);
+     return r;
+}
+
 //#)
 
 
@@ -4018,6 +4070,7 @@ bool platformTerminateApplication(int pid)
 (platform-external (platformRunningApplicationLocalizedName NSRunningApplication*) NSString*)
 (platform-external (platformRunningApplicationExecutableURL NSRunningApplication*) NSString*)
 (platform-external (platformTerminateApplication int) bool)
+(platform-external (platformProcessThreads) scheme-object)
 
 
 ;;;

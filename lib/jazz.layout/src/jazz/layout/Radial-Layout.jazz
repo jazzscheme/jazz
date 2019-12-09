@@ -43,6 +43,10 @@
         (jazz.layout))
 
 
+;; quicky
+(hub get-angle)
+
+
 (class Radial-Layout extends Layout
   
   
@@ -57,9 +61,10 @@
   ;;;
 
 
-  (method override (layout self figures width height)
+  (method override (layout self view figures width height)
     (let ((figures (collect-if get-visible? figures)))
-      (let ((count (length figures)))
+      (let ((count (length figures))
+            (pad 30))
         (define (determine-radius)
           180.
           @wait
@@ -68,11 +73,14 @@
             (+ 120. (* (- count 4) 10.))))
         
         (let ((radius (determine-radius))
-              (angle .2)
-              (increment (/ PI*2 (cast <fl> count))))
-          (for-each (lambda (figure <Figure>)
-                      (set-position figure (new Point
-                                             (fxround (+ radius (* (cos angle) radius)))
-                                             (fxround (+ radius (* (sin angle) radius)))))
-                      (increase! angle increment))
-                    figures)))))))
+              (increment (/ PI*2 11.))
+              (ch (quotient (get-width view) 2))
+              (cv (quotient (get-height view) 2))
+              (button (child (child (get-parent view) 'wheel) (get-name view))))
+          (let ((angle (- (get-angle button) (* increment (/ (- count 1) 2.)))))
+            (for-each (lambda (figure <Figure>)
+                        (set-position figure (new Point
+                                               (- (+ ch (fxround (* (cos angle) radius))) (quotient (get-width figure) 2))
+                                               (- (+ cv (fxround (* (sin angle) radius))) (quotient (get-height figure) 2))))
+                        (increase! angle increment))
+                      figures))))))))

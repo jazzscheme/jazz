@@ -269,7 +269,7 @@
 
 
   (method override (show self)
-    (unless (get-visible-flag self)
+    (unless visible?
       (let* ((last (last-descendant self))
              (previous (previous-visible-row self self))
              (next (if previous
@@ -284,7 +284,7 @@
 
 
   (method override (hide self)
-    (when (get-visible-flag self)
+    (when visible?
       (let ((last (or (last-descendant self) self)))
         (nextmethod self)
         (if parent
@@ -298,7 +298,7 @@
   
   
   (method public (row-visible? self)
-    (and (get-visible-flag self)
+    (and visible?
          (visible-in-father? self)))
   
   
@@ -345,9 +345,9 @@
     (and (not (empty? sons))
          (let ((first (first sons)))
            ;; optimize the 99.999% case
-           (if (get-visible-flag first)
+           (if (get-visible? first)
                first
-             (find-if get-visible-flag sons)))))
+             (find-if get-visible? sons)))))
   
   
   (method public (get-siblings self)
@@ -389,7 +389,7 @@
                  (unless found-self?
                    (if (eq? scan self)
                        (set! found-self? #t)
-                     (when (get-visible-flag scan)
+                     (when (get-visible? scan)
                        (set! sibling scan))))))
       sibling))
   
@@ -417,7 +417,7 @@
            (pos <fx> (cond ((not position) count)
                            ((> position count) count)
                            (else position))))
-      (when (get-visible-flag row)
+      (when (get-visible? row)
         (let* ((before (cond ((= pos 0) (if expanded? self #f))
                              ((= pos count) (if expanded? (last-descendant self) (last-visible-descendant self)))
                              (else (previous-visible-row self (element sons pos)))))
@@ -450,7 +450,7 @@
     (let ((before before))
       (iterate replacement
                (lambda (row)
-                 (when (get-visible-flag row)
+                 (when (get-visible? row)
                    (link before row)
                    (set! before (or (and (expanded? row) (last-descendant row)) row)))))
       (link before after)))
@@ -533,7 +533,7 @@
     (and father
          (let ((found? #f))
            (some? (lambda (son)
-                    (prog1 (and found? (get-visible-flag son))
+                    (prog1 (and found? (get-visible? son))
                       (when (eq? son self)
                         (set! found? #t))))
                   (get-sons father)))))

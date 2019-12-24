@@ -69,7 +69,7 @@
 
 
 (definition protected (start-socket-server)
-  (when (and listener-sockets? (not socket-server-port))
+  (when (not socket-server-port)
     (set! socket-server-port (open-tcp-server (list server-address: socket-server-address port-number: 0 reuse-address: #f)))
     (set! socket-server-service (socket-info-port-number (tcp-server-socket-info socket-server-port)))))
 
@@ -100,13 +100,12 @@
 
 (definition public (open-stream-listener (name #f))
   (cond (listener-sockets?
-         (if (not socket-server-service)
-             (error "Socket server not started")
-           (mutex-lock! socket-server-mutex)
-           (prog1 (let ((file (listener_socket_open socket-server-address socket-server-service)))
-                    (let ((port (read socket-server-port)))
-                      (new Stream-Listener #f file port)))
-             (mutex-unlock! socket-server-mutex))))
+         (start-socket-server)
+         (mutex-lock! socket-server-mutex)
+         (prog1 (let ((file (listener_socket_open socket-server-address socket-server-service)))
+                  (let ((port (read socket-server-port)))
+                    (new Stream-Listener #f file port)))
+           (mutex-unlock! socket-server-mutex)))
         (else
          (create-directories fifo-directory)
          (let (iterate (no (next-fifo-no!)))

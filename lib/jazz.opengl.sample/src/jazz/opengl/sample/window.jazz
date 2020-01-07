@@ -140,6 +140,10 @@
     (set-code vertex-shader code))
   
   
+  (method protected virtual (setup-transform-feedback self)
+    )
+  
+  
   (method public (link self)
     (create-shaders self)
     (attach-shaders self))
@@ -164,6 +168,7 @@
                (get-shaderid fragment-shader))
       (glAttachShader program (get-shaderid vertex-shader))
       (glAttachShader program (get-shaderid fragment-shader))
+      (setup-transform-feedback self)
       (glLinkProgram program)
       (when (/= (glGetProgramiv* program GL_LINK_STATUS) GL_TRUE)
         (let ((loglength (glGetProgramiv* program GL_INFO_LOG_LENGTH)))
@@ -232,12 +237,19 @@ in vec3 position;
 in vec3 color;
 in vec3 normal;
 
+out vec4 out1;
+out vec4 out2;
+out vec4 out3;
+
 out vec3 final_color;
 
 void main()
 {
     gl_Position = projMatrix * viewMatrix * vec4(position, 1.0);
     final_color = vec3(color.x, color.y, color.z * normal.z);
+    out1 = vec4(position, 1.0);
+    out2 = gl_Position;
+    out3 = vec4(final_color, 1.0);
 }
 //#))
 
@@ -291,6 +303,10 @@ void main()
     color-frag)
   
   
+  (method override (setup-transform-feedback self)
+    (glTransformFeedbackVaryings program))
+  
+  
   (method package (create-vertex-buffer self vertices)
     (let ((vbo (glGenBuffers*)))
       (glBindBuffer GL_ARRAY_BUFFER vbo)
@@ -311,6 +327,13 @@ void main()
       (glVertexAttribPointer* color-attribute 3 GL_FLOAT GL_FALSE (* 3 float-size) 0)
       (glBindBuffer GL_ARRAY_BUFFER 0)
       vbo))
+  
+  
+  (method package (create-feedback-buffer self count)
+    (let ((tbo (glGenBuffers*)))
+      (glBindBuffer GL_ARRAY_BUFFER tbo)
+      (glBufferData GL_ARRAY_BUFFER (* count float-size 4 3) #f GL_STATIC_READ)
+      tbo))
   
   
   (method package (bind-uniforms self projection-matrix view-matrix)
@@ -525,6 +548,7 @@ void main()
   
   (slot vertex-buffer)
   (slot color-buffer)
+  (slot feedback-buffer)
   
   
   (method override (initialize self program vertices colors)
@@ -532,7 +556,13 @@ void main()
     (glBindVertexArray array)
     (set! vertex-buffer (create-vertex-buffer program vertices))
     (set! color-buffer (create-color-buffer program colors))
-    (glBindVertexArray 0)))
+    (set! feedback-buffer (create-feedback-buffer program (/ (f32vector-length vertices) 6)))
+    (glBindVertexArray 0))
+  
+  
+  (method package (bind-transform-feedback self)
+    (glBindBuffer GL_ARRAY_BUFFER feedback-buffer)
+    (glBindBufferBase GL_TRANSFORM_FEEDBACK_BUFFER 0 feedback-buffer)))
 
 
 (class Texture-Array extends Array
@@ -592,6 +622,10 @@ void main()
   
   ;; Render
   (slot render-thread       initialize #f getter generate)
+  
+  ;; Feedback
+  (slot feedback?           initialize #f getter generate)
+  (slot first-time?         initialize #t getter generate)
   
   
   (method override (destroy self)
@@ -762,10 +796,43 @@ void main()
     ;; Color
     (use color-program)
     (bind-uniforms color-program projection-matrix view-matrix)
+    (bind-transform-feedback blue-array)
     (glBindVertexArray (get-array blue-array))
-    (glDrawArrays GL_TRIANGLES 0 6)
+    (glBeginTransformFeedback GL_TRIANGLES)
+    (glDrawArrays GL_TRIANGLES 0 3)
+    (glEndTransformFeedback)
+    (bind-transform-feedback red-array)
     (glBindVertexArray (get-array red-array))
-    (glDrawArrays GL_TRIANGLES 0 6)
+    (glBeginTransformFeedback GL_TRIANGLES)
+    (glDrawArrays GL_TRIANGLES 0 3)
+    (glEndTransformFeedback)
+    ;; feedback
+    (when (and feedback? first-time?)
+      (glFlush)
+      (let ((data (make-f32vector (* 3 4 3))))
+        (define (feedback array)
+          (bind-transform-feedback array)
+          (glGetTransformFeedbackFloat* 0 (* 3 4 3) data)
+          (loop (for n from 0 below 3)
+                (let ((offset (* n 4 3)))
+                  (let ((vx (f32vector-ref data (+ offset 0)))
+                        (vy (f32vector-ref data (+ offset 1)))
+                        (vz (f32vector-ref data (+ offset 2)))
+                        (px (f32vector-ref data (+ offset 4)))
+                        (py (f32vector-ref data (+ offset 5)))
+                        (pz (f32vector-ref data (+ offset 6)))
+                        (pw (f32vector-ref data (+ offset 7)))
+                        (r  (f32vector-ref data (+ offset 8)))
+                        (g  (f32vector-ref data (+ offset 9)))
+                        (b  (f32vector-ref data (+ offset 10))))
+                    (format :terminal "vertex: {r precision: 3 width: 6} {r precision: 3 width: 6} {r precision: 3 width: 6}, position: {r precision: 3 width: 6} {r precision: 3 width: 6} {r precision: 3 width: 6} {r precision: 3 width: 6}, color: {r precision: 3 width: 6} {r precision: 3 width: 6} {r precision: 3 width: 6}{%}"
+                      vx vy vz
+                      px py pz pw
+                      r g b)))))
+        
+        (feedback blue-array)
+        (feedback red-array))
+      (set! first-time? #f))
     (unbind-uniforms color-program)
     (unuse color-program)
     
@@ -782,7 +849,7 @@ void main()
     (use texture-program)
     (bind-uniforms texture-program projection-matrix view-matrix (get-id texture))
     (glBindVertexArray (get-array texture-array))
-    (glDrawArrays GL_TRIANGLES 0 6)
+    (glDrawArrays GL_TRIANGLES 0 3)
     (glBindVertexArray 0)
     (unbind-uniforms texture-program)
     (unuse texture-program)

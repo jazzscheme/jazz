@@ -322,7 +322,7 @@
     (store-blob self (load-binary file) digest))
   
   
-  (method (store-blob self content digest)
+  (method package (store-blob self content digest)
     (let ((objects-file (objects-file self digest)))
       (save-binary objects-file (zlib-deflate content))
       digest))
@@ -350,6 +350,13 @@
   (method package (retrieve-blob self digest)
     (let ((objects-file (objects-file self digest)))
       (zlib-inflate (load-binary objects-file))))
+  
+  
+  (method package (retrieve-path self path)
+    (let ((entry (find-entry index path)))
+      (and entry
+           (bind (path digest seconds) entry
+             (retrieve-blob self digest)))))
   
   
   ;;;
@@ -537,6 +544,10 @@
              (add-file index path (new-file working path))))))
   
   
+  (method package (add-blob self path content)
+    (add-blob index path content))
+  
+  
   (method package (remove-path self path)
     (let ((path (normalize-path self path)))
       (cond ((empty-string? path)
@@ -599,6 +610,10 @@
                                         (set-third! entry seconds))
                                       (list path digest seconds))))))))
           (list path (digest-file (parse file) 'SHA-1) seconds))))
+  
+  
+  (method package (scan-blob self path content)
+    (list path (digest-u8vector content 'SHA-1) #f))
   
   
   (method package (scan-directory self dirpath dir (base: base #f))
@@ -886,54 +901,72 @@
                  (proc prev scan)))))))))
   
   
-  (method package (update self path test added)
-    (updating self path test
-      (lambda (prev next)
-        (cond ((not prev)
-               (if (null? added)
-                   (set! entries next)
-                 (set-cdr! (last-pair added) next)
-                 (set! entries added)))
-              (else
-               (if (null? added)
-                   (set-cdr! prev next)
-                 (set-cdr! prev added)
-                 (set-cdr! (last-pair added) next))))))
-    entries)
+  (method package (update self path added)
+    (let ((test (if (ends-with? path "/")
+                    (lambda (entry-path path)
+                      (starts-with? entry-path path ignore-case?: #t))
+                  ci=?)))
+      (iterate-table-safe paths
+        (lambda (path entry)
+          (table-clear paths path)))
+      (for-each (lambda (entry)
+                  (bind (path digest seconds) entry
+                    (table-set! paths path entry)))
+                added)
+      (updating self path test
+        (lambda (prev next)
+          (cond ((not prev)
+                 (if (null? added)
+                     (set! entries next)
+                   (set-cdr! (last-pair added) next)
+                   (set! entries added)))
+                (else
+                 (if (null? added)
+                     (set-cdr! prev next)
+                   (set-cdr! prev added)
+                   (set-cdr! (last-pair added) next))))))))
   
   
   (method package (add-file self path file)
-    (let ((info (scan-file repository path file base: self)))
-      (bind (path digest seconds) info
-        (store-file repository file digest)
-        (update self path ci=? (list info))
-        (save-to-file self))))
+    (let ((entry (scan-file repository path file base: self)))
+      (let ((entries (list entry)))
+        (bind (path digest seconds) entry
+          (store-file repository file digest)
+          (update self path entries)
+          (save-to-file self)
+          entries))))
+  
+  
+  (method package (add-blob self path content)
+    (let ((entry (scan-blob repository path content)))
+      (let ((entries (list entry)))
+        (bind (path digest seconds) entry
+          (store-blob repository content digest)
+          (update self path entries)
+          (save-to-file self)
+          entries))))
   
   
   (method package (add-directory self path dir)
-    (let ((infos (scan-directory repository path dir base: self)))
-      (for-each (lambda (info)
-                  (bind (path digest seconds) info
+    (let ((entries (scan-directory repository path dir base: self)))
+      (for-each (lambda (entry)
+                  (bind (path digest seconds) entry
                     (let ((file (new-file directory path)))
                       (store-file repository file digest))))
-                infos)
-      (update self path (directory-test self path) infos)
-      (save-to-file self)))
+                entries)
+      (update self path entries)
+      (save-to-file self)
+      entries))
   
   
   (method package (remove-file self path file)
-    (update self path ci=? '())
+    (update self path '())
     (save-to-file self))
   
   
   (method package (remove-directory self path directory)
-    (update self path (directory-test self path) '())
+    (update self path '())
     (save-to-file self))
-  
-  
-  (method (directory-test self path)
-    (lambda (entry-path path)
-      (starts-with? entry-path path ignore-case?: #t)))
   
   
   (method package (find-entry self path)

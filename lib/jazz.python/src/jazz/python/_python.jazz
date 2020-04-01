@@ -1,0 +1,200 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Python
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.python jazz
+
+
+(import (jazz.io)
+        (time))
+
+
+;;;
+;;;; Readtable
+;;;
+
+;; We can only use the readtable for reading python because there is no way for the writer to know the context
+;; of its writing such as the first symbol of the list (:object :array). That prevents us from adding the correct
+;; separators (: ,)
+
+
+(definition (make-python-readtable)
+  (let ((readtable (make-standard-readtable)))
+    (readtable-char-handler-set! readtable #\: (readtable-char-handler readtable #\space))
+    (readtable-char-handler-set! readtable #\, (readtable-char-handler readtable #\space))
+    (readtable-bracket-keyword-set! readtable :array)
+    (readtable-brace-keyword-set! readtable :object)
+    (readtable-paren-keyword-set! readtable :invalid)
+    readtable))
+
+
+(definition public python-readtable
+  (make-python-readtable))
+
+
+;;;
+;;;; Read
+;;;
+
+
+(definition public (read-python port)
+  (read port))
+
+
+;;;
+;;;; Print
+;;;
+
+
+(definition public (print-python python port)
+  (define python-escape-sequences
+    '((#\slash . "\\/")
+      (#\backslash . "\\\\")
+      (#\" . "\\\"")
+      (#\newline . "\\n")
+      (#\page . "\\f")
+      (#\backspace . "\\b")
+      (#\return . "\\r")
+      (#\tab . "\\t")))
+  
+  ;; We can't use a simple gambit write to escape the string because it will try to escape
+  ;; non-ascii characters and there is no way to specify a character set. Moreover, we have
+  ;; to escape the forward slash. We must explicitely escape with python escape sequences.
+  (define (print-string string)
+    (write-char #\" port)
+    (let ((reader (open-input-string string)))
+      (let (iterate (c (read-char reader)))
+        (unless (eof-object? c)
+          (let ((escape-sequence (assq-value c python-escape-sequences #f)))
+            (if escape-sequence
+                (display escape-sequence port)
+              (write-char c port)))
+          (iterate (read-char reader)))))
+    (write-char #\" port))
+  
+  (define (print obj depth)
+    (define (standardize-real obj)
+      (let ((str (number->string obj)))
+        (cond ((eqv? (string-ref str 0) #\.)
+               (string-append "0" str))
+              ((string=? str "0.")
+               "0.0")
+              ((string=? str "-0.")
+               "-0.0")
+              ((and (> (string-length str) 1)
+                    (eqv? (string-ref str 1) #\.)
+                    (eqv? (string-ref str 0) #\-))
+               (string-append "-0" (substring str 1 (string-length str))))
+              (else
+               str))))
+    
+    (cond ((eq? obj #f) (display "false" port))
+          ((eq? obj #t) (display "true" port))
+          ((null? obj) (display "null" port))
+          ((string? obj) (print-string obj))
+          ((symbol? obj) (print-string (symbol->string obj)))
+          ((date? obj) (print-string (date->string obj "~Y/~m/~d")))
+          ((number? obj) (cond ((integer? obj)
+                                (if (exact? obj)
+                                    (write obj port)
+                                  (write (inexact->exact obj) port)))
+                               ((rational? obj)
+                                (display (standardize-real (exact->inexact obj)) port))
+                               ((real? obj)
+                                (display (standardize-real obj) port))
+                               (else
+                                (error "Unsupported python number {a}" obj))))
+          ((pair? obj) (print-sequence obj depth for-each))
+          ((vector? obj) (print-sequence obj depth vector-for-each))          
+          ((table? obj) (print-object obj depth))
+          (else
+           (error "Unsupported python object {a}" obj))))
+  
+  (define (print-sequence obj depth iterator-func)
+    (display "[" port)
+    (let ((first? #t))
+      (iterator-func (lambda (element)
+                       (if first?
+                           (set! first? #f)
+                         (display ", " port))
+                       (print element depth))
+                     obj))
+    (display "]" port))
+  
+  (define (print-object obj depth)
+    (display "{" port)
+    (loop (for pair in (sort string<? (table->list obj) key: car) remainder remain)
+          (bind (key . value) pair
+            (newline port)
+            (format port "{& :v}" (+ depth 1))
+            (print-string key)
+            (display ": " port)
+            (print value (+ depth 1))
+            (when (not-null? remain)
+              (display "," port))))
+    (newline port)
+    (format port "{& :v}" depth)
+    (display "}" port))
+  
+  (print python 0))
+
+
+;;;
+;;;; Utilities
+;;;
+
+
+(definition public (load-python file)
+  (call-with-input-file (path-settings file readtable: python-readtable)
+    read-python))
+
+
+(definition public (save-python python file)
+  (call-with-output-file (path-settings file)
+    (lambda (output)
+      (print-python python output)
+      (newline output))))
+
+
+(definition public (string->python str)
+  (call-with-input-string (list init: str readtable: python-readtable)
+    read-python))
+
+
+(definition public (python->string python)
+  (let ((output (open-output-string)))
+    (print-python python output)
+    (get-output-string output))))

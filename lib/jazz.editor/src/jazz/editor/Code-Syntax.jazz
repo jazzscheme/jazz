@@ -135,11 +135,12 @@
     (define (space/tab? c)
       (memq? c '(#\space #\tab)))
     
-    (when (space/tab? (get-char model (new Cell line 0)))
-      (replace-text text
-        (new Range$Cell$ (new Cell line 0) (new Cell line 1))
-        (list ""))
-      -1))
+    (and (space/tab? (get-char model (new Cell line 0)))
+         (begin
+           (replace-text text
+                         (new Range$Cell$ (new Cell line 0) (new Cell line 1))
+                         (list ""))
+           -1)))
 
   
   ;;;
@@ -222,13 +223,13 @@
   (method protected (colorize-balanced-comment-backward self found start end colorizer style recolorize? (open: open "/*") (close: close "*/"))
     (cdr found)
     @irregex-to-convert
-    (when recolorize?
-      (let ((found (text-regular-search (list (make-search-context close user-data: 'close) (make-search-context open user-data: 'open)) position: start reversed?: #t)))
-        (when found
-          (bind (pos . (target type)) found
-            (when (eq? type 'open)
-              (apply-coloring colorizer pos end style)
-              (cdr found)))))))
+    (and recolorize?
+         (let ((found (text-regular-search (list (make-search-context close user-data: 'close) (make-search-context open user-data: 'open)) position: start reversed?: #t)))
+           (and found
+                (bind (pos . (target type)) found
+                  (and (eq? type 'open)
+                       (apply-coloring colorizer pos end style)
+                       (cdr found)))))))
   
   
   (method protected (colorize-line-comment self found start end colorizer line-style title-style title-char)
@@ -253,12 +254,12 @@
     (let* ((line (get-line start))
            (col (get-col start))
            (str (paragraph-string model line)))
-      (unless (>= (+ col 1) (cardinality str))
-        (let ((nxt (element str (+ col 1))))
-          (unless (or (eqv? nxt #\space) (eqv? nxt #\=))
-            (let ((col (find-balanced #\< #\> str start: (+ col 1) return: 'position)))
-              (when col
-                (new Cell line (+ col 1)))))))))
+      (and (< (+ col 1) (cardinality str))
+           (let ((nxt (element str (+ col 1))))
+             (and (not (or (eqv? nxt #\space) (eqv? nxt #\=)))
+                  (let ((col (find-balanced #\< #\> str start: (+ col 1) return: 'position)))
+                    (and col
+                         (new Cell line (+ col 1)))))))))
   
   
   (method override (recolorize-range self syntax-style start end)

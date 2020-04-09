@@ -84,50 +84,57 @@
   ;;;
   ;;;; Tabulation
   ;;;
+  
+  
+  (method protected virtual (supports-tabs? self)
+    #t)
 
 
   (method override (tabulate self text)
-    (if (has-selection? text)
-        (let ((selection (get-selection text))
-              (lines (selected-lines text))
-              (proc (if (shift-down?) (~ untabulate-line self) (~ tabulate-line self))))
-          (let ((first-line (first lines))
-                (last-line (last lines)))
-            (let ((first-delta #f)
-                  (last-delta #f))
-              (for-each (lambda (line)
-                          (let ((delta (proc text line)))
-                            (cond ((eq? line first-line) (set! first-delta delta))
-                                  ((eq? line last-line) (set! last-delta delta)))))
-                        lines)
-              (let ((start (get-start selection))
-                    (end (get-end selection)))
-                (define (adjust pos inc)
-                  (if (not inc)
-                      pos
-                    (let ((adjusted (cond ((> inc 0) (next-pos model pos inc))
-                                          ((< inc 0) (previous-pos model pos (- inc)))
-                                          (else pos))))
-                      (if (= (get-line adjusted) (get-line pos))
-                          adjusted
-                        pos))))
-                
-                (set-selection-safe text (new Range$Cell$ (adjust start first-delta) (adjust end last-delta)))))))
-      (let* ((pos (get-start text))
-             (line (get-line pos))
-             (col (get-col pos)))
-        (when (and (> line 0) (= col 0))
-          (let* ((str (paragraph-string model (- line 1)))
-                 (rank (find-if (lambda (c) (not (whitespace? c))) str return: 'position)))
-            (if (not rank)
-                (insert-string text str)
-              (insert-string text (subseq str 0 rank))))))))
+    (when (has-selection? text)
+      (let ((selection (get-selection text))
+            (lines (selected-lines text))
+            (proc (if (shift-down?) (~ untabulate-line self) (~ tabulate-line self))))
+        (let ((first-line (first lines))
+              (last-line (last lines)))
+          (let ((first-delta #f)
+                (last-delta #f))
+            (for-each (lambda (line)
+                        (let ((delta (proc text line)))
+                          (cond ((eq? line first-line) (set! first-delta delta))
+                                ((eq? line last-line) (set! last-delta delta)))))
+                      lines)
+            (let ((start (get-start selection))
+                  (end (get-end selection)))
+              (define (adjust pos inc)
+                (if (not inc)
+                    pos
+                  (let ((adjusted (cond ((> inc 0) (next-pos model pos inc))
+                                        ((< inc 0) (previous-pos model pos (- inc)))
+                                        (else pos))))
+                    (if (= (get-line adjusted) (get-line pos))
+                        adjusted
+                      pos))))
+              
+              (set-selection-safe text (new Range$Cell$ (adjust start first-delta) (adjust end last-delta)))))))))
+  
+  
+  (method override (tabulate-return self text)
+    (let* ((pos (get-start text))
+           (line (get-line pos))
+           (col (get-col pos)))
+      (when (and (> line 0) (= col 0))
+        (let* ((str (paragraph-string model (- line 1)))
+               (rank (find-if (lambda (c) (not (whitespace? c))) str return: 'position)))
+          (if (not rank)
+              (insert-string text str)
+            (insert-string text (subseq str 0 rank)))))))
   
   
   (method override (tabulate-line self text line)
     (replace-text text
-      (new Range$Cell$ (new Cell line 0) (new Cell line 0))
-      (list (string #\tab)))
+                  (new Range$Cell$ (new Cell line 0) (new Cell line 0))
+                  (list (string #\tab)))
     1)
   
   

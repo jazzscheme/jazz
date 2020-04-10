@@ -577,7 +577,7 @@
   
   
   (method package (working-index self)
-    (prog1 (new Associative-Index self working entries: (scan-directory self #f working base: index))
+    (prog1 (new Associative-Index self working entries: (scan-directory self "" working base: index))
       (save-to-file index)))
   
   
@@ -905,14 +905,15 @@
                  (proc prev scan)))))))))
   
   
-  (method package (update self path added)
-    (let ((test (if (ends-with? path "/")
-                    (lambda (entry-path path)
-                      (starts-with? entry-path path ignore-case?: #t))
-                  ci=?)))
+  (method package (update self path path-type added)
+    (let ((test (if (eq? path-type 'file)
+                    ci=?
+                  (lambda (entry-path path)
+                    (starts-with? entry-path path ignore-case?: #t)))))
       (iterate-table-safe paths
-        (lambda (path entry)
-          (table-clear paths path)))
+        (lambda (entry-path entry)
+          (when (test entry-path path)
+            (table-clear paths entry-path))))
       (for-each (lambda (entry)
                   (bind (path digest seconds) entry
                     (table-set! paths path entry)))
@@ -928,7 +929,8 @@
                  (if (null? added)
                      (set-cdr! prev next)
                    (set-cdr! prev added)
-                   (set-cdr! (last-pair added) next))))))))
+                   (set-cdr! (last-pair added) next))))))
+      entries))
   
   
   (method package (add-file self path file)
@@ -936,7 +938,7 @@
       (let ((entries (list entry)))
         (bind (path digest seconds) entry
           (store-file repository file digest)
-          (update self path entries)
+          (update self path 'file entries)
           (save-to-file self)
           entries))))
   
@@ -946,7 +948,7 @@
       (let ((entries (list entry)))
         (bind (path digest seconds) entry
           (store-blob repository content digest)
-          (update self path entries)
+          (update self path 'file entries)
           (save-to-file self)
           entries))))
   
@@ -958,18 +960,18 @@
                     (let ((file (new-file directory path)))
                       (store-file repository file digest))))
                 entries)
-      (update self path entries)
+      (update self path 'directory entries)
       (save-to-file self)
       entries))
   
   
   (method package (remove-file self path file)
-    (update self path '())
+    (update self path 'file '())
     (save-to-file self))
   
   
   (method package (remove-directory self path directory)
-    (update self path '())
+    (update self path 'directory '())
     (save-to-file self))
   
   

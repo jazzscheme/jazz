@@ -72,43 +72,51 @@
 (definition package (jas$init arguments)
   (with-jas
     (lambda (output)
-      (let ((dir (current-directory-get)))
-        (let ((repo (jas-init dir)))
-          (format output "Initialized empty JAS repository in {a}{%}" (parse (get-directory repo))))))))
+      (if (not-null? arguments)
+          (format output "Too many arguments for jas init{%}")
+        (let ((dir (current-directory-get)))
+          (let ((repo (jas-init dir)))
+            (format output "Initialized empty JAS repository in {a}{%}" (parse (get-directory repo)))))))))
 
 
 (definition package (jas$config arguments)
   (with-jas
     (lambda (output)
-      (let ((repo (jas-open (jas-directory "."))))
-        (bind (command . arguments) arguments
-          (cond ((equal? command "get")
-                 (bind (key) arguments
-                   (let ((key (string->symbol key)))
-                     (format output "{a}{%}" (jas-config-get repo key)))))
-                ((equal? command "set")
-                 (bind (key value) arguments
-                   (let ((key (string->symbol key)))
-                     (jas-config-set repo key value)
-                     (format output "{a} set to {a}{%}" key value))))
-                (else
-                 (format output "Unknown jas config command: {a}{%}" command))))))))
+      (if (null? arguments)
+          (format output "Not enough arguments for jas config{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (bind (command . arguments) arguments
+            (cond ((equal? command "get")
+                   (bind (key) arguments
+                     (let ((key (string->symbol key)))
+                       (format output "{a}{%}" (jas-config-get repo key)))))
+                  ((equal? command "set")
+                   (bind (key value) arguments
+                     (let ((key (string->symbol key)))
+                       (jas-config-set repo key value)
+                       (format output "{a} set to {a}{%}" key value))))
+                  (else
+                   (format output "Unknown jas config command: {a}{%}" command)))))))))
 
 
 (definition package (jas$add arguments)
   (with-jas
     (lambda (output)
-      (let ((path (car arguments))
-            (repo (jas-open (jas-directory "."))))
-        (jas-add repo path)))))
+      (if (null? arguments)
+          (format output "Not enough arguments for jas add{%}")
+        (let ((path (car arguments))
+              (repo (jas-open (jas-directory "."))))
+          (jas-add repo path))))))
 
 
 (definition package (jas$remove arguments)
   (with-jas
     (lambda (output)
-      (let ((path (car arguments))
-            (repo (jas-open (jas-directory "."))))
-        (jas-remove repo path)))))
+      (if (null? arguments)
+          (format output "Not enough arguments for jas remove{%}")
+        (let ((path (car arguments))
+              (repo (jas-open (jas-directory "."))))
+          (jas-remove repo path))))))
 
 
 (definition package (jas$list arguments)
@@ -146,75 +154,87 @@
 (definition package (jas$discard arguments)
   (with-jas
     (lambda (output)
-      (let ((repo (jas-open (jas-directory "."))))
-        (jas-discard repo)))))
+      (if (not-null? arguments)
+          (format output "Too many arguments for jas discard{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (jas-discard repo))))))
 
 
 (definition package (jas$restore arguments)
   (with-jas
     (lambda (output)
-      (let ((repo (jas-open (jas-directory "."))))
-        (let ((commit (jas-resolve repo (jas-parse repo (car arguments)))))
-          (jas-restore repo commit))))))
+      (if (null? arguments)
+          (format output "Not enough arguments for jas restore{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((commit (jas-resolve repo (jas-parse repo (car arguments)))))
+            (jas-restore repo commit)))))))
 
 
 (definition package (jas$reset arguments)
   (with-jas
     (lambda (output)
-      (let ((repo (jas-open (jas-directory "."))))
-        (let ((commit (jas-resolve repo (jas-parse repo (car arguments)))))
-          (jas-reset repo commit))))))
+      (if (null? arguments)
+          (format output "Not enough arguments for jas reset{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((commit (jas-resolve repo (jas-parse repo (car arguments)))))
+            (jas-reset repo commit)))))))
 
 
 (definition package (jas$branch arguments)
   (with-jas
     (lambda (output)
-      (let ((repo (jas-open (jas-directory "."))))
-        (let ((head (jas-read-head repo))
-              (branches (jas-branches repo)))
-          (let ((head-branch (and (jas-branch? repo head) (jas-branch-name repo head))))
-            (for-each (lambda (branch)
-                        (if (equal? branch head-branch)
-                            (format output "* \033[32m{a}\033[39;49m{%}" branch)
-                          (format output "  {a}{%}" branch)))
-                      branches)))))))
+      (if (not-null? arguments)
+          (format output "Too many arguments for jas branch{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((head (jas-read-head repo))
+                (branches (jas-branches repo)))
+            (let ((head-branch (and (jas-branch? repo head) (jas-branch-name repo head))))
+              (for-each (lambda (branch)
+                          (if (equal? branch head-branch)
+                              (format output "* \033[32m{a}\033[39;49m{%}" branch)
+                            (format output "  {a}{%}" branch)))
+                        branches))))))))
 
 
 (definition package (jas$checkout arguments)
   (with-jas
     (lambda (output)
-      (let ((repo (jas-open (jas-directory "."))))
-        (let ((create? (jas-switch arguments "b"))
-              (name (last arguments)))
-          (let ((ref (jas-checkout repo name validate-clean?: #t create?: create?)))
-            (cond (create?
-                   (format output "Switched to a new branch {a}{%}" name))
-                  ((jas-branch? repo ref)
-                   (format output "Switched to branch {a}{%}" (jas-branch-name repo ref)))
-                  (else
-                   (format output "Checked out detached HEAD at {a}{%}" ref)))))))))
+      (if (null? arguments)
+          (format output "Not enough arguments for jas checkout{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((create? (jas-switch arguments "b"))
+                (name (last arguments)))
+            (let ((ref (jas-checkout repo name validate-clean?: #t create?: create?)))
+              (cond (create?
+                     (format output "Switched to a new branch {a}{%}" name))
+                    ((jas-branch? repo ref)
+                     (format output "Switched to branch {a}{%}" (jas-branch-name repo ref)))
+                    (else
+                     (format output "Checked out detached HEAD at {a}{%}" ref))))))))))
 
 
 (definition package (jas$status arguments)
   (with-jas
     (lambda (output)
-      (let ((repo (jas-open (jas-directory "."))))
-        (define (describe title diff)
-          (when (not-null? (get-changes diff))
-            (format output "{%}")
-            (format output "{a}{%}" title)
-            (jas-describe diff output)))
-        
-        (let ((head (jas-require-head repo)))
-          (cond ((jas-commit? repo head)
-                 (format output "HEAD detached at {a}{%}" head))
-                (else
-                 (format output "On branch {a}{%}" (jas-branch-name repo head))))
-          (describe "Changes to be committed:" (jas-staging-status repo))
-          (describe "Changes not staged for commit:" (jas-working-status repo))
-          ;; TODO
-          ;; "Untracked files:"
-          )))))
+      (if (not-null? arguments)
+          (format output "Too many arguments for jas status{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (define (describe title diff)
+            (when (not-null? (get-changes diff))
+              (format output "{%}")
+              (format output "{a}{%}" title)
+              (jas-describe diff output)))
+          
+          (let ((head (jas-require-head repo)))
+            (cond ((jas-commit? repo head)
+                   (format output "HEAD detached at {a}{%}" head))
+                  (else
+                   (format output "On branch {a}{%}" (jas-branch-name repo head))))
+            (describe "Changes to be committed:" (jas-staging-status repo))
+            (describe "Changes not staged for commit:" (jas-working-status repo))
+            ;; TODO
+            ;; "Untracked files:"
+            ))))))
 
 
 (definition package (jas$diff arguments)
@@ -256,29 +276,35 @@
 (definition package (jas$parse arguments)
   (with-jas
     (lambda (output)
-      (let ((repo (jas-open (jas-directory "."))))
-        (let ((rev (car arguments)))
-          (let ((revision (jas-parse repo rev)))
-            (if revision
-                (format output "{a}{%}" revision)
-              (format output "Unknown revision: {a}{%}" rev))))))))
+      (if (null? arguments)
+          (format output "Not enough arguments for jas parse{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((rev (car arguments)))
+            (let ((revision (jas-parse repo rev)))
+              (if revision
+                  (format output "{a}{%}" revision)
+                (format output "Unknown revision: {a}{%}" rev)))))))))
 
 
 (definition package (jas$retrieve arguments)
   (with-jas
     (lambda (output)
-      (let ((repo (jas-open (jas-directory "."))))
-        (let ((digest (jas-resolve repo (jas-parse repo (car arguments)))))
-          (pp (jas-retrieve repo digest) output))))))
+      (if (null? arguments)
+          (format output "Not enough arguments for jas retrieve{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((digest (jas-resolve repo (jas-parse repo (car arguments)))))
+            (pp (jas-retrieve repo digest) output)))))))
 
 
 (definition package (jas$cat arguments)
   (with-jas
     (lambda (output)
-      (let ((repo (jas-open (jas-directory "."))))
-        (let ((digest (car arguments)))
-          (let ((content (retrieve-blob repo digest)))
-            (write-subu8vector content 0 (u8vector-length content) output)))))))
+      (if (null? arguments)
+          (format output "Not enough arguments for jas cat{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((digest (car arguments)))
+            (let ((content (retrieve-blob repo digest)))
+              (write-subu8vector content 0 (u8vector-length content) output))))))))
 
 
 (definition package (jas$test arguments)

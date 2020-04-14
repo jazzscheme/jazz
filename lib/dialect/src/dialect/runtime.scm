@@ -1910,6 +1910,10 @@
       #f)))
 
 
+(jazz:define-method (jazz:emit-specifier (jazz:Autoload-Declaration declaration))
+  (jazz:type->specifier declaration #t))
+
+
 ;; this heuristic used because we cannot call jazz:resolve-binding at various points
 ;; is not 100% correct if the autoload was obtained through a reexported module...
 (define (jazz:autoload-declaration-locator-heuristic declaration)
@@ -2397,10 +2401,10 @@
 
 (define (jazz:emit-type-cast code type source source-declaration walker resume environment backend)
   (let ((code-type (jazz:resolve-type-safe (jazz:get-code-type code)))
-        (type (jazz:resolve-type-safe type)))
-    (cond ((or (%%not type)
-               (%%eq? type jazz:Void)
-               (%%subtype? code-type type))
+        (resolved-type (jazz:resolve-type-safe type)))
+    (cond ((or (%%not resolved-type)
+               (%%eq? resolved-type jazz:Void)
+               (%%subtype? code-type resolved-type))
            #; ;; too much at the moment
            (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
              (jazz:warning "Warning: In {a}{a}: Redundant cast"
@@ -2408,14 +2412,14 @@
                            (jazz:present-expression-location source #f)))
            (jazz:sourcified-form code))
           ;; fixnum to flonum
-          ((and (%%subtype? type jazz:Flonum)
+          ((and (%%subtype? resolved-type jazz:Flonum)
                 (%%subtype? code-type jazz:Fixnum))
            (let ((code-emit (jazz:sourcified-form code)))
              (if (%%fixnum? (jazz:source-code code-emit))
                  (jazz:sourcify-if (%%fixnum->flonum (jazz:source-code code-emit)) (jazz:get-code-source code))
                `(%%fixnum->flonum ,(jazz:sourcified-form code)))))
           ;; ratnum to flonum
-          ((and (%%subtype? type jazz:Flonum)
+          ((and (%%subtype? resolved-type jazz:Flonum)
                 (%%subtype? code-type jazz:Ratnum))
            (let ((code-emit (jazz:sourcified-form code)))
              (if (%%ratnum? (jazz:source-code code-emit))
@@ -2424,7 +2428,7 @@
           (else
            #; ;; incompatible cast test
            (%%unless (%%eq? code-type jazz:Any)
-             (pp (jazz:format "Casting {a} to incompatible type {a}" code-type type) (current-output-port)))
+             (pp (jazz:format "Casting {a} to incompatible type {a}" code-type resolved-type) (current-output-port)))
            (if (jazz:get-check? 'types)
                (let ((value (jazz:generate-symbol "val")))
                  (jazz:simplify-let

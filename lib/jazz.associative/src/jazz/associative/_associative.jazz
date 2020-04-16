@@ -336,9 +336,13 @@
   
   
   (method package (store-blob self content digest)
+    (store-object self (zlib-deflate content) digest))
+  
+  
+  (method package (store-object self content digest)
     (let ((objects-file (objects-file self digest)))
-      (save-binary objects-file (zlib-deflate content))
-      digest))
+      (save-binary objects-file content)
+      content))
   
   
   ;;;
@@ -361,15 +365,12 @@
   
   
   (method package (retrieve-blob self digest)
+    (zlib-inflate (retrieve-object self digest)))
+  
+  
+  (method package (retrieve-object self digest)
     (let ((objects-file (objects-file self digest)))
-      (zlib-inflate (load-binary objects-file))))
-  
-  
-  (method package (retrieve-path self path)
-    (let ((entry (find-entry index path)))
-      (and entry
-           (bind (path digest seconds) entry
-             (retrieve-blob self digest)))))
+      (load-binary objects-file)))
   
   
   ;;;

@@ -72,11 +72,10 @@
 (definition package (jas$init arguments)
   (with-jas
     (lambda (output)
-      (if (not-null? arguments)
-          (format output "Too many arguments for jas init{%}")
-        (let ((dir (current-directory-get)))
-          (let ((repo (jas-init dir)))
-            (format output "Initialized empty JAS repository in {a}{%}" (parse (get-directory repo)))))))))
+      (let ((dir (current-directory-get))
+            (bare? (jas-switch arguments "bare")))
+        (let ((repo (jas-init dir bare?: bare?)))
+          (format output "Initialized empty JAS repository in {a}{%}" (parse (get-directory repo))))))))
 
 
 (definition package (jas$config arguments)
@@ -231,7 +230,8 @@
                   (else
                    (format output "On branch {a}{%}" (jas-branch-name repo head))))
             (describe "Changes to be committed:" (jas-staging-status repo))
-            (describe "Changes not staged for commit:" (jas-working-status repo))
+            (unless (bare? repo)
+              (describe "Changes not staged for commit:" (jas-working-status repo)))
             ;; TODO
             ;; "Untracked files:"
             ))))))

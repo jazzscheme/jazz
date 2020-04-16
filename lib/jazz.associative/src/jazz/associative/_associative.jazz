@@ -97,12 +97,12 @@
 ;;;
 
 
-(definition public (jas-init working)
-  (new Associative-Repository working init?: #t))
+(definition public (jas-init root (bare?: bare? #f))
+  (new Associative-Repository root init?: #t bare?: bare?))
 
 
-(definition public (jas-open working)
-  (new Associative-Repository working))
+(definition public (jas-open root)
+  (new Associative-Repository root))
 
 
 (definition public (jas-config-get repo key)
@@ -228,9 +228,14 @@
   (slot heads           getter generate)
   
   
-  (method override (initialize self working (init?: init? #f))
+  (method override (initialize self root (init?: init? #f) (bare?: bare? #f))
+    (define (jas-bare?)
+      (if init?
+          bare?
+        (exists? (new-file root ".jasbare"))))
+    
     (define (jas-directory)
-      (let ((dir (new-directory working ".jas")))
+      (let ((dir (new-directory root ".jas")))
         (cond ((exists? dir)
                dir)
               (init?
@@ -240,17 +245,22 @@
                (jas-exception "Not a jas repository")))))
     
     (initialize-aliases)
-    (set! self.working working)
-    (set! self.directory (jas-directory))
-    (set! head (new-file directory "HEAD"))
-    (set! index (new Associative-Index self working file: (new-file directory "index")))
-    (set! objects (new-directory directory "objects"))
-    (set! heads (new-directory directory '("refs" "heads")))
-    (set! disregard '(".DS_Store"))
-    (set! ignore '())
-    (when init?
-      (init self))
-    (register-configs self))
+    (let ((bare? (jas-bare?)))
+      (set! working (and (not bare?) root))
+      (set! directory (if bare? root (jas-directory)))
+      (set! head (new-file directory "HEAD"))
+      (set! index (new Associative-Index self working file: (new-file directory "index")))
+      (set! objects (new-directory directory "objects"))
+      (set! heads (new-directory directory '("refs" "heads")))
+      (set! disregard '(".DS_Store"))
+      (set! ignore '())
+      (when init?
+        (init self bare?))
+      (register-configs self)))
+  
+  
+  (method package (bare? self)
+    (not working))
   
   
   ;;;
@@ -258,7 +268,10 @@
   ;;;
   
   
-  (method package (init self)
+  (method package (init self bare?)
+    (create-directories directory)
+    (when bare?
+      (create (new-file directory ".jasbare")))
     (create-directories objects)
     (create-directories heads))
   

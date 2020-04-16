@@ -572,6 +572,36 @@
              (remove-file index path (new-file working path))))))
   
   
+  (method package (staging-diff self diff (proc #f))
+    (map (lambda (change)
+           (bind (what path . rest) change
+             (let ((file (new-file working (tokenise-filename path))))
+               (case what
+                 ((added modified)
+                  (let ((entry (scan-file self path file base: index)))
+                    (bind (path digest seconds) entry
+                      (let ((update (list path 'file (list entry)))
+                            (content (store-file self file digest)))
+                        (when proc
+                          (proc what update content digest))
+                        update))))
+                 ((removed)
+                  (let ((update (list path 'file '())))
+                    (when proc
+                      (proc what update #f #f))
+                    update))))))
+         (get-changes diff)))
+  
+  
+  (method package (stage-diff self diff)
+    (apply-updates self (staging-diff self diff)))
+  
+  
+  (method package (apply-updates self updates)
+    (apply-updates index updates)
+    (save-to-file index))
+  
+  
   (method (normalize-path self path)
     (if (equal? path ".")
         ""
@@ -947,6 +977,13 @@
       entries))
   
   
+  (method package (apply-updates self updates)
+    (for-each (lambda (upd)
+                (bind (path path-type added) upd
+                  (update self path path-type added)))
+              updates))
+  
+  
   (method package (add-file self path file)
     (let ((entry (scan-file repository path file base: self)))
       (let ((entries (list entry)))
@@ -1012,7 +1049,11 @@
     (print-unreadable self output
       (lambda (output)
         (let ((len (length changes)))
-          (format output "with {a} change{a}" (format-cardinality len) (format-plural len)))))))
+          (format output "with {a} change{a}" (format-cardinality len) (format-plural len))))))
+  
+  
+  (method public (changes? self)
+    (not-null? changes)))
 
 
 ;;;

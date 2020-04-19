@@ -491,7 +491,8 @@
   
   (method (invoke self kind method-name remote-proxy arguments)
     (when debug-remote?
-      (debug-remote presence kind method-name))
+      (debug-remote presence kind method-name)
+      (caller-garble-hack))
     (let ((ior (get-ior remote-proxy)))
       (invoke-handler
         (lambda (connection)
@@ -523,7 +524,8 @@
   (method (result self rest)
     (bind (method-name cookie result) rest
       (when debug-remote?
-        (debug-remote presence 'result method-name (debug-simplify presence result)))
+        (debug-remote presence 'result method-name (debug-simplify presence result))
+        (caller-garble-hack))
       (let ((mutex (serial->object cookie)))
         (mutex-specific-set! mutex result)
         (mutex-unlock! mutex))))
@@ -537,6 +539,7 @@
   (method (execute self kind rest)
     (bind (cookie method-name ior arguments) rest
       (when debug-remote?
+        (callee-garble-hack)
         (debug-remote presence 'execute method-name))
       (thread-start!
         (new-thread

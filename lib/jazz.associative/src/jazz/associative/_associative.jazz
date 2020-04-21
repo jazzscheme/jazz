@@ -415,7 +415,7 @@
   
   
   (method package (discard self)
-    (let ((diff (diff self (staging-index self) (working-index self))))
+    (let ((diff (diff self (working-index self) (staging-index self))))
       (discarding-directories self
         (lambda (discard-directory)
           (for-each (lambda (change)
@@ -423,12 +423,12 @@
                         (let ((file (new-file working (tokenise-filename path))))
                           (case what
                             ((added)
-                             (retrieve-file self (car rest) file))
-                            ((removed)
                              (delete file)
                              (discard-directory (get-parent file)))
+                            ((removed)
+                             (retrieve-file self (car rest) file))
                             ((modified)
-                             (retrieve-file self (cadr rest) file))))))
+                             (retrieve-file self (caddr rest) file))))))
                     (get-changes diff))))))
   
   
@@ -497,7 +497,7 @@
   
   (method package (checkout self name (validate-clean?: validate-clean? #f) (create?: create? #f))
     (when (and validate-clean?
-               (not-null? (get-changes (diff self (staging-index self) (working-index self)))))
+               (not-null? (get-changes (diff self (working-index self) (staging-index self)))))
       (jas-exception "Please commit your changes before you can checkout"))
     (cond (create?
            (let ((commit (resolve self (require-head self))))
@@ -572,33 +572,8 @@
              (remove-file index path (new-file working path))))))
   
   
-  (method package (staging-diff self diff (proc #f))
-    (map (lambda (change)
-           (bind (what path . rest) change
-             (let ((file (new-file working (tokenise-filename path))))
-               (case what
-                 ((added modified)
-                  (let ((entry (scan-file self path file base: index)))
-                    (bind (path digest seconds) entry
-                      (let ((update (list path 'file (list entry)))
-                            (content (store-file self file digest)))
-                        (when proc
-                          (proc what update content digest))
-                        update))))
-                 ((removed)
-                  (let ((update (list path 'file '())))
-                    (when proc
-                      (proc what update #f #f))
-                    update))))))
-         (get-changes diff)))
-  
-  
-  (method package (stage-diff self diff)
-    (apply-updates self (staging-diff self diff)))
-  
-  
-  (method package (apply-updates self updates)
-    (apply-updates index updates))
+  (method package (apply-changes self changes)
+    (apply-changes index changes))
   
   
   (method (normalize-path self path)
@@ -724,21 +699,23 @@
   ;;;
   
   
-  (method package (diff self from to)
+  (method package (diff self left-index right-index)
     (let ((queue (new-queue)))
       (merge-ordered (lambda (what key left right)
                        (case what
                          ((:left)
-                          (enqueue queue (list 'added key (second left))))
+                          (enqueue queue (list 'added key (second left) (third left))))
                          ((:right)
-                          (enqueue queue (list 'removed key (second right))))
+                          (enqueue queue (list 'removed key (second right) (third right))))
                          ((:same)
-                          (let ((from-digest (second (find-entry from key)))
-                                (to-digest (second (find-entry to key))))
-                            (unless (equal? from-digest to-digest)
-                              (enqueue queue (list 'modified key from-digest to-digest)))))))
-                     (get-entries from)
-                     (get-entries to)
+                          (let ((left-digest (second left))
+                                (right-digest (second right)))
+                            (unless (equal? left-digest right-digest)
+                              (let ((left-seconds (third left))
+                                    (right-seconds (third right)))
+                                (enqueue queue (list 'modified key left-digest left-seconds right-digest right-seconds))))))))
+                     (get-entries left-index)
+                     (get-entries right-index)
                      key: car
                      case-insensitive?: #t)
       (new Associative-Diff (queue-list queue))))
@@ -966,11 +943,17 @@
       entries))
   
   
-  (method package (apply-updates self updates)
-    (for-each (lambda (upd)
-                (bind (path path-type added) upd
-                  (update self path path-type added)))
-              updates)
+  (method package (apply-changes self changes)
+    (for-each (lambda (change)
+                (bind (what path . rest) change
+                  (case what
+                    ((added modified)
+                     (bind (digest seconds) rest
+                       (let ((entry (list path digest seconds)))
+                         (update self path 'file (list entry)))))
+                    ((removed)
+                     (update self path 'file '())))))
+              changes)
     (when file
       (save-to-file self)))
   
@@ -1040,11 +1023,7 @@
     (print-unreadable self output
       (lambda (output)
         (let ((len (length changes)))
-          (format output "with {a} change{a}" (format-cardinality len) (format-plural len))))))
-  
-  
-  (method public (changes? self)
-    (not-null? changes)))
+          (format output "with {a} change{a}" (format-cardinality len) (format-plural len)))))))
 
 
 ;;;

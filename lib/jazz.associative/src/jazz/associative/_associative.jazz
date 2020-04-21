@@ -415,7 +415,7 @@
   
   
   (method package (discard self)
-    (let ((diff (diff self (working-index self) (staging-index self))))
+    (let ((diff (diff self (staging-index self) (working-index self))))
       (discarding-directories self
         (lambda (discard-directory)
           (for-each (lambda (change)
@@ -497,7 +497,7 @@
   
   (method package (checkout self name (validate-clean?: validate-clean? #f) (create?: create? #f))
     (when (and validate-clean?
-               (not-null? (get-changes (diff self (working-index self) (staging-index self)))))
+               (not-null? (get-changes (diff self (staging-index self) (working-index self)))))
       (jas-exception "Please commit your changes before you can checkout"))
     (cond (create?
            (let ((commit (resolve self (require-head self))))
@@ -522,7 +522,7 @@
   (method (checkout-commit self commit)
     (let ((staging-index (staging-index self))
           (commit-index (commit-index self commit)))
-      (let ((diff (diff self staging-index commit-index)))
+      (let ((diff (diff self commit-index staging-index)))
         (discarding-directories self
           (lambda (discard-directory)
             (for-each (lambda (change)
@@ -729,9 +729,9 @@
       (merge-ordered (lambda (what key left right)
                        (case what
                          ((:left)
-                          (enqueue queue (list 'removed key (second left))))
+                          (enqueue queue (list 'added key (second left))))
                          ((:right)
-                          (enqueue queue (list 'added key (second right))))
+                          (enqueue queue (list 'removed key (second right))))
                          ((:same)
                           (let ((from-digest (second (find-entry from key)))
                                 (to-digest (second (find-entry to key))))
@@ -750,11 +750,11 @@
   
   
   (method package (staging-status self)
-    (diff self (head-index self) (staging-index self)))
+    (diff self (staging-index self) (head-index self)))
   
   
   (method package (working-status self)
-    (diff self (staging-index self) (working-index self)))
+    (diff self (working-index self) (staging-index self)))
   
   
   ;;;

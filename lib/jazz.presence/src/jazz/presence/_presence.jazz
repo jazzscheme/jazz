@@ -89,10 +89,10 @@
 (hub get-protocol)
 (hub get-reason)
 (hub get-reference)
+(hub get-remote-title)
 (hub get-service)
 (hub get-slave?)
 (hub get-stub-interface)
-(hub get-title)
 (hub get-uuid)
 (hub get-values)
 (hub get-write-mutex)
@@ -230,9 +230,7 @@
     (set! self.connect-handler (lambda (proc presence) (proc presence)))
     (set! self.invoke-handler (lambda (proc connection) (proc connection)))
     (set! self.process-handler (lambda (proc connection) (proc connection)))
-    (set! self.execute-handler (lambda (proc connection) (proc connection)))
-    (when debug-remote?
-      (debug-remote self 'setup register)))
+    (set! self.execute-handler (lambda (proc connection) (proc connection))))
   
   
   (method override (print self output readably)
@@ -275,7 +273,7 @@
           (bind (remote-kind remote-uuid remote-title remote-service remote-address remote-protocol) message
             (define (accept)
               (let ((local-uuid uuid)
-                    (local-title (current-process-title))
+                    (local-title presence-title)
                     (local-service (listening-port listener))
                     (local-address (socket-info-address (tcp-client-peer-socket-info port)))
                     (local-protocol simulated-protocol)
@@ -284,9 +282,9 @@
                 (assert (eq? (read-port port code version) 'handshake)
                   (let ((lag (- (current-monotonic) start)))
                     (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address remote-protocol lag #f invoke-handler process-handler execute-handler)))
-                      (when debug-remote?
+                      (when (and debug-remote? (debug-remote-presence? self))
                         (callee-garble-hack)
-                        (debug-remote self 'accept remote-uuid connection))
+                        (debug-remote self '<<< remote-title remote-uuid 'accept connection))
                       (register-connection self remote-uuid connection)
                       (set-thread connection (current-thread))
                       (process connection))))))
@@ -306,15 +304,16 @@
   
   
   (method (connect-remote self host service (slave? #f))
-    (when debug-remote?
-      (debug-remote self 'open host service))
+    (when (and debug-remote? (debug-remote-presence? self))
+      (debug-remote self '>>> #f #f 'open host service)
+      (caller-garble-hack))
     (when (not listener)
       (start-listener self #f #f #f))
     (connect-handler
       (lambda (presence)
         (let ((port (open-tcp-client (list server-address: host port-number: service readtable: jazz-readtable))))
           (let ((local-uuid uuid)
-                (local-title (current-process-title))
+                (local-title presence-title)
                 (local-service (listening-port listener))
                 (local-address (socket-info-address (tcp-client-peer-socket-info port)))
                 (local-protocol simulated-protocol)
@@ -330,9 +329,10 @@
                        (let ((lag (- (current-monotonic) start)))
                          (write-port port code version 'handshake)
                          (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address remote-protocol lag slave? invoke-handler process-handler execute-handler)))
-                           (when debug-remote?
-                             (debug-remote self 'connect remote-uuid connection)
-                             (caller-garble-hack))
+                           (when (and debug-remote? (debug-remote-presence? self))
+                             (callee-garble-hack)
+                             (callee-garble-hack)
+                             (debug-remote self '<<< remote-title remote-uuid 'connect connection))
                            (register-connection self remote-uuid connection)
                            (let ((thread (new-thread
                                            (lambda ()
@@ -387,11 +387,10 @@
   ;;;
   
   
-  (method (debug-remote self action . rest)
-    (format :terminal "{a width: 10}" remote-title)
+  (method (debug-remote self arrow remote-title remote-uuid action . rest)
     (when debug-remote-seconds?
-      (format :terminal " {r precision: 6}" (current-seconds)))
-    (format :terminal "{? {a}~} {a} {a width: 7} {l}{%}" purpose uuid action rest))
+      (format :terminal "{r precision: 6} " (current-seconds)))
+    (format :terminal "{?{a} ~}{a width: 9} {a}   {a}   {a width: 9} {a width: 8}   {a width: 7}   {l}{%}" purpose presence-title (uuid-prefix uuid) arrow (or remote-title "") (if remote-uuid (uuid-prefix remote-uuid) "") action rest))
   
   
   (method (debug-simplify self obj)
@@ -418,7 +417,7 @@
   (slot thread          accessors generate)
   (slot write-mutex     getter generate)
   (slot remote-uuid     getter generate)
-  (slot title           getter generate)
+  (slot remote-title    getter generate)
   (slot service         getter generate)   ; the peer's listener port
   (slot address         getter generate)   ; the peer's address of us
   (slot protocol        accessors generate)
@@ -430,12 +429,12 @@
   (slot execute-handler getter generate)
   
   
-  (method override (initialize self presence port remote-uuid title service address protocol lag slave? invoke-handler process-handler execute-handler)
+  (method override (initialize self presence port remote-uuid remote-title service address protocol lag slave? invoke-handler process-handler execute-handler)
     (set! self.presence presence)
     (set! self.port port)
     (set! self.write-mutex (make-mutex 'write))
     (set! self.remote-uuid remote-uuid)
-    (set! self.title title)
+    (set! self.remote-title remote-title)
     (set! self.service service)
     (set! self.address address)
     (set! self.protocol protocol)
@@ -450,7 +449,7 @@
   (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
-        (format output "{a}" title))))
+        (format output "{a}" remote-title))))
   
   
   ;;;
@@ -490,18 +489,18 @@
   
   
   (method (invoke self kind method-name remote-proxy arguments)
-    (when (and debug-remote? (debug-remote-method? method-name))
-      (debug-remote presence kind method-name)
+    (when (and debug-remote? (debug-remote-presence? presence) (debug-remote-method? method-name))
+      (debug-remote presence '>>> remote-title remote-uuid kind method-name)
       (caller-garble-hack))
     (let ((ior (get-ior remote-proxy)))
       (invoke-handler
         (lambda (connection)
           (if (eq? kind 'post)
-              (write-message self `(,kind #f ,method-name ,ior ,arguments))
+              (write-message self `(,kind ,method-name #f ,ior ,arguments))
             (let ((mutex (make-mutex 'invoke)))
               (let ((cookie (object->serial mutex)))
                 (mutex-lock! mutex)
-                (write-message self `(,kind ,cookie ,method-name ,ior ,arguments))
+                (write-message self `(,kind ,method-name ,cookie ,ior ,arguments))
                 (mutex-lock! mutex)
                 (mutex-unlock! mutex)
                 (mutex-specific mutex)))))
@@ -513,7 +512,7 @@
       (let ((mutex (make-mutex 'invoke)))
         (let ((cookie (object->serial mutex)))
           (mutex-lock! mutex)
-          (write-message self `(call ,cookie live? ,ior ()))
+          (write-message self `(call live? ,cookie ,ior ()))
           (let ((timed-out (not (mutex-lock! mutex timeout))))
             (mutex-unlock! mutex)
             (if timed-out
@@ -523,8 +522,8 @@
   
   (method (result self rest)
     (bind (method-name cookie result) rest
-      (when (and debug-remote? (debug-remote-method? method-name))
-        (debug-remote presence 'result method-name (debug-simplify presence result))
+      (when (and debug-remote? (debug-remote-presence? presence) (debug-remote-method? method-name))
+        (debug-remote presence '<<< remote-title remote-uuid 'result method-name (debug-simplify presence result))
         (caller-garble-hack))
       (let ((mutex (serial->object cookie)))
         (mutex-specific-set! mutex result)
@@ -537,10 +536,10 @@
   
   
   (method (execute self kind rest)
-    (bind (cookie method-name ior arguments) rest
-      (when (and debug-remote? (debug-remote-method? method-name))
+    (bind (method-name cookie ior arguments) rest
+      (when (and debug-remote? (debug-remote-presence? presence) (debug-remote-method? method-name))
         (callee-garble-hack)
-        (debug-remote presence 'execute method-name))
+        (debug-remote presence '<<< remote-title remote-uuid 'execute method-name))
       (thread-start!
         (new-thread
           (lambda ()
@@ -562,16 +561,12 @@
   ;;;
   
   
-  (definition debug-io?
-    #f)
-  
-  
   (method (write-message self message)
     (unwind-protect
         (begin
           (mutex-lock! write-mutex)
-          (when debug-io?
-            (debug-remote presence 'write message)
+          (when (and debug-remote-io? (debug-remote-presence? presence))
+            (debug-remote presence '>>> remote-title remote-uuid 'write (car message) (cadr message) (caddr message))
             (caller-garble-hack))
           (write-port port (get-code presence) (get-version presence) message))
       (mutex-unlock! write-mutex)))
@@ -579,9 +574,9 @@
   
   (method (read-message self)
     (let ((message (read-port port (get-code presence) (get-version presence))))
-      (when debug-io?
+      (when (and debug-remote-io? (debug-remote-presence? presence))
         (callee-garble-hack)
-        (debug-remote presence 'read message))
+        (debug-remote presence '<<< remote-title remote-uuid 'read (car message) (cadr message) (caddr message)))
       (if (eof-object? message)
           (throw-connection-broke "Read message received eof")
         message))))
@@ -984,23 +979,23 @@
 ;;;
 
 
-(definition protected remote-title
+(definition protected presence-title
   (let ((prefix (or (current-process-prefix) (current-process-title))))
     (and prefix (upcase prefix))))
 
-(definition public (get-remote-title)
-  remote-title)
+(definition public (get-presence-title)
+  presence-title)
 
-(definition public (set-remote-title title)
-  (set! remote-title title))
+(definition public (set-presence-title title)
+  (set! presence-title title))
 
 
 ;; kinda quicky
-(definition protected remote-name
-  (and remote-title (string->symbol remote-title)))
+(definition protected presence-name
+  (and presence-title (string->symbol presence-title)))
 
-(definition public (get-remote-name)
-  remote-name)
+(definition public (get-presence-name)
+  presence-name)
 
 
 (definition protected debug-remote?
@@ -1012,13 +1007,24 @@
 (definition protected debug-remote-simplify?
   (global-setting 'debug-remote-simplify? #t))
 
-(definition protected debug-remote-ignore
-  (global-setting 'debug-remote-ignore #f))
+(definition protected debug-remote-ignore-presences
+  (global-setting 'debug-remote-ignore-presences #f))
+
+(definition protected debug-remote-ignore-methods
+  (global-setting 'debug-remote-ignore-methods #f))
+
+(definition protected debug-remote-io?
+  (global-setting 'debug-remote-io? #f))
+
+
+(definition protected (debug-remote-presence? presence)
+  (or (not debug-remote-ignore-presences)
+      (not (memq? (get-purpose presence) debug-remote-ignore-presences))))
 
 
 (definition protected (debug-remote-method? method-name)
-  (or (not debug-remote-ignore)
-      (not (memq? method-name debug-remote-ignore))))
+  (or (not debug-remote-ignore-methods)
+      (not (memq? method-name debug-remote-ignore-methods))))
 
 
 (definition protected (set-debug-remote? flag)

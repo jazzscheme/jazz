@@ -490,7 +490,7 @@
   
   
   (method (invoke self kind method-name remote-proxy arguments)
-    (when debug-remote?
+    (when (and debug-remote? (debug-remote-method? method-name))
       (debug-remote presence kind method-name)
       (caller-garble-hack))
     (let ((ior (get-ior remote-proxy)))
@@ -523,7 +523,7 @@
   
   (method (result self rest)
     (bind (method-name cookie result) rest
-      (when debug-remote?
+      (when (and debug-remote? (debug-remote-method? method-name))
         (debug-remote presence 'result method-name (debug-simplify presence result))
         (caller-garble-hack))
       (let ((mutex (serial->object cookie)))
@@ -538,7 +538,7 @@
   
   (method (execute self kind rest)
     (bind (cookie method-name ior arguments) rest
-      (when debug-remote?
+      (when (and debug-remote? (debug-remote-method? method-name))
         (callee-garble-hack)
         (debug-remote presence 'execute method-name))
       (thread-start!
@@ -1011,6 +1011,14 @@
 
 (definition protected debug-remote-simplify?
   (global-setting 'debug-remote-simplify? #t))
+
+(definition protected debug-remote-ignore
+  (global-setting 'debug-remote-ignore #f))
+
+
+(definition protected (debug-remote-method? method-name)
+  (or (not debug-remote-ignore)
+      (not (memq? method-name debug-remote-ignore))))
 
 
 (definition protected (set-debug-remote? flag)

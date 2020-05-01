@@ -332,11 +332,14 @@
   
   
   (method package (store-file self file digest)
-    (store-blob self (load-binary file) digest))
+    (store-blob self (load-binary file) digest (get-extension file)))
   
   
-  (method package (store-blob self content digest)
-    (store-object self (zlib-deflate content) digest))
+  (method package (store-blob self content digest extension)
+    (let ((object-content (if (already-compressed? extension)
+                              content
+                            (zlib-deflate content))))
+      (store-object self object-content digest)))
   
   
   (method package (store-object self content digest)
@@ -361,11 +364,14 @@
   
   (method (retrieve-file self digest file)
     (create-directories file)
-    (save-binary file (retrieve-blob self digest)))
+    (save-binary file (retrieve-blob self digest (get-extension file))))
   
   
-  (method package (retrieve-blob self digest)
-    (zlib-inflate (retrieve-object self digest)))
+  (method package (retrieve-blob self digest extension)
+    (let ((object-content (retrieve-object self digest)))
+      (if (already-compressed? extension)
+          object-content
+        (zlib-inflate object-content))))
   
   
   (method package (retrieve-object self digest)
@@ -1052,6 +1058,34 @@
     ;; as sorting each directory children can yield a global
     ;; result that is different because of the / separators
     (sort ci<? (queue-list entries) key: car)))
+
+
+;;;
+;;;; Compressed
+;;;
+
+
+(definition protected compressed-extensions
+  (let ((table (make-table test: filename=? hash: filename=?-hash)))
+    (for-each (lambda (extension)
+                (table-set! table extension #t))
+              '("avi"
+                "gif"
+                "jpg"
+                "jpeg"
+                "mp3"
+                "mp4"
+                "mpg"
+                "mpeg"
+                "ogg"
+                "png"
+                "zip"
+                "7z"))
+    table))
+
+
+(definition protected (already-compressed? extension)
+  (table-ref compressed-extensions extension #f))
 
 
 ;;;

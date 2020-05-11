@@ -372,7 +372,7 @@
                    ((above) (set! to (cadr scan)) (set! test '>) (set! oper '-) (set! scan (cddr scan)))
                    ((end) (set! to (cadr scan)) (set! test '<=) (set! scan (cddr scan)))
                    ((by) (set! by (cadr scan)) (set! scan (cddr scan)))
-                   (else (error "Unknown for keyword: {t}" key)))))
+                   (else (error "Unknown for keyword: {t}" (desourcify-all key))))))
              (add-variable variable type from)
              (when to
                (let ((end (if (or (symbol? (source-code to)) (number? (source-code to))) to (unique "end"))))
@@ -417,7 +417,7 @@
          (let ((value (car rest)))
            (add-binding variable '<Object> value)))
         (else
-         (error "Unknown for keyword: {t}" (source-code key))))))
+         (error "Unknown for keyword: {t}" (desourcify-all key))))))
   
   
   ;;;

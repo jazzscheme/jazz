@@ -59,6 +59,7 @@
         (jazz.skin)
         (jazz.text)
         (jazz.ui)
+        (jazz.ui.skin)
         (jazz.undoer)
         (jazz.view)
         (jazz.window)
@@ -2230,11 +2231,24 @@
   
   
   (method override (get-drawing-background self context)
-    (if (not (draw-enabled? self))
-        {Color Medium}
-      (let ((skin (get-skin self)))
+    (let ((skin (get-skin self)))
+      (if (not (draw-enabled? self))
+          (or (get-disabled-background skin)
+              {Color Medium})
         (or (get-background skin)
             (nextmethod self context)))))
+  
+  
+  ;; quick copy/paste of outline-view draw-background
+  ;; to let get-drawing-background decide the disabled 
+  (method override (draw-background self surface context)
+    (let ((background (cond ((debug-paint?)
+                             (cycle-debug-color!))
+                            (else
+                             (get-drawing-background self context)))))
+      (when (and background (neq? background 'none))
+        (let ((bounds (get-bounds self)))
+          (fill-rect surface bounds background)))))
   
   
   (method override (draw-children self surface nodes context)

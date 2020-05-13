@@ -2352,7 +2352,7 @@
         (call-selection-handler self old-selection selection force? user-origin))))
   
   
-  (method public (get-selection-state self (use: use 'row))
+  (method public (get-selection-state self (use: use 'row) (selection-position?: selection-position? #t))
     (define (save-selection selection)
       (case selection-mode
         ((cell) (map save-cell selection))
@@ -2372,7 +2372,7 @@
       (map (~ row-title self) (get-spine (get-row self line))))
     
     (let ((saved-selection (save-selection (get-selection self)))
-          (saved-position (nu+ (get-scrolled-position self) (selection-position self (get-selection self))))
+          (saved-position (nu+ (get-scrolled-position self) (if selection-position? (selection-position self (get-selection self)) {Point 0 0})))
           (saved-pivot (and selection-pivot (save-selection (list selection-pivot))))
           (saved-edited (and edited-site (save-cell (site->cell self edited-site)))))
       (list use
@@ -2382,7 +2382,7 @@
             saved-edited)))
   
   
-  (method public (set-selection-state self state (test: test eqv?) (ensure-expanded?: ensure-expanded? #f) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
+  (method public (set-selection-state self state (test: test eqv?) (ensure-expanded?: ensure-expanded? #f) (ensure-displayed?: ensure-displayed? #t) (selection-position?: selection-position? #t) (generate-event?: generate-event? #f))
     (bind (use saved-selection saved-position saved-pivot saved-edited) state
       (let ((row->line (if ensure-expanded?
                            (lambda (row)
@@ -2431,7 +2431,7 @@
                      (size (new Dimension (- (get-right rect) (get-left rect)) (- (get-bottom rect) (get-top rect)))))
                 (set-size cell-editor size)))))
         (let ((selection (restore-selection saved-selection)))
-          (scroll-to self (nu- saved-position (selection-position self selection)))
+          (scroll-to self (nu- saved-position (if selection-position? (selection-position self selection) {Point 0 0})))
           (set-selection self selection ensure-displayed?: ensure-displayed? generate-event?: generate-event? auto-expand?: #f)))))
   
   
@@ -2440,10 +2440,10 @@
       (rect-position (get-box region))))
   
   
-  (method public (with-preserved-selection self thunk (use: use 'row) (test: test eqv?) (ensure-expanded?: ensure-expanded? #f) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
-    (let ((saved-state (get-selection-state self use: use)))
+  (method public (with-preserved-selection self thunk (use: use 'row) (test: test eqv?) (ensure-expanded?: ensure-expanded? #f) (ensure-displayed?: ensure-displayed? #t) (selection-position?: selection-position? #t) (generate-event?: generate-event? #f))
+    (let ((saved-state (get-selection-state self use: use selection-position?: selection-position?)))
       (thunk)
-      (set-selection-state self saved-state test: test ensure-expanded?: ensure-expanded? ensure-displayed?: ensure-displayed? generate-event?: generate-event?)))
+      (set-selection-state self saved-state test: test ensure-expanded?: ensure-expanded? ensure-displayed?: ensure-displayed? selection-position?: selection-position? generate-event?: generate-event?)))
   
   
   (method public (get-single-selection self)

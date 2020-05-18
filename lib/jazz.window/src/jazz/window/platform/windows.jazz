@@ -586,7 +586,9 @@
                             (paint window region)))
     ((WM_SETCURSOR)       (cursor-update window (= (loword lparam) HTCLIENT)))
     ((WM_MOUSEMOVE)       (call-mouse-moved window (cast <fl> (get-x-lparam lparam)) (cast <fl> (get-y-lparam lparam))))
-    ((WM_MOUSEWHEEL)      (mouse-wheel window (get-x-lparam lparam) (get-y-lparam lparam) (wheel-point (quotient (get-wheel-delta-wparam wparam) 3))))
+    ((WM_MOUSEWHEEL)      (let ((global (new Point (get-x-lparam lparam) (get-y-lparam lparam))))
+                            (let ((local (acquire-point (get-handle window) (cache-desktop-window) global)))
+                              (mouse-wheel window (get-h local) (get-v local) (wheel-point (quotient (get-wheel-delta-wparam wparam) 3))))))
     ((WM_LBUTTONDOWN)     (mouse-down window (get-x-lparam lparam) (get-y-lparam lparam)))
     ((WM_LBUTTONUP)       (mouse-up window (get-x-lparam lparam) (get-y-lparam lparam)))
     ((WM_LBUTTONDBLCLK)   (double-click window (get-x-lparam lparam) (get-y-lparam lparam)))
@@ -1150,7 +1152,17 @@
 
 
 (definition package (platform-get-desktop)
-  (GetDesktopWindow))
+  (cache-desktop-window))
+
+
+(definition desktop-window
+  #f)
+
+(definition (cache-desktop-window)
+  (or desktop-window
+      (let ((window (GetDesktopWindow)))
+        (set! desktop-window window)
+        window)))
 
 
 ;;;

@@ -216,38 +216,46 @@
             (table-set! snapshots file snapshot)
             snapshot)))
     
+    (define (collect-snapshots)
+      (let ((queue (new-queue)))
+        (iterate-directory directory
+          (lambda (dir)
+            (iterate-directory dir
+              (lambda (file)
+                (when (extension=? (get-extension file) "snapshot")
+                  (receive (name date) (split-name file)
+                    (enqueue queue (list (get-name dir) name date file)))))
+              files?: #t
+              directories?: #f
+              recursive?: #f))
+          files?: #f
+          directories?: #t
+          recursive?: #f)
+        (queue-list queue)))
+    
     (with-cursor :wait
       (lambda ()
         (let ((tree (locate self 'snapshots-tree)))
           (remove-every-row tree)
           (with-update-locked tree
             (lambda ()
-              (iterate-directory directory
-                (lambda (dir)
-                  (iterate-directory dir
-                    (lambda (file)
-                      (when (extension=? (get-extension file) "snapshot")
-                        (let ((snapshot (extract-snapshot file)))
-                          (receive (name date) (split-name file)
-                            (if (is? snapshot Markup-Element)
-                                (add-row tree children: (list (new Tree-Node title: (get-name dir))
+              (for-each (lambda (info)
+                          (bind (dirname name date file) info
+                            (let ((snapshot (extract-snapshot file)))
+                              (if (is? snapshot Markup-Element)
+                                  (add-row tree children: (list (new Tree-Node title: dirname)
+                                                                (new Tree-Label title: name)
+                                                                (new Tree-Label title: date)
+                                                                (new Tree-Label title: (or (get-property snapshot 'exception) ""))
+                                                                (new Tree-Label title: (or (get-property snapshot 'user) "")))
+                                    user-data: snapshot)
+                                (add-row tree children: (list (new Tree-Node title: dirname)
                                                               (new Tree-Label title: name)
                                                               (new Tree-Label title: date)
-                                                              (new Tree-Label title: (or (get-property snapshot 'exception) ""))
-                                                              (new Tree-Label title: (or (get-property snapshot 'user) "")))
-                                  user-data: snapshot)
-                              (add-row tree children: (list (new Tree-Node title: (get-name dir))
-                                                            (new Tree-Label title: name)
-                                                            (new Tree-Label title: date)
-                                                            (new Tree-Label title: "*** corrupted ***")
-                                                            (new Tree-Label title: ""))
-                                user-data: file))))))
-                    files?: #t
-                    directories?: #f
-                    recursive?: #f))
-                files?: #f
-                directories?: #t
-                recursive?: #f))))
+                                                              (new Tree-Label title: "*** corrupted ***")
+                                                              (new Tree-Label title: ""))
+                                  user-data: file)))))
+                        (sort nu>? (collect-snapshots) key: third)))))
         (set-string-content (locate self 'properties-text) ""))))
   
   

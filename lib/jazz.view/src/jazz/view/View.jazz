@@ -74,7 +74,6 @@
   (property background                           initialize #f accessors explicit)
   (property auto-size?                           initialize #f accessors explicit)
   (property tooltip?                             initialize #f accessors explicit)
-  (property tooltip-in?                          initialize #f accessors explicit)
   (property tooltip-text                         initialize #f accessors explicit)
   (property draggable?                           initialize #f accessors explicit)
   (property drag-tolerance                       initialize 5  accessors generate)
@@ -637,10 +636,6 @@
   (method override (show self)
     (nextmethod self)
     (call-layout self)
-    ;; quicky should really be calling mouse-enter
-    (when (and (eq? self (get-mouse-in))
-               tooltip-in?)
-      (popup-tooltip self (mouse-position self)))
     (invalidate-view self))
 
 
@@ -648,7 +643,6 @@
     (let ((invalidater (view-invalidater self)))
       (nextmethod self)
       (detach-view-focus self)
-      ;; quicky should really be calling mouse-leave
       (let ((mouse-in (get-mouse-in)))
         (when (and mouse-in (has-ascendant? mouse-in self))
           (close-self-tooltip mouse-in)))
@@ -2115,8 +2109,6 @@
                 (set-mouse-in view)
                 (when (get-mouse-in)
                   (dispatch-mouse-enter (get-mouse-in)))
-                (when (get-tooltip-in? (get-mouse-in))
-                  (popup-tooltip (get-mouse-in) pos force?: #t))
                 (track-mouse-leave player))
               (unless (or *current-tooltip-context* (current-drag-drop))
                 (track-tooltip (get-mouse-in)))
@@ -3376,14 +3368,6 @@
 
   (method public (set-tooltip? self flag)
     (set! tooltip? flag))
-
-
-  (method public virtual (get-tooltip-in? self)
-    tooltip-in?)
-
-
-  (method public (set-tooltip-in? self flag)
-    (set! tooltip-in? flag))
 
 
   (method public virtual (get-tooltip-text self)

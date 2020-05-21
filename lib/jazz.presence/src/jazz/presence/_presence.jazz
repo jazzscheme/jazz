@@ -86,7 +86,6 @@
 (hub get-object)
 (hub get-port)
 (hub get-presence)
-(hub get-protocol)
 (hub get-reason)
 (hub get-reference)
 (hub get-remote-title)
@@ -109,7 +108,6 @@
 (hub remote-class)
 (hub require-connection)
 (hub require-object)
-(hub set-protocol)
 (hub set-values)
 (hub startup-process)
 (hub start-listener)
@@ -121,7 +119,6 @@
 
 (export (jazz.presence.autoload))
 (import (jazz.presence.autoload)
-        (jazz.presence.protocol)
         (jazz.presence.transmission)
         (jazz.event)
         (jazz.network)
@@ -270,18 +267,17 @@
     (accept-handler
       (lambda (presence)
         (let ((message (read-port port code version)))
-          (bind (remote-kind remote-uuid remote-title remote-service remote-address remote-protocol) message
+          (bind (remote-kind remote-uuid remote-title remote-service remote-address) message
             (define (accept)
               (let ((local-uuid uuid)
                     (local-title presence-title)
                     (local-service (listening-port listener))
                     (local-address (socket-info-address (tcp-client-peer-socket-info port)))
-                    (local-protocol simulated-protocol)
                     (start (current-monotonic)))
-                (write-port port code version (list local-uuid local-title local-service local-address local-protocol))
+                (write-port port code version (list local-uuid local-title local-service local-address))
                 (assert (eq? (read-port port code version) 'handshake)
                   (let ((lag (- (current-monotonic) start)))
-                    (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address remote-protocol lag #f invoke-handler process-handler execute-handler)))
+                    (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag #f invoke-handler process-handler execute-handler)))
                       (when (and debug-remote? (debug-remote-presence? self))
                         (callee-garble-hack)
                         (debug-remote self '<<< remote-title remote-uuid 'accept connection))
@@ -316,19 +312,18 @@
                 (local-title presence-title)
                 (local-service (listening-port listener))
                 (local-address (socket-info-address (tcp-client-peer-socket-info port)))
-                (local-protocol simulated-protocol)
                 (start (current-monotonic)))
-            (write-port port code version (list 'connect local-uuid local-title local-service local-address local-protocol))
+            (write-port port code version (list 'connect local-uuid local-title local-service local-address))
             (let ((reply (read-port port code version)))
               (cond ((eof-object? reply)
                      (throw-connection-broke (format "Connecting to {a} {a} received eof" host service)))
                     ((eq? reply 'already-connected)
                      (error "Already connected to {a} {a}" host service))
                     (else
-                     (bind (remote-uuid remote-title remote-service remote-address remote-protocol) reply
+                     (bind (remote-uuid remote-title remote-service remote-address) reply
                        (let ((lag (- (current-monotonic) start)))
                          (write-port port code version 'handshake)
-                         (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address remote-protocol lag slave? invoke-handler process-handler execute-handler)))
+                         (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag slave? invoke-handler process-handler execute-handler)))
                            (when (and debug-remote? (debug-remote-presence? self))
                              (callee-garble-hack)
                              (callee-garble-hack)
@@ -420,7 +415,6 @@
   (slot remote-title    getter generate)
   (slot service         getter generate)   ; the peer's listener port
   (slot address         getter generate)   ; the peer's address of us
-  (slot protocol        accessors generate)
   (slot lag             accessors generate)
   (slot closing?        accessors generate)
   (slot slave?          getter generate)
@@ -429,7 +423,7 @@
   (slot execute-handler getter generate)
   
   
-  (method override (initialize self presence port remote-uuid remote-title service address protocol lag slave? invoke-handler process-handler execute-handler)
+  (method override (initialize self presence port remote-uuid remote-title service address lag slave? invoke-handler process-handler execute-handler)
     (set! self.presence presence)
     (set! self.port port)
     (set! self.write-mutex (make-mutex 'write))
@@ -437,7 +431,6 @@
     (set! self.remote-title remote-title)
     (set! self.service service)
     (set! self.address address)
-    (set! self.protocol protocol)
     (set! self.lag lag)
     (set! self.closing? #f)
     (set! self.slave? slave?)

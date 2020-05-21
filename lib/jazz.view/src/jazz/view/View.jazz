@@ -2586,40 +2586,20 @@
           ((:ibeam) 9)
           (else 21))))
     
-    (and (or (and (not (or (get-mouse-down?) (current-drag-drop) (in-tooltip? self pos)))
-                  (not (get-locked-tooltip)))
-             force?)
-         (let ((replace-locked? (and (get-locked-tooltip) (eq? self (get-view (get-locked-tooltip))))))
-           (close-tooltip self force?: replace-locked?)
-           (and (or (not (same-position?)) force?)
-                (begin
-                  (set-current-tooltip-context (get-tooltip-context self pos))
-                  (if *current-tooltip-context*
-                      (let ((text (get-text *current-tooltip-context*))
-                            (font (get-font *current-tooltip-context*))
-                            (position (get-position *current-tooltip-context*))
-                            (padding (get-padding *current-tooltip-context*))
-                            (new-view (get-new-view *current-tooltip-context*))
-                            (new-border (get-new-border *current-tooltip-context*)))
-                        (set-tooltip *current-tooltip-context* (new-tooltip text font position padding new-view new-border)))
-                    (set! *last-tooltip-position* pos)
-                    (reset-tooltip self))
-                  (when replace-locked?
-                    (set-locked-tooltip *current-tooltip-context*)
-                    (set-locked-popup (get-tooltip *current-tooltip-context*)))
-                  *current-tooltip-context*)))))
-  
-  
-  (method public (lock-tooltip self pos)
-    (let ((tooltip-context (popup-tooltip self pos force?: #t)))
-      (set-locked-tooltip tooltip-context)
-      (set-locked-popup (get-tooltip tooltip-context))
-      tooltip-context))
-  
-  
-  (method public (unlock-tooltip self)
-    (set-locked-tooltip #f)
-    (close-tooltip self))
+    (unless (and (or (get-mouse-down?) (current-drag-drop) (in-tooltip? self pos)) (not force?))
+      (close-tooltip self)
+      (unless (and (same-position?) (not force?))
+        (set-current-tooltip-context (get-tooltip-context self pos))
+        (if *current-tooltip-context*
+            (let ((text (get-text *current-tooltip-context*))
+                  (font (get-font *current-tooltip-context*))
+                  (position (get-position *current-tooltip-context*))
+                  (padding (get-padding *current-tooltip-context*))
+                  (new-view (get-new-view *current-tooltip-context*))
+                  (new-border (get-new-border *current-tooltip-context*)))
+              (set-tooltip *current-tooltip-context* (new-tooltip text font position padding new-view new-border)))
+          (set! *last-tooltip-position* pos)
+          (reset-tooltip self)))))
   
   
   ;; only works for rich tooltips for now
@@ -2641,8 +2621,8 @@
       (close-tooltip self)))
   
   
-  (method (close-tooltip self (force?: force? #f))
-    (when (and *current-tooltip-context* (or (neq? *current-tooltip-context* (get-locked-tooltip)) force?))
+  (method (close-tooltip self)
+    (when *current-tooltip-context*
       (let ((tooltip (get-tooltip *current-tooltip-context*)))
         (when (and tooltip (opened? tooltip))
           (close-popup tooltip)))

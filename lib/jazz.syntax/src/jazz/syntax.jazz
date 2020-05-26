@@ -139,22 +139,21 @@
           (body (cdr form)))
       (let ((name (if (pair? header) (car header) header))
             (properties (if (pair? header) (cdr header) '())))
-        (let ((explicit-parent (getf properties parent: not-found: (unspecified))))
-          (let ((pathname (if (unspecified? explicit-parent) (cons name (current-site-pathname)) (list name)))
-                (parent-pathname (if (unspecified? explicit-parent) (current-site-pathname) (if (not explicit-parent) '() (split-identifier explicit-parent))))
-                (desourcified-properties (map source-code properties)))
-            (let ((on? (getf desourcified-properties on?: not-found: #t)))
-              (new Site-Special
-                (parameterize ((current-site-pathname pathname))
-                  (walk walker resume declaration environment
-                    (sourcify-deep-if
-                      (if (not on?)
-                          `(begin
-                             ,@body)
-                        (let ((site (generate-symbol "site")))
-                          `(let ((,site <Call-Site> (static (register-site ',pathname ',parent-pathname ',properties))))
-                             ((get-procedure ,site)
-                              ,site
-                               (lambda ()
-                                 ,@body)))))
-                      form-src))))))))))))
+        (let ((pathname (cons name (current-site-pathname)))
+              (parent-pathname (current-site-pathname))
+              (desourcified-properties (map source-code properties)))
+          (let ((on? (getf desourcified-properties on?: not-found: #t)))
+            (new Site-Special
+              (parameterize ((current-site-pathname pathname))
+                (walk walker resume declaration environment
+                  (sourcify-deep-if
+                    (if (not on?)
+                        `(begin
+                           ,@body)
+                      (let ((site (generate-symbol "site")))
+                        `(let ((,site <Call-Site> (static (register-site ',pathname ',parent-pathname ',properties))))
+                           ((get-procedure ,site)
+                            ,site
+                             (lambda ()
+                               ,@body)))))
+                    form-src)))))))))))

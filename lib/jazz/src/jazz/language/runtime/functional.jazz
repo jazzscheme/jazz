@@ -5986,18 +5986,15 @@
 (definition public (register-site pathname parent-pathname properties)
   (let ((name (car pathname))
         (identifier (apply compose-identifier pathname)))
-    (if (table-ref call-sites identifier #f)
-        (table-ref call-sites identifier #f)
-        @wait-all-code-recompiled
-        (error "Site {a} already registered" identifier)
-      (let ((id (next-site-id!))
-            (parent (and (not-null? parent-pathname) (apply compose-identifier parent-pathname))))
-        (let ((site (new-call-site name identifier id parent properties (lambda (site thunk) (thunk)))))
-          (vector-set! siteids id site)
-          (table-set! call-sites identifier site)
-          (when site-callback
-            (site-callback site))
-          site)))))
+    (or (table-ref call-sites identifier #f)
+        (let ((id (next-site-id!))
+              (parent (and (not-null? parent-pathname) (apply compose-identifier parent-pathname))))
+          (let ((site (new-call-site name identifier id parent properties (lambda (site thunk) (thunk)))))
+            (vector-set! siteids id site)
+            (table-set! call-sites identifier site)
+            (when site-callback
+              (site-callback site))
+            site)))))
 
 
 (definition site-callback

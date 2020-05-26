@@ -381,8 +381,7 @@
    (parent     getter: generate setter: generate)
    (properties getter: generate setter: generate)
    (procedure  getter: generate setter: generate)
-   (monitor    getter: generate setter: generate)
-   (profile    getter: generate setter: generate)))
+   (monitor    getter: generate setter: generate)))
 
 
 ;;;

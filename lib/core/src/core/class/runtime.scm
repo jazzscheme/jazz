@@ -2740,7 +2740,7 @@
 
 
 (define (jazz:new-call-site name identifier id parent properties procedure)
-  (jazz:allocate-call-site name identifier id parent properties procedure #f #f))
+  (jazz:allocate-call-site name identifier id parent properties procedure #f))
 
 
 ;;;

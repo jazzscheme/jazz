@@ -343,19 +343,33 @@
 ;;;
 
 
-(definition public (read-markup file)
+(definition public (read-markup-from-port port (source #f))
   (parameterize ((walk-for #f))
-    (call-with-input-file (path-settings file eol-encoding: 'cr-lf readtable: jazz-readtable)
-      (lambda (input)
-        (let ((expr (read input)))
-          (if (eof-object? expr)
-              (error "No expression found in: {s}" (parse file))
-            (let ((extraneous (read input)))
-              (if (not (eof-object? extraneous))
-                  (error "Found extraneous expressions in: {s}" (parse file))
-                expr))))))))
+    (let ((expr (read port)))
+      (if (eof-object? expr)
+          (error "No expression found{? in: {s}~}" source)
+        (let ((extraneous (read port)))
+          (if (not (eof-object? extraneous))
+              (error "Found extraneous expressions{? in: {s}~}" source)
+            expr))))))
+
+
+(definition public (read-markup file)
+  (call-with-input-file (path-settings file eol-encoding: 'cr-lf readtable: jazz-readtable)
+    (lambda (port)
+      (read-markup-from-port port (parse file)))))
+
+
+(definition public (read-markup-string string)
+  (call-with-input-string (list init: string readtable: jazz-readtable)
+    read-markup-from-port))
 
 
 (definition public (load-markup file)
   (let ((parser (new Markup-Parser preferences: (new Markup-Preferences))))
-    (parse parser (read-markup file)))))
+    (parse parser (read-markup file))))
+
+
+(definition public (load-markup-string file)
+  (let ((parser (new Markup-Parser preferences: (new Markup-Preferences))))
+    (parse parser (read-markup-string file)))))

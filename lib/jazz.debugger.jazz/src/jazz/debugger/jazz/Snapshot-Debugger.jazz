@@ -40,14 +40,11 @@
 
 (import (jazz.debugger)
         (jazz.event)
+        (jazz.io)
         (jazz.markup)
         (jazz.project)
         (jazz.resource)
         (jazz.settings))
-
-
-(definition snapshot-relocations
-  (find-setting 'jazz.snapshot-relocations '()))
 
 
 (class Snapshot-Debugger extends Debugger
@@ -306,28 +303,20 @@
   
   
   (method override (frame-location self process frame)
-    (define (try-relocation)
-      (let ((location (get-property frame 'location)))
-        (and location
-             (bind (container line col) location
-               (continuation-capture
-                 (lambda (found)
-                   (for-each (lambda (relocation)
-                               (bind (from . to) relocation
-                                 (when (starts-with? container from)
-                                   (let ((relocated (string-append to (substring container (string-length from) (string-length container)))))
-                                     (when (file-exists? relocated)
-                                       (continuation-return found (list relocated line col)))))))
-                             snapshot-relocations)
-                   #f))))))
-    
-    (define (try-name)
-      (let ((name (get-property frame 'name)))
-        (and (symbol? name)
-             (locator->location name))))
-    
-    (or (try-relocation)
-        (try-name)))
+    (let ((name (get-property frame 'name)))
+      (let ((location (get-property frame 'location))
+            (sourced (and (symbol? name) (locator->location name))))
+        (if location
+            (bind (container line col) location
+              (if (file-exists? container)
+                  location
+                (if (and sourced
+                         (filename=? (filename-name container)
+                                     (filename-name (car sourced)))
+                         (<= (abs (- (second sourced) line)) 50))
+                    (list (first sourced) line col)
+                  sourced)))
+          sourced))))
 
   
   (method override (frame-variables self process frame kind)

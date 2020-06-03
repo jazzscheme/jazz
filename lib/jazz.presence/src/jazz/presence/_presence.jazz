@@ -374,7 +374,7 @@
     (with-connections-mutex self
       (lambda ()
         (table-clear connections remote-uuid)
-        (close-port (get-port connection)))))
+        (close connection))))
 
   
   ;;;
@@ -407,20 +407,22 @@
 (class Remote-Connection extends Object
   
   
-  (slot presence        getter generate)
-  (slot port            getter generate)
-  (slot thread          accessors generate)
-  (slot write-mutex     getter generate)
-  (slot remote-uuid     getter generate)
-  (slot remote-title    getter generate)
-  (slot service         getter generate)   ; the peer's listener port
-  (slot address         getter generate)   ; the peer's address of us
-  (slot lag             accessors generate)
-  (slot closing?        accessors generate)
-  (slot slave?          getter generate)
-  (slot invoke-handler  getter generate)
-  (slot process-handler getter generate)
-  (slot execute-handler getter generate)
+  (slot presence          getter generate)
+  (slot port              getter generate)
+  (slot thread            accessors generate)
+  (slot write-mutex       getter generate)
+  (slot remote-uuid       getter generate)
+  (slot remote-title      getter generate)
+  (slot service           getter generate)   ; the peer's listener port
+  (slot address           getter generate)   ; the peer's address of us
+  (slot invocations       getter generate)
+  (slot invocations-mutex getter generate)
+  (slot lag               accessors generate)
+  (slot closing?          accessors generate)
+  (slot slave?            getter generate)
+  (slot invoke-handler    getter generate)
+  (slot process-handler   getter generate)
+  (slot execute-handler   getter generate)
   
   
   (method override (initialize self presence port remote-uuid remote-title service address lag slave? invoke-handler process-handler execute-handler)
@@ -431,6 +433,8 @@
     (set! self.remote-title remote-title)
     (set! self.service service)
     (set! self.address address)
+    (set! self.invocations '())
+    (set! self.invocations-mutex (make-mutex 'invocations))
     (set! self.lag lag)
     (set! self.closing? #f)
     (set! self.slave? slave?)
@@ -439,10 +443,37 @@
     (set! self.execute-handler execute-handler))
   
   
+  (method override (destroy self)
+    (close-port port)
+    (sever-invocations self)
+    (nextmethod self))
+  
+  
   (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "{a}" remote-title))))
+  
+  
+  (method (register-invocation self mutex)
+    (mutex-lock! invocations-mutex)
+    (set! invocations (cons mutex invocations))
+    (mutex-unlock! invocations-mutex))
+  
+  
+  (method (unregister-invocation self mutex)
+    (mutex-lock! invocations-mutex)
+    (set! invocations (remove! mutex invocations))
+    (mutex-unlock! invocations-mutex))
+  
+  
+  (method (sever-invocations self)
+    (mutex-lock! invocations-mutex)
+    (for-each (lambda (mutex)
+                (mutex-specific-set! mutex (new Connection-Broke "Invocation severed"))
+                (mutex-unlock! mutex))
+              invocations)
+    (mutex-unlock! invocations-mutex))
   
   
   ;;;
@@ -494,9 +525,14 @@
               (let ((cookie (object->serial mutex)))
                 (mutex-lock! mutex)
                 (write-message self `(,kind ,method-name ,cookie ,ior ,arguments))
+                (register-invocation self mutex)
                 (mutex-lock! mutex)
                 (mutex-unlock! mutex)
-                (mutex-specific mutex)))))
+                (unregister-invocation self mutex)
+                (let ((result (mutex-specific mutex)))
+                  (if (is? result Connection-Broke)
+                      (signal result)
+                    result))))))
         self)))
   
   

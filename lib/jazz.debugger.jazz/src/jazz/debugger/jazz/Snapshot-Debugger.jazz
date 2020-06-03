@@ -306,7 +306,7 @@
   
   
   (method override (frame-location self process frame)
-    (define (location-from-location)
+    (define (try-relocation)
       (let ((location (get-property frame 'location)))
         (and location
              (bind (container line col) location
@@ -316,17 +316,18 @@
                                (bind (from . to) relocation
                                  (when (starts-with? container from)
                                    (let ((relocated (string-append to (substring container (string-length from) (string-length container)))))
-                                     (continuation-return found (list relocated line col))))))
+                                     (when (file-exists? relocated)
+                                       (continuation-return found (list relocated line col)))))))
                              snapshot-relocations)
-                   location))))))
+                   #f))))))
     
-    (define (location-from-name)
+    (define (try-name)
       (let ((name (get-property frame 'name)))
         (and (symbol? name)
              (locator->location name))))
     
-    (or (location-from-location)                 
-        (location-from-name)))
+    (or (try-relocation)
+        (try-name)))
 
   
   (method override (frame-variables self process frame kind)

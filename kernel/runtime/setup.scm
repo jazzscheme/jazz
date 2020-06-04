@@ -477,7 +477,10 @@ c-end
   ;; y -> verify
   (jazz:with-quit
     (lambda ()
-      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect" "listen") missing-argument-for-option
+      (jazz:split-command-line (jazz:command-arguments)
+                               '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit")
+                               '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "m" "module" "dialect" "listen")
+                               missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:find-option "v" options) (jazz:find-option "version" options)))
                 (nosource? (jazz:find-option "nosource" options))
@@ -519,6 +522,7 @@ c-end
                 (link (symbol-argument (jazz:find-option "link" options)))
                 (jobs (number-argument (or (jazz:find-option "j" options) (jazz:find-option "jobs" options))))
                 (port (number-argument (jazz:find-option "port" options)))
+                (load-feedback (number-argument (jazz:find-option "load-feedback" options)))
                 (module (symbol-argument (or (jazz:find-option "m" options) (jazz:find-option "module" options))))
                 (dialect (symbol-argument (jazz:find-option "dialect" options))))
             (define (setup-kernel)
@@ -528,6 +532,7 @@ c-end
                         (jazz:set-gambitdir! gambitdir))))
               (jazz:allow-inner-global-define?-set! #t)
               (set! jazz:debugger debugger)
+              (set! jazz:load-feedback-port (and load-feedback (open-tcp-client load-feedback)))
               (if nosource?
                   (set! jazz:kernel-source-access? #f))
               (jazz:process-settings)

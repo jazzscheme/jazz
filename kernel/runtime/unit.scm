@@ -2473,12 +2473,55 @@
                                    " -> "))))
 
 
+(define jazz:load-feedback-port
+  #f)
+
+
+(define jazz:load-feedback-mutex
+  (make-mutex 'load-feedback))
+
+(define (jazz:with-load-feedback-mutex thunk)
+  (mutex-lock! jazz:load-feedback-mutex)
+  (thunk)
+  (mutex-unlock! jazz:load-feedback-mutex))
+
+
+(define (jazz:load-feedback unit-name)
+  (jazz:with-load-feedback-mutex
+    (lambda ()
+      (if jazz:load-feedback-port
+          (with-exception-catcher
+            (lambda (exc)
+              (jazz:load-feedback-close))
+            (lambda ()
+              (write unit-name jazz:load-feedback-port)
+              (newline jazz:load-feedback-port)
+              (force-output jazz:load-feedback-port)))))))
+
+
+(define (jazz:load-feedback-done)
+  (jazz:with-load-feedback-mutex
+    (lambda ()
+      (if jazz:load-feedback-port
+          (jazz:load-feedback-close)))))
+
+
+(define (jazz:load-feedback-close)
+  (with-exception-catcher
+    (lambda (exc)
+      #f)
+    (lambda ()
+      (close-port jazz:load-feedback-port)))
+  (set! jazz:load-feedback-port #f))
+
+
 (define (jazz:load-unit unit-name)
   (if (%%symbol? unit-name)
       (let ((unit-state (jazz:get-environment-unit unit-name)))
         (if (%%not (%%eq? unit-state jazz:Loaded-State))
             (jazz:call-with-load-lock ; unit-state might change while suspended
               (lambda ()
+                (jazz:load-feedback unit-name)
                 (let ((unit-state (jazz:get-environment-unit unit-name)))
                   (cond ((%%eq? unit-state jazz:Loading-State)
                          (jazz:circular-dependency-error unit-name (map cdr (jazz:current-load-stack))))

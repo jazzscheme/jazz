@@ -303,7 +303,15 @@
   
   
   (method override (frame-location self process frame)
-    (let ((name (get-property frame 'name)))
+    (define (sanitize-name name)
+      (if (symbol? name)
+          (let ((str (symbol->string name)))
+            (if (starts-with? str "%%")
+                (string->symbol (substring str 2 (string-length str)))
+              name))
+        name))
+    
+    (let ((name (sanitize-name (get-property frame 'name))))
       (let ((location (get-property frame 'location))
             (sourced (and (symbol? name) (locator->location name))))
         (if location

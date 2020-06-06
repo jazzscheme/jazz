@@ -2503,7 +2503,11 @@
   (jazz:with-load-feedback-mutex
     (lambda ()
       (if jazz:load-feedback-port
-          (jazz:load-feedback-close)))))
+          (begin
+            (write '(done) jazz:load-feedback-port)
+            (newline jazz:load-feedback-port)
+            (force-output jazz:load-feedback-port)
+            (jazz:load-feedback-close))))))
 
 
 (define (jazz:load-feedback-close)

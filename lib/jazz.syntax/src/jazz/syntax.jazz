@@ -140,20 +140,15 @@
       (let ((name (if (pair? header) (car header) header))
             (properties (if (pair? header) (cdr header) '())))
         (let ((pathname (cons name (current-site-pathname)))
-              (parent-pathname (current-site-pathname))
-              (desourcified-properties (map source-code properties)))
-          (let ((on? (getf desourcified-properties on?: not-found: #t)))
-            (new Site-Special
-              (parameterize ((current-site-pathname pathname))
-                (walk walker resume declaration environment
-                  (sourcify-deep-if
-                    (if (not on?)
-                        `(begin
-                           ,@body)
-                      (let ((site (generate-symbol "site")))
-                        `(let ((,site <Call-Site> (static (register-site ',pathname ',parent-pathname ',properties))))
-                           ((get-procedure ,site)
-                            ,site
-                             (lambda ()
-                               ,@body)))))
-                    form-src)))))))))))
+              (parent-pathname (current-site-pathname)))
+          (new Site-Special
+            (parameterize ((current-site-pathname pathname))
+              (walk walker resume declaration environment
+                (sourcify-deep-if
+                  (let ((site (generate-symbol "site")))
+                    `(let ((,site <Call-Site> (static (register-site ',pathname ',parent-pathname ',properties))))
+                       ((get-procedure ,site)
+                        ,site
+                         (lambda ()
+                           ,@body))))
+                  form-src))))))))))

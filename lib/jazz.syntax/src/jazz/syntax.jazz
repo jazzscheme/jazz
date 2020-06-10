@@ -139,16 +139,16 @@
           (body (cdr form)))
       (let ((name (if (pair? header) (car header) header))
             (properties (if (pair? header) (cdr header) '())))
-        (let ((pathname (cons name (current-site-pathname)))
-              (parent-pathname (current-site-pathname)))
-          (new Site-Special
-            (parameterize ((current-site-pathname pathname))
-              (walk walker resume declaration environment
-                (sourcify-deep-if
-                  (let ((site (generate-symbol "site")))
-                    `(let ((,site <Call-Site> (static (register-site ',pathname ',parent-pathname ',properties))))
-                       ((get-procedure ,site)
-                        ,site
-                         (lambda ()
-                           ,@body))))
-                  form-src))))))))))
+        (let ((parent-pathname (current-site-pathname)))
+          (let ((pathname (append parent-pathname (list name))))
+            (new Site-Special
+              (parameterize ((current-site-pathname pathname))
+                (walk walker resume declaration environment
+                  (sourcify-deep-if
+                    (let ((site (generate-symbol "site")))
+                      `(let ((,site <Call-Site> (static (register-site ',pathname ',parent-pathname ',properties))))
+                         ((get-procedure ,site)
+                          ,site
+                           (lambda ()
+                             ,@body))))
+                    form-src)))))))))))

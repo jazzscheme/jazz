@@ -78,7 +78,6 @@
 ;; none
 ;; audio
 ;; video
-;; reset
 ;; app
 ;; ogg
 ;; wav
@@ -219,7 +218,6 @@
     ((none))
     ((audio) (test-audio))
     ((video) (test-video))
-    ((reset) (test-reset))
     ((draw) (test-draw))
     ((app) (test-app))
     ((ogg) (test-ogg))
@@ -366,84 +364,6 @@
           'video))
       ;; application
       (boot-environment (new Test-Application size: window-size pipe: pipe drawer: drawer)))))
-
-
-;;;
-;;;; Reset
-;;;
-
-
-(definition public (test-reset)
-  (declare (proper-tail-calls))
-  (let ((width (get-width video-size))
-        (height (get-height video-size))
-        (codec video-codec)
-        (framerate video-framerate)
-        (bitrate video-bitrate))
-    (let ((video-buffer (make-u8vector (* width height 4)))
-          (video-info (make-u64vector 2))
-          (pipe (open-vector))
-          (test-pipeline #f)
-          (test-source #f)
-          (test-valve #f)
-          (test-encoder #f))
-      (define (keyer view key)
-        (reset (lambda ())))
-      
-      (define (reset empty)
-        (let ((valve test-valve)
-              (encoder test-encoder))
-          (g-object-set valve "drop" 'int 1)
-          (terminal 1)
-          (gst_element_set_state encoder GST_STATE_READY)
-          (terminal 2)
-          (gst_element_set_state encoder GST_STATE_PLAYING)
-          (terminal 3)
-          (g-object-set valve "drop" 'int 0)))
-      
-      ;; video
-      (thread-start!
-        (new-thread
-          (lambda ()
-            (let ((view (read pipe)))
-              (let ((listener (open-stream-listener))
-                    (pipeline (gst-pipeline ;"videotestsrc name=src"
-                                            "avfvideosrc name=src"
-                                            "videoscale name=scale"
-                                            "videoconvert name=convert"
-                                            (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
-                                            "valve name=valve"
-                                            (and (eq? codec 'h264) (tie "x264enc bitrate={bitrate} tune=zerolatency speed-preset=superfast name=enc"))
-                                            (and (eq? codec 'vp8) (tie "vp8enc deadline=1 name=enc"))
-                                            (and (eq? codec 'none) "videoflip video-direction=horiz name=enc")
-                                            "appsink name=sink")))
-                (gst_object_set_name pipeline "pipeline")
-                (with-unref ((src (gst_bin_get_by_name pipeline "src"))
-                             (valve (gst_bin_get_by_name pipeline "valve"))
-                             (encoder (gst_bin_get_by_name pipeline "enc"))
-                             (sink (gst_bin_get_by_name pipeline "sink")))
-                  (let ((process-messages (pipeline-messages-processor pipeline print?: debug?)))
-                    (set! test-pipeline pipeline)
-                    (set! test-source src)
-                    (set! test-valve valve)
-                    (set! test-encoder encoder)
-                    (when monitor
-                      (gst_monitor pipeline monitor "enc" "sink"))
-                    (gst_app_sink_connect_signals sink listener)
-                    (gst_element_set_state pipeline GST_STATE_PLAYING)
-                    (process-messages)
-                    (let (loop)
-                      (input-port-timeout-set! pipe 0)
-                      (let ((size (gst_app_sink_read listener sink video-buffer video-info)))
-                        (let ((full? (= (u8vector-ref video-buffer 5) 16)))
-                          (when full?
-                            (terminal '********************)))
-                        (terminal-string "."))
-                      (process-messages)
-                      (loop)))))))
-          'test))
-      ;; application
-      (boot-environment (new Test-Application size: {Dimension 500 250} pipe: pipe keyer: keyer)))))
 
 
 ;;;

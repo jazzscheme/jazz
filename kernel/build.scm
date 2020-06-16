@@ -2097,9 +2097,9 @@
     features: (jazz:unspecified-option)
     properties: (jazz:unspecified-option)))
 
-(define jazz:devel-configuration
+(define jazz:develop-configuration
   (jazz:new-configuration
-    name: 'd
+    name: 'l
     system: (jazz:unspecified-option)
     platform: (jazz:unspecified-option)
     compiler: (jazz:unspecified-option)
@@ -2114,7 +2114,7 @@
     track-memory?: (jazz:unspecified-option)
     mutable-bindings?: (jazz:unspecified-option)
     kernel-interpret?: #t
-    destination: "build/devel"
+    destination: "build/develop"
     features: (jazz:unspecified-option)
     properties: (jazz:unspecified-option)))
 
@@ -2164,7 +2164,7 @@
 (define jazz:configuration-templates
   `((c . ,jazz:core-configuration)
     (d . ,jazz:debug-configuration)
-    (l . ,jazz:devel-configuration)
+    (l . ,jazz:develop-configuration)
     (r . ,jazz:release-configuration)
     (s . ,jazz:sealed-configuration)))
 

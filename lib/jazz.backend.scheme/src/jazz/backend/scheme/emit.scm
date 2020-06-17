@@ -958,7 +958,11 @@
                                                                                                           (let ((variable (jazz:get-binding-reference-binding arg)))
                                                                                                             (%%list (jazz:get-lexical-binding-name variable)
                                                                                                                     (jazz:type->specifier type)))
-                                                                                                        '(unknown unknown)))
+                                                                                                        (%%list (cond ((%%is? arg jazz:Constant)
+                                                                                                                       (jazz:desourcify-all (jazz:get-constant-expansion arg)))
+                                                                                                                      (else
+                                                                                                                       arg))
+                                                                                                                (jazz:type->specifier type))))
                                                                                                     arguments
                                                                                                     types)))))
                                     #f)))))))

@@ -370,7 +370,7 @@
 (native s8vector <:s8vector>)
 (native make-s8vector <fx^opt<int>:s8vector>)
 (native s8vector-length)
-(native s8vector-ref)
+(native s8vector-ref <s8vector^fx:fx>)
 (native s8vector-set!)
 (native s8vector?)
 (native s8vector->list)

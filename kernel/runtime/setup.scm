@@ -838,8 +838,7 @@ c-end
   (parameterize ((jazz:walk-for 'terminal)
                  (jazz:requested-unit-name jazz:expansion-module)
                  (jazz:generate-symbol-for "&")
-                 (jazz:generate-symbol-context 'terminal)
-                 (jazz:generate-symbol-counter 0))
+                 (jazz:generate-symbol-context 'terminal))
     (%%repl-debug
       (lambda (first output-port)
         (if jazz:warnings

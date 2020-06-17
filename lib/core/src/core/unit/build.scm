@@ -342,7 +342,6 @@
           (link-file-output (string-append bin-pathname-base "_" bin-extension)))
       (parameterize ((jazz:generate-symbol-for "^")
                      (jazz:generate-symbol-context unit-name)
-                     (jazz:generate-symbol-counter 0)
                      (jazz:compiled-source src))
         ;; temporary until a cleaner solution
         (jazz:set-gensym-counter! -1)

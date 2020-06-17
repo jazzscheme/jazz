@@ -51,9 +51,6 @@
 (define jazz:generate-symbol-context
   (make-parameter #f))
 
-(define jazz:generate-symbol-counter
-  (make-parameter #f))
-
 
 (define (jazz:source-code expr)
   (if (^#source? expr)
@@ -66,7 +63,6 @@
     (let ((name (jazz:source-code (cadr (jazz:source-code form-src))))
           (body (cddr (jazz:source-code form-src))))
       (jazz:generate-symbol-context name)
-      (jazz:generate-symbol-counter 0)
       `(begin
          (jazz:kernel-declares)
          (jazz:verbose-kernel ',name)

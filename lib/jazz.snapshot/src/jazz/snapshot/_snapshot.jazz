@@ -99,6 +99,20 @@
 
 
 ;;;
+;;;; Callbacks
+;;;
+
+
+(definition protected snapshot-callbacks
+  '())
+
+
+(definition public (register-snapshot-callback proc)
+  (assert (procedure? proc))
+  (set! snapshot-callbacks (cons proc snapshot-callbacks)))
+
+
+;;;
 ;;;; Continuations
 ;;;
 
@@ -364,6 +378,14 @@
         (format output ")")
         (force-output output)))
     
+    (with-exception-handler
+      (lambda (exc)
+        (format output ";; *** CALLBACK ERROR ***{%}")
+        (format output ";; {a}{%}" (exception-reason exc)))
+      (lambda ()
+        (for-each (lambda (callback)
+                    (callback))
+                  snapshot-callbacks)))
     (with-exception-handler
       (lambda (exc)
         (format output "{%}{%}")

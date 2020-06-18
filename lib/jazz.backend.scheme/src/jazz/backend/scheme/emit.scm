@@ -834,7 +834,13 @@
                    (let ((mismatch (jazz:signature-mismatch arguments types function-type)))
                      (if (and (%%not mismatch)
                               (or (%%eq? safety 'safe)
-                                  (and (%%eq? safety 'zero-unsafe) zero-unsafe?)
+                                  (and (%%eq? safety 'zero-unsafe) (or zero-unsafe?
+                                                                       ;; at the moment the divisor is always the last argument
+                                                                       (let ((divisor (jazz:last arguments)))
+                                                                         (and (%%class-is? divisor jazz:Constant)
+                                                                              (let ((value (jazz:source-code (jazz:get-constant-expansion divisor))))
+                                                                                (and (%%fixnum? value)
+                                                                                     (%%not (%%fx= value 0))))))))
                                   (and (%%eq? safety 'bounds-unsafe)
                                        (or bounds-unsafe?
                                            (let ((fixed-safe?

@@ -78,6 +78,7 @@
 ;; none
 ;; mic
 ;; camera
+;; screen
 ;; app
 ;; ogg
 ;; wav
@@ -225,6 +226,7 @@
     ((none))
     ((mic) (test-mic))
     ((camera) (test-camera))
+    ((screen) (test-screen))
     ((draw) (test-draw))
     ((app) (test-app))
     ((ogg) (test-ogg))
@@ -346,6 +348,86 @@
                                             (and (eq? codec 'theora) "theoradec name=dec")
                                             "videoconvert name=convert2"
                                             "videoflip video-direction=horiz"
+                                            "videoscale name=scale2"
+                                            (tie "video/x-raw, format=BGRA, width={window-width}, height={window-height}, framerate={framerate}/1")
+                                            (if fps?
+                                                "fpsdisplaysink video-sink=appsink name=sink"
+                                              "appsink name=sink"))))
+                (gst_object_set_name pipeline "pipeline")
+                (with-unref ((sink (gst_bin_get_by_name pipeline "sink")))
+                  (let ((process-messages (pipeline-messages-processor pipeline print?: debug?)))
+                    (gst_app_sink_connect_signals sink listener)
+                    (when monitor
+                      (when (neq? codec 'none)
+                        (gst_monitor pipeline monitor "enc" "identity" "dec"))
+                      (gst_monitor pipeline monitor "convert2" "sink"))
+                    (gst_element_set_state pipeline GST_STATE_PLAYING)
+                    (process-messages)
+                    (let (loop)
+                      (let ((size (with-video-mutex
+                                    (lambda ()
+                                      (gst_app_sink_read listener sink video-buffer video-info)))))
+                        (increase! frame-count)
+                        (invalidate-view view))
+                      (process-messages)
+                      (loop)))))))
+          'video))
+      ;; application
+      (boot-environment (new Test-Application size: window-size pipe: pipe drawer: drawer)))))
+
+
+;;;
+;;;; Screen
+;;;
+
+
+(definition public (test-screen)
+  (let ((width (get-width video-size))
+        (height (get-height video-size))
+        (window-width (get-width window-size))
+        (window-height (get-height window-size))
+        (codec video-codec)
+        (framerate video-framerate)
+        (bitrate video-bitrate))
+    (let ((video-buffer (make-u8vector (* window-width window-height 4)))
+          (video-info (make-u64vector app-sink-info-size))
+          (video-mutex (make-mutex 'video))
+          (transferer (make-transferer video-size))
+          (pipe (open-vector))
+          (listener (open-stream-listener))
+          (frame-count 0)
+          (draw-count 0))
+      (define (with-video-mutex thunk)
+        (mutex-lock! video-mutex)
+        (prog1 (thunk)
+          (mutex-unlock! video-mutex)))
+      
+      (define (drawer view surface)
+        (with-video-mutex
+          (lambda ()
+            (increase! draw-count)
+            (transferer video-buffer surface)
+            (when info?
+              (set-font surface {Font Label point-size: 36})
+              (draw-text surface 10 16 (format "{a} skipped" (- frame-count draw-count)) {Color Red})))))
+      
+      ;; video
+      (thread-start!
+        (new-thread
+          (lambda ()
+            (let ((view (read pipe)))
+              (let ((pipeline (gst-pipeline (cond-expand
+                                              (mac "avfvideosrc capture-screen=true name=src")
+                                              (windows "dx9screencapsrc name=src")
+                                              (else "ximagesrc name=src"))
+                                            "videoscale name=scale"
+                                            "videoconvert name=convert"
+                                            (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
+                                            "queue"
+                                            (and (eq? codec 'h264) (tie "x264enc pass=qual quantizer=20 bitrate={bitrate} tune=zerolatency speed-preset=superfast name=enc"))
+                                            (and (neq? codec 'none) "identity name=identity")
+                                            (and (eq? codec 'h264) "avdec_h264 name=dec")
+                                            "videoconvert name=convert2"
                                             "videoscale name=scale2"
                                             (tie "video/x-raw, format=BGRA, width={window-width}, height={window-height}, framerate={framerate}/1")
                                             (if fps?

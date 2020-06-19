@@ -104,12 +104,14 @@
           (list cc-flags ld-flags)))))
   (else
     (define (stream-flags)
-      (let ((gstreamer-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/unix/gstreamer/gstreamer/include/gstreamer-1.0"))
+      (let ((rnnoise-include-path   (quote-jazz-pathname "lib/jazz.stream/foreign/unix/rnnoise/include"))
+            (rnnoise-lib-path       (quote-jazz-pathname "lib/jazz.stream/foreign/unix/rnnoise/lib"))
+            (gstreamer-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/unix/gstreamer/gstreamer/include/gstreamer-1.0"))
             (glib-include-path      (quote-jazz-pathname "lib/jazz.stream/foreign/unix/gstreamer/gstreamer/include/glib-2.0"))
             (glib-lib-include-path  (quote-jazz-pathname "lib/jazz.stream/foreign/unix/gstreamer/gstreamer/lib/glib-2.0/include"))
             (gstreamer-lib-path     (quote-jazz-pathname "lib/jazz.stream/foreign/unix/gstreamer/gstreamer/lib")))
-        (let ((cc-flags (string-append "-D_REENTRANT -I" gstreamer-include-path " -I" glib-include-path " -I" glib-lib-include-path))
-              (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../../gstreamer/lib" " -L" gstreamer-lib-path " -lgstapp-1.0 -lgstbase-1.0 -lgstpbutils-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0")))
+        (let ((cc-flags (string-append "-D_REENTRANT -I" gstreamer-include-path " -I" glib-include-path " -I" glib-lib-include-path " -I" rnnoise-include-path))
+              (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../..:$ORIGIN/../../../../../gstreamer/lib" " -L" rnnoise-lib-path " -L" gstreamer-lib-path " -lrnnoise -lgstapp-1.0 -lgstbase-1.0 -lgstpbutils-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0")))
           (list cc-flags ld-flags))))))
 
 
@@ -191,7 +193,11 @@
        
        (initialize-aliases)
        (install-dirname "lib")
-       (install-dirname "libexec")))))
+       (install-dirname "libexec")
+       (install-file {File Jazz "lib" "jazz.stream" "foreign" "unix" "rnnoise" "lib" "librnnoise.so"}
+                     {File Libraries "librnnoise.so.0"}
+                     feedback: (lambda (action pathname)
+                                 (build-feedback "; {a} {a}..." action (get-name pathname))))))))
 
 
 (define (build-stream descriptor #!key (unit #f) (skip-references? #f) (force? #f))

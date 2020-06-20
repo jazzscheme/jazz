@@ -1076,7 +1076,6 @@ typedef struct denoiser_struct
 {
     GstElement* mic_sink;
     GstElement* codec_src;
-    GstElement* volume_elem;
     bool denoising;
     GThread* thread;
 } denoiser;
@@ -1201,17 +1200,13 @@ static void* denoise_dynamic(void* data)
     int filled = 0;
     int done = 0;
     
-    GstClockTime first_dts = GST_CLOCK_TIME_NONE;
-    GstClockTime time = 0;
-    
     denoiser* dn = (denoiser*) data;
     
     GstAppSink* sink = GST_APP_SINK(dn->mic_sink);
     GstAppSrc* src = GST_APP_SRC(dn->codec_src);
-    GstElement* volume_elem = dn->volume_elem;
     
     DenoiseState* st = rnnoise_create();
-    
+
     while (! done)
     {
         GstSample *sample;
@@ -1244,14 +1239,6 @@ static void* denoise_dynamic(void* data)
                 {
                     GstMapInfo map;
                     gst_buffer_map(buffer, &map, GST_MAP_READ);
-                    
-                    // denoiser takes about 5s to ramp up
-                    GstClockTime dts = GST_BUFFER_DTS(buffer);
-                    if (first_dts == GST_CLOCK_TIME_NONE)
-                        first_dts = dts;
-                    GstClockTime elapsed = dts - first_dts;
-                    if (volume_elem && elapsed < 5000000000)
-                        g_object_set(volume_elem, "volume", (double) elapsed / 5000000000., NULL);
                     
                     int count = map.size / sizeof(short);
                     short *ptr = (short*) map.data;
@@ -1289,11 +1276,9 @@ static void* denoise_dynamic(void* data)
                             for (i=0; i<FRAME_SIZE; i++)
                                 denoised_ptr[i] = x[i];
                             
-                            GST_BUFFER_DTS(denoised_buffer) = GST_CLOCK_TIME_NONE;
-                            GST_BUFFER_PTS(denoised_buffer) = time;
-                            GST_BUFFER_DURATION(denoised_buffer) = 10000000;
-                            
-                            time += 10000000;
+                            GST_BUFFER_DTS(denoised_buffer) = GST_BUFFER_DTS(buffer);
+                            GST_BUFFER_PTS(denoised_buffer) = GST_BUFFER_PTS(buffer);
+                            GST_BUFFER_DURATION(denoised_buffer) = GST_BUFFER_DURATION(buffer);
                             
                             gst_buffer_unmap(denoised_buffer, &denoised_map);
                             
@@ -1310,30 +1295,7 @@ static void* denoise_dynamic(void* data)
             gst_sample_unref(sample);
         }
         else
-        {
-            if (filled > 0)
-            {
-                int i;
-                
-                GstBuffer *denoised_buffer = gst_buffer_new_allocate(NULL, filled * sizeof(short), NULL);
-                GstMapInfo denoised_map;
-                gst_buffer_map(denoised_buffer, &denoised_map, GST_MAP_WRITE);
-                short* denoised_ptr = (short*) denoised_map.data;
-                
-                for (i=0; i<filled; i++)
-                    denoised_ptr[i] = x[i];
-                
-                GST_BUFFER_DTS(denoised_buffer) = GST_CLOCK_TIME_NONE;
-                GST_BUFFER_PTS(denoised_buffer) = time;
-                GST_BUFFER_DURATION(denoised_buffer) = (filled * 1000000000.) / 48000.;
-                
-                gst_buffer_unmap(denoised_buffer, &denoised_map);
-                
-                gst_app_src_push_buffer(src, denoised_buffer);
-            }
-            gst_app_src_end_of_stream(src);
             done = 1;
-        }
     }
     
     rnnoise_destroy(st);
@@ -1341,12 +1303,11 @@ static void* denoise_dynamic(void* data)
     return NULL;
 }
 
-static void* create_denoiser(GstElement* sink, GstElement* src, GstElement* volume, bool dynamic, bool denoising)
+static void* create_denoiser(GstElement* sink, GstElement* src, bool dynamic, bool denoising)
 {
     denoiser* dn = malloc(sizeof(denoiser));
     dn->mic_sink = sink;
     dn->codec_src = src;
-    dn->volume_elem = volume;
     dn->denoising = denoising;
     dn->thread = g_thread_new("denoise", (dynamic) ? denoise_dynamic : denoise, (void*) dn);
     
@@ -1485,17 +1446,11 @@ static void free_denoiser(void* data)
 (gst-external (GST_MESSAGE_TYPE GstMessage*) GstMessageType)
 (gst-external (GST_MESSAGE_SRC GstMessage*) GstElement*)
 
-(cond-expand
- (unix
+
 (definition public (get-denoising? denoiser) #f)
 (definition public (set-denoising? denoiser flag))
 (definition public (create-denoiser . rest))
 (definition public (free-denoiser . rest)))
- (else
-(gst-external (get-denoising? void*) bool "get_denoising")
-(gst-external (set-denoising? void* bool) void "set_denoising")
-(gst-external (create-denoiser GstElement* GstElement* GstElement* bool bool) void* "create_denoiser")
-(gst-external (free-denoiser void*) void "free_denoiser")))
 
 
 ;; to enable testing wasapi use the blocking api as a work

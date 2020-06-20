@@ -1066,8 +1066,6 @@ static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
 #include <rnnoise.h>
 
 #define FRAME_SIZE 480
-#define DOUBLE_FRAME_SIZE 960
-#define TRIPLE_FRAME_SIZE 1440
 
 typedef struct denoiser_struct
 {
@@ -1092,105 +1090,6 @@ static void set_denoising(void* data, bool flag)
 }
 
 static void* denoise(void* data)
-{
-    float x[FRAME_SIZE];
-    
-    int done = 0;
-    
-    denoiser* dn = (denoiser*) data;
-    
-    GstAppSink* sink = GST_APP_SINK(dn->mic_sink);
-    GstAppSrc* src = GST_APP_SRC(dn->codec_src);
-    
-    DenoiseState* st = rnnoise_create();
-    
-    while (! done)
-    {
-        GstSample *sample;
-        sample = gst_app_sink_pull_sample(sink);
-        if (sample)
-        {
-            GstBuffer* buffer = gst_sample_get_buffer(sample);
-            if (buffer)
-            {
-                GstMapInfo map;
-                gst_buffer_map(buffer, &map, GST_MAP_READ);
-                
-                GstBuffer *denoised_buffer = gst_buffer_new_allocate(NULL, map.size, NULL);
-                GstMapInfo denoised_map;
-                gst_buffer_map(denoised_buffer, &denoised_map, GST_MAP_WRITE);
-                
-                if (dn->denoising)
-                {
-                    int count = map.size / sizeof(short);
-                    short *ptr = (short*) map.data;
-                    short *denoised_ptr = (short*) denoised_map.data;
-                    
-                    if (count == FRAME_SIZE)
-                    {
-                        int i;
-                        
-                        for (i=0; i<count; i++) x[i] = ptr[i];
-                        rnnoise_process_frame(st, x, x);
-                        for (i=0; i<count; i++) denoised_ptr[i] = x[i];
-                    }
-                    else if (count == DOUBLE_FRAME_SIZE)
-                    {
-                        int i;
-                        
-                        for (i=0; i<FRAME_SIZE; i++) x[i] = ptr[i];
-                        rnnoise_process_frame(st, x, x);
-                        for (i=0; i<FRAME_SIZE; i++) denoised_ptr[i] = x[i];
-                        
-                        for (i=0; i<FRAME_SIZE; i++) x[i] = ptr[FRAME_SIZE+i];
-                        rnnoise_process_frame(st, x, x);
-                        for (i=0; i<FRAME_SIZE; i++) denoised_ptr[FRAME_SIZE+i] = x[i];
-                    }
-                    else if (count == TRIPLE_FRAME_SIZE)
-                    {
-                        int i;
-                        
-                        for (i=0; i<FRAME_SIZE; i++) x[i] = ptr[i];
-                        rnnoise_process_frame(st, x, x);
-                        for (i=0; i<FRAME_SIZE; i++) denoised_ptr[i] = x[i];
-                        
-                        for (i=0; i<FRAME_SIZE; i++) x[i] = ptr[FRAME_SIZE+i];
-                        rnnoise_process_frame(st, x, x);
-                        for (i=0; i<FRAME_SIZE; i++) denoised_ptr[FRAME_SIZE+i] = x[i];
-                        
-                        for (i=0; i<FRAME_SIZE; i++) x[i] = ptr[DOUBLE_FRAME_SIZE+i];
-                        rnnoise_process_frame(st, x, x);
-                        for (i=0; i<FRAME_SIZE; i++) denoised_ptr[DOUBLE_FRAME_SIZE+i] = x[i];
-                    }
-                    else
-                        // it is possible to receive other sizes
-                        // in the first few frames so do nothing
-                        memmove(denoised_map.data, map.data, map.size);
-                }
-                else
-                    memmove(denoised_map.data, map.data, map.size);
-                
-                GST_BUFFER_DTS(denoised_buffer) = GST_BUFFER_DTS(buffer);
-                GST_BUFFER_PTS(denoised_buffer) = GST_BUFFER_PTS(buffer);
-                GST_BUFFER_DURATION(denoised_buffer) = GST_BUFFER_DURATION(buffer);
-                
-                gst_buffer_unmap(denoised_buffer, &denoised_map);
-                gst_buffer_unmap(buffer, &map);
-                
-                gst_app_src_push_buffer(src, denoised_buffer);
-            }
-            gst_sample_unref(sample);
-        }
-        else
-            done = 1;
-    }
-    
-    rnnoise_destroy(st);
-    
-    return NULL;
-}
-
-static void* denoise_dynamic(void* data)
 {
     float x[FRAME_SIZE];
     
@@ -1300,13 +1199,13 @@ static void* denoise_dynamic(void* data)
     return NULL;
 }
 
-static void* create_denoiser(GstElement* sink, GstElement* src, bool dynamic, bool denoising)
+static void* create_denoiser(GstElement* sink, GstElement* src, bool denoising)
 {
     denoiser* dn = malloc(sizeof(denoiser));
     dn->mic_sink = sink;
     dn->codec_src = src;
     dn->denoising = denoising;
-    dn->thread = g_thread_new("denoise", (dynamic) ? denoise_dynamic : denoise, (void*) dn);
+    dn->thread = g_thread_new("denoise", denoise, (void*) dn);
     
     return (void*) dn;
 }
@@ -1446,7 +1345,7 @@ static void free_denoiser(void* data)
 
 (gst-external (get-denoising? void*) bool "get_denoising")
 (gst-external (set-denoising? void* bool) void "set_denoising")
-(gst-external (create-denoiser GstElement* GstElement* bool bool) void* "create_denoiser")
+(gst-external (create-denoiser GstElement* GstElement* bool) void* "create_denoiser")
 (gst-external (free-denoiser void*) void "free_denoiser")
 
 

@@ -90,9 +90,11 @@
     (define jazz:opengl-units
       (let ((glew-include-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/unix/opengl/glew/include"))
             (glew-lib-path     (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/unix/opengl/glew/lib")))
-        `((jazz.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-Wl,-rpath,$ORIGIN/../../../../../.." " -L" glew-lib-path " -lGLEW -lGL"))
-          (jazz.opengl.glew.x11     cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-Wl,-rpath,$ORIGIN/../../../../../.." " -L" glew-lib-path " -lGLEW -lGL"))
-          (jazz.opengl.glew.header  cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-Wl,-rpath,$ORIGIN/../../../../../.." " -L" glew-lib-path " -lGLEW -lGL"))))))
+        (let ((cc-options (string-append "-I" glew-include-path))
+              (ld-options (string-append "-Wl,-rpath,$ORIGIN/../../../../../.." " -L" glew-lib-path " -lGLEW -lGL")))
+          `((jazz.opengl.glew.foreign cc-options: ,cc-options ld-options: ,ld-options)
+            (jazz.opengl.glew.x11     cc-options: ,cc-options ld-options: ,ld-options)
+            (jazz.opengl.glew.header  cc-options: ,cc-options ld-options: ,ld-options))))))
   (else
     (define jazz:opengl-units
       '())))

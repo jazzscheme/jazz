@@ -660,7 +660,7 @@
 
 
 (definition (send-clipboard-selection display window requestor selection target property time)
-  (define (send-event property)
+  (define (send-x11-event property)
     (let* ((ev (XEvent-make))
            (xselection (XEvent-xselection-ref ev)))
       (XSelectionEvent-type-set! xselection SelectionNotify)
@@ -677,19 +677,19 @@
   (ecase target
     ((XA_TIMESTAMP)
      (x11-change-property display requestor property target PropModeReplace (u32vector clipboard-stamp))
-     (send-event property))
+     (send-x11-event property))
     ((XA_TARGETS)
      (x11-change-property display requestor property XA_ATOM PropModeReplace (u32vector XA_TIMESTAMP XA_TARGETS XA_STRING))
-     (send-event property))
+     (send-x11-event property))
     ((XA_STRING)
      (let ((data (char-string->uint8* clipboard-string))
            (nitems (+ (string-length clipboard-string) 1)))
        (XChangeProperty display requestor property target 8 PropModeReplace data nitems)
-       (send-event property)
+       (send-x11-event property)
        (uint8*-free data)))
     (else
      ;; (terminal unknown-target: (x11-get-atom-name target))
-     (send-event None))))
+     (send-x11-event None))))
 
 
 (definition (process-client-message-message window msg)

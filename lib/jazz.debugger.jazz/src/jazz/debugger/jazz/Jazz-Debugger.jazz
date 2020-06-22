@@ -505,7 +505,7 @@
 
   (method package (attach-process self process focus?)
     (unless (member? process processes test: (~ process=? self))
-      (execute-event
+      (send-event
         (lambda ()
           (set! processes (append! processes (list process)))
           (attach-process (get-debugger-manager) (new Debugged-Process self process process) focus?)))))
@@ -517,7 +517,7 @@
                       'all
                     'properties)))
         (transmit-runtime-information process what))
-      (execute-event
+      (send-event
         (lambda ()
           (when cookie
             (invoke-registered-cookie-procedures debugged-process cookie))))))
@@ -528,7 +528,7 @@
       (let ((actual (find-in processes process test: (~ process=? self))))
         (when (and actual (remote-proxy? actual))
           (set-values actual (get-values process))
-          (execute-event
+          (send-event
             (lambda ()
               (update (get-processes-view))
               (update-focused-process)
@@ -540,7 +540,7 @@
       (when (remote-proxy? process)
         (catch (connection-exception? exc)
           (close-remote-proxy process)))
-      (execute-event
+      (send-event
         (lambda ()
           (set! processes (remove! process processes test: (~ process=? self)))
           (clear-runtime-information self process)
@@ -560,7 +560,7 @@
     (process-evaluate-always (get-debugger-manager) (new Debugged-Process self process process))
     (let ((processes-view (get-processes-view)))
       (when processes-view
-        (execute-event
+        (send-event
           (lambda ()
             (update processes-view))))))
   
@@ -572,7 +572,7 @@
     (table-set! process-information? process #t)
     (let ((processes-view (get-processes-view)))
       (when processes-view
-        (execute-event
+        (send-event
           (lambda ()
             (update processes-view))))))
   
@@ -672,7 +672,7 @@
       (set! last-reported-cookie cookie)
       (let ((problems-view (get-problems-view)))
         (when problems-view
-          (execute-event
+          (send-event
             (lambda ()
               (let ((code (message-box (walk-problems-message detail)
                                        type: 'question
@@ -766,7 +766,7 @@
     (let ((debugged-process (new Debugged-Process self process process))
           (debugged-thread (new Debugged-Thread self process thread))
           (debugged-stop (new Debugged-Stop self process stop)))
-      (execute-event
+      (send-event
         (lambda ()
           (register-stop (get-debugger-manager) debugged-process debugged-thread debugged-stop step?: step?)))))
   
@@ -775,6 +775,6 @@
     (let ((debugged-process (new Debugged-Process self process process))
           (debugged-thread (new Debugged-Thread self process thread))
           (debugged-stop (new Debugged-Stop self process stop)))
-      (execute-event
+      (send-event
         (lambda ()
           (unregister-stop (get-debugger-manager) debugged-process debugged-thread debugged-stop)))))))

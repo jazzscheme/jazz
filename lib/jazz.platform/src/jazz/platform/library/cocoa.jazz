@@ -113,4 +113,34 @@
               (if (eq? kind 'shared)
                   (values (car all) (cdr all))
                 (values #f all))))
-        (error "System call otool -L failed"))))))
+        (error "System call otool -L failed")))))
+
+
+(definition public (library-dependencies-tree rpath-dir file)
+  (receive (rpath direct) (library-name/dependencies file 'shared)
+    (map (lambda (info)
+           (let ((prefix "@rpath/"))
+             (if (starts-with? info prefix)
+                 (let ((path (substring info (string-length prefix) (string-length info))))
+                   (let ((file (new-file rpath-dir path)))
+                     (if (exists? file)
+                         (cons path (library-dependencies-tree rpath-dir file))
+                       (list path "Not found"))))
+               info)))
+         direct)))
+
+
+(definition public (present-dependencies-tree lst)
+  (define (present node level)
+    (if (string? node)
+        (format :terminal "{_ :v}{a}{%}" (* level 2) node)
+      (bind (lib . deps) node
+        (format :terminal "{_ :v}{a}{%}" (* level 2) lib)
+        (present-list deps (+ level 1)))))
+  
+  (define (present-list lst level)
+    (for-each (lambda (dep)
+                (present dep level))
+              lst))
+  
+  (present-list lst 0)))

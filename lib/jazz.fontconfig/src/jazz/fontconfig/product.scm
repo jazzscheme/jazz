@@ -69,12 +69,12 @@
           (list cc-flags ld-flags)))))
   (else
     (define jazz:fontconfig-flags
-      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/unix/fontconfig/include"))
-            (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/unix/fontconfig/lib"))
-            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/unix/freetype/include"))
-            (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/unix/freetype/lib"))
-            (png-include-path        (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/unix/png/include"))
-            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/unix/png/lib")))
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/linux/fontconfig/include"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/linux/fontconfig/lib"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/linux/freetype/include"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/linux/freetype/lib"))
+            (png-include-path        (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/linux/png/include"))
+            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/linux/png/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig")))
           (list cc-flags ld-flags))))))
@@ -94,7 +94,7 @@
      (list (cons "lib/jazz.fontconfig/foreign/windows/fontconfig/lib/libfontconfig-1.dll" "libfontconfig-1.dll"))))
   (else
    (define jazz:platform-files
-     (list (cons "lib/jazz.fontconfig/foreign/unix/fontconfig/lib/libfontconfig.so.1" "libfontconfig.so.1")))))
+     (list (cons "lib/jazz.fontconfig/foreign/linux/fontconfig/lib/libfontconfig.so.1" "libfontconfig.so.1")))))
 
 
 (define (jazz:copy-platform-files)

@@ -61,9 +61,9 @@
           (list cc-flags ld-flags)))))
   (else
     (define jazz:freetype-flags
-      (let ((freetype-include-path (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/unix/freetype/include"))
-            (freetype-lib-path     (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/unix/freetype/lib"))
-            (png-lib-path          (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/unix/png/lib")))
+      (let ((freetype-include-path (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/linux/freetype/include"))
+            (freetype-lib-path     (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/linux/freetype/lib"))
+            (png-lib-path          (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/linux/png/lib")))
         (let ((cc-flags (string-append "-I" freetype-include-path))
               (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" freetype-lib-path " -L" png-lib-path " -lfreetype")))
           (list cc-flags ld-flags))))))
@@ -83,7 +83,7 @@
      (list (cons "lib/jazz.freetype/foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll"))))
   (else
    (define jazz:platform-files
-     (list (cons "lib/jazz.freetype/foreign/unix/freetype/lib/libfreetype.so.6" "libfreetype.so.6")))))
+     (list (cons "lib/jazz.freetype/foreign/linux/freetype/lib/libfreetype.so.6" "libfreetype.so.6")))))
 
 
 (define (jazz:copy-platform-files)

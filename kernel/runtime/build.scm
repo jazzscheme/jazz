@@ -809,8 +809,8 @@
         (case platform
           ((windows)
            '("-lws2_32"))
-          ((unix)
-           (case (jazz:unix-family)
+          ((linux)
+           (case (jazz:linux-family)
              ((bsd) '("-lm" "-lutil"))
              (else '("-lm" "-ldl" "-lutil"))))
           (else

@@ -47,9 +47,9 @@
   (mac
     (define jazz:crash-units
       '((jazz.crash.mac))))
-  (unix
+  (linux
     (define jazz:crash-units
-      '((jazz.crash.unix))))
+      '((jazz.crash.linux))))
   (windows
     (define jazz:crash-units
       (let ((base-windows-cc-options "-DUNICODE"))

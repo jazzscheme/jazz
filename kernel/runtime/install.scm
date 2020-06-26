@@ -41,7 +41,7 @@
 (cond-expand
   (mac
     (c-include "<mach-o/dyld.h>"))
-  (unix
+  (linux
     (c-include "<unistd.h>")
     (c-include "<stdio.h>"))
   (else))
@@ -60,7 +60,7 @@
             "wchar_t buf[MAX_PATH];
              GetModuleFileNameW(NULL, buf, 300);
               ___return(buf);"))
-  (unix
+  (linux
     (c-external (jazz:platform-executable-path) char-string
             "char link[64];
              char path[1024];

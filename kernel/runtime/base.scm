@@ -512,7 +512,7 @@
 ;;;
 
 
-(define (jazz:unix-family)
+(define (jazz:linux-family)
   (let ((os (caddr (system-type))))
     (let ((str (symbol->string os)))
       (cond ((eq? os 'linux-gnu)

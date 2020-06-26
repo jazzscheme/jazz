@@ -643,7 +643,7 @@
   '(mac
     ios
     windows
-    unix))
+    linux))
 
 
 (define (jazz:guess-platform)
@@ -651,8 +651,8 @@
         (os (caddr (system-type))))
     (cond ((eq? system 'apple)
            'mac)
-          ((jazz:unix-family)
-           'unix)
+          ((jazz:linux-family)
+           'linux)
           (else
            'windows))))
 
@@ -732,7 +732,7 @@
     (case platform
       ((mac) 'cocoa)
       ((windows) #f)
-      ((unix) 'x11)))
+      ((linux) 'x11)))
   
   (jazz:or-option windowing (jazz:get-configuration-windowing template) (jazz:default-windowing) (guess-windowing platform)))
 

@@ -542,7 +542,7 @@
     ((windows)
      (string-append "\"" pathname "\""))
     (else
-     ;; quoting is only necessary on windows as arguments are passed explicitly in unix
+     ;; quoting is only necessary on windows as arguments are passed explicitly in linux
      pathname)))
 
 

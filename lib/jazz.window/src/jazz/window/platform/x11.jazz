@@ -926,10 +926,10 @@
         (infos (XWindowAttributes-make)))
     (XGetWindowAttributes x11-default-display top-parent infos)
     (let ((x (XWindowAttributes-x-ref infos))
-          (y (XWindowAttributes-y-ref infos)))
+          (y (XWindowAttributes-y-ref infos))
+          (border-width (XWindowAttributes-border_width-ref infos)))
       (XWindowAttributes-free infos)
-      (new Point x y))))
-
+      (new Point (+ x border-width) (+ y border-width)))))
 
 (definition package (platform-set-frame-position handle pos)
   (let ((event (XEvent-make)))
@@ -996,7 +996,11 @@
 
 
 (definition package (platform-set-mouse-position x y)
-  )
+  (let* ((win (current-toplevel-hwnd))
+         (pos-win (platform-get-frame-position win)))
+    (XWarpPointer x11-default-display win
+      (- x (get-h pos-win)) (- y (get-v pos-win)))
+    (XFlush x11-default-display)))
 
 
 (definition package (platform-window-from-point point)

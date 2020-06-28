@@ -45,6 +45,7 @@
         (jazz.platform.syntax (phase syntax))
         (jazz.platform.trace)
         (jazz.platform.types)
+        (jazz.version)
         (jazz.window.hubs))
 
 
@@ -3887,6 +3888,18 @@ void platformUserAttention()
 }
 
 
+void platformFillOperatingSystemVersion(___SCMOBJ info)
+{
+    ___U32 *ptr = ___CAST(___U32*, ___BODY(info));
+  
+    NSOperatingSystemVersion os = [[NSProcessInfo processInfo] operatingSystemVersion];
+    
+    ptr[0] = os.majorVersion;
+    ptr[1] = os.minorVersion;
+    ptr[2] = os.patchVersion;
+}
+
+
 NSArray* platformRunningApplications()
 {
     return [[NSWorkspace sharedWorkspace] runningApplications];
@@ -4065,12 +4078,22 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformSystemSound char-string double) void)
 (platform-external (platformPlaySound char-string double) void)
 (platform-external (platformUserAttention) void)
+(platform-external (platformFillOperatingSystemVersion scheme-object) void)
 (platform-external (platformRunningApplications) NSArray*)
 (platform-external (platformRunningApplicationProcessIdentifier NSRunningApplication*) int)
 (platform-external (platformRunningApplicationLocalizedName NSRunningApplication*) NSString*)
 (platform-external (platformRunningApplicationExecutableURL NSRunningApplication*) NSString*)
 (platform-external (platformTerminateApplication int) bool)
 (platform-external (platformProcessThreads) scheme-object)
+
+
+(definition public (platformOperatingSystemVersion)
+  (let ((info (make-u32vector 3)))
+    (platformFillOperatingSystemVersion info)
+    (new Version
+      (u32vector-ref info 0)
+      (u32vector-ref info 1)
+      (u32vector-ref info 2))))
 
 
 ;;;

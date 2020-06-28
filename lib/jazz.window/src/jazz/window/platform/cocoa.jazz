@@ -54,6 +54,7 @@
         (jazz.screen)
         (jazz.syntax (phase syntax))
         (jazz.ui)
+        (jazz.version)
         (jazz.window.autoload)
         (jazz.window.hubs)
         (jazz.window.platform.independent))
@@ -61,6 +62,14 @@
 
 (definition public unprocessed '(unprocessed))
 (definition public processed '(processed))
+
+
+;; patch around scrollRect being slower in 10.14
+;; because views now always allocate a backing store
+;; and scrollRect somehow invalidates the whole view
+(definition patch-version-10.14-scrollrect?
+  (let ((version (platformOperatingSystemVersion)))
+    (>= (get-minor version) 14)))
 
 
 ;;;
@@ -612,34 +621,36 @@
 
 
 (definition package (platform-scroll-window handle delta rect clip-rect)
-  (invalidate-offscreen-rect handle rect)
-  (let* ((dh (get-x delta))
-         (dv (get-y delta))
-         (rect (rect-intersection rect clip-rect))
-         (dst-rect (offset-rect rect dh dv))
-         (modified-rect (rect-intersection (rect-union rect dst-rect) clip-rect)))
-    ;; scroll rect
-    (let ((rect (offset-rect (rect-intersection dst-rect rect) (- dh) (- dv))))
-      (with-NSRect rect
-        (lambda (rect)
-          (with-NSSize (distance->dimension delta)
-            (lambda (delta)
-              (platformScrollRect handle rect delta))))))
-    ;; invalidate rects
-    (let ((ml (get-left modified-rect))
-          (mt (get-top modified-rect))
-          (mr (get-right modified-rect))
-          (mb (get-bottom modified-rect)))
-      (when (< dh 0)
-        (platform-invalidate-rect handle (new Rect (+ mr dh) mt mr mb)))
-      (when (< dv 0)
-        (platform-invalidate-rect handle (new Rect ml (+ mb dv) mr mb)))
-      (when (> dh 0)
-        (platform-invalidate-rect handle (new Rect ml mt (+ ml dh) mb)))
-      (when (> dv 0)
-        (platform-invalidate-rect handle (new Rect ml mt mr (+ mt dv)))))
-    ;; update window
-    (platform-update-window handle)))
+  (if patch-version-10.14-scrollrect?
+      (platform-invalidate-rect handle clip-rect)
+    (invalidate-offscreen-rect handle rect)
+    (let* ((dh (get-x delta))
+           (dv (get-y delta))
+           (rect (rect-intersection rect clip-rect))
+           (dst-rect (offset-rect rect dh dv))
+           (modified-rect (rect-intersection (rect-union rect dst-rect) clip-rect)))
+      ;; scroll rect
+      (let ((rect (offset-rect (rect-intersection dst-rect rect) (- dh) (- dv))))
+        (with-NSRect rect
+          (lambda (rect)
+            (with-NSSize (distance->dimension delta)
+              (lambda (delta)
+                (platformScrollRect handle rect delta))))))
+      ;; invalidate rects
+      (let ((ml (get-left modified-rect))
+            (mt (get-top modified-rect))
+            (mr (get-right modified-rect))
+            (mb (get-bottom modified-rect)))
+        (when (< dh 0)
+          (platform-invalidate-rect handle (new Rect (+ mr dh) mt mr mb)))
+        (when (< dv 0)
+          (platform-invalidate-rect handle (new Rect ml (+ mb dv) mr mb)))
+        (when (> dh 0)
+          (platform-invalidate-rect handle (new Rect ml mt (+ ml dh) mb)))
+        (when (> dv 0)
+          (platform-invalidate-rect handle (new Rect ml mt mr (+ mt dv)))))
+      ;; update window
+      (platform-update-window handle))))
 
 
 (definition package (platform-invalidate-rect handle rect)

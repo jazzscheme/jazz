@@ -78,6 +78,7 @@
 ;; none
 ;; info
 ;; mic
+;; clock
 ;; camera
 ;; screen
 ;; app
@@ -227,6 +228,9 @@
     ((none))
     ((info) (test-info))
     ((mic) (test-mic))
+    ((clockbase) (test-clockbase))
+    ((clockbad) (test-clockxp #f))
+    ((clockhack) (test-clockxp #t))
     ((camera) (test-camera))
     ((screen) (test-screen))
     ((draw) (test-draw))
@@ -286,6 +290,115 @@
       'audio))
   ;; application
   (boot-environment (new Test-Application)))
+
+
+;;;
+;;;; Clock
+;;;
+
+
+(definition public (test-clockbase)
+  ;; audio
+  (thread-start!
+    (new-thread
+      (lambda ()
+        (let ((filename (or media "~/Media/test.ogg")))
+          (let ((pipeline (gst-pipeline "filesrc name=src"
+                                        "oggdemux name=demux"
+                                        "vorbisdec name=dec"
+                                        (cond-expand
+                                          (windows "directsoundsink buffer-time=200000 name=sink")
+                                          (mac "osxaudiosink buffer-time=200000 name=sink")
+                                          (else "pulsesink buffer-time=200000 name=sink")))))
+            (with-unref ((source (gst_bin_get_by_name pipeline "src")))
+              (g_object_set_string source "location" (path-normalize filename))
+              (when monitor
+                (gst_monitor pipeline 'events "sink")
+                (gst_monitor_messages pipeline))
+              (terminal '*** 'PLAYING)
+              (gst_element_set_state pipeline GST_STATE_PLAYING)
+              (sleep .1)
+              (terminal '*** (gst_object_get_name (gst_pipeline_get_clock pipeline)))))))
+      'ogg))
+  ;; application
+  (sleep 2.5))
+
+
+(definition public (test-clockxp hack?)
+  (let ((pipe (open-vector))
+        (listener (open-stream-listener))
+        (pipeline (gst-pipeline "filesrc name=src"
+                                "oggdemux name=demux"
+                                "appsink name=appsink"))
+        (filename (or media "~/Media/test.ogg")))
+    (with-unref ((source (gst_bin_get_by_name pipeline "src"))
+                 (appsink (gst_bin_get_by_name pipeline "appsink")))
+      (let ((buffer (make-u8vector 65536))
+            (info (make-u64vector app-sink-info-size)))
+        (gst_app_sink_connect_signals appsink listener)
+        (g_object_set_string source "location" (path-normalize filename))
+        (gst_element_set_state pipeline GST_STATE_PLAYING)
+        ;; input
+        (thread-start!
+          (new-thread
+            (lambda ()
+              (let (loop)
+                (let ((size (gst_app_sink_read listener appsink buffer info)))
+                  (let ((dts (u64vector-ref info 0))
+                        (pts (u64vector-ref info 1))
+                        (duration (u64vector-ref info 2)))
+                    (write (list (u8vector-copy buffer) size dts pts duration) pipe)
+                    (force-output pipe)))
+                (loop)))
+            'input))
+        ;; output
+        (thread-start!
+          (new-thread
+            (lambda ()
+              (let ((pipeline (gst-pipeline "appsrc name=src"
+                                            "vorbisdec name=dec"
+                                            "audioconvert"
+                                            "audioresample"
+                                            "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                                            (cond-expand
+                                              (windows "directsoundsink buffer-time=200000 name=sink")
+                                              (mac "osxaudiosink buffer-time=200000 name=sink")
+                                              (else "pulsesink buffer-time=200000 name=sink")))))
+                (gst_object_set_name pipeline "output")
+                (with-unref ((src (gst_bin_get_by_name pipeline "src")))
+                  (when monitor
+                    (gst_monitor pipeline 'events "sink")
+                    (gst_monitor_messages pipeline))
+                  (gst-app-src-set-caps src "audio/x-vorbis")
+                  (g-object-set src
+                                "is-live"     'boolean #t
+                                "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                                "format"      'int     GST_FORMAT_TIME)
+                  (when hack?
+                    (terminal '*** 'PAUSED)
+                    (gst_element_set_state pipeline GST_STATE_PAUSED)
+                    (with-unref ((dec (gst_bin_get_by_name pipeline "dec")))
+                      (with-unref ((pad (gst_element_get_static_pad dec "src")))
+                        (let ((caps (gst-new-caps "audio/x-raw"
+                                                  "format" 'string "S16LE"
+                                                  "layout" 'string "interleaved"
+                                                  "rate" 'int 48000
+                                                  "channels" 'int 2)))
+                          (gst_pad_push_event pad (gst_event_new_stream_start "stream"))
+                          (gst_pad_push_event pad (gst_event_new_caps caps))
+                          (gst_caps_unref caps)))))
+                  (terminal '*** 'PLAYING)
+                  (gst_element_set_state pipeline GST_STATE_PLAYING)
+                  (sleep .1)
+                  (terminal '*** (gst_object_get_name (gst_pipeline_get_clock pipeline)))
+                  (let (loop)
+                    (let ((info (read pipe)))
+                      (bind (buffer size dts pts duration) info
+                        (gst_app_src_write_now src buffer size 0 duration)))
+                    (loop)))))
+            'output))))
+    ;; application
+    (sleep 2.5)))
 
 
 ;;;
@@ -932,6 +1045,8 @@
               (g_object_set_double volume "volume" .1)
               (g_object_set_double panorama "panorama" -1.)
               (gst_signal_connect_to demuxer "pad-added" decoder)
+              (when monitor
+                (gst_monitor_messages pipeline))
               (gst_element_set_state pipeline GST_STATE_PLAYING)
               ;; augment volume
               (let ((vol .1))

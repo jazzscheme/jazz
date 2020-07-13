@@ -7,95 +7,8 @@ if [ -f ".jaz" ]; then
     . "$(pwd)/.jaz"
 fi
 
-gambitinstall () {
-    [ -n "${GAMBITDIR:+x}" ] && echo "$GAMBITDIR" || echo "$REL/foreign/gambit"
-}
-
-GAMBITURL="https://github.com/feeley/gambit"
-GAMBITSOURCE="$REL/gambit"
-GAMBITINSTALL=$(gambitinstall)
-GSC="$GAMBITINSTALL/bin/gsc"
+GSC="$GAMBITDIR/bin/gsc"
 SCM="$REL/kernel/jaz.scm"
-
-UPDATE_DEPENDENCIES="false"
-
-gambit_clone () {
-    git clone $GAMBITURL $GAMBITSOURCE
-}
-
-gambit_configure () {
-    PREFIX="$ABS/foreign/gambit"
-    cd "$GAMBITSOURCE" &&
-    ./configure --prefix="$PREFIX" $(host)
-}
-
-gambit_make () {
-    ( [ -f "$GAMBITSOURCE/config.status" ] || gambit_configure ) &&
-    cd "$GAMBITSOURCE" &&
-    make -j8 current-gsc-boot &&
-    make -j8 from-scratch
-}
-
-gambit_install () {
-    cd "$GAMBITSOURCE" &&
-    make install
-}
-
-gambit_clean () {
-    cd "$GAMBITSOURCE" &&
-    make clean
-}
-
-gambit_realclean () {
-    cd "$GAMBITSOURCE" &&
-    make realclean
-}
-
-gambit () {
-    (gambit_clone) &&
-    (gambit_make) &&
-    (gambit_install)
-}
-
-gambit_dispatch () {
-    case "$1" in
-    "clone" )
-        gambit_clone
-        ;;
-    "configure" )
-        gambit_configure
-        ;;
-    "make" )
-        gambit_make
-        ;;
-    "install" )
-        gambit_install
-        ;;
-    "clean" )
-        gambit_clean
-        ;;
-    "realclean" )
-        gambit_realclean
-        ;;
-    "" )
-        gambit
-        ;;
-    * )
-        echo "Unknown gambit option : $1"
-        return 1
-        ;;
-    esac
-}
-
-jobs () {
-    [ -n "${GAMBITJOBS:+x}" ] && echo "-j $GAMBITJOBS" || echo ""
-}
-
-host () {
-    if [ ! -n "${GAMBITMULTIHOST:+x}" ] || [ "$GAMBITMULTIHOST" == "0" ]; then
-        echo "--enable-single-host"
-    fi
-}
 
 display_module_info () {
     echo "$1"
@@ -109,22 +22,7 @@ display_info () {
     (display_module_info "Jazz" "$REL")
 }
 
-while getopts "l" OPTION; do
-    case $OPTION in
-    "l" )
-        UPDATE_DEPENDENCIES="false"
-        ;;
-    esac
-done
-
-shift $((OPTIND-1))
-
 case "$1" in
-    "gambit" )
-        gambit_dispatch $2
-        exit
-        ;;
-
     "info" )
         display_info
         exit
@@ -134,23 +32,15 @@ case "$1" in
         echo "REL: $REL"
         echo "ABS: $ABS"
         echo "GAMBITDIR: $GAMBITDIR"
-        echo "GAMBITURL: $GAMBITURL"
-        echo "GAMBITSOURCE: $GAMBITSOURCE"
-        echo "GAMBITINSTALL: $GAMBITINSTALL"
         echo "GSC: $GSC"
         echo "SCM: $SCM"
-        echo $(host)
         exit
         ;;
 esac
 
 if [ ! -f "$GSC" ]; then
-    gambit
-fi
-
-if [ ! -f "$GSC" ]; then
-    echo "Unable to find ./foreign/gambit/bin/gsc"
+    echo "Unable to find $GAMBITDIR/bin/gsc"
     exit 1
 fi
 
-exec "$GSC" -:="$GAMBITINSTALL" -i "$SCM" "$@"
+exec "$GSC" -:="$GAMBITDIR" -i "$SCM" "$@"

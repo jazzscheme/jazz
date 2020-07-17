@@ -39,8 +39,10 @@
 
 
 (import (jazz.cairo)
+        (jazz.geometry)
         (jazz.graphic)
         (jazz.opengl.glew)
+        (jazz.platform.types)
         (jazz.screen))
 
 
@@ -56,6 +58,7 @@
 (class Image-Texture extends Object
   
   
+  (slot scale      <fx>      getter generate)
   (slot width      <fx>      getter generate)
   (slot height     <fx>      getter generate)
   (slot depth      <fx+>     getter generate)
@@ -65,14 +68,16 @@
   (slot mag-filter <object>  getter generate)
   (slot wrap       <object>  getter generate)
   (slot mipmap?    <bool>    getter generate)
+  (slot created?   <bool>    getter generate)
+  (slot stride     <object>  getter generate)
   (slot metadata   <object>  getter generate)
   (slot file       <object>  accessors generate)
   
   
   (method override (initialize self width height (retina?: retina? #f) (data: data #f) (min-filter: min-filter #f) (mag-filter: mag-filter #f) (wrap: wrap #f) (mipmap?: mipmap? #f) (metadata: metadata #f) (file: file #f))
-    (let ((scale-factor (if retina? (main-screen-scale-factor) 1)))
-      (set! self.width (* scale-factor width))
-      (set! self.height (* scale-factor height)))
+    (set! self.scale (if retina? (main-screen-scale-factor) 1))
+    (set! self.width (* scale width))
+    (set! self.height (* scale height))
     (set! self.depth #f)
     (set! self.data data)
     (set! self.id (gl-generate-texture))
@@ -80,6 +85,8 @@
     (set! self.mag-filter mag-filter)
     (set! self.wrap wrap)
     (set! self.mipmap? mipmap?)
+    (set! self.created? #f)
+    (set! self.stride #f)
     (set! self.metadata metadata)
     (set! self.file file))
   
@@ -113,6 +120,15 @@
     (mutex-unlock! map-mutex))
   
   
+  (method (with-subtexture self target proc)
+    (mutex-lock! map-mutex)
+    (glBindTexture target id)
+    (proc target)
+    (glBindTexture target 0)
+    (gl-check-error)
+    (mutex-unlock! map-mutex))
+  
+  
   (method public (map-texture self (repeat?: repeat? #t))
     (with-texture self GL_TEXTURE_2D
       (lambda (target)
@@ -124,7 +140,35 @@
                       0
                       GL_BGRA
                       GL_UNSIGNED_BYTE
-                      data)))))
+                      data))))
+  
+  
+  (method public (map-subtexture self rect (repeat?: repeat? #t))
+    (if (not created?)
+        (begin
+          (map-texture self repeat?: repeat?)
+          (set! created? #t))
+      (with-subtexture self GL_TEXTURE_2D
+        (lambda (target)
+          (let ((x (* scale (get-left rect)))
+                (y (* scale (get-top rect)))
+                (w (* scale (rect-width rect)))
+                (h (* scale (rect-height rect))))
+            (glPixelStorei GL_UNPACK_ROW_LENGTH (/ stride 4))
+            (glPixelStorei GL_UNPACK_SKIP_ROWS y)
+            (glPixelStorei GL_UNPACK_SKIP_PIXELS x)
+            (glTexSubImage2D target
+                             0
+                             x
+                             y
+                             w
+                             h
+                             GL_BGRA
+                             GL_UNSIGNED_BYTE
+                             data)
+            (glPixelStorei GL_UNPACK_ROW_LENGTH 0)
+            (glPixelStorei GL_UNPACK_SKIP_ROWS 0)
+            (glPixelStorei GL_UNPACK_SKIP_PIXELS 0)))))))
 
 
 ;;;
@@ -142,7 +186,8 @@
     (bind-keywords ((surface #f) (retina? #f) . others) rest
       (apply nextmethod self width height retina?: retina? others)
       (set! self.surface (or surface (new Image-Surface (new Dimension width height) retina?: retina?)))
-      (set! self.data (cairo_image_surface_get_data (get-handle self.surface)))))
+      (set! self.data (cairo_image_surface_get_data (get-handle self.surface)))
+      (set! self.stride (cairo_image_surface_get_stride (get-handle self.surface)))))
   
   
   (method override (destroy self)

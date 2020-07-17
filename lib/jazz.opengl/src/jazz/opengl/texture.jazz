@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;===============
 ;;;
-;;;; OpenGL Sample Textures
+;;;; OpenGL Textures
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.opengl.sample.texture jazz
+(module jazz.opengl.texture jazz
 
 
 (import (jazz.cairo)
@@ -168,7 +168,52 @@
                              data)
             (glPixelStorei GL_UNPACK_ROW_LENGTH 0)
             (glPixelStorei GL_UNPACK_SKIP_ROWS 0)
-            (glPixelStorei GL_UNPACK_SKIP_PIXELS 0)))))))
+            (glPixelStorei GL_UNPACK_SKIP_PIXELS 0))))))
+  
+  
+  (method public (map-texture-array self textures (repeat?: repeat? #t))
+    (with-texture self GL_TEXTURE_2D_ARRAY_EXT
+      (lambda (target)
+        (let ((count (length textures)))
+          (glTexImage3D target 0 GL_RGBA width height count 0 GL_BGRA GL_UNSIGNED_BYTE #f)
+          (for-each (lambda (texture)
+                      (bind (image image-width image-height depth) texture
+                        (let ((width (if repeat? width image-width))
+                              (height (if repeat? height image-height))
+                              (data (if (u8vector? image)
+                                        (still-u8vector-body image)
+                                      (cairo_image_surface_get_data (get-handle image)))))
+                          (glTexSubImage3D target 0 0 0 depth width height 1 GL_BGRA GL_UNSIGNED_BYTE data))))
+                    textures)
+          (set! depth count)))))
+  
+  
+  (method public (map-texture-cube self front back up down right left)
+    (define (teximage target image)
+      (let ((data (if (u8vector? image)
+                      (still-u8vector-body image)
+                    (cairo_image_surface_get_data image))))
+        (glTexImage2D target
+                      0
+                      GL_RGBA
+                      width
+                      height
+                      0
+                      GL_BGRA
+                      GL_UNSIGNED_BYTE
+                      data)))
+    
+    (with-texture self GL_TEXTURE_CUBE_MAP
+      (lambda (target)
+        (glTexParameteri target GL_TEXTURE_WRAP_S GL_CLAMP_TO_EDGE)
+        (glTexParameteri target GL_TEXTURE_WRAP_T GL_CLAMP_TO_EDGE)
+        (glTexParameteri target GL_TEXTURE_WRAP_R GL_CLAMP_TO_EDGE)
+        (teximage GL_TEXTURE_CUBE_MAP_POSITIVE_X front)
+        (teximage GL_TEXTURE_CUBE_MAP_NEGATIVE_X back)
+        (teximage GL_TEXTURE_CUBE_MAP_POSITIVE_Y up)
+        (teximage GL_TEXTURE_CUBE_MAP_NEGATIVE_Y down)
+        (teximage GL_TEXTURE_CUBE_MAP_POSITIVE_Z right)
+        (teximage GL_TEXTURE_CUBE_MAP_NEGATIVE_Z left)))))
 
 
 ;;;

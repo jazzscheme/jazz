@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; OpenGL Syntax
+;;;; OpenGL Trace
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,34 +35,15 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.opengl.syntax jazz
+(module jazz.opengl.trace jazz
 
 
-(definition tracable?
+(import (jazz.syntax (phase syntax)))
+
+
+(define-setting trace-opengl?
   #f)
 
-
-(definition checkable?
-  (cond-expand
-    (triage #t)
-    (else #f)))
-
-
-(macro public (opengl-external signature . rest)
-  (if (and (not tracable?) (not checkable?))
-      `(c-external ,signature ,@rest)
-    (let ((s-name (car signature))
-          (params (cdr signature)))
-      (let ((unchecked-name (string->symbol (string-append (symbol->string s-name) "$unchecked")))
-            (args (map (lambda (n)
-                         (string->symbol (format "a{s}" n)))
-                       (naturals 0 (length params)))))
-        `(begin
-           (c-external (,s-name ,@params) ,@rest)
-           (definition ,unchecked-name ,s-name)
-           (set! ,s-name (lambda ,args
-                           (let ((result (,unchecked-name ,@args)))
-                             (when (trace-opengl?)
-                               ((trace-opengl) ',s-name (list ,@args) result))
-                             (opengl-check-error ',s-name)
-                             result)))))))))
+(define-setting trace-opengl
+  (lambda (name arguments result)
+    (terminal (cons name arguments) result))))

@@ -316,35 +316,62 @@
 
 
 (definition public (gst_monitor pipeline what . names)
+  (apply gst_monitor_bin pipeline pipeline what names))
+
+
+(definition public (gst_monitor_bin pipeline bin what . names)
   (define (parse-name name)
     (let ((parts (split name ".")))
       (if (= 1 (length parts))
-          (values name #f)
-        (bind (name dir) parts
-          (values name (cond ((equal? dir "src") GST_PAD_SRC)
-                             ((equal? dir "sink") GST_PAD_SINK)
-                             (else (error "Unknown pad direction: {a}" dir))))))))
+          (let ((parts (split name "!")))
+            (if (= 1 (length parts))
+                (values name #f #f)
+              (bind (name dir) parts
+                (values name #f (cond ((equal? dir "src") GST_PAD_SRC)
+                                      ((equal? dir "sink") GST_PAD_SINK)
+                                      (else (error "Unknown pad direction: {a}" dir)))))))
+        (bind (name pad_name) parts
+          (values name pad_name #f)))))
   
-  (for-each (lambda (name)
-              (receive (name direction) (parse-name name)
-                (with-unref ((elem (gst_bin_get_by_name pipeline name)))
-                  (if (not elem)
-                      (error "Unable to find element {a}" name)
-                    (for-each (lambda (pad)
-                                (when (or (not direction)
-                                          (= (gst_pad_get_direction pad) direction))
-                                  (case what
-                                    ((data)
-                                     (gst_monitor_data pipeline pad))
-                                    ((events)
-                                     (gst_monitor_events pipeline pad))
-                                    ((all)
-                                     (gst_monitor_data pipeline pad)
-                                     (gst_monitor_events pipeline pad))
-                                    (else
-                                     (error "Unknown monitor: {a}" what)))))
-                              (gst_element_pads elem))))))
-            names))
+  (let ((monitored (new-queue)))
+    (define (add pad id)
+      (enqueue monitored (cons pad id)))
+    
+    (for-each (lambda (name)
+                (receive (name pad_name pad_direction) (parse-name name)
+                  (with-unref ((elem (gst_bin_get_by_name bin name)))
+                    (if (not elem)
+                        (error "Unable to find element {a}" name)
+                      (for-each (lambda (pad)
+                                  (when (or (and (not pad_name)
+                                                 (not pad_direction))
+                                            (and pad_name
+                                                 (equal? (gst_pad_get_name pad) pad_name))
+                                            (and pad_direction
+                                                 (= (gst_pad_get_direction pad) pad_direction)))
+                                    (case what
+                                      ((data)
+                                       (add pad (gst_monitor_data pipeline pad)))
+                                      ((events)
+                                       (add pad (gst_monitor_events pipeline pad)))
+                                      ((queries)
+                                       (add pad (gst_monitor_queries pipeline pad)))
+                                      ((all)
+                                       (add pad (gst_monitor_data pipeline pad))
+                                       (add pad (gst_monitor_events pipeline pad))
+                                       (add pad (gst_monitor_queries pipeline pad)))
+                                      (else
+                                       (error "Unknown monitor: {a}" what)))))
+                                (gst_element_pads elem))))))
+              names)
+    (queue-list monitored)))
+
+
+(definition public (gst_unmonitor monitored)
+  (for-each (lambda (info)
+              (bind (pad . id) info
+                (gst_monitor_remove pad id)))
+            monitored))
 
 
 ;;;

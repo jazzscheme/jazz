@@ -43,6 +43,8 @@
 ;; G_DEBUG=fatal-criticals gdb -ex run --args ./test arg1 arg2 ...
 ;; GST_TRACERS="leaks" GST_DEBUG="GST_TRACER:7"
 ;; GST_DEBUG_DUMP_DOT_DIR=. ...
+;;   if used in an application by calling gst_debug_bin_to_dot_file
+;;   for some reason it only works if the path is an absolute path
 
 
 (module jazz.stream.test jazz
@@ -59,6 +61,7 @@
         (jazz.platform)
         (jazz.process)
         (jazz.screen)
+        (jazz.settings)
         (jazz.stream)
         (jazz.stream.syntax (phase syntax))
         (jazz.syntax (phase syntax))
@@ -76,8 +79,8 @@
 
 
 ;; none
-;; info
 ;; mic
+;; echo
 ;; clock
 ;; camera
 ;; screen
@@ -88,6 +91,7 @@
 ;; media
 ;; leak
 ;; gambit
+;; version
 (definition script
   'app)
 
@@ -158,14 +162,29 @@
 (definition debug?
   #f)
 
+(definition trace?
+  #f)
+
+(definition graph?
+  #f)
+
+(definition latency?
+  #f)
+
+(definition clock?
+  #f)
+
 (definition monitor
   #f)
 
 (definition remaining
   #f)
 
+(definition user
+  #f)
 
-(jazz:split-command-line (command-arguments) '("fps" "info" "debug") '("debugger" "r" "run" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
+
+(jazz:split-command-line (command-arguments) '("fps" "info" "debug" "trace" "graph" "latency" "clock") '("debugger" "r" "run" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor" "user") #f
   (lambda (commands options remain)
     (define (string-argument arg)
       arg)
@@ -215,8 +234,13 @@
     (set! fps? (find-option "fps" options #f))
     (set! info? (find-option "info" options #f))
     (set! debug? (find-option "debug" options #f))
+    (set! trace? (find-option "trace" options #f))
+    (set! graph? (find-option "graph" options #f))
+    (set! latency? (find-option "latency" options #f))
+    (set! clock? (find-option "clock" options #f))
     (set! monitor (or (symbol-argument (find-option "monitor" options)) monitor))
-    (set! remaining remain)))
+    (set! remaining remain)
+    (set! user (symbol-argument (find-option "user" options)))))
 
 
 @comment
@@ -226,11 +250,17 @@
 (definition public (test-gstreamer)
   (case script
     ((none))
-    ((info) (test-info))
     ((mic) (test-mic))
-    ((clockbase) (test-clockbase))
-    ((clockbad) (test-clockxp #f))
-    ((clockhack) (test-clockxp #t))
+    ((audio0) (test-audio0))
+    ((audio1) (test-audio1))
+    ((audio2) (test-audio2))
+    ((audio3) (test-audio3))
+    ((audio4) (test-audio4))
+    ((audio5) (test-audio5))
+    ((audio6) (test-audio6))
+    ((audio7) (test-audio7))
+    ((audio8) (test-audio8))
+    ((audio9) (test-audio9))
     ((camera) (test-camera))
     ((screen) (test-screen))
     ((draw) (test-draw))
@@ -241,16 +271,8 @@
     ((media) (test-media))
     ((leak) (test-leak))
     ((gambit) (test-gambit))
+    ((version) (test-version))
     (else (error "Unknown script: {a}" script))))
-
-
-;;;
-;;;; Info
-;;;
-
-
-(definition public (test-info)
-  (terminal (gst-version)))
 
 
 ;;;
@@ -293,112 +315,1187 @@
 
 
 ;;;
-;;;; Clock
+;;;; Audio
 ;;;
 
 
-(definition public (test-clockbase)
-  ;; audio
-  (thread-start!
-    (new-thread
-      (lambda ()
-        (let ((filename (or media "~/Media/test.ogg")))
-          (let ((pipeline (gst-pipeline "filesrc name=src"
-                                        "oggdemux name=demux"
-                                        "vorbisdec name=dec"
-                                        (cond-expand
-                                          (windows "directsoundsink buffer-time=200000 name=sink")
-                                          (mac "osxaudiosink buffer-time=200000 name=sink")
-                                          (else "pulsesink buffer-time=200000 name=sink")))))
-            (with-unref ((source (gst_bin_get_by_name pipeline "src")))
-              (g_object_set_string source "location" (path-normalize filename))
-              (when monitor
-                (gst_monitor pipeline 'events "sink")
-                (gst_monitor_messages pipeline))
-              (terminal '*** 'PLAYING)
-              (gst_element_set_state pipeline GST_STATE_PLAYING)
-              (sleep .1)
-              (terminal '*** (gst_object_get_name (gst_pipeline_get_clock pipeline)))))))
-      'ogg))
-  ;; application
-  (sleep 2.5))
+(definition aretha
+  "/Users/cartier/Media/aretha.ogg")
+
+(definition koln
+  "/Users/cartier/Media/koln.ogg")
 
 
-(definition public (test-clockxp hack?)
-  (let ((pipe (open-vector))
-        (listener (open-stream-listener))
-        (pipeline (gst-pipeline "filesrc name=src"
-                                "oggdemux name=demux"
-                                "appsink name=appsink"))
-        (filename (or media "~/Media/test.ogg")))
-    (with-unref ((source (gst_bin_get_by_name pipeline "src"))
-                 (appsink (gst_bin_get_by_name pipeline "appsink")))
-      (let ((buffer (make-u8vector 65536))
-            (info (make-u64vector app-sink-info-size)))
-        (gst_app_sink_connect_signals appsink listener)
-        (g_object_set_string source "location" (path-normalize filename))
-        (gst_element_set_state pipeline GST_STATE_PLAYING)
-        ;; input
-        (thread-start!
-          (new-thread
-            (lambda ()
-              (let (loop)
-                (let ((size (gst_app_sink_read listener appsink buffer info)))
-                  (let ((dts (u64vector-ref info 0))
-                        (pts (u64vector-ref info 1))
-                        (duration (u64vector-ref info 2)))
-                    (write (list (u8vector-copy buffer) size dts pts duration) pipe)
-                    (force-output pipe)))
-                (loop)))
-            'input))
-        ;; output
-        (thread-start!
-          (new-thread
-            (lambda ()
-              (let ((pipeline (gst-pipeline "appsrc name=src"
-                                            "vorbisdec name=dec"
-                                            "audioconvert"
-                                            "audioresample"
-                                            "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
-                                            (cond-expand
-                                              (windows "directsoundsink buffer-time=200000 name=sink")
-                                              (mac "osxaudiosink buffer-time=200000 name=sink")
-                                              (else "pulsesink buffer-time=200000 name=sink")))))
-                (gst_object_set_name pipeline "output")
-                (with-unref ((src (gst_bin_get_by_name pipeline "src")))
-                  (when monitor
-                    (gst_monitor pipeline 'events "sink")
-                    (gst_monitor_messages pipeline))
-                  (gst-app-src-set-caps src "audio/x-vorbis")
-                  (g-object-set src
-                                "is-live"     'boolean #t
-                                "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
-                                "format"      'int     GST_FORMAT_TIME)
-                  (when hack?
-                    (terminal '*** 'PAUSED)
-                    (gst_element_set_state pipeline GST_STATE_PAUSED)
-                    (with-unref ((dec (gst_bin_get_by_name pipeline "dec")))
-                      (with-unref ((pad (gst_element_get_static_pad dec "src")))
-                        (let ((caps (gst-new-caps "audio/x-raw"
-                                                  "format" 'string "S16LE"
-                                                  "layout" 'string "interleaved"
-                                                  "rate" 'int 48000
-                                                  "channels" 'int 2)))
-                          (gst_pad_push_event pad (gst_event_new_stream_start "stream"))
-                          (gst_pad_push_event pad (gst_event_new_caps caps))
-                          (gst_caps_unref caps)))))
-                  (terminal '*** 'PLAYING)
-                  (gst_element_set_state pipeline GST_STATE_PLAYING)
-                  (sleep .1)
-                  (terminal '*** (gst_object_get_name (gst_pipeline_get_clock pipeline)))
-                  (let (loop)
-                    (let ((info (read pipe)))
-                      (bind (buffer size dts pts duration) info
-                        (gst_app_src_write_now src buffer size 0 duration)))
-                    (loop)))))
-            'output))))
+(definition audio-location
+  aretha)
+
+
+(definition (generate-graph pipeline name)
+  (when graph?
+    ;; wait for preroll to go to playing
+    (sleep .5)
+    (gst_debug_bin_to_dot_file pipeline GST_DEBUG_GRAPH_SHOW_ALL name)))
+
+
+(definition (report-latency pipeline)
+  (when latency?
+    ;; wait for preroll to go to playing
+    (sleep .5)
+    (for-each (lambda (elem)
+                (let ((info (make-u64vector 3)))
+                  (gst_element_query_latency elem info)
+                  (let ((live (u64vector-ref info 0))
+                        (min (u64vector-ref info 1))
+                        (max (u64vector-ref info 2)))
+                    (format :terminal "{a} {a} {a} {a}{%}"
+                      (gst_object_get_name elem)
+                      (= live 1)
+                      (format "{r precision: 5}" (/ min nanosecond))
+                      (if (= max GST_CLOCK_TIME_NONE)
+                          'none
+                        (format "{r precision: 5}" (/ max nanosecond)))))))
+              (gst_bin_elements_sorted pipeline))))
+
+
+(definition (report-clock pipeline)
+  (when clock?
+    (terminal (gst_object_get_name (gst_pipeline_get_clock pipeline)))))
+
+
+;; base reference for gstreamer warnings
+(definition public (test-audio0)
+  (define description
+    (tie
+    #<<description-end
+        filesrc location={audio-location} !
+        oggdemux !
+        vorbisdec !
+        osxaudiosink
+        
+        osxaudiosrc provide-clock=false !
+        audioconvert !
+        audioresample !
+        audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=2 !
+        vorbisenc !
+        oggmux !
+        filesink location=audio0.ogg
+description-end
+))
+  
+  (let ((pipeline (gst_parse_launch description)))
+    (define (closer app)
+      (gst_element_release pipeline))
+    
+    (thread-start!
+      (new-thread
+        (lambda ()
+          (gst_element_set_state pipeline GST_STATE_PLAYING)
+          (generate-graph pipeline "audio0")
+          (report-latency pipeline)
+          (report-clock pipeline))))
     ;; application
-    (sleep 2.5)))
+    (boot-environment (new Test-Application closer: closer))))
+
+
+;; direct gstreamer pipeline echo cancellation
+(definition public (test-audio1)
+  (define description
+    (tie
+    #<<description-end
+        filesrc location={audio-location} !
+        oggdemux !
+        vorbisdec !
+        audioconvert !
+        audioresample !
+        audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2 !
+        webrtcechoprobe !
+        audioresample !
+        osxaudiosink
+        
+        osxaudiosrc provide-clock=false !
+        audioresample !
+        webrtcdsp
+            echo-cancel=true
+            echo-suppression-level=high
+            noise-suppression=true !
+        audioconvert !
+        audioresample !
+        audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=2 !
+        vorbisenc !
+        oggmux !
+        filesink location=audio1.ogg
+description-end
+))
+
+  (let ((pipeline (gst_parse_launch description)))
+    (define (closer app)
+      (gst_element_release pipeline))
+    
+    (thread-start!
+      (new-thread
+        (lambda ()
+          (gst_element_set_state pipeline GST_STATE_PLAYING)
+          (generate-graph pipeline "audio1")
+          (report-latency pipeline)
+          (report-clock pipeline))))
+    ;; application
+    (boot-environment (new Test-Application closer: closer))))
+
+
+;; split into one bin and pipeline
+(definition public (test-audio2)
+  (let ((speaker (gst-pipeline (tie "filesrc location={audio-location}")
+                               "oggdemux"
+                               "vorbisdec"
+                               "audioconvert"
+                               "audioresample"
+                               "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                               "webrtcechoprobe"
+                               "audioresample"
+                               "osxaudiosink"))
+        (microphone (gst-bin "osxaudiosrc provide-clock=false"
+                             "audioresample"
+                             (gst-element "webrtcdsp"
+                                          echo-cancel: "true"
+                                          echo-suppression-level: "high"
+                                          noise-suppression: "true")
+                             "audioconvert"
+                             "audioresample"
+                             "audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=2"
+                             "vorbisenc"
+                             "oggmux"
+                             "filesink location=audio2.ogg")))
+    (define (closer app)
+      (gst_element_release speaker))
+    
+    (thread-start!
+      (new-thread
+        (lambda ()
+          (gst_bin_add speaker microphone)
+          (gst_element_set_state speaker GST_STATE_PLAYING)
+          (generate-graph speaker "audio2")
+          (report-latency speaker)
+          (report-clock speaker))))
+    ;; application
+    (boot-environment (new Test-Application closer: closer))))
+
+
+;; replace filesrc with an appsrc
+(definition public (test-audio3)
+  (let ((input (gst-pipeline (tie "filesrc location={audio-location}")
+                             "oggdemux"
+                             "appsink name=sink"))
+        (speaker (gst-pipeline "appsrc name=src"
+                               "vorbisdec"
+                               "audioconvert"
+                               "audioresample"
+                               "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                               "webrtcechoprobe"
+                               "audioresample"
+                               "osxaudiosink"))
+        (microphone (gst-bin "osxaudiosrc provide-clock=false"
+                             "audioresample"
+                             (gst-element "webrtcdsp"
+                                          echo-cancel: "true"
+                                          echo-suppression-level: "high"
+                                          noise-suppression: "true")
+                             "audioconvert"
+                             "audioresample"
+                             "audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=2"
+                             "vorbisenc"
+                             "oggmux"
+                             "filesink location=audio3.ogg")))
+    (define (closer app)
+      (gst_element_release input)
+      (gst_element_release speaker))
+    
+    (gst_bin_add speaker microphone)
+    (with-unref ((input-sink (gst_bin_get_by_name input "sink"))
+                 (speaker-src (gst_bin_get_by_name speaker "src")))
+      (gst-app-src-set-caps speaker-src "audio/x-vorbis")
+      (g-object-set speaker-src
+                    "is-live"     'boolean #t
+                    "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                    "format"      'int     GST_FORMAT_TIME)
+      (let ((input-listener (open-stream-listener))
+            (input-buffer (make-u8vector 65536))
+            (input-info (make-u64vector app-sink-info-size)))
+        (gst_app_sink_connect_signals input-sink input-listener)
+        (let ((input-thread
+                (new-thread
+                  (lambda ()
+                    (let (loop)
+                      (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                        (let ((dts (u64vector-ref input-info 0))
+                              (pts (u64vector-ref input-info 1))
+                              (duration (u64vector-ref input-info 2)))
+                          (gst_app_src_write speaker-src input-buffer size dts pts duration 0)))
+                      (loop)))
+                  'input)))
+          (gst_element_set_state input GST_STATE_PLAYING)
+          (gst_element_set_state speaker GST_STATE_PLAYING)
+          (thread-start! input-thread)
+          (generate-graph speaker "audio3")
+          (report-latency speaker)
+          (report-clock speaker))))
+    ;; application
+    (boot-environment (new Test-Application closer: closer))))
+
+
+;; replace filesink with an appsink
+(definition public (test-audio4)
+  (let ((input (gst-pipeline (tie "filesrc location={audio-location}")
+                             "oggdemux"
+                             "appsink name=sink"))
+        (speaker (gst-pipeline "appsrc name=src"
+                               "vorbisdec"
+                               "audioconvert"
+                               "audioresample"
+                               "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                               "webrtcechoprobe"
+                               "osxaudiosink"))
+        (microphone (gst-bin "osxaudiosrc provide-clock=false"
+                             "audioresample"
+                             (gst-element "webrtcdsp"
+                                          echo-cancel: "true"
+                                          echo-suppression-level: "high"
+                                          noise-suppression: "true")
+                             "audioconvert"
+                             "audioresample"
+                             "audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=2"
+                             "vorbisenc"
+                             "appsink sync=false name=sink"))
+        (output (gst-pipeline "appsrc name=src"
+                              ".audio_%u"
+                              (list "oggmux name=mux"
+                                    "filesink location=audio4.ogg"))))
+    (define (closer app)
+      (gst_element_release input)
+      (gst_element_release speaker)
+      (gst_element_release output))
+    
+    (gst_bin_add speaker microphone)
+    (with-unref ((input-sink (gst_bin_get_by_name input "sink"))
+                 (speaker-src (gst_bin_get_by_name speaker "src"))
+                 (microphone-sink (gst_bin_get_by_name microphone "sink"))
+                 (output-src (gst_bin_get_by_name output "src")))
+      (gst-app-src-set-caps speaker-src "audio/x-vorbis")
+      (g-object-set speaker-src
+                    "is-live"     'boolean #t
+                    "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                    "format"      'int     GST_FORMAT_TIME)
+      (let ((input-listener (open-stream-listener))
+            (input-buffer (make-u8vector 65536))
+            (input-info (make-u64vector app-sink-info-size))
+            (microphone-listener (open-stream-listener))
+            (microphone-buffer (make-u8vector 65536))
+            (microphone-info (make-u64vector app-sink-info-size)))
+        (gst_app_sink_connect_signals input-sink input-listener)
+        (gst_app_sink_connect_signals microphone-sink microphone-listener)
+        (let ((input-thread
+                (new-thread
+                  (lambda ()
+                    (let (loop)
+                      (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                        (let ((dts (u64vector-ref input-info 0))
+                              (pts (u64vector-ref input-info 1))
+                              (duration (u64vector-ref input-info 2)))
+                          (gst_app_src_write speaker-src input-buffer size dts pts duration 0)))
+                      (loop)))
+                  'input))
+              (microphone-thread
+                (new-thread
+                  (lambda ()
+                    (let (loop)
+                      (let ((size (gst_app_sink_read microphone-listener microphone-sink microphone-buffer microphone-info)))
+                        (let ((dts (u64vector-ref microphone-info 0))
+                              (pts (u64vector-ref microphone-info 1))
+                              (duration (u64vector-ref microphone-info 2)))
+                          (gst_app_src_write output-src microphone-buffer size dts pts duration 0)))
+                      (loop)))
+                  'microphone)))
+          (gst_element_set_state input GST_STATE_PLAYING)
+          (gst_element_set_state speaker GST_STATE_PLAYING)
+          ;; quicky wait for data to flow
+          (sleep .5)
+          (let ((vorbis-caps (with-unref ((sink (gst_bin_get_by_name microphone "sink")))
+                               (with-unref ((pad (gst_element_get_static_pad sink "sink")))
+                                 (let ((caps (gst_pad_get_current_caps pad)))
+                                   (let ((caps-string (gst_caps_to_string caps)))
+                                     (gst_caps_unref caps)
+                                     caps-string))))))
+            (gst_app_src_set_caps output-src (gst_caps_from_string vorbis-caps))
+            (g-object-set output-src
+                          "is-live"     'boolean #t
+                          "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                          "format"      'int     GST_FORMAT_TIME)
+            (gst_element_set_state output GST_STATE_PLAYING)
+            (thread-start! input-thread)
+            (thread-start! microphone-thread)
+            (generate-graph speaker "audio4")
+            (report-latency speaker)
+            (report-clock speaker)))))
+    ;; application
+    (boot-environment (new Test-Application closer: closer))))
+
+
+;; add audio mixing
+(definition public (test-audio5)
+  (let ((input (gst-pipeline (tie "filesrc location={audio-location}")
+                             "oggdemux"
+                             "appsink name=sink"))
+        (channel (gst-bin "appsrc name=src"
+                          "vorbisdec"
+                          "audioconvert"
+                          "audioresample"
+                          "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                          "volume name=sink"))
+        (speaker (gst-pipeline ;"audiomixer latency=100000000 name=mix"
+                               "adder name=mix"
+                               "webrtcechoprobe"
+                               "osxaudiosink"))
+        (microphone (gst-bin "osxaudiosrc provide-clock=false"
+                             "audioresample"
+                             (gst-element "webrtcdsp"
+                                          echo-cancel: "true"
+                                          echo-suppression-level: "high"
+                                          noise-suppression: "true")
+                             "audioconvert"
+                             "audioresample"
+                             "audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=2"
+                             "vorbisenc"
+                             "appsink sync=false name=sink"))
+        (output (gst-pipeline "appsrc name=src"
+                              ".audio_%u"
+                              (list "oggmux name=mux"
+                                    "filesink location=audio5.ogg"))))
+    (define (closer app)
+      (gst_element_release input)
+      (gst_element_release speaker)
+      (gst_element_release output))
+    
+    (gst_bin_add speaker channel)
+    (gst_bin_add speaker microphone)
+    (with-unref ((input-sink (gst_bin_get_by_name input "sink"))
+                 (channel-src (gst_bin_get_by_name channel "src"))
+                 (channel-sink (gst_bin_get_by_name channel "sink"))
+                 (speaker-mix (gst_bin_get_by_name speaker "mix"))
+                 (microphone-sink (gst_bin_get_by_name microphone "sink"))
+                 (output-src (gst_bin_get_by_name output "src")))
+      (gst-app-src-set-caps channel-src "audio/x-vorbis")
+      (g-object-set channel-src
+                    "is-live"     'boolean #t
+                    "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                    "format"      'int     GST_FORMAT_TIME)
+      (let ((input-listener (open-stream-listener))
+            (input-buffer (make-u8vector 65536))
+            (input-info (make-u64vector app-sink-info-size))
+            (microphone-listener (open-stream-listener))
+            (microphone-buffer (make-u8vector 65536))
+            (microphone-info (make-u64vector app-sink-info-size)))
+        (gst_app_sink_connect_signals input-sink input-listener)
+        (gst_app_sink_connect_signals microphone-sink microphone-listener)
+        (let ((input-thread
+                (new-thread
+                  (lambda ()
+                    (let (loop)
+                      (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                        (let ((dts (u64vector-ref input-info 0))
+                              (pts (u64vector-ref input-info 1))
+                              (duration (u64vector-ref input-info 2)))
+                          (gst_app_src_write channel-src input-buffer size dts pts duration 0)))
+                      (loop)))
+                  'input))
+              (microphone-thread
+                (new-thread
+                  (lambda ()
+                    (let (loop)
+                      (let ((size (gst_app_sink_read microphone-listener microphone-sink microphone-buffer microphone-info)))
+                        (let ((dts (u64vector-ref microphone-info 0))
+                              (pts (u64vector-ref microphone-info 1))
+                              (duration (u64vector-ref microphone-info 2)))
+                          (gst_app_src_write output-src microphone-buffer size dts pts duration 0)))
+                      (loop)))
+                  'microphone)))
+          (gst_element_link channel-sink speaker-mix)
+          (gst_element_set_state input GST_STATE_PLAYING)
+          (gst_element_set_state speaker GST_STATE_PLAYING)
+          ;; quicky wait for data to flow
+          (sleep .5)
+          (let ((vorbis-caps (with-unref ((sink (gst_bin_get_by_name microphone "sink")))
+                               (with-unref ((pad (gst_element_get_static_pad sink "sink")))
+                                 (let ((caps (gst_pad_get_current_caps pad)))
+                                   (let ((caps-string (gst_caps_to_string caps)))
+                                     (gst_caps_unref caps)
+                                     caps-string))))))
+            (gst_app_src_set_caps output-src (gst_caps_from_string vorbis-caps))
+            (g-object-set output-src
+                          "is-live"     'boolean #t
+                          "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                          "format"      'int     GST_FORMAT_TIME)
+            (gst_element_set_state output GST_STATE_PLAYING)
+            (thread-start! input-thread)
+            (thread-start! microphone-thread)
+            (generate-graph speaker "audio5")
+            (report-latency speaker)
+            (report-clock speaker)))))
+    ;; application
+    (boot-environment (new Test-Application closer: closer))))
+
+
+(class Channel extends Object
+  
+  
+  (slot location getter generate)
+  (slot input    getter generate)
+  (slot bin      getter generate)
+  (slot thread   getter generate)
+  
+  
+  (method override (initialize self location input bin thread)
+    (nextmethod self)
+    (set! self.location location)
+    (set! self.input input)
+    (set! self.bin bin)
+    (set! self.thread thread)))
+
+
+;; add multiple channels
+(definition public (test-audio6)
+  (let ((speaker (gst-pipeline "adder name=mix"
+                               "webrtcechoprobe"
+                               "osxaudiosink"))
+        (microphone (gst-bin "osxaudiosrc provide-clock=false"
+                             "audioresample"
+                             (gst-element "webrtcdsp"
+                                          echo-cancel: "true"
+                                          echo-suppression-level: "high"
+                                          noise-suppression: "true")
+                             "audioconvert"
+                             "audioresample"
+                             "audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=2"
+                             "vorbisenc"
+                             "appsink sync=false name=sink"))
+        (output (gst-pipeline "appsrc name=src"
+                              ".audio_%u"
+                              (list "oggmux name=mux"
+                                    "filesink location=audio6.ogg")))
+        (channels '()))
+    (define (add-channel location (volume 1.))
+      (let ((input (gst-pipeline (tie "filesrc location={location}")
+                                 "oggdemux"
+                                 "appsink name=sink"))
+            (bin (gst-bin "appsrc name=src"
+                          "vorbisdec"
+                          "audioconvert"
+                          "audioresample"
+                          "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                          (tie "volume volume={volume} name=sink"))))
+        (gst_bin_add speaker bin)
+        (with-unref ((speaker-mix (gst_bin_get_by_name speaker "mix"))
+                     (input-sink (gst_bin_get_by_name input "sink"))
+                     (bin-src (gst_bin_get_by_name bin "src"))
+                     (bin-sink (gst_bin_get_by_name bin "sink")))
+          (gst-app-src-set-caps bin-src "audio/x-vorbis")
+          (g-object-set bin-src
+                        "is-live"     'boolean #t
+                        "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                        "format"      'int     GST_FORMAT_TIME)
+          (let ((input-listener (open-stream-listener))
+                (input-buffer (make-u8vector 65536))
+                (input-info (make-u64vector app-sink-info-size)))
+            (gst_app_sink_connect_signals input-sink input-listener)
+            (let ((thread
+                    (new-thread
+                      (lambda ()
+                        (let (loop)
+                          (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                            (let ((dts (u64vector-ref input-info 0))
+                                  (pts (u64vector-ref input-info 1))
+                                  (duration (u64vector-ref input-info 2)))
+                              (gst_app_src_write bin-src input-buffer size dts pts duration 0)))
+                          (loop)))
+                      'channel)))
+              (gst_element_link bin-sink speaker-mix)
+              (gst_element_set_state input GST_STATE_PLAYING)
+              (gst_element_set_state bin GST_STATE_PLAYING)
+              (thread-start! thread)
+              (let ((channel (new Channel location input bin thread)))
+                (set! channels (append channels (list channel)))
+                channel))))))
+    
+    (define (closer app)
+      (for-each (lambda (channel)
+                  (gst_element_release (get-input channel)))
+                channels)
+      (gst_element_release speaker)
+      (gst_element_release output))
+    
+    (gst_bin_add speaker microphone)
+    (with-unref ((microphone-sink (gst_bin_get_by_name microphone "sink"))
+                 (output-src (gst_bin_get_by_name output "src")))
+      (let ((microphone-listener (open-stream-listener))
+            (microphone-buffer (make-u8vector 65536))
+            (microphone-info (make-u64vector app-sink-info-size)))
+        (gst_app_sink_connect_signals microphone-sink microphone-listener)
+        (let ((microphone-thread
+                (new-thread
+                  (lambda ()
+                    (let (loop)
+                      (let ((size (gst_app_sink_read microphone-listener microphone-sink microphone-buffer microphone-info)))
+                        (let ((dts (u64vector-ref microphone-info 0))
+                              (pts (u64vector-ref microphone-info 1))
+                              (duration (u64vector-ref microphone-info 2)))
+                          (gst_app_src_write output-src microphone-buffer size dts pts duration 0)))
+                      (loop)))
+                  'microphone)))
+          (gst_element_set_state speaker GST_STATE_PLAYING)
+          (add-channel aretha)
+          ;(add-channel aretha .2)
+          ;(add-channel koln 1.)
+          ;; quicky wait for data to flow
+          (sleep .5)
+          (let ((vorbis-caps (with-unref ((sink (gst_bin_get_by_name microphone "sink")))
+                               (with-unref ((pad (gst_element_get_static_pad sink "sink")))
+                                 (let ((caps (gst_pad_get_current_caps pad)))
+                                   (let ((caps-string (gst_caps_to_string caps)))
+                                     (gst_caps_unref caps)
+                                     caps-string))))))
+            (gst_app_src_set_caps output-src (gst_caps_from_string vorbis-caps))
+            (g-object-set output-src
+                          "is-live"     'boolean #t
+                          "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                          "format"      'int     GST_FORMAT_TIME)
+            (gst_element_set_state output GST_STATE_PLAYING)
+            (thread-start! microphone-thread)
+            (generate-graph speaker "audio6")
+            (report-latency speaker)
+            (report-clock speaker)))))
+    ;; application
+    (boot-environment (new Test-Application closer: closer))))
+
+
+;; force audio clock by generating caps event
+(definition public (test-audio7)
+  (trace-gst? trace?)
+  (let ((audio (gst-pipeline "adder name=mix"
+                             ;; without the queue we get the following warnings
+                             ;; WARN gst_base_sink_query_latency:<sink> Pipeline construction is invalid, please add queues.
+                             ;; WARN gst_base_sink_query_latency:<sink> Not enough buffering available for the processing deadline of 0:00:00.020000000, add enough queues to buffer  0:00:00.020000000 additional data. Shortening processing latency to 0:00:00.000000000.
+                             ;; and it is very interesting that before adding the queue, the probe reports "We have a latency of 0:00:00.2"
+                             ;; and with the queue it goes to "0:00:00.22"
+                             ;; ***AND*** the denoising becomes much better
+                             "queue"
+                             "webrtcechoprobe"
+                             "osxaudiosink name=sink"))
+        (microphone (gst-bin "osxaudiosrc provide-clock=false"
+                             "audioresample"
+                             (gst-element "webrtcdsp"
+                                          echo-cancel: "true"
+                                          echo-suppression-level: "high"
+                                          noise-suppression: "true")
+                             "audioconvert"
+                             "audioresample"
+                             "audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=2"
+                             "vorbisenc"
+                             "appsink sync=false name=sink"))
+        (output (gst-pipeline "appsrc name=src"
+                              ".audio_%u"
+                              (list "oggmux name=mux"
+                                    "filesink location=audio7.ogg")))
+        (channels '()))
+    (define (force-audioclock)
+      ;; it seems that appsrc will not generate events
+      ;; and so we need to generate them ourselves as it
+      ;; is critical that the audio sink receives the caps
+      ;; event before going to play else when the pipeline
+      ;; asks the audio sink for a provided clock the sink
+      ;; will return null because its ring buffer won't have
+      ;; been created in response to the caps event yet
+      (gst_element_set_state audio GST_STATE_PAUSED)
+      (with-unref ((mix (gst_bin_get_by_name audio "mix")))
+        (with-unref ((pad (gst_element_get_static_pad mix "src")))
+          (let ((caps (gst-new-caps "audio/x-raw"
+                                    "format" 'string "S16LE"
+                                    "layout" 'string "interleaved"
+                                    "rate" 'int 48000
+                                    "channels" 'int 2)))
+            (gst_pad_push_event pad (gst_event_new_stream_start "stream"))
+            (gst_pad_push_event pad (gst_event_new_caps caps))
+            (gst_caps_unref caps)))))
+    
+    (define (add-channel location (volume 1.))
+      (let ((input (gst-pipeline (tie "filesrc location={location}")
+                                 "oggdemux"
+                                 "appsink name=sink"))
+            (bin (gst-bin "appsrc name=src"
+                          "vorbisdec"
+                          "audioconvert"
+                          "audioresample"
+                          "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                          (tie "volume volume={volume}")
+                          "audiopanorama method=1 name=sink")))
+        (gst_bin_add audio bin)
+        (with-unref ((audio-mix (gst_bin_get_by_name audio "mix"))
+                     (input-sink (gst_bin_get_by_name input "sink"))
+                     (bin-src (gst_bin_get_by_name bin "src"))
+                     (bin-sink (gst_bin_get_by_name bin "sink")))
+          (gst-app-src-set-caps bin-src "audio/x-vorbis")
+          (g-object-set bin-src
+                        "is-live"     'boolean #t
+                        "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                        "format"      'int     GST_FORMAT_TIME)
+          (let ((input-listener (open-stream-listener))
+                (input-buffer (make-u8vector 65536))
+                (input-info (make-u64vector app-sink-info-size)))
+            (gst_app_sink_connect_signals input-sink input-listener)
+            (let ((thread
+                    (new-thread
+                      (lambda ()
+                        (let (loop)
+                          (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                            (let ((dts (u64vector-ref input-info 0))
+                                  (pts (u64vector-ref input-info 1))
+                                  (duration (u64vector-ref input-info 2)))
+                              (gst_app_src_write bin-src input-buffer size dts pts duration 0)))
+                          (loop)))
+                      'channel)))
+              (gst_element_link bin-sink audio-mix)
+              (gst_element_set_state input GST_STATE_PLAYING)
+              (gst_element_set_state bin GST_STATE_PLAYING)
+              (thread-start! thread)
+              (let ((channel (new Channel location input bin thread)))
+                (set! channels (append channels (list channel)))
+                channel))))))
+    
+    (define (remove-channel location)
+      (let ((channel (find channels location key: get-location test: equal? return: 'item)))
+        (let ((bin (get-bin channel)))
+          (gst_element_release bin)
+          (let ((ghost-pad (car (gst_element_src_pads bin))))
+            (with-unref ((vol (gst_bin_get_by_name bin "sink"))
+                         (mix (gst_bin_get_by_name audio "mix")))
+              (gst_element_unlink vol mix)
+              (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad)))
+            (gst_bin_remove audio bin)))))
+    
+    (define (closer app)
+      (for-each (lambda (channel)
+                  (gst_element_release (get-input channel)))
+                channels)
+      (gst_element_release audio)
+      (gst_element_release output))
+    
+    (gst_bin_add audio microphone)
+    (force-audioclock)
+    (gst_element_set_state audio GST_STATE_PLAYING)
+    (with-unref ((microphone-sink (gst_bin_get_by_name microphone "sink"))
+                 (output-src (gst_bin_get_by_name output "src")))
+      (let ((microphone-listener (open-stream-listener))
+            (microphone-buffer (make-u8vector 65536))
+            (microphone-info (make-u64vector app-sink-info-size)))
+        (gst_app_sink_connect_signals microphone-sink microphone-listener)
+        (let ((microphone-thread
+                (new-thread
+                  (lambda ()
+                    (let (loop)
+                      (let ((size (gst_app_sink_read microphone-listener microphone-sink microphone-buffer microphone-info)))
+                        (let ((dts (u64vector-ref microphone-info 0))
+                              (pts (u64vector-ref microphone-info 1))
+                              (duration (u64vector-ref microphone-info 2)))
+                          (gst_app_src_write output-src microphone-buffer size dts pts duration 0)))
+                      (loop)))
+                  'microphone))
+              (simulate-thread
+                (new-thread
+                  (lambda ()
+                    (sleep 5)
+                    (add-channel aretha .2)
+                    (sleep 5)
+                    (remove-channel koln))
+                  'simulate)))
+          (let ((vorbis-caps (with-unref ((sink (gst_bin_get_by_name microphone "sink")))
+                               (with-unref ((pad (gst_element_get_static_pad sink "sink")))
+                                 ;; wait for data to flow
+                                 (let (loop (n 0))
+                                   (if (> n 100)
+                                       (begin
+                                         (terminal 'COULD 'NOT 'GET 'MICROPHONE 'CAPS)
+                                         (exit))
+                                     (let ((caps (gst_pad_get_current_caps pad)))
+                                       (if (not caps)
+                                           (begin
+                                             (sleep .01)
+                                             (loop (+ n 1)))
+                                         (let ((caps-string (gst_caps_to_string caps)))
+                                           (gst_caps_unref caps)
+                                           caps-string)))))))))
+            (gst_app_src_set_caps output-src (gst_caps_from_string vorbis-caps))
+            (g-object-set output-src
+                          "is-live"     'boolean #t
+                          "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                          "format"      'int     GST_FORMAT_TIME)
+            (gst_element_set_state output GST_STATE_PLAYING)
+            (thread-start! microphone-thread)
+            (add-channel audio-location 1.)
+            @w(add-channel koln 1.)
+            (generate-graph audio "audio7")
+            (report-latency audio)
+            (report-clock audio)
+            @w(thread-start! simulate-thread)))))
+    ;; application
+    (boot-environment (new Test-Application closer: closer))))
+
+
+(class Microphone extends Object
+  
+  
+  (slot bin      getter generate)
+  (slot denoise  getter generate)
+  (slot denoiser getter generate)
+  (slot output   getter generate)
+  (slot thread   getter generate)
+  
+  
+  (method override (initialize self bin denoise denoiser output thread)
+    (nextmethod self)
+    (set! self.bin bin)
+    (set! self.denoise denoise)
+    (set! self.denoiser denoiser)
+    (set! self.output output)
+    (set! self.thread thread)))
+
+
+;; clean separation of microphone
+(definition public (test-audio8)
+  (trace-gst? trace?)
+  (let ((audio (gst-pipeline "adder name=mix"
+                             ;; without the queue we get the following warnings
+                             ;; WARN gst_base_sink_query_latency:<sink> Pipeline construction is invalid, please add queues.
+                             ;; WARN gst_base_sink_query_latency:<sink> Not enough buffering available for the processing deadline of 0:00:00.020000000, add enough queues to buffer  0:00:00.020000000 additional data. Shortening processing latency to 0:00:00.000000000.
+                             ;; and it is very interesting that before adding the queue, the probe reports "We have a latency of 0:00:00.2"
+                             ;; and with the queue it goes to "0:00:00.22"
+                             ;; ***AND*** the denoising becomes much better
+                             "queue"
+                             "webrtcechoprobe"
+                             "osxaudiosink name=sink"
+                             (and (eq? user 'silence)
+                                  (list "audiotestsrc do-timestamp=true wave=silence is-live=true name=silence"
+                                        "mix."))))
+        (microphone #f)
+        (channels '()))
+    (define (force-audioclock)
+      ;; it seems that appsrc will not generate events
+      ;; and so we need to generate them ourselves as it
+      ;; is critical that the audio sink receives the caps
+      ;; event before going to play else when the pipeline
+      ;; asks the audio sink for a provided clock the sink
+      ;; will return null because its ring buffer won't have
+      ;; been created in response to the caps event yet
+      (gst_element_set_state audio GST_STATE_PAUSED)
+      (with-unref ((mix (gst_bin_get_by_name audio "mix")))
+        (with-unref ((pad (gst_element_get_static_pad mix "src")))
+          (let ((caps (gst-new-caps "audio/x-raw"
+                                    "format" 'string "S16LE"
+                                    "layout" 'string "interleaved"
+                                    "rate" 'int 48000
+                                    "channels" 'int 2)))
+            (gst_pad_push_event pad (gst_event_new_stream_start "stream"))
+            (gst_pad_push_event pad (gst_event_new_caps caps))
+            (gst_caps_unref caps)))))
+    
+    (define (setup-microphone)
+      (let ((bin (gst-bin "osxaudiosrc provide-clock=false name=src"
+                          "audioresample"
+                          (gst-element "webrtcdsp"
+                                       echo-cancel: "true"
+                                       echo-suppression-level: "high"
+                                       noise-suppression: "true")
+                          "audioconvert"
+                          "audioresample"
+                          "audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=2"
+                          "vorbisenc"
+                          "appsink sync=false name=sink"))
+            (output (gst-pipeline "appsrc name=src"
+                                  ".audio_%u"
+                                  (list "oggmux name=mux"
+                                        "filesink location=audio8.ogg"))))
+        (gst_object_set_name bin "microphone")
+        (gst_object_set_name output "output")
+        (gst_bin_add audio bin)
+        (gst_element_set_state bin GST_STATE_PLAYING)
+        (with-unref ((microphone-sink (gst_bin_get_by_name bin "sink"))
+                     (output-src (gst_bin_get_by_name output "src")))
+          (let ((microphone-listener (open-stream-listener))
+                (microphone-buffer (make-u8vector 65536))
+                (microphone-info (make-u64vector app-sink-info-size)))
+            (gst_app_sink_connect_signals microphone-sink microphone-listener)
+            (let ((thread
+                    (new-thread
+                      (lambda ()
+                        (let (loop)
+                          (let ((size (gst_app_sink_read microphone-listener microphone-sink microphone-buffer microphone-info)))
+                            (let ((dts (u64vector-ref microphone-info 0))
+                                  (pts (u64vector-ref microphone-info 1))
+                                  (duration (u64vector-ref microphone-info 2)))
+                              (gst_app_src_write output-src microphone-buffer size dts pts duration 0)))
+                          (loop)))
+                      'microphone)))
+              (let ((vorbis-caps (with-unref ((sink (gst_bin_get_by_name bin "sink")))
+                                   (with-unref ((pad (gst_element_get_static_pad sink "sink")))
+                                     ;; wait for data to flow
+                                     (let (loop (n 0))
+                                       (if (> n 100)
+                                           (begin
+                                             (terminal 'COULD 'NOT 'GET 'MICROPHONE 'CAPS)
+                                             (exit))
+                                         (let ((caps (gst_pad_get_current_caps pad)))
+                                           (if (not caps)
+                                               (begin
+                                                 (sleep .01)
+                                                 (loop (+ n 1)))
+                                             (let ((caps-string (gst_caps_to_string caps)))
+                                               (gst_caps_unref caps)
+                                               caps-string)))))))))
+                (gst_app_src_set_caps output-src (gst_caps_from_string vorbis-caps))
+                (g-object-set output-src
+                              "is-live"     'boolean #t
+                              "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                              "format"      'int     GST_FORMAT_TIME)
+                (gst_element_set_state output GST_STATE_PLAYING)
+                (thread-start! thread)
+                (let ((mic (new Microphone bin #f #f output thread)))
+                  (set! microphone mic)
+                  mic)))))))
+    
+    (define (add-channel location (volume 1.))
+      (let ((channel (create-channel location volume)))
+        (set! channels (append channels (list channel)))
+        channel))
+    
+    (define (remove-channel location)
+      (let ((channel (find channels location key: get-location test: equal? return: 'item)))
+        (release-channel channel)
+        (set! channels (remove! channel channels))))
+    
+    (define (create-channel location volume)
+      (let ((input (gst-pipeline (tie "filesrc location={location}")
+                                 "oggdemux"
+                                 "appsink name=sink"))
+            (bin (gst-bin "appsrc name=src"
+                          "vorbisdec"
+                          "audioconvert"
+                          "audioresample"
+                          "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                          (tie "volume volume={volume}")
+                          "audiopanorama method=1 name=sink")))
+        (gst_object_set_name input "input")
+        (gst_object_set_name bin (filename-base location))
+        (gst_bin_add audio bin)
+        (with-unref ((audio-mix (gst_bin_get_by_name audio "mix"))
+                     (input-sink (gst_bin_get_by_name input "sink"))
+                     (bin-src (gst_bin_get_by_name bin "src"))
+                     (bin-sink (gst_bin_get_by_name bin "sink")))
+          (gst-app-src-set-caps bin-src "audio/x-vorbis")
+          (g-object-set bin-src
+                        "is-live"     'boolean #t
+                        "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                        "format"      'int     GST_FORMAT_TIME)
+          (let ((input-listener (open-stream-listener))
+                (input-buffer (make-u8vector 65536))
+                (input-info (make-u64vector app-sink-info-size)))
+            (gst_app_sink_connect_signals input-sink input-listener)
+            (let ((thread
+                    (new-thread
+                      (lambda ()
+                        (let (loop)
+                          (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                            (let ((dts (u64vector-ref input-info 0))
+                                  (pts (u64vector-ref input-info 1))
+                                  (duration (u64vector-ref input-info 2)))
+                              (gst_app_src_write bin-src input-buffer size dts pts duration 0)))
+                          (loop)))
+                      'channel)))
+              (gst_element_link bin-sink audio-mix)
+              (gst_element_set_state input GST_STATE_PLAYING)
+              (gst_element_set_state bin GST_STATE_PLAYING)
+              (thread-start! thread)
+              (new Channel location input bin thread))))))
+    
+    (define (release-channel channel)
+      (let ((bin (get-bin channel)))
+        (thread-terminate! (get-thread channel))
+        ;; it is very important not to call gst_element_release as
+        ;; gst_object_unref should not be done before gst_bin_remove
+        (let ((ghost-pad (car (gst_element_src_pads bin))))
+          (with-unref ((vol (gst_bin_get_by_name bin "sink"))
+                       (mix (gst_bin_get_by_name audio "mix")))
+            (gst_element_unlink vol mix)
+            (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad))))
+        (gst_element_set_state bin GST_STATE_NULL)
+        (gst_bin_remove audio bin)))
+    
+    (define (closer app)
+      (for-each release-channel channels)
+      (gst_element_release audio)
+      (when microphone
+        (gst_element_release (get-output microphone))))
+    
+    (gst_object_set_name audio "audio")
+    (force-audioclock)
+    (gst_element_set_state audio GST_STATE_PLAYING)
+    (setup-microphone)
+    (let ((simulate-thread
+            (new-thread
+              (lambda ()
+                (sleep 5)
+                (add-channel aretha .2)
+                (sleep 5)
+                (remove-channel koln))
+              'simulate)))
+      (add-channel audio-location 1.)
+        @w(add-channel koln 1.)
+        (generate-graph audio "audio8")
+        (report-latency audio)
+        (report-clock audio)
+        @w(thread-start! simulate-thread))
+    ;; application
+    (boot-environment (new Test-Application closer: closer))))
+
+
+;; add rnnoise denoising
+(definition public (test-audio9)
+  (trace-gst? trace?)
+  (let ((audio (gst-pipeline "adder name=mix"
+                             ;; without the queue we get the following warnings
+                             ;; WARN gst_base_sink_query_latency:<sink> Pipeline construction is invalid, please add queues.
+                             ;; WARN gst_base_sink_query_latency:<sink> Not enough buffering available for the processing deadline of 0:00:00.020000000, add enough queues to buffer  0:00:00.020000000 additional data. Shortening processing latency to 0:00:00.000000000.
+                             ;; and it is very interesting that before adding the queue, the probe reports "We have a latency of 0:00:00.2"
+                             ;; and with the queue it goes to "0:00:00.22"
+                             ;; ***AND*** the denoising becomes much better
+                             "queue"
+                             "webrtcechoprobe"
+                             "osxaudiosink name=sink"
+                             (list "audiotestsrc wave=silence name=silence"
+                                   "mix.")))
+        (microphone #f)
+        (channels '()))
+    (define (force-audioclock)
+      ;; it seems that appsrc will not generate events
+      ;; and so we need to generate them ourselves as it
+      ;; is critical that the audio sink receives the caps
+      ;; event before going to play else when the pipeline
+      ;; asks the audio sink for a provided clock the sink
+      ;; will return null because its ring buffer won't have
+      ;; been created in response to the caps event yet
+      (gst_element_set_state audio GST_STATE_PAUSED)
+      (with-unref ((mix (gst_bin_get_by_name audio "mix")))
+        (with-unref ((pad (gst_element_get_static_pad mix "src")))
+          (let ((caps (gst-new-caps "audio/x-raw"
+                                    "format" 'string "S16LE"
+                                    "layout" 'string "interleaved"
+                                    "rate" 'int 48000
+                                    "channels" 'int 2)))
+            (gst_pad_push_event pad (gst_event_new_stream_start "stream"))
+            (gst_pad_push_event pad (gst_event_new_caps caps))
+            (gst_caps_unref caps)))))
+    
+    (define (force-preroll)
+      (gst_element_set_state audio GST_STATE_PLAYING)
+      @w
+      (let ((test "/Users/cartier/Media/test.ogg"))
+        (add-channel test .1)
+        (sleep .1)
+        (remove-channel test)))
+    
+    (define (setup-microphone)
+      (let ((bin (gst-bin "osxaudiosrc provide-clock=false name=src"
+                          ;; needed on some computers
+                          "audioresample"
+                          (gst-element "webrtcdsp"
+                                       echo-cancel: "true"
+                                       echo-suppression-level: "high"
+                                       noise-suppression: "true")
+                          "audioresample"
+                          "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=1"
+                          "appsink sync=false name=sink"))
+            (denoise (gst-pipeline "appsrc is-live=true stream-type=stream format=time name=src"
+                                   "audioconvert"
+                                   "audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=1"
+                                   "vorbisenc name=enc"
+                                   "appsink sync=false name=sink"))
+            (output (gst-pipeline "appsrc is-live=true stream-type=stream format=time name=src"
+                                  ".audio_%u"
+                                  (list "oggmux name=mux"
+                                        "filesink location=audio9.ogg"))))
+        (gst_object_set_name bin "microphone")
+        (gst_object_set_name denoise "denoise")
+        (gst_object_set_name output "output")
+        (gst_bin_add audio bin)
+        (gst_element_set_state bin GST_STATE_PLAYING)
+        (with-unref ((microphone-sink (gst_bin_get_by_name bin "sink"))
+                     (denoise-src (gst_bin_get_by_name denoise "src"))
+                     (denoise-sink (gst_bin_get_by_name denoise "sink"))
+                     (output-src (gst_bin_get_by_name output "src")))
+          (define (microphone-caps)
+            (with-unref ((sink (gst_bin_get_by_name denoise "sink")))
+              (with-unref ((pad (gst_element_get_static_pad sink "sink")))
+                ;; wait for data to flow
+                (let (loop (n 0))
+                  (if (> n 100)
+                      (begin
+                        (terminal 'COULD 'NOT 'GET 'MICROPHONE 'CAPS)
+                        (exit))
+                    (if (not (gst_pad_has_current_caps pad))
+                        (begin
+                          (sleep .01)
+                          (loop (+ n 1)))
+                      (let ((caps (gst_pad_get_current_caps pad)))
+                        (let ((caps-string (gst_caps_to_string caps)))
+                          (gst_caps_unref caps)
+                          caps-string))))))))
+          
+          (gst-app-src-set-caps denoise-src "audio/x-raw"
+            "format"   'string "S16LE"
+            "layout"   'string "interleaved"
+            "rate"     'int    48000
+            "channels" 'int    1)
+          (gst_element_set_state denoise GST_STATE_PLAYING)
+          (let ((denoiser (create-denoiser microphone-sink denoise-src #t))
+                (denoise-listener (open-stream-listener))
+                (denoise-buffer (make-u8vector 65536))
+                (denoise-info (make-u64vector app-sink-info-size))
+                (setup-output-done? #f)
+                (setup-output
+                  (lambda ()
+                    (let ((vorbis-caps (with-unref ((sink (gst_bin_get_by_name denoise "sink")))
+                                         (with-unref ((pad (gst_element_get_static_pad sink "sink")))
+                                           (let ((caps (gst_pad_get_current_caps pad)))
+                                             (let ((caps-string (gst_caps_to_string caps)))
+                                               (gst_caps_unref caps)
+                                               caps-string))))))
+                      (gst_app_src_set_caps output-src (gst_caps_from_string vorbis-caps))
+                      (gst_element_set_state output GST_STATE_PLAYING)))))
+            ;(terminal (microphone-caps))
+            (gst_app_sink_connect_signals denoise-sink denoise-listener)
+            (gst_app_src_set_caps output-src (gst_caps_from_string (microphone-caps)))
+            @w(with-unref ((silence (gst_bin_get_by_name audio "silence")))
+              (terminal '*** silence)
+              (gst_element_set_state silence GST_STATE_PAUSED))
+            (gst_element_set_state output GST_STATE_PLAYING)
+            (let ((thread
+                    (new-thread
+                      (lambda ()
+                        (let (loop)
+                          (let ((size (gst_app_sink_read denoise-listener denoise-sink denoise-buffer denoise-info)))
+                            @w
+                            (unless setup-output-done?
+                              (setup-output)
+                              (set! setup-output-done? #t))
+                            (let ((dts (u64vector-ref denoise-info 0))
+                                  (pts (u64vector-ref denoise-info 1))
+                                  (duration (u64vector-ref denoise-info 2)))
+                              (gst_app_src_write output-src denoise-buffer size dts pts duration 0)))
+                          (loop)))
+                      'denoise)))
+              (thread-start! thread)
+              (let ((mic (new Microphone bin denoise denoiser output thread)))
+                (set! microphone mic)
+                mic))))))
+    
+    (define (release-microphone)
+      (free-denoiser (get-denoiser microphone))
+      (gst_element_release (get-output microphone)))
+    
+    (define (add-channel location (volume 1.))
+      (let ((channel (create-channel location volume)))
+        (set! channels (append channels (list channel)))
+        channel))
+    
+    (define (remove-channel location)
+      (let ((channel (find channels location key: get-location test: equal? return: 'item)))
+        (release-channel channel)
+        (set! channels (remove! channel channels))))
+    
+    (define (create-channel location volume)
+      (let ((input (gst-pipeline (tie "filesrc location={location}")
+                                 "oggdemux"
+                                 "appsink name=sink"))
+            (bin (gst-bin "appsrc is-live=true stream-type=stream format=time name=src"
+                          "vorbisdec"
+                          "audioconvert"
+                          "audioresample"
+                          "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                          (tie "volume volume={volume}")
+                          "audiopanorama method=1 name=sink")))
+        (gst_object_set_name input "input")
+        (gst_object_set_name bin (filename-base location))
+        (gst_bin_add audio bin)
+        (with-unref ((audio-mix (gst_bin_get_by_name audio "mix"))
+                     (input-sink (gst_bin_get_by_name input "sink"))
+                     (bin-src (gst_bin_get_by_name bin "src"))
+                     (bin-sink (gst_bin_get_by_name bin "sink")))
+          (gst-app-src-set-caps bin-src "audio/x-vorbis")
+          (let ((input-listener (open-stream-listener))
+                (input-buffer (make-u8vector 65536))
+                (input-info (make-u64vector app-sink-info-size)))
+            (gst_app_sink_connect_signals input-sink input-listener)
+            (let ((thread
+                    (new-thread
+                      (lambda ()
+                        (let (loop)
+                          (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                            (let ((dts (u64vector-ref input-info 0))
+                                  (pts (u64vector-ref input-info 1))
+                                  (duration (u64vector-ref input-info 2)))
+                              (gst_app_src_write bin-src input-buffer size dts pts duration 0)))
+                          (loop)))
+                      'channel)))
+              (gst_element_link bin-sink audio-mix)
+              (gst_element_set_state input GST_STATE_PLAYING)
+              (gst_element_set_state bin GST_STATE_PLAYING)
+              (thread-start! thread)
+              (new Channel location input bin thread))))))
+    
+    (define (release-channel channel)
+      (let ((bin (get-bin channel)))
+        (thread-terminate! (get-thread channel))
+        ;; it is very important not to call gst_element_release as
+        ;; gst_object_unref should not be done before gst_bin_remove
+        (let ((ghost-pad (car (gst_element_src_pads bin))))
+          (with-unref ((vol (gst_bin_get_by_name bin "sink"))
+                       (mix (gst_bin_get_by_name audio "mix")))
+            (gst_element_unlink vol mix)
+            (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad))))
+        (gst_element_set_state bin GST_STATE_NULL)
+        (gst_bin_remove audio bin)))
+    
+    (define (closer app)
+      (for-each release-channel channels)
+      (gst_element_release audio)
+      (when microphone
+        (release-microphone)))
+    
+    (gst_object_set_name audio "audio")
+    (force-audioclock)
+    (force-preroll)
+    (setup-microphone)
+    (let ((simulate-thread
+            (new-thread
+              (lambda ()
+                (sleep 5)
+                (add-channel aretha .2)
+                (sleep 5)
+                (remove-channel koln))
+              'simulate)))
+        (add-channel aretha 1.)
+        @w(add-channel koln 1.)
+        (generate-graph audio "audio9")
+        (report-latency audio)
+        (report-clock audio)
+        @w(thread-start! simulate-thread))
+    ;; application
+    (boot-environment (new Test-Application closer: closer))))
 
 
 ;;;
@@ -663,8 +1760,8 @@
                                 (alpha-size (/ (* width height 12) 8))
                                 (duration 100))
                             (separate-alpha data alpha-data (* width height))
-                            (gst_app_src_write_pointer_now color-src data size 0 duration)
-                            (gst_app_src_write_pointer_now alpha-src alpha-data alpha-size 0 duration)))
+                            (gst_app_src_write_pointer_now color-src data size duration)
+                            (gst_app_src_write_pointer_now alpha-src alpha-data alpha-size duration)))
                         (heap-free alpha-data)
                         (when (not color-bytes)
                           (let ((size (gst_app_sink_read color-listener color-sink color-buffer color-info)))
@@ -718,8 +1815,8 @@
                           (when (and (not color-bytes) (not alpha-bytes))
                             (let ((info (read video-pipe)))
                               (bind (buffer bytes alpha-buffer alpha-bytes dts pts duration) info
-                                (gst_app_src_write_now color-src buffer bytes 0 duration)
-                                (gst_app_src_write_now alpha-src alpha-buffer alpha-bytes 0 duration))))
+                                (gst_app_src_write_now color-src buffer bytes duration)
+                                (gst_app_src_write_now alpha-src alpha-buffer alpha-bytes duration))))
                           (when (not color-bytes)
                             (let ((size (gst_app_sink_read color-listener color-sink color-buffer color-info)))
                               (set! color-bytes size)))
@@ -920,7 +2017,7 @@
                       (let (loop)
                         (let ((info (read audio-pipe)))
                           (bind (buffer size dts pts duration) info
-                            (gst_app_src_write_now src buffer size 0 duration)))
+                            (gst_app_src_write_now src buffer size duration)))
                         (process-messages)
                         (loop)))))))
             'audio-output)))
@@ -981,7 +2078,7 @@
                         (let ((info (read video-pipe)))
                           (bind (buffer size dts pts duration) info
                             (set! frame-size size)
-                            (gst_app_src_write_now src buffer size 0 duration)))
+                            (gst_app_src_write_now src buffer size duration)))
                         (let ((size (with-video-mutex
                                       (lambda ()
                                         (gst_app_sink_read listener sink video-buffer video-info)))))
@@ -1018,56 +2115,55 @@
                             (else)))
                 (sink     (gst_element_factory_make "autoaudiosink" "audio-output")))
             (g_object_set_string source "location" (path-normalize filename))
-            (let ((bus (gst_pipeline_get_bus pipeline)))
-              (gst_bin_add pipeline source)
-              (gst_bin_add pipeline demuxer)
-              (gst_bin_add pipeline decoder)
-              (gst_bin_add pipeline conv)
-              (gst_bin_add pipeline resamp)
-              (gst_bin_add pipeline volume)
-              (gst_bin_add pipeline panorama)
-              (cond-expand
-                (windows (gst_bin_add pipeline winconv))
-                (else))
-              (gst_bin_add pipeline sink)
-              (gst_element_link source demuxer)
-              (gst_element_link demuxer decoder)
-              (gst_element_link decoder conv)
-              (gst_element_link conv resamp)
-              (gst_element_link resamp volume)
-              (gst_element_link volume panorama)
-              (cond-expand
-                (windows
-                 (gst_element_link panorama winconv)
-                 (gst_element_link winconv sink))
-                (else
-                 (gst_element_link panorama sink)))
-              (g_object_set_double volume "volume" .1)
-              (g_object_set_double panorama "panorama" -1.)
-              (gst_signal_connect_to demuxer "pad-added" decoder)
-              (when monitor
-                (gst_monitor_messages pipeline))
-              (gst_element_set_state pipeline GST_STATE_PLAYING)
-              ;; augment volume
-              (let ((vol .1))
-                (thread-start!
-                  (new-thread
-                    (lambda ()
-                      (let (loop)
-                        (set! vol (min (* vol 1.025) 1.))
-                        (g_object_set_double volume "volume" vol)
-                        (sleep .1)
-                        (loop))))))
-              ;; pan left to right
-              (let ((pan -1.))
-                (thread-start!
-                  (new-thread
-                    (lambda ()
-                      (let (loop)
-                        (set! pan (min (+ pan .01) 1.))
-                        (g_object_set_double panorama "panorama" pan)
-                        (sleep .1)
-                        (loop))))))))))
+            (gst_bin_add pipeline source)
+            (gst_bin_add pipeline demuxer)
+            (gst_bin_add pipeline decoder)
+            (gst_bin_add pipeline conv)
+            (gst_bin_add pipeline resamp)
+            (gst_bin_add pipeline volume)
+            (gst_bin_add pipeline panorama)
+            (cond-expand
+              (windows (gst_bin_add pipeline winconv))
+              (else))
+            (gst_bin_add pipeline sink)
+            (gst_element_link source demuxer)
+            (gst_element_link demuxer decoder)
+            (gst_element_link decoder conv)
+            (gst_element_link conv resamp)
+            (gst_element_link resamp volume)
+            (gst_element_link volume panorama)
+            (cond-expand
+              (windows
+               (gst_element_link panorama winconv)
+               (gst_element_link winconv sink))
+              (else
+               (gst_element_link panorama sink)))
+            (g_object_set_double volume "volume" .1)
+            (g_object_set_double panorama "panorama" -1.)
+            (gst_signal_connect_to demuxer "pad-added" decoder)
+            (when monitor
+              (gst_monitor_messages pipeline))
+            (gst_element_set_state pipeline GST_STATE_PLAYING)
+            ;; augment volume
+            (let ((vol .1))
+              (thread-start!
+                (new-thread
+                  (lambda ()
+                    (let (loop)
+                      (set! vol (min (* vol 1.025) 1.))
+                      (g_object_set_double volume "volume" vol)
+                      (sleep .1)
+                      (loop))))))
+            ;; pan left to right
+            (let ((pan -1.))
+              (thread-start!
+                (new-thread
+                  (lambda ()
+                    (let (loop)
+                      (set! pan (min (+ pan .01) 1.))
+                      (g_object_set_double panorama "panorama" pan)
+                      (sleep .1)
+                      (loop)))))))))
       'ogg))
   ;; application
   (boot-environment (new Test-Application)))
@@ -1087,17 +2183,16 @@
           (resamp  (gst_element_factory_make "audioresample" "resampler"))
           (sink    (gst_element_factory_make "autoaudiosink" "audio-output")))
       (g_object_set_string source "location" (path-normalize filename))
-      (let ((bus (gst_pipeline_get_bus pipeline)))
-        (gst_bin_add pipeline source)
-        (gst_bin_add pipeline decoder)
-        (gst_bin_add pipeline conv)
-        (gst_bin_add pipeline resamp)
-        (gst_bin_add pipeline sink)
-        (gst_element_link source decoder)
-        (gst_element_link decoder conv)
-        (gst_element_link conv resamp)
-        (gst_element_link resamp sink)
-        (gst_element_set_state pipeline GST_STATE_PLAYING)))))
+      (gst_bin_add pipeline source)
+      (gst_bin_add pipeline decoder)
+      (gst_bin_add pipeline conv)
+      (gst_bin_add pipeline resamp)
+      (gst_bin_add pipeline sink)
+      (gst_element_link source decoder)
+      (gst_element_link decoder conv)
+      (gst_element_link conv resamp)
+      (gst_element_link resamp sink)
+      (gst_element_set_state pipeline GST_STATE_PLAYING))))
 
 
 (definition public (test-wav)
@@ -1262,7 +2357,7 @@
                                 (let (loop)
                                   (let ((info (read audio-pipe)))
                                     (bind (buffer size dts pts duration) info
-                                      (gst_app_src_write_now src buffer size 0 duration)))
+                                      (gst_app_src_write_now src buffer size duration)))
                                   (process-messages)
                                   (loop)))))))
                       'audio-output))
@@ -1321,7 +2416,7 @@
                                   (let ((info (read video-pipe)))
                                     (bind (buffer size dts pts duration) info
                                       (set! frame-size size)
-                                      (gst_app_src_write_now src buffer size 0 duration)))
+                                      (gst_app_src_write_now src buffer size duration)))
                                   (let ((size (with-video-mutex
                                                 (lambda ()
                                                   (gst_app_sink_read listener sink video-buffer video-info)))))
@@ -1426,6 +2521,15 @@
 
 
 ;;;
+;;;; Version
+;;;
+
+
+(definition public (test-version)
+  (terminal (gst-version)))
+
+
+;;;
 ;;;; Application
 ;;;
 
@@ -1438,25 +2542,33 @@
   (slot drawer getter generate)
   (slot mouser getter generate)
   (slot keyer  getter generate)
+  (slot closer getter generate)
   
   
-  (method override (initialize self (size: size #f) (pipe: pipe #f) (drawer: drawer #f) (mouser: mouser #f) (keyer: keyer #f))
+  (method override (initialize self (size: size #f) (pipe: pipe #f) (drawer: drawer #f) (mouser: mouser #f) (keyer: keyer #f) (closer: closer #f))
     (set! self.size (or size {Dimension 640 360}))
     (set! self.pipe pipe)
     (set! self.drawer drawer)
     (set! self.mouser mouser)
-    (set! self.keyer keyer))
+    (set! self.keyer keyer)
+    (set! self.closer closer))
   
   
   (method override (new-toplevel self)
-    (new Toplevel caption-base: "Test" position: {Point 50 50} size: size))
+    (new Toplevel caption-base: "Test" position: {Point 150 50} size: size))
   
   
   (method override (finish-process self)
     (nextmethod self)
     (let ((view (get-guest (new-frame Test-View host-title: (->string script) drawer: drawer mouser: mouser keyer: keyer))))
       (when pipe
-        (write view pipe)))))
+        (write view pipe))))
+  
+  
+  (method override (terminate-process self)
+    (when closer
+      (closer self))
+    (nextmethod self)))
 
 
 ;;;

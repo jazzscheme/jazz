@@ -135,6 +135,11 @@ static double g_object_get_double(GObject* obj, char* name)
     g_object_get(obj, name, &d, NULL);
     return d;
 }
+
+static char* g_object_class_name(GObject* obj)
+{
+    return (char*) G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(obj));
+}
 //#)
 
 
@@ -163,6 +168,7 @@ static double g_object_get_double(GObject* obj, char* name)
 (c-external (g_value_get_string GValue*) (cast char-string))
 (c-external (g_value_set_string GValue* char-string) void)
 (c-external (g_list_free GList*) void)
+(c-external (g_object_class_name (call G_OBJECT GObject*)) char-string)
 (c-external (g_object_get_property (call G_OBJECT GObject*) char-string GValue*) void)
 (c-external (g_object_set_property (call G_OBJECT GObject*) char-string GValue*) void)
 (c-external (g_object_get_boolean (call G_OBJECT GObject*) char-string) bool "g_object_get_boolean")
@@ -203,9 +209,17 @@ static double g_object_get_double(GObject* obj, char* name)
 (c-enumerant GST_PAD_UNKNOWN)
 (c-enumerant GST_PAD_SRC)
 (c-enumerant GST_PAD_SINK)
+(c-enumerant GST_PAD_LINK_OK)
+(c-enumerant GST_PAD_LINK_WRONG_HIERARCHY)
+(c-enumerant GST_PAD_LINK_WAS_LINKED)
+(c-enumerant GST_PAD_LINK_WRONG_DIRECTION)
+(c-enumerant GST_PAD_LINK_NOFORMAT)
+(c-enumerant GST_PAD_LINK_NOSCHED)
+(c-enumerant GST_PAD_LINK_REFUSED)
 (c-enumerant GST_TYPE_DISCOVERER_CONTAINER_INFO)
 (c-enumerant GST_TYPE_DISCOVERER_AUDIO_INFO)
 (c-enumerant GST_TYPE_DISCOVERER_VIDEO_INFO)
+(c-enumerant GST_DEBUG_GRAPH_SHOW_ALL)
 
 
 (c-type GstClockTime         uint64)
@@ -218,8 +232,11 @@ static double g_object_get_double(GObject* obj, char* name)
 (c-type GstAppStreamType     enum)
 (c-type GstSeekFlags         enum)
 (c-type GstPadDirection      enum)
+(c-type GstPadLinkReturn     enum)
 
 
+(c-type GstObject                (native "GstObject"))
+(c-type GstObject*               (pointer GstObject GstObject*))
 (c-type GstElement               (native "GstElement"))
 (c-type GstElement*              (pointer GstElement GstElement*))
 (c-type GstPad                   (native "GstPad"))
@@ -259,6 +276,19 @@ static double g_object_get_double(GObject* obj, char* name)
 
 
 (c-declare jazz.stream.foreign #/C/
+static double present_time(GstClockTime time)
+{
+    if (time == GST_CLOCK_TIME_NONE)
+        return -1;
+    else
+        return GST_TIME_AS_SECONDS((double) time);
+}
+
+static double present_timediff(GstClockTimeDiff diff)
+{
+    return GST_TIME_AS_SECONDS((double) diff);
+}
+
 static int gst_version_fill(___SCMOBJ info)
 {
     ___U32 *ptr = ___CAST(___U32*, ___BODY(info));
@@ -271,6 +301,11 @@ static int gst_version_fill(___SCMOBJ info)
     ptr[1] = minor;
     ptr[2] = micro;
     ptr[3] = nano;
+}
+
+static int gst_object_refcount(GstObject* obj)
+{
+    return GST_OBJECT_REFCOUNT_VALUE(obj);
 }
 
 static char* gst_structure_get_name_aux(GstStructure* struc)
@@ -570,19 +605,6 @@ static void gst_print_error(GstMessage *msg)
 
     g_printerr("Error: %s\n", error->message);
     g_error_free(error);
-}
-
-static double present_time(GstClockTime time)
-{
-    if (time == GST_CLOCK_TIME_NONE)
-        return -1;
-    else
-        return GST_TIME_AS_SECONDS((double) time);
-}
-
-static double present_timediff(GstClockTimeDiff diff)
-{
-    return GST_TIME_AS_SECONDS((double) diff);
 }
 
 static int gst_app_sink_try_pull(GstElement* elem, ___SCMOBJ vec, ___SCMOBJ info)
@@ -1225,20 +1247,33 @@ static void free_denoiser(void* data)
 (gst-external (gst_version_fill scheme-object) void)
 (gst-external (gst_parse_launch char-string NULL) GstElement*)
 (gst-external (gst_parse_bin_from_description char-string gboolean NULL) GstElement*)
+(gst-external (gst_object_refcount (call GST_OBJECT gpointer)) int "gst_object_refcount")
 (gst-external (gst_object_get_name (call GST_OBJECT gpointer)) char-string)
+(c-external (gst_object_get_name_untraced (call GST_OBJECT gpointer)) char-string "gst_object_get_name")
 (gst-external (gst_object_set_name (call GST_OBJECT gpointer) char-string) gboolean)
 (gst-external (gst_object_unref gpointer) void)
 (gst-external (gst_value_get_fraction_numerator GValue*) int)
 (gst-external (gst_value_get_fraction_denominator GValue*) int)
 (gst-external (gst_value_set_fraction GValue* int int) void)
 (gst-external (gst_value_get_buffer GValue*) GstBuffer*)
+(gst-external (gst_pad_get_name GstPad*) char-string)
+(gst-external (gst_pad_get_allowed_caps GstPad*) GstCaps*)
+(gst-external (gst_pad_has_current_caps GstPad*) bool)
 (gst-external (gst_pad_get_current_caps GstPad*) GstCaps*)
+(gst-external (gst_pad_query_caps GstPad* GstCaps*) GstCaps*)
 (gst-external (gst_pad_get_direction GstPad*) GstPadDirection)
+(gst-external (gst_pad_get_parent_element GstPad*) GstElement*)
+(gst-external (gst_pad_get_peer GstPad*) GstPad*)
+(gst-external (gst_pad_is_active GstPad*) gboolean)
+(gst-external (gst_pad_is_linked GstPad*) gboolean)
+(gst-external (gst_pad_link GstPad* GstPad*) GstPadLinkReturn)
+(gst-external (gst_pad_add_block_probe GstPad*) :alloc void*)
 (gst-external (gst_pad_add_drop_probe GstPad*) :alloc void*)
 (gst-external (gst_pad_add_rate_probe GstPad* int) :alloc void*)
-(gst-external (gst_pad_probe_free void*) :free void "gst_pad_probe_free")
 (gst-external (gst_pad_remove_probe GstPad* void*) (:free 2) void "gst_pad_remove_probe_aux")
+(gst-external (gst_pad_probe_free void*) :free void "gst_pad_probe_free")
 (gst-external (gst_pad_push_event GstPad* GstEvent*) gboolean)
+(gst-external (gst_ghost_pad_new char-string GstPad*) GstPad*)
 (gst-external (gst_caps_new_empty_simple char-string) GstCaps*)
 (gst-external (gst_caps_from_string char-string) GstCaps*)
 (gst-external (gst_caps_is_fixed GstCaps*) gboolean)
@@ -1261,11 +1296,23 @@ static void free_denoiser(void* data)
 (gst-external (gst_element_send_event GstElement* GstEvent*) gboolean)
 (gst-external (gst_element_get_bus GstElement*) GstBus*)
 (gst-external (gst_element_get_base_time GstElement*) GstClockTime)
+(gst-external (gst_element_get_parent GstElement*) GstElement*)
+(c-external (gst_element_get_parent_untraced GstElement*) GstElement* "gst_element_get_parent")
+(gst-external (gst_element_get_pipeline GstElement*) GstElement*)
 (gst-external (gst_element_get_running_time GstElement*) GstClockTime "gst_element_get_running_time")
+(gst-external (gst_element_get_running_time2 GstElement*) GstClockTime "gst_element_get_running_time2")
+(gst-external (gst_element_get_clock GstElement*) GstClock*)
 (gst-external (gst_element_factory_make char-string char-string) GstElement*)
+(gst-external (gst_element_add_pad GstElement* GstPad*) gboolean)
 (gst-external (gst_element_link GstElement* GstElement*) gboolean)
+(gst-external (gst_element_link_pads GstElement* char-string GstElement* char-string) gboolean)
+(gst-external (gst_element_unlink GstElement* GstElement*) void)
 (gst-external (gst_element_get_static_pad GstElement* char-string) GstPad*)
+(gst-external (gst_element_get_request_pad GstElement* char-string) GstPad*)
+(gst-external (gst_element_release_request_pad GstElement* GstPad*) void)
 (gst-external (gst_element_iterate_pads GstElement*) GstIterator*)
+(gst-external (gst_element_iterate_sink_pads GstElement*) GstIterator*)
+(gst-external (gst_element_iterate_src_pads GstElement*) GstIterator*)
 (gst-external (gst_element_query GstElement* GstQuery*) gboolean)
 (gst-external (gst_element_query_latency GstElement* scheme-object) void "gst_element_query_latency_aux")
 (gst-external (gst_element_query_position GstElement* GstFormat) int64 "gst_element_query_position_aux")
@@ -1276,8 +1323,10 @@ static void free_denoiser(void* data)
 (gst-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
 (gst-external (gst_bus_pop GstBus*) GstMessage*)
 (gst-external (gst_bin_add (call GST_BIN GstElement*) GstElement*) gboolean)
+(gst-external (gst_bin_remove (call GST_BIN GstElement*) GstElement*) gboolean)
 (gst-external (gst_bin_get_by_name (call GST_BIN GstElement*) char-string) GstElement*)
 (gst-external (gst_bin_iterate_elements (call GST_BIN GstElement*)) GstIterator*)
+(gst-external (gst_bin_iterate_sorted (call GST_BIN GstElement*)) GstIterator*)
 (gst-external (gst_debug_bin_to_dot_file (call GST_BIN GstElement*) char-string) void "gst_debug_bin_to_dot_file_aux")
 (gst-external (gst_pipeline_new char-string) GstElement*)
 (gst-external (gst_pipeline_get_bus (call GST_PIPELINE GstElement*)) GstBus*)
@@ -1285,7 +1334,6 @@ static void free_denoiser(void* data)
 (gst-external (gst_pipeline_get_time (call GST_PIPELINE GstElement*)) GstClockTime)
 (gst-external (gst_pipeline_get_latency (call GST_PIPELINE GstElement*)) GstClockTime)
 (gst-external (gst_pipeline_set_latency (call GST_PIPELINE GstElement*) GstClockTime) void)
-(gst-external (gst_query_new_latency) GstQuery*)
 (gst-external (gst_event_new_eos) GstEvent*)
 (gst-external (gst_event_new_stream_start char-string) GstEvent*)
 (gst-external (gst_event_new_caps GstCaps*) GstEvent*)
@@ -1328,6 +1376,8 @@ static void free_denoiser(void* data)
 (gst-external (gst_print_error GstMessage*) void)
 (gst-external (gst_monitor_data (call GST_PIPELINE GstElement*) GstPad*) gulong)
 (gst-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) gulong)
+(gst-external (gst_monitor_queries (call GST_PIPELINE GstElement*) GstPad*) gulong)
+(gst-external (gst_monitor_remove GstPad* gulong) void)
 (gst-external (gst_monitor_messages (call GST_PIPELINE GstElement*)) void)
 (gst-external (gst_app_src_get_caps (call GST_APP_SRC GstElement*)) GstCaps*)
 (gst-external (gst_app_src_set_caps (call GST_APP_SRC GstElement*) GstCaps*) void)
@@ -1338,6 +1388,7 @@ static void free_denoiser(void* data)
 (gst-external (gst_app_sink_connect_listener_signals GstElement* void*) void)
 (gst-external (gst_app_sink_try_pull GstElement* scheme-object scheme-object) int)
 (gst-external (gst_app_sink_is_eos (call GST_APP_SINK GstElement*)) bool)
+(gst-external (gst_debug_bin_to_dot_file (call GST_BIN GstElement*) int char-string) void)
 (gst-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")
 (gst-external (GST_MESSAGE_TYPE GstMessage*) GstMessageType)
 (gst-external (GST_MESSAGE_SRC GstMessage*) GstElement*)

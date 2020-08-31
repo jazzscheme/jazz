@@ -174,23 +174,27 @@
 
 
 (definition public (gst-parse elements)
-  (define (parse elem)
-    (cond ((not elem)
-           elem)
-          ((string? elem)
-           (string-append " ! " elem))
-          ((pair? elem)
-           (string-append " " (parse-list elem)))
-          (else
-           (error "Unable to parse {s}" elem))))
-  
   (define (parse-list elem)
     (let ((elem (remove-false elem)))
       (bind (first . rest) elem
         (string-append (if (pair? first)
                            (parse-list first)
                          first)
-          (apply string-append (map parse rest))))))
+          (parse-rest rest)))))
+  
+  (define (parse-rest rest)
+    (let (loop (rest rest) (line ""))
+      (if (null? rest)
+          line
+        (bind (elem . rest) rest
+          (cond ((not elem)
+                 (loop rest line))
+                ((string? elem)
+                 (loop rest (string-append line " ! " elem)))
+                ((pair? elem)
+                 (loop rest (string-append line " " (parse-list elem))))
+                (else
+                 (error "Unable to parse {s}" elem)))))))
   
   (parse-list elements))
 

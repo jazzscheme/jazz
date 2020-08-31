@@ -820,6 +820,14 @@ static void gst_print_message(char* pipeline_name, GstMessage *msg)
 }
 
 static GstPadProbeReturn
+cb_block_data(GstPad          *pad,
+             GstPadProbeInfo *info,
+             gpointer         user_data)
+{
+    return GST_PAD_PROBE_OK;
+}
+
+static GstPadProbeReturn
 cb_drop_data(GstPad          *pad,
              GstPadProbeInfo *info,
              gpointer         user_data)
@@ -827,8 +835,9 @@ cb_drop_data(GstPad          *pad,
     return GST_PAD_PROBE_DROP;
 }
 
-#define DROP_PROBE 0
-#define RATE_PROBE 1
+#define BLOCK_PROBE 0
+#define DROP_PROBE  1
+#define RATE_PROBE  2
 
 typedef struct probe_any
 {
@@ -836,11 +845,28 @@ typedef struct probe_any
     gulong probe_id;
 } any_probe;
 
-typedef struct probe_drop 
+typedef struct probe_block
+{
+    int probe_kind;
+    gulong probe_id;
+} block_probe;
+
+typedef struct probe_drop
 {
     int probe_kind;
     gulong probe_id;
 } drop_probe;
+
+static void init_block_probe(block_probe* data, gulong id)
+{
+    data->probe_kind = BLOCK_PROBE;
+    data->probe_id = id;
+}
+
+static void free_block_probe(block_probe* data)
+{
+    free(data);
+}
 
 static void init_drop_probe(drop_probe* data, gulong id)
 {
@@ -1014,6 +1040,16 @@ cb_have_event(GstPad          *pad,
     return GST_PAD_PROBE_OK;
 }
 
+static void* gst_pad_add_block_probe(GstPad* pad)
+{
+    block_probe* data = malloc(sizeof(block_probe));
+    gulong id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM, (GstPadProbeCallback) cb_block_data, NULL, NULL);
+    
+    init_block_probe(data, id);
+    
+    return (void*) data;
+}
+
 static void* gst_pad_add_drop_probe(GstPad* pad)
 {
     drop_probe* data = malloc(sizeof(drop_probe));
@@ -1053,6 +1089,7 @@ static void gst_pad_remove_probe_aux(GstPad* pad, void* info)
 {
     any_probe* data = (any_probe*) info;
     gulong id = data->probe_id;
+    
     gst_pad_remove_probe(pad, id);
     gst_pad_probe_free(info);
 }

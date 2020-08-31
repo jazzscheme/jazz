@@ -55,13 +55,53 @@
 
 (define-setting trace-gst
   (lambda (name rest)
-    (define (present obj)
-      (cond ((u8vector? obj)
-             (list 'u8vector (u8vector-length obj)))
-            (else
-             obj)))
-    
-    (apply terminal name (map present rest))))
+    (unless (memq? name '(gst_app_sink_try_pull gst_app_src_write gst_element_get_running_time move-u8vector->pointer!))
+      (let ((port (console-port)))
+        (define (present obj)
+          (cond ((u8vector? obj)
+                 (display (list 'u8vector (u8vector-length obj)) port))
+                ((foreign? obj)
+                 (let ((tags (foreign-tags obj)))
+                   (cond ((equal? tags '(GstElement*))
+                          (format port "#<{a}*"
+                            (g_object_class_name obj))
+                          (present-path obj)
+                          (format port " #{a} 0x{x}>"
+                            (object->serial obj)
+                            (foreign-address obj)))
+                         (else
+                          (write obj port)))))
+                (else
+                 (write obj port))))
+        
+        (define (present-path elem)
+          (let (loop (elem elem))
+            (let ((parent (gst_element_get_parent_untraced elem)))
+              (when parent
+                (loop parent))
+              (display " " port)
+              (display (gst_object_get_name_untraced elem) port))))
+        
+        (display name port)
+        (case name
+          ((gst_element_set_state_threaded)
+           (bind (elem state) rest
+             (display " " port)
+             (present elem)
+             (display " " port)
+             (display (ecase state
+                        ((GST_STATE_NULL) "NULL")
+                        ((GST_STATE_READY) "READY")
+                        ((GST_STATE_PAUSED) "PAUSED")
+                        ((GST_STATE_PLAYING) "PLAYING"))
+                      port)))
+          (else
+           (for-each (lambda (obj)
+                       (display " " port)
+                       (present obj))
+                     rest)))
+        (newline port)
+        (force-output port)))))
 
 
 ;;;

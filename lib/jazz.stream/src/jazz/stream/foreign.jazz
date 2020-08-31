@@ -424,9 +424,22 @@ static GstClockTime gst_pipeline_get_time(GstPipeline* pipeline)
     return time;
 }
 
+static GstElement* gst_element_get_pipeline(GstElement* elem)
+{
+    GstElement *parent, *el;
+
+    parent = el = GST_ELEMENT_PARENT(elem);
+    while (parent) {
+        el = parent;
+        parent = GST_ELEMENT_PARENT(el);
+    }
+    
+    return el;
+}
+
 static GstClockTime gst_element_get_running_time(GstElement* elem)
 {
-    GstPipeline* pipeline = (GstPipeline*) GST_ELEMENT_PARENT(elem);
+    GstPipeline* pipeline = (GstPipeline*) gst_element_get_pipeline(elem);
     GstClock* clock = gst_pipeline_get_clock(pipeline);
     GstClockTime abs_time = gst_clock_get_time(clock);
     GstClockTime base_time = gst_element_get_base_time(elem);
@@ -672,7 +685,7 @@ static GstFlowReturn gst_app_src_write_now(GstElement* elem, ___SCMOBJ vec, int 
     gst_buffer_map(buffer, &map, GST_MAP_WRITE);
     memmove(map.data, ptr, size);
     gst_buffer_unmap(buffer, &map);
-    GstPipeline* pipeline = (GstPipeline*) GST_ELEMENT_PARENT(elem);
+    GstPipeline* pipeline = (GstPipeline*) gst_element_get_pipeline(elem);
     GstClock* clock = gst_pipeline_get_clock(pipeline);
     GstClockTime base_time = gst_element_get_base_time(elem);
     GstClockTime abs_time = gst_clock_get_time(clock);
@@ -690,7 +703,7 @@ static GstFlowReturn gst_app_src_write_pointer_now(GstElement* elem, void* ptr, 
     gst_buffer_map(buffer, &map, GST_MAP_WRITE);
     memmove(map.data, ptr, size);
     gst_buffer_unmap(buffer, &map);
-    GstPipeline* pipeline = (GstPipeline*) GST_ELEMENT_PARENT(elem);
+    GstPipeline* pipeline = (GstPipeline*) gst_element_get_pipeline(elem);
     GstClock* clock = gst_pipeline_get_clock(pipeline);
     GstClockTime base_time = gst_element_get_base_time(elem);
     GstClockTime abs_time = gst_clock_get_time(clock);
@@ -1300,7 +1313,6 @@ static void free_denoiser(void* data)
 (c-external (gst_element_get_parent_untraced GstElement*) GstElement* "gst_element_get_parent")
 (gst-external (gst_element_get_pipeline GstElement*) GstElement*)
 (gst-external (gst_element_get_running_time GstElement*) GstClockTime "gst_element_get_running_time")
-(gst-external (gst_element_get_running_time2 GstElement*) GstClockTime "gst_element_get_running_time2")
 (gst-external (gst_element_get_clock GstElement*) GstClock*)
 (gst-external (gst_element_factory_make char-string char-string) GstElement*)
 (gst-external (gst_element_add_pad GstElement* GstPad*) gboolean)

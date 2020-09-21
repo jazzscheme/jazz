@@ -212,6 +212,15 @@
           (lambda ()
             (values (open-tcp-server (list server-address: address port-number: (resolve-service service) eol-encoding: 'cr-lf reuse-address: reuse-address? readtable: (connection-readtable self))) #f))))
       
+      (define (robust-close-connection port)
+        (catch-exception-filter
+          (lambda (exc)
+            #t)
+          (lambda (exc)
+            #f)
+          (lambda ()
+            (close-connection self port))))
+      
       (receive (port exception) (open-server)
         (if exception
             (begin
@@ -240,7 +249,7 @@
                                   (lambda ()
                                     (unwind-protect
                                         (accept-connection self port)
-                                      (close-connection self port)))
+                                      (robust-close-connection port)))
                                   (connection-name self)))
                               (loop)))
                         (mutex-unlock! stopped-mutex)))

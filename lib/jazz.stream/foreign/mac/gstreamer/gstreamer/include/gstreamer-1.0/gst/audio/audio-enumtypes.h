@@ -40,15 +40,15 @@ GST_AUDIO_API
 GType gst_audio_pack_flags_get_type (void);
 #define GST_TYPE_AUDIO_PACK_FLAGS (gst_audio_pack_flags_get_type())
 
+GST_AUDIO_API
+GType gst_audio_layout_get_type (void);
+#define GST_TYPE_AUDIO_LAYOUT (gst_audio_layout_get_type())
+
 /* enumerations from "audio-info.h" */
 
 GST_AUDIO_API
 GType gst_audio_flags_get_type (void);
 #define GST_TYPE_AUDIO_FLAGS (gst_audio_flags_get_type())
-
-GST_AUDIO_API
-GType gst_audio_layout_get_type (void);
-#define GST_TYPE_AUDIO_LAYOUT (gst_audio_layout_get_type())
 
 /* enumerations from "audio-quantize.h" */
 

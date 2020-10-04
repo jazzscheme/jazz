@@ -17,8 +17,7 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  */
-#ifndef _GES_PROJECT_
-#define _GES_PROJECT_
+#pragma once
 
 #include <glib-object.h>
 #include <gio/gio.h>
@@ -29,16 +28,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_PROJECT            ges_project_get_type()
-#define GES_PROJECT(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_PROJECT, GESProject))
-#define GES_PROJECT_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_PROJECT, GESProjectClass))
-#define GES_IS_PROJECT(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_PROJECT))
-#define GES_IS_PROJECT_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_PROJECT))
-#define GES_PROJECT_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_PROJECT, GESProjectClass))
-
-typedef struct _GESProjectPrivate GESProjectPrivate;
-
-GES_API
-GType ges_project_get_type (void);
+GES_DECLARE_TYPE(Project, project, PROJECT);
 
 struct _GESProject
 {
@@ -71,8 +61,17 @@ struct _GESProjectClass
                               GType extractable_type);
   gboolean (*loaded)         (GESProject  * self,
                               GESTimeline * timeline);
+  /**
+   * GESProjectClass::loading:
+   * @self: The self
+   * @timeline: The loading timeline
+   *
+   * Since: 1.18
+   */
+  void (*loading)           (GESProject  * self,
+                             GESTimeline * timeline);
 
-  gpointer _ges_reserved[GES_PADDING];
+  gpointer _ges_reserved[GES_PADDING - 1];
 };
 
 GES_API
@@ -124,7 +123,7 @@ const GList *ges_project_list_encoding_profiles (GESProject *project);
 GES_API
 gboolean ges_add_missing_uri_relocation_uri    (const gchar * uri,
                                                 gboolean recurse);
+GES_API
+void ges_project_add_formatter (GESProject * project, GESFormatter * formatter);
 
 G_END_DECLS
-
-#endif  /* _GES_PROJECT */

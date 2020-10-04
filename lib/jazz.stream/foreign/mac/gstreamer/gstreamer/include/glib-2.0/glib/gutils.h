@@ -78,12 +78,12 @@ GLIB_AVAILABLE_IN_ALL
 const gchar * const * g_get_system_data_dirs   (void);
 
 #ifdef G_OS_WIN32
-/* This functions is not part of the public GLib API */
+/* This function is not part of the public GLib API */
 GLIB_AVAILABLE_IN_ALL
 const gchar * const * g_win32_get_system_data_dirs_for_module (void (*address_of_function)(void));
 #endif
 
-#if defined (G_OS_WIN32) && defined (G_CAN_INLINE) && !defined (__cplusplus)
+#if defined (G_OS_WIN32) && defined (G_CAN_INLINE)
 /* This function is not part of the public GLib API either. Just call
  * g_get_system_data_dirs() in your code, never mind that that is
  * actually a macro and you will in fact call this inline function.
@@ -191,10 +191,13 @@ gchar *g_format_size_full   (guint64          size,
 GLIB_AVAILABLE_IN_2_30
 gchar *g_format_size        (guint64          size);
 
-GLIB_DEPRECATED_FOR(g_format_size)
+GLIB_DEPRECATED_IN_2_30_FOR(g_format_size)
 gchar *g_format_size_for_display (goffset size);
 
-#ifndef G_DISABLE_DEPRECATED
+#define g_ATEXIT(proc)	(atexit (proc)) GLIB_DEPRECATED_MACRO_IN_2_32
+#define g_memmove(dest,src,len) \
+  G_STMT_START { memmove ((dest), (src), (len)); } G_STMT_END  GLIB_DEPRECATED_MACRO_IN_2_40_FOR(memmove)
+
 /**
  * GVoidFunc:
  *
@@ -202,10 +205,13 @@ gchar *g_format_size_for_display (goffset size);
  * and has no return value. It is used to specify the type
  * function passed to g_atexit().
  */
-typedef void (*GVoidFunc) (void);
-#define ATEXIT(proc) g_ATEXIT(proc)
+typedef void (*GVoidFunc) (void) GLIB_DEPRECATED_TYPE_IN_2_32;
+#define ATEXIT(proc) g_ATEXIT(proc) GLIB_DEPRECATED_MACRO_IN_2_32
+
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
 GLIB_DEPRECATED
 void	g_atexit		(GVoidFunc    func);
+G_GNUC_END_IGNORE_DEPRECATIONS
 
 #ifdef G_OS_WIN32
 /* It's a bad idea to wrap atexit() on Windows. If the GLib DLL calls
@@ -217,9 +223,7 @@ void	g_atexit		(GVoidFunc    func);
 #if (defined(__MINGW_H) && !defined(_STDLIB_H_)) || (defined(_MSC_VER) && !defined(_INC_STDLIB))
 int atexit (void (*)(void));
 #endif
-#define g_atexit(func) atexit(func)
-#endif
-
+#define g_atexit(func) atexit(func) GLIB_DEPRECATED_MACRO_IN_2_32
 #endif
 
 
@@ -311,8 +315,6 @@ void g_abort (void) G_GNUC_NORETURN G_ANALYZER_NORETURN;
 #endif
 #endif
 
-#ifndef G_DISABLE_DEPRECATED
-
 /*
  * This macro is deprecated. This DllMain() is too complex. It is
  * recommended to write an explicit minimal DLlMain() that just saves
@@ -331,7 +333,7 @@ void g_abort (void) G_GNUC_NORETURN G_ANALYZER_NORETURN;
  */
 
 #ifndef G_PLATFORM_WIN32
-# define G_WIN32_DLLMAIN_FOR_DLL_NAME(static, dll_name)
+# define G_WIN32_DLLMAIN_FOR_DLL_NAME(static, dll_name) GLIB_DEPRECATED_MACRO_IN_2_26
 #else
 # define G_WIN32_DLLMAIN_FOR_DLL_NAME(static, dll_name)			\
 static char *dll_name;							\
@@ -354,10 +356,7 @@ DllMain (HINSTANCE hinstDLL,						\
     }									\
 									\
   return TRUE;								\
-}
-
-#endif	/* !G_DISABLE_DEPRECATED */
-
+} GLIB_DEPRECATED_MACRO_IN_2_26
 #endif /* G_PLATFORM_WIN32 */
 
 G_END_DECLS

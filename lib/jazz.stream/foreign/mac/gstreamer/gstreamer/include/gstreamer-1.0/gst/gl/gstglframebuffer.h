@@ -52,7 +52,7 @@ typedef gboolean (*GstGLFramebufferFunc) (gpointer stuff);
  */
 struct _GstGLFramebuffer
 {
-  /* <private> */
+  /*< private >*/
   GstObject             object;
 
   GstGLContext *context;
@@ -72,7 +72,7 @@ struct _GstGLFramebuffer
  */
 struct _GstGLFramebufferClass
 {
-  /* <private> */
+  /*< private >*/
   GstObjectClass object_class;
 
   gpointer          _padding[GST_PADDING];
@@ -112,9 +112,7 @@ gboolean                gst_gl_framebuffer_draw_to_texture          (GstGLFrameb
                                                                      GstGLFramebufferFunc func,
                                                                      gpointer user_data);
 
-#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstGLFramebuffer, gst_object_unref)
-#endif
 
 G_END_DECLS
 

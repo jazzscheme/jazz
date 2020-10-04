@@ -24,6 +24,11 @@
 #include <gst/gst.h>
 #include <gst/codecparsers/codecparsers-prelude.h>
 
+#ifndef GST_USE_UNSTABLE_API
+#warning "The MPEG4 parsing library is unstable API and may change in future."
+#warning "You can define GST_USE_UNSTABLE_API to avoid this warning."
+#endif
+
 G_BEGIN_DECLS
 
 typedef struct _GstMpeg4VisualObjectSequence    GstMpeg4VisualObjectSequence;
@@ -489,7 +494,7 @@ struct _GstMpeg4VideoObjectPlane {
   guint8  load_backward_shape;
   guint8  ref_select_code;
 
-  /* Computed macroblock informations */
+  /* Computed macroblock information */
   guint16 mb_height;
   guint16 mb_width;
   guint mb_num;

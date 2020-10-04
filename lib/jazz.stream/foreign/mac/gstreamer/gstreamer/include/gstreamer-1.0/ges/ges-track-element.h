@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_TRACK_ELEMENT
-#define _GES_TRACK_ELEMENT
+#pragma once
 
 #include <glib-object.h>
 #include <gst/gst.h>
@@ -32,28 +31,22 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_TRACK_ELEMENT ges_track_element_get_type()
+GES_DECLARE_TYPE(TrackElement, track_element, TRACK_ELEMENT)
 
-#define GES_TRACK_ELEMENT(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_TRACK_ELEMENT, GESTrackElement))
-
-#define GES_TRACK_ELEMENT_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_TRACK_ELEMENT, GESTrackElementClass))
-
-#define GES_IS_TRACK_ELEMENT(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_TRACK_ELEMENT))
-
-#define GES_IS_TRACK_ELEMENT_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_TRACK_ELEMENT))
-
-#define GES_TRACK_ELEMENT_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_TRACK_ELEMENT, GESTrackElementClass))
-
-typedef struct _GESTrackElementPrivate GESTrackElementPrivate;
+/**
+ * GES_TRACK_ELEMENT_CLASS_DEFAULT_HAS_INTERNAL_SOURCE:
+ * @klass: A #GESTrackElementClass
+ *
+ * What the default #GESTrackElement:has-internal-source value should be
+ * for new elements from this class.
+ */
+#define GES_TRACK_ELEMENT_CLASS_DEFAULT_HAS_INTERNAL_SOURCE(klass) \
+  ((GES_TRACK_ELEMENT_CLASS (klass))->ABI.abi.default_has_internal_source)
 
 /**
  * GESTrackElement:
  *
- * The GESTrackElement base class.
+ * The #GESTrackElement base class.
  */
 struct _GESTrackElement {
   GESTimelineElement parent;
@@ -71,30 +64,25 @@ struct _GESTrackElement {
 
 /**
  * GESTrackElementClass:
- * @nleobject_factorytype: name of the GNonLin GStElementFactory type to use.
- * @create_gnl_object: method to create the GNonLin container object.
- * @create_element: method to return the GstElement to put in the nleobject.
- * @active_changed: active property of nleobject has changed
- * @list_children_properties: method to get children properties that user could
- *                            like to configure.
- *                            The default implementation will create an object
- *                            of type @nleobject_factorytype and call
- *                            @create_element.
- *                            DeprecatedUse: GESTimelineElement.list_children_properties instead
- * @lookup_child: method letting subclasses look for a child, overriding the
- *                simple standard behaviour. This vmethod can be used for example
- *                in the case where you want the name of a child property to be
- *                'overriden'. A good example of where it is usefull is the
- *                GESTitleSource where we have a videotestsrc which has a
- *                'foreground-color' property that is used in the TitleSource to
- *                set the background color of the title, in that case, this method
- *                has been overriden so that we tweak the name passed has parametter
- *                to rename "background" to "foreground-backend" making our API
- *                understandable.
- *                Deprecated: use GESTimelineElement.lookup_child instead
- *
- * Subclasses can override the @create_gnl_object method to override what type
- * of GNonLin object will be created.
+ * @nleobject_factorytype: The name of the #GstElementFactory to use to
+ * create the underlying nleobject of a track element
+ * @create_gnl_object: Method to create the underlying nleobject of the
+ * track element. The default implementation will use the factory given by
+ * @nleobject_factorytype to created the nleobject and will give it
+ * the #GstElement returned by @create_element.
+ * @create_element: Method to create the #GstElement that the underlying
+ * nleobject controls.
+ * @active_changed: Method to be called when the #GESTrackElement:active
+ * property changes.
+ * @list_children_properties: Deprecated: Listing children properties is
+ * handled by ges_timeline_element_list_children_properties() instead.
+ * @lookup_child: Deprecated: Use #GESTimelineElement.lookup_child()
+ * instead.
+ * @default_has_internal_source: What the default
+ * #GESTrackElement:has-internal-source value should be for new elements
+ * from this class.
+ * @default_track_type: What the default #GESTrackElement:track-type value
+ * should be for new elements from this class.
  */
 struct _GESTrackElementClass {
   /*< private >*/
@@ -120,13 +108,15 @@ struct _GESTrackElementClass {
                                             const gchar *prop_name,
                                             GstElement **element,
                                             GParamSpec **pspec);
-  /*< private >*/
-  /* Padding for API extension */
-  gpointer _ges_reserved[GES_PADDING_LARGE];
+  /*< protected >*/
+  union {
+    gpointer _ges_reserved[GES_PADDING_LARGE];
+    struct {
+      gboolean default_has_internal_source;
+      GESTrackType default_track_type;
+    } abi;
+  } ABI;
 };
-
-GES_API
-GType ges_track_element_get_type               (void);
 
 GES_API
 GESTrack* ges_track_element_get_track          (GESTrackElement * object);
@@ -139,11 +129,12 @@ void ges_track_element_set_track_type          (GESTrackElement * object,
 
 GES_API
 GstElement * ges_track_element_get_nleobject   (GESTrackElement * object);
-GES_API
-GstElement * ges_track_element_get_gnlobject   (GESTrackElement * object);
 
 GES_API
 GstElement * ges_track_element_get_element     (GESTrackElement * object);
+
+GES_API
+gboolean ges_track_element_is_core             (GESTrackElement * object);
 
 GES_API
 gboolean ges_track_element_set_active          (GESTrackElement * object,
@@ -152,66 +143,33 @@ gboolean ges_track_element_set_active          (GESTrackElement * object,
 GES_API
 gboolean ges_track_element_is_active           (GESTrackElement * object);
 
-GES_API GParamSpec **
-ges_track_element_list_children_properties     (GESTrackElement *object,
-                                               guint *n_properties);
+GES_API gboolean
+ges_track_element_set_has_internal_source      (GESTrackElement * object,
+                                               gboolean has_internal_source);
 
 GES_API
-gboolean ges_track_element_lookup_child        (GESTrackElement *object,
-                                               const gchar *prop_name,
-                                               GstElement **element,
-                                               GParamSpec **pspec);
+gboolean ges_track_element_has_internal_source (GESTrackElement * object);
 
 GES_API void
 ges_track_element_get_child_property_by_pspec (GESTrackElement * object,
                                               GParamSpec * pspec,
                                               GValue * value);
 
-GES_API void
-ges_track_element_get_child_property_valist   (GESTrackElement * object,
-                                              const gchar * first_property_name,
-                                              va_list var_args);
-
-GES_API
-void ges_track_element_get_child_properties   (GESTrackElement *object,
-                                              const gchar * first_property_name,
-                                              ...) G_GNUC_NULL_TERMINATED;
-
-GES_API void
-ges_track_element_set_child_property_valist   (GESTrackElement * object,
-                                              const gchar * first_property_name,
-                                              va_list var_args);
-
-GES_API void
-ges_track_element_set_child_property_by_pspec (GESTrackElement * object,
-                                              GParamSpec * pspec,
-                                              GValue * value);
-
-GES_API
-void ges_track_element_set_child_properties   (GESTrackElement * object,
-                                              const gchar * first_property_name,
-                                              ...) G_GNUC_NULL_TERMINATED;
-
-GES_API
-gboolean ges_track_element_set_child_property (GESTrackElement *object,
-                                              const gchar *property_name,
-                                              GValue * value);
-
-GES_API
-gboolean ges_track_element_get_child_property (GESTrackElement *object,
-                                              const gchar *property_name,
-                                              GValue * value);
-
-GES_API gboolean
-ges_track_element_edit                        (GESTrackElement * object,
-                                              GList *layers, GESEditMode mode,
-                                              GESEdge edge, guint64 position);
-
 GES_API gboolean
 ges_track_element_set_control_source          (GESTrackElement *object,
                                                GstControlSource *source,
                                                const gchar *property_name,
                                                const gchar *binding_type);
+
+GES_API void
+ges_track_element_clamp_control_source        (GESTrackElement * object,
+                                               const gchar * property_name);
+
+GES_API void
+ges_track_element_set_auto_clamp_control_sources (GESTrackElement * object,
+                                                  gboolean auto_clamp);
+GES_API gboolean
+ges_track_element_get_auto_clamp_control_sources (GESTrackElement * object);
 
 GES_API GstControlBinding *
 ges_track_element_get_control_binding         (GESTrackElement *object,
@@ -227,5 +185,7 @@ ges_track_element_get_all_control_bindings    (GESTrackElement * trackelement);
 GES_API gboolean
 ges_track_element_remove_control_binding      (GESTrackElement * object,
                                                const gchar * property_name);
+
+#include "ges-track-element-deprecated.h"
+
 G_END_DECLS
-#endif /* _GES_TRACK_ELEMENT */

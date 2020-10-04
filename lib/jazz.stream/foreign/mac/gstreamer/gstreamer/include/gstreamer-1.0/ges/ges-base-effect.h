@@ -17,8 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_BASE_EFFECT
-#define _GES_BASE_EFFECT
+#pragma once
 
 #include <glib-object.h>
 #include <ges/ges-types.h>
@@ -27,19 +26,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_BASE_EFFECT ges_base_effect_get_type()
-#define GES_BASE_EFFECT(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_BASE_EFFECT, GESBaseEffect))
-#define GES_BASE_EFFECT_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_BASE_EFFECT, GESBaseEffectClass))
-#define GES_IS_BASE_EFFECT(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_BASE_EFFECT))
-#define GES_IS_BASE_EFFECT_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_BASE_EFFECT))
-#define GES_BASE_EFFECT_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_BASE_EFFECT, GESBaseEffectClass))
-
-
-typedef struct _GESBaseEffectPrivate   GESBaseEffectPrivate;
+GES_DECLARE_TYPE(BaseEffect, base_effect, BASE_EFFECT);
 
 /**
  * GESBaseEffect:
@@ -63,13 +50,45 @@ struct _GESBaseEffectClass
 {
   /*< private > */
   GESOperationClass parent_class;
+
   /* Padding for API extension */
   gpointer _ges_reserved[GES_PADDING];
 
 };
 
-GES_API
-GType ges_base_effect_get_type (void);
+/**
+ * GESBaseEffectTimeTranslationFunc:
+ * @effect: The #GESBaseEffect that is doing the time translation
+ * @time: The #GstClockTime to translation
+ * @time_property_values: (element-type gchar* GValue*): A table of child
+ * property name/value pairs
+ * @user_data: Data passed to ges_base_effect_set_time_translation_funcs()
+ *
+ * A function for querying how an effect would translate a time if it had
+ * the given child property values set. The keys for @time_properties will
+ * be the same string that was passed to
+ * ges_base_effect_register_time_property(), the values will be #GValue*
+ * values of the corresponding child properties. You should always use the
+ * values given in @time_properties before using the currently set values.
+ *
+ * Returns: The translated time.
+ * Since: 1.18
+ */
+typedef GstClockTime (*GESBaseEffectTimeTranslationFunc) (GESBaseEffect * effect,
+                                                          GstClockTime time,
+                                                          GHashTable * time_property_values,
+                                                          gpointer user_data);
+
+GES_API gboolean
+ges_base_effect_register_time_property     (GESBaseEffect * effect,
+                                            const gchar * child_property_name);
+GES_API gboolean
+ges_base_effect_set_time_translation_funcs (GESBaseEffect * effect,
+                                            GESBaseEffectTimeTranslationFunc source_to_sink_func,
+                                            GESBaseEffectTimeTranslationFunc sink_to_source_func,
+                                            gpointer user_data,
+                                            GDestroyNotify destroy);
+GES_API gboolean
+ges_base_effect_is_time_effect             (GESBaseEffect * effect);
 
 G_END_DECLS
-#endif /* _GES_BASE_EFFECT */

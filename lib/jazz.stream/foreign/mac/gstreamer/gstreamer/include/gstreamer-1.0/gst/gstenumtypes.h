@@ -410,6 +410,10 @@ GST_API
 GType gst_search_mode_get_type (void);
 #define GST_TYPE_SEARCH_MODE (gst_search_mode_get_type())
 
+GST_API
+GType gst_plugin_api_flags_get_type (void);
+#define GST_TYPE_PLUGIN_API_FLAGS (gst_plugin_api_flags_get_type())
+
 G_END_DECLS
 
 /* Generated data ends here */

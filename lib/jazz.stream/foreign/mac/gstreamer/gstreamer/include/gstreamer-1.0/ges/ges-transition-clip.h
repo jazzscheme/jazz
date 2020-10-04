@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_TRANSITION_CLIP
-#define _GES_TRANSITION_CLIP
+#pragma once
 
 #include <glib-object.h>
 #include <ges/ges-types.h>
@@ -28,28 +27,16 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_TRANSITION_CLIP ges_transition_clip_get_type()
-
-#define GES_TRANSITION_CLIP(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_TRANSITION_CLIP, GESTransitionClip))
-
-#define GES_TRANSITION_CLIP_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_TRANSITION_CLIP, GESTransitionClipClass))
-
-#define GES_IS_TRANSITION_CLIP(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_TRANSITION_CLIP))
-
-#define GES_IS_TRANSITION_CLIP_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_TRANSITION_CLIP))
-
-#define GES_TRANSITION_CLIP_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_TRANSITION_CLIP, GESTransitionClipClass))
-
-typedef struct _GESTransitionClipPrivate GESTransitionClipPrivate;
+GES_DECLARE_TYPE(TransitionClip, transition_clip, TRANSITION_CLIP);
 
 /**
  * GESTransitionClip:
  * @vtype: a #GESVideoStandardTransitionType indicating the type of video transition
  * to apply.
+ *
+ * ### Children Properties
+ *
+ *  {{ libs/GESTransitionClip-children-props.md }}
  */
 struct _GESTransitionClip {
   /*< private >*/
@@ -79,13 +66,8 @@ struct _GESTransitionClipClass {
 };
 
 GES_API
-GType ges_transition_clip_get_type (void);
-
-GES_API
 GESTransitionClip *ges_transition_clip_new (GESVideoStandardTransitionType vtype);
 GES_API
 GESTransitionClip *ges_transition_clip_new_for_nick (char *nick);
 
 G_END_DECLS
-
-#endif /* _GES_TRANSITION_CLIP */

@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __GES_ENUMS_H__
-#define __GES_ENUMS_H__
+#pragma once
 
 #include <gst/gst.h>
 #include <ges/ges-prelude.h>
@@ -334,13 +333,22 @@ GType ges_video_test_pattern_get_type (void);
 
 /**
  * GESPipelineFlags:
- * @GES_PIPELINE_MODE_PREVIEW_AUDIO: output audio to the soundcard
- * @GES_PIPELINE_MODE_PREVIEW_VIDEO: output video to the screen
- * @GES_PIPELINE_MODE_PREVIEW: output audio/video to soundcard/screen (default)
- * @GES_PIPELINE_MODE_RENDER: render timeline (forces decoding)
- * @GES_PIPELINE_MODE_SMART_RENDER: render timeline (tries to avoid decoding/reencoding)
+ * @GES_PIPELINE_MODE_PREVIEW_AUDIO: Output the #GESPipeline:timeline's
+ * audio to the soundcard
+ * @GES_PIPELINE_MODE_PREVIEW_VIDEO: Output the #GESPipeline:timeline's
+ * video to the screen
+ * @GES_PIPELINE_MODE_PREVIEW: Output both the #GESPipeline:timeline's
+ * audio and video to the soundcard and screen (default)
+ * @GES_PIPELINE_MODE_RENDER: Render the #GESPipeline:timeline with
+ * forced decoding (the underlying #encodebin has its
+ * #encodebin:avoid-reencoding property set to %FALSE)
+ * @GES_PIPELINE_MODE_SMART_RENDER: Render the #GESPipeline:timeline,
+ * avoiding decoding/reencoding (the underlying #encodebin has its
+ * #encodebin:avoid-reencoding property set to %TRUE).
+ * > NOTE: Smart rendering can not work in tracks where #GESTrack:mixing
+ * > is enabled.
  *
- * The various modes the #GESPipeline can be configured to.
+ * The various modes a #GESPipeline can be configured to.
  */
 typedef enum {
   GES_PIPELINE_MODE_PREVIEW_AUDIO	= 1 << 0,
@@ -358,31 +366,155 @@ GType ges_pipeline_flags_get_type (void);
 
 /**
  * GESEditMode:
- * @GES_EDIT_MODE_NORMAL: The object is edited the normal way (default).
- * @GES_EDIT_MODE_RIPPLE: The objects are edited in ripple mode.
- *  The Ripple mode allows you to modify the beginning/end of a clip
- *  and move the neighbours accordingly. This will change the overall
- *  timeline duration. In the case of ripple end, the duration of the
- *  clip being rippled can't be superior to its max_duration - inpoint
- *  otherwise the action won't be executed.
- * @GES_EDIT_MODE_ROLL: The object is edited in roll mode.
- *  The Roll mode allows you to modify the position of an editing point
- *  between two clips without modifying the inpoint of the first clip
- *  nor the out-point of the second clip. This will not change the
- *  overall timeline duration.
- * @GES_EDIT_MODE_TRIM: The object is edited in trim mode.
- *  The Trim mode allows you to modify the in-point/duration of a clip
- *  without modifying its position in the timeline.
- * @GES_EDIT_MODE_SLIDE: The object is edited in slide mode.
- *  The Slide mode allows you to modify the position of a clip in a
- *  timeline without modifying its duration or its in-point, but will
- *  modify the duration of the previous clip and in-point of the
- *  following clip so does not modify the overall timeline duration.
- *  (not implemented yet)
+ * @GES_EDIT_MODE_NORMAL: The element is edited the normal way (default).
+ *  If acting on the element as a whole (#GES_EDGE_NONE), this will MOVE
+ *  the element by MOVING its toplevel. When acting on the start of the
+ *  element (#GES_EDGE_START), this will only MOVE the element, but not
+ *  its toplevel parent. This can allow you to move a #GESClip or
+ *  #GESGroup to a new start time or layer within its container group,
+ *  without effecting other members of the group. When acting on the end
+ *  of the element (#GES_EDGE_END), this will END-TRIM the element,
+ *  leaving its toplevel unchanged.
+ * @GES_EDIT_MODE_RIPPLE: The element is edited in ripple mode: moving
+ *  itself as well as later elements, keeping their relative times. This
+ *  edits the element the same as #GES_EDIT_MODE_NORMAL. In addition, if
+ *  acting on the element as a whole, or the start of the element, any
+ *  toplevel element in the same timeline (including different layers)
+ *  whose start time is later than the *current* start time of the MOVED
+ *  element will also be MOVED by the same shift as the edited element.
+ *  If acting on the end of the element, any toplevel element whose start
+ *  time is later than the *current* end time of the edited element will
+ *  also be MOVED by the same shift as the change in the end of the
+ *  edited element. These additional elements will also be shifted by
+ *  the same shift in layers as the edited element.
+ * @GES_EDIT_MODE_ROLL: The element is edited in roll mode: swapping its
+ *  content for its neighbour's, or vis versa, in the timeline output.
+ *  This edits the element the same as #GES_EDIT_MODE_TRIM. In addition,
+ *  any neighbours are also TRIMMED at their opposite edge to the same
+ *  timeline position. When acting on the start of the element, a
+ *  neighbour is any earlier element in the timeline whose end time
+ *  matches the *current* start time of the edited element. When acting on
+ *  the end of the element, a neighbour is any later element in the
+ *  timeline whose start time matches the *current* start time of the
+ *  edited element. In addition, a neighbour have a #GESSource at its
+ *  end/start edge that shares a track with a #GESSource at the start/end
+ *  edge of the edited element. Basically, a neighbour is an element that
+ *  can be extended, or cut, to have its content replace, or be replaced
+ *  by, the content of the edited element. Acting on the element as a
+ *  whole (#GES_EDGE_NONE) is not defined. The element can not shift
+ *  layers under this mode.
+ * @GES_EDIT_MODE_TRIM: The element is edited in trim mode. When acting
+ *  on the start of the element, this will START-TRIM it. When acting on
+ *  the end of the element, this will END-TRIM it. Acting on the element
+ *  as a whole (#GES_EDGE_NONE) is not defined.
+ * @GES_EDIT_MODE_SLIDE: The element is edited in slide mode (not yet
+ *  implemented): moving the element replacing or consuming content on
+ *  each end. When acting on the element as a whole, this will MOVE the
+ *  element, and TRIM any neighbours on either side. A neighbour is
+ *  defined in the same way as in #GES_EDIT_MODE_ROLL, but they may be on
+ *  either side of the edited elements. Elements at the end with be
+ *  START-TRIMMED to the new end position of the edited element. Elements
+ *  at the start will be END-TRIMMED to the new start position of the
+ *  edited element. Acting on the start or end of the element
+ *  (#GES_EDGE_START and #GES_EDGE_END) is not defined. The element can
+ *  not shift layers under this mode.
+ *
+ * When a single timeline element is edited within its timeline at some
+ * position, using ges_timeline_element_edit(), depending on the edit
+ * mode, its #GESTimelineElement:start, #GESTimelineElement:duration or
+ * #GESTimelineElement:in-point will be adjusted accordingly. In addition,
+ * any clips may change #GESClip:layer.
+ *
+ * Each edit can be broken down into a combination of three basic edits:
+ *
+ * + MOVE: This moves the start of the element to the edit position.
+ * + START-TRIM: This cuts or grows the start of the element, whilst
+ *   maintaining the time at which its internal content appears in the
+ *   timeline data output. If the element is made shorter, the data that
+ *   appeared at the edit position will still appear in the timeline at
+ *   the same time. If the element is made longer, the data that appeared
+ *   at the previous start of the element will still appear in the
+ *   timeline at the same time.
+ * + END-TRIM: Similar to START-TRIM, but the end of the element is cut or
+ *   grown.
+ *
+ * In particular, when editing a #GESClip:
+ *
+ * + MOVE: This will set the #GESTimelineElement:start of the clip to the
+ *   edit position.
+ * + START-TRIM: This will set the #GESTimelineElement:start of the clip
+ *   to the edit position. To keep the end time the same, the
+ *   #GESTimelineElement:duration of the clip will be adjusted in the
+ *   opposite direction. In addition, the #GESTimelineElement:in-point of
+ *   the clip will be shifted such that the content that appeared at the
+ *   new or previous start time, whichever is latest, still appears at the
+ *   same timeline time. For example, if a frame appeared at the start of
+ *   the clip, and the start of the clip is reduced, the in-point of the
+ *   clip will also reduce such that the frame will appear later within
+ *   the clip, but at the same timeline position.
+ * + END-TRIM: This will set the #GESTimelineElement:duration of the clip
+ *   such that its end time will match the edit position.
+ *
+ * When editing a #GESGroup:
+ *
+ * + MOVE: This will set the #GESGroup:start of the clip to the edit
+ *   position by shifting all of its children by the same amount. So each
+ *   child will maintain their relative positions.
+ * + START-TRIM: If the group is made shorter, this will START-TRIM any
+ *   clips under the group that start after the edit position to the same
+ *   edit position. If the group is made longer, this will START-TRIM any
+ *   clip under the group whose start matches the start of the group to
+ *   the same edit position.
+ * + END-TRIM: If the group is made shorter, this will END-TRIM any clips
+ *   under the group that end after the edit position to the same edit
+ *   position. If the group is made longer, this will END-TRIM any clip
+ *   under the group whose end matches the end of the group to the same
+ *   edit position.
+ *
+ * When editing a #GESTrackElement, if it has a #GESClip parent, this
+ * will be edited instead. Otherwise it is edited in the same way as a
+ * #GESClip.
+ *
+ * The layer priority of a #GESGroup is the lowest layer priority of any
+ * #GESClip underneath it. When a group is edited to a new layer
+ * priority, it will shift all clips underneath it by the same amount,
+ * such that their relative layers stay the same.
+ *
+ * If the #GESTimeline has a #GESTimeline:snapping-distance, then snapping
+ * may occur for some of the edges of the **main** edited element:
+ *
+ * + MOVE: The start or end edge of *any* #GESSource under the element may
+ *   be snapped.
+ * + START-TRIM: The start edge of a #GESSource whose start edge touches
+ *   the start edge of the element may snap.
+ * + END-TRIM: The end edge of a #GESSource whose end edge touches the end
+ *   edge of the element may snap.
+ *
+ * These edges may snap with either the start or end edge of *any* other
+ * #GESSource in the timeline that is not also being moved by the element,
+ * including those in different layers, if they are within the
+ * #GESTimeline:snapping-distance. During an edit, only up to one snap can
+ * occur. This will shift the edit position such that the snapped edges
+ * will touch once the edit has completed.
+ *
+ * Note that snapping can cause an edit to fail where it would have
+ * otherwise succeeded because it may push the edit position such that the
+ * edit would result in an unsupported timeline configuration. Similarly,
+ * snapping can cause an edit to succeed where it would have otherwise
+ * failed.
+ *
+ * For example, in #GES_EDIT_MODE_RIPPLE acting on #GES_EDGE_NONE, the
+ * main element is the MOVED toplevel of the edited element. Any source
+ * under the main MOVED toplevel may have its start or end edge snapped.
+ * Note, these sources cannot snap with each other. The edit may also
+ * push other elements, but any sources under these elements cannot snap,
+ * nor can they be snapped with. If a snap does occur, the MOVE of the
+ * toplevel *and* all other elements pushed by the ripple will be shifted
+ * by the same amount such that the snapped edges will touch.
  *
  * You can also find more explanation about the behaviour of those modes at:
- * <ulink url="http://pitivi.org/manual/trimming.html"> trim, ripple and roll</ulink>
- * and <ulink url="http://pitivi.org/manual/usingclips.html">clip management</ulink>.
+ * [trim, ripple and roll](http://pitivi.org/manual/trimming.html)
+ * and [clip management](http://pitivi.org/manual/usingclips.html).
  */
 typedef enum {
     GES_EDIT_MODE_NORMAL,
@@ -391,6 +523,18 @@ typedef enum {
     GES_EDIT_MODE_TRIM,
     GES_EDIT_MODE_SLIDE
 } GESEditMode;
+
+/**
+ * ges_edit_mode_name:
+ * @mode: a #GESEditMode
+ *
+ * Return a string representation of @mode.
+ *
+ * Returns: (transfer none): a string representation of @mode.
+ * Since: 1.18
+ */
+GES_API
+const gchar * ges_edit_mode_name (GESEditMode mode);
 
 #define GES_TYPE_EDIT_MODE ges_edit_mode_get_type()
 
@@ -401,7 +545,7 @@ GType ges_edit_mode_get_type (void);
  * GESEdge:
  * @GES_EDGE_START: Represents the start of an object.
  * @GES_EDGE_END: Represents the end of an object.
- * @GES_EDGE_NONE: Represent the fact we are not workin with any edge of an
+ * @GES_EDGE_NONE: Represent the fact we are not working with any edge of an
  *   object.
  *
  * The edges of an object contain in a #GESTimeline or #GESTrack
@@ -424,5 +568,3 @@ GType ges_edge_get_type (void);
 GES_API
 const gchar * ges_track_type_name (GESTrackType type);
 G_END_DECLS
-
-#endif /* __GES_ENUMS_H__ */

@@ -18,37 +18,23 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  */
-#ifndef _GES_URI_CLIP_ASSET_
-#define _GES_URI_CLIP_ASSET_
+
+#pragma once
 
 #include <glib-object.h>
 #include <gio/gio.h>
 #include <ges/ges-types.h>
 #include <ges/ges-asset.h>
-#include <ges/ges-clip-asset.h>
+#include <ges/ges-source-clip-asset.h>
 #include <ges/ges-track-element-asset.h>
 
 G_BEGIN_DECLS
 #define GES_TYPE_URI_CLIP_ASSET ges_uri_clip_asset_get_type()
-#define GES_URI_CLIP_ASSET(obj) \
-    (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_URI_CLIP_ASSET, GESUriClipAsset))
-#define GES_URI_CLIP_ASSET_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_URI_CLIP_ASSET, GESUriClipAssetClass))
-#define GES_IS_URI_CLIP_ASSET(obj) \
-    (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_URI_CLIP_ASSET))
-#define GES_IS_URI_CLIP_ASSET_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_URI_CLIP_ASSET))
-#define GES_URI_CLIP_ASSET_GET_CLASS(obj) \
-    (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_URI_CLIP_ASSET, GESUriClipAssetClass))
-
-typedef struct _GESUriClipAssetPrivate GESUriClipAssetPrivate;
-
-GES_API
-GType ges_uri_clip_asset_get_type (void);
+GES_DECLARE_TYPE(UriClipAsset, uri_clip_asset, URI_CLIP_ASSET);
 
 struct _GESUriClipAsset
 {
-  GESClipAsset parent;
+  GESSourceClipAsset parent;
 
   /* <private> */
   GESUriClipAssetPrivate *priv;
@@ -59,14 +45,16 @@ struct _GESUriClipAsset
 
 struct _GESUriClipAssetClass
 {
-  GESClipAssetClass parent_class;
+  GESSourceClipAssetClass parent_class;
 
   /* <private> */
-  GstDiscoverer *discoverer;
-  GstDiscoverer *sync_discoverer;
+  GstDiscoverer *discoverer; /* Unused */
+  GstDiscoverer *sync_discoverer; /* Unused */
 
-  void (*discovered) (GstDiscoverer * discoverer, GstDiscovererInfo * info,
-                     GError * err, gpointer user_data);
+  void (*discovered) (GstDiscoverer * discoverer, /* Unused */
+                      GstDiscovererInfo * info,
+                      GError * err,
+                      gpointer user_data);
 
   gpointer _ges_reserved[GES_PADDING -1];
 };
@@ -75,6 +63,8 @@ GES_API
 GstDiscovererInfo *ges_uri_clip_asset_get_info      (const GESUriClipAsset * self);
 GES_API
 GstClockTime ges_uri_clip_asset_get_duration        (GESUriClipAsset *self);
+GES_API
+GstClockTime ges_uri_clip_asset_get_max_duration    (GESUriClipAsset *self);
 GES_API
 gboolean ges_uri_clip_asset_is_image                (GESUriClipAsset *self);
 GES_API
@@ -93,22 +83,16 @@ GES_API
 const GList * ges_uri_clip_asset_get_stream_assets  (GESUriClipAsset *self);
 
 #define GES_TYPE_URI_SOURCE_ASSET ges_uri_source_asset_get_type()
-#define GES_URI_SOURCE_ASSET(obj) \
-    (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_URI_SOURCE_ASSET, GESUriSourceAsset))
-#define GES_URI_SOURCE_ASSET_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_URI_SOURCE_ASSET, GESUriSourceAssetClass))
-#define GES_IS_URI_SOURCE_ASSET(obj) \
-    (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_URI_SOURCE_ASSET))
-#define GES_IS_URI_SOURCE_ASSET_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_URI_SOURCE_ASSET))
-#define GES_URI_SOURCE_ASSET_GET_CLASS(obj) \
-    (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_URI_SOURCE_ASSET, GESUriSourceAssetClass))
+GES_DECLARE_TYPE(UriSourceAsset, uri_source_asset, URI_SOURCE_ASSET);
 
-typedef struct _GESUriSourceAssetPrivate GESUriSourceAssetPrivate;
-
-GES_API
-GType ges_uri_source_asset_get_type (void);
-
+/**
+ * GESUriSourceAsset:
+ *
+ * Asset to create a stream specific #GESSource for a media file.
+ *
+ * NOTE: You should never request such a #GESAsset as they will be created automatically
+ * by #GESUriClipAsset-s.
+ */
 struct _GESUriSourceAsset
 {
   GESTrackElementAsset parent;
@@ -132,6 +116,7 @@ GES_API
 const gchar * ges_uri_source_asset_get_stream_uri                  (GESUriSourceAsset *asset);
 GES_API
 const GESUriClipAsset *ges_uri_source_asset_get_filesource_asset   (GESUriSourceAsset *asset);
+GES_API
+gboolean ges_uri_source_asset_is_image                             (GESUriSourceAsset *asset);
 
 G_END_DECLS
-#endif /* _GES_URI_CLIP_ASSET */

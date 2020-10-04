@@ -44,7 +44,7 @@ GType gst_gl_color_convert_get_type (void);
  */
 struct _GstGLColorConvert
 {
-  /* <private> */
+  /*< private >*/
   GstObject        parent;
 
   GstGLContext    *context;
@@ -63,7 +63,7 @@ struct _GstGLColorConvert
   GstGLFramebuffer *fbo;
   GstGLShader     *shader;
 
-  /* <private> */
+  /*< private >*/
   GstGLColorConvertPrivate *priv;
 
   gpointer _reserved[GST_PADDING];
@@ -76,11 +76,23 @@ struct _GstGLColorConvert
  */
 struct _GstGLColorConvertClass
 {
-  /* <private> */
+  /*< private >*/
   GstObjectClass object_class;
 
   gpointer _padding[GST_PADDING];
 };
+
+/**
+ * GST_GL_COLOR_CONVERT_EXT_FORMATS: (skip)
+ *
+ */
+#if G_BYTE_ORDER == G_LITTLE_ENDIAN
+#define GST_GL_COLOR_CONVERT_EXT_FORMATS \
+    ", BGR10A2_LE, RGB10A2_LE, P010_10LE, P012_LE, P016_LE, Y212_LE, Y412_LE"
+#else
+#define GST_GL_COLOR_CONVERT_EXT_FORMATS \
+    ", P010_10BE, P012_BE, P016_BE, Y212_BE, Y412_BE"
+#endif
 
 /**
  * GST_GL_COLOR_CONVERT_FORMATS:
@@ -89,8 +101,10 @@ struct _GstGLColorConvertClass
  */
 #define GST_GL_COLOR_CONVERT_FORMATS "{ RGBA, RGB, RGBx, BGR, BGRx, BGRA, xRGB, " \
                                "xBGR, ARGB, ABGR, Y444, I420, YV12, Y42B, " \
-                               "Y41B, NV12, NV21, YUY2, UYVY, AYUV, VUYA, " \
-                               "GRAY8, GRAY16_LE, GRAY16_BE, RGB16, BGR16, ARGB64 }"
+                               "Y41B, NV12, NV21, NV16, NV61, YUY2, UYVY, Y210, AYUV, " \
+                               "VUYA, Y410, GRAY8, GRAY16_LE, GRAY16_BE, " \
+                               "RGB16, BGR16, ARGB64 " \
+                               GST_GL_COLOR_CONVERT_EXT_FORMATS "}"
 
 /**
  * GST_GL_COLOR_CONVERT_VIDEO_CAPS:

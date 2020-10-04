@@ -78,7 +78,7 @@ typedef enum
  * @GST_MIKEY_PT_ID: ID payload
  * @GST_MIKEY_PT_CERT: Certificate Payload
  * @GST_MIKEY_PT_CHASH: Cert hash payload
- * @GST_MIKEY_PT_V: Verfication message payload
+ * @GST_MIKEY_PT_V: Verification message payload
  * @GST_MIKEY_PT_SP: Security Policy payload
  * @GST_MIKEY_PT_RAND: RAND payload
  * @GST_MIKEY_PT_ERR: Error payload
@@ -361,7 +361,7 @@ gboolean   gst_mikey_payload_t_set   (GstMIKEYPayload *payload,
  * @len: specifies the length of @val
  * @val: specifies the value of the parameter
  *
- * A Type/Length/Value field for security paramaters
+ * A Type/Length/Value field for security parameters
  */
 typedef struct {
   guint8  type;
@@ -740,13 +740,9 @@ gboolean                    gst_mikey_message_add_rand_len      (GstMIKEYMessage
 /* General Extension Payload */
 
 
-#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstMIKEYMessage, gst_mikey_message_unref)
-#endif
 
-#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstMIKEYPayload, gst_mikey_payload_unref)
-#endif
 
 G_END_DECLS
 

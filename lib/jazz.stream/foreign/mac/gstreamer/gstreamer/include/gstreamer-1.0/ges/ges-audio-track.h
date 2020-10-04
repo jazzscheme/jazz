@@ -17,8 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_AUDIO_TRACK_H_
-#define _GES_AUDIO_TRACK_H_
+#pragma once
 
 #include <glib-object.h>
 
@@ -28,13 +27,8 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_AUDIO_TRACK             (ges_audio_track_get_type ())
-#define GES_AUDIO_TRACK(obj)             (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_AUDIO_TRACK, GESAudioTrack))
-#define GES_AUDIO_TRACK_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_AUDIO_TRACK, GESAudioTrackClass))
-#define GES_IS_AUDIO_TRACK(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_AUDIO_TRACK))
-#define GES_IS_AUDIO_TRACK_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_AUDIO_TRACK))
-#define GES_AUDIO_TRACK_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_AUDIO_TRACK, GESAudioTrackClass))
+GES_DECLARE_TYPE(AudioTrack, audio_track, AUDIO_TRACK);
 
-typedef struct _GESAudioTrackPrivate GESAudioTrackPrivate;
 
 struct _GESAudioTrackClass
 {
@@ -55,9 +49,6 @@ struct _GESAudioTrack
 };
 
 GES_API
-GType          ges_audio_track_get_type (void) G_GNUC_CONST;
-GES_API
 GESAudioTrack* ges_audio_track_new (void);
 
 G_END_DECLS
-#endif /* _GES_AUDIO_TRACK_H_ */

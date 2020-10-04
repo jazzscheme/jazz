@@ -30,16 +30,29 @@
 
 G_BEGIN_DECLS
 
+#ifndef __GI_SCANNER__
 #define GST_TYPE_VALIDATE_SCENARIO            (gst_validate_scenario_get_type ())
 #define GST_VALIDATE_SCENARIO(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), GST_TYPE_VALIDATE_SCENARIO, GstValidateScenario))
 #define GST_VALIDATE_SCENARIO_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), GST_TYPE_VALIDATE_SCENARIO, GstValidateScenarioClass))
 #define GST_IS_VALIDATE_SCENARIO(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_VALIDATE_SCENARIO))
 #define GST_IS_VALIDATE_SCENARIO_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GST_TYPE_VALIDATE_SCENARIO))
 #define GST_VALIDATE_SCENARIO_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GST_TYPE_VALIDATE_SCENARIO, GstValidateScenarioClass))
+#endif
 
 typedef struct _GstValidateScenarioPrivate GstValidateScenarioPrivate;
 typedef struct _GstValidateActionParameter GstValidateActionParameter;
 
+/**
+ * GstValidateActionReturn:
+ * GST_VALIDATE_EXECUTE_ACTION_ERROR:
+ * GST_VALIDATE_EXECUTE_ACTION_OK:
+ * GST_VALIDATE_EXECUTE_ACTION_ASYNC:
+ * GST_VALIDATE_EXECUTE_ACTION_INTERLACED:
+ * GST_VALIDATE_EXECUTE_ACTION_ERROR_REPORTED:
+ * GST_VALIDATE_EXECUTE_ACTION_IN_PROGRESS:
+ * GST_VALIDATE_EXECUTE_ACTION_NONE:
+ * GST_VALIDATE_EXECUTE_ACTION_DONE:
+ */
 typedef enum
 {
   GST_VALIDATE_EXECUTE_ACTION_ERROR,
@@ -49,7 +62,10 @@ typedef enum
   GST_VALIDATE_EXECUTE_ACTION_ERROR_REPORTED,
   GST_VALIDATE_EXECUTE_ACTION_IN_PROGRESS,
   GST_VALIDATE_EXECUTE_ACTION_NONE,
+  GST_VALIDATE_EXECUTE_ACTION_DONE,
 } GstValidateActionReturn;
+
+const gchar *gst_validate_action_return_get_name (GstValidateActionReturn r);
 
 /* TODO 2.0 -- Make it an actual enum type */
 #define GstValidateExecuteActionReturn gint
@@ -76,10 +92,16 @@ typedef GstValidateExecuteActionReturn (*GstValidateExecuteAction) (GstValidateS
  * Returns: %TRUE if the action could be prepared and is ready to be run
  *          , %FALSE otherwise
  */
-typedef gboolean (*GstValidatePrepareAction) (GstValidateAction * action);
+typedef GstValidateExecuteActionReturn (*GstValidatePrepareAction) (GstValidateAction * action);
 
 
 typedef struct _GstValidateActionPrivate          GstValidateActionPrivate;
+
+#define GST_VALIDATE_ACTION_LINENO(action) (((GstValidateAction*) action)->ABI.abi.lineno)
+#define GST_VALIDATE_ACTION_FILENAME(action) (((GstValidateAction*) action)->ABI.abi.filename)
+#define GST_VALIDATE_ACTION_DEBUG(action) (((GstValidateAction*) action)->ABI.abi.debug)
+#define GST_VALIDATE_ACTION_N_REPEATS(action) (((GstValidateAction*) action)->ABI.abi.n_repeats)
+#define GST_VALIDATE_ACTION_RANGE_NAME(action) (((GstValidateAction*) action)->ABI.abi.rangename)
 
 /**
  * GstValidateAction:
@@ -113,7 +135,16 @@ struct _GstValidateAction
 
   GstValidateActionPrivate *priv;
 
-  gpointer _gst_reserved[GST_PADDING_LARGE - 1]; /* ->priv */
+  union {
+    gpointer _gst_reserved[GST_PADDING_LARGE - 1]; /* ->priv */
+    struct {
+      gint lineno;
+      gchar *filename;
+      gchar *debug;
+      gint n_repeats;
+      const gchar *rangename;
+    } abi;
+  } ABI;
 };
 
 GST_VALIDATE_API
@@ -130,9 +161,12 @@ GstValidateAction* gst_validate_action_ref             (GstValidateAction * acti
 GST_VALIDATE_API
 void gst_validate_action_unref                         (GstValidateAction * action);
 
+#ifndef __GI_SCANNER__
 #define GST_TYPE_VALIDATE_ACTION            (gst_validate_action_get_type ())
 #define GST_IS_VALIDATE_ACTION(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_VALIDATE_ACTION))
 #define GST_VALIDATE_ACTION_GET_TYPE(obj)   ((GstValidateActionType*)gst_validate_get_action_type(((GstValidateAction*)obj)->type))
+#endif
+
 GST_VALIDATE_API
 GType gst_validate_action_get_type (void);
 
@@ -171,6 +205,8 @@ typedef enum
     GST_VALIDATE_ACTION_TYPE_HANDLED_IN_CONFIG = 1 << 9,
 } GstValidateActionTypeFlags;
 
+typedef struct _GstValidateActionTypePrivate GstValidateActionTypePrivate;
+
 /**
  * GstValidateActionType:
  * @name: The name of the new action type to add
@@ -198,14 +234,18 @@ struct _GstValidateActionType
   GstRank rank;
 
   GstValidateActionType *overriden_type;
+  GstValidateActionTypePrivate* priv;
 
   /*< private >*/
-  gpointer _gst_reserved[GST_PADDING_LARGE - sizeof (GstRank) - 1];
+  gpointer _gst_reserved[GST_PADDING_LARGE - sizeof (GstRank) - 2];
 };
 
+#ifndef __GI_SCANNER__
 #define GST_TYPE_VALIDATE_ACTION_TYPE       (gst_validate_action_type_get_type ())
 #define GST_IS_VALIDATE_ACTION_TYPE(obj)    (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_VALIDATE_ACTION_TYPE))
 #define GST_VALIDATE_ACTION_TYPE(obj)       ((GstValidateActionType*) obj)
+#endif
+
 GST_VALIDATE_API
 GType gst_validate_action_type_get_type     (void);
 
@@ -263,12 +303,13 @@ struct _GstValidateScenario
   GstObject parent;
 
   /*< public >*/
+  GstStructure *description;
 
   /*< private >*/
   GstValidateScenarioPrivate *priv;
 
   union {
-    gpointer _gst_reserved[GST_PADDING + 1];
+    gpointer _gst_reserved[GST_PADDING];
     struct {
       GMutex eos_handling_lock;
     } abi;

@@ -75,11 +75,21 @@ GST_RTSP_SERVER_API
 gboolean gst_rtsp_onvif_media_factory_has_backchannel_support (GstRTSPOnvifMediaFactory * factory);
 
 GST_RTSP_SERVER_API
+gboolean gst_rtsp_onvif_media_factory_has_replay_support (GstRTSPOnvifMediaFactory * factory);
+
+GST_RTSP_SERVER_API
+void gst_rtsp_onvif_media_factory_set_replay_support (GstRTSPOnvifMediaFactory * factory, gboolean has_replay_support);
+
+GST_RTSP_SERVER_API
 void gst_rtsp_onvif_media_factory_set_backchannel_bandwidth (GstRTSPOnvifMediaFactory * factory, guint bandwidth);
 GST_RTSP_SERVER_API
 guint gst_rtsp_onvif_media_factory_get_backchannel_bandwidth (GstRTSPOnvifMediaFactory * factory);
 
 GST_RTSP_SERVER_API
 gboolean gst_rtsp_onvif_media_factory_requires_backchannel (GstRTSPMediaFactory * factory, GstRTSPContext * ctx);
+
+#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstRTSPOnvifMediaFactory, gst_object_unref)
+#endif
 
 #endif /* __GST_RTSP_ONVIF_MEDIA_FACTORY_H__ */

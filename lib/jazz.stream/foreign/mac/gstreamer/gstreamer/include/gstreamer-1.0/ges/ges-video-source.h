@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_VIDEO_SOURCE
-#define _GES_VIDEO_SOURCE
+#pragma once
 
 #include <glib-object.h>
 #include <gst/gst.h>
@@ -30,23 +29,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_VIDEO_SOURCE ges_video_source_get_type()
-
-#define GES_VIDEO_SOURCE(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_VIDEO_SOURCE, GESVideoSource))
-
-#define GES_VIDEO_SOURCE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_VIDEO_SOURCE, GESVideoSourceClass))
-
-#define GES_IS_VIDEO_SOURCE(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_VIDEO_SOURCE))
-
-#define GES_IS_VIDEO_SOURCE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_VIDEO_SOURCE))
-
-#define GES_VIDEO_SOURCE_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_VIDEO_SOURCE, GESVideoSourceClass))
-
-typedef struct _GESVideoSourcePrivate GESVideoSourcePrivate;
+GES_DECLARE_TYPE(VideoSource, video_source, VIDEO_SOURCE);
 
 /**
  * GESVideoSource:
@@ -84,13 +67,14 @@ struct _GESVideoSourceClass {
     gpointer _ges_reserved[GES_PADDING];
     struct {
       gboolean disable_scale_in_compositor;
+      gboolean (*needs_converters)(GESVideoSource *self);
+      gboolean (*get_natural_size)(GESVideoSource* self, gint* width, gint* height);
+      gboolean (*create_filters)(GESVideoSource *self, GPtrArray *filters, gboolean needs_converters);
     } abi;
   } ABI;
 };
 
 GES_API
-GType ges_video_source_get_type (void);
+gboolean ges_video_source_get_natural_size(GESVideoSource* self, gint* width, gint* height);
 
 G_END_DECLS
-
-#endif /* _GES_VIDEO_SOURCE */

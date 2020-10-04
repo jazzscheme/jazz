@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_CLIP
-#define _GES_CLIP
+#pragma once
 
 #include <glib-object.h>
 #include <gst/gst.h>
@@ -31,75 +30,69 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_CLIP             ges_clip_get_type()
-#define GES_CLIP(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_CLIP, GESClip))
-#define GES_CLIP_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_CLIP, GESClipClass))
-#define GES_IS_CLIP(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_CLIP))
-#define GES_IS_CLIP_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_CLIP))
-#define GES_CLIP_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_CLIP, GESClipClass))
+GES_DECLARE_TYPE(Clip, clip, CLIP);
 
-typedef struct _GESClipPrivate GESClipPrivate;
+/**
+ * GES_CLIP_CLASS_CAN_ADD_EFFECTS:
+ * @klass: A #GESClipClass
+ *
+ * Whether the class allows for the user to add additional non-core
+ * #GESBaseEffect-s to clips from this class.
+ */
+#define GES_CLIP_CLASS_CAN_ADD_EFFECTS(klass) ((GES_CLIP_CLASS (klass))->ABI.abi.can_add_effects)
 
 /**
  * GESFillTrackElementFunc:
- * @clip: the #GESClip controlling the track elements
- * @track_element: the #GESTrackElement
- * @nleobj: the GNonLin object that needs to be filled.
+ * @clip: The #GESClip controlling the track elements
+ * @track_element: The #GESTrackElement
+ * @nleobj: The nleobject that needs to be filled
  *
- * A function that will be called when the GNonLin object of a corresponding
+ * A function that will be called when the nleobject of a corresponding
  * track element needs to be filled.
  *
  * The implementer of this function shall add the proper #GstElement to @nleobj
  * using gst_bin_add().
  *
- * Returns: TRUE if the implementer succesfully filled the @nleobj, else #FALSE.
+ * Deprecated: 1.18: This method type is no longer used.
+ *
+ * Returns: %TRUE if the implementer successfully filled the @nleobj.
  */
 typedef gboolean (*GESFillTrackElementFunc) (GESClip *clip, GESTrackElement *track_element,
                                              GstElement *nleobj);
 
 /**
  * GESCreateTrackElementFunc:
- * @clip: a #GESClip
- * @type: a #GESTrackType
+ * @clip: A #GESClip
+ * @type: A #GESTrackType to create a #GESTrackElement for
  *
- * Creates the 'primary' track element for this @clip.
+ * A method for creating the core #GESTrackElement of a clip, to be added
+ * to a #GESTrack of the given track type.
  *
- * Subclasses should implement this method if they only provide a
- * single #GESTrackElement per track.
+ * If a clip may produce several track elements per track type,
+ * #GESCreateTrackElementsFunc is more appropriate.
  *
- * If the subclass needs to create more than one #GESTrackElement for a
- * given track, then it should implement the 'create_track_elements'
- * method instead.
- *
- * The implementer of this function shall return the proper #GESTrackElement
- * that should be controlled by @clip for the given @track.
- *
- * The returned #GESTrackElement will be automatically added to the list
- * of objects controlled by the #GESClip.
- *
- * Returns: the #GESTrackElement to be used, or %NULL if it can't provide one
- * for the given @track.
+ * Returns: (transfer floating) (nullable): The #GESTrackElement created
+ * by @clip, or %NULL if @clip can not provide a track element for the
+ * given @type or an error occurred.
  */
 typedef GESTrackElement *(*GESCreateTrackElementFunc) (GESClip * clip, GESTrackType type);
 
 /**
  * GESCreateTrackElementsFunc:
- * @clip: a #GESClip
- * @type: a #GESTrackType
+ * @clip: A #GESClip
+ * @type: A #GESTrackType to create #GESTrackElement-s for
  *
- * Create all track elements this clip handles for this type of track.
+ * A method for creating the core #GESTrackElement-s of a clip, to be
+ * added to #GESTrack-s of the given track type.
  *
- * Subclasses should implement this method if they potentially need to
- * return more than one #GESTrackElement(s) for a given #GESTrack.
- *
- * Returns: %TRUE on success %FALSE on failure.
+ * Returns: (transfer container) (element-type GESTrackElement): A list of
+ * the #GESTrackElement-s created by @clip for the given @type, or %NULL
+ * if no track elements are created or an error occurred.
  */
-
 typedef GList * (*GESCreateTrackElementsFunc) (GESClip * clip, GESTrackType type);
 
 /**
  * GESClip:
- *
- * The #GESClip base class.
  */
 struct _GESClip
 {
@@ -114,11 +107,18 @@ struct _GESClip
 
 /**
  * GESClipClass:
- * @create_track_element: method to create a single #GESTrackElement for a given #GESTrack.
- * @create_track_elements: method to create multiple #GESTrackElements for a
- * #GESTrack.
- *
- * Subclasses can override the @create_track_element.
+ * @create_track_element: Method to create the core #GESTrackElement of
+ * a clip of this class. If a clip of this class may create several track
+ * elements per track type, this should be left as %NULL, and
+ * create_track_elements() should be used instead. Otherwise, you should
+ * implement this class method and leave create_track_elements() as the
+ * default implementation
+ * @create_track_elements: Method to create the (multiple) core
+ * #GESTrackElement-s of a clip of this class. If create_track_element()
+ * is implemented, this should be kept as the default implementation
+ * @can_add_effects: Whether the user can add additional non-core
+ * #GESBaseEffect-s to clips from this class, to be applied to the output
+ * data of the core elements.
  */
 struct _GESClipClass
 {
@@ -131,14 +131,13 @@ struct _GESClipClass
 
   /*< private >*/
   /* Padding for API extension */
-  gpointer _ges_reserved[GES_PADDING_LARGE];
+  union {
+    gpointer _ges_reserved[GES_PADDING_LARGE];
+    struct {
+      gboolean can_add_effects;
+    } abi;
+  } ABI;
 };
-
-/****************************************************
- *                  Standard                        *
- ****************************************************/
-GES_API
-GType ges_clip_get_type (void);
 
 /****************************************************
  *                TrackElement handling             *
@@ -146,45 +145,101 @@ GType ges_clip_get_type (void);
 GES_API
 GESTrackType      ges_clip_get_supported_formats  (GESClip *clip);
 GES_API
-void              ges_clip_set_supported_formats  (GESClip *clip, GESTrackType       supportedformats);
+void              ges_clip_set_supported_formats  (GESClip *clip,
+                                                   GESTrackType supportedformats);
 GES_API
-GESTrackElement*  ges_clip_add_asset              (GESClip *clip, GESAsset *asset);
+GESTrackElement*  ges_clip_add_asset              (GESClip *clip,
+                                                   GESAsset *asset);
 GES_API
-GESTrackElement*  ges_clip_find_track_element     (GESClip *clip, GESTrack *track,
+GESTrackElement*  ges_clip_find_track_element     (GESClip *clip,
+                                                   GESTrack *track,
                                                    GType type);
 GES_API
-GList *           ges_clip_find_track_elements    (GESClip * clip, GESTrack * track,
-                                                   GESTrackType track_type, GType type);
+GList *           ges_clip_find_track_elements    (GESClip * clip,
+                                                   GESTrack * track,
+                                                   GESTrackType track_type,
+                                                   GType type);
+
+GES_API
+GESTrackElement * ges_clip_add_child_to_track     (GESClip * clip,
+                                                   GESTrackElement * child,
+                                                   GESTrack * track,
+                                                   GError ** error);
 
 /****************************************************
  *                     Layer                        *
  ****************************************************/
 GES_API
-GESLayer* ges_clip_get_layer              (GESClip *clip);
+GESLayer* ges_clip_get_layer              (GESClip * clip);
 GES_API
-gboolean  ges_clip_move_to_layer          (GESClip *clip, GESLayer  *layer);
+gboolean  ges_clip_move_to_layer          (GESClip * clip,
+                                           GESLayer * layer);
+GES_API
+gboolean  ges_clip_move_to_layer_full     (GESClip * clip,
+                                           GESLayer * layer,
+                                           GError ** error);
 
 /****************************************************
  *                   Effects                        *
  ****************************************************/
 GES_API
-GList*   ges_clip_get_top_effects           (GESClip *clip);
+gboolean ges_clip_add_top_effect            (GESClip * clip,
+                                             GESBaseEffect * effect,
+                                             gint index,
+                                             GError ** error);
 GES_API
-gint     ges_clip_get_top_effect_position   (GESClip *clip, GESBaseEffect *effect);
+gboolean ges_clip_remove_top_effect         (GESClip * clip,
+                                             GESBaseEffect * effect,
+                                             GError ** error);
 GES_API
-gint     ges_clip_get_top_effect_index   (GESClip *clip, GESBaseEffect *effect);
+GList*   ges_clip_get_top_effects           (GESClip * clip);
 GES_API
-gboolean ges_clip_set_top_effect_priority   (GESClip *clip, GESBaseEffect *effect,
+gint     ges_clip_get_top_effect_position   (GESClip * clip,
+                                             GESBaseEffect * effect);
+GES_API
+gint     ges_clip_get_top_effect_index      (GESClip * clip,
+                                             GESBaseEffect * effect);
+GES_API
+gboolean ges_clip_set_top_effect_priority   (GESClip * clip,
+                                             GESBaseEffect * effect,
                                              guint newpriority);
 GES_API
-gboolean ges_clip_set_top_effect_index   (GESClip *clip, GESBaseEffect *effect,
+gboolean ges_clip_set_top_effect_index      (GESClip * clip,
+                                             GESBaseEffect * effect,
                                              guint newindex);
+GES_API
+gboolean ges_clip_set_top_effect_index_full (GESClip * clip,
+                                             GESBaseEffect * effect,
+                                             guint newindex,
+                                             GError ** error);
 
 /****************************************************
  *                   Editing                        *
  ****************************************************/
 GES_API
-GESClip* ges_clip_split  (GESClip *clip, guint64  position);
+GESClip*     ges_clip_split                                (GESClip *clip,
+                                                            guint64 position);
+GES_API
+GESClip*     ges_clip_split_full                           (GESClip *clip,
+                                                            guint64 position,
+                                                            GError ** error);
+
+GES_API
+GstClockTime ges_clip_get_internal_time_from_timeline_time (GESClip * clip,
+                                                            GESTrackElement * child,
+                                                            GstClockTime timeline_time,
+                                                            GError ** error);
+GES_API
+GstClockTime ges_clip_get_timeline_time_from_internal_time (GESClip * clip,
+                                                            GESTrackElement * child,
+                                                            GstClockTime internal_time,
+                                                            GError ** error);
+GES_API
+GstClockTime ges_clip_get_timeline_time_from_source_frame (GESClip * clip,
+                                                           GESFrameNumber frame_number,
+                                                           GError ** error);
+
+GES_API
+GstClockTime ges_clip_get_duration_limit (GESClip * clip);
 
 G_END_DECLS
-#endif /* _GES_CLIP */

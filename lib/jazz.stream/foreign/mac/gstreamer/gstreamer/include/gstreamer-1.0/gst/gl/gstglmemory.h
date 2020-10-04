@@ -46,14 +46,26 @@ GType gst_gl_memory_allocator_get_type(void);
  */
 #define GST_CAPS_FEATURE_MEMORY_GL_MEMORY "memory:GLMemory"
 /**
+ * GST_GL_MEMORY_VIDEO_EXT_FORMATS: (skip)
+ */
+#if G_BYTE_ORDER == G_LITTLE_ENDIAN
+#define GST_GL_MEMORY_VIDEO_EXT_FORMATS \
+    ", BGR10A2_LE, RGB10A2_LE, P010_10LE, P012_LE, P016_LE, Y212_LE, Y412_LE"
+#else
+#define GST_GL_MEMORY_VIDEO_EXT_FORMATS \
+    ", P010_10BE, P012_BE, P016_BE, Y212_BE, Y412_BE"
+#endif
+
+/**
  * GST_GL_MEMORY_VIDEO_FORMATS_STR:
  *
  * List of video formats that are supported by #GstGLMemory
  */
 #define GST_GL_MEMORY_VIDEO_FORMATS_STR \
     "{ RGBA, BGRA, RGBx, BGRx, ARGB, ABGR, xRGB, xBGR, RGB, BGR, RGB16, BGR16, " \
-    "AYUV, VUYA, I420, YV12, NV12, NV21, YUY2, UYVY, Y41B, Y42B, Y444, " \
-    "GRAY8, GRAY16_LE, GRAY16_BE, ARGB64 }"
+    "AYUV, VUYA, Y410, I420, YV12, NV12, NV21, NV16, NV61, YUY2, UYVY, Y210, Y41B, " \
+    "Y42B, Y444, GRAY8, GRAY16_LE, GRAY16_BE, ARGB64" \
+    GST_GL_MEMORY_VIDEO_EXT_FORMATS "}"
 
 /**
  * GstGLMemory:
@@ -80,12 +92,12 @@ struct _GstGLMemory
   guint                     plane;
   gfloat                    tex_scaling[2];
 
-  /* <protected> */
+  /*< protected >*/
   gboolean                  texture_wrapped;
   guint                     unpack_length;
   guint                     tex_width;
 
-  /* <private> */
+  /*< private >*/
   gpointer                  _padding[GST_PADDING];
 };
 
@@ -122,7 +134,7 @@ struct _GstGLVideoAllocationParams
   GstGLTextureTarget     target;
   GstGLFormat            tex_format;
 
-  /* <private> */
+  /*< private >*/
   gpointer               _padding[GST_PADDING];
 };
 
@@ -202,7 +214,7 @@ void            gst_gl_video_allocation_params_copy_data    (GstGLVideoAllocatio
  */
 struct _GstGLMemoryAllocator
 {
-  /* <private> */
+  /*< private >*/
   GstGLBaseMemoryAllocator parent;
 
   gpointer _padding[GST_PADDING];
@@ -216,15 +228,15 @@ struct _GstGLMemoryAllocator
  */
 struct _GstGLMemoryAllocatorClass
 {
-  /* <private> */
+  /*< private >*/
   GstGLBaseMemoryAllocatorClass             parent_class;
 
-  /* <public> */
+  /*< public >*/
   GstGLBaseMemoryAllocatorMapFunction       map;
   GstGLBaseMemoryAllocatorCopyFunction      copy;
   GstGLBaseMemoryAllocatorUnmapFunction     unmap;
 
-  /* <private> */
+  /*< private >*/
   gpointer                                  _padding[GST_PADDING];
 };
 

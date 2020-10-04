@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_FORMATTER
-#define _GES_FORMATTER
+#pragma once
 
 #include <glib-object.h>
 #include <ges/ges-timeline.h>
@@ -27,23 +26,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_FORMATTER ges_formatter_get_type()
-
-#define GES_FORMATTER(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_FORMATTER, GESFormatter))
-
-#define GES_FORMATTER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_FORMATTER, GESFormatterClass))
-
-#define GES_IS_FORMATTER(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_FORMATTER))
-
-#define GES_IS_FORMATTER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_FORMATTER))
-
-#define GES_FORMATTER_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_FORMATTER, GESFormatterClass))
-
-typedef struct _GESFormatterPrivate GESFormatterPrivate;
+GES_DECLARE_TYPE(Formatter, formatter, FORMATTER);
 
 /**
  * GESFormatter:
@@ -51,7 +34,8 @@ typedef struct _GESFormatterPrivate GESFormatterPrivate;
  * Base class for timeline data serialization and deserialization.
  */
 
-struct _GESFormatter {
+struct _GESFormatter
+{
   GInitiallyUnowned parent;
 
   /*< private >*/
@@ -80,8 +64,6 @@ typedef gboolean (*GESFormatterCanLoadURIMethod) (GESFormatter *dummy_instance, 
  *
  * Returns: TRUE if the @timeline was properly loaded from the given @uri,
  * else FALSE.
- *
- * Deprecated: 1.16: Use @ges_timeline_load_from_uri
  **/
 typedef gboolean (*GESFormatterLoadFromURIMethod) (GESFormatter *formatter,
                   GESTimeline *timeline,
@@ -102,8 +84,6 @@ typedef gboolean (*GESFormatterLoadFromURIMethod) (GESFormatter *formatter,
  *
  * Returns: TRUE if the @timeline was properly stored to the given @uri,
  * else FALSE.
- *
- * Deprecated: 1.16: Use @ges_timeline_save_to_uri
  */
 typedef gboolean (*GESFormatterSaveToURIMethod) (GESFormatter *formatter,
                GESTimeline *timeline, const gchar * uri, gboolean overwrite,
@@ -130,10 +110,10 @@ struct _GESFormatterClass {
   GESFormatterSaveToURIMethod save_to_uri;
 
   /* < private > */
-  const gchar *name;
-  const gchar *description;
-  const gchar *extension;
-  const gchar *mimetype;
+  gchar *name;
+  gchar *description;
+  gchar *extension;
+  gchar *mimetype;
   gdouble version;
   GstRank rank;
 
@@ -143,14 +123,11 @@ struct _GESFormatterClass {
 };
 
 GES_API
-GType ges_formatter_get_type (void);
-
-GES_API
 void ges_formatter_class_register_metas (GESFormatterClass * klass,
                                          const gchar *name,
                                          const gchar *description,
-                                         const gchar *extension,
-                                         const gchar *mimetype,
+                                         const gchar *extensions,
+                                         const gchar *caps,
                                          gdouble version,
                                          GstRank rank);
 
@@ -159,13 +136,13 @@ gboolean ges_formatter_can_load_uri     (const gchar * uri, GError **error);
 GES_API
 gboolean ges_formatter_can_save_uri     (const gchar * uri, GError **error);
 
-GES_API
+GES_DEPRECATED_FOR(ges_timeline_load_from_uri)
 gboolean ges_formatter_load_from_uri    (GESFormatter * formatter,
                                          GESTimeline  *timeline,
                                          const gchar *uri,
                                          GError **error);
 
-GES_API
+GES_DEPRECATED_FOR(ges_timeline_save_to_uri)
 gboolean ges_formatter_save_to_uri      (GESFormatter * formatter,
                                          GESTimeline *timeline,
                                          const gchar *uri,
@@ -175,6 +152,7 @@ gboolean ges_formatter_save_to_uri      (GESFormatter * formatter,
 GES_API
 GESAsset *ges_formatter_get_default    (void);
 
-G_END_DECLS
+GES_API
+GESAsset *ges_find_formatter_for_uri   (const gchar *uri);
 
-#endif /* _GES_FORMATTER */
+G_END_DECLS

@@ -28,15 +28,18 @@ typedef struct _GstValidateReporterInterface GstValidateReporterInterface;
 #include <gst/validate/gst-validate-report.h>
 #include <gst/validate/gst-validate-runner.h>
 #include <gst/validate/gst-validate-enums.h>
+#include <gst/validate/gst-validate-scenario.h>
 
 G_BEGIN_DECLS
 
 /* GstValidateReporter interface declarations */
+#ifndef __GI_SCANNER__
 #define GST_TYPE_VALIDATE_REPORTER                (gst_validate_reporter_get_type ())
 #define GST_VALIDATE_REPORTER(obj)                (G_TYPE_CHECK_INSTANCE_CAST ((obj), GST_TYPE_VALIDATE_REPORTER, GstValidateReporter))
 #define GST_IS_VALIDATE_REPORTER(obj)             (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_VALIDATE_REPORTER))
 #define GST_VALIDATE_REPORTER_GET_INTERFACE(inst) (G_TYPE_INSTANCE_GET_INTERFACE ((inst), GST_TYPE_VALIDATE_REPORTER, GstValidateReporterInterface))
 #define GST_VALIDATE_REPORTER_CAST(obj)           ((GstValidateReporter *) obj)
+#endif
 
 /**
  * GST_VALIDATE_REPORT:
@@ -56,11 +59,23 @@ G_BEGIN_DECLS
 			 __VA_ARGS__ );					\
   } G_STMT_END
 
+#define GST_VALIDATE_REPORT_ACTION(m, a, issue_id, ...)				\
+  G_STMT_START {							\
+    gst_validate_report_action (GST_VALIDATE_REPORTER (m), a,	\
+			 issue_id,		\
+			 __VA_ARGS__ );					\
+  } G_STMT_END
+
 #else /* G_HAVE_GNUC_VARARGS */
 #ifdef G_HAVE_GNUC_VARARGS
 #define GST_VALIDATE_REPORT(m, issue_id, args...)			\
   G_STMT_START {							\
     gst_validate_report (GST_VALIDATE_REPORTER (m),			\
+			 issue_id, ##args );	\
+  } G_STMT_END
+#define GST_VALIDATE_REPORT_ACTION(m, a, issue_id, args...)			\
+  G_STMT_START {							\
+    gst_validate_report_action (GST_VALIDATE_REPORTER (m), a,		\
 			 issue_id, ##args );	\
   } G_STMT_END
 #endif /* G_HAVE_ISO_VARARGS */
@@ -107,10 +122,15 @@ GST_VALIDATE_API
 void gst_validate_reporter_init                (GstValidateReporter * reporter, const gchar *name);
 GST_VALIDATE_API
 void gst_validate_report                       (GstValidateReporter * reporter, GstValidateIssueId issue_id,
-                                          const gchar * format, ...) G_GNUC_PRINTF (3, 4) G_GNUC_NO_INSTRUMENT;
+                                                const gchar * format, ...) G_GNUC_PRINTF (3, 4) G_GNUC_NO_INSTRUMENT;
+GST_VALIDATE_API
+void gst_validate_report_action                (GstValidateReporter * reporter,
+                                                GstValidateAction *action,
+                                                GstValidateIssueId issue_id,
+                                                const gchar * format, ...) G_GNUC_PRINTF (4, 5) G_GNUC_NO_INSTRUMENT;
 GST_VALIDATE_API
 void gst_validate_report_valist                (GstValidateReporter * reporter, GstValidateIssueId issue_id,
-                                          const gchar * format, va_list var_args);
+                                          const gchar * format, va_list var_args) G_GNUC_PRINTF (3, 0);
 GST_VALIDATE_API void
 gst_validate_reporter_report_simple (GstValidateReporter * reporter, GstValidateIssueId issue_id,
                                           const gchar * message);

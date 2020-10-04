@@ -21,6 +21,8 @@ GST_VALIDATE_API GType gst_validate_debug_flags_get_type (void);
 #define GST_TYPE_VALIDATE_DEBUG_FLAGS (gst_validate_debug_flags_get_type ())
 GST_VALIDATE_API GType gst_validate_report_level_get_type (void);
 #define GST_TYPE_VALIDATE_REPORT_LEVEL (gst_validate_report_level_get_type ())
+GST_VALIDATE_API GType gst_validate_issue_flags_get_type (void);
+#define GST_TYPE_VALIDATE_ISSUE_FLAGS (gst_validate_issue_flags_get_type ())
 
 /* enumerations from "gst-validate-reporter.h" */
 GST_VALIDATE_API GType gst_validate_interception_return_get_type (void);

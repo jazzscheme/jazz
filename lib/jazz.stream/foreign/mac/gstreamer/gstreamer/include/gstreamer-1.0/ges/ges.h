@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __GES_H__
-#define __GES_H__
+#pragma once
 
 #include <glib.h>
 #include <gst/gst.h>
@@ -34,6 +33,7 @@
 #include <ges/ges-clip.h>
 #include <ges/ges-pipeline.h>
 #include <ges/ges-source-clip.h>
+#include <ges/ges-time-overlay-clip.h>
 #include <ges/ges-test-clip.h>
 #include <ges/ges-title-clip.h>
 #include <ges/ges-operation-clip.h>
@@ -83,6 +83,7 @@
 #include <ges/ges-audio-track.h>
 #include <ges/ges-video-track.h>
 #include <ges/ges-version.h>
+#include <ges/ges-marker-list.h>
 
 G_BEGIN_DECLS
 
@@ -111,5 +112,3 @@ GES_API
 gboolean ges_is_initialized                  (void);
 
 G_END_DECLS
-
-#endif /* __GES_H__ */

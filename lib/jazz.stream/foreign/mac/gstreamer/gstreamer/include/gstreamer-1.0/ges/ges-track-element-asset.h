@@ -17,8 +17,7 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  */
-#ifndef _GES_TRACK_ELEMENT_ASSET_
-#define _GES_TRACK_ELEMENT_ASSET_
+#pragma once
 
 #include <glib-object.h>
 #include <gio/gio.h>
@@ -28,16 +27,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_TRACK_ELEMENT_ASSET ges_track_element_asset_get_type()
-#define GES_TRACK_ELEMENT_ASSET(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_TRACK_ELEMENT_ASSET, GESTrackElementAsset))
-#define GES_TRACK_ELEMENT_ASSET_CLASS(klass)  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_TRACK_ELEMENT_ASSET, GESTrackElementAssetClass))
-#define GES_IS_TRACK_ELEMENT_ASSET(obj)  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_TRACK_ELEMENT_ASSET))
-#define GES_IS_TRACK_ELEMENT_ASSET_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_TRACK_ELEMENT_ASSET))
-#define GES_TRACK_ELEMENT_ASSET_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_TRACK_ELEMENT_ASSET, GESTrackElementAssetClass))
-
-typedef struct _GESTrackElementAssetPrivate GESTrackElementAssetPrivate;
-
-GES_API
-GType ges_track_element_asset_get_type (void);
+GES_DECLARE_TYPE(TrackElementAsset, track_element_asset, TRACK_ELEMENT_ASSET);
 
 struct _GESTrackElementAsset
 {
@@ -54,14 +44,28 @@ struct _GESTrackElementAssetClass
 {
   GESAssetClass parent_class;
 
-  gpointer _ges_reserved[GES_PADDING];
+  /**
+   * GESTrackElementAssetClass::get_natural_framerate:
+   * @self: A #GESTrackElementAsset
+   * @framerate_n: The framerate numerator to retrieve
+   * @framerate_d: The framerate denominator to retrieve
+   *
+   * Returns: %TRUE if @self has a natural framerate @FALSE otherwise.
+   *
+   * Since: 1.18
+   */
+  gboolean (*get_natural_framerate)        (GESTrackElementAsset *self, gint *framerate_n, gint *framerate_d);
+
+  gpointer _ges_reserved[GES_PADDING - 1];
 };
 
 GES_API
 const GESTrackType ges_track_element_asset_get_track_type (GESTrackElementAsset *asset);
 GES_API
 void ges_track_element_asset_set_track_type               (GESTrackElementAsset * asset, GESTrackType type);
+GES_API
+gboolean ges_track_element_asset_get_natural_framerate    (GESTrackElementAsset *self,
+                                                           gint *framerate_n,
+                                                           gint *framerate_d);
 
 G_END_DECLS
-#endif /* _GES_TRACK_ELEMENT_ASSET */
-

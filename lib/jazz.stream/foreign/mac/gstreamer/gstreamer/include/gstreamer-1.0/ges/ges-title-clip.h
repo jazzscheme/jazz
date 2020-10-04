@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_TIMELINE_TITLESOURCE
-#define _GES_TIMELINE_TITLESOURCE
+#pragma once
 
 #include <glib-object.h>
 #include <ges/ges-types.h>
@@ -29,23 +28,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_TITLE_CLIP ges_title_clip_get_type()
-
-#define GES_TITLE_CLIP(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_TITLE_CLIP, GESTitleClip))
-
-#define GES_TITLE_CLIP_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_TITLE_CLIP, GESTitleClipClass))
-
-#define GES_IS_TITLE_CLIP(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_TITLE_CLIP))
-
-#define GES_IS_TITLE_CLIP_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_TITLE_CLIP))
-
-#define GES_TITLE_CLIP_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_TITLE_CLIP, GESTitleClipClass))
-
-typedef struct _GESTitleClipPrivate GESTitleClipPrivate;
+GES_DECLARE_TYPE(TitleClip, title_clip, TITLE_CLIP);
 
 /**
  * GESTitleClip:
@@ -71,69 +54,55 @@ struct _GESTitleClipClass {
   gpointer _ges_reserved[GES_PADDING];
 };
 
-GES_API
-GType ges_title_clip_get_type (void);
+GES_DEPRECATED_FOR(ges_timeline_element_set_children_properties) void
+ges_title_clip_set_text( GESTitleClip * self, const gchar * text);
 
-GES_API void
-ges_title_clip_set_text( GESTitleClip * self,
-    const gchar * text);
+GES_DEPRECATED_FOR(ges_timeline_element_set_children_properties) void
+ges_title_clip_set_font_desc (GESTitleClip * self, const gchar * font_desc);
 
-GES_API void
-ges_title_clip_set_font_desc (GESTitleClip * self,
-    const gchar * font_desc);
+GES_DEPRECATED_FOR(ges_timeline_element_set_children_properties) void
+ges_title_clip_set_valignment (GESTitleClip * self, GESTextVAlign valign);
 
-GES_API void
-ges_title_clip_set_valignment (GESTitleClip * self,
-    GESTextVAlign valign);
+GES_DEPRECATED_FOR(ges_timeline_element_set_children_properties) void
+ges_title_clip_set_halignment (GESTitleClip * self, GESTextHAlign halign);
 
-GES_API void
-ges_title_clip_set_halignment (GESTitleClip * self,
-    GESTextHAlign halign);
+GES_DEPRECATED_FOR(ges_timeline_element_set_children_properties) void
+ges_title_clip_set_color (GESTitleClip * self, guint32 color);
 
-GES_API void
-ges_title_clip_set_color (GESTitleClip * self,
-    guint32 color);
+GES_DEPRECATED_FOR(ges_timeline_element_set_children_properties) void
+ges_title_clip_set_background (GESTitleClip * self, guint32 background);
 
-GES_API void
-ges_title_clip_set_background (GESTitleClip * self,
-    guint32 background);
+GES_DEPRECATED_FOR(ges_timeline_element_set_children_properties) void
+ges_title_clip_set_xpos (GESTitleClip * self, gdouble position);
 
-GES_API void
-ges_title_clip_set_xpos (GESTitleClip * self,
-    gdouble position);
+GES_DEPRECATED_FOR(ges_timeline_element_set_children_properties) void
+ges_title_clip_set_ypos (GESTitleClip * self, gdouble position);
 
-GES_API void
-ges_title_clip_set_ypos (GESTitleClip * self,
-    gdouble position);
-
-GES_API const gchar*
+GES_DEPRECATED_FOR(ges_timeline_element_get_children_properties) const gchar*
 ges_title_clip_get_font_desc (GESTitleClip * self);
 
-GES_API GESTextVAlign
+GES_DEPRECATED_FOR(ges_timeline_element_get_children_properties) GESTextVAlign
 ges_title_clip_get_valignment (GESTitleClip * self);
 
-GES_API GESTextHAlign
+GES_DEPRECATED_FOR(ges_timeline_element_get_children_properties) GESTextHAlign
 ges_title_clip_get_halignment (GESTitleClip * self);
 
-GES_API const guint32
+GES_DEPRECATED_FOR(ges_timeline_element_get_children_properties) const guint32
 ges_title_clip_get_text_color (GESTitleClip * self);
 
-GES_API const guint32
+GES_DEPRECATED_FOR(ges_timeline_element_get_children_properties) const guint32
 ges_title_clip_get_background_color (GESTitleClip * self);
 
-GES_API const gdouble
+GES_DEPRECATED_FOR(ges_timeline_element_get_children_properties) const gdouble
 ges_title_clip_get_xpos (GESTitleClip * self);
 
-GES_API const gdouble
+GES_DEPRECATED_FOR(ges_timeline_element_get_children_properties) const gdouble
 ges_title_clip_get_ypos (GESTitleClip * self);
 
-GES_API
+GES_DEPRECATED_FOR(ges_timeline_element_get_children_properties)
 const gchar* ges_title_clip_get_text (GESTitleClip * self);
 
 GES_API
 GESTitleClip* ges_title_clip_new (void);
 
 G_END_DECLS
-
-#endif /* _GES_TIMELINE_TITLESOURCE */
-

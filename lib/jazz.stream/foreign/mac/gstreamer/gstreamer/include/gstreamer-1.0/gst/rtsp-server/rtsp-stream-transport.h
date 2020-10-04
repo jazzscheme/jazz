@@ -18,6 +18,7 @@
  */
 
 #include <gst/gst.h>
+#include <gst/base/base.h>
 #include <gst/rtsp/gstrtsprange.h>
 #include <gst/rtsp/gstrtspurl.h>
 
@@ -91,6 +92,17 @@ typedef void     (*GstRTSPKeepAliveFunc) (gpointer user_data);
 typedef void     (*GstRTSPMessageSentFunc) (gpointer user_data);
 
 /**
+ * GstRTSPMessageSentFuncFull:
+ * @user_data: user data
+ *
+ * Function registered with gst_rtsp_stream_transport_set_message_sent_full()
+ * and called when a message has been sent on the transport.
+ *
+ * Since: 1.18
+ */
+typedef void     (*GstRTSPMessageSentFuncFull) (GstRTSPStreamTransport *trans, gpointer user_data);
+
+/**
  * GstRTSPStreamTransport:
  * @parent: parent instance
  *
@@ -162,10 +174,15 @@ void                     gst_rtsp_stream_transport_set_keepalive (GstRTSPStreamT
 
 GST_RTSP_SERVER_API
 void                     gst_rtsp_stream_transport_set_message_sent (GstRTSPStreamTransport *trans,
-                                                                  GstRTSPMessageSentFunc message_sent,
-                                                                  gpointer user_data,
-                                                                  GDestroyNotify  notify);
+                                                                     GstRTSPMessageSentFunc message_sent,
+                                                                     gpointer user_data,
+                                                                     GDestroyNotify  notify);
 
+GST_RTSP_SERVER_API
+void                     gst_rtsp_stream_transport_set_message_sent_full (GstRTSPStreamTransport *trans,
+                                                                          GstRTSPMessageSentFuncFull message_sent,
+                                                                          gpointer user_data,
+                                                                          GDestroyNotify  notify);
 GST_RTSP_SERVER_API
 void                     gst_rtsp_stream_transport_keep_alive    (GstRTSPStreamTransport *trans);
 
@@ -182,8 +199,6 @@ void                     gst_rtsp_stream_transport_set_timed_out (GstRTSPStreamT
 
 GST_RTSP_SERVER_API
 gboolean                 gst_rtsp_stream_transport_is_timed_out  (GstRTSPStreamTransport *trans);
-
-
 
 GST_RTSP_SERVER_API
 gboolean                 gst_rtsp_stream_transport_send_rtp      (GstRTSPStreamTransport *trans,

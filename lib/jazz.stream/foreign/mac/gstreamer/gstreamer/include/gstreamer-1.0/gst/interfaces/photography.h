@@ -50,38 +50,17 @@ G_BEGIN_DECLS
  * Name of custom GstMessage that will be posted to #GstBus when autofocusing
  * is complete.
  * This message contains following fields:
- * <itemizedlist>
- * <listitem>
- *   <para>
- *   #GstPhotographyFocusStatus
- *   <classname>&quot;status&quot;</classname>:
- *   Tells if focusing succeeded or failed.
- *   </para>
- * </listitem>
- * <listitem>
- *   <para>
- *   #G_TYPE_INT
- *   <classname>&quot;focus-window-rows&quot;</classname>:
- *   Tells number of focus matrix rows.
- *   </para>
- * </listitem>
- * <listitem>
- *   <para>
- *   #G_TYPE_INT
- *   <classname>&quot;focus-window-columns&quot;</classname>:
- *   Tells number of focus matrix columns.
- *   </para>
- * </listitem>
- * <listitem>
- *   <para>
- *   #G_TYPE_INT
- *   <classname>&quot;focus-window-mask&quot;</classname>:
- *   Bitmask containing rows x columns bits which mark the focus points in the
- *   focus matrix. Lowest bit (LSB) always represents the top-left corner of the
- *   focus matrix. This field is only valid when focusing status is SUCCESS.
- *   </para>
- * </listitem>
- * </itemizedlist>
+ *
+ * * `status` (#GstPhotographyFocusStatus): Tells if focusing succeeded or failed.
+ *
+ * * `focus-window-rows` (#G_TYPE_INT): Tells number of focus matrix rows.
+ *
+ * * `focus-window-columns` (#G_TYPE_INT): Tells number of focus matrix columns.
+ *
+ * * `focus-window-mask` (#G_TYPE_INT): Bitmask containing rows x columns bits
+ *   which mark the focus points in the focus matrix. Lowest bit (LSB) always
+ *   represents the top-left corner of the focus matrix. This field is only valid
+ *   when focusing status is SUCCESS.
  */
 #define GST_PHOTOGRAPHY_AUTOFOCUS_DONE "autofocus-done"
 
@@ -93,15 +72,8 @@ G_BEGIN_DECLS
  * becoming "shaken" due to camera movement and too long exposure time.
  *
  * This message contains following fields:
- * <itemizedlist>
- * <listitem>
- *   <para>
- *   #GstPhotographyShakeRisk
- *   <classname>&quot;status&quot;</classname>:
- *   Tells risk level of capturing shaken image.
- *   </para>
- * </listitem>
- * </itemizedlist>
+ *
+ * * `status` (#GstPhotographyShakeRisk): Tells risk level of capturing shaken image.
  */
 #define GST_PHOTOGRAPHY_SHAKE_RISK "shake-risk"
 
@@ -215,6 +187,10 @@ typedef enum
  * @GST_PHOTOGRAPHY_COLOR_TONE_MODE_WHITEBOARD: Whiteboard (Since: 1.2)
  * @GST_PHOTOGRAPHY_COLOR_TONE_MODE_BLACKBOARD: Blackboard (Since: 1.2)
  * @GST_PHOTOGRAPHY_COLOR_TONE_MODE_AQUA: Aqua (Since: 1.2)
+ * @GST_PHOTOGRAPHY_COLOR_TONE_MODE_EMBOSS: Emboss (Since: 1.18)
+ * @GST_PHOTOGRAPHY_COLOR_TONE_MODE_SKETCH: Sketch (Since: 1.18)
+ * @GST_PHOTOGRAPHY_COLOR_TONE_MODE_NEON: Neon (Since: 1.18)
+ *
  *
  * Modes for special color effects.
  */
@@ -235,7 +211,10 @@ typedef enum
   GST_PHOTOGRAPHY_COLOR_TONE_MODE_POSTERIZE,
   GST_PHOTOGRAPHY_COLOR_TONE_MODE_WHITEBOARD,
   GST_PHOTOGRAPHY_COLOR_TONE_MODE_BLACKBOARD,
-  GST_PHOTOGRAPHY_COLOR_TONE_MODE_AQUA
+  GST_PHOTOGRAPHY_COLOR_TONE_MODE_AQUA,
+  GST_PHOTOGRAPHY_COLOR_TONE_MODE_EMBOSS,
+  GST_PHOTOGRAPHY_COLOR_TONE_MODE_SKETCH,
+  GST_PHOTOGRAPHY_COLOR_TONE_MODE_NEON
 } GstPhotographyColorToneMode;
 
 /**
@@ -264,6 +243,10 @@ typedef enum
  *     of scenes lit by candles (Since: 1.2)
  * @GST_PHOTOGRAPHY_SCENE_MODE_BARCODE: Applications are looking for
  *     a barcode (Since: 1.2)
+ * @GST_PHOTOGRAPHY_SCENE_MODE_BACKLIGHT: Backlit photos (Since: 1.18)
+ * @GST_PHOTOGRAPHY_SCENE_MODE_FLOWERS: For shooting flowers (Since: 1.18)
+ * @GST_PHOTOGRAPHY_SCENE_MODE_AR: Specific for Augmented Reality (Since: 1.18)
+ * @GST_PHOTOGRAPHY_SCENE_MODE_HDR: High Dynamic Range photography (Since: 1.18)
  *
  * Each mode contains preset #GstPhotography options in order to produce
  * good capturing result in certain scene.
@@ -287,7 +270,11 @@ typedef enum
   GST_PHOTOGRAPHY_SCENE_MODE_FIREWORKS,
   GST_PHOTOGRAPHY_SCENE_MODE_PARTY,
   GST_PHOTOGRAPHY_SCENE_MODE_CANDLELIGHT,
-  GST_PHOTOGRAPHY_SCENE_MODE_BARCODE
+  GST_PHOTOGRAPHY_SCENE_MODE_BARCODE,
+  GST_PHOTOGRAPHY_SCENE_MODE_BACKLIGHT,
+  GST_PHOTOGRAPHY_SCENE_MODE_FLOWERS,
+  GST_PHOTOGRAPHY_SCENE_MODE_AR,
+  GST_PHOTOGRAPHY_SCENE_MODE_HDR
 } GstPhotographySceneMode;
 
 /**
@@ -502,6 +489,18 @@ typedef void (*GstPhotographyCapturePrepared) (gpointer data, const GstCaps *con
  * @set_config: vmethod to set all configuration parameters at once
  * @get_config: vmethod to get all configuration parameters at once
  * @get_image_capture_supported_caps: vmethod to get caps describing supported image capture formats
+ * @set_exposure_mode: vmethod to set exposure mode (Since: 1.18)
+ * @get_exposure_mode: vmethod to get exposure mode (Since: 1.18)
+ * @set_analog_gain: vmethod to set analog gain (Since: 1.18)
+ * @get_analog_gain: vmethod to get analog gain (Since: 1.18)
+ * @set_lens_focus: vmethod to set lens focus (Since: 1.18)
+ * @get_lens_focus: vmethod to get lens focus (Since: 1.18)
+ * @set_color_temperature: vmethod to set color temperature (Since: 1.18)
+ * @get_color_temperature: vmethod to get color temperature (Since: 1.18)
+ * @set_min_exposure_time: vmethod to set min exposure time (Since: 1.18)
+ * @get_min_exposure_time: vmethod to get min exposure time (Since: 1.18)
+ * @set_max_exposure_time: vmethod to set max exposure time (Since: 1.18)
+ * @get_max_exposure_time: vmethod to get max exposure time (Since: 1.18)
  *
  * #GstPhotographyInterface interface.
  */
@@ -545,6 +544,19 @@ typedef struct _GstPhotographyInterface
 
   gboolean (*get_noise_reduction)    (GstPhotography * photo, GstPhotographyNoiseReduction * noise_reduction);
   gboolean (*set_noise_reduction)    (GstPhotography * photo, GstPhotographyNoiseReduction noise_reduction);
+
+  gboolean (*set_exposure_mode) (GstPhotography * photo, GstPhotographyExposureMode exposure_mode);
+  gboolean (*get_exposure_mode) (GstPhotography * photo, GstPhotographyExposureMode * exposure_mode);
+  gboolean (*set_analog_gain) (GstPhotography * photo, gfloat analog_gain);
+  gboolean (*get_analog_gain) (GstPhotography * photo, gfloat * analog_gain);
+  gboolean (*set_lens_focus) (GstPhotography * photo, gfloat lens_focus);
+  gboolean (*get_lens_focus) (GstPhotography * photo, gfloat * lens_focus);
+  gboolean (*set_color_temperature) (GstPhotography * photo, guint color_temperature);
+  gboolean (*get_color_temperature) (GstPhotography * photo, guint * color_temperature);
+  gboolean (*set_min_exposure_time) (GstPhotography * photo, guint min_exposure_time);
+  gboolean (*get_min_exposure_time) (GstPhotography * photo, guint * min_exposure_time);
+  gboolean (*set_max_exposure_time) (GstPhotography * photo, guint max_exposure_time);
+  gboolean (*get_max_exposure_time) (GstPhotography * photo, guint * max_exposure_time);
 
   /* FIXME: remove padding, not needed for interfaces */
   /*< private > */

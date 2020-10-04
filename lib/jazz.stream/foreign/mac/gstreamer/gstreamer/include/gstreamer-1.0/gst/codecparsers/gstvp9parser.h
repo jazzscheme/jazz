@@ -37,6 +37,7 @@ G_BEGIN_DECLS
 
 #define GST_VP9_FRAME_MARKER 0x02
 #define GST_VP9_SYNC_CODE 0x498342
+#define GST_VP9_SUPERFRAME_MARKER 0x06
 
 #define GST_VP9_MAX_LOOP_FILTER    63
 #define GST_VP9_MAX_PROB           255
@@ -61,6 +62,8 @@ G_BEGIN_DECLS
 
 #define GST_VP9_PREDICTION_PROBS   3
 
+#define GST_VP9_MAX_FRAMES_IN_SUPERFRAME 8
+
 typedef struct _GstVp9Parser               GstVp9Parser;
 typedef struct _GstVp9FrameHdr             GstVp9FrameHdr;
 typedef struct _GstVp9LoopFilter           GstVp9LoopFilter;
@@ -68,12 +71,13 @@ typedef struct _GstVp9QuantIndices         GstVp9QuantIndices;
 typedef struct _GstVp9Segmentation         GstVp9Segmentation;
 typedef struct _GstVp9SegmentationInfo     GstVp9SegmentationInfo;
 typedef struct _GstVp9SegmentationInfoData GstVp9SegmentationInfoData;
+typedef struct _GstVp9SuperframeInfo       GstVp9SuperframeInfo;
 
 /**
  * GstVp9ParseResult:
  * @GST_VP9_PARSER_OK: The parsing went well
  * @GST_VP9_PARSER_BROKEN_DATA: The data to parse is broken
- * @GST_VP9_PARSER_NO_PACKET_ERROR: An error occured during the parsing
+ * @GST_VP9_PARSER_NO_PACKET_ERROR: An error occurred during the parsing
  *
  * Result type of any parsing function.
  *
@@ -367,7 +371,7 @@ struct _GstVp9SegmentationInfo {
  * @refresh_frame_context: refresh frame context indicator
  * @frame_parallel_decoding_mode: enable or disable parallel decoding support.
  * @loopfilter: loopfilter values
- * @quant_indices: quantization indeces
+ * @quant_indices: quantization indices
  * @segmentation: segmentation info
  * @log2_tile_rows: tile row indicator
  * @log2_tile_columns:  tile column indicator
@@ -422,6 +426,24 @@ struct _GstVp9FrameHdr
 };
 
 /**
+ * GstVp9SuperframeInfo:
+ * @bytes_per_framesize: indicates the number of bytes needed to code each frame size
+ * @frames_in_superframe: indicates the number of frames within this superframe
+ * @frame_sizes: specifies the size in bytes of frame number i (zero indexed) within this superframe
+ * @superframe_index_size: indicates the total size of the superframe_index
+ *
+ * Superframe info
+ *
+ * Since: 1.18
+ */
+struct _GstVp9SuperframeInfo {
+  guint32 bytes_per_framesize;
+  guint32 frames_in_superframe;
+  guint32 frame_sizes[GST_VP9_MAX_FRAMES_IN_SUPERFRAME];
+  guint32 superframe_index_size;
+};
+
+/**
  * GstVp9Segmentation:
  * @filter_level: loop filter level
  * @luma_ac_quant_scale: AC quant scale for luma(Y) component
@@ -433,7 +455,7 @@ struct _GstVp9FrameHdr
  * @reference_skip:  a block skip mode that implies both the use of a (0,0)
  *   motion vector and that no residual will be coded
  *
- * Segmentation info kept across multipe frames
+ * Segmentation info kept across multiple frames
  *
  * Since: 1.8
  */
@@ -469,7 +491,7 @@ struct _GstVp9Segmentation
  */
 struct _GstVp9Parser
 {
-  /* private stuct for tracking state variables across frames */
+  /* private struct for tracking state variables across frames */
   void *priv;
 
   gint subsampling_x;
@@ -488,6 +510,9 @@ GstVp9Parser *     gst_vp9_parser_new (void);
 
 GST_CODEC_PARSERS_API
 GstVp9ParserResult gst_vp9_parser_parse_frame_header (GstVp9Parser* parser, GstVp9FrameHdr * frame_hdr, const guint8 * data, gsize size);
+
+GST_CODEC_PARSERS_API
+GstVp9ParserResult gst_vp9_parser_parse_superframe_info (GstVp9Parser* parser, GstVp9SuperframeInfo * superframe_info, const guint8 * data, gsize size);
 
 GST_CODEC_PARSERS_API
 void               gst_vp9_parser_free (GstVp9Parser * parser);

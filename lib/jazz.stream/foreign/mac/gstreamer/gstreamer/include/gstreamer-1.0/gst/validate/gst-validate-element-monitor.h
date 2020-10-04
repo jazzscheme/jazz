@@ -29,6 +29,7 @@
 
 G_BEGIN_DECLS
 
+#ifndef __GI_SCANNER__
 #define GST_TYPE_VALIDATE_ELEMENT_MONITOR			(gst_validate_element_monitor_get_type ())
 #define GST_IS_VALIDATE_ELEMENT_MONITOR(obj)		        (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_VALIDATE_ELEMENT_MONITOR))
 #define GST_IS_VALIDATE_ELEMENT_MONITOR_CLASS(klass)	        (G_TYPE_CHECK_CLASS_TYPE ((klass), GST_TYPE_VALIDATE_ELEMENT_MONITOR))
@@ -37,11 +38,13 @@ G_BEGIN_DECLS
 #define GST_VALIDATE_ELEMENT_MONITOR_CLASS(klass)		(G_TYPE_CHECK_CLASS_CAST ((klass), GST_TYPE_VALIDATE_ELEMENT_MONITOR, GstValidateElementMonitorClass))
 #define GST_VALIDATE_ELEMENT_MONITOR_CAST(obj)                ((GstValidateElementMonitor*)(obj))
 #define GST_VALIDATE_ELEMENT_MONITOR_CLASS_CAST(klass)        ((GstValidateElementMonitorClass*)(klass))
+#endif
 
 #define GST_VALIDATE_ELEMENT_MONITOR_ELEMENT_IS_DECODER(m) (GST_VALIDATE_ELEMENT_MONITOR_CAST (m)->is_decoder)
 #define GST_VALIDATE_ELEMENT_MONITOR_ELEMENT_IS_ENCODER(m) (GST_VALIDATE_ELEMENT_MONITOR_CAST (m)->is_encoder)
 #define GST_VALIDATE_ELEMENT_MONITOR_ELEMENT_IS_DEMUXER(m) (GST_VALIDATE_ELEMENT_MONITOR_CAST (m)->is_demuxer)
 #define GST_VALIDATE_ELEMENT_MONITOR_ELEMENT_IS_CONVERTER(m) (GST_VALIDATE_ELEMENT_MONITOR_CAST (m)->is_converter)
+#define GST_VALIDATE_ELEMENT_MONITOR_ELEMENT_IS_SINK(m) (GST_VALIDATE_ELEMENT_MONITOR_CAST (m)->is_sink)
 
 typedef struct _GstValidateElementMonitor GstValidateElementMonitor;
 typedef struct _GstValidateElementMonitorClass GstValidateElementMonitorClass;
@@ -64,6 +67,7 @@ struct _GstValidateElementMonitor {
   gboolean       is_encoder;
   gboolean       is_demuxer;
   gboolean       is_converter;
+  gboolean       is_sink;
 };
 
 /**

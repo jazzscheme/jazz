@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_TITLE_SOURCE
-#define _GES_TITLE_SOURCE
+#pragma once
 
 #include <glib-object.h>
 #include <ges/ges-types.h>
@@ -28,27 +27,14 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_TITLE_SOURCE ges_title_source_get_type()
-
-#define GES_TITLE_SOURCE(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_TITLE_SOURCE, GESTitleSource))
-
-#define GES_TITLE_SOURCE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_TITLE_SOURCE, GESTitleSourceClass))
-
-#define GES_IS_TITLE_SOURCE(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_TITLE_SOURCE))
-
-#define GES_IS_TITLE_SOURCE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_TITLE_SOURCE))
-
-#define GES_TITLE_SOURCE_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_TITLE_SOURCE, GESTitleSourceClass))
-
-typedef struct _GESTitleSourcePrivate GESTitleSourcePrivate;
+GES_DECLARE_TYPE(TitleSource, title_source, TITLE_SOURCE);
 
 /**
  * GESTitleSource:
  *
+ * ## Children Properties
+ *
+ *  {{ libs/GESTitleSource-children-props.md }}
  */
 struct _GESTitleSource {
   GESVideoSource parent;
@@ -72,9 +58,6 @@ struct _GESTitleSourceClass {
   /* Padding for API extension */
   gpointer _ges_reserved[GES_PADDING - 1];
 };
-
-GES_API
-GType ges_title_source_get_type (void);
 
 GES_API
 void ges_title_source_set_text (GESTitleSource *self,
@@ -123,6 +106,3 @@ GES_API
 const gdouble ges_title_source_get_ypos (GESTitleSource *source);
 
 G_END_DECLS
-
-#endif /* _GES_TITLE_SOURCE */
-

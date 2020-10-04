@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_TRACK
-#define _GES_TRACK
+#pragma once
 
 #include <glib-object.h>
 #include <gst/gst.h>
@@ -29,29 +28,23 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_TRACK            ges_track_get_type()
-#define GES_TRACK(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_TRACK, GESTrack))
-#define GES_TRACK_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_TRACK, GESTrackClass))
-#define GES_IS_TRACK(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_TRACK))
-#define GES_IS_TRACK_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_TRACK))
-#define GES_TRACK_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_TRACK, GESTrackClass))
-
-typedef struct _GESTrackPrivate GESTrackPrivate;
+GES_DECLARE_TYPE(Track, track, TRACK);
 
 /**
  * GESCreateElementForGapFunc:
- * @track: the #GESTrack
+ * @track: The #GESTrack
  *
- * A function that will be called to create the #GstElement that will be used
- * as a source to fill the gaps in @track.
+ * A function that creates a #GstElement that can be used as a source to
+ * fill the gaps of the track. A gap is a timeline region where the track
+ * has no #GESTrackElement sources.
  *
- * Returns: A #GstElement (must be a source) that will be used to
- * fill the gaps (periods of time in @track that containes no source).
+ * Returns: A source #GstElement to fill gaps in @track.
  */
 typedef GstElement* (*GESCreateElementForGapFunc) (GESTrack *track);
 
 /**
  * GESTrack:
- * @type: a #GESTrackType indicting the basic type of the track.
+ * @type: The #GESTrack:track-type of the track
  */
 struct _GESTrack
 {
@@ -90,28 +83,41 @@ const GESTimeline* ges_track_get_timeline                    (GESTrack *track);
 GES_API
 gboolean           ges_track_commit                          (GESTrack *track);
 GES_API
-void               ges_track_set_timeline                    (GESTrack *track, GESTimeline *timeline);
+void               ges_track_set_timeline                    (GESTrack *track,
+                                                              GESTimeline *timeline);
 GES_API
-gboolean           ges_track_add_element                     (GESTrack *track, GESTrackElement *object);
+gboolean           ges_track_add_element                     (GESTrack *track,
+                                                              GESTrackElement *object);
 GES_API
-gboolean           ges_track_remove_element                  (GESTrack *track, GESTrackElement *object);
+gboolean           ges_track_add_element_full                (GESTrack *track,
+                                                              GESTrackElement *object,
+                                                              GError ** error);
 GES_API
-void               ges_track_set_create_element_for_gap_func (GESTrack *track, GESCreateElementForGapFunc func);
+gboolean           ges_track_remove_element                  (GESTrack *track,
+                                                              GESTrackElement *object);
 GES_API
-void               ges_track_set_mixing                      (GESTrack *track, gboolean mixing);
+gboolean           ges_track_remove_element_full             (GESTrack *track,
+                                                              GESTrackElement *object,
+                                                              GError ** error);
+GES_API
+void               ges_track_set_create_element_for_gap_func (GESTrack *track,
+                                                              GESCreateElementForGapFunc func);
+GES_API
+void               ges_track_set_mixing                      (GESTrack *track,
+                                                              gboolean mixing);
 GES_API
 gboolean           ges_track_get_mixing                      (GESTrack *track);
 GES_API
-void               ges_track_set_restriction_caps            (GESTrack *track, const GstCaps *caps);
+void               ges_track_set_restriction_caps            (GESTrack *track,
+                                                              const GstCaps *caps);
 GES_API
-void               ges_track_update_restriction_caps         (GESTrack *track, const GstCaps *caps);
+void               ges_track_update_restriction_caps         (GESTrack *track,
+                                                              const GstCaps *caps);
+GES_API
+GstCaps *          ges_track_get_restriction_caps            (GESTrack * track);
 
-/* standard methods */
 GES_API
-GType              ges_track_get_type                        (void);
-GES_API
-GESTrack*          ges_track_new                             (GESTrackType type, GstCaps * caps);
+GESTrack*          ges_track_new                             (GESTrackType type,
+                                                              GstCaps * caps);
 
 G_END_DECLS
-
-#endif /* _GES_TRACK */

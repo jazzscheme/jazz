@@ -17,8 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_EFFECT
-#define _GES_EFFECT
+#pragma once
 
 #include <glib-object.h>
 #include <ges/ges-types.h>
@@ -26,24 +25,7 @@
 
 G_BEGIN_DECLS
 #define GES_TYPE_EFFECT ges_effect_get_type()
-
-#define GES_EFFECT(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_EFFECT, GESEffect))
-
-#define GES_EFFECT_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_EFFECT, GESEffectClass))
-
-#define GES_IS_EFFECT(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_EFFECT))
-
-#define GES_IS_EFFECT_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_EFFECT))
-
-#define GES_EFFECT_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_EFFECT, GESEffectClass))
-
-
-typedef struct _GESEffectPrivate   GESEffectPrivate;
+GES_DECLARE_TYPE(Effect, effect, EFFECT);
 
 /**
  * GESEffect:
@@ -76,9 +58,6 @@ struct _GESEffectClass
 
 };
 
-GES_API
-GType ges_effect_get_type (void);
-
 GES_API GESEffect*
 ges_effect_new (const gchar * bin_description);
 
@@ -86,4 +65,3 @@ GES_API gboolean
 ges_effect_class_register_rate_property (GESEffectClass *klass, const gchar *element_name, const gchar *property_name);
 
 G_END_DECLS
-#endif /* _GES_EFFECT */

@@ -79,8 +79,10 @@ cplib libgstriff-1.0.0.dylib
 cplib libgstrtp-1.0.0.dylib
 cplib libgsttag-1.0.0.dylib
 cplib libgstvideo-1.0.0.dylib
+cplib libgstvulkan-1.0.0.dylib
 cplib libintl.8.dylib
 cplib libjpeg.8.dylib
+cplib libMoltenVK.dylib
 cplib libogg.0.dylib
 cplib libopus.0.dylib
 cplib liborc-0.4.0.dylib
@@ -89,7 +91,7 @@ cplib libswresample.3.dylib
 cplib libvorbis.0.dylib
 cplib libvorbisenc.2.dylib
 cplib libwebrtc_audio_processing.0.dylib
-cplib libx264.148.dylib
+cplib libx264.157.dylib
 cplib libz.1.dylib
 
 

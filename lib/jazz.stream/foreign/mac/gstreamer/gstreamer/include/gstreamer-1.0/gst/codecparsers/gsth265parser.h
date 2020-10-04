@@ -43,6 +43,72 @@ G_BEGIN_DECLS
 #define GST_H265_IS_I_SLICE(slice)  ((slice)->type == GST_H265_I_SLICE)
 
 /**
+ * GST_H265_IS_NAL_TYPE_IDR:
+ * @nal_type: a #GstH265NalUnitType
+ *
+ * Check whether @nal_type is IDR or not
+ *
+ * Since: 1.18
+ */
+#define GST_H265_IS_NAL_TYPE_IDR(nal_type) \
+  ((nal_type) == GST_H265_NAL_SLICE_IDR_W_RADL || (nal_type) == GST_H265_NAL_SLICE_IDR_N_LP)
+
+/**
+ * GST_H265_IS_NAL_TYPE_IRAP:
+ * @nal_type: a #GstH265NalUnitType
+ *
+ * Check whether @nal_type is IRAP or not
+ *
+ * Since: 1.18
+ */
+#define GST_H265_IS_NAL_TYPE_IRAP(nal_type) \
+  ((nal_type) >= GST_H265_NAL_SLICE_BLA_W_LP && (nal_type) <= RESERVED_IRAP_NAL_TYPE_MAX)
+
+/**
+ * GST_H265_IS_NAL_TYPE_BLA:
+ * @nal_type: a #GstH265NalUnitType
+ *
+ * Check whether @nal_type is BLA or not
+ *
+ * Since: 1.18
+ */
+#define GST_H265_IS_NAL_TYPE_BLA(nal_type) \
+  ((nal_type) >= GST_H265_NAL_SLICE_BLA_W_LP && (nal_type) <= GST_H265_NAL_SLICE_BLA_N_LP)
+
+/**
+ * GST_H265_IS_NAL_TYPE_CRA:
+ * @nal_type: a #GstH265NalUnitType
+ *
+ * Check whether @nal_type is CRA or not
+ *
+ * Since: 1.18
+ */
+#define GST_H265_IS_NAL_TYPE_CRA(nal_type) \
+  ((nal_type) == GST_H265_NAL_SLICE_CRA_NUT)
+
+/**
+ * GST_H265_IS_NAL_TYPE_RADL:
+ * @nal_type: a #GstH265NalUnitType
+ *
+ * Check whether @nal_type is RADL or not
+ *
+ * Since: 1.18
+ */
+#define GST_H265_IS_NAL_TYPE_RADL(nal_type) \
+  ((nal_type) == GST_H265_NAL_SLICE_RADL_N || (nal_type) == GST_H265_NAL_SLICE_RADL_R)
+
+/**
+ * GST_H265_IS_NAL_TYPE_RASL:
+ * @nal_type: a #GstH265NalUnitType
+ *
+ * Check whether @nal_type is RASL or not
+ *
+ * Since: 1.18
+ */
+#define GST_H265_IS_NAL_TYPE_RASL(nal_type) \
+  ((nal_type) == GST_H265_NAL_SLICE_RASL_N || (nal_type) == GST_H265_NAL_SLICE_RASL_R)
+
+/**
  * GstH265Profile:
  * @GST_H265_PROFILE_MAIN: Main profile (A.3.2)
  * @GST_H265_PROFILE_MAIN_10: Main 10 profile (A.3.3)
@@ -67,6 +133,26 @@ G_BEGIN_DECLS
  * @GST_H265_PROFILE_MAIN_444_16_INTRA: Main Intra 4:4:4 16-bits profile (A.3.4)
  * @GST_H265_PROFILE_MAIN_444_STILL_PICTURE: Main 4:4:4 Still Picture profile (A.3.4)
  * @GST_H265_PROFILE_MAIN_444_16_STILL_PICTURE: Main 4:4:4 16-bits Still Picture profile (A.3.4)
+ * @GST_H265_PROFILE_MONOCHROME_10:  Monochrome 10-bits profile (A.3.5) (Since: 1.18)
+ * @GST_H265_PROFILE_HIGH_THROUGHPUT_444: High Throughput 4:4:4 profile (A.3.6) (Since: 1.18)
+ * @GST_H265_PROFILE_HIGH_THROUGHPUT_444_10: High Throughput 4:4:4 10-bits profile (A.3.6) (Since: 1.18)
+ * @GST_H265_PROFILE_HIGH_THROUGHPUT_444_14: High Throughput 4:4:4 14-bits profile (A.3.6) (Since: 1.18)
+ * @GST_H265_PROFILE_HIGH_THROUGHPUT_444_16_INTRA: High Throughput 4:4:4 16-bits Intra profile (A.3.6) (Since: 1.18)
+ * @GST_H265_PROFILE_SCREEN_EXTENDED_MAIN: Screen-Extended Main profile (A.3.7) (Since: 1.18)
+ * @GST_H265_PROFILE_SCREEN_EXTENDED_MAIN_10: Screen-Extended Main 10-bits profile (A.3.7) (Since: 1.18)
+ * @GST_H265_PROFILE_SCREEN_EXTENDED_MAIN_444: Screen-Extended Main 4:4:4 profile (A.3.7) (Since: 1.18)
+ * @GST_H265_PROFILE_SCREEN_EXTENDED_MAIN_444_10: Screen-Extended Main 4:4:4 10-bits profile (A.3.7) (Since: 1.18)
+ * @GST_H265_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444: Screen-Extended High Throughput 4:4:4 profile (A.3.7) (Since: 1.18)
+ * @GST_H265_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444_10: Screen-Extended High Throughput 4:4:4 10-bits profile (A.3.7) (Since: 1.18)
+ * @GST_H265_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444_14: Screen-Extended High Throughput 4:4:4 14-bits profile (A.3.7) (Since: 1.18)
+ * @GST_H265_PROFILE_MULTIVIEW_MAIN: Multiview Main profile (G.11.1) (Since: 1.18)
+ * @GST_H265_PROFILE_SCALABLE_MAIN: Scalable Main profile (H.11.1) (Since: 1.18)
+ * @GST_H265_PROFILE_SCALABLE_MAIN_10: Scalable Main 10-bits profile (H.11.1) (Since: 1.18)
+ * @GST_H265_PROFILE_SCALABLE_MONOCHROME: Scalable Monochrome profile (H.11.1) (Since: 1.18)
+ * @GST_H265_PROFILE_SCALABLE_MONOCHROME_12: Scalable Monochrome 12-bits profile (H.11.1) (Since: 1.18)
+ * @GST_H265_PROFILE_SCALABLE_MONOCHROME_16: Scalable Monochrome 16-bits profile (H.11.1) (Since: 1.18)
+ * @GST_H265_PROFILE_SCALABLE_MAIN_444: Scalable Main 4:4:4 profile (H.11.1) (Since: 1.18)
+ * @GST_H265_PROFILE_3D_MAIN: 3D Main 4:4:4 profile (I.11.1) (Since: 1.18)
  *
  * H.265 Profiles.
  *
@@ -96,6 +182,29 @@ typedef enum {
   GST_H265_PROFILE_MAIN_444_16_INTRA,
   GST_H265_PROFILE_MAIN_444_STILL_PICTURE,
   GST_H265_PROFILE_MAIN_444_16_STILL_PICTURE,
+  GST_H265_PROFILE_MONOCHROME_10,
+  GST_H265_PROFILE_HIGH_THROUGHPUT_444,
+  GST_H265_PROFILE_HIGH_THROUGHPUT_444_10,
+  GST_H265_PROFILE_HIGH_THROUGHPUT_444_14,
+  GST_H265_PROFILE_HIGH_THROUGHPUT_444_16_INTRA,
+  GST_H265_PROFILE_SCREEN_EXTENDED_MAIN,
+  GST_H265_PROFILE_SCREEN_EXTENDED_MAIN_10,
+  GST_H265_PROFILE_SCREEN_EXTENDED_MAIN_444,
+  GST_H265_PROFILE_SCREEN_EXTENDED_MAIN_444_10,
+  GST_H265_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444,
+  GST_H265_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444_10,
+  GST_H265_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444_14,
+  GST_H265_PROFILE_MULTIVIEW_MAIN,
+  GST_H265_PROFILE_SCALABLE_MAIN,
+  GST_H265_PROFILE_SCALABLE_MAIN_10,
+  GST_H265_PROFILE_SCALABLE_MONOCHROME,
+  GST_H265_PROFILE_SCALABLE_MONOCHROME_12,
+  GST_H265_PROFILE_SCALABLE_MONOCHROME_16,
+  GST_H265_PROFILE_SCALABLE_MAIN_444,
+  GST_H265_PROFILE_3D_MAIN,
+
+  /* end of the profiles */
+  GST_H265_PROFILE_MAX
 } GstH265Profile;
 
 /**
@@ -105,7 +214,12 @@ typedef enum {
  * @GST_H265_PROFILE_IDC_MAIN_STILL_PICTURE: Main Still Picture profile (A.3.4)
  * @GST_H265_PROFILE_IDC_FORMAT_RANGE_EXTENSION: Format range extensions profile (A.3.5)
  * @GST_H265_PROFILE_IDC_HIGH_THROUGHPUT: High throughput profiles (A.3.6)
+ * @GST_H265_PROFILE_IDC_MULTIVIEW_MAIN: Multiview Main profiles (G.11.1) (Since: 1.18)
+ * @GST_H265_PROFILE_IDC_SCALABLE_MAIN: Scalable Main and Scalable Main 10 profile (H.11.1) (Since: 1.18)
  * @GST_H265_PROFILE_IDC_SCREEN_CONTENT_CODING: Screen content coding extensions profiles (A.3.7)
+ * @GST_H265_PROFILE_IDC_3D_MAIN: 3D Main profile (I.11.1) (Since: 1.18)
+ * @GST_H265_PROFILE_IDC_SCALABLE_FORMAT_RANGE_EXTENSION: Scalable Format range extensions profiles (H.11.1) (Since: 1.18)
+ * @GST_H265_PROFILE_IDC_HIGH_THROUGHPUT_SCREEN_CONTENT_CODING_EXTENSION: High throughput screen content coding extensions profiles (A.3.8) (Since: 1.18)
  *
  * Valid values for the profile_idc field. This is different from
  * #GstH265Profile as an extension idc can be used to encode a whole variety of
@@ -118,7 +232,12 @@ typedef enum {
   GST_H265_PROFILE_IDC_MAIN_STILL_PICTURE     = 3,
   GST_H265_PROFILE_IDC_FORMAT_RANGE_EXTENSION = 4,
   GST_H265_PROFILE_IDC_HIGH_THROUGHPUT        = 5,
+  GST_H265_PROFILE_IDC_MULTIVIEW_MAIN         = 6,
+  GST_H265_PROFILE_IDC_SCALABLE_MAIN          = 7,
+  GST_H265_PROFILE_IDC_3D_MAIN                = 8,
   GST_H265_PROFILE_IDC_SCREEN_CONTENT_CODING  = 9,
+  GST_H265_PROFILE_IDC_SCALABLE_FORMAT_RANGE_EXTENSION = 10,
+  GST_H265_PROFILE_IDC_HIGH_THROUGHPUT_SCREEN_CONTENT_CODING_EXTENSION = 11,
 } GstH265ProfileIDC;
 
 /**
@@ -197,7 +316,7 @@ typedef enum
 
 /**
  * GstH265ParserResult:
- * @GST_H265_PARSER_OK: The parsing succeded
+ * @GST_H265_PARSER_OK: The parsing succeeded
  * @GST_H265_PARSER_BROKEN_DATA: The data to parse is broken
  * @GST_H265_PARSER_BROKEN_LINK: The link to structure needed for the parsing couldn't be found
  * @GST_H265_PARSER_ERROR: An error accured when parsing
@@ -220,8 +339,11 @@ typedef enum
  * GstH265SEIPayloadType:
  * @GST_H265_SEI_BUF_PERIOD: Buffering Period SEI Message
  * @GST_H265_SEI_PIC_TIMING: Picture Timing SEI Message
+ * @GST_H265_SEI_REGISTERED_USER_DATA: Registered user data (D.2.5)
  * @GST_H265_SEI_RECOVERY_POINT: Recovery Point SEI Message (D.3.8)
  * @GST_H265_SEI_TIME_CODE: Time code SEI message (D.2.27) (Since: 1.16)
+ * @GST_H265_SEI_MASTERING_DISPLAY_COLOUR_VOLUME: Mastering display colour volume information SEI message (D.2.28) (Since: 1.18)
+ * @GST_H265_SEI_CONTENT_LIGHT_LEVEL: Content light level information SEI message (D.2.35) (Since: 1.18)
  * ...
  *
  * The type of SEI message.
@@ -230,8 +352,11 @@ typedef enum
 {
   GST_H265_SEI_BUF_PERIOD = 0,
   GST_H265_SEI_PIC_TIMING = 1,
+  GST_H265_SEI_REGISTERED_USER_DATA = 4,
   GST_H265_SEI_RECOVERY_POINT = 6,
   GST_H265_SEI_TIME_CODE = 136,
+  GST_H265_SEI_MASTERING_DISPLAY_COLOUR_VOLUME = 137,
+  GST_H265_SEI_CONTENT_LIGHT_LEVEL = 144,
       /* and more...  */
 } GstH265SEIPayloadType;
 
@@ -308,6 +433,10 @@ typedef struct _GstH265ProfileTierLevel         GstH265ProfileTierLevel;
 typedef struct _GstH265SubLayerHRDParams        GstH265SubLayerHRDParams;
 typedef struct _GstH265HRDParams                GstH265HRDParams;
 typedef struct _GstH265VUIParams                GstH265VUIParams;
+typedef struct _GstH265SPSExtensionParams       GstH265SPSExtensionParams;
+typedef struct _GstH265SPSSccExtensionParams    GstH265SPSSccExtensionParams;
+typedef struct _GstH265PPSExtensionParams       GstH265PPSExtensionParams;
+typedef struct _GstH265PPSSccExtensionParams    GstH265PPSSccExtensionParams;
 
 typedef struct _GstH265ScalingList              GstH265ScalingList;
 typedef struct _GstH265RefPicListModification   GstH265RefPicListModification;
@@ -316,9 +445,12 @@ typedef struct _GstH265ShortTermRefPicSet       GstH265ShortTermRefPicSet;
 typedef struct _GstH265SliceHdr                 GstH265SliceHdr;
 
 typedef struct _GstH265PicTiming                GstH265PicTiming;
+typedef struct _GstH265RegisteredUserData     	GstH265RegisteredUserData;
 typedef struct _GstH265BufferingPeriod          GstH265BufferingPeriod;
 typedef struct _GstH265RecoveryPoint            GstH265RecoveryPoint;
 typedef struct _GstH265TimeCode                 GstH265TimeCode;
+typedef struct _GstH265MasteringDisplayColourVolume GstH265MasteringDisplayColourVolume;
+typedef struct _GstH265ContentLightLevel        GstH265ContentLightLevel;
 typedef struct _GstH265SEIMessage               GstH265SEIMessage;
 
 /**
@@ -361,7 +493,7 @@ struct _GstH265NalUnit
  * @progressive_source_flag: flag to indicate the type of stream
  * @interlaced_source_flag: flag to indicate the type of stream
  * @non_packed_constraint_flag: indicate the presence of frame packing
- *   arragement sei message
+ *   arrangement sei message
  * @frame_only_constraint_flag: recognize the field_seq_flag
  * @max_12bit_constraint_flag: used to define profile extensions, see Annex A
  * @max_10bit_constraint_flag: used to define profile extensions, see Annex A
@@ -530,7 +662,7 @@ struct _GstH265HRDParams
  * @temporal_id_nesting_flag: specifies whether inter prediction is
  *   additionally restricted
  * @profile_tier_level: ProfileTierLevel info
- * @sub_layer_ordering_info_present_flag: indicates the presense of
+ * @sub_layer_ordering_info_present_flag: indicates the presence of
  *   vps_max_dec_pic_buffering_minus1, vps_max_num_reorder_pics and
  *   vps_max_latency_increase_plus1
  * @max_dec_pic_buffering_minus1: specifies the maximum required size
@@ -607,6 +739,32 @@ struct _GstH265VPS {
  *  the value of the variable deltaRps.
  * @abs_delta_rps_minus1: delta_rps_sign and abs_delta_rps_minus1 together specify
  *  the value of the variable deltaRps
+ * @NumDeltaPocs: sum of @NumNegativePics and @NumPositivePics.
+ * @NumNegativePics: Derived value depending on inter_ref_pic_set_prediction_flag.
+ *  If inter_ref_pic_set_prediction_flag is equal to 0, this specifies
+ *  the number of entries in the stRpsIdx-th candidate
+ *  short-term RPS that have poc values less than the poc of the current picture.
+ * @NumPositivePics: Derived value depending on inter_ref_pic_set_prediction_flag.
+ *  If inter_ref_pic_set_prediction_flag is equal to 0, this specifies
+ *  the number of entires in the stRpsIdx-th candidate
+ *  short-term RPS that have poc values greater than the poc value of the current picture.
+ * @UsedByCurrPicS0: Derived value depending on inter_ref_pic_set_prediction_flag.
+ *  If inter_ref_pic_set_prediction_flag is equal to 0,
+ *  equal to zero specifies that the i-th entry in the stRpsIdx-th
+ *  candidate short-term RPS that has poc value less than of the current picture
+ *  is not used for reference by the current picture
+ * @UsedByCurrPicS1: Derived value depending on inter_ref_pic_set_prediction_flag.
+ *  If inter_ref_pic_set_prediction_flag is equal to 0,
+ *  equal to zero specifies that the i-th entry in the current
+ *  candidate short-term RPS that has poc value greater than that of the current picture
+ *  is not used for reference by the current picture.
+ * @DeltaPocS0: Derived value depending on inter_ref_pic_set_prediction_flag.
+ *  See 7.4.8 Short-term reference picture set semantics
+ * @DeltaPocS1: Derived value depending on inter_ref_pic_set_prediction_flag.
+ *  See 7.4.8 Short-term reference picture set semantics
+ * @NumDeltaPocsOfRefRpsIdx: The value of NumDeltaPocs[RefRpsIdx].
+ *  If inter_ref_pic_set_prediction_flag is equal to 0,
+ *  this value should be ignored (Since: 1.18)
  *
  * Defines the #GstH265ShortTermRefPicSet params
  */
@@ -625,6 +783,7 @@ struct _GstH265ShortTermRefPicSet
   guint8 UsedByCurrPicS1[16];
   gint32 DeltaPocS0[16];
   gint32 DeltaPocS1[16];
+  guint8 NumDeltaPocsOfRefRpsIdx;
 };
 
 /**
@@ -756,6 +915,159 @@ struct _GstH265VUIParams
 };
 
 /**
+ * GstH265SPSExtensionParams:
+ * @transform_skip_rotation_enabled_flag: %TRUE specifies that a rotation is applied to
+ *   the residual data block from intra 4X4 blocks coded using a transform skip operation.
+ * @transform_skip_context_enabled_flag: %TRUE specifies tspecifies that a particular
+ *   context is used for the parsing of the sig_coeff_flag for transform blocks with a skipped
+ *   transform.
+ * @implicit_residual_dpcm_enabled_flag: %TRUE specifies that  the residual modification process
+ *   for blocks using a transform bypass may be used for intra blocks in the CVS
+ * @explicit_residual_dpcm_enabled_flag: %TRUE specifies that the residual modification process
+ *   for blocks using a transform bypass may be used for inter blocks in the CVS
+ * @extended_precision_processing_flag: %TRUE specifies that an extended dynamic range is used
+ *   for coefficient parsing and inverse transform processing
+ * @intra_smoothing_disabled_flag: %TRUE specifies that  the filtering process of neighbouring
+ *   samples is unconditionally disabled for intra prediction
+ * @high_precision_offsets_enabled_flag: %TRUE specifies that weighted prediction offset values
+ *   are signalled using a bit-depth-dependent precision.
+ * @persistent_rice_adaptation_enabled_flag: %TRUE specifies that the Rice parameter derivation
+ *   for the binarization of coeff_abs_level_remaining[] is initialized at the start of each
+ *   sub-block using mode dependent statistics accumulated from previous sub-blocks.
+ * @cabac_bypass_alignment_enabled_flag: %TRUE specifies that a context-based adaptive binary
+ *   arithmetic coding (CABAC) alignment process is used prior to bypass decoding of the syntax
+ *   elements coeff_sign_flag[] and coeff_abs_level_remaining[]
+ *
+ * Defines the GstH265SPSExtensionParams
+ */
+struct _GstH265SPSExtensionParams {
+  guint8 transform_skip_rotation_enabled_flag;
+  guint8 transform_skip_context_enabled_flag;
+  guint8 implicit_rdpcm_enabled_flag;
+  guint8 explicit_rdpcm_enabled_flag;
+  guint8 extended_precision_processing_flag;
+  guint8 intra_smoothing_disabled_flag;
+  guint8 high_precision_offsets_enabled_flag;
+  guint8 persistent_rice_adaptation_enabled_flag;
+  guint8 cabac_bypass_alignment_enabled_flag;
+};
+
+/**
+ * GstH265SPSSccExtensionParams:
+ * @sps_curr_pic_ref_enabled_flag: equal to 1 specifies that a picture in the CVS may be
+ *   included in a reference picture list of a slice of the picture itself.
+ * @palette_mode_enabled_flag: equal to 1 specifies that the decoding process for palette mode
+ *   may be used for intra blocks. Equal to 0 specifies that the decoding process for palette
+ *   mode is not applied.
+ * @palette_max_size: specifies the maximum allowed palette size.
+ * @delta_palette_max_predictor_size: specifies the difference between the maximum allowed
+ *   palette predictor size and the maximum allowed palette size.
+ * @sps_palette_predictor_initializers_present_flag: equal to 1 specifies that the sequence
+ *   palette predictors are initialized using the sps_palette_predictor_initializer specified
+ *   in clause 7.3.2.2.3.
+ * @sps_num_palette_predictor_initializer_minus1: plus 1 specifies the number of entries in
+ *   the sequence palette predictor initializer.
+ * @sps_palette_predictor_initializer: specifies the value of the comp-th component of the
+ *   i-th palette entry in the SPS that is used to initialize the array PredictorPaletteEntries.
+ * @motion_vector_resolution_control_idc: controls the presence and inference of the
+ *   use_integer_mv_flag that specifies the resolution of motion vectors for inter prediction.
+ * @intra_boundary_filtering_disabled_flag: equal to 1 specifies that the intra boundary
+ *   filtering process is unconditionally disabled for intra prediction.
+ * Defines the _GstH265SPSSccExtensionParams
+ *
+ * Since: 1.18
+ */
+struct _GstH265SPSSccExtensionParams {
+  guint8 sps_curr_pic_ref_enabled_flag;
+  guint8 palette_mode_enabled_flag;
+  guint8 palette_max_size;
+  guint8 delta_palette_max_predictor_size;
+  guint8 sps_palette_predictor_initializers_present_flag;
+  guint8 sps_num_palette_predictor_initializer_minus1;
+  guint32 sps_palette_predictor_initializer[3][128];
+  guint8 motion_vector_resolution_control_idc;
+  guint8 intra_boundary_filtering_disabled_flag;
+};
+
+/**
+ * GstH265PPSExtensionParams:
+ * @log2_max_transform_skip_block_size_minus2: plus 2 specifies the maximum transform block size for which
+ *   transform_skip_flag may be present in coded pictures referring to the PPS.
+ * @cross_component_prediction_enabled_flag: equal to 1 specifies that log2_res_scale_abs_plus1 and
+ *   res_scale_sign_flag may be present in the transform unit syntax for pictures referring to the PPS.
+ * @chroma_qp_offset_list_enabled_flag: equal to 1 specifies that the cu_chroma_qp_offset_flag may be
+ *   present in the transform unit syntax.
+ * @diff_cu_chroma_qp_offset_depth: specifies the difference between the luma coding tree block size and
+ *   the minimum luma coding block size of coding units that convey cu_chroma_qp_offset_flag.
+ * @chroma_qp_offset_list_len_minus1: plus 1 specifies the number of cb_qp_offset_list[] and
+ *   cr_qp_offset_list[] syntax elements that are present in the PPS.
+ * @cb_qp_offset_list: specify offsets used in the derivation of qp cb.
+ * @cr_qp_offset_list: specify offsets used in the derivation of qp cr.
+ * @log2_sao_offset_scale_luma: the base 2 logarithm of the scaling parameter that is used to scale sample
+ *   adaptive offset (SAO) offset values for luma samples.
+ * @log2_sao_offset_scale_chroma: the base 2 logarithm of the scaling parameter that is used to scale SAO
+ *   offset values for chroma samples.
+ *
+ * Defines the GstH265SPSExtensionParams
+ */
+struct _GstH265PPSExtensionParams {
+  guint32 log2_max_transform_skip_block_size_minus2;
+  guint8 cross_component_prediction_enabled_flag;
+  guint8 chroma_qp_offset_list_enabled_flag;
+  guint8 diff_cu_chroma_qp_offset_depth;
+  guint8 chroma_qp_offset_list_len_minus1;
+  gint8 cb_qp_offset_list[6];
+  gint8 cr_qp_offset_list[6];
+  guint8 log2_sao_offset_scale_luma;
+  guint8 log2_sao_offset_scale_chroma;
+};
+
+/**
+ * GstH265PPSSccExtensionParams:
+ * @pps_curr_pic_ref_enabled_flag: equal to 1 specifies that a picture referring to the PPS may
+ *   be included in a reference picture list of a slice of the picture itself.
+ * @residual_adaptive_colour_transform_enabled_flag: equal to 1 specifies that an adaptive
+ *   colour transform may be applied to the residual in the decoding process.
+ * @pps_slice_act_qp_offsets_present_flag: equal to 1 specifies that slice_act_y_qp_offset,
+ *   slice_act_cb_qp_offset, slice_act_cr_qp_offset are present in the slice header.
+ * @pps_act_y_qp_offset_plus5 @pps_act_cb_qp_offset_plus5 @pps_act_cr_qp_offset_plus3:
+ *   are used to determine the offsets that are applied to the quantization parameter values
+ *   qp derived in clause 8.6.2 for the luma, Cb and Cr components, respectively, when
+ *   tu_residual_act_flag[ xTbY ][ yTbY ] is equal to 1.
+ * @pps_palette_predictor_initializers_present_flag: equal to 1 specifies that the palette
+ *   predictor initializers used for the pictures referring to the PPS are derived based on
+ *   the palette predictor initializers specified by the PPS.
+ * @pps_num_palette_predictor_initializer: specifies the number of entries in the picture
+ *   palette predictor initializer.
+ * @monochrome_palette_flag: equal to 1 specifies that the pictures that refer to this PPS
+ *   are monochrome. Equal to 0 specifies that the pictures that refer to this PPS have
+ *   multiple components.
+ * @luma_bit_depth_entry_minus8: plus 8 specifies the bit depth of the luma component of the
+ *   entries of the palette predictor initializer.
+ * @chroma_bit_depth_entry_minus8: plus 8 specifies the bit depth of the chroma components of
+ *   the entries of the palette predictor initializer.
+ * @pps_palette_predictor_initializer: specifies the value of the comp-th component of the
+ *   i-th palette entry in the PPS that is used to initialize the array PredictorPaletteEntries.
+ * Defines the _GstH265PPSSccExtensionParams
+ *
+ * Since: 1.18
+ */
+struct _GstH265PPSSccExtensionParams {
+  guint8 pps_curr_pic_ref_enabled_flag;
+  guint8 residual_adaptive_colour_transform_enabled_flag;
+  guint8 pps_slice_act_qp_offsets_present_flag;
+  guint8 pps_act_y_qp_offset_plus5;
+  guint8 pps_act_cb_qp_offset_plus5;
+  guint8 pps_act_cr_qp_offset_plus3;
+  guint8 pps_palette_predictor_initializers_present_flag;
+  guint8 pps_num_palette_predictor_initializer;
+  guint8 monochrome_palette_flag;
+  guint8 luma_bit_depth_entry_minus8;
+  guint32 chroma_bit_depth_entry_minus8;
+  guint32 pps_palette_predictor_initializer[3][128];
+};
+
+/**
  * GstH265ScalingList:
  * @scaling_list_dc_coef_minus8_16x16: this plus 8 specifies the DC
  *   Coefficient values for 16x16 scaling list
@@ -859,6 +1171,18 @@ struct _GstH265SPS
 
   guint8 sps_extension_flag;
 
+  /* if sps_extension_present_flag */
+  guint8 sps_range_extension_flag;
+  guint8 sps_multilayer_extension_flag;
+  guint8 sps_3d_extension_flag;
+  guint8 sps_scc_extension_flag;
+  guint8 sps_extension_4bits;
+
+  /* if sps_range_extension_flag */
+  GstH265SPSExtensionParams sps_extnsion_params;
+  /* if sps_scc_extension_flag */
+  GstH265SPSSccExtensionParams sps_scc_extension_params;
+
   /* calculated values */
   guint8 chroma_array_type;
   gint width, height;
@@ -905,8 +1229,8 @@ struct _GstH265PPS
   guint8 num_tile_columns_minus1;
   guint8 num_tile_rows_minus1;
   guint8 uniform_spacing_flag;
-  guint32 column_width_minus1[19];
-  guint32 row_height_minus1[21];
+  guint32 column_width_minus1[20];
+  guint32 row_height_minus1[22];
   guint8 loop_filter_across_tiles_enabled_flag;
 
   guint8 loop_filter_across_slices_enabled_flag;
@@ -925,6 +1249,18 @@ struct _GstH265PPS
   guint8 slice_segment_header_extension_present_flag;
 
   guint8 pps_extension_flag;
+
+  /* if pps_extension_flag*/
+  guint8 pps_range_extension_flag;
+  guint8 pps_multilayer_extension_flag;
+  guint8 pps_3d_extension_flag;
+  guint8 pps_scc_extension_flag;
+  guint8 pps_extension_4bits;
+
+  /* if pps_range_extension_flag*/
+  GstH265PPSExtensionParams pps_extension_params;
+  /* if pps_scc_extension_flag*/
+  GstH265PPSSccExtensionParams pps_scc_extension_params;
 
   /* calculated values */
   guint32 PicWidthInCtbsY;
@@ -960,6 +1296,95 @@ struct _GstH265PredWeightTable
   gint16 delta_chroma_offset_l1[15][2];
 };
 
+/**
+ * GstH265SliceHdr:
+ * @first_slice_segment_in_pic_flag: equal to 1 if this slice segment is
+ *   the first slice segment of the picture in decoding order
+ * @no_output_of_prior_pics_flag: affects the output of previously-decoded pictures
+ *   in the decoded picture buffer after the decoding of an IDR or a BLA picture
+ *   that is not the first picture in the bitstream as specified in Annex C
+ * @pps: a #GstH265PPS
+ * @dependent_slice_segment_flag: equal to 1 if the value of each slice segment header
+ *   syntax element that is not present is inferred to be equal to the value of corresponding
+ *   slice segment header syntax element in the slice header.
+ * @segment_address: the address of the first CTB in the slice segment
+ * @type: slice type (B, P, or I)
+ * @pic_output_flag: affects the decoded picture output and removal processes
+ *   as specified in Annex C.
+ * @colour_plane_id: specifies the colour plane associated with the current slice RBSP
+ *   when separate_colour_plane_flag is equal to 1
+ * @pic_order_cnt_lsb: the picture order count modulo MaxPicOrderCntLsb for the current picture
+ * @short_term_ref_pic_set_sps_flag: equal to 1 specifies that the short-term RPS
+ *   of the current picture is derived based on the active SPS.
+ * @short_term_ref_pic_sets: a #GstH265ShortTermRefPicSet structure
+ * @short_term_ref_pic_set_idx: the index of st_ref_pic_set syntax structure
+ *   that is used for derivation of the short-term RPS of the current picture.
+ * @num_long_term_sps: the number of entries in the long-term RPS of current picture
+ *   that are derived based on the syntax in active SPS.
+ * @num_long_term_pics: the number of entries in the long-term RPS of the current picture
+ *   that are directly signalled in the slice header.
+ * @lt_idx_sps: the index of candidate long-term reference pictures
+ *   specified in the active SPS.
+ * @poc_lsb_lt: the value of the picture order count modulo MaxPicOrderCntLsb
+ *   of the each entry in the long-term RPS of the current picture.
+ * @used_by_curr_pic_lt_flag: equal to 0 if the entry in the long-term RPS
+ *   of the current picture is not used for reference by the current picture.
+ * @delta_poc_msb_present_flag: equal to 1 if i-th delta_poc_msb_cycle_lt[] is present.
+ * @delta_poc_msb_cycle_lt: used to determine the value of the most significant bits
+ *   of the picture order count value of the i-th entry in the long-term RPS of the current picture.
+ * @temporal_mvp_enabled_flag: whether temporal motion vector predictors can be used for inter prediction.
+ * @sao_luma_flag: equal to 1 if SAO is enabled for the luma component in the current slice.
+ * @sao_chroma_flag: equal to 1 if SAO is enabled for the chroma component in the current slice.
+ * @num_ref_idx_active_override_flag: equal to 1 specifies that the syntax elements
+ *   num_ref_idx_l0_active_minus1 and num_ref_idx_l1_active_minus1 are present.
+ * @num_ref_idx_l0_active_minus1: the maximum reference index for reference picture list 0
+ *   that may be used to decode the slice.
+ * @num_ref_idx_l1_active_minus1: the maximum reference index for reference picture list 1
+ *   that may be used to decode the slice.
+ * @ref_pic_list_modification: a #GstH265RefPicListModification
+ * @mvd_l1_zero_flag: equal to 1 if the mvd_coding sytanx structure is not parsed
+ * @cabac_init_flag: specifies the method for determining the initialization table
+ *   used in the initialization process for context variables.
+ * @collocated_from_l0_flag: equal to 1 specifies that the collocated picture
+ *   used for temporal motion vector prediction is derived from reference picture list 0.
+ * @collocated_ref_idx: the reference index of the collocated picture
+ *   used for temporal motion vector prediction.
+ * @pred_weight_table: a #GstH265PredWeightTable
+ * @five_minus_max_num_merge_cand: specifies the maximum number of merging motion vector prediction (MVP)
+ *   candidates supported in the slice.
+ * @use_integer_mv_flag: equal to 1 specifies that the resolution of motion vectors for inter
+ *   prediction in the current slice is integer. (Since: 1.18)
+ * @qp_delta: specifies the inital value of QPy to be used for the coding blocks in the slice.
+ * @cb_qp_offset: a difference to be added to the value of pps_cb_qp_offset.
+ * @cr_qp_offset: a difference to be added to the value of pps_cr_qp_offset.
+ * @slice_act_y_qp_offset: specify offsets to the quantization parameter values qP derived in
+ *   clause 8.6.2 for luma components. (Since: 1.18)
+ * @slice_act_cb_qp_offset: specify offsets to the quantization parameter values qP derived in
+ *   clause 8.6.2 for Cb components. (Since: 1.18)
+ * @slice_act_cr_qp_offset: specify offsets to the quantization parameter values qP derived in
+ *   clause 8.6.2 for Cr components. (Since: 1.18)
+ * @cu_chroma_qp_offset_enabled_flag: equal to 1 if the cu_chroma_qp_offset_flag
+ *   may be present in the transform unit syntax. (Since: 1.18)
+ * @deblocking_filter_override_flag: equal to 1 if deblocking paramertes are present in the slice header.
+ * @deblocking_filter_disabled_flag: equal to 1 specifies that the operation of
+ *   the deblocking filter is not applied for the current slice.
+ * @beta_offset_div2: deblocking parameter offset for beta divided by 2 for the current slice.
+ * @tc_offset_div2: deblocking parameter offset for tC divided by 2 for the current slice.
+ * @loop_filter_across_slices_enabled_flag: equal to 1 specifies that in-loop filtering
+ *   operation may be performed across the left and upper boundaries of the current slice.
+ * @num_entry_point_offsets: specifies the number of entry_point_offset_minus1 syntax elements
+ *   in the slice header.
+ * @offset_len_minus1: specifies the length of the entry_point_minus1 syntax elements
+ *   in bits.
+ * @entry_point_offset_minus1: the entry point offset in bytes.
+ * @NumPocTotalCurr: calculated NumPocTotalCurr which is used for
+ *   decoding process for reference picture set
+ * @header_size: the calculated size of the slice_header\() in bits.
+ * @n_emulation_prevention_bytes: number of emulation prevention bytes (EPB)
+ *   in this slice_header\()
+ * @short_term_ref_pic_set_size: the calculated size of short_term_ref_pic_set\()
+ *   in bits. (Since: 1.18)
+ */
 struct _GstH265SliceHdr
 {
   guint8 first_slice_segment_in_pic_flag;
@@ -1005,10 +1430,16 @@ struct _GstH265SliceHdr
   GstH265PredWeightTable pred_weight_table;
 
   guint8 five_minus_max_num_merge_cand;
+  guint8 use_integer_mv_flag;
 
   gint8 qp_delta;
   gint8 cb_qp_offset;
   gint8 cr_qp_offset;
+  gint8 slice_act_y_qp_offset;
+  gint8 slice_act_cb_qp_offset;
+  gint8 slice_act_cr_qp_offset;
+
+  guint8 cu_chroma_qp_offset_enabled_flag;
 
   guint8 deblocking_filter_override_flag;
   guint8 deblocking_filter_disabled_flag;
@@ -1028,6 +1459,9 @@ struct _GstH265SliceHdr
   guint header_size;
   /* Number of emulation prevention bytes (EPB) in this slice_header() */
   guint n_emulation_prevention_bytes;
+
+  /* Size of short_term_ref_pic_set() in bits */
+  guint short_term_ref_pic_set_size;
 };
 
 struct _GstH265PicTiming
@@ -1077,6 +1511,27 @@ struct _GstH265RecoveryPoint
 };
 
 /**
+ * GstH265RegisteredUserData:
+ * The User data registered by Rec. ITU-T T.35 SEI message.
+ * @country_code: an itu_t_t35_country_code.
+ * @country_code_extension: an itu_t_t35_country_code_extension_byte.
+ *   Should be ignored when @country_code is not 0xff
+ * @data: the data of itu_t_t35_payload_byte
+ *   excluding @country_code and @country_code_extension
+ * @size: the size of @data in bytes
+ *
+ * Since: 1.18
+ */
+struct _GstH265RegisteredUserData
+{
+  guint8 country_code;
+  guint8 country_code_extension;
+  const guint8 *data;
+  guint size;
+};
+
+
+/**
  * GstH265TimeCode:
  * The time code SEI message provides time code information similar to that
  * defined by SMPTE ST 12-1 (2014) for field(s) or frame(s) of the current
@@ -1106,6 +1561,40 @@ struct _GstH265TimeCode
   guint32 time_offset_value[3];
 };
 
+/**
+ * GstH265MasteringDisplayColourVolume:
+ * The colour volume (primaries, white point and luminance range) of display
+ * defined by SMPTE ST 2086.
+ *
+ * D.2.28
+ *
+ * Since: 1.18
+ */
+struct _GstH265MasteringDisplayColourVolume
+{
+  guint16 display_primaries_x[3];
+  guint16 display_primaries_y[3];
+  guint16 white_point_x;
+  guint16 white_point_y;
+  guint32 max_display_mastering_luminance;
+  guint32 min_display_mastering_luminance;
+};
+
+/**
+ * GstH265ContentLightLevel:
+ * The upper bounds for the nominal target brightness light level
+ * as specified in CEA-861.3
+ *
+ * D.2.35
+ *
+ * Since: 1.18
+ */
+struct _GstH265ContentLightLevel
+{
+  guint16 max_content_light_level;
+  guint16 max_pic_average_light_level;
+};
+
 struct _GstH265SEIMessage
 {
   GstH265SEIPayloadType payloadType;
@@ -1113,8 +1602,11 @@ struct _GstH265SEIMessage
   union {
     GstH265BufferingPeriod buffering_period;
     GstH265PicTiming pic_timing;
+    GstH265RegisteredUserData registered_user_data;
     GstH265RecoveryPoint recovery_point;
     GstH265TimeCode time_code;
+    GstH265MasteringDisplayColourVolume mastering_display_colour_volume;
+    GstH265ContentLightLevel content_light_level;
     /* ... could implement more */
   } payload;
 };
@@ -1189,6 +1681,18 @@ GST_CODEC_PARSERS_API
 GstH265ParserResult gst_h265_parser_parse_sei       (GstH265Parser   * parser,
                                                      GstH265NalUnit  * nalu,
                                                      GArray **messages);
+
+GST_CODEC_PARSERS_API
+GstH265ParserResult gst_h265_parser_update_vps      (GstH265Parser   * parser,
+                                                     GstH265VPS      * vps);
+
+GST_CODEC_PARSERS_API
+GstH265ParserResult gst_h265_parser_update_sps      (GstH265Parser   * parser,
+                                                     GstH265SPS      * sps);
+
+GST_CODEC_PARSERS_API
+GstH265ParserResult gst_h265_parser_update_pps      (GstH265Parser   * parser,
+                                                     GstH265PPS      * pps);
 
 GST_CODEC_PARSERS_API
 void                gst_h265_parser_free            (GstH265Parser  * parser);
@@ -1274,6 +1778,35 @@ void    gst_h265_quant_matrix_8x8_get_raster_from_uprightdiagonal (guint8 out_qu
 
 GST_CODEC_PARSERS_API
 GstH265Profile gst_h265_profile_tier_level_get_profile (GstH265ProfileTierLevel * ptl);
+
+GST_CODEC_PARSERS_API
+const gchar * gst_h265_profile_to_string (GstH265Profile profile);
+
+GST_CODEC_PARSERS_API
+GstH265Profile gst_h265_profile_from_string (const gchar * string);
+
+GST_CODEC_PARSERS_API
+GstMemory * gst_h265_create_sei_memory (guint8 layer_id,
+                                        guint8 temporal_id_plus1,
+                                        guint8 start_code_prefix_length,
+                                        GArray * messages);
+
+GST_CODEC_PARSERS_API
+GstMemory * gst_h265_create_sei_memory_hevc (guint8 layer_id,
+                                             guint8 temporal_id_plus1,
+                                             guint8 nal_length_size,
+                                             GArray * messages);
+
+GST_CODEC_PARSERS_API
+GstBuffer * gst_h265_parser_insert_sei (GstH265Parser * parser,
+                                        GstBuffer * au,
+                                        GstMemory * sei);
+
+GST_CODEC_PARSERS_API
+GstBuffer * gst_h265_parser_insert_sei_hevc (GstH265Parser * parser,
+                                             guint8 nal_length_size,
+                                             GstBuffer * au,
+                                             GstMemory * sei);
 
 G_END_DECLS
 #endif

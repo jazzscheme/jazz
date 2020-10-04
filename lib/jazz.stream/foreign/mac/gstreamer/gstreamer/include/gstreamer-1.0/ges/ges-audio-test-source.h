@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_AUDIO_TEST_SOURCE
-#define _GES_AUDIO_TEST_SOURCE
+#pragma once
 
 #include <glib-object.h>
 #include <ges/ges-types.h>
@@ -28,28 +27,14 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_AUDIO_TEST_SOURCE ges_audio_test_source_get_type()
-
-#define GES_AUDIO_TEST_SOURCE(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_AUDIO_TEST_SOURCE, GESAudioTestSource))
-
-#define GES_AUDIO_TEST_SOURCE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_AUDIO_TEST_SOURCE, GESAudioTestSourceClass))
-
-#define GES_IS_AUDIO_TEST_SOURCE(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_AUDIO_TEST_SOURCE))
-
-#define GES_IS_AUDIO_TEST_SOURCE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_AUDIO_TEST_SOURCE))
-
-#define GES_AUDIO_TEST_SOURCE_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_AUDIO_TEST_SOURCE, GESAudioTestSourceClass))
-
-typedef struct _GESAudioTestSourcePrivate GESAudioTestSourcePrivate;
-
+GES_DECLARE_TYPE(AudioTestSource, audio_test_source, AUDIO_TEST_SOURCE);
 
 /**
  * GESAudioTestSource:
  *
+ * ### Children Properties
+ *
+ *  {{ libs/GESAudioTestSource-children-props.md }}
  */
 
 struct _GESAudioTestSource {
@@ -71,10 +56,6 @@ struct _GESAudioTestSourceClass {
 };
 
 GES_API
-GType ges_audio_test_source_get_type (void);
-
-
-GES_API
 void ges_audio_test_source_set_freq(GESAudioTestSource *self,
                                           gdouble freq);
 
@@ -87,6 +68,3 @@ double ges_audio_test_source_get_freq(GESAudioTestSource *self);
 GES_API
 double ges_audio_test_source_get_volume(GESAudioTestSource *self);
 G_END_DECLS
-
-#endif /* _GES_AUDIO_TEST_SOURCE */
-

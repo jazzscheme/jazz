@@ -18,19 +18,59 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __GES_TYPES_H__
-#define __GES_TYPES_H__
+/**
+ * SECTION:gestypes
+ * @title: GES Types
+ * @short_description: GStreamer Editing Services data types
+ *
+ * GStreamer Editing Services data types
+ */
+
+#pragma once
 
 #include <glib.h>
 #include <ges/ges-prelude.h>
 
 G_BEGIN_DECLS
 
-/* Padding */
+/**
+ * GES_PADDING: (attributes doc.skip=true)
+ */
 #define GES_PADDING         4
 
-/* padding for very extensible base classes */
+/**
+ * GES_PADDING_LARGE: (attributes doc.skip=true)
+ */
 #define GES_PADDING_LARGE   20
+
+/**
+ * GESFrameNumber:
+ *
+ * A datatype to hold a frame number.
+ *
+ * Since: 1.18
+ */
+typedef gint64 GESFrameNumber;
+
+/**
+ * GES_FRAME_NUMBER_NONE: (value 9223372036854775807) (type GESFrameNumber)
+ *
+ * Constant to define an undefined frame number
+ */
+#define GES_FRAME_NUMBER_NONE             ((gint64) 9223372036854775807)
+
+/**
+ * GES_FRAME_NUMBER_IS_VALID:
+ * Tests if a given GESFrameNumber represents a valid frame
+ */
+#define GES_FRAME_NUMBER_IS_VALID(frames) (((GESFrameNumber) frames) != GES_FRAME_NUMBER_NONE)
+
+/**
+ * GES_TYPE_FRAME_NUMBER:
+ *
+ * The #GType of a #GESFrameNumber.
+ */
+#define GES_TYPE_FRAME_NUMBER G_TYPE_UINT64
 
 /* Type definitions */
 
@@ -184,6 +224,44 @@ typedef struct _GESVideoTrack GESVideoTrack;
 typedef struct _GESAudioTrackClass GESAudioTrackClass;
 typedef struct _GESAudioTrack GESAudioTrack;
 
-G_END_DECLS
+typedef struct _GESMarkerList GESMarkerList;
+typedef struct _GESMarker GESMarker;
 
-#endif /* __GES_TYPES_H__ */
+typedef struct _GESEffectAssetClass GESEffectAssetClass;
+typedef struct _GESEffectAsset GESEffectAsset;
+
+typedef struct _GESXmlFormatterClass GESXmlFormatterClass;
+typedef struct _GESXmlFormatter GESXmlFormatter;
+
+/**
+ * GES_DECLARE_TYPE: (attributes doc.skip=true)
+ */
+#define GES_DECLARE_TYPE(ObjName, obj_name, OBJ_NAME)    \
+  GES_API GType ges_##obj_name##_get_type(void);                               \
+  G_GNUC_BEGIN_IGNORE_DEPRECATIONS                                             \
+  typedef struct _GES##ObjName##Private GES##ObjName##Private;                 \
+                                                                               \
+  G_DEFINE_AUTOPTR_CLEANUP_FUNC(GES##ObjName, gst_object_unref)                \
+                                                                               \
+  static G_GNUC_UNUSED inline GES##ObjName *GES_##OBJ_NAME(gpointer ptr) {                   \
+    return G_TYPE_CHECK_INSTANCE_CAST(ptr, ges_##obj_name##_get_type(),        \
+                                      GES##ObjName);                           \
+  }                                                                            \
+  static G_GNUC_UNUSED inline GES##ObjName##Class *GES_##OBJ_NAME##_CLASS(gpointer ptr) {    \
+    return G_TYPE_CHECK_CLASS_CAST(ptr, ges_##obj_name##_get_type(),           \
+                                   GES##ObjName##Class);                       \
+  }                                                                            \
+  static G_GNUC_UNUSED inline gboolean GES_IS_##OBJ_NAME(gpointer ptr) {                     \
+    return G_TYPE_CHECK_INSTANCE_TYPE(ptr, ges_##obj_name##_get_type());       \
+  }                                                                            \
+  static G_GNUC_UNUSED inline gboolean GES_IS_##OBJ_NAME##_CLASS(gpointer ptr) {             \
+    return G_TYPE_CHECK_CLASS_TYPE(ptr, ges_##obj_name##_get_type());          \
+  }                                                                            \
+  static G_GNUC_UNUSED inline GES##ObjName##Class *GES_##OBJ_NAME##_GET_CLASS(               \
+      gpointer ptr) {                                                          \
+    return G_TYPE_INSTANCE_GET_CLASS(ptr, ges_##obj_name##_get_type(),         \
+                                     GES##ObjName##Class);                     \
+  }                                                                            \
+  G_GNUC_END_IGNORE_DEPRECATIONS
+
+G_END_DECLS

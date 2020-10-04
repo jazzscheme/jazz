@@ -14,6 +14,12 @@ GST_VIDEO_API
 GType gst_color_balance_type_get_type (void);
 #define GST_TYPE_COLOR_BALANCE_TYPE (gst_color_balance_type_get_type())
 
+/* enumerations from "gstvideotimecode.h" */
+
+GST_VIDEO_API
+GType gst_video_time_code_flags_get_type (void);
+#define GST_TYPE_VIDEO_TIME_CODE_FLAGS (gst_video_time_code_flags_get_type())
+
 /* enumerations from "navigation.h" */
 
 GST_VIDEO_API
@@ -41,6 +47,14 @@ GType gst_video_ancillary_did_get_type (void);
 GST_VIDEO_API
 GType gst_video_ancillary_di_d16_get_type (void);
 #define GST_TYPE_VIDEO_ANCILLARY_DI_D16 (gst_video_ancillary_di_d16_get_type())
+
+GST_VIDEO_API
+GType gst_video_afd_value_get_type (void);
+#define GST_TYPE_VIDEO_AFD_VALUE (gst_video_afd_value_get_type())
+
+GST_VIDEO_API
+GType gst_video_afd_spec_get_type (void);
+#define GST_TYPE_VIDEO_AFD_SPEC (gst_video_afd_spec_get_type())
 
 GST_VIDEO_API
 GType gst_video_caption_type_get_type (void);

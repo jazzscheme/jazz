@@ -1,6 +1,8 @@
 /* GStreamer Editing Services
  * Copyright (C) 2009 Brandon Lewis <brandon.lewis@collabora.co.uk>
  *               2009 Nokia Corporation
+ * Copyright (C) 2020 Igalia S.L
+ *     Author: 2020 Thibault Saunier <tsaunier@igalia.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -18,8 +20,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_TL_TESTSOURCE
-#define _GES_TL_TESTSOURCE
+#pragma once
+
 
 #include <glib-object.h>
 #include <ges/ges-enums.h>
@@ -30,23 +32,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_TEST_CLIP ges_test_clip_get_type()
-
-#define GES_TEST_CLIP(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_TEST_CLIP, GESTestClip))
-
-#define GES_TEST_CLIP_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_TEST_CLIP, GESTestClipClass))
-
-#define GES_IS_TEST_CLIP(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_TEST_CLIP))
-
-#define GES_IS_TEST_CLIP_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_TEST_CLIP))
-
-#define GES_TEST_CLIP_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_TEST_CLIP, GESTestClipClass))
-
-typedef struct _GESTestClipPrivate GESTestClipPrivate;
+GES_DECLARE_TYPE(TestClip, test_clip, TEST_CLIP);
 
 /**
  * GESTestClip:
@@ -74,9 +60,6 @@ struct _GESTestClipClass {
   /* Padding for API extension */
   gpointer _ges_reserved[GES_PADDING];
 };
-
-GES_API
-GType ges_test_clip_get_type (void);
 
 GES_API void
 ges_test_clip_set_mute (GESTestClip * self, gboolean mute);
@@ -109,6 +92,3 @@ GES_API
 GESTestClip* ges_test_clip_new_for_nick(gchar * nick);
 
 G_END_DECLS
-
-#endif /* _GES_TL_TESTSOURCE */
-

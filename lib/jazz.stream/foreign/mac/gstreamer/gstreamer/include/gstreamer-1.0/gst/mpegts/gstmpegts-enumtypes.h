@@ -108,6 +108,14 @@ GST_MPEGTS_API
 GType gst_mpegts_section_scte_table_id_get_type (void);
 #define GST_TYPE_MPEGTS_SECTION_SCTE_TABLE_ID (gst_mpegts_section_scte_table_id_get_type())
 
+GST_MPEGTS_API
+GType gst_mpegts_scte_splice_descriptor_get_type (void);
+#define GST_TYPE_MPEGTS_SCTE_SPLICE_DESCRIPTOR (gst_mpegts_scte_splice_descriptor_get_type())
+
+GST_MPEGTS_API
+GType gst_mpegts_scte_splice_command_type_get_type (void);
+#define GST_TYPE_MPEGTS_SCTE_SPLICE_COMMAND_TYPE (gst_mpegts_scte_splice_command_type_get_type())
+
 /* enumerations from "gstmpegtsdescriptor.h" */
 
 GST_MPEGTS_API

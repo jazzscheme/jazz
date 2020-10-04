@@ -20,8 +20,7 @@
  */
 
 
-#ifndef GES_CLIP_ASSET_H
-#define GES_CLIP_ASSET_H
+#pragma once
 
 #include <glib-object.h>
 #include <ges/ges-types.h>
@@ -30,13 +29,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_CLIP_ASSET (ges_clip_asset_get_type ())
-#define GES_CLIP_ASSET(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_CLIP_ASSET, GESClipAsset))
-#define GES_CLIP_ASSET_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_CLIP_ASSET, GESClipAssetClass))
-#define GES_IS_CLIP_ASSET(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_CLIP_ASSET))
-#define GES_IS_CLIP_ASSET_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_CLIP_ASSET))
-#define GES_CLIP_ASSET_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_CLIP_ASSET, GESClipAssetClass))
-
-typedef struct _GESClipAssetPrivate GESClipAssetPrivate;
+GES_DECLARE_TYPE(ClipAsset, clip_asset, CLIP_ASSET);
 
 struct _GESClipAsset
 {
@@ -52,16 +45,29 @@ struct _GESClipAssetClass
 {
   GESAssetClass parent;
 
-  gpointer _ges_reserved[GES_PADDING];
+  /**
+   * GESClipAssetClass::get_natural_framerate:
+   * @self: A #GESClipAsset
+   * @framerate_n: The framerate numerator to retrieve
+   * @framerate_d: The framerate denominator to retrieve
+   *
+   * Returns: %TRUE if @self has a natural framerate @FALSE otherwise.
+   *
+   * Since: 1.18
+   */
+  gboolean (*get_natural_framerate)        (GESClipAsset *self, gint *framerate_n, gint *framerate_d);
+
+  gpointer _ges_reserved[GES_PADDING - 1];
 };
 
-GES_API
-GType ges_clip_asset_get_type (void);
 GES_API
 void ges_clip_asset_set_supported_formats         (GESClipAsset *self,
                                                               GESTrackType supportedformats);
 GES_API
 GESTrackType ges_clip_asset_get_supported_formats (GESClipAsset *self);
+GES_API
+gboolean ges_clip_asset_get_natural_framerate (GESClipAsset* self, gint* framerate_n, gint* framerate_d);
+GES_API
+GstClockTime ges_clip_asset_get_frame_time (GESClipAsset* self, GESFrameNumber frame_number);
 
 G_END_DECLS
-#endif /* _GES_CLIP_ASSET_H */

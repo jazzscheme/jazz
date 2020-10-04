@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_CONTAINER
-#define _GES_CONTAINER
+#pragma once
 
 #include <glib-object.h>
 #include <gst/gst.h>
@@ -30,15 +29,14 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_CONTAINER             ges_container_get_type()
-#define GES_CONTAINER(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_CONTAINER, GESContainer))
-#define GES_CONTAINER_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_CONTAINER, GESContainerClass))
-#define GES_IS_CONTAINER(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_CONTAINER))
-#define GES_IS_CONTAINER_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_CONTAINER))
-#define GES_CONTAINER_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_CONTAINER, GESContainerClass))
+GES_DECLARE_TYPE(Container, container, CONTAINER);
 
-typedef struct _GESContainerPrivate GESContainerPrivate;
-
-/* To be used by sublcasses only */
+/**
+ * GESChildrenControlMode:
+ *
+ * To be used by subclasses only. This indicate how to handle a change in
+ * a child.
+ */
 typedef enum
 {
   GES_CHILDREN_UPDATE,
@@ -52,7 +50,7 @@ typedef enum
  * GES_CONTAINER_HEIGHT:
  * @obj: a #GESContainer
  *
- * The span of priorities this object occupies.
+ * The #GESContainer:height of @obj.
  */
 #define GES_CONTAINER_HEIGHT(obj) (((GESContainer*)obj)->height)
 
@@ -60,17 +58,17 @@ typedef enum
  * GES_CONTAINER_CHILDREN:
  * @obj: a #GESContainer
  *
- * A #GList containing the children of @object
+ * The #GList containing the children of @obj.
  */
 #define GES_CONTAINER_CHILDREN(obj) (((GESContainer*)obj)->children)
 
 /**
  * GESContainer:
- * @children: (element-type GES.TimelineElement): A list of TimelineElement
- * controlled by this Container. NOTE: Do not modify.
- * @height: The span of priorities this container occupies
+ * @children: (element-type GES.TimelineElement): The list of
+ * #GESTimelineElement-s controlled by this Container
+ * @height: The #GESContainer:height of @obj
  *
- * The #GESContainer base class.
+ * Note, you may read, but should not modify these properties.
  */
 struct _GESContainer
 {
@@ -102,9 +100,11 @@ struct _GESContainer
  * @child_removed: Virtual method that is called right after a #GESTimelineElement is removed
  * @remove_child: Virtual method to remove a child
  * @add_child: Virtual method to add a child
- * @ungroup: Ungroups the #GESTimelineElement contained in this #GESContainer, creating new
- * @group: Groups the #GESContainers together
- * #GESContainer containing those #GESTimelineElement apropriately.
+ * @ungroup: Virtual method to ungroup a container into a list of
+ * containers
+ * @group: Virtual method to group a list of containers together under a
+ * single container
+ * @edit: Deprecated
  */
 struct _GESContainerClass
 {
@@ -119,6 +119,8 @@ struct _GESContainerClass
   gboolean (*remove_child)        (GESContainer *container, GESTimelineElement *element);
   GList* (*ungroup)               (GESContainer *container, gboolean recursive);
   GESContainer * (*group)         (GList *containers);
+
+  /* Deprecated and not used anymore */
   gboolean (*edit)                (GESContainer * container,
                                    GList * layers, gint new_layer_priority,
                                    GESEditMode mode,
@@ -134,9 +136,6 @@ struct _GESContainerClass
   gpointer _ges_reserved[GES_PADDING_LARGE];
 };
 
-GES_API
-GType ges_container_get_type (void);
-
 /* Children handling */
 GES_API
 GList* ges_container_get_children (GESContainer *container, gboolean recursive);
@@ -149,7 +148,7 @@ GList * ges_container_ungroup     (GESContainer * container, gboolean recursive)
 GES_API
 GESContainer *ges_container_group (GList *containers);
 
-GES_API
+GES_DEPRECATED_FOR(ges_timeline_element_edit)
 gboolean ges_container_edit       (GESContainer * container,
                                    GList * layers, gint new_layer_priority,
                                    GESEditMode mode,
@@ -157,4 +156,3 @@ gboolean ges_container_edit       (GESContainer * container,
                                    guint64 position);
 
 G_END_DECLS
-#endif /* _GES_CONTAINER */

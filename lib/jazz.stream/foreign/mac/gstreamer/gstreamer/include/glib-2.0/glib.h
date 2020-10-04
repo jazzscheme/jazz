@@ -69,6 +69,9 @@
 #include <glib/gquark.h>
 #include <glib/gqueue.h>
 #include <glib/grand.h>
+#include <glib/grcbox.h>
+#include <glib/grefcount.h>
+#include <glib/grefstring.h>
 #include <glib/gregex.h>
 #include <glib/gscanner.h>
 #include <glib/gsequence.h>
@@ -99,14 +102,12 @@
 #include <glib/gwin32.h>
 #endif
 
-#ifndef G_DISABLE_DEPRECATED
 #include <glib/deprecated/gallocator.h>
 #include <glib/deprecated/gcache.h>
 #include <glib/deprecated/gcompletion.h>
 #include <glib/deprecated/gmain.h>
 #include <glib/deprecated/grel.h>
 #include <glib/deprecated/gthread.h>
-#endif /* G_DISABLE_DEPRECATED */
 
 #include <glib/glib-autocleanups.h>
 

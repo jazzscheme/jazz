@@ -245,6 +245,10 @@ typedef enum
  * @GST_H264_SEI_STEREO_VIDEO_INFO: stereo video info SEI message (Since: 1.6)
  * @GST_H264_SEI_FRAME_PACKING: Frame Packing Arrangement (FPA) message that
  *     contains the 3D arrangement for stereoscopic 3D video (Since: 1.6)
+ * @GST_H264_SEI_MASTERING_DISPLAY_COLOUR_VOLUME: Mastering display colour volume information SEI message (D.2.29) (Since: 1.18)
+ * @GST_H264_SEI_CONTENT_LIGHT_LEVEL: Content light level information SEI message (D.2.31) (Since: 1.18)
+ * @GST_H264_SEI_UNHANDLED_PAYLOAD: Unhandled SEI message. This may or may not
+ *     be defined by spec (Since 1.18)
  * ...
  *
  * The type of SEI message.
@@ -256,8 +260,13 @@ typedef enum
   GST_H264_SEI_REGISTERED_USER_DATA = 4,
   GST_H264_SEI_RECOVERY_POINT = 6,
   GST_H264_SEI_STEREO_VIDEO_INFO = 21,
-  GST_H264_SEI_FRAME_PACKING = 45
+  GST_H264_SEI_FRAME_PACKING = 45,
+  GST_H264_SEI_MASTERING_DISPLAY_COLOUR_VOLUME = 137,
+  GST_H264_SEI_CONTENT_LIGHT_LEVEL = 144,
       /* and more...  */
+
+  /* Unhandled SEI type */
+  GST_H264_SEI_UNHANDLED_PAYLOAD = -1
 } GstH264SEIPayloadType;
 
 /**
@@ -352,6 +361,9 @@ typedef struct _GstH264BufferingPeriod        GstH264BufferingPeriod;
 typedef struct _GstH264RecoveryPoint          GstH264RecoveryPoint;
 typedef struct _GstH264StereoVideoInfo        GstH264StereoVideoInfo;
 typedef struct _GstH264FramePacking           GstH264FramePacking;
+typedef struct _GstH264MasteringDisplayColourVolume GstH264MasteringDisplayColourVolume;
+typedef struct _GstH264ContentLightLevel        GstH264ContentLightLevel;
+typedef struct _GstH264SEIUnhandledPayload    GstH264SEIUnhandledPayload;
 typedef struct _GstH264SEIMessage             GstH264SEIMessage;
 
 /**
@@ -390,15 +402,23 @@ struct _GstH264NalUnitExtensionMVC
  * @type: A #GstH264NalUnitType
  * @idr_pic_flag: calculated idr_pic_flag
  * @size: The size of the NAL unit starting from @offset, thus
- *  including the header bytes. e.g. @type (nal_unit_type)
- * @offset: The offset of the actual start of the NAL unit, thus
- *  including the header bytes
- * @sc_offset: The offset of the start code of the NAL unit
+ *  including the header bytes. e.g. @type (nal_unit_type),
+ *  but not the start code.
+ * @offset: The offset of the first byte of the NAL unit header,
+ *  just after the start code.
+ * @sc_offset: The offset of the first byte of the start code of
+ *  the NAL unit.
  * @valid: If the NAL unit is valid, which means it has
- * already been parsed
- * @data: The data from which the NAL unit has been parsed
- * @header_bytes: The size of the NALU header in bytes (Since: 1.6)
- * @extension_type: the extension type (Since: 1.6)
+ *  already been parsed
+ * @data: The data array from which the NAL unit has been parsed,
+ *  into which the offset and sc_offset apply.
+ * @header_bytes: The size of the NALU header in bytes. The NALU
+ *  header is the 1-byte type code, and for extension / prefix NALs
+ *  includes the extension header bytes. @offset + @header_bytes is
+ *  therefore the first byte of the actual packet payload.
+ *  (Since: 1.6)
+ * @extension_type: the extension type for prefix NAL/MVC/SVC
+ *  (Since: 1.6)
  *
  * Structure defining the NAL unit headers
  */
@@ -658,7 +678,7 @@ struct _GstH264SPSExtMVCLevelValue
  *   level values signalled for the coded video sequence.
  * @level_value: array of #GstH264SPSExtMVCLevelValue
  *
- * Represents the parsed seq_parameter_set_mvc_extension().
+ * Represents the parsed `seq_parameter_set_mvc_extension()`.
  *
  * Since: 1.6
 	 */
@@ -713,6 +733,7 @@ struct _GstH264SPS
   guint8 num_ref_frames_in_pic_order_cnt_cycle;
   gint32 offset_for_ref_frame[255];
 
+  /* FIXME rename according to spec, max_num_ref_frames */
   guint32 num_ref_frames;
   guint8 gaps_in_frame_num_value_allowed_flag;
   guint32 pic_width_in_mbs_minus1;
@@ -781,6 +802,7 @@ struct _GstH264PPS
   guint32 pic_size_in_map_units_minus1;
   guint8 *slice_group_id;
 
+  /* FIXME rename to num_ref_idx_l{0,1}_default_active_minus1 */
   guint8 num_ref_idx_l0_active_minus1;
   guint8 num_ref_idx_l1_active_minus1;
   guint8 weighted_pred_flag;
@@ -800,6 +822,9 @@ struct _GstH264PPS
   guint8 second_chroma_qp_index_offset;
 
   gboolean valid;
+
+  /* Since: 1.18 */
+  guint8 pic_scaling_matrix_present_flag;
 };
 
 struct _GstH264RefPicListModification
@@ -856,6 +881,9 @@ struct _GstH264DecRefPicMarking
   guint8 adaptive_ref_pic_marking_mode_flag;
   GstH264RefPicMarking ref_pic_marking[10];
   guint8 n_ref_pic_marking;
+
+  /* Size of the dec_ref_pic_marking() syntax element in bits (Since: 1.18) */
+  guint bit_size;
 };
 
 
@@ -920,14 +948,51 @@ struct _GstH264SliceHdr
 
   /* Number of emulation prevention bytes (EPB) in this slice_header() */
   guint n_emulation_prevention_bytes;
+
+  /* Since: 1.18 */
+  guint8 num_ref_idx_active_override_flag;
+  guint8 sp_for_switch_flag;
+
+  /*
+   * Size of the pic_order_cnt related syntax elements pic_order_cnt_lsb,
+   * delta_pic_order_cnt_bottom, delta_pic_order_cnt[0], and
+   * delta_pic_order_cnt[1]. (Since: 1.18)
+   */
+  guint pic_order_cnt_bit_size;
 };
 
-
+/**
+ * GstH264ClockTimestamp:
+ * @ct_type: indicates the scan type, 0: progressive, 1: interlaced, 2: unknown,
+ *   3: reserved
+ * @nuit_field_based_flag: used in calculating clockTimestamp
+ * @counting_type: specifies the method of dropping values of the n_frames
+ * @full_timestamp_flag: equal to 1 specifies that the n_frames syntax element
+ *   is followed by seconds_value, minutes_value, and hours_value (Since 1.18)
+ * @discontinuity_flag: indicates whether the difference between the current
+ *   value of clockTimestamp and the value of clockTimestamp computed from the
+ *   previous clock timestamp can be interpreted as the time difference or not.
+ * @cnt_dropped_flag: specifies the skipping of one or more values of n_frames
+ *   using the counting method specified by counting_type
+ * @n_frames: specifies the value of nFrames used to compute clockTimestamp
+ * @seconds_flag: equal to 1 specifies that @seconds_value and minutes_flag are
+ *   present when @full_timestamp_flag is equal to 0
+ * @seconds_value: specifies the value of seconds to compute clockTimestamp
+ * @minutes_flag: equal to 1 specifies that @minutes_value and hours_flag are
+ *   present when @full_timestamp_flag is equal to 0 and @seconds_flag is
+ *   equal to 1
+ * @minutes_value: specifies the value of minutes to compute clockTimestamp
+ * @hours_flag: equal to 1 specifies that @hours_value is present when
+ *   @full_timestamp_flag is equal to 0 and @seconds_flag is equal to 1 and
+ *   @minutes_flag is equal to 1
+ * @time_offset: specifies the value of tOffset used to compute clockTimestamp
+ */
 struct _GstH264ClockTimestamp
 {
   guint8 ct_type;
   guint8 nuit_field_based_flag;
   guint8 counting_type;
+  guint8 full_timestamp_flag;
   guint8 discontinuity_flag;
   guint8 cnt_dropped_flag;
   guint8 n_frames;
@@ -984,8 +1049,36 @@ struct _GstH264StereoVideoInfo
   guint8 right_view_self_contained_flag;
 };
 
+/**
+ * GstH264PicTiming:
+ * @CpbDpbDelaysPresentFlag: non-zero if linked
+ *   GstH264VUIParams::nal_hrd_parameters_present_flag or
+ *   GstH264VUIParams::vcl_hrd_parameters_present_flag is non-zero (Since: 1.18)
+ * @cpb_removal_delay_length_minus1: specifies the length of @cpb_removal_delay
+ *   in bits (Since 1.18)
+ * @dpb_output_delay_length_minus1: specifies the length of @dpb_output_delay
+ *   in bits (Since 1.18)
+ * @cpb_removal_delay: specifies how many clock ticks to wait after removal from
+ *   the CPB of the access unit associated with the most recent buffering period
+ *   SEI message in a preceding access unit before removing from the
+ *   buffer the access unit data associated with the picture timing SEI message
+ * @dpb_output_delay: used to compute the DPB output time of the picture
+ * @pic_struct_present_flag: GstH264VUIParams::pic_struct_present_flag
+ * @pic_struct: indicates whether a picture should be displayed as a frame or
+ *   one or more fields
+ * @clock_timestamp_flag: equal to 1 indicates that a number of clock timestamp
+ *   syntax elements are present
+ * @clock_timestamp: a #GstH264ClockTimestamp
+ * @time_offset_length: specifies the length time_offset of
+ *   #GstH264ClockTimestamp in bits (Since 1.18)
+ */
 struct _GstH264PicTiming
 {
+  /* from vui */
+  guint8 CpbDpbDelaysPresentFlag;
+  /* if CpbDpbDelaysPresentFlag */
+  guint8 cpb_removal_delay_length_minus1;
+  guint8 dpb_output_delay_length_minus1;
   guint32 cpb_removal_delay;
   guint32 dpb_output_delay;
 
@@ -995,8 +1088,21 @@ struct _GstH264PicTiming
 
   guint8 clock_timestamp_flag[3];
   GstH264ClockTimestamp clock_timestamp[3];
+  guint8 time_offset_length;
 };
 
+/**
+ * GstH264RegisteredUserData:
+ * The User data registered by Rec. ITU-T T.35 SEI messag.
+ * @country_code: an itu_t_t35_country_code.
+ * @country_code_extension: an itu_t_t35_country_code_extension_byte.
+ *   Should be ignored when @country_code is not 0xff
+ * @data: the data of itu_t_t35_payload_byte
+ *   excluding @country_code and @country_code_extension
+ * @size: the size of @data in bytes
+ *
+ * Since: 1.16
+ */
 struct _GstH264RegisteredUserData
 {
   guint8 country_code;
@@ -1026,6 +1132,59 @@ struct _GstH264RecoveryPoint
   guint8 changing_slice_group_idc;
 };
 
+/**
+ * GstH264MasteringDisplayColourVolume:
+ * The colour volume (primaries, white point and luminance range) of display
+ * defined by SMPTE ST 2086.
+ *
+ * D.2.29
+ *
+ * Since: 1.18
+ */
+struct _GstH264MasteringDisplayColourVolume
+{
+  guint16 display_primaries_x[3];
+  guint16 display_primaries_y[3];
+  guint16 white_point_x;
+  guint16 white_point_y;
+  guint32 max_display_mastering_luminance;
+  guint32 min_display_mastering_luminance;
+};
+
+/**
+ * GstH264ContentLightLevel:
+ * The upper bounds for the nominal target brightness light level
+ * as specified in CEA-861.3
+ *
+ * D.2.31
+ *
+ * Since: 1.18
+ */
+struct _GstH264ContentLightLevel
+{
+  guint16 max_content_light_level;
+  guint16 max_pic_average_light_level;
+};
+
+/**
+ * GstH264SEIUnhandledPayload:
+ * @payloadType: Payload type
+ * @data: payload raw data excluding payload type and payload size byte
+ * @size: the size of @data
+ *
+ * Contains unhandled SEI payload data. This SEI may or may not
+ * be defined by spec
+ *
+ * Since: 1.18
+ */
+struct _GstH264SEIUnhandledPayload
+{
+  guint payloadType;
+
+  guint8 *data;
+  guint size;
+};
+
 struct _GstH264SEIMessage
 {
   GstH264SEIPayloadType payloadType;
@@ -1037,6 +1196,9 @@ struct _GstH264SEIMessage
     GstH264RecoveryPoint recovery_point;
     GstH264StereoVideoInfo stereo_video_info;
     GstH264FramePacking frame_packing;
+    GstH264MasteringDisplayColourVolume mastering_display_colour_volume;
+    GstH264ContentLightLevel content_light_level;
+    GstH264SEIUnhandledPayload unhandled_payload;
     /* ... could implement more */
   } payload;
 };
@@ -1084,11 +1246,11 @@ GstH264ParserResult gst_h264_parser_parse_slice_hdr   (GstH264NalParser *nalpars
 
 GST_CODEC_PARSERS_API
 GstH264ParserResult gst_h264_parser_parse_subset_sps  (GstH264NalParser *nalparser, GstH264NalUnit *nalu,
-                                                       GstH264SPS *sps, gboolean parse_vui_params);
+                                                       GstH264SPS *sps);
 
 GST_CODEC_PARSERS_API
 GstH264ParserResult gst_h264_parser_parse_sps         (GstH264NalParser *nalparser, GstH264NalUnit *nalu,
-                                                       GstH264SPS *sps, gboolean parse_vui_params);
+                                                       GstH264SPS *sps);
 
 GST_CODEC_PARSERS_API
 GstH264ParserResult gst_h264_parser_parse_pps         (GstH264NalParser *nalparser,
@@ -1099,15 +1261,23 @@ GstH264ParserResult gst_h264_parser_parse_sei         (GstH264NalParser *nalpars
                                                        GstH264NalUnit *nalu, GArray ** messages);
 
 GST_CODEC_PARSERS_API
+GstH264ParserResult gst_h264_parser_update_sps        (GstH264NalParser *nalparser,
+                                                       GstH264SPS *sps);
+
+GST_CODEC_PARSERS_API
+GstH264ParserResult gst_h264_parser_update_pps        (GstH264NalParser *nalparser,
+                                                       GstH264PPS *pps);
+
+GST_CODEC_PARSERS_API
 void gst_h264_nal_parser_free                         (GstH264NalParser *nalparser);
 
 GST_CODEC_PARSERS_API
 GstH264ParserResult gst_h264_parse_subset_sps         (GstH264NalUnit *nalu,
-                                                       GstH264SPS *sps, gboolean parse_vui_params);
+                                                       GstH264SPS *sps);
 
 GST_CODEC_PARSERS_API
 GstH264ParserResult gst_h264_parse_sps                (GstH264NalUnit *nalu,
-                                                       GstH264SPS *sps, gboolean parse_vui_params);
+                                                       GstH264SPS *sps);
 
 GST_CODEC_PARSERS_API
 GstH264ParserResult gst_h264_parse_pps                (GstH264NalParser *nalparser,
@@ -1118,6 +1288,9 @@ void                gst_h264_sps_clear                (GstH264SPS *sps);
 
 GST_CODEC_PARSERS_API
 void                gst_h264_pps_clear                (GstH264PPS *pps);
+
+GST_CODEC_PARSERS_API
+void                gst_h264_sei_clear                (GstH264SEIMessage *sei);
 
 GST_CODEC_PARSERS_API
 void    gst_h264_quant_matrix_8x8_get_zigzag_from_raster (guint8 out_quant[64],
@@ -1138,6 +1311,25 @@ void    gst_h264_quant_matrix_4x4_get_raster_from_zigzag (guint8 out_quant[16],
 GST_CODEC_PARSERS_API
 void gst_h264_video_calculate_framerate (const GstH264SPS * sps, guint field_pic_flag,
     guint pic_struct, gint * fps_num, gint * fps_den);
+
+GST_CODEC_PARSERS_API
+GstMemory * gst_h264_create_sei_memory (guint8 start_code_prefix_length,
+                                        GArray * messages);
+
+GST_CODEC_PARSERS_API
+GstMemory * gst_h264_create_sei_memory_avc (guint8 nal_length_size,
+                                            GArray * messages);
+
+GST_CODEC_PARSERS_API
+GstBuffer * gst_h264_parser_insert_sei (GstH264NalParser * nalparser,
+                                        GstBuffer * au,
+                                        GstMemory * sei);
+
+GST_CODEC_PARSERS_API
+GstBuffer * gst_h264_parser_insert_sei_avc (GstH264NalParser * nalparser,
+                                            guint8 nal_length_size,
+                                            GstBuffer * au,
+                                            GstMemory * sei);
 
 G_END_DECLS
 

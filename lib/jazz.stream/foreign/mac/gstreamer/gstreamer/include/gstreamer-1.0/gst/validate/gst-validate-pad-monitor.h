@@ -27,6 +27,7 @@
 
 typedef struct _GstValidatePadMonitor GstValidatePadMonitor;
 typedef struct _GstValidatePadMonitorClass GstValidatePadMonitorClass;
+typedef struct _GstValidatePadSeekData GstValidatePadSeekData;
 
 #include <gst/validate/gst-validate-monitor.h>
 #include <gst/validate/media-descriptor-parser.h>
@@ -34,6 +35,7 @@ typedef struct _GstValidatePadMonitorClass GstValidatePadMonitorClass;
 
 G_BEGIN_DECLS
 
+#ifndef __GI_SCANNER__
 #define GST_TYPE_VALIDATE_PAD_MONITOR			(gst_validate_pad_monitor_get_type ())
 #define GST_IS_VALIDATE_PAD_MONITOR(obj)		(G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_VALIDATE_PAD_MONITOR))
 #define GST_IS_VALIDATE_PAD_MONITOR_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE ((klass), GST_TYPE_VALIDATE_PAD_MONITOR))
@@ -42,7 +44,7 @@ G_BEGIN_DECLS
 #define GST_VALIDATE_PAD_MONITOR_CLASS(klass)		(G_TYPE_CHECK_CLASS_CAST ((klass), GST_TYPE_VALIDATE_PAD_MONITOR, GstValidatePadMonitorClass))
 #define GST_VALIDATE_PAD_MONITOR_CAST(obj)            ((GstValidatePadMonitor*)(obj))
 #define GST_VALIDATE_PAD_MONITOR_CLASS_CAST(klass)    ((GstValidatePadMonitorClass*)(klass))
-
+#endif
 
 /**
  * GstValidatePadMonitor:
@@ -54,8 +56,6 @@ G_BEGIN_DECLS
 struct _GstValidatePadMonitor {
   GstValidateMonitor 	 parent;
 
-  GstValidateElementMonitor *element_monitor;
-
   gboolean       setup;
 
   GstPadChainFunction chain_func;
@@ -63,6 +63,7 @@ struct _GstValidatePadMonitor {
   GstPadEventFullFunction event_full_func;
   GstPadQueryFunction query_func;
   GstPadActivateModeFunction activatemode_func;
+  GstPadGetRangeFunction get_range_func;
 
   gulong pad_probe_id;
 
@@ -80,16 +81,16 @@ struct _GstValidatePadMonitor {
   gboolean is_eos;
 
   gboolean pending_flush_stop;
-  guint32 pending_flush_stop_seqnum;
-  guint32 pending_flush_start_seqnum;
   guint32 pending_newsegment_seqnum;
   guint32 pending_eos_seqnum;
+
+  /* List of GstValidatePadSeekData containing pending/current seeks */
+  GList *seeks;
+  GstValidatePadSeekData *current_seek;
 
   /* Whether the next buffer should have a DISCONT flag on it, because
    * it's the first one, or follows a SEGMENT and/or a FLUSH */
   gboolean pending_buffer_discont;
-
-  GstClockTime pending_seek_accurate_time;
 
   GstEvent *expected_segment;
   GPtrArray *serialized_events;

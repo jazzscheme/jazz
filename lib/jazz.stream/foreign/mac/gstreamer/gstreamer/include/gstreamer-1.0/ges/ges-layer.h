@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_LAYER
-#define _GES_LAYER
+#pragma once
 
 #include <glib-object.h>
 #include <ges/ges-types.h>
@@ -27,23 +26,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_LAYER ges_layer_get_type()
-
-#define GES_LAYER(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_LAYER, GESLayer))
-
-#define GES_LAYER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_LAYER, GESLayerClass))
-
-#define GES_IS_LAYER(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_LAYER))
-
-#define GES_IS_LAYER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_LAYER))
-
-#define GES_LAYER_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_LAYER, GESLayerClass))
-
-typedef struct _GESLayerPrivate GESLayerPrivate;
+GES_DECLARE_TYPE(Layer, layer, LAYER);
 
 /**
  * GESLayer:
@@ -70,7 +53,7 @@ struct _GESLayer {
  * @get_objects: method to get the objects contained in the layer
  *
  * Subclasses can override the @get_objects if they can provide a more
- * efficient way of providing the list of contained #GESClip(s).
+ * efficient way of providing the list of contained #GESClip-s.
  */
 struct _GESLayerClass {
   /*< private >*/
@@ -82,66 +65,82 @@ struct _GESLayerClass {
 
   /*< private >*/
   /* Signals */
-  void	(*object_added)		(GESLayer * layer, GESClip * object);
-  void	(*object_removed)	(GESLayer * layer, GESClip * object);
+  void (*object_added) (GESLayer * layer, GESClip * object);
+  void (*object_removed) (GESLayer * layer, GESClip * object);
 
   /* Padding for API extension */
   gpointer _ges_reserved[GES_PADDING];
 };
 
 GES_API
-GType ges_layer_get_type (void);
+GESLayer*     ges_layer_new                   (void);
 
 GES_API
-GESLayer* ges_layer_new (void);
+void          ges_layer_set_timeline          (GESLayer * layer,
+                                               GESTimeline * timeline);
+GES_API
+GESTimeline * ges_layer_get_timeline          (GESLayer * layer);
 
 GES_API
-void     ges_layer_set_timeline  (GESLayer * layer,
-					   GESTimeline * timeline);
-
-GES_API GESTimeline *
-ges_layer_get_timeline           (GESLayer * layer);
-
+gboolean      ges_layer_add_clip              (GESLayer * layer,
+                                               GESClip * clip);
 GES_API
-gboolean ges_layer_add_clip    (GESLayer * layer,
-					   GESClip * clip);
+gboolean      ges_layer_add_clip_full         (GESLayer * layer,
+                                               GESClip * clip,
+                                               GError ** error);
 GES_API
-GESClip * ges_layer_add_asset   (GESLayer *layer,
-                                                       GESAsset *asset,
-                                                       GstClockTime start,
-                                                       GstClockTime inpoint,
-                                                       GstClockTime duration,
-                                                       GESTrackType track_types);
-
+GESClip *     ges_layer_add_asset             (GESLayer *layer,
+                                               GESAsset *asset,
+                                               GstClockTime start,
+                                               GstClockTime inpoint,
+                                               GstClockTime duration,
+                                               GESTrackType track_types);
 GES_API
-gboolean ges_layer_remove_clip (GESLayer * layer,
-					   GESClip * clip);
-
-GES_API
-void     ges_layer_set_priority  (GESLayer * layer,
-					   guint priority);
+GESClip *     ges_layer_add_asset_full        (GESLayer *layer,
+                                               GESAsset *asset,
+                                               GstClockTime start,
+                                               GstClockTime inpoint,
+                                               GstClockTime duration,
+                                               GESTrackType track_types,
+                                               GError ** error);
 
 GES_API
-gboolean ges_layer_is_empty      (GESLayer * layer);
+gboolean      ges_layer_remove_clip           (GESLayer * layer,
+                                               GESClip * clip);
+
+GES_DEPRECATED_FOR(ges_timeline_move_layer)
+void          ges_layer_set_priority          (GESLayer * layer,
+                                               guint priority);
 
 GES_API
-GList* ges_layer_get_clips_in_interval (GESLayer * layer, GstClockTime start, GstClockTime end);
+gboolean      ges_layer_is_empty              (GESLayer * layer);
 
 GES_API
-guint   ges_layer_get_priority  (GESLayer * layer);
+GList*        ges_layer_get_clips_in_interval (GESLayer * layer,
+                                               GstClockTime start,
+                                               GstClockTime end);
 
 GES_API
-gboolean ges_layer_get_auto_transition (GESLayer * layer);
+guint         ges_layer_get_priority          (GESLayer * layer);
 
 GES_API
-void ges_layer_set_auto_transition (GESLayer * layer,
-					     gboolean auto_transition);
+gboolean      ges_layer_get_auto_transition   (GESLayer * layer);
 
 GES_API
-GList*   ges_layer_get_clips   (GESLayer * layer);
+void          ges_layer_set_auto_transition   (GESLayer * layer,
+                                               gboolean auto_transition);
+
 GES_API
-GstClockTime ges_layer_get_duration (GESLayer *layer);
+GList*        ges_layer_get_clips             (GESLayer * layer);
+GES_API
+GstClockTime  ges_layer_get_duration          (GESLayer *layer);
+GES_API
+gboolean      ges_layer_set_active_for_tracks (GESLayer *layer,
+                                               gboolean active,
+                                               GList *tracks);
+
+GES_API
+gboolean      ges_layer_get_active_for_track  (GESLayer *layer,
+                                               GESTrack *track);
 
 G_END_DECLS
-
-#endif /* _GES_LAYER */

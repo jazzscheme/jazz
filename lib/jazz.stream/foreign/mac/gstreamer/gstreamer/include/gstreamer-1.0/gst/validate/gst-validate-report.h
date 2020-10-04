@@ -38,6 +38,16 @@ GST_VALIDATE_API
 GType           gst_validate_report_get_type (void);
 #define GST_TYPE_VALIDATE_REPORT (gst_validate_report_get_type ())
 
+/**
+ * GstValidateDebugFlags:
+ * GST_VALIDATE_FATAL_DEFAULT:
+ * GST_VALIDATE_FATAL_ISSUES:
+ * GST_VALIDATE_FATAL_WARNINGS:
+ * GST_VALIDATE_FATAL_CRITICALS:
+ * GST_VALIDATE_PRINT_ISSUES:
+ * GST_VALIDATE_PRINT_WARNINGS:
+ * GST_VALIDATE_PRINT_CRITICALS:
+ */
 typedef enum {
   GST_VALIDATE_FATAL_DEFAULT = 0,
   GST_VALIDATE_FATAL_ISSUES = 1 << 0,
@@ -48,12 +58,16 @@ typedef enum {
   GST_VALIDATE_PRINT_CRITICALS = 1 << 5
 } GstValidateDebugFlags;
 
+/**
+ * GstValidateReportLevel:
+ */
 typedef enum {
   GST_VALIDATE_REPORT_LEVEL_CRITICAL,
   GST_VALIDATE_REPORT_LEVEL_WARNING,
   GST_VALIDATE_REPORT_LEVEL_ISSUE,
   GST_VALIDATE_REPORT_LEVEL_IGNORE,
   GST_VALIDATE_REPORT_LEVEL_UNKNOWN,
+  GST_VALIDATE_REPORT_LEVEL_EXPECTED,
   GST_VALIDATE_REPORT_LEVEL_NUM_ENTRIES,
 } GstValidateReportLevel;
 
@@ -67,6 +81,8 @@ typedef enum {
 #define WRONG_BUFFER                             _QUARK("buffer::not-expected-one")
 #define FLOW_ERROR_WITHOUT_ERROR_MESSAGE         _QUARK("buffer::flow-error-without-error-message")
 #define BUFFER_MISSING_DISCONT                   _QUARK("buffer::missing-discont")
+
+#define PULL_RANGE_FROM_WRONG_THREAD             _QUARK("threading::pull-range-from-wrong-thread")
 
 #define CAPS_IS_MISSING_FIELD                    _QUARK("caps::is-missing-field")
 #define CAPS_FIELD_HAS_BAD_TYPE                  _QUARK("caps::field-has-bad-type")
@@ -91,6 +107,7 @@ typedef enum {
 #define EVENT_CAPS_DUPLICATE                     _QUARK("event::caps-duplicate")
 #define EVENT_SEEK_NOT_HANDLED                   _QUARK("event::seek-not-handled")
 #define EVENT_SEEK_RESULT_POSITION_WRONG         _QUARK("event::seek-result-position-wrong")
+#define EVENT_SEEK_INVALID_SEQNUM                _QUARK("event::seek-invalid_seqnum")
 #define EVENT_EOS_WITHOUT_SEGMENT                _QUARK("event::eos-without-segment")
 #define EVENT_INVALID_SEQNUM                     _QUARK("event::invalid-seqnum")
 
@@ -118,6 +135,7 @@ typedef enum {
 #define SCENARIO_NOT_ENDED                       _QUARK("scenario::not-ended")
 #define SCENARIO_FILE_MALFORMED                  _QUARK("scenario::malformed")
 #define SCENARIO_ACTION_EXECUTION_ERROR          _QUARK("scenario::execution-error")
+#define SCENARIO_ACTION_CHECK_ERROR              _QUARK("scenario::check-error")
 #define SCENARIO_ACTION_TIMEOUT                  _QUARK("scenario::action-timeout")
 #define SCENARIO_ACTION_EXECUTION_ISSUE          _QUARK("scenario::execution-issue")
 
@@ -128,6 +146,18 @@ typedef enum {
 #define G_LOG_ISSUE                              _QUARK("g-log::issue")
 #define G_LOG_WARNING                            _QUARK("g-log::warning")
 #define G_LOG_CRITICAL                           _QUARK("g-log::critical")
+
+/**
+ * GstValidateIssueFlags:
+ * GST_VALIDATE_ISSUE_FLAGS_NONE: No special flags for the issue type
+ * GST_VALIDATE_ISSUE_FLAGS_FULL_DETAILS: Always show all accurences of the issue in full details
+ * GST_VALIDATE_ISSUE_FLAGS_NO_BACKTRACE: Do not generate backtrace for the issue type
+ */
+typedef enum {
+  GST_VALIDATE_ISSUE_FLAGS_NONE = 0,
+  GST_VALIDATE_ISSUE_FLAGS_FULL_DETAILS = 1 << 0,
+  GST_VALIDATE_ISSUE_FLAGS_NO_BACKTRACE = 1 << 1,
+} GstValidateIssueFlags;
 
 typedef struct {
   GstValidateIssueId issue_id;
@@ -152,6 +182,8 @@ typedef struct {
   GstValidateReportLevel default_level;
 
   gint    refcount;
+
+  GstValidateIssueFlags flags;
 
   gpointer _gst_reserved[GST_PADDING];
 
@@ -224,6 +256,10 @@ GstValidateIssue  *gst_validate_issue_new (GstValidateIssueId issue_id, const gc
 					   const gchar * description,
 					   GstValidateReportLevel default_level);
 GST_VALIDATE_API
+GstValidateIssue* gst_validate_issue_new_full(GstValidateIssueId issue_id, const gchar* summary,
+    const gchar* description, GstValidateReportLevel default_level,
+    GstValidateIssueFlags flags);
+GST_VALIDATE_API
 void gst_validate_issue_set_default_level (GstValidateIssue *issue,
                                            GstValidateReportLevel default_level);
 
@@ -264,7 +300,7 @@ void               gst_validate_print_action  (GstValidateAction *action, const 
 GST_VALIDATE_API
 void               gst_validate_printf_valist (gpointer source,
                                                const gchar      * format,
-                                               va_list            args) G_GNUC_NO_INSTRUMENT;
+                                               va_list            args) G_GNUC_PRINTF (2, 0) G_GNUC_NO_INSTRUMENT;
 GST_VALIDATE_API
 gboolean gst_validate_report_should_print (GstValidateReport * report);
 GST_VALIDATE_API
@@ -275,7 +311,16 @@ GST_VALIDATE_API
 void gst_validate_report_add_repeated_report (GstValidateReport *report, GstValidateReport *repeated_report);
 GST_VALIDATE_API
 GstValidateReportLevel gst_validate_report_level_from_name (const gchar *level_name);
+GST_VALIDATE_API
+void gst_validate_print_position(GstClockTime position, GstClockTime duration, gdouble rate, gchar* extra_info);
+GST_VALIDATE_API void gst_validate_print_issues (void);
 
+GST_VALIDATE_API
+void gst_validate_error_structure (gpointer action, const gchar* format, ...) G_GNUC_PRINTF (2, 3);
+GST_VALIDATE_API
+void gst_validate_abort (const gchar * format, ...) G_GNUC_PRINTF (1, 2);
+GST_VALIDATE_API
+void gst_validate_skip_test (const gchar* format, ...);
 G_END_DECLS
 
 #endif /* __GST_VALIDATE_REPORT_H__ */

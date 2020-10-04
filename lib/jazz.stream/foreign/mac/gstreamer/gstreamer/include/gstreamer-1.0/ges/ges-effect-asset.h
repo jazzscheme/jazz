@@ -18,8 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.";
  */
 
-#ifndef _GES_EFFECT_ASSET_H_
-#define _GES_EFFECT_ASSET_H_
+#pragma once
 
 #include <glib-object.h>
 #include "ges-track-element-asset.h"
@@ -27,16 +26,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_EFFECT_ASSET             (ges_effect_asset_get_type ())
-#define GES_EFFECT_ASSET(obj)             (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_EFFECT_ASSET, GESEffectAsset))
-#define GES_EFFECT_ASSET_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_EFFECT_ASSET, GESEffectAssetClass))
-#define GES_IS_EFFECT_ASSET(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_EFFECT_ASSET))
-#define GES_IS_EFFECT_ASSET_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_EFFECT_ASSET))
-#define GES_EFFECT_ASSET_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_EFFECT_ASSET, GESEffectAssetClass))
-
-typedef struct _GESEffectAssetClass GESEffectAssetClass;
-typedef struct _GESEffectAsset GESEffectAsset;
-typedef struct _GESEffectAssetPrivate GESEffectAssetPrivate;
-
+GES_DECLARE_TYPE(EffectAsset, effect_asset, EFFECT_ASSET);
 
 struct _GESEffectAssetClass
 {
@@ -54,10 +44,4 @@ struct _GESEffectAsset
   gpointer _ges_reserved[GES_PADDING];
 };
 
-GES_API
-GType ges_effect_asset_get_type (void) G_GNUC_CONST;
-
 G_END_DECLS
-
-#endif /* _GES_EFFECT_ASSET_H_ */
-

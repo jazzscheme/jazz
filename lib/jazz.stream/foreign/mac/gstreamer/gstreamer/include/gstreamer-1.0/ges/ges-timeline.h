@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_TIMELINE
-#define _GES_TIMELINE
+#pragma once
 
 #include <glib-object.h>
 #include <gst/gst.h>
@@ -29,21 +28,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_TIMELINE ges_timeline_get_type()
-
-#define GES_TIMELINE(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_TIMELINE, GESTimeline))
-
-#define GES_TIMELINE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_TIMELINE, GESTimelineClass))
-
-#define GES_IS_TIMELINE(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_TIMELINE))
-
-#define GES_IS_TIMELINE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_TIMELINE))
-
-#define GES_TIMELINE_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_TIMELINE, GESTimelineClass))
+GES_DECLARE_TYPE(Timeline, timeline, TIMELINE);
 
 #define GES_TIMELINE_GET_TRACKS(obj) (GES_TIMELINE (obj)->tracks)
 #define GES_TIMELINE_GET_LAYERS(obj) (GES_TIMELINE (obj)->layers)
@@ -52,7 +37,7 @@ G_BEGIN_DECLS
  * ges_timeline_get_project:
  * @obj: The #GESTimeline from which to retrieve the project
  *
- * Helper macro to retrieve the project from which a #GESTimeline as been extracted
+ * Helper macro to retrieve the project from which @obj was extracted
  */
 #define ges_timeline_get_project(obj) (GES_PROJECT (ges_extractable_get_asset (GES_EXTRACTABLE(obj))))
 
@@ -60,8 +45,10 @@ typedef struct _GESTimelinePrivate GESTimelinePrivate;
 
 /**
  * GESTimeline:
- * @layers: (element-type GES.Layer): A list of #GESLayer sorted by priority NOTE: Do not modify.
- * @tracks: (element-type GES.Track): A list of #GESTrack sorted by priority NOTE: Do not modify.
+ * @layers: (element-type GES.Layer): A list of #GESLayer-s sorted by
+ * priority. NOTE: Do not modify.
+ * @tracks: Deprecated:1.10: (element-type GES.Track): This is not thread
+ * safe, use #ges_timeline_get_tracks instead.
  */
 struct _GESTimeline {
   GstBin parent;
@@ -98,9 +85,6 @@ struct _GESTimelineClass {
   /* Padding for API extension */
   gpointer _ges_reserved[GES_PADDING];
 };
-
-GES_API
-GType ges_timeline_get_type (void);
 
 GES_API
 GESTimeline* ges_timeline_new (void);
@@ -164,7 +148,12 @@ GESTimelineElement * ges_timeline_paste_element (GESTimeline * timeline,
 GES_API
 gboolean ges_timeline_move_layer (GESTimeline *timeline, GESLayer *layer, guint new_layer_priority);
 
+GES_API
+GstClockTime ges_timeline_get_frame_time(GESTimeline *self,
+                                         GESFrameNumber frame_number);
+
+GES_API
+GESFrameNumber ges_timeline_get_frame_at (GESTimeline *self,
+                                          GstClockTime timestamp);
+
 G_END_DECLS
-
-#endif /* _GES_TIMELINE */
-

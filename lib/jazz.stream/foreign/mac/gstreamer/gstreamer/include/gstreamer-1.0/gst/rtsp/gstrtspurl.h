@@ -102,6 +102,10 @@ GST_RTSP_API
 gchar*             gst_rtsp_url_get_request_uri (const GstRTSPUrl *url);
 
 GST_RTSP_API
+gchar *            gst_rtsp_url_get_request_uri_with_control (const GstRTSPUrl * url,
+                                                              const gchar * control_path);
+
+GST_RTSP_API
 gchar**            gst_rtsp_url_decode_path_components
                                                 (const GstRTSPUrl *url);
 GST_RTSP_API
@@ -110,9 +114,7 @@ GstRTSPResult      gst_rtsp_url_set_port        (GstRTSPUrl *url, guint16 port);
 GST_RTSP_API
 GstRTSPResult      gst_rtsp_url_get_port        (const GstRTSPUrl *url, guint16 *port);
 
-#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstRTSPUrl, gst_rtsp_url_free)
-#endif
 
 G_END_DECLS
 

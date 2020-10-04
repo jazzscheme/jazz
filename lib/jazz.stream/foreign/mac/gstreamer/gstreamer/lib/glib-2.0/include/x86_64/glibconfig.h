@@ -58,15 +58,15 @@ typedef unsigned int guint32;
 
 #define G_HAVE_GINT64 1          /* deprecated, always true */
 
-typedef signed long gint64;
-typedef unsigned long guint64;
+G_GNUC_EXTENSION typedef signed long long gint64;
+G_GNUC_EXTENSION typedef unsigned long long guint64;
 
-#define G_GINT64_CONSTANT(val)	(val##L)
-#define G_GUINT64_CONSTANT(val)	(val##UL)
+#define G_GINT64_CONSTANT(val)	(G_GNUC_EXTENSION (val##LL))
+#define G_GUINT64_CONSTANT(val)	(G_GNUC_EXTENSION (val##ULL))
 
-#define G_GINT64_MODIFIER "l"
-#define G_GINT64_FORMAT "li"
-#define G_GUINT64_FORMAT "lu"
+#define G_GINT64_MODIFIER "ll"
+#define G_GINT64_FORMAT "lli"
+#define G_GUINT64_FORMAT "llu"
 
 
 #define GLIB_SIZEOF_VOID_P 8
@@ -108,14 +108,9 @@ typedef unsigned long guintptr;
 #define G_GINTPTR_FORMAT        "li"
 #define G_GUINTPTR_FORMAT       "lu"
 
-#ifndef G_DISABLE_DEPRECATED
-#define g_ATEXIT(proc)	(atexit (proc))
-#define g_memmove(dest,src,len) G_STMT_START { memmove ((dest), (src), (len)); } G_STMT_END
-#endif
-
 #define GLIB_MAJOR_VERSION 2
-#define GLIB_MINOR_VERSION 56
-#define GLIB_MICRO_VERSION 1
+#define GLIB_MINOR_VERSION 62
+#define GLIB_MICRO_VERSION 6
 
 #define G_OS_UNIX
 
@@ -139,8 +134,8 @@ typedef unsigned long guintptr;
 #  undef G_HAVE_ISO_VARARGS
 #endif
 
-#undef G_HAVE_GROWING_STACK
-/* #undef G_HAVE_GNUC_VISIBILITY */
+#define G_HAVE_GROWING_STACK 0
+#define G_HAVE_GNUC_VISIBILITY 1
 
 #ifndef _MSC_VER
 # define G_HAVE_GNUC_VARARGS 1

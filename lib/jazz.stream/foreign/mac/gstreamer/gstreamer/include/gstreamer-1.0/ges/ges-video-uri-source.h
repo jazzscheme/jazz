@@ -18,8 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef _GES_VIDEO_URI_SOURCE
-#define _GES_VIDEO_URI_SOURCE
+#pragma once
 
 #include <glib-object.h>
 #include <ges/ges-types.h>
@@ -27,27 +26,19 @@
 
 G_BEGIN_DECLS
 
+/**
+ * GESUriSource: (attributes doc.skip=true):
+ */
+typedef struct _GESUriSource GESUriSource;
 #define GES_TYPE_VIDEO_URI_SOURCE ges_video_uri_source_get_type()
-
-#define GES_VIDEO_URI_SOURCE(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_VIDEO_URI_SOURCE, GESVideoUriSource))
-
-#define GES_VIDEO_URI_SOURCE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_VIDEO_URI_SOURCE, GESVideoUriSourceClass))
-
-#define GES_IS_VIDEO_URI_SOURCE(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_VIDEO_URI_SOURCE))
-
-#define GES_IS_VIDEO_URI_SOURCE_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_VIDEO_URI_SOURCE))
-
-#define GES_VIDEO_URI_SOURCE_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_VIDEO_URI_SOURCE, GESVideoUriSourceClass))
-
-typedef struct _GESVideoUriSourcePrivate GESVideoUriSourcePrivate;
+GES_DECLARE_TYPE(VideoUriSource, video_uri_source, VIDEO_URI_SOURCE);
 
 /**
  * GESVideoUriSource:
+ *
+ * ### Children Properties
+ *
+ *  {{ libs/GESVideoUriSource-children-props.md }}
  */
 struct _GESVideoUriSource {
   /*< private >*/
@@ -55,7 +46,7 @@ struct _GESVideoUriSource {
 
   gchar *uri;
 
-  GESVideoUriSourcePrivate *priv;
+  GESUriSource *priv;
 
   /* Padding for API extension */
   gpointer _ges_reserved[GES_PADDING];
@@ -69,10 +60,4 @@ struct _GESVideoUriSourceClass {
   gpointer _ges_reserved[GES_PADDING];
 };
 
-GES_API
-GType ges_video_uri_source_get_type (void);
-
 G_END_DECLS
-
-#endif /* _GES_VIDEO_URI_SOURCE */
-

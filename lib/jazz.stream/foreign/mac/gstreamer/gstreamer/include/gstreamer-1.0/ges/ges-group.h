@@ -17,8 +17,7 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  */
-#ifndef GES_GROUP_H
-#define GES_GROUP_H
+#pragma once
 
 #include <glib-object.h>
 #include <ges/ges-types.h>
@@ -28,13 +27,7 @@
 G_BEGIN_DECLS
 
 #define GES_TYPE_GROUP (ges_group_get_type ())
-#define GES_GROUP(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), GES_TYPE_GROUP, GESGroup))
-#define GES_GROUP_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), GES_TYPE_GROUP, GESGroupClass))
-#define GES_IS_GROUP(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GES_TYPE_GROUP))
-#define GES_IS_GROUP_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GES_TYPE_GROUP))
-#define GES_GROUP_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), GES_TYPE_GROUP, GESGroupClass))
-
-typedef struct _GESGroupPrivate GESGroupPrivate;
+GES_DECLARE_TYPE(Group, group, GROUP);
 
 struct _GESGroup {
   GESContainer parent;
@@ -52,9 +45,6 @@ struct _GESGroupClass {
 };
 
 GES_API
-GType ges_group_get_type          (void);
-GES_API
 GESGroup *ges_group_new           (void);
 
 G_END_DECLS
-#endif /* _GES_GROUP_H */

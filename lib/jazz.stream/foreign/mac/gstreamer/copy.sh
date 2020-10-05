@@ -1,6 +1,7 @@
 #! /bin/sh
 
 GSTREAMER=/Library/Frameworks/GStreamer.framework/Versions/1.0
+BUILD=/Users/cartier/Devel/gstreamer/gst-build/build/subprojects
 
 if [ -d gstreamer ]; then
   rm -r gstreamer
@@ -15,6 +16,10 @@ mkdir gstreamer
 
 cplib() {
     cp $GSTREAMER/lib/$1 gstreamer/lib/$1
+}
+
+cpbuild() {
+    cp $BUILD/$1 gstreamer/lib/$2
 }
 
 mkdir gstreamer/lib
@@ -52,7 +57,8 @@ cplib gstreamer-1.0/libgstvideotestsrc.dylib
 cplib gstreamer-1.0/libgstvolume.dylib
 cplib gstreamer-1.0/libgstvorbis.dylib
 cplib gstreamer-1.0/libgstwavparse.dylib
-cplib gstreamer-1.0/libgstwebrtcdsp.dylib
+# cplib gstreamer-1.0/libgstwebrtcdsp.dylib
+cpbuild gst-plugins-bad/ext/webrtcdsp/libgstwebrtcdsp.dylib gstreamer-1.0/libgstwebrtcdsp.dylib
 cplib gstreamer-1.0/libgstx264.dylib
 cplib libavcodec.58.dylib
 cplib libavfilter.7.dylib

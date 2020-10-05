@@ -1186,7 +1186,7 @@ description-end
       (let ((input (gst-pipeline (tie "filesrc location={location}")
                                  "oggdemux"
                                  "appsink name=sink"))
-            (bin (gst-bin "appsrc name=src"
+            (bin (gst-bin "appsrc min-latency=30000000 name=src"
                           "vorbisdec"
                           "audioconvert"
                           "audioresample"
@@ -1212,13 +1212,18 @@ description-end
             (let ((thread
                     (new-thread
                       (lambda ()
-                        (let (loop)
-                          (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
-                            (let ((dts (u64vector-ref input-info 0))
-                                  (pts (u64vector-ref input-info 1))
-                                  (duration (u64vector-ref input-info 2)))
-                              (gst_app_src_write bin-src input-buffer size dts pts duration 0)))
-                          (loop)))
+                        (let ((adapter (new Time-Adapter)))
+                          (let (loop)
+                            (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                              (let ((dts (u64vector-ref input-info 0))
+                                    (pts (u64vector-ref input-info 1))
+                                    (duration (u64vector-ref input-info 2)))
+                                (if (= pts GST_CLOCK_TIME_NONE)
+                                    (gst_app_src_write bin-src input-buffer size dts pts duration 0)
+                                  (let ((extra-offset 30000000) ;; this experimental number seems to give the best results
+                                        (timestamp-offset (rebase-time adapter bin-src pts)))
+                                    (gst_app_src_write bin-src input-buffer size dts pts duration (+ timestamp-offset extra-offset))))))
+                            (loop))))
                       'channel)))
               (gst_element_link bin-sink audio-mix)
               (gst_element_set_state input GST_STATE_PLAYING)

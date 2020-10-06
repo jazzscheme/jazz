@@ -2,6 +2,7 @@
 
 GSTREAMER=/Library/Frameworks/GStreamer.framework/Versions/1.0
 BUILD=/Users/cartier/Devel/gstreamer/gst-build/build/subprojects
+RNNOISE=/Users/cartier/Devel/gstreamer/rnnoise/build/plugin
 
 if [ -d gstreamer ]; then
   rm -r gstreamer
@@ -99,6 +100,8 @@ cplib libvorbisenc.2.dylib
 cplib libwebrtc_audio_processing.0.dylib
 cplib libx264.157.dylib
 cplib libz.1.dylib
+
+cp $RNNOISE/libgstrnnoise.dylib gstreamer/lib/gstreamer-1.0/libgstrnnoise.dylib
 
 
 #

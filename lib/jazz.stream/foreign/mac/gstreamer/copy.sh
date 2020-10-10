@@ -3,6 +3,7 @@
 GSTREAMER=/Library/Frameworks/GStreamer.framework/Versions/1.0
 BUILD=/Users/cartier/Devel/gstreamer/gst-build/build/subprojects
 RNNOISE=/Users/cartier/Devel/gstreamer/rnnoise/build/plugin
+WEBRTCAUDIOPROCESSING=/Users/cartier/Devel/gstreamer/webrtcaudioprocessing/build/plugin
 
 if [ -d gstreamer ]; then
   rm -r gstreamer
@@ -59,7 +60,7 @@ cplib gstreamer-1.0/libgstvolume.dylib
 cplib gstreamer-1.0/libgstvorbis.dylib
 cplib gstreamer-1.0/libgstwavparse.dylib
 # cplib gstreamer-1.0/libgstwebrtcdsp.dylib
-cpbuild gst-plugins-bad/ext/webrtcdsp/libgstwebrtcdsp.dylib gstreamer-1.0/libgstwebrtcdsp.dylib
+# cpbuild gst-plugins-bad/ext/webrtcdsp/libgstwebrtcdsp.dylib gstreamer-1.0/libgstwebrtcdsp.dylib
 cplib gstreamer-1.0/libgstx264.dylib
 cplib libavcodec.58.dylib
 cplib libavfilter.7.dylib
@@ -97,11 +98,12 @@ cplib libpng16.16.dylib
 cplib libswresample.3.dylib
 cplib libvorbis.0.dylib
 cplib libvorbisenc.2.dylib
-cplib libwebrtc_audio_processing.0.dylib
+# cplib libwebrtc_audio_processing.0.dylib
 cplib libx264.157.dylib
 cplib libz.1.dylib
 
 cp $RNNOISE/libgstrnnoise.dylib gstreamer/lib/gstreamer-1.0/libgstrnnoise.dylib
+cp $WEBRTCAUDIOPROCESSING/libgstwebrtcaudioprocessing.dylib gstreamer/lib/gstreamer-1.0/libgstwebrtcaudioprocessing.dylib
 
 
 #

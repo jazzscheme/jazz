@@ -174,9 +174,6 @@
 (definition clock?
   #f)
 
-(definition dsp?
-  #f)
-
 (definition monitor
   #f)
 
@@ -184,7 +181,7 @@
   #f)
 
 
-(jazz:split-command-line (command-arguments) '("fps" "info" "debug" "trace" "graph" "latency" "clock" "dsp") '("debugger" "r" "run" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
+(jazz:split-command-line (command-arguments) '("fps" "info" "debug" "trace" "graph" "latency" "clock") '("debugger" "r" "run" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
   (lambda (commands options remain)
     (define (string-argument arg)
       arg)
@@ -238,7 +235,6 @@
     (set! graph? (find-option "graph" options #f))
     (set! latency? (find-option "latency" options #f))
     (set! clock? (find-option "clock" options #f))
-    (set! dsp? (find-option "dsp" options #f))
     (set! monitor (or (symbol-argument (find-option "monitor" options)) monitor))
     (set! remaining remain)))
 
@@ -1090,9 +1086,7 @@ description-end
                              ;; and with the queue it goes to "0:00:00.22"
                              ;; ***AND*** the denoising becomes much better
                              "queue"
-                             (if dsp?
-                                 "webrtcechoprobe latency=320 delay=0"
-                               "webrtcaudioprobe latency=320 delay=0")
+                             "webrtcaudioprobe latency=320 delay=0"
                              "osxaudiosink name=sink"
                              (list "audiotestsrc samplesperbuffer=480 wave=silence is-live=true name=silence"
                                    "mix.")))
@@ -1121,17 +1115,11 @@ description-end
     (define (setup-microphone)
       (let ((bin (gst-bin "osxaudiosrc provide-clock=false name=src"
                           "audioresample"
-                          (if dsp?
-                              (gst-element "webrtcdsp"
-                                           echo-cancel: "true"
-                                           echo-suppression-level: "high"
-                                           gain-control: "false"
-                                           noise-suppression: "true")
-                            (gst-element "webrtcaudioprocessor"
-                                         ;logging-severity: "verbose"
-                                         echo-cancel: "true"
-                                         gain-control: "false"
-                                         noise-suppression: "true"))
+                          (gst-element "webrtcaudioprocessor"
+                                       ;logging-severity: "verbose"
+                                       echo-cancel: "true"
+                                       gain-control: "false"
+                                       noise-suppression: "true")
                           ;"rndenoiser"
                           "audioconvert"
                           "audioresample"
@@ -1295,9 +1283,7 @@ description-end
   (trace-gst? trace?)
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence is-live=true name=silence"
                              "queue name=queue"
-                             (if dsp?
-                                 "webrtcechoprobe latency=320 delay=0"
-                               "webrtcaudioprobe latency=320 delay=0")
+                             "webrtcaudioprobe latency=320 delay=0"
                              "osxaudiosink name=sink"))
         (microphone #f)
         (channels '()))
@@ -1333,18 +1319,12 @@ description-end
     (define (setup-microphone)
       (let ((bin (gst-bin "osxaudiosrc provide-clock=false name=src"
                           "audioresample"
-                          (if dsp?
-                              (gst-element "webrtcdsp"
-                                           echo-cancel: "true"
-                                           echo-suppression-level: "high"
-                                           gain-control: "false"
-                                           noise-suppression: "true")
-                            (gst-element "webrtcaudioprocessor"
-                                         ;logging-severity: "verbose"
-                                         ;processing-rate: "48000"
-                                         echo-cancel: "true"
-                                         gain-control: "false"
-                                         noise-suppression: "true"))
+                          (gst-element "webrtcaudioprocessor"
+                                       ;logging-severity: "verbose"
+                                       ;processing-rate: "48000"
+                                       echo-cancel: "true"
+                                       gain-control: "false"
+                                       noise-suppression: "true")
                           ;"rndenoiser"
                           "audioconvert"
                           "audioresample"

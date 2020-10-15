@@ -1,7 +1,7 @@
 #! /bin/sh
 
 GSTREAMER=/Library/Frameworks/GStreamer.framework/Versions/1.0
-BUILD=/Users/cartier/Devel/gstreamer/gst-build/build/subprojects
+# BUILD=/Users/cartier/Devel/gstreamer/gst-build/build/subprojects
 RNNOISE=/Users/cartier/Devel/gstreamer/rnnoise/build/plugin
 WEBRTCAUDIOPROCESSING=/Users/cartier/Devel/gstreamer/webrtcaudioprocessing/build/plugin
 

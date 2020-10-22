@@ -1316,6 +1316,16 @@ description-end
           (gst_element_link mix queue)
           (gst_element_set_state mix GST_STATE_PLAYING))))
     
+    (define (remove-silence)
+      (with-unref ((silence (gst_bin_get_by_name audio "silence"))
+                   (mix (gst_bin_get_by_name audio "mix")))
+        ;; it is very important not to call gst_element_release as
+        ;; gst_object_unref should not be done before gst_bin_remove
+        (gst_element_unlink silence mix)
+        (gst_element_release_request_pad mix (car (gst_element_sink_pads mix)))
+        (gst_element_set_state silence GST_STATE_NULL)
+        (gst_bin_remove audio silence)))
+    
     (define (setup-microphone)
       (let ((bin (gst-bin "osxaudiosrc provide-clock=false name=src"
                           "audioresample"
@@ -1390,8 +1400,9 @@ description-end
     
     (define (remove-channel location)
       (let ((channel (find channels location key: get-location test: equal? return: 'item)))
-        (release-channel channel)
-        (set! channels (remove! channel channels))))
+        (assert channel
+          (release-channel channel)
+          (set! channels (remove! channel channels)))))
     
     (define (create-channel location volume)
       (let ((input (gst-pipeline (tie "filesrc location={location}")
@@ -1457,7 +1468,7 @@ description-end
     
     (define (closer app)
       (for-each release-channel channels)
-      ;(gst_element_release audio)
+      (gst_element_release audio)
       (when microphone
         (gst_element_release (get-output microphone))))
     
@@ -1468,6 +1479,7 @@ description-end
     (wait-audioclock)
     (add-mixer)
     (setup-microphone)
+    (remove-silence)
     (let ((simulate-thread
             (new-thread
               (lambda ()

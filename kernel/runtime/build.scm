@@ -819,14 +819,13 @@
       (define (link-options)
         (if library-image?
             (case platform
-              ((windows) '("-Wl,--large-address-aware" "-shared" "-D___DYNAMIC"))
+              ((windows) '("-shared" "-D___DYNAMIC"))
               (else '("-bundle" "-D___DYNAMIC")))
           (case platform
             ((windows)
-             (cons "-Wl,--large-address-aware"
-                   (if console?
-                       '("-mconsole")
-                     '("-mwindows"))))
+             (if console?
+                 '("-mconsole")
+               '("-mwindows")))
             ((mac)
              '("-headerpad_max_install_names" "-mmacosx-version-min=10.10"))
             (else
@@ -1393,7 +1392,7 @@
                     (list
                       path: (jazz:compiler-name)
                       arguments: `(,@(case platform
-                                       ((windows) '("-Wl,--large-address-aware" "-shared" "-D___DYNAMIC"))
+                                       ((windows) '("-shared" "-D___DYNAMIC"))
                                        (else '("-bundle" "-D___DYNAMIC")))
                                    ,loader-o
                                    ,@(cond-expand

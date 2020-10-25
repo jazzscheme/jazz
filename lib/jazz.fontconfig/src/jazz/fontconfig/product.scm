@@ -57,15 +57,11 @@
           (list cc-flags ld-flags)))))
   (windows
     (define jazz:fontconfig-flags
-      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/include"))
-            (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/lib"))
-            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/include"))
-            (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/lib"))
-            (expat-lib-path          (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/windows/expat/lib"))
-            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/windows/png/lib"))
-            (zlib-lib-path           (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.stream/foreign/windows/gstreamer/include"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.stream/foreign/windows/gstreamer/include/freetype2"))
+            (gstreamer-lib-path      (jazz:quote-jazz-pathname "lib/jazz.stream/foreign/windows/gstreamer/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path))
-              (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
+              (ld-flags (string-append "-L" gstreamer-lib-path " -lfontconfig")))
           (list cc-flags ld-flags)))))
   (else
     (define jazz:fontconfig-flags
@@ -91,7 +87,7 @@
      (list (cons "lib/jazz.fontconfig/foreign/mac/fontconfig/lib/libfontconfig.1.dylib" "Libraries/libfontconfig.1.dylib"))))
   (windows
    (define jazz:platform-files
-     (list (cons "lib/jazz.fontconfig/foreign/windows/fontconfig/lib/libfontconfig-1.dll" "libfontconfig-1.dll"))))
+     '()))
   (else
    (define jazz:platform-files
      (list (cons "lib/jazz.fontconfig/foreign/linux/fontconfig/lib/libfontconfig.so.1" "libfontconfig.so.1")))))

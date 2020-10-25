@@ -97,7 +97,18 @@
           (list (jazz:patch-mac-ld-warnings cc-flags) ld-flags)))))
   (windows
     (define (jazz:cairo-flags quoter)
-      (let ((cairo-include-path      (quoter "lib/jazz.cairo/foreign/windows/cairo/include"))
+      (let ((cairo-include-path      (quoter "lib/jazz.stream/foreign/windows/gstreamer/include/cairo"))
+            (fontconfig-include-path (quoter "lib/jazz.stream/foreign/windows/gstreamer/include"))
+            (freetype-include-path   (quoter "lib/jazz.stream/foreign/windows/gstreamer/include/freetype2"))
+            (gstreamer-lib-path      (quoter "lib/jazz.stream/foreign/windows/gstreamer/lib"))
+            (zlib-lib-path           (quoter "lib/jazz.stream/foreign/windows/zlib/lib")))
+        (let ((cc-flags (string-append "-I" cairo-include-path " -I" fontconfig-include-path " -I" freetype-include-path))
+              (ld-flags (string-append "-L" gstreamer-lib-path " -L" zlib-lib-path " -mwindows -lcairo -lfreetype")))
+          (list cc-flags ld-flags))))
+    
+    #; ;; old
+    (define (jazz:cairo-flags quoter)
+      (let ((cairo-include-path      (quoter "lib/jazz.stream/foreign/windows/gstreamer/include"))
             (pixman-include-path     (quoter "lib/jazz.cairo/foreign/windows/pixman/include"))
             (fontconfig-include-path (quoter "lib/jazz.fontconfig/foreign/windows/fontconfig/include"))
             (freetype-include-path   (quoter "lib/jazz.freetype/foreign/windows/freetype/include"))
@@ -161,10 +172,7 @@
            (cons "lib/jazz.cairo/foreign/mac/png/lib/libpng16.16.dylib" "Libraries/libpng16.16.dylib"))))
   (windows
    (define jazz:platform-files
-     (list (cons "lib/jazz.cairo/foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")
-           (cons "lib/jazz.cairo/foreign/windows/pixman/lib/libpixman-1-0.dll" "libpixman-1-0.dll")
-           (cons "lib/jazz.cairo/foreign/windows/expat/lib/libexpat-1.dll" "libexpat-1.dll")
-           (cons "lib/jazz.cairo/foreign/windows/png/lib/libpng16-16.dll" "libpng16-16.dll"))))
+     '()))
   (else
    (define jazz:platform-files
      (list (cons "lib/jazz.cairo/foreign/linux/cairo/lib/libcairo.so.2" "libcairo.so.2")

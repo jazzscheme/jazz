@@ -1,12 +1,20 @@
 #! /bin/sh
 
-GSTREAMER=/c/gstreamer/1.0/x86
+GSTREAMER=/c/gstreamer/1.0/mingw_x86_64
 
-if [ -d gstreamer ]; then
-  rm -r gstreamer
-fi
 
-mkdir gstreamer
+mkd() {
+    if [ -d $1 ]; then
+      rm -r $1
+    fi
+
+    mkdir $1
+}
+
+mkd bin
+mkd include
+mkd lib
+mkd libexec
 
 
 #
@@ -14,24 +22,23 @@ mkdir gstreamer
 #
 
 cpbundle() {
-    cp $GSTREAMER/lib/$1.dll gstreamer/lib/$1.dll
+    cp $GSTREAMER/lib/$1.dll lib/$1.dll
 }
 
 cpshared() {
-    cp $GSTREAMER/bin/$1.dll gstreamer/bin/$1.dll
+    cp $GSTREAMER/bin/$1.dll bin/$1.dll
 }
 
 cplink() {
-    cp $GSTREAMER/lib/$1.a gstreamer/lib/$1.a
+    cp $GSTREAMER/lib/$1.a lib/$1.a
 }
 
-mkdir gstreamer/bin
-mkdir gstreamer/lib
-mkdir gstreamer/lib/gstreamer-1.0
+mkdir lib/gstreamer-1.0
 cpbundle gstreamer-1.0/libgstalpha
 cpbundle gstreamer-1.0/libgstapp
 cpbundle gstreamer-1.0/libgstaudioconvert
 cpbundle gstreamer-1.0/libgstaudiofx
+cpbundle gstreamer-1.0/libgstaudiomixer
 cpbundle gstreamer-1.0/libgstaudioparsers
 cpbundle gstreamer-1.0/libgstaudioresample
 cpbundle gstreamer-1.0/libgstaudiotestsrc
@@ -79,6 +86,7 @@ cpshared libgraphene-1.0-0
 cpshared libgstallocators-1.0-0
 cpshared libgstapp-1.0-0
 cpshared libgstaudio-1.0-0
+cpshared libgstbadaudio-1.0-0
 cpshared libgstbase-1.0-0
 cpshared libgstcodecparsers-1.0-0
 cpshared libgstfft-1.0-0
@@ -98,7 +106,7 @@ cpshared libpng16-16
 cpshared libvorbis-0
 cpshared libvorbisenc-2
 cpshared libwinpthread-1
-cpshared libx264-148
+cpshared libx264-157
 cpshared libz-1
 cpshared swresample-3
 cplink libgstapp-1.0.dll
@@ -114,16 +122,14 @@ cplink libintl.dll
 # libexec
 #
 
-mkdir gstreamer/libexec
-mkdir gstreamer/libexec/gstreamer-1.0
-cp $GSTREAMER/libexec/gstreamer-1.0/gst-plugin-scanner gstreamer/libexec/gstreamer-1.0
+mkdir libexec/gstreamer-1.0
+cp $GSTREAMER/libexec/gstreamer-1.0/gst-plugin-scanner libexec/gstreamer-1.0
 
 
 #
 # include
 #
 
-mkdir gstreamer/include
-cp -r $GSTREAMER/include/gstreamer-1.0 gstreamer/include
-cp -r $GSTREAMER/include/glib-2.0 gstreamer/include
-cp -r $GSTREAMER/lib/glib-2.0 gstreamer/lib
+cp -r $GSTREAMER/include/gstreamer-1.0 include
+cp -r $GSTREAMER/include/glib-2.0 include
+cp -r $GSTREAMER/lib/glib-2.0 lib

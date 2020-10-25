@@ -78,7 +78,7 @@
       (jazz.platform.windows.User1    cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.Shell    cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.Ctrl     cc-options: ,base-windows-cc-options ld-options: "-mwindows")
-      (jazz.platform.windows.Dlg      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
+      (jazz.platform.windows.Dlg      cc-options: ,base-windows-cc-options ld-options: "-mwindows -lole32")
       (jazz.platform.windows.Perf     cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpdh"))
       (jazz.platform.windows.PSAPI    cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpsapi")))))
 

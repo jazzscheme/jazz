@@ -520,6 +520,31 @@
 
 
 ;;;
+;;;; C-Feature
+;;;
+
+
+(syntax public c-feature
+  (lambda (form-src usage-environment macro-environment)
+    (bind (name . rest) (cdr (source-code form-src))
+      (bind-optionals ((type #f)) rest
+        (let ((box (if type (string-append "___" (source-code type) "BOX") "___U32BOX")))
+          (sourcify-deep-if
+            `(table-set! c-features ',name
+               (let ()
+                 (declare (extended-bindings))
+                 (c-code ,(string-append
+                            "#ifdef "
+                            (symbol->string (source-code name))
+                            "\n"
+                            "___RESULT = ___TRU;\n"
+                            "#else\n"
+                            "___RESULT = ___FAL;\n"
+                            "#endif\n"))))
+            form-src))))))
+  
+
+;;;
 ;;;; C-Enumerant
 ;;;
 

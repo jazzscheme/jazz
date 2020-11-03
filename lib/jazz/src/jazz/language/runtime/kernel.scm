@@ -702,7 +702,6 @@
 (native jazz:pkg-config-version)
 (native jazz:pkg-config-cflags)
 (native jazz:pkg-config-libs)
-(native jazz:c-features)
 
 
 ;;;

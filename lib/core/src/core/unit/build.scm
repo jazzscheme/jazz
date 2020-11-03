@@ -187,13 +187,9 @@
 ;; at the moment building large files like functional in develop is much too
 ;; slow because of the safe declare, hence this least of two evils solution
 (define (jazz:wrap-single-host-cc-options str)
-  (if (cond-expand
-        ;; because the windows build platform at the moment
-        ;; is a virtual machine this would be much too slow
-        (windows #t)
-        (else (or (eq? jazz:kernel-safety 'core)
-                  (eq? jazz:kernel-safety 'debug)
-                  (eq? jazz:kernel-safety 'develop))))
+  (if (or (eq? jazz:kernel-safety 'core)
+          (eq? jazz:kernel-safety 'debug)
+          (eq? jazz:kernel-safety 'develop))
       (string-append "-U___SINGLE_HOST " str)
     str))
 

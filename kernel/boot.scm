@@ -125,8 +125,9 @@
         
         (if (or (not (file-exists? o1))
                 (not (file-exists? ver))
-                (not (= (time->seconds (file-last-modification-time src))
-                        (time->seconds (file-last-modification-time o1))))
+                (> (abs (- (time->seconds (file-last-modification-time src))
+                           (time->seconds (file-last-modification-time o1))))
+                   .1)
                 (not (equal? version (call-with-input-file ver read))))
             (compile-header)))
       

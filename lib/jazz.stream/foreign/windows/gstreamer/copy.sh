@@ -1,6 +1,8 @@
 #! /bin/sh
 
 GSTREAMER=/c/gstreamer/1.0/mingw_x86_64
+WEBRTC=/c/Home/gstreamer/webrtc/x64/Release
+WEBRTCAUDIOPROCESSING=/c/Home/gstreamer/webrtcaudioprocessing/build/plugin
 
 
 mkd() {
@@ -78,6 +80,7 @@ cpshared avformat-58
 cpshared avutil-56
 cpshared libbz2
 cpshared libffi-7
+cpshared libgcc_s_seh-1
 cpshared libgio-2.0-0
 cpshared libglib-2.0-0
 cpshared libgmodule-2.0-0
@@ -103,6 +106,7 @@ cpshared libogg-0
 cpshared libopus-0
 cpshared liborc-0.4-0
 cpshared libpng16-16
+cpshared libstdc++-6
 cpshared libvorbis-0
 cpshared libvorbisenc-2
 cpshared libwinpthread-1
@@ -129,6 +133,9 @@ cplink libfontconfig.dll
 cplink libfreetype.dll
 cplink libpixman-1.dll
 cplink libpng16.dll
+
+cp $WEBRTC/webrtc.dll bin/webrtc.dll
+cp $WEBRTCAUDIOPROCESSING/libgstwebrtcaudioprocessing.dll lib/gstreamer-1.0/libgstwebrtcaudioprocessing.dll
 
 
 #

@@ -49,6 +49,8 @@
 
 (define jazz:c-features
   (append
+    ;; language
+    (jazz:feature __cplusplus)
     ;; os
     (jazz:feature USE_POSIX)
     (jazz:feature USE_WIN32)

@@ -3,6 +3,7 @@
 GSTREAMER=/Library/Frameworks/GStreamer.framework/Versions/1.0
 # BUILD=/Users/cartier/Devel/gstreamer/gst-build/build/subprojects
 RNNOISE=/Users/cartier/Devel/gstreamer/rnnoise/build/plugin
+WEBRTC=/Users/cartier/Devel/gstreamer/webrtc/build
 WEBRTCAUDIOPROCESSING=/Users/cartier/Devel/gstreamer/webrtcaudioprocessing/build/plugin
 
 if [ -d gstreamer ]; then
@@ -103,7 +104,9 @@ cplib libx264.157.dylib
 cplib libz.1.dylib
 
 cp $RNNOISE/libgstrnnoise.dylib gstreamer/lib/gstreamer-1.0/libgstrnnoise.dylib
+cp $WEBRTC/libwebrtc.dylib gstreamer/lib
 cp $WEBRTCAUDIOPROCESSING/libgstwebrtcaudioprocessing.dylib gstreamer/lib/gstreamer-1.0/libgstwebrtcaudioprocessing.dylib
+install_name_tool -change @rpath/libwebrtc.dylib @rpath/gstreamer/lib/libwebrtc.dylib gstreamer/lib/gstreamer-1.0/libgstwebrtcaudioprocessing.dylib
 
 
 #

@@ -114,6 +114,7 @@ cpshared libx264-157
 cpshared libz-1
 cpshared swresample-3
 cplink libgstapp-1.0.dll
+cplink libgstaudio-1.0.dll
 cplink libgstbase-1.0.dll
 cplink libgstpbutils-1.0.dll
 cplink libgstreamer-1.0.dll

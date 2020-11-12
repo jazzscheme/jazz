@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdarg.h>
+#include <limits.h>
 
 #if defined(__GNUC__) && (__GNUC__ >= 4)
 #define FC_ATTRIBUTE_SENTINEL(x) __attribute__((__sentinel__(0)))
@@ -51,8 +52,8 @@ typedef int		FcBool;
  */
 
 #define FC_MAJOR	2
-#define FC_MINOR	11
-#define FC_REVISION	93
+#define FC_MINOR	12
+#define FC_REVISION	6
 
 #define FC_VERSION	((FC_MAJOR * 10000) + (FC_MINOR * 100) + (FC_REVISION))
 
@@ -66,7 +67,10 @@ typedef int		FcBool;
  * it means multiple copies of the font information.
  */
 
-#define FC_CACHE_VERSION    "5"
+#define FC_CACHE_VERSION_NUMBER	7
+#define _FC_STRINGIFY_(s)    	#s
+#define _FC_STRINGIFY(s)    	_FC_STRINGIFY_(s)
+#define FC_CACHE_VERSION    	_FC_STRINGIFY(FC_CACHE_VERSION_NUMBER)
 
 #define FcTrue		1
 #define FcFalse		0
@@ -95,7 +99,8 @@ typedef int		FcBool;
 #define FC_OUTLINE	    "outline"		/* Bool */
 #define FC_SCALABLE	    "scalable"		/* Bool */
 #define FC_COLOR	    "color"		/* Bool */
-#define FC_SCALE	    "scale"		/* double */
+#define FC_SCALE	    "scale"		/* double (deprecated) */
+#define FC_SYMBOL	    "symbol"		/* Bool */
 #define FC_DPI		    "dpi"		/* double */
 #define FC_RGBA		    "rgba"		/* Int */
 #define FC_MINSPACE	    "minspace"		/* Bool use minimum line spacing */
@@ -124,7 +129,8 @@ typedef int		FcBool;
 #define FC_USER_CACHE_FILE	    ".fonts.cache-" FC_CACHE_VERSION
 
 /* Adjust outline rasterizer */
-#define FC_CHAR_WIDTH	    "charwidth"	/* Int */
+#define FC_CHARWIDTH	    "charwidth"	/* Int */
+#define FC_CHAR_WIDTH	    FC_CHARWIDTH
 #define FC_CHAR_HEIGHT	    "charheight"/* Int */
 #define FC_MATRIX	    "matrix"    /* FcMatrix */
 
@@ -216,7 +222,7 @@ typedef struct _FcMatrix {
 typedef struct _FcCharSet FcCharSet;
 
 typedef struct _FcObjectType {
-    const char	*object;
+    char	*object;
     FcType	type;
 } FcObjectType;
 
@@ -230,6 +236,12 @@ typedef enum _FcResult {
     FcResultMatch, FcResultNoMatch, FcResultTypeMismatch, FcResultNoId,
     FcResultOutOfMemory
 } FcResult;
+
+typedef enum _FcValueBinding {
+    FcValueBindingWeak, FcValueBindingStrong, FcValueBindingSame,
+    /* to make sure sizeof (FcValueBinding) == 4 even with -fshort-enums */
+    FcValueBindingEnd = INT_MAX
+} FcValueBinding;
 
 typedef struct _FcPattern   FcPattern;
 
@@ -832,7 +844,10 @@ FcPatternAddWeak (FcPattern *p, const char *object, FcValue value, FcBool append
     
 FcPublic FcResult
 FcPatternGet (const FcPattern *p, const char *object, int id, FcValue *v);
-    
+
+FcPublic FcResult
+FcPatternGetWithBinding (const FcPattern *p, const char *object, int id, FcValue *v, FcValueBinding *b);
+
 FcPublic FcBool
 FcPatternDel (FcPattern *p, const char *object);
 
@@ -1026,6 +1041,11 @@ FcStrListDone (FcStrList *list);
 /* fcxml.c */
 FcPublic FcBool
 FcConfigParseAndLoad (FcConfig *config, const FcChar8 *file, FcBool complain);
+
+FcPublic FcBool
+FcConfigParseAndLoadFromMemory (FcConfig       *config,
+				const FcChar8  *buffer,
+				FcBool         complain);
 
 _FCFUNCPROTOEND
 

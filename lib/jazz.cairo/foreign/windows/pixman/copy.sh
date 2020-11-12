@@ -11,6 +11,7 @@ mkd() {
     mkdir $1
 }
 
+mkd include
 mkd lib
 
 
@@ -28,3 +29,11 @@ cplink() {
 
 cpbundle libpixman-1-0
 cplink libpixman-1.dll
+
+
+#
+# include
+#
+
+cp $GSTREAMER/include/pixman-1/pixman.h include
+cp $GSTREAMER/include/pixman-1/pixman-version.h include

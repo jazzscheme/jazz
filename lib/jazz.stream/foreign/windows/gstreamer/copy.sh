@@ -122,19 +122,6 @@ cplink libgobject-2.0.dll
 cplink libglib-2.0.dll
 cplink libintl.dll
 
-cpshared libcairo-2
-cpshared libexpat-1
-cpshared libfontconfig-1
-cpshared libfreetype-6
-cpshared libpixman-1-0
-cpshared libpng16-16
-cplink libcairo.dll
-cplink libexpat.dll
-cplink libfontconfig.dll
-cplink libfreetype.dll
-cplink libpixman-1.dll
-cplink libpng16.dll
-
 cp $WEBRTC/webrtc.dll bin/webrtc.dll
 cp $WEBRTCAUDIOPROCESSING/libgstwebrtcaudioprocessing.dll lib/gstreamer-1.0/libgstwebrtcaudioprocessing.dll
 
@@ -154,7 +141,3 @@ cp $GSTREAMER/libexec/gstreamer-1.0/gst-plugin-scanner libexec/gstreamer-1.0
 cp -r $GSTREAMER/include/gstreamer-1.0 include
 cp -r $GSTREAMER/include/glib-2.0 include
 cp -r $GSTREAMER/lib/glib-2.0 lib
-
-cp -r $GSTREAMER/include/cairo include
-cp -r $GSTREAMER/include/fontconfig include
-cp -r $GSTREAMER/include/freetype2 include

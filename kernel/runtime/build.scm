@@ -935,11 +935,7 @@
                          (jazz:call-process
                            (list
                              path: "/usr/bin/codesign"
-                             arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,(string-append kernel-dir "/" kernel-name))))))))
-            (case platform
-              ((windows)
-               (if (jazz:build-single-objects?)
-                   (jazz:obliterate-PE-timestamp (image-file) 'EXE)))))))
+                             arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,(string-append kernel-dir "/" kernel-name)))))))))))
       
       (define (image-file)
         (cond ((and bundle (eq? windowing 'cocoa) (not library-image?))
@@ -1095,48 +1091,6 @@
   (if (or absolutize? (jazz:absolutize-sources?))
       (jazz:absolutize-directory "./" path)
     (jazz:relativise-directory destination-directory "./" path)))
-
-
-;;;
-;;;; PE-Timestamps
-;;;
-
-
-(define (jazz:obliterate-PE-timestamp pathname type)
-  (define (get-checksum-offset)
-    (let ((port (open-input-file pathname)))
-      (input-port-byte-position port #x22D)
-      (let ((b1 (read-u8 port)))
-        (let ((b2 (read-u8 port)))
-          (let ((result (+ (* #x10000 b2)
-                           (*   #x100 b1)
-                           (*    #x04 1))))
-            (close-port port)
-            result)))))
-  
-  (define (fill-bytes-offset port offset size byte-value)
-    (output-port-byte-position port offset)
-    (let loop ((i 0))
-         (if (< i size)
-             (begin
-               (write-u8 byte-value port)
-               (loop (+ i 1))))))
-  
-  (let ((patches `((#x88 4)
-                   (#xD8 4)
-                   .
-                   ,(case type
-                      ((DLL dll)
-                       `((,(get-checksum-offset) 2)))
-                      (else
-                       '())))))
-    (let ((dll-port (open-output-file `(path: ,pathname truncate: #f))))
-      (map (lambda (patch)
-             (let ((offset (car patch))
-                   (size (cadr patch)))
-               (fill-bytes-offset dll-port offset size 0)))
-           patches)
-      (close-port dll-port))))
 
 
 ;;;
@@ -1412,10 +1366,6 @@
                                    ,(string-append "-L" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~lib"))))
                                    ,@ld-options
                                    ,@(link-options))))
-                  (case platform
-                    ((windows)
-                     (if jazz:single-objects?
-                         (jazz:obliterate-PE-timestamp static-o1 'DLL))))
                   ;; cleanup
                   (for-each delete-file (%%list loader-c loader-o linkfile))
                   (rename-file static-o1 library-o1)))

@@ -76,7 +76,7 @@
      '()))
   (windows
    (define jazz:platform-files
-     '()))
+     (list (cons "lib/jazz.zlib/foreign/windows/zlib/lib/libz-1.dll" "libz-1.dll"))))
   (else
    (define jazz:platform-files
      (list (cons "lib/jazz.zlib/foreign/linux/zlib/lib/libz.so.1" "libz.so.1")))))

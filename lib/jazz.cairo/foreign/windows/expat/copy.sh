@@ -11,6 +11,7 @@ mkd() {
     mkdir $1
 }
 
+mkd include
 mkd lib
 
 
@@ -28,3 +29,11 @@ cplink() {
 
 cpbundle libexpat-1
 cplink libexpat.dll
+
+
+#
+# include
+#
+
+cp $GSTREAMER/include/expat.h include
+cp $GSTREAMER/include/expat_external.h include

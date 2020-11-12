@@ -11,6 +11,7 @@ mkd() {
     mkdir $1
 }
 
+mkd include
 mkd lib
 
 
@@ -28,3 +29,10 @@ cplink() {
 
 cpbundle libpng16-16
 cplink libpng16.dll
+
+
+#
+# include
+#
+
+cp $GSTREAMER/include/libpng16/* include

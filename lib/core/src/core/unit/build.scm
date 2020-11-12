@@ -444,10 +444,7 @@
                                (list
                                  path: "install_name_tool"
                                  arguments: `("-add_rpath" ,rpath ,bin-o1))))
-                           rpaths)))
-            ((windows)
-             (if jazz:single-objects?
-                 (jazz:obliterate-PE-timestamp bin-o1 'DLL))))
+                           rpaths))))
           (delete-file linkfile)))))
   
   (let ((will-link? (and update-bin? (or (jazz:link-objects?) (and bin (not jazz:single-objects?))))))

@@ -27,7 +27,6 @@ cpbuild() {
 
 mkdir gstreamer/lib
 mkdir gstreamer/lib/gstreamer-1.0
-cplib gstreamer-1.0/libgstadder.dylib
 cplib gstreamer-1.0/libgstalpha.dylib
 cplib gstreamer-1.0/libgstapp.dylib
 cplib gstreamer-1.0/libgstapplemedia.dylib

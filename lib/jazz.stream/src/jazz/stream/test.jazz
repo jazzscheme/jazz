@@ -392,6 +392,22 @@
     (for-each report (gst_bin_elements_recurse pipeline))))
 
 
+(definition (wait-audioclock pipeline sink-name)
+  (with-unref ((sink (gst_bin_get_by_name pipeline sink-name)))
+    (let (loop (n 0))
+      (when (< n 100)
+        (when (not (gst_audio_ring_buffer_acquired sink))
+          (sleep .01)
+          (loop (+ n 1)))))
+    (with-unref ((clock (gst_pipeline_get_clock pipeline)))
+      (let ((clock-name (gst_object_get_name clock)))
+        (unless (equal? clock-name (cond-expand
+                                     (linux "GstPulseSinkClock")
+                                     (else "GstAudioSinkClock")))
+          (terminal 'COULD 'NOT 'GET 'AN 'AUDIO 'CLOCK)
+          (exit))))))
+
+
 (definition (waitfor-caps sink)
   (with-unref ((pad (gst_element_get_static_pad sink "sink")))
     ;; wait for data to flow
@@ -1320,23 +1336,6 @@ description-end
                                           (else "pulsesink name=sink"))))
         (microphone #f)
         (channels '()))
-    (define (wait-audioclock)
-      (with-unref ((sink (gst_bin_get_by_name audio "sink")))
-        (let (loop (n 0))
-          (if (> n 1000)
-              (begin
-                (terminal 'COULD 'NOT 'GET 'AN 'AUDIO 'CLOCK)
-                (exit))
-            (let ((clock (gst_element_get_clock sink)))
-              (let ((clock-name (and clock (gst_object_get_name clock))))
-                (if (or (not clock-name) (not (equal? clock-name (cond-expand
-                                                                   (linux "GstPulseSinkClock")
-                                                                   (else "GstAudioSinkClock")))))
-                    (begin
-                      (sleep .001)
-                      (loop (+ n 1)))
-                  (gst_object_unref clock))))))))
-    
     (define (add-mixer)
       (with-unref ((silence (gst_bin_get_by_name audio "silence"))
                    (queue (gst_bin_get_by_name audio "queue")))
@@ -1496,9 +1495,8 @@ description-end
     
     (gst_object_set_name audio "audio")
     (gst_element_set_state audio GST_STATE_PAUSED)
-    (sleep .01)
+    (wait-audioclock audio "sink")
     (gst_element_set_state audio GST_STATE_PLAYING)
-    (wait-audioclock)
     (add-mixer)
     (setup-microphone)
     ;(remove-silence)

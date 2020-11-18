@@ -125,6 +125,7 @@
 (c-type gint     int)
 (c-type guint    uint)
 (c-type gulong   ulong)
+(c-type gsize    ulong)
 (c-type gboolean gint)
 (c-type gpointer void*)
 (c-type GType    enum)
@@ -299,6 +300,8 @@ static char* g_error_message(GError* error)
 (c-type GstStructure*            (pointer GstStructure GstStructure*))
 (c-type GstBuffer                (native "GstBuffer"))
 (c-type GstBuffer*               (pointer GstBuffer GstBuffer*))
+(c-type GstAdapter               (native "GstAdapter"))
+(c-type GstAdapter*              (pointer GstAdapter GstAdapter*))
 (c-type GstBin                   (native "GstBin"))
 (c-type GstBin*                  (pointer GstBin GstBin*))
 (c-type GstPipeline              (native "GstPipeline"))
@@ -377,6 +380,54 @@ static int gst_structure_get_int_aux(GstStructure* struc, char* name)
 static GValue* gst_structure_get_value_aux(GstStructure* struc, char* name)
 {
     return (GValue*) gst_structure_get_value(struc, name);
+}
+
+static GstBuffer* gst_buffer_new_allocate_aux(gsize size)
+{
+    return gst_buffer_new_allocate(NULL, size, NULL);
+}
+
+static GstClockTime gst_buffer_get_pts(GstBuffer* buffer)
+{
+    return GST_BUFFER_PTS(buffer);
+}
+
+static GstClockTime gst_buffer_get_dts(GstBuffer* buffer)
+{
+    return GST_BUFFER_DTS(buffer);
+}
+
+static GstClockTime gst_buffer_get_duration(GstBuffer* buffer)
+{
+    return GST_BUFFER_DURATION(buffer);
+}
+
+static void gst_buffer_set_pts(GstBuffer* buffer, GstClockTime pts)
+{
+    GST_BUFFER_PTS(buffer) = pts;
+}
+
+static void gst_buffer_set_dts(GstBuffer* buffer, GstClockTime dts)
+{
+    GST_BUFFER_DTS(buffer) = dts;
+}
+
+static void gst_buffer_set_duration(GstBuffer* buffer, GstClockTime duration)
+{
+    GST_BUFFER_DURATION(buffer) = duration;
+}
+
+static GstClockTime gst_adapter_prev_pts_aux(GstAdapter* adapter, ___SCMOBJ distance)
+{
+    ___U64 *distance_ptr = ___CAST(___U64*, ___BODY(distance));
+    GstClockTime pts;
+    guint64 dist;
+    
+    pts = gst_adapter_prev_pts(adapter, &dist);
+    
+    distance_ptr[0] = dist;
+    
+    return pts;
 }
 
 static ___SCMOBJ alloc_foreign(void* ptr, ___SCMOBJ tags)
@@ -1385,7 +1436,23 @@ static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
 (gst-external (gst_structure_get_int GstStructure* char-string) int "gst_structure_get_int_aux")
 (gst-external (gst_structure_get_value GstStructure* char-string) GValue* "gst_structure_get_value_aux")
 (gst-external (gst_structure_to_string GstStructure*) char-string)
+(gst-external (gst_buffer_new_allocate gsize) GstBuffer* "gst_buffer_new_allocate_aux")
+(gst-external (gst_buffer_new_wrapped gpointer gsize) GstBuffer*)
 (gst-external (gst_buffer_get_size GstBuffer*) int)
+(gst-external (gst_buffer_get_pts GstBuffer*) GstClockTime)
+(gst-external (gst_buffer_get_dts GstBuffer*) GstClockTime)
+(gst-external (gst_buffer_get_duration GstBuffer*) GstClockTime)
+(gst-external (gst_buffer_set_pts GstBuffer* GstClockTime) void)
+(gst-external (gst_buffer_set_dts GstBuffer* GstClockTime) void)
+(gst-external (gst_buffer_set_duration GstBuffer* GstClockTime) void)
+(gst-external (gst_buffer_unref GstBuffer*) void)
+(gst-external (gst_adapter_new) GstAdapter*)
+(gst-external (gst_adapter_clear GstAdapter*) void)
+(gst-external (gst_adapter_flush GstAdapter* gsize) void)
+(gst-external (gst_adapter_push GstAdapter* GstBuffer*) void)
+(gst-external (gst_adapter_available GstAdapter*) gsize)
+(gst-external (gst_adapter_prev_pts GstAdapter* scheme-object) GstClockTime "gst_adapter_prev_pts_aux")
+(gst-external (gst_adapter_take_buffer GstAdapter* gsize) GstBuffer*)
 (gst-external (gst_element_set_state_threaded GstElement* GstState void*) :alloc void*)
 (gst-external (gst_element_set_state_free void*) :free void)
 (gst-external (gst_element_set_state_blocking GstElement* GstState) GstStateChangeReturn)

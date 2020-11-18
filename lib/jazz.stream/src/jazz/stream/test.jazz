@@ -335,6 +335,19 @@
   aretha)
 
 
+(definition audiosrc
+  (cond-expand
+    (windows "directsoundsrc")
+    (mac "osxaudiosrc")
+    (else "pulsesrc")))
+
+(definition audiosink
+  (cond-expand
+    (windows "directsoundsink")
+    (mac "osxaudiosink")
+    (else "pulsesink")))
+
+
 (definition (generate-graph pipeline name)
   (when graph?
     ;; wait for preroll to go to playing
@@ -438,9 +451,9 @@
         vorbisdec !
         audioconvert !
         audioresample !
-        osxaudiosink
+        {audiosink}
         
-        osxaudiosrc provide-clock=false !
+        {audiosrc} provide-clock=false !
         audioconvert !
         audioresample !
         audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=2 !
@@ -478,9 +491,9 @@ description-end
         audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2 !
         webrtcaudioprobe !
         audioresample !
-        osxaudiosink
+        {audiosink}
         
-        osxaudiosrc provide-clock=false !
+        {audiosrc} provide-clock=false !
         audioresample !
         webrtcaudioprocessor
             echo-cancel=true
@@ -520,13 +533,8 @@ description-end
                                "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
                                "webrtcaudioprobe"
                                "audioresample"
-                               (cond-expand (windows "directsoundsink")
-                                            (mac "osxaudiosink")
-                                            (else "pulsesink"))))
-        (microphone (gst-bin (cond-expand
-                               (windows "directsoundsrc provide-clock=false")
-                               (mac "osxaudiosrc provide-clock=false")
-                               (else "pulsesrc provide-clock=false"))
+                               audiosink))
+        (microphone (gst-bin (gst-element audiosrc provide-clock: "false")
                              "audioresample"
                              (gst-element "webrtcaudioprocessor"
                                           echo-cancel: "true"
@@ -565,13 +573,8 @@ description-end
                                "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
                                "webrtcaudioprobe"
                                "audioresample"
-                               (cond-expand (windows "directsoundsink")
-                                            (mac "osxaudiosink")
-                                            (else "pulsesink"))))
-        (microphone (gst-bin (cond-expand
-                               (windows "directsoundsrc provide-clock=false")
-                               (mac "osxaudiosrc provide-clock=false")
-                               (else "pulsesrc provide-clock=false"))
+                               audiosink))
+        (microphone (gst-bin (gst-element audiosrc provide-clock: "false")
                              "audioresample"
                              (gst-element "webrtcaudioprocessor"
                                           echo-cancel: "true"
@@ -631,13 +634,8 @@ description-end
                                "audioresample"
                                "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
                                "webrtcaudioprobe"
-                               (cond-expand (windows "directsoundsink")
-                                            (mac "osxaudiosink")
-                                            (else "pulsesink"))))
-        (microphone (gst-bin (cond-expand
-                               (windows "directsoundsrc provide-clock=false")
-                               (mac "osxaudiosrc provide-clock=false")
-                               (else "pulsesrc provide-clock=false"))
+                               audiosink))
+        (microphone (gst-bin (gst-element audiosrc provide-clock: "false")
                              "audioresample"
                              (gst-element "webrtcaudioprocessor"
                                           echo-cancel: "true"
@@ -729,13 +727,8 @@ description-end
                           "volume name=sink"))
         (speaker (gst-pipeline "audiomixer name=mix"
                                "webrtcaudioprobe"
-                               (cond-expand (windows "directsoundsink")
-                                            (mac "osxaudiosink")
-                                            (else "pulsesink"))))
-        (microphone (gst-bin (cond-expand
-                               (windows "directsoundsrc provide-clock=false")
-                               (mac "osxaudiosrc provide-clock=false")
-                               (else "pulsesrc provide-clock=false"))
+                               audiosink))
+        (microphone (gst-bin (gst-element audiosrc provide-clock: "false")
                              "audioresample"
                              (gst-element "webrtcaudioprocessor"
                                           echo-cancel: "true"
@@ -839,13 +832,8 @@ description-end
 (definition public (test-audio6)
   (let ((speaker (gst-pipeline "audiomixer name=mix"
                                "webrtcaudioprobe"
-                               (cond-expand (windows "directsoundsink")
-                                            (mac "osxaudiosink")
-                                            (else "pulsesink"))))
-        (microphone (gst-bin (cond-expand
-                               (windows "directsoundsrc provide-clock=false")
-                               (mac "osxaudiosrc provide-clock=false")
-                               (else "pulsesrc provide-clock=false"))
+                               audiosink))
+        (microphone (gst-bin (gst-element audiosrc provide-clock: "false")
                              "audioresample"
                              (gst-element "webrtcaudioprocessor"
                                           echo-cancel: "true"
@@ -961,13 +949,8 @@ description-end
                              ;; ***AND*** the denoising becomes much better
                              "queue"
                              "webrtcaudioprobe"
-                             (cond-expand (windows "directsoundsink name=sink")
-                                          (mac "osxaudiosink name=sink")
-                                          (else "pulsesink name=sink"))))
-        (microphone (gst-bin (cond-expand
-                               (windows "directsoundsrc provide-clock=false")
-                               (mac "osxaudiosrc provide-clock=false")
-                               (else "pulsesrc provide-clock=false"))
+                             (gst-element audiosink name: "sink")))
+        (microphone (gst-bin (gst-element audiosrc provide-clock: "false")
                              "audioresample"
                              (gst-element "webrtcaudioprocessor"
                                           echo-cancel: "true"
@@ -1142,10 +1125,8 @@ description-end
                              ;; and with the queue it goes to "0:00:00.22"
                              ;; ***AND*** the denoising becomes much better
                              "queue"
-                             "webrtcaudioprobe latency=320 delay=0"
-                             (cond-expand (windows "directsoundsink name=sink")
-                                          (mac "osxaudiosink name=sink")
-                                          (else "pulsesink name=sink"))
+                             "webrtcaudioprobe delay=0"
+                             (gst-element audiosink name: "sink")
                              (list "audiotestsrc samplesperbuffer=480 wave=silence is-live=true name=silence"
                                    "mix.")))
         (microphone #f)
@@ -1171,10 +1152,7 @@ description-end
             (gst_caps_unref caps)))))
     
     (define (setup-microphone)
-      (let ((bin (gst-bin (cond-expand
-                            (windows "directsoundsrc provide-clock=false name=src")
-                            (mac "osxaudiosrc provide-clock=false name=src")
-                            (else "pulsesrc provide-clock=false name=src"))
+      (let ((bin (gst-bin (gst-element audiosrc provide-clock: "false")
                           "audioresample"
                           (gst-element "webrtcaudioprocessor"
                                        ;logging-severity: "verbose"
@@ -1330,10 +1308,8 @@ description-end
   (trace-gst? trace?)
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence is-live=true name=silence"
                              "queue name=queue"
-                             "webrtcaudioprobe latency=320 delay=0"
-                             (cond-expand (windows "directsoundsink name=sink")
-                                          (mac "osxaudiosink name=sink")
-                                          (else "pulsesink name=sink"))))
+                             "webrtcaudioprobe delay=0"
+                             (gst-element audiosink name: "sink")))
         (microphone #f)
         (channels '()))
     (define (add-mixer)
@@ -1359,10 +1335,7 @@ description-end
         (gst_bin_remove audio silence)))
     
     (define (setup-microphone)
-      (let ((bin (gst-bin (cond-expand
-                            (windows "directsoundsrc provide-clock=false name=src")
-                            (mac "osxaudiosrc provide-clock=false name=src")
-                            (else "pulsesrc provide-clock=false name=src"))
+      (let ((bin (gst-bin (gst-element audiosrc provide-clock: "false" name: "src")
                           "audioresample"
                           (gst-element "webrtcaudioprocessor"
                                        ;logging-severity: "verbose"

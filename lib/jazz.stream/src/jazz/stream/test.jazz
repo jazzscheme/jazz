@@ -168,7 +168,13 @@
 (definition graph?
   #f)
 
+(definition mode?
+  #f)
+
 (definition latency?
+  #f)
+
+(definition queue?
   #f)
 
 (definition clock?
@@ -181,7 +187,7 @@
   #f)
 
 
-(jazz:split-command-line (command-arguments) '("fps" "info" "debug" "trace" "graph" "latency" "clock") '("debugger" "r" "run" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
+(jazz:split-command-line (command-arguments) '("fps" "info" "debug" "trace" "graph" "mode" "latency" "queue" "clock") '("debugger" "r" "run" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
   (lambda (commands options remain)
     (define (string-argument arg)
       arg)
@@ -233,7 +239,9 @@
     (set! debug? (find-option "debug" options #f))
     (set! trace? (find-option "trace" options #f))
     (set! graph? (find-option "graph" options #f))
+    (set! mode? (find-option "mode" options #f))
     (set! latency? (find-option "latency" options #f))
+    (set! queue? (find-option "queue" options #f))
     (set! clock? (find-option "clock" options #f))
     (set! monitor (or (symbol-argument (find-option "monitor" options)) monitor))
     (set! remaining remain)))
@@ -358,19 +366,22 @@
     (gst_debug_bin_to_dot_file pipeline GST_DEBUG_GRAPH_SHOW_ALL name)))
 
 
-(definition (report-pads pipeline)
-  (for-each (lambda (elem)
-              (for-each (lambda (pad)
-                          (format :terminal "{a} {s} {s}{%}"
-                            (gst_element_path elem)
-                            (ecase (gst_pad_get_direction pad)
-                              ((GST_PAD_SRC) 'src)
-                              ((GST_PAD_SINK) 'sink))
-                            (ecase (gst_pad_get_mode pad)
-                              ((GST_PAD_MODE_PUSH) 'push)
-                              ((GST_PAD_MODE_PULL) 'pull))))
-                        (gst_element_pads elem)))
-            (gst_bin_elements_recurse pipeline)))
+(definition (report-mode pipeline)
+  (when mode?
+    ;; wait for preroll to go to playing
+    (sleep .5)
+    (for-each (lambda (elem)
+                (for-each (lambda (pad)
+                            (format :terminal "{a} {s} {s}{%}"
+                              (gst_element_path elem)
+                              (ecase (gst_pad_get_direction pad)
+                                ((GST_PAD_SRC) 'src)
+                                ((GST_PAD_SINK) 'sink))
+                              (ecase (gst_pad_get_mode pad)
+                                ((GST_PAD_MODE_PUSH) 'push)
+                                ((GST_PAD_MODE_PULL) 'pull))))
+                          (gst_element_pads elem)))
+              (reverse (gst_bin_elements_recurse pipeline)))))
 
 
 (definition (report-latency pipeline)
@@ -390,7 +401,7 @@
                       (if (= max GST_CLOCK_TIME_NONE)
                           'none
                         (format "{r precision: 5}" (/ max nanosecond)))))))
-              (gst_bin_elements_recurse pipeline))))
+              (reverse (gst_bin_elements_recurse pipeline)))))
 
 
 (definition (report-clock pipeline)
@@ -403,9 +414,15 @@
   (when clock?
     ;; wait for preroll to go to playing
     (sleep .5)
-    (format :terminal "pipeline {a}{%}" (gst_object_get_name (gst_pipeline_get_clock pipeline)))
     (report pipeline)
-    (for-each report (gst_bin_elements_recurse pipeline))))
+    (for-each report (reverse (gst_bin_elements_recurse pipeline)))))
+
+
+(definition (report-info pipeline name)
+  (generate-graph pipeline name)
+  (report-mode pipeline)
+  (report-latency pipeline)
+  (report-clock pipeline))
 
 
 (definition (wait-audioclock pipeline sink-name)
@@ -474,9 +491,7 @@ description-end
       (new-thread
         (lambda ()
           (gst_element_set_state pipeline GST_STATE_PLAYING)
-          (generate-graph pipeline "audio0")
-          (report-latency pipeline)
-          (report-clock pipeline))))
+          (report-info pipeline "audio0"))))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -519,9 +534,7 @@ description-end
       (new-thread
         (lambda ()
           (gst_element_set_state pipeline GST_STATE_PLAYING)
-          (generate-graph pipeline "audio1")
-          (report-latency pipeline)
-          (report-clock pipeline))))
+          (report-info pipeline "audio1"))))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -557,9 +570,7 @@ description-end
         (lambda ()
           (gst_bin_add speaker microphone)
           (gst_element_set_state speaker GST_STATE_PLAYING)
-          (generate-graph speaker "audio2")
-          (report-latency speaker)
-          (report-clock speaker))))
+          (report-info speaker "audio2"))))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -619,9 +630,7 @@ description-end
           (gst_element_set_state input GST_STATE_PLAYING)
           (gst_element_set_state speaker GST_STATE_PLAYING)
           (thread-start! input-thread)
-          (generate-graph speaker "audio3")
-          (report-latency speaker)
-          (report-clock speaker))))
+          (report-info speaker "audio3"))))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -710,9 +719,7 @@ description-end
             (gst_element_set_state output GST_STATE_PLAYING)
             (thread-start! input-thread)
             (thread-start! microphone-thread)
-            (generate-graph speaker "audio4")
-            (report-latency speaker)
-            (report-clock speaker)))))
+            (report-info speaker "audio4")))))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -807,9 +814,7 @@ description-end
             (gst_element_set_state output GST_STATE_PLAYING)
             (thread-start! input-thread)
             (thread-start! microphone-thread)
-            (generate-graph speaker "audio5")
-            (report-latency speaker)
-            (report-clock speaker)))))
+            (report-info speaker "audio5")))))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -933,9 +938,7 @@ description-end
                           "format"      'int     GST_FORMAT_TIME)
             (gst_element_set_state output GST_STATE_PLAYING)
             (thread-start! microphone-thread)
-            (generate-graph speaker "audio6")
-            (report-latency speaker)
-            (report-clock speaker)))))
+            (report-info speaker "audio6")))))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -1090,9 +1093,7 @@ description-end
             (thread-start! microphone-thread)
             (add-channel audio-location 1.)
             @w(add-channel koln 1.)
-            (generate-graph audio "audio7")
-            (report-latency audio)
-            (report-clock audio)
+            (report-info audio "audio7")
             @w(thread-start! simulate-thread)))))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
@@ -1298,9 +1299,7 @@ description-end
               'simulate)))
       (add-channel audio-location 1.)
         @w(add-channel koln 1.)
-        (generate-graph audio "audio8")
-        (report-latency audio)
-        (report-clock audio)
+        (report-info audio "audio8")
         @w(thread-start! simulate-thread))
     ;; application
     (boot-environment (new Test-Application closer: closer))))

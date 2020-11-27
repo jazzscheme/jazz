@@ -174,6 +174,9 @@
 (definition latency?
   #f)
 
+(definition caps?
+  #f)
+
 (definition queue?
   #f)
 
@@ -187,7 +190,7 @@
   #f)
 
 
-(jazz:split-command-line (command-arguments) '("fps" "info" "debug" "trace" "graph" "mode" "latency" "queue" "clock") '("debugger" "r" "run" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
+(jazz:split-command-line (command-arguments) '("fps" "info" "debug" "trace" "graph" "mode" "latency" "caps" "queue" "clock") '("debugger" "r" "run" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
   (lambda (commands options remain)
     (define (string-argument arg)
       arg)
@@ -241,6 +244,7 @@
     (set! graph? (find-option "graph" options #f))
     (set! mode? (find-option "mode" options #f))
     (set! latency? (find-option "latency" options #f))
+    (set! caps? (find-option "caps" options #f))
     (set! queue? (find-option "queue" options #f))
     (set! clock? (find-option "clock" options #f))
     (set! monitor (or (symbol-argument (find-option "monitor" options)) monitor))
@@ -369,48 +373,68 @@
 
 
 (definition (generate-graph pipeline name)
-  (when graph?
-    ;; wait for preroll to go to playing
-    (sleep .5)
-    (gst_debug_bin_to_dot_file pipeline GST_DEBUG_GRAPH_SHOW_ALL name)))
+  ;; wait for preroll to go to playing
+  (sleep .5)
+  (gst_debug_bin_to_dot_file pipeline GST_DEBUG_GRAPH_SHOW_ALL name))
 
 
 (definition (report-mode pipeline)
-  (when mode?
-    ;; wait for preroll to go to playing
-    (sleep .5)
-    (for-each (lambda (elem)
-                (for-each (lambda (pad)
-                            (format :terminal "{a} {s} {s}{%}"
+  ;; wait for preroll to go to playing
+  (sleep .5)
+  (for-each (lambda (elem)
+              (for-each (lambda (pad)
+                          (let ((dir (gst_pad_get_direction pad))
+                                (mode (gst_pad_get_mode pad))
+                                (task (gst_pad_task pad)))
+                            (format :terminal "$$$$$$$$$$$$$$$ {a} {s} {s} {s}{%}"
+                              (gst_element_path elem)
+                              (ecase dir
+                                ((GST_PAD_SRC) 'src)
+                                ((GST_PAD_SINK) 'sink))
+                              (ecase mode
+                                ((GST_PAD_MODE_PUSH) 'push)
+                                ((GST_PAD_MODE_PULL) 'pull))
+                              (and task (gst_task_thread task)))))
+                        (gst_element_pads elem)))
+            (reverse (gst_bin_elements_recurse pipeline))))
+
+
+(definition (report-latency pipeline (wait? #t))
+  ;; wait for preroll to go to playing
+  (when wait?
+    (sleep .5))
+  (for-each (lambda (elem)
+              (let ((info (make-u64vector 3)))
+                (gst_element_query_latency elem info)
+                (let ((live (u64vector-ref info 0))
+                      (min (u64vector-ref info 1))
+                      (max (u64vector-ref info 2)))
+                  (format :terminal "{a} {a} {a} {a}{%}"
+                    (gst_element_path elem)
+                    (= live 1)
+                    (format "{r precision: 5}" (/ min nanosecond))
+                    (if (= max GST_CLOCK_TIME_NONE)
+                        'none
+                      (format "{r precision: 5}" (/ max nanosecond)))))))
+            (reverse (gst_bin_elements_recurse pipeline))))
+
+
+(definition (report-caps pipeline (wait? #t))
+  ;; wait for preroll to go to playing
+  (when wait?
+    (sleep .5))
+  (for-each (lambda (elem)
+              (for-each (lambda (pad)
+                          (let ((caps (gst_pad_get_current_caps pad)))
+                            (format :terminal "{a} {a} {a}{%}"
                               (gst_element_path elem)
                               (ecase (gst_pad_get_direction pad)
                                 ((GST_PAD_SRC) 'src)
                                 ((GST_PAD_SINK) 'sink))
-                              (ecase (gst_pad_get_mode pad)
-                                ((GST_PAD_MODE_PUSH) 'push)
-                                ((GST_PAD_MODE_PULL) 'pull))))
-                          (gst_element_pads elem)))
-              (reverse (gst_bin_elements_recurse pipeline)))))
-
-
-(definition (report-latency pipeline)
-  (when latency?
-    ;; wait for preroll to go to playing
-    (sleep .5)
-    (for-each (lambda (elem)
-                (let ((info (make-u64vector 3)))
-                  (gst_element_query_latency elem info)
-                  (let ((live (u64vector-ref info 0))
-                        (min (u64vector-ref info 1))
-                        (max (u64vector-ref info 2)))
-                    (format :terminal "{a} {a} {a} {a}{%}"
-                      (gst_element_path elem)
-                      (= live 1)
-                      (format "{r precision: 5}" (/ min nanosecond))
-                      (if (= max GST_CLOCK_TIME_NONE)
-                          'none
-                        (format "{r precision: 5}" (/ max nanosecond)))))))
-              (reverse (gst_bin_elements_recurse pipeline)))))
+                              (gst_caps_to_string caps))
+                            (gst_caps_unref caps)))
+                        (gst_element_pads elem)))
+            (reverse (gst_bin_elements_recurse pipeline))))
 
 
 (definition (report-clock pipeline)
@@ -420,18 +444,23 @@
       (g_object_class_name elem)
       (gst_object_get_name (gst_element_get_clock elem))))
   
-  (when clock?
-    ;; wait for preroll to go to playing
-    (sleep .5)
-    (report pipeline)
-    (for-each report (reverse (gst_bin_elements_recurse pipeline)))))
+  ;; wait for preroll to go to playing
+  (sleep .5)
+  (report pipeline)
+  (for-each report (reverse (gst_bin_elements_recurse pipeline))))
 
 
 (definition (report-info pipeline name)
-  (generate-graph pipeline name)
-  (report-mode pipeline)
-  (report-latency pipeline)
-  (report-clock pipeline))
+  (when graph?
+    (generate-graph pipeline name))
+  (when mode?
+    (report-mode pipeline))
+  (when latency?
+    (report-latency pipeline))
+  (when caps?
+    (report-caps pipeline))
+  (when clock?
+    (report-clock pipeline)))
 
 
 (definition (wait-audioclock pipeline sink-name)

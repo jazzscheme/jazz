@@ -34,6 +34,7 @@ cplib gstreamer-1.0/libgstaudioconvert.dylib
 cplib gstreamer-1.0/libgstaudiofx.dylib
 cplib gstreamer-1.0/libgstaudiomixer.dylib
 cplib gstreamer-1.0/libgstaudioparsers.dylib
+cplib gstreamer-1.0/libgstaudiorate.dylib
 cplib gstreamer-1.0/libgstaudioresample.dylib
 cplib gstreamer-1.0/libgstaudiotestsrc.dylib
 cplib gstreamer-1.0/libgstautodetect.dylib

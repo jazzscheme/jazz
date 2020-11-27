@@ -512,6 +512,7 @@ ___EXT(___release_scmobj)(dst); }
 #include <stdarg.h>
 #include <string.h>
 #include <limits.h>
+#include <pthread.h>
 
 #include <OpenGL/gl3.h>
 
@@ -3926,6 +3927,35 @@ bool platformTerminateApplication(int pid)
 }
 
 
+___SCMOBJ charstar_to_scmobj(char *str)
+{
+    ___SCMOBJ result;
+
+    int i;
+    int len = strlen(str);
+
+    result = ___EXT(___alloc_scmobj)(___PSTATE, ___sSTRING, len<<___LCS);
+
+    for (i=0; i<len; i++)
+    {
+        ___UCS_4 c = str[i];
+        ___STRINGSET(result,___FIX(i),___CHR(c))
+    }
+
+    return result;
+}
+
+
+___SCMOBJ double_to_scmobj(double x)
+{
+    ___SCMOBJ r = ___alloc_scmobj (___PSTATE, ___sFLONUM, ___FLONUM_SIZE<<___LWS);
+
+    ___FLONUM_VAL(r) = x;
+
+    return r;
+}
+
+
 ___SCMOBJ platformProcessThreads()
 {
     kern_return_t error;
@@ -3934,6 +3964,7 @@ ___SCMOBJ platformProcessThreads()
     mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT, th_count;
     size_t i;
     double my_user_time = 0, my_system_time = 0, my_percent = 0;
+    char name[256];
     
     if ((error = task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&t_info, &t_info_count)) != KERN_SUCCESS)
         return NULL;
@@ -3941,8 +3972,8 @@ ___SCMOBJ platformProcessThreads()
     if ((error = task_threads(mach_task_self(), &th_array, &th_count)) != KERN_SUCCESS)
         return NULL;
     
-     ___SCMOBJ r = ___EXT(___alloc_scmobj) (___PSTATE, ___sF64VECTOR, th_count*sizeof(___F64));
-     double *ptr = ___CAST(double*,___BODY(r));
+    ___SCMOBJ r = ___EXT(___alloc_scmobj) (___PSTATE, ___sVECTOR, th_count*2*sizeof(___SCMOBJ));
+    ___SCMOBJ *ptr = ___CAST(___SCMOBJ*,___BODY(r));
 
     // iterate live threads
     for (i = 0; i < th_count; i++)
@@ -3955,11 +3986,20 @@ ___SCMOBJ platformProcessThreads()
               (thread_info_t)&th_info, &th_info_count)) != KERN_SUCCESS)
             return NULL;
 
+        pthread_t pt = pthread_from_mach_thread_np(th_array[i]);
+        if (pt) {
+            name[0] = '\0';
+            pthread_getname_np(pt, name, sizeof name);
+            ptr[i*2] = charstar_to_scmobj(name);
+        } else {
+            ptr[i*2] = ___FAL;
+        }
+        
         th_user_time = th_info.user_time.seconds + th_info.user_time.microseconds / 1e6;
         th_system_time = th_info.system_time.seconds + th_info.system_time.microseconds / 1e6;
         th_percent = (double)th_info.cpu_usage / TH_USAGE_SCALE;
         
-        ptr[i] = th_percent;
+        ptr[i*2+1] = double_to_scmobj(th_percent);
     }
 
     // destroy thread array

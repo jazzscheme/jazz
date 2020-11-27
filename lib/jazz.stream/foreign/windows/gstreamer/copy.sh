@@ -42,6 +42,7 @@ cpbundle gstreamer-1.0/libgstaudioconvert
 cpbundle gstreamer-1.0/libgstaudiofx
 cpbundle gstreamer-1.0/libgstaudiomixer
 cpbundle gstreamer-1.0/libgstaudioparsers
+cpbundle gstreamer-1.0/libgstaudiorate
 cpbundle gstreamer-1.0/libgstaudioresample
 cpbundle gstreamer-1.0/libgstaudiotestsrc
 cpbundle gstreamer-1.0/libgstautodetect

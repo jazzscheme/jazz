@@ -1025,6 +1025,19 @@ static void gst_print_message(char* pipeline_name, GstMessage *msg)
     }
 }
 
+static FILE* monitor_file = NULL;
+
+static void gst_monitor_open(char* filename)
+{
+    monitor_file = fopen(filename, "wb");
+}
+
+static void gst_monitor_close()
+{
+    fclose(monitor_file);
+    monitor_file = NULL;
+}
+
 static GstPadProbeReturn
 cb_block_data(GstPad          *pad,
              GstPadProbeInfo *info,
@@ -1178,11 +1191,16 @@ cb_have_data(GstPad          *pad,
     GstMapInfo map;
     gst_buffer_map(buffer, &map, GST_MAP_READ);
     size = map.size;
-    printf("DATA %s %s %10s %6ld   %.3f   %.3f  ", pipeline_name, element_name, pad_name, size, present_time(dts), present_time(pts));
-    int i;
-    for (i=0; i < ((size <= 20) ? size : 20); i++)
-        printf(" %3d,", map.data[i]);
-    printf("\n");
+    if (monitor_file)
+        fwrite(map.data, size, 1, monitor_file); 
+    else
+    {
+        printf("DATA %s %s %10s %6ld   %.3f   %.3f   %.3f  ", pipeline_name, element_name, pad_name, size, present_time(dts), present_time(pts), present_time(clockstamp));
+        int i;
+        for (i=0; i < ((size <= 20) ? size : 20); i++)
+            printf(" %3d,", map.data[i]);
+        printf("\n");
+    }
     gst_buffer_unmap(buffer, &map);
     g_free(pad_name);
     g_free(element_name);
@@ -1544,6 +1562,8 @@ static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
 (gst-external (gst_print_pad GstElement* char-string) void)
 (gst-external (gst_print_message char-string GstMessage*) void)
 (gst-external (gst_print_error GstMessage*) void)
+(gst-external (gst_monitor_open char-string) void)
+(gst-external (gst_monitor_close) void)
 (gst-external (gst_monitor_data (call GST_PIPELINE GstElement*) GstPad*) gulong)
 (gst-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) gulong)
 (gst-external (gst_monitor_queries (call GST_PIPELINE GstElement*) GstPad*) gulong)

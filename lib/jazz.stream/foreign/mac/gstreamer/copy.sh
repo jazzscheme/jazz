@@ -41,6 +41,7 @@ cplib gstreamer-1.0/libgstautodetect.dylib
 cplib gstreamer-1.0/libgstavi.dylib
 cplib gstreamer-1.0/libgstcoreelements.dylib
 cplib gstreamer-1.0/libgstdeinterlace.dylib
+cplib gstreamer-1.0/libgstid3demux.dylib
 cplib gstreamer-1.0/libgstisomp4.dylib
 cplib gstreamer-1.0/libgstjpeg.dylib
 cplib gstreamer-1.0/libgstlibav.dylib

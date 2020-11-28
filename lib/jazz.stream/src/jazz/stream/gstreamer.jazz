@@ -515,13 +515,18 @@
         (let ((container-type (gst_caps_get_name (gst_discoverer_stream_info_get_caps container-info))))
           (define (audio-info stream-info)
             (let ((caps (gst_discoverer_stream_info_get_caps stream-info)))
-              (prog1 (list container-type
-                           (gst_caps_get_name caps)
-                           (gst_discoverer_audio_info_get_bitrate stream-info)
-                           (gst_discoverer_audio_info_get_sample_rate stream-info)
-                           (gst_discoverer_audio_info_get_channels stream-info)
-                           (gst_caps_to_string caps))
-                (gst_caps_unref caps))))
+              (let ((name (gst_caps_get_name caps)))
+                (let ((version (and (equal? name "audio/mpeg")
+                                    (let ((struc (gst_caps_get_structure caps 0)))
+                                      (gst_structure_get_int struc "mpegversion")))))
+                  (prog1 (list container-type
+                               name
+                               version
+                               (gst_discoverer_audio_info_get_bitrate stream-info)
+                               (gst_discoverer_audio_info_get_sample_rate stream-info)
+                               (gst_discoverer_audio_info_get_channels stream-info)
+                               (gst_caps_to_string caps))
+                    (gst_caps_unref caps))))))
           
           (ecase (G_OBJECT_TYPE container-info)
             ((GST_TYPE_DISCOVERER_STREAM_INFO)

@@ -386,7 +386,7 @@
                           (let ((dir (gst_pad_get_direction pad))
                                 (mode (gst_pad_get_mode pad))
                                 (task (gst_pad_task pad)))
-                            (format :terminal "$$$$$$$$$$$$$$$ {a} {s} {s} {s}{%}"
+                            (format :terminal "{a} {s} {s} {s}{%}"
                               (gst_element_path elem)
                               (ecase dir
                                 ((GST_PAD_SRC) 'src)
@@ -505,6 +505,20 @@
       (when (/= (gst_element_get_state pipeline) 4)
         (sleep .01)
         (loop (+ n 1))))))
+
+
+(definition (redistribute-latency pipeline)
+  (define (sink-latency)
+    (with-unref ((sink (gst_bin_get_by_name pipeline "sink")))
+      (gst_base_sink_get_latency sink)))
+  
+  (sleep .2)
+  (let ((info (make-u64vector 3)))
+    (gst_element_query_latency pipeline info)
+    (let ((live (u64vector-ref info 0))
+          (min (u64vector-ref info 1))
+          (max (u64vector-ref info 2)))
+      (gst_element_send_event pipeline (gst_event_new_latency min)))))
 
 
 ;; garbage collect impact base test
@@ -1930,7 +1944,7 @@ description-end
 (definition public (test-audiob)
   (trace-gst? trace?)
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence name=silence"
-                             "audiomixer latency=10000000 output-buffer-duration=10000000 name=mix"
+                             "audiomixer name=mix"
                              "queue name=queue"
                              "webrtcaudioprobe delay=0"
                              (gst-element audiosink name: "sink")))
@@ -2009,8 +2023,12 @@ description-end
       (let ((input (gst-pipeline (tie "filesrc location={location}")
                                  "oggdemux"
                                  "appsink name=sink"))
-            (bin (gst-bin "appsrc name=src"
+            ;; min-latency comes from seeing that buffers coming
+            ;; out of vorbisdec are 8192 bytes which at 48kz is
+            ;; .04s of sound or 40000000ns
+            (bin (gst-bin "appsrc min-latency=40000000 name=src"
                           "vorbisdec"
+                          "audiorate"
                           "audioconvert"
                           "audioresample"
                           "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
@@ -2043,15 +2061,15 @@ description-end
                                     (duration (u64vector-ref input-info 2)))
                                 (if (= pts GST_CLOCK_TIME_NONE)
                                     (gst_app_src_write bin-src input-buffer size dts pts duration 0)
-                                  (let ((extra-offset 30000000) ;; this experimental number seems to give the best results
-                                        (timestamp-offset (rebase-time adapter 'audio bin-src pts)))
-                                    (gst_app_src_write bin-src input-buffer size dts pts duration (+ timestamp-offset extra-offset))))))
+                                  (let ((timestamp-offset (rebase-time adapter 'audio bin-src pts)))
+                                    (gst_app_src_write bin-src input-buffer size dts pts duration timestamp-offset)))))
                             (loop))))
                       'channel)))
               (gst_element_link bin-end audio-mix)
-              (gst_element_set_state input GST_STATE_PLAYING)
               (gst_element_set_state bin GST_STATE_PLAYING)
               (thread-start! thread)
+              (gst_element_set_state input GST_STATE_PLAYING)
+              (redistribute-latency audio)
               (new Channel location input bin thread))))))
     
     (define (release-channel channel)
@@ -2065,7 +2083,8 @@ description-end
             (gst_element_unlink end mix)
             (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad))))
         (gst_element_set_state bin GST_STATE_NULL)
-        (gst_bin_remove audio bin)))
+        (gst_bin_remove audio bin)
+        (redistribute-latency audio)))
     
     (define (closer app)
       (for-each release-channel channels)
@@ -2088,13 +2107,11 @@ description-end
                 (sleep 5)
                 (remove-channel koln))
               'simulate)))
-      (add-channel audio-location 1.)
-      @w
-        (add-channel koln 1.)
-        (report-info audio "audiob")
-        @w (thread-start! simulate-thread))
+      (add-channel koln 1.)
+      (report-info audio "audiob")
+      (thread-start! simulate-thread))
     ;; application
-    (boot-environment (new Test-Application closer: closer))))
+    (boot-environment (new Test-Application position: {Point 350 250} closer: closer))))
 
 
 ;; removing silence seems to fix random long startup

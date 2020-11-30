@@ -827,6 +827,9 @@
 ;;;
 
 
+(native jazz:stdin-port)
+(native jazz:stdout-port)
+(native jazz:stderr-port)
 (native jazz:standard-input-port)
 (native jazz:standard-output-port)
 (native jazz:standard-error-port)

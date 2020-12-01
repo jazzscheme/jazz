@@ -168,28 +168,51 @@
 ;; element so we can find the element bin solely from its name
 
 
+(definition bin-renaming?
+  #t)
+
+
+(definition bin-mutex
+  (make-mutex 'bin))
+
+(definition (with-bin-mutex thunk)
+  (mutex-lock! bin-mutex)
+  (prog1 (thunk)
+    (mutex-unlock! bin-mutex)))
+
+
 (definition bin-unique-id
   0)
 
 (definition (bin-unique-id!)
-  (prog1 bin-unique-id
-    (increase! bin-unique-id)))
+  (with-bin-mutex
+    (lambda ()
+      (prog1 bin-unique-id
+        (increase! bin-unique-id)))))
 
 (definition (bin-prefix id)
-  (string-append (->string id) ":"))
+  (if (not bin-renaming?)
+      ""
+    (string-append (->string id) "_")))
 
 
 (definition bins
   (make-table test: eq?))
 
 (definition (register-bin bin id)
-  (table-set! bins bin id))
+  (with-bin-mutex
+    (lambda ()
+      (table-set! bins bin id))))
 
 (definition (registered-bin bin)
-  (table-ref bins bin))
+  (with-bin-mutex
+    (lambda ()
+      (table-ref bins bin))))
 
 (definition protected (id->bin id)
-  (table-find bins id))
+  (with-bin-mutex
+    (lambda ()
+      (table-find bins id))))
 
 
 (definition public (gst_bin_get_by_name bin name)
@@ -204,8 +227,8 @@
   (substitute-string description "name=" (string-append "name=" (bin-prefix id))))
 
 
-(definition (substitute-$s description id)
-  (substitute-string description "$" (bin-prefix id)))
+(definition (substitute-^s description id)
+  (substitute-string description "^" (bin-prefix id)))
 
 
 ;;;
@@ -228,7 +251,7 @@
 
 (definition public (gst-pipeline . elements)
   (let ((id (bin-unique-id!)))
-    (let ((description (substitute-$s (substitute-names (gst-parse elements) id) id)))
+    (let ((description (substitute-^s (substitute-names (gst-parse elements) id) id)))
       (let ((pipeline (gst_parse_launch description)))
         (register-bin pipeline id)
         pipeline))))
@@ -236,7 +259,7 @@
 
 (definition public (gst-bin . elements)
   (let ((id (bin-unique-id!)))
-    (let ((description (substitute-$s (substitute-names (gst-parse elements) id) id)))
+    (let ((description (substitute-^s (substitute-names (gst-parse elements) id) id)))
       (let ((bin (gst_parse_bin_from_description description 0)))
         (register-bin bin id)
         bin))))

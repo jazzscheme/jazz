@@ -209,6 +209,10 @@
     (lambda ()
       (table-ref bins bin))))
 
+(definition (unregister-bin bin)
+  (table-clear bins bin))
+
+
 (definition protected (id->bin id)
   (with-bin-mutex
     (lambda ()
@@ -241,6 +245,7 @@
     (if err
         (error "Create pipeline error: {a}" (g_error_message err))
       pipeline)))
+
 
 (definition public (gst_parse_bin_from_description desc ghost_unlinked_pads)
   (receive (bin err) (gst_parse_bin_from_description_aux desc ghost_unlinked_pads '(GstElement*) '(GError*))
@@ -289,6 +294,13 @@
                  (error "Unable to parse {s}" elem)))))))
   
   (parse-list elements))
+
+
+(definition public (gst_bin_release bin)
+  (with-bin-mutex
+    (lambda ()
+      (gst_element_release bin)
+      (unregister-bin bin))))
 
 
 (definition public (pipeline-messages-processor pipeline (playing-proc: playing-proc #f) (print?: print? #f))

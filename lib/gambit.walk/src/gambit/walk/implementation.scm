@@ -17,6 +17,35 @@
 (include "~~lib/_gambit#.scm")
 
 ;;;
+;;;; Symbol
+;;;
+
+(##define-macro (macro-symbol-name s)        `(macro-slot 0 ,s))
+(##define-macro (macro-symbol-name-set! s x) `(macro-slot 0 ,s ,x))
+(##define-macro (macro-symbol-hash s)        `(macro-slot 1 ,s))
+(##define-macro (macro-symbol-hash-set! s x) `(macro-slot 1 ,s ,x))
+(##define-macro (macro-symbol-next s)        `(macro-slot 2 ,s))
+(##define-macro (macro-symbol-next-set! s x) `(macro-slot 2 ,s ,x))
+
+;;;
+;;;; Keyword
+;;;
+
+(##define-macro (macro-keyword-name k)        `(macro-slot 0 ,k))
+(##define-macro (macro-keyword-name-set! k x) `(macro-slot 0 ,k ,x))
+(##define-macro (macro-keyword-hash k)        `(macro-slot 1 ,k))
+(##define-macro (macro-keyword-hash-set! k x) `(macro-slot 1 ,k ,x))
+(##define-macro (macro-keyword-next k)        `(macro-slot 2 ,k))
+(##define-macro (macro-keyword-next-set! k x) `(macro-slot 2 ,k ,x))
+
+;;;
+;;;; Foreign
+;;;
+
+(##define-macro (macro-foreign-tags f)         `(macro-slot 0 ,f))
+(##define-macro (macro-foreign-tags-set! f x)  `(macro-slot 0 ,f ,x))
+
+;;;
 ;;;; Kernel
 ;;;
 
@@ -149,7 +178,6 @@ end-of-code
 ;;;
 
 (define-macro (macro-case-type obj)
-  #f #; ;; fix gambit 4.8.8 undefined warnings
   `(let ((obj ,obj))
      (if (##not (##mem-allocated? obj))
 
@@ -315,7 +343,6 @@ end-of-code
 ;;;
 
 (define (##walk-interned-symbols proc)
-  #f #; ;; fix gambit 4.8.8 undefined warnings
   (let ((tbl (##symbol-table)))
     (let loop1 ((i (##fx- (##vector-length tbl) 1)))
       (if (##fx> i 0)
@@ -328,7 +355,6 @@ end-of-code
           (macro-walk-continue)))))
 
 (define (##walk-interned-keywords proc)
-  #f #; ;; fix gambit 4.8.8 undefined warnings
   (let ((tbl (##keyword-table)))
     (let loop1 ((i (##fx- (##vector-length tbl) 1)))
       (if (##fx> i 0)
@@ -676,7 +702,6 @@ end-of-code
 (define alloc-bvector ##alloc-bvector)
 
 (define (symbol-name s)
-  #f #; ;; fix gambit 4.8.8 undefined warnings
   (macro-symbol-name s))
 
 ;;;

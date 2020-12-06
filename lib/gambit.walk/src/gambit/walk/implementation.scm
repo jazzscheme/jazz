@@ -91,87 +91,23 @@ end-of-code
 ;;;; Register
 ;;;
 
-;; workaround tables not having enough entries on 32 bit machines
-(define-type register
-  constructor: make-register
-  count
-  cardinality
-  unique
-  content
-  )
+(define (##new-register)
+  (##make-table 0 #f #f #f ##eq?))
 
-(define default-register-cardinality
-  (cond-expand
-    (windows 4)
-    (else 1)))
+(define (##register-ref table key default)
+  (##table-ref table key default))
 
-(define (##new-register #!optional (cardinality default-register-cardinality))
-  (let ((content (%%make-vector cardinality)))
-    (let loop ((n 0))
-         (if (##fx< n cardinality)
-             (begin
-               (##vector-set! content n (##make-table 0 #f #f #f ##eq?))
-               (loop (##fx+ n 1)))))
-    (make-register 0 cardinality (list 'not-found) content)))
+(define (##register-set! table key value)
+  (##table-set! table key value))
 
-(define (##register-ref register key default)
-  (let ((cardinality (register-cardinality register))
-        (unique (register-unique register))
-        (content (register-content register)))
-    (let loop ((n 0))
-         (if (##fx< n cardinality)
-             (let ((table (##vector-ref content n)))
-               (let ((value (##table-ref table key unique)))
-                 (if (##eq? value unique)
-                     (loop (##fx+ n 1))
-                   value)))
-           default))))
+(define (##register-length table)
+  (##table-length table))
 
-(define (##register-set! register key value)
-  (let ((count (register-count register))
-        (cardinality (register-cardinality register))
-        (unique (register-unique register))
-        (content (register-content register)))
-    (define (actual-table)
-      (let loop ((n 0))
-           (if (##fx< n cardinality)
-               (let ((table (##vector-ref content n)))
-                 (let ((value (##table-ref table key unique)))
-                   (if (##eq? value unique)
-                       (loop (##fx+ n 1))
-                     table)))
-             #f)))
-    
-    (let ((table (or (actual-table) (##vector-ref content (##modulo count cardinality)))))
-      (##table-set! table key value)
-      (register-count-set! register (##fx+ count 1)))))
+(define (##iterate-register table proc)
+  (##table-for-each proc table))
 
-(define (##register-length register)
-  (let ((cardinality (register-cardinality register))
-        (content (register-content register))
-        (len 0))
-    (let loop ((n 0))
-         (if (##fx< n cardinality)
-             (let ((table (##vector-ref content n)))
-               (set! len (##fx+ len (##table-length table)))
-               (loop (##fx+ n 1)))
-           len))))
-
-(define (##iterate-register register proc)
-  (let ((cardinality (register-cardinality register))
-        (content (register-content register)))
-    (let loop ((n 0))
-         (if (##fx< n cardinality)
-             (let ((table (##vector-ref content n)))
-               (##table-for-each proc table)
-               (loop (##fx+ n 1)))))))
-
-(define (##register->table register)
-  (let ((table (##make-table 0 #f #f #f ##eq?)))
-    (##iterate-register register
-      (lambda (key value)
-        (##table-set! table key value)))
-    table))
+(define (##register->table table)
+  table)
 
 ;;;
 ;;;; Dispatcher
@@ -424,7 +360,7 @@ end-of-code
         (if (##mem-allocated? obj)
             (begin
               (if feedback?
-                  (let ((count (register-count seen)))
+                  (let ((count (register-length seen)))
                     (if (= 0 (modulo count 10000))
                         (display "." (console-port)))))
               (##register-set! seen obj #t)))

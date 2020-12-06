@@ -462,28 +462,24 @@ end-of-code
 
 ;;; procedures to create deep copies of objects
 
-;; NEED TO CONVERT USAGES of kind to Gambit's new VM API
-
 (define (##alloc-pair kind)
-  ((c-function ##alloc-pair (scheme-object) scheme-object
-             ;; experiment based on a marc message about Gambit's new VM API
-             ;; "___SCMOBJ r = ___EXT(___make_pair) (___arg1 ? ___ps : NULL, ___FIX(0), ___FIX(0));
-             "___SCMOBJ r = ___EXT(___make_pair) (___ps, ___FIX(0), ___FIX(0));
+  ((c-function ##alloc-pair (int) scheme-object
+             "___SCMOBJ r = ___EXT(___make_pair) (___arg1 == ___STILL ? ___ps : NULL, ___FIX(0), ___FIX(0));
               ___EXT(___release_scmobj)(r);
               ___return(r);")
    kind))
 
 (define (##alloc-ovector len kind)
-  ((c-function ##alloc-ovector (scheme-object scheme-object) scheme-object
-             "___SCMOBJ r = ___EXT(___make_vector) (___ps, ___INT(___arg1), ___FIX(0));
+  ((c-function ##alloc-ovector (scheme-object int) scheme-object
+             "___SCMOBJ r = ___EXT(___make_vector) (___arg2 == ___STILL ? ___ps : NULL, ___INT(___arg1), ___FIX(0));
               ___EXT(___release_scmobj)(r);
               ___return(r);")
    len
    kind))
 
 (define (##alloc-bvector subtype len kind)
-  ((c-function ##alloc-bvector (scheme-object scheme-object scheme-object) scheme-object
-             "___SCMOBJ r = ___EXT(___alloc_scmobj) (___ps, ___INT(___arg1), ___INT(___arg2));
+  ((c-function ##alloc-bvector (scheme-object scheme-object int) scheme-object
+             "___SCMOBJ r = ___EXT(___alloc_scmobj) (___arg3 == ___STILL ? ___ps : NULL, ___INT(___arg1), ___INT(___arg2));
               ___EXT(___release_scmobj)(r);
               ___return(r);")
    subtype

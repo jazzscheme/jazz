@@ -570,16 +570,18 @@
   (slot timestamp-offset      initialize #f getter generate)
 
 
-  (method public (rebase-time self kind appsrc dts)
+  (method public (rebase-time self kind appsrc timestamp (rebase-proc #f))
     (let ((running-time (gst_element_get_running_time appsrc)))
       (if (= running-time GST_CLOCK_TIME_NONE)
           (error "Invalid pipeline running time")
-        (let ((perfect-offset (- running-time dts)))
+        (let ((perfect-offset (- running-time timestamp)))
           (if (not timestamp-offset)
               (set! timestamp-offset perfect-offset)
             (let ((deviation (timestamp->flonum (abs (- perfect-offset timestamp-offset)))))
               (set! moving-deviation (/ (+ (* moving-deviation 31.) deviation) 32.))
               (when (> moving-deviation adapter-tolerance)
+                (when rebase-proc
+                  (rebase-proc (timestamp->flonum (- perfect-offset timestamp-offset))))
                 (when debug-adapter?
                   (format :terminal "{a} {a} {r precision: 3}s{%}" 'REBASE kind (timestamp->flonum (- perfect-offset timestamp-offset))))
                 (set! timestamp-offset perfect-offset)

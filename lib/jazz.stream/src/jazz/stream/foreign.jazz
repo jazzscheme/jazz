@@ -789,6 +789,18 @@ static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
     gst_object_unref(sinkpad);
 }
 
+static GstFlowReturn on_running(GstElement* object, gpointer user_data)
+{
+    printf("Running %p\n", object);
+    return GST_FLOW_OK;
+}
+
+static GstFlowReturn on_overrun(GstElement* object, gpointer user_data)
+{
+    printf("Overrun %p\n", object);
+    return GST_FLOW_OK;
+}
+
 static GstFlowReturn on_new_sample(GstElement* object, gpointer user_data)
 {
     gst_listener_wakeup(user_data);
@@ -804,6 +816,16 @@ static GstFlowReturn on_eos(GstElement* object, gpointer user_data)
 static gulong gst_signal_connect_to(gpointer instance, char* signal, gpointer data)
 {
     return g_signal_connect(instance, signal, G_CALLBACK(on_pad_added), data);
+}
+
+static gulong gst_queue_connect_running(GstElement* elem)
+{
+    return g_signal_connect(elem, "running", G_CALLBACK(on_running), NULL);
+}
+
+static gulong gst_queue_connect_overrun(GstElement* elem)
+{
+    return g_signal_connect(elem, "overrun", G_CALLBACK(on_overrun), NULL);
 }
 
 static void gst_app_sink_connect_listener_signals(GstElement* elem, void* data)
@@ -1627,6 +1649,8 @@ static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
 (gst-external (gst_monitor_queries (call GST_PIPELINE GstElement*) GstPad*) gulong)
 (gst-external (gst_monitor_remove GstPad* gulong) void)
 (gst-external (gst_monitor_messages (call GST_PIPELINE GstElement*)) void)
+(gst-external (gst_queue_connect_running GstElement*) gulong)
+(gst-external (gst_queue_connect_overrun GstElement*) gulong)
 (gst-external (gst_app_src_get_caps (call GST_APP_SRC GstElement*)) GstCaps*)
 (gst-external (gst_app_src_set_caps (call GST_APP_SRC GstElement*) GstCaps*) void)
 (gst-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)

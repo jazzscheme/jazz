@@ -275,6 +275,7 @@
     ((audioa) (test-audioa))
     ((audiob) (test-audiob))
     ((audioc) (test-audioc))
+    ((audiot) (test-audiot))
     ((camera) (test-camera))
     ((screen) (test-screen))
     ((draw) (test-draw))
@@ -2240,6 +2241,60 @@ description-end
             (iter)))))
     ;; application
     (boot-environment (new Test-Application position: {Point 350 250}))))
+
+
+(definition (test-audiot)
+  (define delay
+    0)
+  
+  (define a-desc
+    (tie
+    #<<description-end
+        filesrc location=a.ogg !
+        oggdemux !
+        vorbisdec !
+        audioconvert !
+        audioresample !
+        audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2 !
+        webrtcaudioprobe delay={delay} !
+        osxaudiosink
+description-end
+))
+  
+  (define b-desc
+    (tie
+    #<<description-end
+        filesrc location=b.ogg !
+        oggdemux !
+        vorbisdec !
+        audioconvert !
+        audioresample !
+        webrtcaudioprocessor
+            echo-cancel=true
+            noise-suppression=true !
+        audioconvert !
+        audioresample !
+        audio/x-raw, format=F32LE, layout=interleaved, rate=48000, channels=2 !
+        vorbisenc !
+        oggmux !
+        filesink location=c.ogg sync=true
+description-end
+))
+
+  (let ((a (gst_parse_launch a-desc))
+        (b (gst_parse_launch b-desc)))
+    (define (closer app)
+      (gst_element_release a)
+      (gst_element_release b))
+    
+    (thread-start!
+      (new-thread
+        (lambda ()
+          (gst_element_set_state a GST_STATE_PLAYING)
+          (sleep (/ delay 1000.))
+          (gst_element_set_state b GST_STATE_PLAYING))))
+    ;; application
+    (boot-environment (new Test-Application closer: closer))))
 
 
 ;;;

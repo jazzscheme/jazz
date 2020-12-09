@@ -382,60 +382,65 @@
 (definition (report-mode pipeline)
   ;; wait for preroll to go to playing
   (sleep .5)
-  (for-each (lambda (elem)
-              (for-each (lambda (pad)
-                          (let ((dir (gst_pad_get_direction pad))
-                                (mode (gst_pad_get_mode pad))
-                                (task (gst_pad_task pad)))
-                            (format :terminal "{a} {s} {s} {s}{%}"
-                              (gst_element_path elem)
-                              (ecase dir
-                                ((GST_PAD_SRC) 'src)
-                                ((GST_PAD_SINK) 'sink))
-                              (ecase mode
-                                ((GST_PAD_MODE_PUSH) 'push)
-                                ((GST_PAD_MODE_PULL) 'pull))
-                              (and task (gst_task_thread task)))))
-                        (gst_element_pads elem)))
-            (reverse (gst_bin_elements_recurse pipeline))))
+  (with-unref ((elements (gst_bin_elements_recurse pipeline)))
+    (for-each (lambda (elem)
+                (with-unref ((pads (gst_element_pads elem)))
+                  (for-each (lambda (pad)
+                              (let ((dir (gst_pad_get_direction pad))
+                                    (mode (gst_pad_get_mode pad))
+                                    (task (gst_pad_task pad)))
+                                (format :terminal "{a} {s} {s} {s}{%}"
+                                  (gst_element_path elem)
+                                  (ecase dir
+                                    ((GST_PAD_SRC) 'src)
+                                    ((GST_PAD_SINK) 'sink))
+                                  (ecase mode
+                                    ((GST_PAD_MODE_PUSH) 'push)
+                                    ((GST_PAD_MODE_PULL) 'pull))
+                                  (and task (gst_task_thread task)))))
+                            pads)))
+              (reverse elements))))
 
 
 (definition (report-latency pipeline (wait? #t))
   ;; wait for preroll to go to playing
   (when wait?
     (sleep .5))
-  (for-each (lambda (elem)
-              (let ((info (make-u64vector 3)))
-                (gst_element_query_latency elem info)
-                (let ((live (u64vector-ref info 0))
-                      (min (u64vector-ref info 1))
-                      (max (u64vector-ref info 2)))
-                  (format :terminal "{a} {a} {a} {a}{%}"
-                    (gst_element_path elem)
-                    (= live 1)
-                    (format "{r precision: 5}" (/ min nanosecond))
-                    (if (= max GST_CLOCK_TIME_NONE)
-                        'none
-                      (format "{r precision: 5}" (/ max nanosecond)))))))
-            (reverse (gst_bin_elements_recurse pipeline))))
+  (with-unref ((elements (gst_bin_elements_recurse pipeline)))
+    (for-each (lambda (elem)
+                (let ((info (make-u64vector 3)))
+                  (gst_element_query_latency elem info)
+                  (let ((live (u64vector-ref info 0))
+                        (min (u64vector-ref info 1))
+                        (max (u64vector-ref info 2)))
+                    (format :terminal "{a} {a} {a} {a}{%}"
+                      (gst_element_path elem)
+                      (= live 1)
+                      (format "{r precision: 5}" (/ min nanosecond))
+                      (if (= max GST_CLOCK_TIME_NONE)
+                          'none
+                        (format "{r precision: 5}" (/ max nanosecond)))))))
+              (reverse elements))))
 
 
 (definition (report-caps pipeline (wait? #t))
   ;; wait for preroll to go to playing
   (when wait?
     (sleep .5))
-  (for-each (lambda (elem)
-              (for-each (lambda (pad)
-                          (let ((caps (gst_pad_get_current_caps pad)))
-                            (format :terminal "{a} {a} {a}{%}"
-                              (gst_element_path elem)
-                              (ecase (gst_pad_get_direction pad)
-                                ((GST_PAD_SRC) 'src)
-                                ((GST_PAD_SINK) 'sink))
-                              (gst_caps_to_string caps))
-                            (gst_caps_unref caps)))
-                        (gst_element_pads elem)))
-            (reverse (gst_bin_elements_recurse pipeline))))
+  (with-unref ((elements (gst_bin_elements_recurse pipeline)))
+    (for-each (lambda (elem)
+                (with-unref ((pads (gst_element_pads elem)))
+                  (for-each (lambda (pad)
+                              (let ((caps (gst_pad_get_current_caps pad)))
+                                (format :terminal "{a} {a} {a}{%}"
+                                  (gst_element_path elem)
+                                  (ecase (gst_pad_get_direction pad)
+                                    ((GST_PAD_SRC) 'src)
+                                    ((GST_PAD_SINK) 'sink))
+                                  (gst_caps_to_string caps))
+                                (gst_caps_unref caps)))
+                            pads)))
+              (reverse elements))))
 
 
 (definition (report-clock pipeline)
@@ -448,7 +453,8 @@
   ;; wait for preroll to go to playing
   (sleep .5)
   (report pipeline)
-  (for-each report (reverse (gst_bin_elements_recurse pipeline))))
+  (with-unref ((elements (gst_bin_elements_recurse pipeline)))
+    (for-each report (reverse elements))))
 
 
 (definition (report-info pipeline name)
@@ -1284,12 +1290,15 @@ description-end
       (let ((channel (find channels location key: get-location test: equal? return: 'item)))
         (let ((bin (get-bin channel)))
           (gst_element_release bin)
-          (let ((ghost-pad (car (gst_element_src_pads bin))))
-            (with-unref ((vol (gst_bin_get_by_name bin "sink"))
-                         (mix (gst_bin_get_by_name audio "mix")))
-              (gst_element_unlink vol mix)
-              (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad)))
-            (gst_bin_remove audio bin)))))
+          (with-unref ((pads (gst_element_src_pads bin)))
+            (let ((ghost-pad (car pads)))
+              (with-unref ((vol (gst_bin_get_by_name bin "sink"))
+                           (mix (gst_bin_get_by_name audio "mix")))
+                (gst_element_unlink vol mix)
+                (let ((pad (gst_pad_get_peer ghost-pad)))
+                  (gst_element_release_request_pad mix pad)
+                  (gst_object_unref pad)))
+              (gst_bin_remove audio bin))))))
     
     (define (closer app)
       (for-each (lambda (channel)
@@ -1513,11 +1522,14 @@ description-end
         (thread-terminate! (get-thread channel))
         ;; it is very important not to call gst_element_release as
         ;; gst_object_unref should not be done before gst_bin_remove
-        (let ((ghost-pad (car (gst_element_src_pads bin))))
-          (with-unref ((vol (gst_bin_get_by_name bin "sink"))
-                       (mix (gst_bin_get_by_name audio "mix")))
-            (gst_element_unlink vol mix)
-            (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad))))
+        (with-unref ((pads (gst_element_src_pads bin)))
+          (let ((ghost-pad (car pads)))
+            (with-unref ((vol (gst_bin_get_by_name bin "sink"))
+                         (mix (gst_bin_get_by_name audio "mix")))
+              (gst_element_unlink vol mix)
+              (let ((pad (gst_pad_get_peer ghost-pad)))
+                (gst_element_release_request_pad mix pad)
+                (gst_object_unref pad)))))
         (gst_element_set_state bin GST_STATE_NULL)
         (gst_bin_remove audio bin)))
     
@@ -1574,7 +1586,8 @@ description-end
         ;; it is very important not to call gst_element_release as
         ;; gst_object_unref should not be done before gst_bin_remove
         (gst_element_unlink silence mix)
-        (gst_element_release_request_pad mix (car (gst_element_sink_pads mix)))
+        (with-unref ((pads (gst_element_sink_pads mix)))
+          (gst_element_release_request_pad mix (car pads)))
         (gst_element_set_state silence GST_STATE_NULL)
         (gst_bin_remove audio silence)))
     
@@ -1694,11 +1707,12 @@ description-end
         (thread-terminate! (get-thread channel))
         ;; it is very important not to call gst_element_release as
         ;; gst_object_unref should not be done before gst_bin_remove
-        (let ((ghost-pad (car (gst_element_src_pads bin))))
-          (with-unref ((vol (gst_bin_get_by_name bin "sink"))
-                       (mix (gst_bin_get_by_name audio "mix")))
-            (gst_element_unlink vol mix)
-            (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad))))
+        (with-unref ((pads (gst_element_src_pads bin)))
+          (let ((ghost-pad (car pads)))
+            (with-unref ((vol (gst_bin_get_by_name bin "sink"))
+                         (mix (gst_bin_get_by_name audio "mix")))
+              (gst_element_unlink vol mix)
+              (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad)))))
         (gst_element_set_state bin GST_STATE_NULL)
         (gst_bin_remove audio bin)))
     
@@ -1781,7 +1795,8 @@ description-end
         ;; it is very important not to call gst_element_release as
         ;; gst_object_unref should not be done before gst_bin_remove
         (gst_element_unlink silence mix)
-        (gst_element_release_request_pad mix (car (gst_element_sink_pads mix)))
+        (with-unref ((pads (gst_element_sink_pads mix)))
+          (gst_element_release_request_pad mix (car pads)))
         (gst_element_set_state silence GST_STATE_NULL)
         (gst_bin_remove audio silence)))
     
@@ -1898,11 +1913,12 @@ description-end
         (thread-terminate! (get-thread channel))
         ;; it is very important not to call gst_element_release as
         ;; gst_object_unref should not be done before gst_bin_remove
-        (let ((ghost-pad (car (gst_element_src_pads bin))))
-          (with-unref ((vol (gst_bin_get_by_name bin "sink"))
-                       (mix (gst_bin_get_by_name audio "mix")))
-            (gst_element_unlink vol mix)
-            (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad))))
+        (with-unref ((pads (gst_element_src_pads bin)))
+          (let ((ghost-pad (car pads)))
+            (with-unref ((vol (gst_bin_get_by_name bin "sink"))
+                         (mix (gst_bin_get_by_name audio "mix")))
+              (gst_element_unlink vol mix)
+              (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad)))))
         (gst_element_set_state bin GST_STATE_NULL)
         (gst_bin_remove audio bin)))
     
@@ -1954,7 +1970,8 @@ description-end
         ;; it is very important not to call gst_element_release as
         ;; gst_object_unref should not be done before gst_bin_remove
         (gst_element_unlink silence mix)
-        (gst_element_release_request_pad mix (car (gst_element_sink_pads mix)))
+        (with-unref ((pads (gst_element_sink_pads mix)))
+          (gst_element_release_request_pad mix (car pads)))
         (gst_element_set_state silence GST_STATE_NULL)
         (gst_bin_remove audio silence)))
     
@@ -2075,11 +2092,12 @@ description-end
         (thread-terminate! (get-thread channel))
         ;; it is very important not to call gst_element_release as
         ;; gst_object_unref should not be done before gst_bin_remove
-        (let ((ghost-pad (car (gst_element_src_pads bin))))
-          (with-unref ((end (gst_bin_get_by_name bin "end"))
-                       (mix (gst_bin_get_by_name audio "mix")))
-            (gst_element_unlink end mix)
-            (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad))))
+        (with-unref ((pads (gst_element_src_pads bin)))
+          (let ((ghost-pad (car pads)))
+            (with-unref ((end (gst_bin_get_by_name bin "end"))
+                         (mix (gst_bin_get_by_name audio "mix")))
+              (gst_element_unlink end mix)
+              (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad)))))
         (gst_element_set_state bin GST_STATE_NULL)
         (gst_bin_remove audio bin)
         (redistribute-latency audio)))
@@ -2128,7 +2146,8 @@ description-end
         ;; it is very important not to call gst_element_release as
         ;; gst_object_unref should not be done before gst_bin_remove
         (gst_element_unlink silence mix)
-        (gst_element_release_request_pad mix (car (gst_element_sink_pads mix)))
+        (with-unref ((pads (gst_element_sink_pads mix)))
+          (gst_element_release_request_pad mix (car pads)))
         (gst_element_set_state silence GST_STATE_NULL)
         (gst_bin_remove audio silence)))
     
@@ -2201,11 +2220,12 @@ description-end
         (thread-terminate! (get-thread channel))
         ;; it is very important not to call gst_element_release as
         ;; gst_object_unref should not be done before gst_bin_remove
-        (let ((ghost-pad (car (gst_element_src_pads bin))))
-          (with-unref ((end (gst_bin_get_by_name bin "end"))
-                       (mix (gst_bin_get_by_name audio "mix")))
-            (gst_element_unlink end mix)
-            (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad))))
+        (with-unref ((pads (gst_element_src_pads bin)))
+          (let ((ghost-pad (car pads)))
+            (with-unref ((end (gst_bin_get_by_name bin "end"))
+                         (mix (gst_bin_get_by_name audio "mix")))
+              (gst_element_unlink end mix)
+              (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad)))))
         (gst_element_set_state bin GST_STATE_NULL)
         (gst_bin_remove audio bin)
         (redistribute-latency audio)))

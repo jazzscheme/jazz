@@ -721,4 +721,76 @@
                              (gst_discoverer_video_info_get_height stream-info))
                            (gst_caps_to_string caps))
                 (gst_caps_to_string caps)))
-          #f))))))
+          #f)))))
+
+
+;;;
+;;;; Leaks
+;;;
+
+
+(definition default-leaks-file
+  {File Home "Devel" "together" "app" "devel" "leaks"})
+
+
+(definition public (report-leaks (leaks-file #f))
+  (define (read-leaks)
+    (call-with-input-file (path-settings (or leaks-file default-leaks-file))
+      (lambda (input)
+        (let ((queue (new-queue)))
+          (let (iter)
+            (let ((line (read-line input)))
+              (unless (eof-object? line)
+                (let ((pos (search line "GST_TRACER :0::")))
+                  (when pos
+                    (let ((leak (substring line (+ pos 16) (string-length line))))
+                      (enqueue queue leak))))
+                (iter))))
+          (queue-list queue)))))
+  
+  (define (parse-leak leak)
+    (bind (what . rest) (split leak ", ")
+      (let ((fields (collect (lambda (str)
+                               (let ((lst (split str "=")))
+                                 (and (> (length lst) 1)
+                                      (bind (name value) lst
+                                        (cons name value)))))
+                             rest)))
+        (values what fields))))
+  
+  (define (parse-type-name value)
+    (if (starts-with? value "(string)")
+        (substring value 8 (string-length value))
+      value))
+  
+  (define (parse-address value)
+    (if (starts-with? value "(gpointer)")
+        (substring value 10 (string-length value))
+      value))
+  
+  (define (parse-description value)
+    (if (starts-with? value "(string)")
+        (substring value 8 (string-length value))
+      value))
+  
+  (define (parse-refcount value)
+    (if (starts-with? value "(uint)")
+        (substring value 6 (string-length value))
+      value))
+  
+  (let ((leaks (read-leaks)))
+    (let ((count (length leaks)))
+      (if (= count 0)
+          (format :terminal "{%}No leaks found{%}")
+        (format :terminal "{%}")
+        (for-each (lambda (leak)
+                    (receive (what fields) (parse-leak leak)
+                      (when (or (equal? what "object-alive")
+                                (equal? what "object-refings"))
+                        (let ((type-name (parse-type-name (cdr (assoc "type-name" fields))))
+                              (address (parse-address (cdr (assoc "address" fields))))
+                              (description (parse-description (cdr (assoc "description" fields))))
+                              (refcount (parse-refcount (cdr (assoc "ref-count" fields)))))
+                          (format :terminal "{a} (0x{a}) {a} refcount={a}{%}" type-name address description refcount)))))
+                  leaks)
+        (format :terminal "{%}Found {a} leak{a}{%}" count (format-plural count)))))))

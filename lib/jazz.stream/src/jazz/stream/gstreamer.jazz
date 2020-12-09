@@ -190,10 +190,10 @@
       (prog1 bin-unique-id
         (increase! bin-unique-id)))))
 
-(definition (bin-prefix id)
+(definition (bin-suffix id)
   (if (not bin-renaming?)
       ""
-    (string-append (->string id) "_")))
+    (string-append "%" (->string id))))
 
 
 (definition bins
@@ -227,18 +227,32 @@
 
 (definition public (gst_bin_get_by_name bin name)
   (let ((id (registered-bin bin)))
-    (let ((elem (gst_bin_get_by_name_aux bin (string-append (bin-prefix id) name))))
+    (let ((elem (gst_bin_get_by_name_aux bin (string-append name (bin-suffix id)))))
       (if (not elem)
           (error "Unable to find element {a}" name)
         elem))))
 
 
 (definition (substitute-names description id)
-  (substitute-string description "name=" (string-append "name=" (bin-prefix id))))
+  (let ((output (open-output-string))
+        (len (string-length description)))
+    (let (iter (start 0))
+      (let ((pos (search description "name=" start: start)))
+        (if (not pos)
+            (begin
+              (write-string (substring description start len) output)
+              (get-output-string output))
+          (write-string (substring description start pos) output)
+          (let ((start (+ pos 5)))
+            (let ((end (or (search description " " start: start) len)))
+              (write-string "name=" output)
+              (write-string (substring description start end) output)
+              (write-string (bin-suffix id) output)
+              (iter end))))))))
 
 
 (definition (substitute-^s description id)
-  (substitute-string description "^" (bin-prefix id)))
+  (substitute-string description "^" (bin-suffix id)))
 
 
 ;;;

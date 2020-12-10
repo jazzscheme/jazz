@@ -1,0 +1,297 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; GStreamer Leaks
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.ide.leaks jazz
+
+
+(import (jazz.application)
+        (jazz.editor)
+        (jazz.event)
+        (jazz.graphic)
+        (jazz.handler)
+        (jazz.io)
+        (jazz.layout)
+        (jazz.markup)
+        (jazz.outline)
+        (jazz.platform)
+        (jazz.resource)
+        (jazz.stream)
+        (jazz.text)
+        (jazz.tree)
+        (jazz.ui)
+        (jazz.view))
+
+
+(class Leaks-Explorer extends Layout-View implements Filterable
+  
+  
+  (property file initialize #f accessors generate)
+  
+  
+  (slot entries)
+  
+  
+  (form
+    (<install>                                             layout-type: border
+      (<Layout-View>                  name: toolbar        size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Separator>                                       size: {Dimension 2 0})
+        (<Label-View>                 name: file-label     justification: (head -3) title: "File:" size: {Dimension 37 20} font: {Font Label})
+        (<Border-View>                                     size: {Dimension 300 20} border-type: fill border-insets: {Rect 0 1 0 0}
+          (<Border-View>              name: file-border    border-type: edge style: entry
+            (<Moniker-Widget>         name: file           protocol: file display-protocol?: #f display-logical?: #f moniker-update-handler: {Event-Handler :form on-moniker-update})))
+        (<Separator>                                       size: {Dimension 24 0})
+        (<Label-View>                 name: filter-label   justification: (head -3) title: "Filter:" size: {Dimension 37 20} font: {Font Label})
+        (<Border-View>                                     size: {Dimension 250 20} border-type: fill border-insets: {Rect 0 1 0 0}
+          (<Border-View>                                   border-type: edge style: entry
+            (<Scroller-View>                               hscroll?: #f vscroll?: #f
+              (<!>                    name: content        layout-type: fill
+                (<Filter-Text-View>   name: filter-text)))))
+        (<Separator>                                       size: {Dimension 4 0})
+        (<Push-Tool>                  name: filter         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Filter" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-filter})
+        (<Push-Tool>                  name: update         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Update" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-update-snapshots}))
+      (<Splitter-View>                                     location: center orientation: vert mode: relative division: 50 style: document
+        (<Splitter-View>                                   location: first orientation: horz mode: relative division: 50 style: document
+          (<Border-View>              name: text-border    location: first border-type: edge style: entry
+            (<Scroller-View>                               style: document hscroll?: #t vscroll?: #t
+              (<!>                    name: content        layout-type: fill
+                (<Tree-Header>                             style: document
+                  (<!>                name: content
+                    (<Objects-Tree>   name: objects-tree   selection-handler: {Event-Handler :form on-selection-change}))))))
+          (<Border-View>              name: text-border    location: second border-type: edge style: entry
+            (<Scroller-View>                               style: document hscroll?: #t vscroll?: #t
+              (<!>                    name: content        layout-type: fill
+                (<Tree-Header>                             style: document
+                  (<!>                name: content
+                    (<Life-Tree>      name: life-tree      selection-handler: {Event-Handler :form on-selection-change})))))))
+        (<Border-View>                name: tree-border    location: second border-type: edge style: entry
+          (<Scroller-View>                                 style: document hscroll?: #t vscroll?: #t
+            (<!>                      name: content        layout-type: fill
+              (<Tree-Header>                               style: document
+                (<!>                  name: content
+                  (<Stack-Tree>       name: stack-tree     double-click-handler: {Event-Handler :form on-double-click})))))))))
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-icon self)
+    {Image-Resource "Configure"})
+  
+  
+  (method meta override (host-title self)
+    "Leaks Explorer")
+  
+  
+  (method meta override (host-position self)
+    {Point 28 14})
+  
+  
+  (method meta override (host-size self)
+    {Dimension 900 500})
+  
+  
+  (method override (host-workspaces self)
+    '(groupware))
+  
+  
+  (method override (focus-default self)
+    (acquire-focus (locate self 'filter-text)))
+  
+  
+  ;;;
+  ;;;; Filter
+  ;;;
+  
+  
+  (method override (filter self filter-search)
+    (filter-rows (locate self 'objects-tree)
+      (lambda (title)
+        (search title filter-search))))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-moniker-update self evt)
+    (update-snapshots self))
+  
+  
+  (method (on-selection-change self evt)
+    (let ((sender (get-sender evt)))
+      (case (get-name sender)
+        ((objects-tree)
+         (update-life self sender)
+         (update-stack self sender))
+        ((life-tree)
+         (update-stack self sender)))))
+  
+  
+  (method (on-double-click self evt)
+    (let ((sender (get-sender evt)))
+      (edit-frame self sender)))
+  
+  
+  (method (on-filter self evt)
+    (filter-target (locate self 'filter-text)))
+  
+  
+  (method (on-update-snapshots self evt)
+    (if (not file)
+        (bell)
+      (update-snapshots self)))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-snapshots self)
+    (set! file (get-moniker (locate self 'file)))
+    (set! entries (parse-leaks file))
+    (update self))
+  
+  
+  (method package (update self)
+    (with-cursor :wait
+      (lambda ()
+        (let ((tree (locate self 'objects-tree)))
+          (remove-every-row tree)
+          (with-update-locked tree
+            (lambda ()
+              (for-each (lambda (entry)
+                          (bind (what type address description refcount) entry
+                            (when (equal? what "object-alive")
+                              (add-row tree children: (list (new Tree-Node title: type)
+                                                            (new Tree-Label title: address)
+                                                            (new Tree-Label title: description)
+                                                            (new Tree-Label title: refcount))
+                                user-data: entry))))
+                        entries)))))))
+  
+  
+  (method (update-life self sender)
+    (with-cursor :wait
+      (lambda ()
+        (let ((tree (locate self 'life-tree)))
+          (remove-every-row tree)
+          (let ((sender-entry (get-single-selected-data sender)))
+            (when sender-entry
+              (bind (sender-what sender-type sender-address sender-description sender-refcount) sender-entry
+                (with-update-locked tree
+                  (lambda ()
+                    (for-each (lambda (entry)
+                                (bind (what type address description refcount) entry
+                                  (when (equal? address sender-address)
+                                    (add-row tree children: (list (new Tree-Label title: description)
+                                                                  (new Tree-Label title: refcount))
+                                      user-data: entry))))
+                              entries))))))))))
+  
+  
+  (method (update-stack self sender)
+    (with-cursor :wait
+      (lambda ()
+        (let ((tree (locate self 'stack-tree)))
+          (remove-every-row tree)
+          (let ((entry (get-single-selected-data sender)))
+            (when entry
+              (bind (what type address description refcount stack) entry
+                (with-update-locked tree
+                  (lambda ()
+                    (for-each (lambda (frame)
+                                (bind (library function offset) frame
+                                  (add-row tree children: (list (new Tree-Node title: (string-append function " + " offset))
+                                                                (new Tree-Label title: library))
+                                    user-data: frame)))
+                              stack))))))))))
+  
+  
+  (method (edit-frame self sender)
+    (let ((frame (get-single-selected-data sender)))
+      (if (not frame)
+          (bell)
+        (bind (library function offset) frame
+          (edit-definitions (current-application) function))))))
+
+
+;;;
+;;;; Objects-Tree
+;;;
+
+
+(class Objects-Tree extends Tree-View
+  
+  
+  (form
+    (<install>                               filled-column: description multiple-selection?: #t
+      (<Tree-Node-Column>  name: type        title: "Type" width: 200 toplevel-controls?: #f display-images?: #f)
+      (<Tree-Label-Column> name: address     title: "Address" width: 150)
+      (<Tree-Label-Column> name: description title: "Description" width: 175)
+      (<Tree-Label-Column> name: refcount    title: "Refcount" width: 80))))
+
+
+;;;
+;;;; Life-Tree
+;;;
+
+
+(class Life-Tree extends Tree-View
+  
+  
+  (form
+    (<install>                               filled-column: description multiple-selection?: #t
+      (<Tree-Label-Column> name: description title: "Description" width: 175)
+      (<Tree-Label-Column> name: refcount    title: "Refcount" width: 80))))
+
+
+;;;
+;;;; Stack-Tree
+;;;
+
+
+(class Stack-Tree extends Tree-View
+  
+  
+  (form
+    (<install>                               filled-column: library multiple-selection?: #t
+      (<Tree-Node-Column>  name: name        title: "Name" width: 400 toplevel-controls?: #f display-images?: #f)
+      (<Tree-Label-Column> name: library     title: "Library" width: 150)))))

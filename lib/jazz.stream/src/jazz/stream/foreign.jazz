@@ -1661,6 +1661,7 @@ static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
 (gst-external (gst_iterator_next_pad GstIterator*) GstPad*)
 (gst-external (gst_iterator_free GstIterator*) void)
 (gst-external (gst_signal_connect_to gpointer char-string gpointer) gulong)
+(gst-external (gst_bus_set_flushing GstBus* gboolean) void)
 (gst-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
 (gst-external (gst_bus_pop GstBus*) GstMessage*)
 (gst-external (gst_bin_new char-string) GstElement*)
@@ -1755,8 +1756,10 @@ static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
 ;; to enable testing wasapi use the blocking api as a work
 ;; around wasapi not initializing com multithreaded on windows
 @wasapi
-(definition public gst_element_set_state
-  gst_element_set_state_blocking)
+(definition public (gst_element_set_state elem state)
+  (gst_element_set_state_blocking elem state)
+  (when (gst_is_pipeline elem)
+    (set-bus-flushing elem)))
 
 
 ;; non-blocking listener-based set state
@@ -1771,7 +1774,19 @@ static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
       (let ((c (wait listener)))
         (assert (eqv? c #\!)
           (gst_element_set_state_free data)
-          (close-stream-listener listener))))))
+          (close-stream-listener listener)
+          (when (gst_is_pipeline elem)
+            (set-bus-flushing elem)))))))
+
+
+;; we are not using messages at the moment and
+;; not processing them causes nasty memory leaks
+;; note that setting the bus to flushing from set_state
+;; is a quick solution to gstreamer overriding flushing
+;; when going to ready state
+(definition (set-bus-flushing pipeline)
+  (with-unref ((bus (gst_pipeline_get_bus pipeline)))
+    (gst_bus_set_flushing bus 1)))
 
 
 (gst-external (move-u8vector->pointer! scheme-object void*) void

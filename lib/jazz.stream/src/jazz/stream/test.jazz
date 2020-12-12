@@ -285,6 +285,8 @@
     ((jpeg) (test-jpeg))
     ((media) (test-media))
     ((leak) (test-leak))
+    ((leak2) (test-leak2))
+    ((leakt) (test-leakt))
     ((gambit) (test-gambit))
     ((version) (test-version))
     (else (error "Unknown script: {a}" script))))
@@ -3283,9 +3285,167 @@ description-end
           "stream-type" 'int GST_APP_STREAM_TYPE_STREAM
           "format"      'int GST_FORMAT_TIME)
         (gst_element_set_state pipeline GST_STATE_PLAYING)
+        (wait-playing pipeline)
         (gst_element_set_state pipeline GST_STATE_NULL)
         (gst_object_unref pipeline))))
   (gst_deinit))
+
+
+(definition public (test-leak2)
+  (let ((pipeline (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence name=silence"
+                                "audiomixer"
+                                "queue max-size-time=200000000 name=queue"
+                                "webrtcaudioprobe"
+                                "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                                (gst-element audiosink name: "sink"))))
+    (gst_element_set_state pipeline GST_STATE_PLAYING)
+    (wait-playing pipeline)
+    (gst_element_set_state pipeline GST_STATE_NULL)
+    (gst_object_unref pipeline))
+  (gst_deinit))
+
+
+(definition public (test-leakt)
+  (let ((pipeline (gst_pipeline_new "pipeline")))
+    (let ((src (gst_element_factory_make "audiotestsrc" "src"))
+          (mix (gst_element_factory_make "audiomixer" "mix"))
+          (sink (gst_element_factory_make "osxaudiosink" "sink")))
+      (define (add-sound n)
+        (let ((sound (gst_element_factory_make "audiotestsrc" (format "sound{a}" n))))
+          (gst_bin_add pipeline sound)
+          (gst_element_link sound mix)
+          (gst_element_sync_state_with_parent sound)
+          sound))
+      
+      @comment
+      (method protected (add-sink self sink)
+        (setup sink)
+        (let ((bin (get-bin sink)))
+          (set-pipeline sink pipeline)
+          (with-unref ((mix (gst_bin_get_by_name pipeline "mix")))
+            (gst_bin_add pipeline bin)
+            (with-unref ((pan (gst_bin_get_by_name bin "panorama")))
+              (gst_element_link pan mix))))
+        (redistribute-latency self))
+      
+      (define (add-soundbin n)
+        (let ((bin (gst_bin_new (format "bin{a}" n))))
+          (let ((sound (gst_element_factory_make "audiotestsrc" (format "sound{a}" n))))
+            (gst_bin_add bin sound)
+            (gst_bin_add pipeline bin)
+            (gst_element_link sound mix)
+            (gst_element_sync_state_with_parent bin)
+            bin)))
+      
+      (define (remove-sound sound)
+        (with-unref ((sound-pads (gst_element_pads sound)))
+          (let ((sound-pad (car sound-pads)))
+            (let ((mix-pad (gst_pad_get_peer sound-pad)))
+              (source-send/wait-eos sound mix-pad)
+              (gst_element_unlink sound mix)
+              (gst_element_release_request_pad mix mix-pad)
+              (gst_object_unref mix-pad)
+              (gst_element_set_state sound GST_STATE_NULL)
+              (gst_bin_remove pipeline sound)))))
+      
+      @comment
+      (method protected (remove-sink self sink)
+        (let ((bin (get-bin sink)))
+          (with-unref ((pads (gst_element_src_pads bin)))
+            (let ((ghost-pad (car pads)))
+              (with-unref ((pan (gst_bin_get_by_name bin "panorama"))
+                           (mix (gst_bin_get_by_name pipeline "mix")))
+                (with-unref ((mixer-pad (gst_pad_get_peer ghost-pad)))
+                  (gst_element_unlink pan mix)
+                  (gst_element_release_request_pad mix mixer-pad)))))
+          (gst_element_set_state bin GST_STATE_NULL)
+          (gst_bin_remove pipeline bin)
+          (gst_object_unref bin)
+          (redistribute-latency self)))
+      
+      @w
+      (define (remove-soundbin n)
+        (let ((bin (gst_bin_get_by_name_aux pipeline (format "bin{a}" n))))
+          (with-unref ((sound-pads (gst_element_pads sound)))
+            (let ((sound-pad (car sound-pads)))
+              (let ((mix-pad (gst_pad_get_peer sound-pad)))
+                (source-send/wait-eos sound mix-pad)
+                (gst_element_unlink sound mix)
+                (gst_element_release_request_pad mix mix-pad)
+                (gst_object_unref mix-pad)
+                (gst_element_set_state sound GST_STATE_NULL)
+                (gst_bin_remove pipeline sound)
+                (terminal 'sound (gst_object_refcount sound))
+                (gst_object_unref sound))))))
+      
+      (define (source-send/wait-eos src pad)
+        (let ((listener (open-stream-listener)))
+          (gst_pad_connect_eos pad (get-write-file listener))
+          (gst_element_send_event src (gst_event_new_eos))
+          (wait listener)))
+      
+      (gst_bin_add pipeline src)
+      (gst_bin_add pipeline mix)
+      (gst_bin_add pipeline sink)
+      (gst_element_link src mix)
+      (gst_element_link mix sink)
+      (gst_element_set_state pipeline GST_STATE_PLAYING)
+      (wait-playing pipeline)
+      
+      (terminal 'NO 'SOUND)
+      (sleep .5)
+      
+      (let ((sound0 (add-sound 0))
+            @w(sound1 (add-sound 1))
+            @w(sound2 (add-sound 2)))
+        (terminal 'MANY 'SOUNDS)
+        (sleep .5)
+        
+        (remove-sound sound0)
+        @w(remove-sound sound1)
+        @w(remove-sound sound2)
+        (terminal 'NO 'SOUND)
+        (sleep .5))
+      
+      @w(let ((tracers (collect-active-tracers)))
+        (if (null? tracers)
+            (terminal 'no 'tracers 'found)
+          (let ((leaks-tracer (car tracers)))
+            (g_signal_emit_by_name leaks-tracer "log-live-objects"))
+          (report-leaks)
+          (exit))))
+      
+      (gst_element_set_state pipeline GST_STATE_NULL)
+      (report-count pipeline)
+      (gst_object_unref pipeline))
+  (terminal 'deinit)
+  (gst_deinit)
+  (terminal 'report)
+  (report-leaks))
+
+
+(definition (report-count bin)
+  (define (report-element elem (extra 0))
+    (format :terminal "{a} {a} {a}{%}"
+      (g_object_class_name elem)
+      (gst_object_get_name elem)
+      (- (gst_object_refcount elem) extra)))
+  
+  (report-element bin)
+  (with-unref ((elements (gst_bin_elements_recurse bin)))
+    (for-each (lambda (elem)
+                (report-element elem 1)
+                (with-unref ((pads (gst_element_pads elem)))
+                  (for-each (lambda (pad)
+                              (prog1 (let ((dir (gst_pad_get_direction pad)))
+                                       (format :terminal "  {a} {a} {a}{%}"
+                                         (g_object_class_name pad)
+                                         (ecase dir
+                                           ((GST_PAD_SRC) 'src)
+                                           ((GST_PAD_SINK) 'sink))
+                                         (- (gst_object_refcount pad) 1)))))
+                            pads)))
+              (reverse elements))))
 
 
 ;;;

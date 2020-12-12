@@ -62,7 +62,9 @@
   (property file initialize #f accessors generate)
   
   
+  (slot port)
   (slot entries)
+  (slot ignored)
   
   
   (form
@@ -82,21 +84,21 @@
                 (<Filter-Text-View>   name: filter-text)))))
         (<Separator>                                       size: {Dimension 4 0})
         (<Push-Tool>                  name: filter         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Filter" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-filter})
-        (<Push-Tool>                  name: update         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Update" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-update-snapshots}))
+        (<Push-Tool>                  name: update         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Update" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-update-leaks}))
       (<Splitter-View>                                     location: center orientation: vert mode: relative division: 50 style: document
-        (<Splitter-View>                                   location: first orientation: horz mode: relative division: 50 style: document
+        (<Splitter-View>                                   location: first orientation: horz mode: relative division: 35 style: document
           (<Border-View>              name: text-border    location: first border-type: edge style: entry
             (<Scroller-View>                               style: document hscroll?: #t vscroll?: #t
               (<!>                    name: content        layout-type: fill
                 (<Tree-Header>                             style: document
                   (<!>                name: content
-                    (<Objects-Tree>   name: objects-tree   selection-handler: {Event-Handler :form on-selection-change}))))))
+                    (<Life-Tree>      name: life-tree      selection-handler: {Event-Handler :form on-selection-change}))))))
           (<Border-View>              name: text-border    location: second border-type: edge style: entry
             (<Scroller-View>                               style: document hscroll?: #t vscroll?: #t
               (<!>                    name: content        layout-type: fill
                 (<Tree-Header>                             style: document
                   (<!>                name: content
-                    (<Life-Tree>      name: life-tree      selection-handler: {Event-Handler :form on-selection-change})))))))
+                    (<Objects-Tree>   name: objects-tree   selection-handler: {Event-Handler :form on-selection-change})))))))
         (<Border-View>                name: tree-border    location: second border-type: edge style: entry
           (<Scroller-View>                                 style: document hscroll?: #t vscroll?: #t
             (<!>                      name: content        layout-type: fill
@@ -151,7 +153,7 @@
   
   
   (method (on-moniker-update self evt)
-    (update-snapshots self))
+    (update-file self))
   
   
   (method (on-selection-change self evt)
@@ -173,10 +175,10 @@
     (filter-target (locate self 'filter-text)))
   
   
-  (method (on-update-snapshots self evt)
+  (method (on-update-leaks self evt)
     (if (not file)
         (bell)
-      (update-snapshots self)))
+      (update-leaks self)))
   
   
   ;;;
@@ -184,9 +186,16 @@
   ;;;
   
   
-  (method (update-snapshots self)
+  (method (update-file self)
     (set! file (get-moniker (locate self 'file)))
-    (set! entries (parse-leaks file))
+    (set! port (open-input-file (path-settings file)))
+    (update-leaks self))
+  
+  
+  (method (update-leaks self)
+    (receive (e i) (parse-leaks port)
+      (set! entries e)
+      (set! ignored i))
     (update self))
   
   
@@ -205,7 +214,9 @@
                                                             (new Tree-Label title: description)
                                                             (new Tree-Label title: refcount))
                                 user-data: entry))))
-                        entries)))))))
+                        entries))))
+        (remove-every-row (locate self 'life-tree))
+        (remove-every-row (locate self 'stack-tree)))))
   
   
   (method (update-life self sender)

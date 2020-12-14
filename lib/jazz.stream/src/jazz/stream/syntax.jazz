@@ -48,18 +48,38 @@
 
 
 (macro public (gst-external signature . rest)
-  (if (not tracable?)
-      `(c-external ,signature ,@rest)
+  (define (parse-rest)
+    (let ((first (car rest)))
+      (if (or (memq? first '(:alloc :free))
+              (and (pair? first) (eq? (car first) :free)))
+          (cons (list (car rest)) (cdr rest))
+        (cons '() rest))))
+  
+  (bind (modifiers type . rest) (parse-rest)
     (let* ((s-name (car signature))
            (params (cdr signature))
-           (untraced-name (string->symbol (string-append (symbol->string s-name) "$untraced"))))
-      `(begin
-         (c-external (,s-name ,@params) ,@rest)
-         (definition ,untraced-name ,s-name)
-         (set! ,s-name (lambda rest
-                         (when (trace-gst?)
-                           ((trace-gst) ',s-name rest))
-                         (apply ,untraced-name rest)))))))
+           (c-name-or-code (if (null? rest) (symbol->string s-name) (car rest)))
+           (c-name (string->symbol (string-append (symbol->string s-name) "$c")))
+           (error? (eq? type :gboolean))
+           (type (if (eq? type :gboolean) 'gboolean type)))
+      (if (and (not tracable?)
+               (not error?))
+          `(c-external (,s-name ,@params) ,@modifiers ,type ,c-name-or-code)
+        `(begin
+           (c-external (,c-name ,@params) ,@modifiers ,type ,c-name-or-code)
+           (definition public ,s-name
+             (lambda rest
+               ,@(if (not tracable?)
+                     '()
+                   `((when (trace-gst?)
+                       ((trace-gst) ',s-name rest))))
+               ,(if (not error?)
+                    `(apply ,c-name rest)
+                  (let ((result (generate-symbol "result")))
+                    `(let ((,result (apply ,c-name rest)))
+                       (if (= ,result 0)
+                           (error "Call to {a} failed" ',s-name)
+                         ,result)))))))))))
 
 
 ;;;

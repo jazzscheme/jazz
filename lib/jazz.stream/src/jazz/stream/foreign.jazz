@@ -1144,19 +1144,6 @@ static void gst_print_message(char* pipeline_name, GstMessage *msg)
     }
 }
 
-static FILE* monitor_file = NULL;
-
-static void gst_monitor_open(char* filename)
-{
-    monitor_file = fopen(filename, "wb");
-}
-
-static void gst_monitor_close()
-{
-    fclose(monitor_file);
-    monitor_file = NULL;
-}
-
 static GstTask* gst_pad_task(GstPad* pad)
 {
     return GST_PAD_TASK(pad);
@@ -1305,6 +1292,54 @@ cb_connect_eos(GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
         return GST_PAD_PROBE_PASS;
 }
 
+typedef struct file_monitor
+{
+    FILE* file;
+    gulong id;
+    GstClockTime expected;
+} monitor_file;
+
+static void init_monitor_file(monitor_file* data, FILE* file, gulong id)
+{
+    data->file = file;
+    data->id = id;
+    data->expected = GST_CLOCK_TIME_NONE;
+}
+
+static void free_monitor_file(monitor_file* data)
+{
+    free(data);
+}
+
+static GstPadProbeReturn
+cb_data_file(GstPad          *pad,
+             GstPadProbeInfo *info,
+             gpointer         user_data)
+{
+    monitor_file* data;
+    FILE* file;
+    GstBuffer* buffer;
+    gsize size;
+
+    data = (monitor_file*) user_data;
+    file = data->file;
+    buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+    size = gst_buffer_get_size(buffer);
+    GstClockTime dts = GST_BUFFER_DTS(buffer);
+    GstClockTime pts = GST_BUFFER_PTS(buffer);
+    GstClockTime duration = GST_BUFFER_DURATION(buffer);
+    if (data->expected != GST_CLOCK_TIME_NONE && pts != data->expected)
+        printf("expected %llu got %llu\n", data->expected, pts);
+    data->expected = pts + duration;
+    GstMapInfo map;
+    gst_buffer_map(buffer, &map, GST_MAP_READ);
+    size = map.size;
+    fwrite(map.data, size, 1, file); 
+    gst_buffer_unmap(buffer, &map);
+
+    return GST_PAD_PROBE_OK;
+}
+
 static GstPadProbeReturn
 cb_have_data(GstPad          *pad,
              GstPadProbeInfo *info,
@@ -1335,16 +1370,11 @@ cb_have_data(GstPad          *pad,
     GstMapInfo map;
     gst_buffer_map(buffer, &map, GST_MAP_READ);
     size = map.size;
-    if (monitor_file)
-        fwrite(map.data, size, 1, monitor_file); 
-    else
-    {
-        printf("DATA %s %s %10s %6ld   %.3f   %.3f   %.3f  ", pipeline_name, element_name, pad_name, size, present_time(dts), present_time(pts), present_time(clockstamp));
-        int i;
-        for (i=0; i < ((size <= 20) ? size : 20); i++)
-            printf(" %3d,", map.data[i]);
-        printf("\n");
-    }
+    printf("DATA %s %s %10s %6ld   %.3f   %.3f   %.3f  ", pipeline_name, element_name, pad_name, size, present_time(dts), present_time(pts), present_time(clockstamp));
+    int i;
+    for (i=0; i < ((size <= 20) ? size : 20); i++)
+        printf(" %3d,", map.data[i]);
+    printf("\n");
     gst_buffer_unmap(buffer, &map);
     g_free(pad_name);
     g_free(element_name);
@@ -1508,6 +1538,31 @@ static void gst_pad_remove_probe_aux(GstPad* pad, void* info)
 static void gst_pad_connect_eos(GstPad* pad, void* data)
 {
     gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BLOCK | GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, cb_connect_eos, data, NULL);
+}
+
+static void* gst_monitor_open(GstPad* pad, char* filename)
+{
+    monitor_file* data = malloc(sizeof(monitor_file));
+
+    FILE* file = fopen(filename, "wb");
+    gulong id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_data_file, data, NULL);
+    
+    init_monitor_file(data, file, id);
+    
+    return (void*) data;
+}
+
+static void gst_monitor_close(GstPad* pad, void* info)
+{
+    monitor_file* data = (monitor_file*) info;
+    FILE* file = data->file;
+    gulong id = data->id;
+    
+    gst_pad_remove_probe(pad, id);
+
+    free_monitor_file(data);
+
+    fclose(file);
 }
 
 static gulong gst_monitor_data(GstPipeline* pipeline, GstPad* pad)
@@ -1725,8 +1780,8 @@ static void gst_debug_bin_to_dot_file_aux(GstBin* bin, char* filename)
 (gst-external (gst_print_pad GstElement* char-string) void)
 (gst-external (gst_print_message char-string GstMessage*) void)
 (gst-external (gst_print_error GstMessage*) void)
-(gst-external (gst_monitor_open char-string) void)
-(gst-external (gst_monitor_close) void)
+(gst-external (gst_monitor_open GstPad* char-string) void*)
+(gst-external (gst_monitor_close GstPad* void*) void)
 (gst-external (gst_monitor_data (call GST_PIPELINE GstElement*) GstPad*) gulong)
 (gst-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) gulong)
 (gst-external (gst_monitor_queries (call GST_PIPELINE GstElement*) GstPad*) gulong)

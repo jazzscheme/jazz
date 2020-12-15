@@ -404,27 +404,6 @@
               (reverse elements))))
 
 
-(definition (report-latency pipeline (wait? #t))
-  ;; wait for preroll to go to playing
-  (when wait?
-    (sleep .5))
-  (with-unref ((elements (gst_bin_elements_recurse pipeline)))
-    (for-each (lambda (elem)
-                (let ((info (make-u64vector 3)))
-                  (gst_element_query_latency elem info)
-                  (let ((live (u64vector-ref info 0))
-                        (min (u64vector-ref info 1))
-                        (max (u64vector-ref info 2)))
-                    (format :terminal "{a} {a} {a} {a}{%}"
-                      (gst_element_path elem)
-                      (= live 1)
-                      (format "{r precision: 5}" (/ min nanosecond))
-                      (if (= max GST_CLOCK_TIME_NONE)
-                          'none
-                        (format "{r precision: 5}" (/ max nanosecond)))))))
-              (reverse elements))))
-
-
 (definition (report-caps pipeline (wait? #t))
   ;; wait for preroll to go to playing
   (when wait?

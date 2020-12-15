@@ -495,13 +495,12 @@
         (loop (+ n 1))))))
 
 
-(definition (redistribute-latency pipeline)
+(definition (recalculate-latency pipeline)
   (define (sink-latency)
     (with-unref ((sink (gst_bin_get_by_name pipeline "sink")))
       (gst_base_sink_get_latency sink)))
   
   @w(terminal 'before (sink-latency))
-  (sleep .2)
   (gst_bin_recalculate_latency pipeline)
   @w(terminal 'after (sink-latency)))
 
@@ -2065,7 +2064,7 @@ description-end
               (gst_element_set_state bin GST_STATE_PLAYING)
               (thread-start! thread)
               (gst_element_set_state input GST_STATE_PLAYING)
-              (redistribute-latency audio)
+              (recalculate-latency audio)
               (new Channel location input bin thread))))))
     
     (define (release-channel channel)
@@ -2081,7 +2080,7 @@ description-end
               (gst_element_release_request_pad mix (gst_pad_get_peer ghost-pad)))))
         (gst_element_set_state bin GST_STATE_NULL)
         (gst_bin_remove audio bin)
-        (redistribute-latency audio)))
+        (recalculate-latency audio)))
     
     (define (closer app)
       (for-each release-channel channels)
@@ -2193,7 +2192,7 @@ description-end
               (gst_element_set_state bin GST_STATE_PLAYING)
               (thread-start! thread)
               (gst_element_set_state input GST_STATE_PLAYING)
-              (redistribute-latency audio)
+              (recalculate-latency audio)
               (new Channel location input bin thread))))))
     
     (define (release-channel channel)
@@ -3305,7 +3304,7 @@ description-end
             (gst_bin_add pipeline bin)
             (with-unref ((pan (gst_bin_get_by_name bin "panorama")))
               (gst_element_link pan mix))))
-        (redistribute-latency self))
+        (recalculate-latency self))
       
       (define (add-soundbin n)
         (let ((bin (gst_bin_new (format "bin{a}" n))))
@@ -3340,7 +3339,7 @@ description-end
           (gst_element_set_state bin GST_STATE_NULL)
           (gst_bin_remove pipeline bin)
           (gst_object_unref bin)
-          (redistribute-latency self)))
+          (recalculate-latency self)))
       
       @w
       (define (remove-soundbin n)

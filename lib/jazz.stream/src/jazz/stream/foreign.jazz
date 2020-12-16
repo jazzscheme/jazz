@@ -585,15 +585,15 @@ static ___SCMOBJ gst_parse_bin_from_description_aux(char* desc, gboolean ghost_u
     return values;
 }
 
-static void gst_listener_set(void* user_data)
+static void gst_listener_set(void* listener)
 {
 #ifdef _WIN32
-    SOCKET socket = (SOCKET) user_data;
+    SOCKET socket = (SOCKET) listener;
     send(socket, "!", 1, 0);
 #else
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) user_data;
+    int fd = (int) listener;
     #pragma GCC diagnostic pop
     
     write(fd, "!", 1);
@@ -604,7 +604,7 @@ typedef struct element_state_struct
 {
     GstElement* element;
     GstState state;
-    void* desc;
+    void* listener;
     GThread* thread;
 } element_state;
 
@@ -613,21 +613,21 @@ static void* set_state(void* data)
     element_state* es = (element_state*) data;
     GstElement* elem = es->element;
     GstState state = es->state;
-    void* desc = es->desc;
+    void* listener = es->listener;
   
     gst_element_set_state(elem, state);
     
-    gst_listener_set(desc);
+    gst_listener_set(listener);
   
     return NULL;
 }
 
-static void* gst_element_set_state_threaded(GstElement* elem, GstState state, void* desc)
+static void* gst_element_set_state_threaded(GstElement* elem, GstState state, void* listener)
 {
     element_state* es = malloc(sizeof(element_state));
     es->element = elem;
     es->state = state;
-    es->desc = desc;
+    es->listener = listener;
     es->thread = g_thread_new("set_state", set_state, (void*) es);
     
     return (void*) es;
@@ -804,30 +804,30 @@ static gboolean gst_pad_is_flushing(GstPad* pad)
     return GST_PAD_IS_FLUSHING(pad);
 }
 
-static void gst_listener_wakeup(void* user_data)
+static void gst_listener_wakeup(void* listener)
 {
 #ifdef _WIN32
-    SOCKET socket = (SOCKET) user_data;
+    SOCKET socket = (SOCKET) listener;
     send(socket, ".", 1, 0);
 #else
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) user_data;
+    int fd = (int) listener;
     #pragma GCC diagnostic pop
     
     write(fd, ".", 1);
 #endif
 }
 
-static void gst_listener_eos(void* user_data)
+static void gst_listener_eos(void* listener)
 {
 #ifdef _WIN32
-    SOCKET socket = (SOCKET) user_data;
+    SOCKET socket = (SOCKET) listener;
     send(socket, "^", 1, 0);
 #else
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) user_data;
+    int fd = (int) listener;
     #pragma GCC diagnostic pop
     
     write(fd, "^", 1);
@@ -858,15 +858,15 @@ static GstFlowReturn on_overrun(GstElement* object, gpointer user_data)
     return GST_FLOW_OK;
 }
 
-static GstFlowReturn on_new_sample(GstElement* object, gpointer user_data)
+static GstFlowReturn on_new_sample(GstElement* object, gpointer listener)
 {
-    gst_listener_wakeup(user_data);
+    gst_listener_wakeup(listener);
     return GST_FLOW_OK;
 }
 
-static GstFlowReturn on_eos(GstElement* object, gpointer user_data)
+static GstFlowReturn on_eos(GstElement* object, gpointer listener)
 {
-    gst_listener_eos(user_data);
+    gst_listener_eos(listener);
     return GST_FLOW_OK;
 }
 
@@ -885,11 +885,11 @@ static gulong gst_queue_connect_overrun(GstElement* elem)
     return g_signal_connect(elem, "overrun", G_CALLBACK(on_overrun), NULL);
 }
 
-static void gst_app_sink_connect_listener_signals(GstElement* elem, void* data)
+static void gst_app_sink_connect_listener_signals(GstElement* elem, void* listener)
 {
     gst_app_sink_set_emit_signals(GST_APP_SINK(elem), 1);
-    g_signal_connect(elem, "new-sample", G_CALLBACK(on_new_sample), data);
-    g_signal_connect(elem, "eos", G_CALLBACK(on_eos), data);
+    g_signal_connect(elem, "new-sample", G_CALLBACK(on_new_sample), listener);
+    g_signal_connect(elem, "eos", G_CALLBACK(on_eos), listener);
 }
 
 static GstDiscoverer* gst_discoverer_new_aux()
@@ -1206,10 +1206,9 @@ typedef struct probe_drop
     gulong probe_id;
 } drop_probe;
 
-static void init_block_probe(block_probe* data, gulong id)
+static void init_block_probe(block_probe* data)
 {
     data->probe_kind = BLOCK_PROBE;
-    data->probe_id = id;
 }
 
 static void free_block_probe(block_probe* data)
@@ -1217,10 +1216,9 @@ static void free_block_probe(block_probe* data)
     free(data);
 }
 
-static void init_drop_probe(drop_probe* data, gulong id)
+static void init_drop_probe(drop_probe* data)
 {
     data->probe_kind = DROP_PROBE;
-    data->probe_id = id;
 }
 
 static void free_drop_probe(drop_probe* data)
@@ -1239,10 +1237,9 @@ typedef struct probe_rate
     int dropped;
 } rate_probe;
 
-static void init_rate_probe(rate_probe* data, gulong id, double rate)
+static void init_rate_probe(rate_probe* data, double rate)
 {
     data->probe_kind = RATE_PROBE;
-    data->probe_id = id;
     data->target_rate = rate;
     data->current_rate = -1;
     data->first_time = -1;
@@ -1292,13 +1289,13 @@ cb_rate_data(GstPad          *pad,
 }
 
 static GstPadProbeReturn
-cb_connect_eos(GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
+cb_connect_eos(GstPad * pad, GstPadProbeInfo * info, gpointer listener)
 {
     if (GST_EVENT_TYPE(GST_PAD_PROBE_INFO_DATA(info)) == GST_EVENT_EOS)
     {
         gst_pad_remove_probe(pad, GST_PAD_PROBE_INFO_ID(info));
 
-        gst_listener_eos(user_data);
+        gst_listener_eos(listener);
 
         return GST_PAD_PROBE_DROP;
     }
@@ -1309,9 +1306,9 @@ cb_connect_eos(GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
 static void* gst_pad_add_block_probe(GstPad* pad)
 {
     block_probe* data = malloc(sizeof(block_probe));
-    gulong id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM, (GstPadProbeCallback) cb_block_data, NULL, NULL);
-    
-    init_block_probe(data, id);
+    init_block_probe(data);
+
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM, (GstPadProbeCallback) cb_block_data, NULL, NULL);
     
     return (void*) data;
 }
@@ -1319,9 +1316,9 @@ static void* gst_pad_add_block_probe(GstPad* pad)
 static void* gst_pad_add_drop_probe(GstPad* pad)
 {
     drop_probe* data = malloc(sizeof(drop_probe));
-    gulong id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_drop_data, NULL, NULL);
-    
-    init_drop_probe(data, id);
+    init_drop_probe(data);
+
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_drop_data, NULL, NULL);
     
     return (void*) data;
 }
@@ -1329,9 +1326,9 @@ static void* gst_pad_add_drop_probe(GstPad* pad)
 static void* gst_pad_add_rate_probe(GstPad* pad, int rate)
 {
     rate_probe* data = malloc(sizeof(rate_probe));
-    gulong id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_rate_data, data, NULL);
-    
-    init_rate_probe(data, id, rate);
+    init_rate_probe(data, rate);
+
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_rate_data, data, NULL);
     
     return (void*) data;
 }
@@ -1360,13 +1357,14 @@ static void gst_pad_remove_probe_aux(GstPad* pad, void* info)
     gst_pad_probe_free(info);
 }
 
-static void gst_pad_connect_eos(GstPad* pad, void* data)
+static void gst_pad_connect_eos(GstPad* pad, void* listener)
 {
-    gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BLOCK | GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, cb_connect_eos, data, NULL);
+    gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BLOCK | GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, cb_connect_eos, listener, NULL);
 }
 
 #define ANY_MONITOR     0
 #define FILE_MONITOR    1
+#define SILENCE_MONITOR 2
 
 typedef struct monitor_any
 {
@@ -1382,10 +1380,19 @@ typedef struct monitor_file
     GstClockTime expected;
 } file_monitor;
 
-static void init_any_monitor(any_monitor* data, gulong id)
+typedef struct monitor_silence
+{
+    int monitor_kind;
+    gulong probe_id;
+    int offset;
+    int found;
+    int count;
+    void* listener;
+} silence_monitor;
+
+static void init_any_monitor(any_monitor* data)
 {
     data->monitor_kind = ANY_MONITOR;
-    data->probe_id = id;
 }
 
 static void free_any_monitor(any_monitor* data)
@@ -1393,10 +1400,9 @@ static void free_any_monitor(any_monitor* data)
     free(data);
 }
 
-static void init_file_monitor(file_monitor* data, FILE* file, gulong id)
+static void init_file_monitor(file_monitor* data, FILE* file)
 {
     data->monitor_kind = FILE_MONITOR;
-    data->probe_id = id;
     data->file = file;
     data->expected = GST_CLOCK_TIME_NONE;
 }
@@ -1407,6 +1413,20 @@ static void free_file_monitor(file_monitor* data)
 
     fclose(file);
 
+    free(data);
+}
+
+static void init_silence_monitor(silence_monitor* data, void* listener)
+{
+    data->monitor_kind = ANY_MONITOR;
+    data->offset = 0;
+    data->found = 0;
+    data->count = -1;
+    data->listener = listener;
+}
+
+static void free_silence_monitor(silence_monitor* data)
+{
     free(data);
 }
 
@@ -1433,7 +1453,56 @@ cb_monitor_file(GstPad          *pad,
     GstMapInfo map;
     gst_buffer_map(buffer, &map, GST_MAP_READ);
     size = map.size;
-    fwrite(map.data, size, 1, file); 
+    fwrite(map.data, size, 1, file);
+    gst_buffer_unmap(buffer, &map);
+
+    return GST_PAD_PROBE_OK;
+}
+
+static GstPadProbeReturn
+cb_monitor_silence(GstPad          *pad,
+                   GstPadProbeInfo *info,
+                   gpointer         user_data)
+{
+    silence_monitor* data;
+    void* listener;
+    GstBuffer* buffer;
+    gsize size;
+
+    data = (silence_monitor*) user_data;
+    listener = data->listener;
+    buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+    size = gst_buffer_get_size(buffer);
+    GstClockTime dts = GST_BUFFER_DTS(buffer);
+    GstClockTime pts = GST_BUFFER_PTS(buffer);
+    GstClockTime duration = GST_BUFFER_DURATION(buffer);
+    GstMapInfo map;
+    gst_buffer_map(buffer, &map, GST_MAP_READ);
+    size = map.size;
+    // only works for S16LE
+    ___U16* ptr = (___U16*) map.data;
+    int card = size / sizeof(___U16);
+    for (int n = 0; n < card; n++)
+    {
+        ___U16 sample = *ptr++;
+        if (sample == 0)
+        {
+            if (data->count == -1)
+                data->count = 1;
+            else
+            {
+                data->count++;
+                if (data->count == 48)
+                {
+                    data->found++;
+                    gst_listener_wakeup(listener);
+                }
+            }
+        }
+        else
+            data->count = -1;
+        data->offset += sizeof(___U16);
+    }
     gst_buffer_unmap(buffer, &map);
 
     return GST_PAD_PROBE_OK;
@@ -1583,45 +1652,51 @@ cb_monitor_queries(GstPad          *pad,
 static void* gst_monitor_file(GstPad* pad, char* filename)
 {
     file_monitor* data = malloc(sizeof(file_monitor));
-
     FILE* file = fopen(filename, "wb");
-    gulong id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_monitor_file, data, NULL);
-    
-    init_file_monitor(data, file, id);
-    
-    return (void*) data;
-}
+    init_file_monitor(data, file);
 
-static void* gst_monitor_data(GstPipeline* pipeline, GstPad* pad)
-{
-    any_monitor* data = malloc(sizeof(any_monitor));
-
-    gulong id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_monitor_data, pipeline, NULL);
-
-    init_any_monitor(data, id);
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_monitor_file, data, NULL);
     
     return (void*) data;
 }
 
-static void* gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
+static void* gst_monitor_silence(GstPad* pad, void* listener)
 {
-    any_monitor* data = malloc(sizeof(any_monitor));
+    silence_monitor* data = malloc(sizeof(silence_monitor));
+    init_silence_monitor(data, listener);
 
-    gulong id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_EVENT_BOTH, (GstPadProbeCallback) cb_monitor_events, pipeline, NULL);
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_monitor_silence, data, NULL);
 
-    init_any_monitor(data, id);
-    
     return (void*) data;
 }
 
-static void* gst_monitor_queries(GstPipeline* pipeline, GstPad* pad)
+static void* gst_monitor_data(GstPad* pad, GstPipeline* pipeline)
 {
     any_monitor* data = malloc(sizeof(any_monitor));
+    init_any_monitor(data);
 
-    gulong id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_QUERY_BOTH, (GstPadProbeCallback) cb_monitor_queries, pipeline, NULL);
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_monitor_data, pipeline, NULL);
 
-    init_any_monitor(data, id);
-    
+    return (void*) data;
+}
+
+static void* gst_monitor_events(GstPad* pad, GstPipeline* pipeline)
+{
+    any_monitor* data = malloc(sizeof(any_monitor));
+    init_any_monitor(data);
+
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_EVENT_BOTH, (GstPadProbeCallback) cb_monitor_events, pipeline, NULL);
+
+    return (void*) data;
+}
+
+static void* gst_monitor_queries(GstPad* pad, GstPipeline* pipeline)
+{
+    any_monitor* data = malloc(sizeof(any_monitor));
+    init_any_monitor(data);
+
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_QUERY_BOTH, (GstPadProbeCallback) cb_monitor_queries, pipeline, NULL);
+
     return (void*) data;
 }
 
@@ -1631,6 +1706,10 @@ static void gst_monitor_free(void* info)
     switch (data->monitor_kind) {
         case FILE_MONITOR: {
             free_file_monitor((file_monitor*) data);
+            break;
+        }
+        case SILENCE_MONITOR: {
+            free_silence_monitor((silence_monitor*) data);
             break;
         }
         default: {
@@ -1841,9 +1920,10 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_print_message char-string GstMessage*) void)
 (gst-external (gst_print_error GstMessage*) void)
 (gst-external (gst_monitor_file GstPad* char-string) void*)
-(gst-external (gst_monitor_data (call GST_PIPELINE GstElement*) GstPad*) void*)
-(gst-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) void*)
-(gst-external (gst_monitor_queries (call GST_PIPELINE GstElement*) GstPad*) void*)
+(gst-external (gst_monitor_silence GstPad* void*) void*)
+(gst-external (gst_monitor_data GstPad* (call GST_PIPELINE GstElement*)) void*)
+(gst-external (gst_monitor_events GstPad* (call GST_PIPELINE GstElement*)) void*)
+(gst-external (gst_monitor_queries GstPad* (call GST_PIPELINE GstElement*)) void*)
 (gst-external (gst_monitor_remove GstPad* void*) void)
 (gst-external (gst_print_messages (call GST_PIPELINE GstElement*)) void)
 (gst-external (gst_queue_connect_running GstElement*) gulong)

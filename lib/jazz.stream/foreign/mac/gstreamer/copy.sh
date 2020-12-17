@@ -2,7 +2,7 @@
 
 GSTREAMER=/Library/Frameworks/GStreamer.framework/Versions/1.0
 # BUILD=/Users/cartier/Devel/gstreamer/gst-build/build/subprojects
-RNNOISE=/Users/cartier/Devel/gstreamer/rnnoise/build/plugin
+RNNOISE=/Users/cartier/Devel/gstreamer/rnnoise
 WEBRTC=/Users/cartier/Devel/gstreamer/webrtc/build
 WEBRTCAUDIOPROCESSING=/Users/cartier/Devel/gstreamer/webrtcaudioprocessing/build/plugin
 
@@ -104,7 +104,8 @@ cplib libvorbisenc.2.dylib
 cplib libx264.157.dylib
 cplib libz.1.dylib
 
-cp $RNNOISE/libgstrnnoise.dylib gstreamer/lib/gstreamer-1.0/libgstrnnoise.dylib
+cp $RNNOISE/rnnoise/lib/librnnoise.0.dylib gstreamer/lib
+cp $RNNOISE/build/plugin/libgstrnnoise.dylib gstreamer/lib/gstreamer-1.0/libgstrnnoise.dylib
 cp $WEBRTC/libwebrtc.dylib gstreamer/lib
 cp $WEBRTCAUDIOPROCESSING/libgstwebrtcaudioprocessing.dylib gstreamer/lib/gstreamer-1.0/libgstwebrtcaudioprocessing.dylib
 install_name_tool -change @rpath/libwebrtc.dylib @rpath/gstreamer/lib/libwebrtc.dylib gstreamer/lib/gstreamer-1.0/libgstwebrtcaudioprocessing.dylib
@@ -127,10 +128,3 @@ mkdir gstreamer/include
 cp -r $GSTREAMER/include/gstreamer-1.0 gstreamer/include
 cp -r $GSTREAMER/include/glib-2.0 gstreamer/include
 cp -r $GSTREAMER/lib/glib-2.0 gstreamer/lib
-
-
-#
-# rnnoise
-#
-
-cp ~/Devel/gstreamer/rnnoise/build/plugin/libgstrnnoise.dylib gstreamer/lib/gstreamer-1.0

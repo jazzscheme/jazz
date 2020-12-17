@@ -500,15 +500,23 @@
       (if (= 1 (length parts))
           (let ((parts (split name "!")))
             (if (= 1 (length parts))
-                (values name #f #f)
+                (values name #f #f #f)
               (bind (name dir) parts
-                (values name #f (cond ((equal? dir "src") GST_PAD_SRC)
-                                      ((equal? dir "sink") GST_PAD_SINK)
-                                      (else (error "Unknown pad direction: {a}" dir)))))))
+                (receive (dir peer?) (parse-pad dir)
+                  (let ((direction (cond ((equal? dir "src") GST_PAD_SRC)
+                                         ((equal? dir "sink") GST_PAD_SINK)
+                                         (else (error "Unknown pad direction: {a}" dir)))))
+                    (values name #f direction peer?))))))
         (bind (name pad_name) parts
-          (values name pad_name #f)))))
+          (receive (pad_name peer?) (parse-pad pad_name)
+            (values name pad_name #f peer?))))))
   
-  (receive (name pad_name pad_direction) (parse-name name)
+  (define (parse-pad str)
+    (if (ends-with? str "^")
+        (values (substring str 0 (- (string-length str) 1)) #t)
+      (values str #f)))
+  
+  (receive (name pad_name pad_direction peer?) (parse-name name)
     (with-unref ((elem (gst_bin_get_by_name bin name)))
       (if (not elem)
           (error "Unable to find element {a}" name)
@@ -523,22 +531,30 @@
                                 (= (gst_pad_get_direction pad) pad_direction))))
                      pads))
           
+          (define (with-pad pad proc)
+            (if (not peer?)
+                (proc pad)
+              (with-unref ((peer-pad (gst_pad_get_peer pad)))
+                (proc peer-pad))))
+          
           (let ((pad (find-pad)))
             (if (not pad)
                 (error "Unable to find pad")
-              (case what
-                ((file)
-                 (cons pad (gst_monitor_file pad (car rest) name)))
-                ((silence)
-                 (cons pad (gst_monitor_silence pad (car rest) name)))
-                ((data)
-                 (cons pad (gst_monitor_data pad (if (not-null? rest) (car rest) bin))))
-                ((events)
-                 (cons pad (gst_monitor_events pad (if (not-null? rest) (car rest) bin))))
-                ((queries)
-                 (cons pad (gst_monitor_queries pad (if (not-null? rest) (car rest) bin))))
-                (else
-                 (error "Unknown monitor: {a}" what))))))))))
+              (with-pad pad
+                (lambda (pad)
+                  (case what
+                    ((file)
+                     (cons pad (gst_monitor_file pad (car rest) name)))
+                    ((silence)
+                     (cons pad (gst_monitor_silence pad (car rest) name)))
+                    ((data)
+                     (cons pad (gst_monitor_data pad (if (not-null? rest) (car rest) bin))))
+                    ((events)
+                     (cons pad (gst_monitor_events pad (if (not-null? rest) (car rest) bin))))
+                    ((queries)
+                     (cons pad (gst_monitor_queries pad (if (not-null? rest) (car rest) bin))))
+                    (else
+                     (error "Unknown monitor: {a}" what))))))))))))
 
 
 (definition public (gst_unmonitor monitored)

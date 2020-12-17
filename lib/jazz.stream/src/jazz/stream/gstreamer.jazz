@@ -791,6 +791,27 @@
               (reverse elements))))
 
 
+(definition public (report-caps pipeline (wait? #t))
+  ;; wait for preroll to go to playing
+  (when wait?
+    (sleep .5))
+  (with-unref ((elements (gst_bin_elements_recurse pipeline)))
+    (for-each (lambda (elem)
+                (with-unref ((pads (gst_element_pads elem)))
+                  (for-each (lambda (pad)
+                              (let ((caps (gst_pad_get_current_caps pad)))
+                                (format :terminal "{a} {a} {a}{%}"
+                                  (gst_element_path elem)
+                                  (ecase (gst_pad_get_direction pad)
+                                    ((GST_PAD_SRC) 'src)
+                                    ((GST_PAD_SINK) 'sink))
+                                  (and caps (gst_caps_to_string caps)))
+                                (when caps
+                                  (gst_caps_unref caps))))
+                            pads)))
+              (reverse elements))))
+
+
 ;;;
 ;;;; Leaks
 ;;;

@@ -1451,12 +1451,22 @@ cb_monitor_file(GstPad          *pad,
     GstClockTime dts = GST_BUFFER_DTS(buffer);
     GstClockTime pts = GST_BUFFER_PTS(buffer);
     GstClockTime duration = GST_BUFFER_DURATION(buffer);
-    if (data->expected != GST_CLOCK_TIME_NONE && pts != data->expected)
-        printf("expected %llu got %llu\n", data->expected, pts);
-    data->expected = pts + duration;
+    // g_print("flags %d\n", GST_BUFFER_FLAGS(buffer));
     GstMapInfo map;
     gst_buffer_map(buffer, &map, GST_MAP_READ);
     size = map.size;
+    if (GST_BUFFER_IS_DISCONT(buffer))
+        printf("%s got discontinuity of size %d\n", data->name, size);
+    if (GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_GAP))
+        printf("%s got gap of size %d\n", data->name, size);
+    if (data->expected != GST_CLOCK_TIME_NONE)
+    {
+        GstClockTimeDiff diff;
+        diff = pts - data->expected;
+        if (diff > 1 || diff < -1)
+            printf("%s expected %llu got %llu diff %lld size %d\n", data->name, data->expected, pts, diff);
+    }
+    data->expected = pts + duration;
     fwrite(map.data, size, 1, file);
     gst_buffer_unmap(buffer, &map);
 

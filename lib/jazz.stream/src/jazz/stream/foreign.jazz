@@ -1376,6 +1376,7 @@ typedef struct monitor_file
 {
     int monitor_kind;
     gulong probe_id;
+    char* name;
     FILE* file;
     GstClockTime expected;
 } file_monitor;
@@ -1384,6 +1385,7 @@ typedef struct monitor_silence
 {
     int monitor_kind;
     gulong probe_id;
+    char* name;
     int offset;
     int found;
     int count;
@@ -1400,9 +1402,10 @@ static void free_any_monitor(any_monitor* data)
     free(data);
 }
 
-static void init_file_monitor(file_monitor* data, FILE* file)
+static void init_file_monitor(file_monitor* data, FILE* file, char* name)
 {
     data->monitor_kind = FILE_MONITOR;
+    data->name = name;
     data->file = file;
     data->expected = GST_CLOCK_TIME_NONE;
 }
@@ -1416,9 +1419,10 @@ static void free_file_monitor(file_monitor* data)
     free(data);
 }
 
-static void init_silence_monitor(silence_monitor* data, void* listener)
+static void init_silence_monitor(silence_monitor* data, void* listener, char* name)
 {
     data->monitor_kind = ANY_MONITOR;
+    data->name = name;
     data->offset = 0;
     data->found = 0;
     data->count = -1;
@@ -1649,21 +1653,24 @@ cb_monitor_queries(GstPad          *pad,
     return GST_PAD_PROBE_OK;
 }
 
-static void* gst_monitor_file(GstPad* pad, char* filename)
+static void* gst_monitor_file(GstPad* pad, char* filename, char* name)
 {
     file_monitor* data = malloc(sizeof(file_monitor));
     FILE* file = fopen(filename, "wb");
-    init_file_monitor(data, file);
+    // quicky
+    char* copy = malloc(strlen(name)+1);
+    strcpy(copy, name);
+    init_file_monitor(data, file, copy);
 
     data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_monitor_file, data, NULL);
     
     return (void*) data;
 }
 
-static void* gst_monitor_silence(GstPad* pad, void* listener)
+static void* gst_monitor_silence(GstPad* pad, void* listener, char* name)
 {
     silence_monitor* data = malloc(sizeof(silence_monitor));
-    init_silence_monitor(data, listener);
+    init_silence_monitor(data, listener, name);
 
     data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_monitor_silence, data, NULL);
 
@@ -1919,8 +1926,8 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_print_pad GstElement* char-string) void)
 (gst-external (gst_print_message char-string GstMessage*) void)
 (gst-external (gst_print_error GstMessage*) void)
-(gst-external (gst_monitor_file GstPad* char-string) void*)
-(gst-external (gst_monitor_silence GstPad* void*) void*)
+(gst-external (gst_monitor_file GstPad* char-string char-string) void*)
+(gst-external (gst_monitor_silence GstPad* void* char-string) void*)
 (gst-external (gst_monitor_data GstPad* (call GST_PIPELINE GstElement*)) void*)
 (gst-external (gst_monitor_events GstPad* (call GST_PIPELINE GstElement*)) void*)
 (gst-external (gst_monitor_queries GstPad* (call GST_PIPELINE GstElement*)) void*)

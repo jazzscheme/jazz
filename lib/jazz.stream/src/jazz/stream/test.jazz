@@ -439,6 +439,7 @@
           (loop (+ n 1)))))
     (with-unref ((clock (gst_pipeline_get_clock pipeline)))
       (let ((clock-name (gst_object_get_name clock)))
+        (terminal 'CLOCK clock-name)
         (unless (equal? clock-name (cond-expand
                                      (linux "GstPulseSinkClock")
                                      (else "GstAudioSinkClock")))
@@ -2302,10 +2303,10 @@ description-end
   (trace-gst? trace?)
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence name=silence"
                              "queue name=queue"
+                             "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=1"
                              (gst-element audiosink name: "sink")))
         (mixer? #f)
-        (blocked? #f)
-        (channels '()))
+        (block #f))
     (define (remove-silence)
       (with-unref ((silence (gst_bin_get_by_name audio "silence"))
                    (queue (gst_bin_get_by_name audio "queue")))
@@ -2313,12 +2314,16 @@ description-end
         (gst_element_set_state silence GST_STATE_NULL)
         (gst_bin_remove audio silence)))
     
-    (define (add-channel location (volume 1.))
-      (let ((channel (create-channel location volume)))
-        (set! channels (append channels (list channel)))
-        channel))
+    (define (query-sink-latency)
+      (with-unref ((sink (gst_bin_get_by_name audio "sink")))
+        (let ((info (make-u64vector 3)))
+          (gst_element_query_latency sink info)
+          (let ((live (u64vector-ref info 0))
+                (min (u64vector-ref info 1))
+                (max (u64vector-ref info 2)))
+            min))))
     
-    (define (create-channel location volume)
+    (define (add-channel location (volume 1.))
       (when (not mixer?)
         (let ((mix (gst_element_factory_make "audiomixer" (gst-element-bin-name audio "mix"))))
           (with-unref ((queue (gst_bin_get_by_name audio "queue")))
@@ -2326,6 +2331,23 @@ description-end
             (gst_element_link mix queue)
             (gst_element_sync_state_with_parent mix)
             (set! mixer? #t))))
+      (let ((src (gst_element_factory_make "audiotestsrc" "src")))
+        (g_object_set_int src "wave" 0)
+        (g_object_set_int src "samplesperbuffer" 480)
+        (g_object_set_boolean src "do-timestamp" #t)
+        (g_object_set_boolean src "is-live" #t)
+        (gst_bin_add audio src)
+        (with-unref ((audio-mix (gst_bin_get_by_name audio "mix"))
+                     (sink (gst_bin_get_by_name audio "sink")))
+          (gst_element_link src audio-mix)
+          (gst_element_set_state src GST_STATE_PLAYING)
+          (terminal 111 (gst_base_sink_get_latency sink) (query-sink-latency))
+          (recalculate-latency audio)
+          (sleep 1)
+          (terminal 222 (gst_base_sink_get_latency sink) (query-sink-latency))
+          (gst_pipeline_set_latency audio 240000000)
+          (terminal 333 (gst_base_sink_get_latency sink) (query-sink-latency))))
+      @old
       (let ((input (gst-pipeline (tie "filesrc location={location}")
                                  "oggdemux"
                                  "appsink name=sink"))
@@ -2380,10 +2402,17 @@ description-end
               (gst_element_set_state input GST_STATE_PLAYING)
               (recalculate-latency audio)
               (new Channel location input bin thread))))))
-    
+        
     (define (toggle-blocked location)
-      (set! blocked? (not blocked?))
-      (terminal (if blocked? 'blocked 'unblocked)))
+      (with-unref ((src (gst_bin_get_by_name_aux audio "src")))
+        (with-unref ((pad (gst_element_get_static_pad src "src")))
+          (cond ((not block)
+                 (set! block (gst_pad_add_drop_probe pad))
+                 (terminal 'blocked))
+                (else
+                 (gst_pad_remove_probe pad block)
+                 (set! block #f)
+                 (terminal 'unblocked))))))
     
     (define (keyer view key)
       (case key
@@ -2395,6 +2424,9 @@ description-end
     (wait-playing audio)
     (remove-silence)
     (add-channel koln 1.)
+    (wait-audioclock audio "sink")
+    @w
+    (gst_monitor audio "sink.sink" 'file "/Users/cartier/Devel/together/app/devel/aaa")
     ;; application
     (boot-environment (new Test-Application position: {Point 350 250} keyer: keyer))))
 

@@ -2331,6 +2331,7 @@ description-end
             (gst_element_link mix queue)
             (gst_element_sync_state_with_parent mix)
             (set! mixer? #t))))
+      @old
       (let ((src (gst_element_factory_make "audiotestsrc" "src")))
         (g_object_set_int src "wave" 0)
         (g_object_set_int src "samplesperbuffer" 480)
@@ -2347,7 +2348,6 @@ description-end
           (terminal 222 (gst_base_sink_get_latency sink) (query-sink-latency))
           (gst_pipeline_set_latency audio 240000000)
           (terminal 333 (gst_base_sink_get_latency sink) (query-sink-latency))))
-      @old
       (let ((input (gst-pipeline (tie "filesrc location={location}")
                                  "oggdemux"
                                  "appsink name=sink"))
@@ -2382,7 +2382,7 @@ description-end
                       (lambda ()
                         (let ((adapter (new Time-Adapter)))
                           (let (loop)
-                            (if blocked?
+                            (if block
                                 (begin
                                   (sleep .1)
                                   (loop))
@@ -2404,6 +2404,7 @@ description-end
               (new Channel location input bin thread))))))
         
     (define (toggle-blocked location)
+      @w
       (with-unref ((src (gst_bin_get_by_name_aux audio "src")))
         (with-unref ((pad (gst_element_get_static_pad src "src")))
           (cond ((not block)
@@ -2412,7 +2413,9 @@ description-end
                 (else
                  (gst_pad_remove_probe pad block)
                  (set! block #f)
-                 (terminal 'unblocked))))))
+                 (terminal 'unblocked)))))
+      (set! block (not block))
+      (terminal (if block 'blocked 'unblocked)))
     
     (define (keyer view key)
       (case key

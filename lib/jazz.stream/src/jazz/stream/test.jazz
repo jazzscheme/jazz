@@ -2271,12 +2271,40 @@ description-end
 
 
 ;; investigate mixer high cpu
+@wait
+(definition public (test-audioh)
+  (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 volume=.01 name=src"
+                             "audiomixer name=mixer"
+                             "osxaudiosink name=sink"))
+        (probe #f))
+    (define (keyer view key)
+      (case key
+        ((#\space)
+         (with-unref ((src (gst_bin_get_by_name audio "src")))
+           (with-unref ((pad (gst_element_get_static_pad src "src")))
+             (set! probe (gst_pad_add_block_probe pad))))
+         (terminal 'blocked))))
+    
+    (gst_element_set_state audio GST_STATE_PLAYING)
+    (sleep .5)
+    (with-unref ((src (gst_bin_get_by_name audio "src")))
+      (terminal (g_object_get_boolean src "is-live"))
+      (g_object_set_boolean src "is-live" #t)
+      (terminal (g_object_get_boolean src "is-live")))
+    (sleep .5)
+    (gst_bin_recalculate_latency audio)
+    ;; application
+    (boot-environment (new Test-Application position: {Point 350 250} keyer: keyer))))
+
+
+;; investigate mixer high cpu
 (definition public (test-audioh)
   (trace-gst? trace?)
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence name=silence"
                              "queue name=queue"
                              (gst-element audiosink name: "sink")))
         (mixer? #f)
+        (blocked? #f)
         (channels '()))
     (define (remove-silence)
       (with-unref ((silence (gst_bin_get_by_name audio "silence"))
@@ -2289,12 +2317,6 @@ description-end
       (let ((channel (create-channel location volume)))
         (set! channels (append channels (list channel)))
         channel))
-    
-    (define (jam-channel location)
-      (let ((channel (find channels location key: get-location test: equal? return: 'item)))
-        (assert channel
-          (block-channel channel)
-          (set! channels (remove! channel channels)))))
     
     (define (create-channel location volume)
       (when (not mixer?)
@@ -2338,14 +2360,18 @@ description-end
                       (lambda ()
                         (let ((adapter (new Time-Adapter)))
                           (let (loop)
-                            (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
-                              (let ((dts (u64vector-ref input-info 0))
-                                    (pts (u64vector-ref input-info 1))
-                                    (duration (u64vector-ref input-info 2)))
-                                (if (= pts GST_CLOCK_TIME_NONE)
-                                    (gst_app_src_write bin-src input-buffer size dts pts duration 0)
-                                  (let ((timestamp-offset (rebase-time adapter 'audio bin-src pts)))
-                                    (gst_app_src_write bin-src input-buffer size dts pts duration timestamp-offset)))))
+                            (if blocked?
+                                (begin
+                                  (sleep .1)
+                                  (loop))
+                              (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                                (let ((dts (u64vector-ref input-info 0))
+                                      (pts (u64vector-ref input-info 1))
+                                      (duration (u64vector-ref input-info 2)))
+                                  (if (= pts GST_CLOCK_TIME_NONE)
+                                      (gst_app_src_write bin-src input-buffer size dts pts duration 0)
+                                    (let ((timestamp-offset (rebase-time adapter 'audio bin-src pts)))
+                                      (gst_app_src_write bin-src input-buffer size dts pts duration timestamp-offset))))))
                             (loop))))
                       'channel)))
               (gst_element_link bin-end audio-mix)
@@ -2355,24 +2381,22 @@ description-end
               (recalculate-latency audio)
               (new Channel location input bin thread))))))
     
-    (define (block-channel channel)
-      (let ((bin (get-bin channel)))
-        (thread-terminate! (get-thread channel))))
+    (define (toggle-blocked location)
+      (set! blocked? (not blocked?))
+      (terminal (if blocked? 'blocked 'unblocked)))
+    
+    (define (keyer view key)
+      (case key
+        ((#\space)
+         (toggle-blocked koln))))
     
     (gst_object_set_name audio "audio")
     (gst_element_set_state audio GST_STATE_PLAYING)
     (wait-playing audio)
     (remove-silence)
-    (let ((simulate-thread
-            (new-thread
-              (lambda ()
-                (add-channel koln 1.)
-                (sleep 10)
-                (jam-channel koln))
-              'simulate)))
-      (thread-start! simulate-thread))
+    (add-channel koln 1.)
     ;; application
-    (boot-environment (new Test-Application position: {Point 350 250}))))
+    (boot-environment (new Test-Application position: {Point 350 250} keyer: keyer))))
 
 
 (definition (test-audiot)

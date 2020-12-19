@@ -2276,8 +2276,6 @@ description-end
   (define testsrc?
     (boolean-argument "testsrc" #f))
   
-  (terminal testsrc: testsrc?)
-  (trace-gst? trace?)
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence name=silence"
                              "queue name=queue"
                              "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=1"
@@ -2310,23 +2308,20 @@ description-end
             (gst_element_sync_state_with_parent mix)
             (set! mixer? #t))))
       (cond (testsrc?
-             (let ((src (gst_element_factory_make "audiotestsrc" "src")))
-               (g_object_set_int src "wave" 0)
-               (g_object_set_int src "samplesperbuffer" 480)
-               (g_object_set_boolean src "do-timestamp" #t)
-               (g_object_set_boolean src "is-live" #t)
-               (gst_bin_add audio src)
-               (with-unref ((audio-mix (gst_bin_get_by_name audio "mix"))
+             (let ((bin (gst-bin "audiotestsrc wave=sine samplesperbuffer=480 do-timestamp=true is-live=true volume=.025 name=src")))
+               (gst_bin_add audio bin)
+               (with-unref ((src (gst_bin_get_by_name bin "src"))
+                            (audio-mix (gst_bin_get_by_name audio "mix"))
                             (sink (gst_bin_get_by_name audio "sink")))
                  (gst_element_link src audio-mix)
-                 (gst_element_set_state src GST_STATE_PLAYING)
+                 (gst_element_set_state bin GST_STATE_PLAYING)
                  @w(terminal 111 (gst_base_sink_get_latency sink) (query-sink-latency))
                  (recalculate-latency audio)
                  @w(sleep 1)
                  @w(terminal 222 (gst_base_sink_get_latency sink) (query-sink-latency))
                  (gst_pipeline_set_latency audio 240000000)
-                 @w(terminal 333 (gst_base_sink_get_latency sink) (query-sink-latency))))
-             (set! dabin audio))
+                 @w(terminal 333 (gst_base_sink_get_latency sink) (query-sink-latency)))
+               (set! dabin bin)))
             (else
              (let ((input (gst-pipeline (tie "filesrc location={location}")
                                         "oggdemux"
@@ -2378,7 +2373,7 @@ description-end
                (set! dabin bin)))))
         
     (define (toggle-blocked location)
-      (with-unref ((src ((if testsrc? gst_bin_get_by_name_aux gst_bin_get_by_name) dabin "src")))
+      (with-unref ((src (gst_bin_get_by_name dabin "src")))
         (with-unref ((pad (gst_element_get_static_pad src "src")))
           (cond ((not block)
                  (set! block (gst_pad_add_drop_probe pad))

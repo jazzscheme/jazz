@@ -2271,33 +2271,6 @@ description-end
 
 
 ;; investigate mixer high cpu
-@wait
-(definition public (test-audioh)
-  (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 volume=.01 name=src"
-                             "audiomixer name=mixer"
-                             "osxaudiosink name=sink"))
-        (probe #f))
-    (define (keyer view key)
-      (case key
-        ((#\space)
-         (with-unref ((src (gst_bin_get_by_name audio "src")))
-           (with-unref ((pad (gst_element_get_static_pad src "src")))
-             (set! probe (gst_pad_add_block_probe pad))))
-         (terminal 'blocked))))
-    
-    (gst_element_set_state audio GST_STATE_PLAYING)
-    (sleep .5)
-    (with-unref ((src (gst_bin_get_by_name audio "src")))
-      (terminal (g_object_get_boolean src "is-live"))
-      (g_object_set_boolean src "is-live" #t)
-      (terminal (g_object_get_boolean src "is-live")))
-    (sleep .5)
-    (gst_bin_recalculate_latency audio)
-    ;; application
-    (boot-environment (new Test-Application position: {Point 350 250} keyer: keyer))))
-
-
-;; investigate mixer high cpu
 (definition public (test-audioh)
   (define audiotestsrc?
     #f)

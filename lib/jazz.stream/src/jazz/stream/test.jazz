@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;; gst-pipeline --gst-debug-help
+;; gst-launch --gst-debug-help
 ;; - these can be applied to individual elements in the pipeline
 ;; GST_DEBUG=2 cache/release/jazz -run stream
 ;; G_DEBUG=fatal-criticals ...
@@ -2301,19 +2301,19 @@ description-end
     
     (define (add-channel location (volume 1.))
       (when (not mixer?)
-        (let ((mix (gst_element_factory_make "audiomixer" (gst-element-bin-name audio "mix"))))
+        (let ((mixer (gst_element_factory_make "audiomixer" (gst-element-bin-name audio "mixer"))))
           (with-unref ((queue (gst_bin_get_by_name audio "queue")))
-            (gst_bin_add audio mix)
-            (gst_element_link mix queue)
-            (gst_element_sync_state_with_parent mix)
+            (gst_bin_add audio mixer)
+            (gst_element_link mixer queue)
+            (gst_element_sync_state_with_parent mixer)
             (set! mixer? #t))))
       (cond (testsrc?
              (let ((bin (gst-bin "audiotestsrc wave=sine samplesperbuffer=2400 is-live=true volume=.025 name=src")))
                (gst_bin_add audio bin)
                (with-unref ((src (gst_bin_get_by_name bin "src"))
-                            (audio-mix (gst_bin_get_by_name audio "mix"))
+                            (audio-mixer (gst_bin_get_by_name audio "mixer"))
                             (sink (gst_bin_get_by_name audio "sink")))
-                 (gst_element_link src audio-mix)
+                 (gst_element_link src audio-mixer)
                  (gst_element_set_state bin GST_STATE_PLAYING)
                  (recalculate-latency audio)
                  (gst_pipeline_set_latency audio 240000000))
@@ -2331,7 +2331,7 @@ description-end
                (gst_object_set_name input "input")
                (gst_object_set_name bin (filename-base location))
                (gst_bin_add audio bin)
-               (with-unref ((audio-mix (gst_bin_get_by_name audio "mix"))
+               (with-unref ((audio-mixer (gst_bin_get_by_name audio "mixer"))
                             (input-sink (gst_bin_get_by_name input "sink"))
                             (bin-src (gst_bin_get_by_name bin "src"))
                             (bin-end (gst_bin_get_by_name bin "end")))
@@ -2359,7 +2359,7 @@ description-end
                                            (gst_app_src_write bin-src input-buffer size dts pts duration timestamp-offset)))))
                                    (loop))))
                              'channel)))
-                     (gst_element_link bin-end audio-mix)
+                     (gst_element_link bin-end audio-mixer)
                      (gst_element_set_state bin GST_STATE_PLAYING)
                      (thread-start! thread)
                      (gst_element_set_state input GST_STATE_PLAYING)
@@ -2393,6 +2393,7 @@ description-end
     ;(monitor-analyse)
     ;(generate-graph audio (if testsrc? "testsrc" "appsrc"))
     ;(gst_monitor dabin "src.src" 'data audio)
+    ;(gst_monitor audio "mixer.src" 'data audio)
     ;; application
     (boot-environment (new Test-Application position: {Point 350 250} keyer: keyer))))
 

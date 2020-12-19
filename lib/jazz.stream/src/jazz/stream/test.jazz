@@ -2281,6 +2281,7 @@ description-end
                              "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=1"
                              (gst-element audiosink name: "sink")))
         (mixer? #f)
+        (dabin #f)
         (block #f))
     (define (remove-silence)
       (with-unref ((silence (gst_bin_get_by_name audio "silence"))
@@ -2322,14 +2323,12 @@ description-end
                  (sleep 1)
                  (terminal 222 (gst_base_sink_get_latency sink) (query-sink-latency))
                  (gst_pipeline_set_latency audio 240000000)
-                 (terminal 333 (gst_base_sink_get_latency sink) (query-sink-latency)))))
+                 (terminal 333 (gst_base_sink_get_latency sink) (query-sink-latency))))
+             (set! dabin audio))
             (else
              (let ((input (gst-pipeline (tie "filesrc location={location}")
                                         "oggdemux"
                                         "appsink name=sink"))
-                   ;; min-latency comes from seeing that buffers coming
-                   ;; out of vorbisdec are 8192 bytes which at 48kz is
-                   ;; .04s of sound or 40000000ns
                    (bin (gst-bin "appsrc min-latency=40000000 name=src"
                                  "vorbisdec"
                                  "audioconvert"
@@ -2358,18 +2357,14 @@ description-end
                              (lambda ()
                                (let ((adapter (new Time-Adapter)))
                                  (let (loop)
-                                   (if block
-                                       (begin
-                                         (sleep .1)
-                                         (loop))
-                                     (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
-                                       (let ((dts (u64vector-ref input-info 0))
-                                             (pts (u64vector-ref input-info 1))
-                                             (duration (u64vector-ref input-info 2)))
-                                         (if (= pts GST_CLOCK_TIME_NONE)
-                                             (gst_app_src_write bin-src input-buffer size dts pts duration 0)
-                                           (let ((timestamp-offset (rebase-time adapter 'audio bin-src pts)))
-                                             (gst_app_src_write bin-src input-buffer size dts pts duration timestamp-offset))))))
+                                   (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                                     (let ((dts (u64vector-ref input-info 0))
+                                           (pts (u64vector-ref input-info 1))
+                                           (duration (u64vector-ref input-info 2)))
+                                       (if (= pts GST_CLOCK_TIME_NONE)
+                                           (gst_app_src_write bin-src input-buffer size dts pts duration 0)
+                                         (let ((timestamp-offset (rebase-time adapter 'audio bin-src pts)))
+                                           (gst_app_src_write bin-src input-buffer size dts pts duration timestamp-offset)))))
                                    (loop))))
                              'channel)))
                      (gst_element_link bin-end audio-mix)
@@ -2377,22 +2372,52 @@ description-end
                      (thread-start! thread)
                      (gst_element_set_state input GST_STATE_PLAYING)
                      (recalculate-latency audio)
-                     (new Channel location input bin thread))))))))
+                     (new Channel location input bin thread))))
+               (set! dabin bin)))))
         
     (define (toggle-blocked location)
-      (cond (audiotestsrc?
-             (with-unref ((src (gst_bin_get_by_name_aux audio "src")))
-               (with-unref ((pad (gst_element_get_static_pad src "src")))
-                 (cond ((not block)
-                        (set! block (gst_pad_add_drop_probe pad))
-                        (terminal 'blocked))
-                       (else
-                        (gst_pad_remove_probe pad block)
-                        (set! block #f)
-                        (terminal 'unblocked))))))
-            (else
-             (set! block (not block))
-             (terminal (if block 'blocked 'unblocked)))))
+      (with-unref ((src ((if audiotestsrc? gst_bin_get_by_name_aux gst_bin_get_by_name) dabin "src")))
+        (with-unref ((pad (gst_element_get_static_pad src "src")))
+          (cond ((not block)
+                 (set! block (gst_pad_add_drop_probe pad))
+                 (terminal 'blocked))
+                (else
+                 (gst_pad_remove_probe pad block)
+                 (set! block #f)
+                 (terminal 'unblocked))))))
+    
+    (define (monitor-analyse)
+      (let ((listener (open-stream-listener))
+            (pad-info "sink.sink"))
+        (let ((monitored (gst_monitor audio pad-info 'analyse (get-write-file listener)))
+              (thread (new-thread
+                        (lambda ()
+                          (declare (proper-tail-calls))
+                          (let ((discont 0)
+                                (gap 0)
+                                (expected 0)
+                                (silence 0))
+                            (let (loop)
+                              (case (wait listener)
+                                ((#\d)
+                                 (increase! discont)
+                                 (format :terminal "{a} : discont -> {a}{%}" pad-info discont)
+                                 (loop))
+                                ((#\g)
+                                 (increase! gap)
+                                 (format :terminal "{a} : gap -> {a}{%}" pad-info gap)
+                                 (loop))
+                                ((#\e)
+                                 (increase! expected)
+                                 (format :terminal "{a} : expected -> {a}{%}" pad-info expected)
+                                 (loop))
+                                ((#\s)
+                                 (increase! silence)
+                                 (format :terminal "{a} : silence -> {a}{%}" pad-info silence)
+                                 (loop))))))
+                        'monitor)))
+          (thread-start! thread)
+          (cons 'analyse (list monitored listener thread)))))
     
     (define (keyer view key)
       (case key
@@ -2405,7 +2430,8 @@ description-end
     (remove-silence)
     (add-channel koln 1.)
     (wait-audioclock audio "sink")
-    (report-latency audio)
+    ;(report-latency audio)
+    ;(monitor-analyse)
     @w
     (gst_monitor audio "sink.sink" 'file "/Users/cartier/Devel/together/app/devel/aaa")
     ;; application

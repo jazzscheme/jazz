@@ -221,6 +221,7 @@
         ((480) {Dimension 640 480})
         (else #f)))
     
+    @w
     (when (not-null? remain)
       (format :terminal "Unknown options: {l}{%}" remain))
     
@@ -2272,9 +2273,10 @@ description-end
 
 ;; investigate mixer high cpu
 (definition public (test-audioh)
-  (define audiotestsrc?
-    #f)
+  (define testsrc?
+    (boolean-argument "testsrc" #f))
   
+  (terminal testsrc: testsrc?)
   (trace-gst? trace?)
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence name=silence"
                              "queue name=queue"
@@ -2307,7 +2309,7 @@ description-end
             (gst_element_link mix queue)
             (gst_element_sync_state_with_parent mix)
             (set! mixer? #t))))
-      (cond (audiotestsrc?
+      (cond (testsrc?
              (let ((src (gst_element_factory_make "audiotestsrc" "src")))
                (g_object_set_int src "wave" 0)
                (g_object_set_int src "samplesperbuffer" 480)
@@ -2318,12 +2320,12 @@ description-end
                             (sink (gst_bin_get_by_name audio "sink")))
                  (gst_element_link src audio-mix)
                  (gst_element_set_state src GST_STATE_PLAYING)
-                 (terminal 111 (gst_base_sink_get_latency sink) (query-sink-latency))
+                 @w(terminal 111 (gst_base_sink_get_latency sink) (query-sink-latency))
                  (recalculate-latency audio)
-                 (sleep 1)
-                 (terminal 222 (gst_base_sink_get_latency sink) (query-sink-latency))
+                 @w(sleep 1)
+                 @w(terminal 222 (gst_base_sink_get_latency sink) (query-sink-latency))
                  (gst_pipeline_set_latency audio 240000000)
-                 (terminal 333 (gst_base_sink_get_latency sink) (query-sink-latency))))
+                 @w(terminal 333 (gst_base_sink_get_latency sink) (query-sink-latency))))
              (set! dabin audio))
             (else
              (let ((input (gst-pipeline (tie "filesrc location={location}")
@@ -2376,7 +2378,7 @@ description-end
                (set! dabin bin)))))
         
     (define (toggle-blocked location)
-      (with-unref ((src ((if audiotestsrc? gst_bin_get_by_name_aux gst_bin_get_by_name) dabin "src")))
+      (with-unref ((src ((if testsrc? gst_bin_get_by_name_aux gst_bin_get_by_name) dabin "src")))
         (with-unref ((pad (gst_element_get_static_pad src "src")))
           (cond ((not block)
                  (set! block (gst_pad_add_drop_probe pad))

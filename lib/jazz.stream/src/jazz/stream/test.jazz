@@ -348,6 +348,9 @@
 (definition koln
   (media-path "koln.ogg"))
 
+(definition koln.raw
+  (media-path "koln.raw"))
+
 (definition lone
   (media-path "lone.ogg"))
 
@@ -2313,13 +2316,9 @@ description-end
                  (gst_pipeline_set_latency audio 240000000))
                (set! dabin bin)))
             (else
-             (let ((input (gst-pipeline (tie "filesrc location={location}")
-                                        "oggdemux"
+             (let ((input (gst-pipeline (tie "filesrc location={location} do-timestamp=true")
                                         "appsink name=sink"))
                    (bin (gst-bin "appsrc name=src"
-                                 "vorbisdec"
-                                 "audioconvert"
-                                 "audioresample"
                                  (tie "audio/x-raw, format=S16LE, layout=interleaved, rate={rate}, channels=2")
                                  (tie "volume volume={volume} name=end"))))
                (gst_object_set_name input "input")
@@ -2329,7 +2328,7 @@ description-end
                             (input-sink (gst_bin_get_by_name input "sink"))
                             (bin-src (gst_bin_get_by_name bin "src"))
                             (bin-end (gst_bin_get_by_name bin "end")))
-                 (gst-app-src-set-caps bin-src "audio/x-vorbis")
+                 (gst-app-src-set-caps bin-src "audio/x-raw")
                  (g-object-set bin-src
                                "is-live"     'boolean #t
                                "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
@@ -2344,13 +2343,14 @@ description-end
                                (let ((adapter (new Time-Adapter)))
                                  (let (loop)
                                    (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                                     (when size
                                      (let ((dts (u64vector-ref input-info 0))
                                            (pts (u64vector-ref input-info 1))
-                                           (duration (u64vector-ref input-info 2)))
+                                           (duration (/ size 4)))
                                        (if (= pts GST_CLOCK_TIME_NONE)
                                            (gst_app_src_write bin-src input-buffer size dts pts duration 0)
                                          (let ((timestamp-offset (rebase-time adapter 'audio bin-src pts)))
-                                           (gst_app_src_write bin-src input-buffer size dts pts duration timestamp-offset)))))
+                                           (gst_app_src_write bin-src input-buffer size dts pts duration timestamp-offset))))))
                                    (loop))))
                              'channel)))
                      (gst_element_link bin-end audio-mixer)
@@ -2382,7 +2382,7 @@ description-end
     (gst_element_set_state audio GST_STATE_PLAYING)
     (wait-playing audio)
     (remove-silence)
-    (add-channel koln 1.)
+    (add-channel koln.raw 1.)
     (set-%b dabin)
     (set-%m (gst_bin_get_by_name audio "mixer"))
     (wait-audioclock audio "sink")

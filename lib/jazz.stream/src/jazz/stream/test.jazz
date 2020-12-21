@@ -421,6 +421,38 @@
     (for-each report (reverse elements))))
 
 
+(definition (report-threads)
+  (define (cpu-percentage threads)
+    (bind (main . others) (map second threads)
+      (values main (apply + others))))
+  
+  (thread-start!
+    (new-thread
+      (lambda ()
+        (let (loop)
+          (let ((threads (collect-process-threads)))
+            (receive (main others) (cpu-percentage threads)
+              (let ((total (+ main others)))
+                (format :terminal "Total: {r precision: 1 width: 4 justify: :right},   Main: {r precision: 1 width: 4 justify: :right},   Others: {r precision: 1 width: 4 justify: :right}" (* total 100.) (* main 100.) (* others 100.))
+                (for-each (lambda (thread)
+                            (bind (fullname percentage) thread
+                              (when (and fullname (find fullname #\:))
+                                (bind (name pad) (split-string fullname #\:)
+                                  (let ((split (split-string name #\%)))
+                                    (if (= (length split) 1)
+                                        (format :terminal "Streaming thread {a} is missing an explicit name{%}" name)
+                                      (bind (element id) split
+                                        (let ((bin (id->bin (string->number id))))
+                                          (when bin
+                                            (let ((bin-name (gst_object_get_name bin)))
+                                              (format :terminal ",   {a}.{a}.{a}: {r precision: 1 width: 4 justify: :right}%" bin-name element pad (* percentage 100.))))))))))))
+                          threads))))
+          (newline)
+          (sleep 1)
+          (loop)))
+      'report)))
+
+
 (definition (report-info pipeline name)
   (when graph?
     (generate-graph pipeline name))
@@ -2314,12 +2346,9 @@ description-end
   (define testraw?
     (boolean-argument "testraw" #f))
   
-  (define rate
-    48000)
-  
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence name=silence"
                              "queue name=queue"
-                             (tie "audio/x-raw, format=S16LE, layout=interleaved, rate={rate}, channels=2")
+                             "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
                              (gst-element audiosink name: "sink")))
         (mixer? #f)
         (dabin #f)
@@ -2352,8 +2381,8 @@ description-end
                (set! dabin bin)))
             (else
              (cond (testraw?
-                    (let ((bin (gst-bin "appsrc name=src"
-                                        (tie "audio/x-raw, format=S16LE, layout=interleaved, rate={rate}, channels=2")
+                    (let ((bin (gst-bin "appsrc min-latency=40000000 name=src"
+                                        "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
                                         (tie "volume volume={volume} name=end"))))
                       (gst_object_set_name bin (filename-base location))
                       (gst_bin_add audio bin)
@@ -2378,7 +2407,7 @@ description-end
                                             (let (loop)
                                               (let ((size (read-subu8vector buffer 0 read-size input)))
                                                 (when size
-                                                  (let ((dur (/ (cast <fl> size) (cast <fl> rate) (cast <fl> bpf))))
+                                                  (let ((dur (/ (cast <fl> size) (cast <fl> 48000) (cast <fl> bpf))))
                                                     (let ((duration (flonum->timestamp dur)))
                                                       (increase! ts duration)
                                                       (let ((time (current-seconds))
@@ -2397,13 +2426,15 @@ description-end
                       (set! dabin bin)))
                    (else
                     (let ((input (gst-pipeline (tie "filesrc location={location}")
-                                               "oggdemux"
+                                               "oggdemux name=demux"
+                                               "vorbisdec"
+                                               "audioconvert"
+                                               (tie "audio/x-raw, format=S16LE, layout=interleaved, rate=44100, channels=2")
                                                "appsink name=sink"))
-                          (bin (gst-bin "appsrc name=src"
-                                        "vorbisdec"
-                                        "audioconvert"
+                          (bin (gst-bin "appsrc min-latency=40000000 name=src"
+                                        "audio/x-raw, format=S16LE, layout=interleaved, rate=44100, channels=2"
                                         "audioresample"
-                                        (tie "audio/x-raw, format=S16LE, layout=interleaved, rate={rate}, channels=2")
+                                        "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
                                         (tie "volume volume={volume} name=end"))))
                       (gst_object_set_name input "input")
                       (gst_object_set_name bin (filename-base location))
@@ -2412,7 +2443,7 @@ description-end
                                    (input-sink (gst_bin_get_by_name input "sink"))
                                    (bin-src (gst_bin_get_by_name bin "src"))
                                    (bin-end (gst_bin_get_by_name bin "end")))
-                        (gst-app-src-set-caps bin-src "audio/x-vorbis")
+                        (gst-app-src-set-caps bin-src "audio/x-raw")
                         (g-object-set bin-src
                                       "is-live"     'boolean #t
                                       "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
@@ -2470,8 +2501,9 @@ description-end
     (set-%m (gst_bin_get_by_name audio "mixer"))
     (wait-audioclock audio "sink")
     (report-info audio "audioh")
+    (report-threads)
     ;; application
-    (boot-environment (new Test-Application position: {Point 350 250} keyer: keyer))))
+    (boot-environment (new Test-Application position: {Point 1450 150} keyer: keyer))))
 
 
 (definition (test-audiot)

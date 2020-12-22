@@ -2514,50 +2514,21 @@ description-end
 
 ;; osx audio mysteries
 (definition public (test-audiox)
-  (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence name=silence"
-                             "queue name=queue"
+  (define wave
+    (string-argument "wave" "silence"))
+  
+  (let ((audio (gst-pipeline (tie "audiotestsrc samplesperbuffer=480 wave={wave} is-live=true name=silence")
                              "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
-                             (gst-element audiosink name: "sink")))
-        (block #f))
-    (define (insert-mixer)
-      (let ((mixer (gst_element_factory_make "audiomixer" (gst-element-bin-name audio "mixer"))))
-        (with-unref ((silence (gst_bin_get_by_name audio "silence"))
-                     (queue (gst_bin_get_by_name audio "queue")))
-          (gst_bin_add audio mixer)
-          (gst_element_unlink silence queue)
-          (gst_element_link silence mixer)
-          (gst_element_link mixer queue)
-          (gst_element_sync_state_with_parent mixer))))
-    
-    (define (toggle-blocked location)
-      (with-unref ((silence (gst_bin_get_by_name audio "silence")))
-        (with-unref ((pad (gst_element_get_static_pad silence "src")))
-          (cond ((not block)
-                 (set! block (gst_pad_add_drop_probe pad))
-                 (terminal 'blocked))
-                (else
-                 (gst_pad_remove_probe pad block)
-                 (set! block #f)
-                 (terminal 'unblocked))))))
-    
-    (define (keyer view key)
-      (case key
-        ((#\space)
-         (toggle-blocked koln))))
-    
-    (gst_object_set_name audio "audio")
+                             "osxaudiosink name=sink")))
     (gst_element_set_state audio GST_STATE_PAUSED)
     (wait-audioclock audio "sink")
     (gst_element_set_state audio GST_STATE_PLAYING)
-    (wait-playing audio)
-    (insert-mixer)
-    (report-info audio "audiox")
     ;; application
-    (boot-environment (new Test-Application position: {Point 1450 150} keyer: keyer))))
+    (boot-environment (new Test-Application position: {Point 1450 150}))))
 
 
 @w
-(definition public (test-audiox)
+(definition public (test-audiox1)
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence name=silence"
                              "queue name=queue"
                              "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
@@ -2623,7 +2594,7 @@ description-end
 
 
 @w
-(definition public (test-audiox)
+(definition public (test-audiox2)
   (let ((audio (gst-pipeline "audiotestsrc volume=.01 is-live=true name=silence"
                              "osxaudiosink name=sink")))
     (gst_element_set_state audio GST_STATE_PAUSED)

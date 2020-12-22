@@ -80,6 +80,14 @@
            (char-symbol c))
           (else
            (string c))))
+  
+  
+  (method protected virtual (backward-whites self)
+    )
+  
+  
+  (method protected virtual (forward-whites self)
+    )
 
   
   (method public virtual (backward-expr self)
@@ -123,6 +131,33 @@
         (put fact (get-mark self))
         (decrease! n))
       (get-output fact)))
+  
+  
+  (method protected (forward-composite self knd <Object> delimiter)
+    (set-start self end)
+    (forward self)
+    (forward-all-expr self)
+    (forward-whites self)
+    (let ((c (char-forward self 0)))
+      (if (not (eqv? c delimiter))
+          (explore-error self (format "Found unexpected character while exploring forward: {a}" (present-char self c)) end (next-pos self end 1))
+        (forward self)
+        (set! kind knd)
+        kind)))
+  
+  
+  (method protected (backward-composite self knd <Object> delimiter)
+    (let ((initial-start (copy start)))
+      (backward self)
+      (backward-all-expr self)
+      (backward-whites self)
+      (let ((c (char-backward self 0)))
+        (if (not (eqv? c delimiter))
+            (explore-error self (format "Found unexpected character while exploring backward: {a}" (present-char self c)) (previous-pos self start 1) start)
+          (backward self)
+          (set! end initial-start)
+          (set! kind knd)
+          kind))))
   
   
   (method virtual (expression-comment? self mark)

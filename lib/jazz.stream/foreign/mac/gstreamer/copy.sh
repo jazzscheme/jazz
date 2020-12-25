@@ -1,6 +1,7 @@
 #! /bin/sh
 
 GSTREAMER=/Library/Frameworks/GStreamer.framework/Versions/1.0
+GSTREAMERBUILD=/Users/cartier/Devel/gstreamer/gst-build/builddebugoptimized/subprojects
 # BUILD=/Users/cartier/Devel/gstreamer/gst-build/build/subprojects
 RNNOISE=/Users/cartier/Devel/gstreamer/rnnoise
 WEBRTC=/Users/cartier/Devel/gstreamer/webrtc/build
@@ -22,7 +23,7 @@ cplib() {
 }
 
 cpbuild() {
-    cp $BUILD/$1 gstreamer/lib/$2
+    cp $GSTREAMERBUILD/$1 gstreamer/lib/$2
 }
 
 mkdir gstreamer/lib

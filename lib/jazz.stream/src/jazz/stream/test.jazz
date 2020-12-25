@@ -193,7 +193,7 @@
   #f)
 
 
-(jazz:split-command-line (command-arguments) '("fps" "info" "debug" "trace" "graph" "mode" "latency" "caps" "queue" "clock" "threads") '("debugger" "r" "run" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
+(jazz:split-command-line (command-arguments) '("fps" "info" "debug" "trace" "graph" "mode" "latency" "caps" "queue" "clock" "threads") '("debugger" "r" "run" "s" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
   (lambda (commands options remain)
     (define (string-argument arg)
       arg)
@@ -228,7 +228,7 @@
     (when (not-null? remain)
       (format :terminal "Unknown options: {l}{%}" remain))
     
-    (set! script (or (symbol-argument (find-option "script" options)) script))
+    (set! script (or (symbol-argument (or (find-option "s" options) (find-option "script" options))) script))
     (set! audio? (boolean-argument (find-option "audio" options #f)))
     (set! audio-codec (or (symbol-argument (find-option "audio-codec" options)) audio-codec))
     (set! video? (boolean-argument (find-option "video" options #t)))
@@ -2138,7 +2138,7 @@ description-end
   (trace-gst? trace?)
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence name=silence"
                              "queue name=queue"
-                             "webrtcaudioprobe delay=0"
+                             ;"webrtcaudioprobe delay=0"
                              (gst-element audiosink name: "sink")))
         (mic #f)
         (mixer? #f)
@@ -2153,7 +2153,7 @@ description-end
     (define (setup-microphone)
       (let ((microphone (gst-pipeline (gst-element audiosrc provide-clock: "false" name: "src")
                                       "audioresample"
-                                      (gst-element "webrtcaudioprocessor"
+                                      @w(gst-element "webrtcaudioprocessor"
                                                    ;logging-severity: "verbose"
                                                    ;processing-rate: "48000"
                                                    echo-cancel: "true"
@@ -2306,8 +2306,9 @@ description-end
                 (remove-channel koln))
               'simulate)))
       @w(add-channel lonesome)
-      (add-channel koln 1.)
+      (add-channel lonesome 1.)
       (report-info audio "audiob")
+      @w
       (thread-start! simulate-thread))
     ;; application
     (boot-environment (new Test-Application position: {Point 350 250} closer: closer))))
@@ -2347,16 +2348,13 @@ description-end
 
 ;; investigate mixer high cpu
 (definition public (test-audioh)
-  (define testsrc?
-    (boolean-argument "testsrc" #f))
-  
   (define testraw?
     (boolean-argument "testraw" #f))
   
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence name=silence"
                              "queue name=queue"
                              "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
-                             (gst-element audiosink name: "sink")))
+                             "osxaudiosink name=sink"))
         (mixer? #f)
         (dabin #f)
         (block #f))
@@ -2375,112 +2373,100 @@ description-end
             (gst_element_link mixer queue)
             (gst_element_sync_state_with_parent mixer)
             (set! mixer? #t))))
-      (cond (testsrc?
-             (let ((bin (gst-bin "audiotestsrc wave=sine samplesperbuffer=2400 is-live=true volume=.025 name=src")))
+      (cond (testraw?
+             (let ((bin (gst-bin "appsrc min-latency=40000000 name=src"
+                                 "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                                 (tie "volume volume={volume} name=end"))))
+               (gst_object_set_name bin (filename-base location))
                (gst_bin_add audio bin)
-               (with-unref ((src (gst_bin_get_by_name bin "src"))
-                            (audio-mixer (gst_bin_get_by_name audio "mixer"))
-                            (sink (gst_bin_get_by_name audio "sink")))
-                 (gst_element_link src audio-mixer)
-                 (gst_element_set_state bin GST_STATE_PLAYING)
-                 (recalculate-latency audio)
-                 (gst_pipeline_set_latency audio 240000000))
+               (with-unref ((audio-mixer (gst_bin_get_by_name audio "mixer"))
+                            (bin-src (gst_bin_get_by_name bin "src"))
+                            (bin-end (gst_bin_get_by_name bin "end")))
+                 (gst-app-src-set-caps bin-src "audio/x-raw")
+                 (g-object-set bin-src
+                               "is-live"     'boolean #t
+                               "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                               "format"      'int     GST_FORMAT_TIME)
+                 (let ((thread
+                         (new-thread
+                           (lambda ()
+                             (let ((read-size 1920))
+                               (let ((time-base (new Time-Base))
+                                     (buffer (make-u8vector read-size))
+                                     (bpf 4)
+                                     (ts 0))
+                                 (call-with-input-file location
+                                   (lambda (input)
+                                     (let (loop)
+                                       (let ((size (read-subu8vector buffer 0 read-size input)))
+                                         (when size
+                                           (let ((dur (/ (cast <fl> size) (cast <fl> 48000) (cast <fl> bpf))))
+                                             (let ((duration (flonum->timestamp dur)))
+                                               (increase! ts duration)
+                                               (let ((time (current-seconds))
+                                                     (nano (timestamp->flonum ts)))
+                                                 (update-start time-base time nano)
+                                                 (let ((sendtime (remote->local time-base nano)))
+                                                   (gst_app_src_write bin-src buffer size ts ts duration 0)
+                                                   (sleep (- sendtime time))))))))
+                                       (loop)))))))
+                           'channel)))
+                   (gst_element_link bin-end audio-mixer)
+                   (gst_element_set_state bin GST_STATE_PLAYING)
+                   (thread-start! thread)
+                   (recalculate-latency audio)
+                   (new Channel location #f bin thread)))
                (set! dabin bin)))
             (else
-             (cond (testraw?
-                    (let ((bin (gst-bin "appsrc min-latency=40000000 name=src"
-                                        "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
-                                        (tie "volume volume={volume} name=end"))))
-                      (gst_object_set_name bin (filename-base location))
-                      (gst_bin_add audio bin)
-                      (with-unref ((audio-mixer (gst_bin_get_by_name audio "mixer"))
-                                   (bin-src (gst_bin_get_by_name bin "src"))
-                                   (bin-end (gst_bin_get_by_name bin "end")))
-                        (gst-app-src-set-caps bin-src "audio/x-raw")
-                        (g-object-set bin-src
-                                      "is-live"     'boolean #t
-                                      "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
-                                      "format"      'int     GST_FORMAT_TIME)
-                        (let ((thread
-                                (new-thread
-                                  (lambda ()
-                                    (let ((read-size 1920))
-                                      (let ((time-base (new Time-Base))
-                                            (buffer (make-u8vector read-size))
-                                            (bpf 4)
-                                            (ts 0))
-                                        (call-with-input-file location
-                                          (lambda (input)
-                                            (let (loop)
-                                              (let ((size (read-subu8vector buffer 0 read-size input)))
-                                                (when size
-                                                  (let ((dur (/ (cast <fl> size) (cast <fl> 48000) (cast <fl> bpf))))
-                                                    (let ((duration (flonum->timestamp dur)))
-                                                      (increase! ts duration)
-                                                      (let ((time (current-seconds))
-                                                            (nano (timestamp->flonum ts)))
-                                                        (update-start time-base time nano)
-                                                        (let ((sendtime (remote->local time-base nano)))
-                                                          (gst_app_src_write bin-src buffer size ts ts duration 0)
-                                                          (sleep (- sendtime time))))))))
-                                              (loop)))))))
-                                  'channel)))
-                          (gst_element_link bin-end audio-mixer)
-                          (gst_element_set_state bin GST_STATE_PLAYING)
-                          (thread-start! thread)
-                          (recalculate-latency audio)
-                          (new Channel location #f bin thread)))
-                      (set! dabin bin)))
-                   (else
-                    (let ((input (gst-pipeline (tie "filesrc location={location}")
-                                               "oggdemux name=demux"
-                                               "vorbisdec"
-                                               "audioconvert"
-                                               (tie "audio/x-raw, format=S16LE, layout=interleaved, rate=44100, channels=2")
-                                               "appsink name=sink"))
-                          (bin (gst-bin "appsrc min-latency=40000000 name=src"
-                                        "audio/x-raw, format=S16LE, layout=interleaved, rate=44100, channels=2"
-                                        "audioresample"
-                                        "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
-                                        (tie "volume volume={volume} name=end"))))
-                      (gst_object_set_name input "input")
-                      (gst_object_set_name bin (filename-base location))
-                      (gst_bin_add audio bin)
-                      (with-unref ((audio-mixer (gst_bin_get_by_name audio "mixer"))
-                                   (input-sink (gst_bin_get_by_name input "sink"))
-                                   (bin-src (gst_bin_get_by_name bin "src"))
-                                   (bin-end (gst_bin_get_by_name bin "end")))
-                        (gst-app-src-set-caps bin-src "audio/x-raw")
-                        (g-object-set bin-src
-                                      "is-live"     'boolean #t
-                                      "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
-                                      "format"      'int     GST_FORMAT_TIME)
-                        (let ((input-listener (open-stream-listener))
-                              (input-buffer (make-u8vector 65536))
-                              (input-info (make-u64vector app-sink-info-size)))
-                          (gst_app_sink_connect_signals input-sink input-listener)
-                          (let ((thread
-                                  (new-thread
-                                    (lambda ()
-                                      (let ((adapter (new Time-Adapter)))
-                                        (let (loop)
-                                          (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
-                                            (let ((dts (u64vector-ref input-info 0))
-                                                  (pts (u64vector-ref input-info 1))
-                                                  (duration (u64vector-ref input-info 2)))
-                                              (if (= pts GST_CLOCK_TIME_NONE)
-                                                  (gst_app_src_write bin-src input-buffer size dts pts duration 0)
-                                                (let ((timestamp-offset (rebase-time adapter 'audio bin-src pts)))
-                                                  (gst_app_src_write bin-src input-buffer size dts pts duration timestamp-offset)))))
-                                          (loop))))
-                                    'channel)))
-                            (gst_element_link bin-end audio-mixer)
-                            (gst_element_set_state bin GST_STATE_PLAYING)
-                            (thread-start! thread)
-                            (gst_element_set_state input GST_STATE_PLAYING)
-                            (recalculate-latency audio)
-                            (new Channel location input bin thread))))
-                      (set! dabin bin)))))))
+             (let ((input (gst-pipeline (tie "filesrc location={location}")
+                                        "oggdemux name=demux"
+                                        "vorbisdec"
+                                        "audioconvert"
+                                        (tie "audio/x-raw, format=S16LE, layout=interleaved, rate=44100, channels=2")
+                                        "appsink name=sink"))
+                   (bin (gst-bin "appsrc min-latency=40000000 name=src"
+                                 "audio/x-raw, format=S16LE, layout=interleaved, rate=44100, channels=2"
+                                 "audioresample"
+                                 "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
+                                 (tie "volume volume={volume} name=end"))))
+               (gst_object_set_name input "input")
+               (gst_object_set_name bin (filename-base location))
+               (gst_bin_add audio bin)
+               (with-unref ((audio-mixer (gst_bin_get_by_name audio "mixer"))
+                            (input-sink (gst_bin_get_by_name input "sink"))
+                            (bin-src (gst_bin_get_by_name bin "src"))
+                            (bin-end (gst_bin_get_by_name bin "end")))
+                 (gst-app-src-set-caps bin-src "audio/x-raw")
+                 (g-object-set bin-src
+                               "is-live"     'boolean #t
+                               "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                               "format"      'int     GST_FORMAT_TIME)
+                 (let ((input-listener (open-stream-listener))
+                       (input-buffer (make-u8vector 65536))
+                       (input-info (make-u64vector app-sink-info-size)))
+                   (gst_app_sink_connect_signals input-sink input-listener)
+                   (let ((thread
+                           (new-thread
+                             (lambda ()
+                               (let ((adapter (new Time-Adapter)))
+                                 (let (loop)
+                                   (let ((size (gst_app_sink_read input-listener input-sink input-buffer input-info)))
+                                     (let ((dts (u64vector-ref input-info 0))
+                                           (pts (u64vector-ref input-info 1))
+                                           (duration (u64vector-ref input-info 2)))
+                                       (if (= pts GST_CLOCK_TIME_NONE)
+                                           (gst_app_src_write bin-src input-buffer size dts pts duration 0)
+                                         (let ((timestamp-offset (rebase-time adapter 'audio bin-src pts)))
+                                           (gst_app_src_write bin-src input-buffer size dts pts duration timestamp-offset)))))
+                                   (loop))))
+                             'channel)))
+                     (gst_element_link bin-end audio-mixer)
+                     (gst_element_set_state bin GST_STATE_PLAYING)
+                     (thread-start! thread)
+                     (gst_element_set_state input GST_STATE_PLAYING)
+                     (recalculate-latency audio)
+                     (new Channel location input bin thread))))
+               (set! dabin bin)))))
         
     (define (toggle-blocked location)
       (with-unref ((src (gst_bin_get_by_name dabin "src")))
@@ -2498,16 +2484,47 @@ description-end
         ((#\space)
          (toggle-blocked koln))))
     
-    (set-%a audio)
+    (define (monitor-analyse bin pad-info)
+      (let ((listener (open-stream-listener)))
+        (let ((monitored (gst_monitor bin pad-info 'analyse (get-write-file listener)))
+              (thread (new-thread
+                        (lambda ()
+                          (declare (proper-tail-calls))
+                          (let ((discont 0)
+                                (gap 0)
+                                (expected 0)
+                                (silence 0))
+                            (let (loop)
+                              (case (wait listener)
+                                ((#\d)
+                                 (increase! discont)
+                                 (format :terminal "{a} : discont -> {a}{%}" pad-info discont)
+                                 (loop))
+                                ((#\g)
+                                 (increase! gap)
+                                 (format :terminal "{a} : gap -> {a}{%}" pad-info gap)
+                                 (loop))
+                                ((#\e)
+                                 (increase! expected)
+                                 (format :terminal "{a} : expected -> {a}{%}" pad-info expected)
+                                 (loop))
+                                ((#\s)
+                                 (increase! silence)
+                                 (format :terminal "{a} : silence -> {a}{%}" pad-info silence)
+                                 (loop))))))
+                        'monitor)))
+          (thread-start! thread)
+          (list monitored listener thread))))
+    
     (gst_object_set_name audio "audio")
     (gst_element_set_state audio GST_STATE_PLAYING)
     (wait-playing audio)
     (remove-silence)
-    (add-channel (if testraw? koln.raw koln) 1.)
-    (set-%b dabin)
-    (set-%m (gst_bin_get_by_name audio "mixer"))
+    (add-channel (if testraw? koln.raw lonesome) 1.)
     (wait-audioclock audio "sink")
     (report-info audio "audioh")
+    ;(gst_monitor audio "sink.sink" 'data)
+    ;(monitor-analyse audio "sink.sink")
     ;; application
     (boot-environment (new Test-Application position: {Point 1450 150} keyer: keyer))))
 

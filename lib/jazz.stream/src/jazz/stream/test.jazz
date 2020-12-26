@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;; gst-pipeline --gst-debug-help
+;; gst-launch --gst-debug-help
 ;; - these can be applied to individual elements in the pipeline
 ;; GST_DEBUG=2 cache/release/jazz -run stream
 ;; G_DEBUG=fatal-criticals ...
@@ -183,6 +183,9 @@
 (definition clock?
   #f)
 
+(definition threads?
+  #f)
+
 (definition monitor
   #f)
 
@@ -190,7 +193,7 @@
   #f)
 
 
-(jazz:split-command-line (command-arguments) '("fps" "info" "debug" "trace" "graph" "mode" "latency" "caps" "queue" "clock") '("debugger" "r" "run" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
+(jazz:split-command-line (command-arguments) '("fps" "info" "debug" "trace" "graph" "mode" "latency" "caps" "queue" "clock" "threads") '("debugger" "r" "run" "s" "script" "audio" "audio-codec" "video" "size" "codec" "framerate" "bitrate" "window" "media" "spawn" "period" "lag" "monitor") #f
   (lambda (commands options remain)
     (define (string-argument arg)
       arg)
@@ -247,6 +250,7 @@
     (set! caps? (find-option "caps" options #f))
     (set! queue? (find-option "queue" options #f))
     (set! clock? (find-option "clock" options #f))
+    (set! threads? (find-option "threads" options #f))
     (set! monitor (or (symbol-argument (find-option "monitor" options)) monitor))
     (set! remaining remain)))
 
@@ -416,6 +420,38 @@
     (for-each report (reverse elements))))
 
 
+(definition (report-threads)
+  (define (cpu-percentage threads)
+    (bind (main . others) (map second threads)
+      (values main (apply + others))))
+  
+  (thread-start!
+    (new-thread
+      (lambda ()
+        (let (loop)
+          (let ((threads (collect-process-threads)))
+            (receive (main others) (cpu-percentage threads)
+              (let ((total (+ main others)))
+                (format :terminal "Total: {r precision: 1 width: 4 justify: :right},   Main: {r precision: 1 width: 4 justify: :right},   Others: {r precision: 1 width: 4 justify: :right}" (* total 100.) (* main 100.) (* others 100.))
+                (for-each (lambda (thread)
+                            (bind (fullname percentage) thread
+                              (when (and fullname (find fullname #\:))
+                                (bind (name pad) (split-string fullname #\:)
+                                  (let ((split (split-string name #\%)))
+                                    (if (= (length split) 1)
+                                        (format :terminal "Streaming thread {a} is missing an explicit name{%}" name)
+                                      (bind (element id) split
+                                        (let ((bin (id->bin (string->number id))))
+                                          (when bin
+                                            (let ((bin-name (gst_object_get_name bin)))
+                                              (format :terminal ",   {a}.{a}.{a}: {r precision: 1 width: 4 justify: :right}%" bin-name element pad (* percentage 100.))))))))))))
+                          threads))))
+          (newline)
+          (sleep 1)
+          (loop)))
+      'report)))
+
+
 (definition (report-info pipeline name)
   (when graph?
     (generate-graph pipeline name))
@@ -426,7 +462,9 @@
   (when caps?
     (report-caps pipeline))
   (when clock?
-    (report-clock pipeline)))
+    (report-clock pipeline))
+  (when threads?
+    (report-threads)))
 
 
 (definition (wait-audioclock pipeline sink-name)

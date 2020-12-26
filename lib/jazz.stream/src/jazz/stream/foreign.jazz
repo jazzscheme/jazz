@@ -1094,6 +1094,40 @@ static void gst_print_pad(GstElement* elem, char* name)
     gst_object_unref(pad);
 }
 
+static void gst_print_event(char* pipeline_name, char* element_name, char* pad_name, GstEvent* event)
+{
+    if (GST_EVENT_TYPE(event) == GST_EVENT_CAPS)
+    {
+        GstCaps *caps;
+        gst_event_parse_caps(event, &caps);
+        printf("EVENT %s %s %s caps %s\n", pipeline_name, element_name, pad_name, gst_caps_to_string(caps));
+    }
+    else if (GST_EVENT_TYPE(event) == GST_EVENT_QOS)
+    {
+        const char* const names[] = { "OVERFLOW", "UNDERFLOW", "THROTTLE" };
+        GstQOSType type;
+        gdouble proportion;
+        GstClockTimeDiff diff;
+        GstClockTime timestamp;
+        gst_event_parse_qos(event, &type, &proportion, &diff, &timestamp);
+        printf("EVENT %s %s %s qos %s %.3f %.3f %.3f\n", pipeline_name, element_name, pad_name, names[type], proportion, present_timediff(diff), present_time(timestamp));
+    }
+    else if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT)
+    {
+        const GstSegment* segment;
+        gst_event_parse_segment (event, &segment);
+        printf("EVENT %s %s %s segment %.3f %.3f %.3f %.3f\n", pipeline_name, element_name, pad_name, segment->rate, present_time(segment->start), present_time(segment->stop), present_time(segment->duration));
+    }
+    else if (GST_EVENT_TYPE(event) == GST_EVENT_LATENCY)
+    {
+        GstClockTime latency;
+        gst_event_parse_latency (event, &latency);
+        printf("EVENT %s %s %s latency %.3f\n", pipeline_name, element_name, pad_name, present_time(latency));
+    }
+    else
+        printf("EVENT %s %s %s %s\n", pipeline_name, element_name, pad_name, GST_EVENT_TYPE_NAME(event));
+}
+
 static void gst_print_message(char* pipeline_name, GstMessage *msg)
 {
     switch (GST_MESSAGE_TYPE(msg)) {
@@ -1491,58 +1525,87 @@ cb_monitor_analyse(GstPad          *pad,
 {
     analyse_monitor* data;
     void* listener;
+    GstMiniObject* miniobj;
     GstBuffer* buffer;
     gsize size;
 
     data = (analyse_monitor*) user_data;
     listener = data->listener;
-    buffer = GST_PAD_PROBE_INFO_BUFFER(info);
-    size = gst_buffer_get_size(buffer);
-    GstClockTime dts = GST_BUFFER_DTS(buffer);
-    GstClockTime pts = GST_BUFFER_PTS(buffer);
-    GstClockTime duration = GST_BUFFER_DURATION(buffer);
-    GstMapInfo map;
-    gst_buffer_map(buffer, &map, GST_MAP_READ);
-    size = map.size;
-    // g_print("flags %d\n", GST_BUFFER_FLAGS(buffer));
-    if (GST_BUFFER_IS_DISCONT(buffer))
-        gst_listener_write(listener, "d");
-    if (GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_GAP))
-        gst_listener_write(listener, "g");
-    if (data->expected != GST_CLOCK_TIME_NONE)
+    miniobj = GST_PAD_PROBE_INFO_DATA(info);
+    if (GST_IS_BUFFER(miniobj))
     {
-        GstClockTimeDiff diff;
-        diff = pts - data->expected;
-        if (diff > 1 || diff < -1)
-            gst_listener_write(listener, "e");
-            // printf("%s expected %llu got %llu diff %lld size %d\n", data->name, data->expected, pts, diff);
-    }
-    data->expected = pts + duration;
-    // only works for S16LE
-    ___U16* ptr = (___U16*) map.data;
-    int card = size / sizeof(___U16);
-    for (int n = 0; n < card; n++)
-    {
-        ___U16 sample = *ptr++;
-        if (sample == 0)
+        buffer = GST_BUFFER_CAST(miniobj);
+        size = gst_buffer_get_size(buffer);
+        GstClockTime dts = GST_BUFFER_DTS(buffer);
+        GstClockTime pts = GST_BUFFER_PTS(buffer);
+        GstClockTime duration = GST_BUFFER_DURATION(buffer);
+        GstMapInfo map;
+        gst_buffer_map(buffer, &map, GST_MAP_READ);
+        size = map.size;
+        // g_print("flags %d\n", GST_BUFFER_FLAGS(buffer));
+        /*
+        if (GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_GAP))
         {
-            if (data->zero_count == -1)
-                data->zero_count = 1;
-            else
+            GST_BUFFER_FLAG_UNSET(buffer, GST_BUFFER_FLAG_GAP);
+            ___U16* ptr = (___U16*) map.data;
+            int card = size / sizeof(___U16);
+            int count = 0;
+            for (int n = 0; n < card; n++)
             {
-                data->zero_count++;
-                if (data->zero_count == 48)
+                ___U16 sample = *ptr++;
+                if (sample == 0)
+                    count++;
+            }
+            printf("unsetting gap of size %d silence %d flags %d\n", card, count, GST_BUFFER_FLAGS(buffer));
+        }
+        */
+        if (GST_BUFFER_IS_DISCONT(buffer))
+            gst_listener_write(listener, "d");
+        if (GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_GAP))
+            gst_listener_write(listener, "g");
+        if (data->expected != GST_CLOCK_TIME_NONE)
+        {
+            GstClockTimeDiff diff;
+            diff = pts - data->expected;
+            if (diff > 1 || diff < -1)
+                gst_listener_write(listener, "e");
+                // printf("%s expected %llu got %llu diff %lld size %d\n", data->name, data->expected, pts, diff);
+        }
+        data->expected = pts + duration;
+        // only works for S16LE
+        ___U16* ptr = (___U16*) map.data;
+        int card = size / sizeof(___U16);
+        for (int n = 0; n < card; n++)
+        {
+            ___U16 sample = *ptr++;
+            if (sample == 0)
+            {
+                if (data->zero_count == -1)
+                    data->zero_count = 1;
+                else
                 {
-                    data->silence_found++;
-                    gst_listener_write(listener, "s");
+                    data->zero_count++;
+                    if (data->zero_count == 48)
+                    {
+                        data->silence_found++;
+                        gst_listener_write(listener, "s");
+                    }
                 }
             }
+            else
+                data->zero_count = -1;
+            data->offset += sizeof(___U16);
         }
-        else
-            data->zero_count = -1;
-        data->offset += sizeof(___U16);
+        gst_buffer_unmap(buffer, &map);
     }
-    gst_buffer_unmap(buffer, &map);
+    else if (GST_IS_BUFFER_LIST(miniobj))
+    {
+        printf("BUFFER LIST\n");
+    }
+    else if (GST_IS_EVENT(miniobj))
+    {
+        gst_print_event("", "", "", GST_EVENT(miniobj));
+    }
 
     return GST_PAD_PROBE_OK;
 }
@@ -1601,45 +1664,16 @@ cb_monitor_events(GstPad          *pad,
     GstElement* element;
     gchar* pipeline_name;
     gchar* element_name;
-    gchar* name;
+    gchar* pad_name;
     
     event = GST_PAD_PROBE_INFO_EVENT(info);
     pipeline = (GstPipeline*) user_data;
     pipeline_name = gst_element_get_name(pipeline);
     element = gst_pad_get_parent_element(pad);
     element_name = gst_element_get_name(element);
-    name = gst_pad_get_name(pad);
-    if (GST_EVENT_TYPE(event) == GST_EVENT_CAPS)
-    {
-        GstCaps *caps;
-        gst_event_parse_caps(event, &caps);
-        printf("EVENT %s %s %s caps %s\n", pipeline_name, element_name, name, gst_caps_to_string(caps));
-    }
-    else if (GST_EVENT_TYPE(event) == GST_EVENT_QOS)
-    {
-        const char* const names[] = { "OVERFLOW", "UNDERFLOW", "THROTTLE" };
-        GstQOSType type;
-        gdouble proportion;
-        GstClockTimeDiff diff;
-        GstClockTime timestamp;
-        gst_event_parse_qos(event, &type, &proportion, &diff, &timestamp);
-        printf("EVENT %s %s %s qos %s %.3f %.3f %.3f\n", pipeline_name, element_name, name, names[type], proportion, present_timediff(diff), present_time(timestamp));
-    }
-    else if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT)
-    {
-        const GstSegment* segment;
-        gst_event_parse_segment (event, &segment);
-        printf("EVENT %s %s %s segment %.3f %.3f %.3f %.3f\n", pipeline_name, element_name, name, segment->rate, present_time(segment->start), present_time(segment->stop), present_time(segment->duration));
-    }
-    else if (GST_EVENT_TYPE(event) == GST_EVENT_LATENCY)
-    {
-        GstClockTime latency;
-        gst_event_parse_latency (event, &latency);
-        printf("EVENT %s %s %s latency %.3f\n", pipeline_name, element_name, name, present_time(latency));
-    }
-    else
-        printf("EVENT %s %s %s %s\n", pipeline_name, element_name, name, GST_EVENT_TYPE_NAME(event));
-    g_free(name);
+    pad_name = gst_pad_get_name(pad);
+    gst_print_event(pipeline_name, element_name, pad_name, event);
+    g_free(pad_name);
     g_free(element_name);
     gst_object_unref(element);
 
@@ -1707,7 +1741,7 @@ static void* gst_monitor_analyse(GstPad* pad, void* listener, char* name)
     analyse_monitor* data = malloc(sizeof(analyse_monitor));
     init_analyse_monitor(data, listener, name);
 
-    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_monitor_analyse, data, NULL);
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_DATA_DOWNSTREAM, (GstPadProbeCallback) cb_monitor_analyse, data, NULL);
 
     return (void*) data;
 }

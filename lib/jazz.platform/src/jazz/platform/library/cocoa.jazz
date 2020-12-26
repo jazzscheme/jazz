@@ -46,45 +46,67 @@
 ;;;
 
 
-(definition public (relocate-subfile dir file kind old-prefix new-prefix)
-  (define (add-rpath)
-    (let ((level (length (subpath dir file))))
-      (let ((up (map (lambda (n) "..") (naturals 0 level))))
-        (let ((rpath (join (cons "@executable_path" up) "/")))
-          (let ((port (open-process (list path: "install_name_tool" arguments: `("-add_rpath" ,rpath ,(parse file))))))
-            (let ((status (process-status port)))
-              (unless (= status 0)
-                (error "System call install_name_tool -add_rpath failed"))))))))
-  
-  (define (change-name new-name)
-    (let ((port (open-process (list path: "install_name_tool" arguments: `("-id" ,new-name ,(parse file))))))
-      (let ((status (process-status port)))
-        (unless (= status 0)
-          (error "System call install_name_tool -id failed")))))
-  
-  (define (change-dependency dependency new-dependency)
-    (let ((port (open-process (list path: "install_name_tool" arguments: `("-change" ,dependency ,new-dependency ,(parse file))))))
-      (let ((status (process-status port)))
-        (unless (= status 0)
-          (error "System call install_name_tool -change failed")))))
-  
-  (define (relocate path)
-    (and (starts-with? path old-prefix)
-         (string-append new-prefix (substring path (string-length old-prefix) (string-length path)))))
-  
-  (format :terminal "relocating {a}...{%}" (get-name file))
+(definition public (relocate-name file old-prefix new-prefix (feedback?: feedback? #t))
+  (when feedback?
+    (format :terminal "relocating {a}...{%}" (get-name file)))
+  (receive (name dependencies) (library-name/dependencies file)
+    (change-name file name old-prefix new-prefix)))
+
+
+(definition protected (change-name file name old-prefix new-prefix)
+  (let ((new-name (relocate-path name old-prefix new-prefix)))
+    (when new-name
+      (let ((port (open-process (list path: "install_name_tool" arguments: `("-id" ,new-name ,(parse file))))))
+        (let ((status (process-status port)))
+          (unless (= status 0)
+            (error "System call install_name_tool -id failed")))))))
+
+
+(definition public (relocate-dependencies file old-prefix new-prefix (feedback?: feedback? #t))
+  (when feedback?
+    (format :terminal "relocating {a}...{%}" (get-name file)))
+  (receive (name dependencies) (library-name/dependencies file)
+    (change-dependencies file dependencies old-prefix new-prefix)))
+
+
+(definition protected (change-dependencies file dependencies old-prefix new-prefix)
+  (for-each (lambda (dependency)
+              (let ((new-dependency (relocate-path dependency old-prefix new-prefix)))
+                (when new-dependency
+                  (let ((port (open-process (list path: "install_name_tool" arguments: `("-change" ,dependency ,new-dependency ,(parse file))))))
+                    (let ((status (process-status port)))
+                      (unless (= status 0)
+                        (error "System call install_name_tool -change failed")))))))
+            dependencies))
+
+
+(definition protected (add-rpath file rpath)
+  (let ((port (open-process (list path: "install_name_tool" arguments: `("-add_rpath" ,rpath ,(parse file))))))
+    (let ((status (process-status port)))
+      (unless (= status 0)
+        (error "System call install_name_tool -add_rpath failed")))))
+
+
+(definition protected (executable-rpath dir file)
+  (let ((level (length (subpath dir file))))
+    (let ((up (map (lambda (n) "..") (naturals 0 level))))
+      (join (cons "@executable_path" up) "/"))))
+
+
+(definition public (relocate-subfile dir file kind old-prefix new-prefix (feedback?: feedback? #t))
+  (when feedback?
+    (format :terminal "relocating {a}...{%}" (get-name file)))
   (when (eq? kind 'executable)
-    (add-rpath))
-  (receive (name dependencies) (library-name/dependencies file kind)
+    (add-rpath file (executable-rpath dir file)))
+  (receive (name dependencies) (library-name/dependencies file)
     (when (eq? kind 'shared)
-      (let ((new-name (relocate name)))
-        (when new-name
-          (change-name new-name))))
-    (for-each (lambda (dependency)
-                (let ((new-dependency (relocate dependency)))
-                  (when new-dependency
-                    (change-dependency dependency new-dependency))))
-              dependencies)))
+      (change-name file name old-prefix new-prefix))
+    (change-dependencies file dependencies old-prefix new-prefix)))
+
+
+(definition (relocate-path path old-prefix new-prefix)
+  (and (starts-with? path old-prefix)
+       (string-append new-prefix (substring path (string-length old-prefix) (string-length path)))))
 
 
 ;;;
@@ -92,7 +114,7 @@
 ;;;
 
 
-(definition public (library-name/dependencies file kind)
+(definition public (library-name/dependencies file)
   (define (remove-tabulation path)
     (substring path 1 (string-length path)))
   
@@ -110,14 +132,12 @@
             (let ((all (map (lambda (path)
                               (remove-version (remove-tabulation path)))
                             (cdr lines))))
-              (if (eq? kind 'shared)
-                  (values (car all) (cdr all))
-                (values #f all))))
+              (values (car all) (cdr all))))
         (error "System call otool -L failed")))))
 
 
 (definition public (library-dependencies-tree rpath-dir file)
-  (receive (rpath direct) (library-name/dependencies file 'shared)
+  (receive (rpath direct) (library-name/dependencies file)
     (map (lambda (info)
            (let ((prefix "@rpath/"))
              (if (starts-with? info prefix)

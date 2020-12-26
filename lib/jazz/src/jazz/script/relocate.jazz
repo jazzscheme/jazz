@@ -50,18 +50,31 @@
 (definition (relocate)
   (split-command-line (command-arguments) '() '("debugger" "r" "run") #f
     (lambda (commands options remain)
-      (case (length remain)
-        ((3)
-         (bind (dirname old-prefix new-prefix) remain
-           (let ((dir (new-directory (current-directory-get) (tokenise-filename dirname))))
-             (relocate-directory dir old-prefix new-prefix))))
-        ((4)
-         (bind (dirname filename old-prefix new-prefix) remain
-           (let ((dir (new-directory (current-directory-get) (tokenise-filename dirname))))
-             (let ((file (new-file dir (tokenise-filename filename))))
-               (relocate-file dir file old-prefix new-prefix)))))
-        (else
-         (error "Expected 3 or 4 arguments"))))))
+      (bind (action . rest) remain
+        (cond ((equal? action "directory")
+               (bind (dirname old-prefix new-prefix) rest
+                 (let ((dir (new-directory (current-directory-get) (tokenise-filename dirname))))
+                   (relocate-directory dir old-prefix new-prefix))))
+              ((equal? action "file")
+               (bind (dirname filename old-prefix new-prefix) rest
+                 (let ((dir (new-directory (current-directory-get) (tokenise-filename dirname))))
+                   (let ((file (new-file dir (tokenise-filename filename))))
+                     (relocate-file dir file old-prefix new-prefix)))))
+              (else
+               (bind (dirname filename . rest) rest
+                 (let ((dir (new-directory (current-directory-get) (tokenise-filename dirname))))
+                   (let ((file (new-file dir (tokenise-filename filename))))
+                     (cond ((equal? action "change-name")
+                            (bind (old-prefix new-prefix) rest
+                              (relocate-name file old-prefix new-prefix feedback?: #f)))
+                           ((equal? action "change-dependencies")
+                            (bind (old-prefix new-prefix) rest
+                              (relocate-dependencies file old-prefix new-prefix feedback?: #f)))
+                           ((equal? action "add-rpath")
+                            (bind (rpath) rest
+                              (add-rpath file rpath)))
+                           (else
+                            (error "Unknown relocate action: {a}" action))))))))))))
 
 
 (definition (relocate-directory dir old-prefix new-prefix)

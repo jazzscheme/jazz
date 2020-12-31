@@ -2322,14 +2322,19 @@ description-end
 
 ;; investigate mixer gritches
 (definition public (test-audiog)
+  (define gc?
+    (boolean-argument "gc" #f))
+  
   (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence is-live=true name=silence"
                              "queue name=queue"
                              "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
-                             "osxaudiosink name=sink"))
+                             (let ((buffer-time (if gc? 100000 200000)))
+                               (tie "osxaudiosink buffer-time={buffer-time} name=sink"))))
         (mixer? #f)
         (silence #f)
         (bin #f)
-        (block #f))
+        (block #f)
+        (huge #f))
     (define (remove-silence)
       (with-unref ((silence (gst_bin_get_by_name audio "silence"))
                    (queue (gst_bin_get_by_name audio "queue")))
@@ -2340,6 +2345,8 @@ description-end
     (define (insert-mixer)
       (when (not mixer?)
         (let ((mixer (gst_element_factory_make "audiomixer" (gst-element-bin-name audio "mixer"))))
+          (when gc?
+            (g_object_set_uint64 mixer "latency" 100000000))
           (with-unref ((queue (gst_bin_get_by_name audio "queue")))
             (gst_bin_add audio mixer)
             (gst_element_link mixer queue)
@@ -2411,19 +2418,36 @@ description-end
         (set! bin bn)))
         
     (define (toggle-blocked location)
-      (with-unref ((pad (gst_element_get_static_pad silence "src")))
-        (cond ((not block)
-               (set! block (gst_pad_add_drop_probe pad))
-               (terminal 'blocked))
-              (else
-               (gst_pad_remove_probe pad block)
-               (set! block #f)
-               (terminal 'unblocked)))))
+      (define (with-pad what proc)
+        (case what
+          ((silence)
+           (with-unref ((pad (gst_element_get_static_pad silence "src")))
+             (proc pad)))
+          ((music)
+           (with-unref ((src (gst_bin_get_by_name bin "src")))
+             (with-unref ((pad (gst_element_get_static_pad src "src")))
+               (proc pad))))))
+      
+      (let ((what (if (shift-down?) 'music 'silence)))
+        (with-pad what
+          (lambda (pad)
+            (cond ((not block)
+                   (set! block (gst_pad_add_drop_probe pad))
+                   (terminal 'blocked what))
+                  (else
+                   (gst_pad_remove_probe pad block)
+                   (set! block #f)
+                   (terminal 'unblocked what)))))))
     
     (define (keyer view key)
       (case key
         ((#\space)
-         (toggle-blocked koln))))
+         (toggle-blocked koln))
+        ((#\g)
+         (when (not huge)
+           (set! huge (make-vector 40000000)))
+         (terminal 'gc)
+         (gc))))
     
     (define (monitor-file bin name)
       (let ((dir {Directory Home "Records"}))
@@ -2437,7 +2461,7 @@ description-end
     (wait-playing audio)
     (remove-silence)
     (add-silence-channel)
-    (add-channel tone @w lonesome 1.)
+    (add-channel lonesome 1.)
     (report-info audio "audiog")
     ;(monitor-file dabin "!src^")
     ;(monitor-file audio "mixer.src")

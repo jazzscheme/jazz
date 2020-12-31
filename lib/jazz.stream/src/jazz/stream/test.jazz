@@ -2335,7 +2335,8 @@ description-end
         (mixer? #f)
         (silence #f)
         (bin #f)
-        (block #f)
+        (block-silence #f)
+        (block-music #f)
         (huge #f))
     (define (remove-silence)
       (with-unref ((silence (gst_bin_get_by_name audio "silence"))
@@ -2420,26 +2421,27 @@ description-end
         (set! bin bn)))
         
     (define (toggle-blocked location)
-      (define (with-pad what proc)
+      (let ((what (if (shift-down?) 'music 'silence)))
         (case what
           ((silence)
            (with-unref ((pad (gst_element_get_static_pad silence "src")))
-             (proc pad)))
+             (cond ((not block-silence)
+                    (set! block-silence (gst_pad_add_drop_probe pad))
+                    (terminal 'blocked what))
+                   (else
+                    (gst_pad_remove_probe pad block-silence)
+                    (set! block-silence #f)
+                    (terminal 'unblocked 'silence)))))
           ((music)
            (with-unref ((src (gst_bin_get_by_name bin "src")))
              (with-unref ((pad (gst_element_get_static_pad src "src")))
-               (proc pad))))))
-      
-      (let ((what (if (shift-down?) 'music 'silence)))
-        (with-pad what
-          (lambda (pad)
-            (cond ((not block)
-                   (set! block (gst_pad_add_drop_probe pad))
-                   (terminal 'blocked what))
-                  (else
-                   (gst_pad_remove_probe pad block)
-                   (set! block #f)
-                   (terminal 'unblocked what)))))))
+               (cond ((not block-music)
+                      (set! block-music (gst_pad_add_drop_probe pad))
+                      (terminal 'blocked what))
+                     (else
+                      (gst_pad_remove_probe pad block-music)
+                      (set! block-music #f)
+                      (terminal 'unblocked 'music)))))))))
     
     (define (keyer view key)
       (case key

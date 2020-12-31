@@ -441,22 +441,23 @@
            (lambda ()
              (let (loop)
                (let ((threads (collect-process-threads)))
-                 (receive (main others) (cpu-percentage threads)
-                   (let ((total (+ main others)))
-                     (format :terminal "Total: {r precision: 1 width: 4 justify: :right},   Main: {r precision: 1 width: 4 justify: :right},   Others: {r precision: 1 width: 4 justify: :right}" (* total 100.) (* main 100.) (* others 100.))
-                     (for-each (lambda (thread)
-                                 (bind (fullname percentage) thread
-                                   (when (and fullname (find fullname #\:))
-                                     (bind (name pad) (split-string fullname #\:)
-                                       (let ((split (split-string name #\%)))
-                                         (if (= (length split) 1)
-                                             (format :terminal "Streaming thread {a} is missing an explicit name{%}" name)
-                                           (bind (element id) split
-                                             (let ((bin (id->bin (string->number id))))
-                                               (when bin
-                                                 (let ((bin-name (gst_object_get_name bin)))
-                                                   (format :terminal ",   {a}.{a}.{a}: {r precision: 1 width: 4 justify: :right}%" bin-name element pad (* percentage 100.))))))))))))
-                               threads))))
+                 (when threads
+                   (receive (main others) (cpu-percentage threads)
+                     (let ((total (+ main others)))
+                       (format :terminal "Total: {r precision: 1 width: 4 justify: :right},   Main: {r precision: 1 width: 4 justify: :right},   Others: {r precision: 1 width: 4 justify: :right}" (* total 100.) (* main 100.) (* others 100.))
+                       (for-each (lambda (thread)
+                                   (bind (fullname percentage) thread
+                                     (when (and fullname (find fullname #\:))
+                                       (bind (name pad) (split-string fullname #\:)
+                                         (let ((split (split-string name #\%)))
+                                           (if (= (length split) 1)
+                                               (format :terminal "Streaming thread {a} is missing an explicit name{%}" name)
+                                             (bind (element id) split
+                                               (let ((bin (id->bin (string->number id))))
+                                                 (when bin
+                                                   (let ((bin-name (gst_object_get_name bin)))
+                                                     (format :terminal ",   {a}.{a}.{a}: {r precision: 1 width: 4 justify: :right}%" bin-name element pad (* percentage 100.))))))))))))
+                                 threads)))))
                (newline)
                (sleep 1)
                (loop)))

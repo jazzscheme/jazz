@@ -5,17 +5,9 @@ GSTREAMERDISTR=/Users/cartier/Devel/gstreamer/gst-build/distr
 JAZZ=../../../../../../cache/develop/jazz
 
 
-#
-# lib
-#
-
 cpdistr() {
     cp $GSTREAMERDISTR/lib/$1 gstreamer/lib/$2
 }
-
-cpdistr libgstreamer-1.0.0.dylib libgstreamer-1.0.0.dylib
-cpdistr libgstaudio-1.0.0.dylib libgstaudio-1.0.0.dylib
-cpdistr liborc-0.4.0.dylib liborc-0.4.0.dylib
 
 relocate() {
     echo relocating $1...
@@ -25,6 +17,12 @@ relocate() {
     $JAZZ -run relocate add-rpath gstreamer lib/$1 @loader_path/..
 }
 
-relocate libgstreamer-1.0.0.dylib
-relocate libgstaudio-1.0.0.dylib
-relocate liborc-0.4.0.dylib
+patch() {
+  cpdistr $1 $1
+  relocate $1
+}
+
+patch libgstreamer-1.0.0.dylib
+patch libgstbase-1.0.0.dylib
+patch libgstaudio-1.0.0.dylib
+patch liborc-0.4.0.dylib

@@ -426,6 +426,35 @@ static double present_timediff(GstClockTimeDiff diff)
     return GST_TIME_AS_SECONDS((double) diff);
 }
 
+static const gchar * g_log_last_message = NULL;
+static GLogLevelFlags g_log_last_level;
+
+static gchar * g_log_get_last_message()
+{
+    return (gchar *) g_log_last_message;
+}
+
+static int g_log_get_last_level()
+{
+    return g_log_last_level;
+}
+
+static void jazz_log_handler(const gchar * log_domain, GLogLevelFlags log_level, const gchar * message, gpointer user_data)
+{
+    g_log_last_level = log_level;
+    g_log_last_message = g_strdup(message);
+
+    g_log_default_handler (G_LOG_DOMAIN, log_level, message, user_data);
+}
+
+static void gst_setup()
+{
+    GLogLevelFlags llf;
+  
+    llf = G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_ERROR | G_LOG_FLAG_FATAL;
+    g_log_set_handler(G_LOG_DOMAIN, llf, jazz_log_handler, NULL);
+}
+
 static void gst_version_fill(___SCMOBJ info)
 {
     ___U32 *ptr = ___CAST(___U32*, ___BODY(info));
@@ -1865,6 +1894,9 @@ static void gst_print_messages(GstPipeline* pipeline)
 
 (gst-external (gst_init NULL NULL) void)
 (gst-external (gst_deinit) void)
+(gst-external (gst_setup) void)
+(c-external (g_log_get_last_message) char-string)
+(c-external (g_log_get_last_level) int)
 (gst-external (gst_version_fill scheme-object) void)
 (gst-external (gst_parse_launch_aux char-string scheme-object scheme-object) scheme-object)
 (gst-external (gst_parse_bin_from_description_aux char-string gboolean scheme-object scheme-object) scheme-object)
@@ -2192,6 +2224,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (definition public (startup-gstreamer)
   (unless gstreamer-initialized?
     (gst_init)
+    (gst_setup)
     (set! gstreamer-initialized? #t)))
 
 

@@ -43,6 +43,7 @@
         (jazz.io)
         (jazz.listener)
         (jazz.platform.types)
+        (jazz.snapshot)
         (jazz.stream.syntax (phase syntax))
         (jazz.syntax (phase syntax))
         (jazz.version))
@@ -64,6 +65,27 @@
 
 (definition public (flonum->timestamp x)
   (inexact->exact (round (* x nanosecond))))
+
+
+;;;
+;;;; Log
+;;;
+
+
+(definition public (setup-gstreamer-log)
+  (log_setup)
+  (set-snapshot-entries snapshot-log-entries))
+
+
+(definition (snapshot-log-entries proc)
+  (declare (proper-tail-calls))
+  (let (loop)
+    (let ((entry (log_pop_last_entry)))
+      (when entry
+        (proc (log_entry_level entry)
+              (log_entry_message entry)
+              (split (log_entry_stack entry) "\n"))
+        (loop)))))
 
 
 ;;;

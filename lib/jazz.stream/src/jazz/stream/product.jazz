@@ -77,6 +77,12 @@
 ;;;
 
 
+;; important so our glib and gstreamer log handlers
+;; get all the frames from gst_debug_get_stack_trace
+(define (add-no-omit-frame-pointer cc-flags)
+  (string-append "-fno-omit-frame-pointer " cc-flags))
+
+
 ;; cc and ld flag relocated from the following calls
 ;; $ pkg-config --cflags gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0
 ;; $ pkg-config --libs gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0
@@ -87,14 +93,14 @@
      (if gstreamer-source
          (let ((cc-flags (string-append "-DG_LOG_DOMAIN=\"GStreamer\" " gstreamer-cflags))
                (ld-flags gstreamer-libs))
-           (list (patch-mac-ld-warnings cc-flags) ld-flags))
+           (list (add-no-omit-frame-pointer (patch-mac-ld-warnings cc-flags)) ld-flags))
        (let ((gstreamer-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/include/gstreamer-1.0"))
              (glib-include-path      (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/include/glib-2.0"))
              (glib-lib-include-path  (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/lib/glib-2.0/include"))
              (gstreamer-lib-path     (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/lib")))
-         (let ((cc-flags (string-append "-D_REENTRANT -DG_LOG_DOMAIN=\"GStreamer\" -I" gstreamer-include-path " -I" glib-include-path " -I" glib-lib-include-path))
+         (let ((cc-flags (string-append "-D_REENTRANT -DG_LOG_DOMAIN=\"GStreamer\" -fno-omit-frame-pointer -I" gstreamer-include-path " -I" glib-include-path " -I" glib-lib-include-path))
                (ld-flags (string-append "-L" gstreamer-lib-path " -lgstapp-1.0.0 -lgstaudio-1.0.0 -lgstbase-1.0.0 -lgstpbutils-1.0.0 -lgstreamer-1.0.0 -lgobject-2.0.0 -lglib-2.0.0 -lintl.8 -Wl,-framework -Wl,CoreFoundation")))
-           (list (patch-mac-ld-warnings cc-flags) ld-flags))))))
+           (list (add-no-omit-frame-pointer (patch-mac-ld-warnings cc-flags)) ld-flags))))))
   (windows
     (define (stream-flags)
       (let ((gstreamer-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/windows/gstreamer/include/gstreamer-1.0"))
@@ -103,7 +109,7 @@
             (gstreamer-lib-path     (quote-jazz-pathname "lib/jazz.stream/foreign/windows/gstreamer/lib")))
         (let ((cc-flags (string-append "-D_REENTRANT -I" gstreamer-include-path " -I" glib-include-path " -I" glib-lib-include-path))
               (ld-flags (string-append "-L" gstreamer-lib-path " -lgstapp-1.0 -lgstaudio-1.0 -lgstbase-1.0 -lgstpbutils-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0 -lintl -lws2_32")))
-          (list cc-flags ld-flags)))))
+          (list (add-no-omit-frame-pointer cc-flags) ld-flags)))))
   (else
    (define (stream-flags)
       (let ((gstreamer-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/linux/gstreamer/gstreamer/include/gstreamer-1.0"))
@@ -112,7 +118,7 @@
             (gstreamer-lib-path     (quote-jazz-pathname "lib/jazz.stream/foreign/linux/gstreamer/gstreamer/lib")))
         (let ((cc-flags (string-append "-D_REENTRANT -I" gstreamer-include-path " -I" glib-include-path " -I" glib-lib-include-path))
               (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../..:$ORIGIN/../../../../../gstreamer/lib" " -L" gstreamer-lib-path " -lgstapp-1.0 -lgstaudio-1.0 -lgstbase-1.0 -lgstpbutils-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0")))
-          (list cc-flags ld-flags))))))
+          (list (add-no-omit-frame-pointer cc-flags) ld-flags))))))
 
 
 (define (stream-units)

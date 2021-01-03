@@ -430,33 +430,118 @@ static double present_timediff(GstClockTimeDiff diff)
 #define G_LOG_DOMAIN "GStreamer"
 #endif
 
-static const gchar * g_log_last_message = NULL;
-static GLogLevelFlags g_log_last_level;
+static GMutex log_mutex;
 
-static gchar * g_log_get_last_message()
+static GQueue* log_queue = NULL;
+
+typedef struct log_entry_struct
 {
-    return (gchar *) g_log_last_message;
+    int level;
+    char* message;
+    char* stack;
+} log_entry;
+
+static void* log_peek_last_entry()
+{
+    gpointer data;
+
+    g_mutex_lock(&log_mutex);
+    if (log_queue)
+        data = g_queue_peek_tail(log_queue);
+    else
+        data = NULL;
+    g_mutex_unlock(&log_mutex);
+    
+    return data;
 }
 
-static int g_log_get_last_level()
+static void* log_pop_last_entry()
 {
-    return g_log_last_level;
+    gpointer data;
+
+    g_mutex_lock(&log_mutex);
+    if (log_queue)
+        data = g_queue_pop_tail(log_queue);
+    else
+        data = NULL;
+    g_mutex_unlock(&log_mutex);
+    
+    return data;
 }
 
-static void jazz_log_handler(const gchar * log_domain, GLogLevelFlags log_level, const gchar * message, gpointer user_data)
+static int log_entry_level(void* data)
 {
-    g_log_last_level = log_level;
-    g_log_last_message = g_strdup(message);
-
-    g_log_default_handler (G_LOG_DOMAIN, log_level, message, user_data);
+    log_entry* entry = (log_entry*) data;
+  
+    return entry->level;
 }
 
-static void gst_setup()
+static char* log_entry_message(void* data)
+{
+    log_entry* entry = (log_entry*) data;
+  
+    return entry->message;
+}
+
+static char* log_entry_stack(void* data)
+{
+    log_entry* entry = (log_entry*) data;
+  
+    return entry->stack;
+}
+
+static void log_push_entry(int level, gchar * message, gchar * stack)
+{
+    log_entry* entry = (log_entry*) malloc(sizeof(log_entry));
+
+    entry->level = level;
+    entry->message = message;
+    entry->stack = stack;
+
+    g_mutex_lock(&log_mutex);
+    g_queue_push_tail(log_queue, entry);
+    g_mutex_unlock(&log_mutex);
+}
+
+static void jazz_g_log_handler(const gchar * log_domain, GLogLevelFlags log_level, const gchar * message, gpointer user_data)
+{
+    gchar *stack;
+
+    stack = gst_debug_get_stack_trace(GST_STACK_TRACE_SHOW_FULL);
+    log_push_entry(log_level, g_strdup(message), stack);
+
+    g_log_default_handler(G_LOG_DOMAIN, log_level, message, user_data);
+}
+
+void jazz_gst_log_function (GstDebugCategory * category,
+    GstDebugLevel level, const gchar * file, const gchar * function,
+    gint line, GObject * object, GstDebugMessage * message, gpointer unused) G_GNUC_NO_INSTRUMENT;
+
+void jazz_gst_log_function (GstDebugCategory * category,
+    GstDebugLevel level, const gchar * file, const gchar * function,
+    gint line, GObject * object, GstDebugMessage * message, gpointer unused)
+{
+    gchar *message_str, *stack;
+
+    if (level == GST_LEVEL_ERROR || level == GST_LEVEL_WARNING)
+    {
+        message_str = g_strdup(gst_debug_message_get(message));
+        stack = gst_debug_get_stack_trace(GST_STACK_TRACE_SHOW_FULL);
+        log_push_entry(level, message_str, stack);
+    }
+}
+
+static void log_setup()
 {
     GLogLevelFlags llf;
+
+    g_mutex_init(&log_mutex);
+    log_queue = g_queue_new();
   
     llf = G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_ERROR | G_LOG_FLAG_FATAL;
-    g_log_set_handler(G_LOG_DOMAIN, llf, jazz_log_handler, NULL);
+    g_log_set_handler(G_LOG_DOMAIN, llf, jazz_g_log_handler, NULL);
+
+    gst_debug_add_log_function(jazz_gst_log_function, NULL, NULL);
 }
 
 static void gst_version_fill(___SCMOBJ info)
@@ -1898,9 +1983,12 @@ static void gst_print_messages(GstPipeline* pipeline)
 
 (gst-external (gst_init NULL NULL) void)
 (gst-external (gst_deinit) void)
-(gst-external (gst_setup) void)
-(c-external (g_log_get_last_message) char-string)
-(c-external (g_log_get_last_level) int)
+(c-external (log_setup) void)
+(c-external (log_peek_last_entry) void*)
+(c-external (log_pop_last_entry) void*)
+(c-external (log_entry_level void*) int)
+(c-external (log_entry_message void*) char-string)
+(c-external (log_entry_stack void*) char-string)
 (gst-external (gst_version_fill scheme-object) void)
 (gst-external (gst_parse_launch_aux char-string scheme-object scheme-object) scheme-object)
 (gst-external (gst_parse_bin_from_description_aux char-string gboolean scheme-object scheme-object) scheme-object)
@@ -2228,7 +2316,6 @@ static void gst_print_messages(GstPipeline* pipeline)
 (definition public (startup-gstreamer)
   (unless gstreamer-initialized?
     (gst_init)
-    (gst_setup)
     (set! gstreamer-initialized? #t)))
 
 

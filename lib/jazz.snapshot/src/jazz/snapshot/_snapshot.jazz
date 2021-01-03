@@ -99,6 +99,18 @@
 
 
 ;;;
+;;;; Entries
+;;;
+
+
+(definition protected snapshot-entries
+  #f)
+
+(definition public (set-snapshot-entries proc)
+  (set! snapshot-entries proc))
+
+
+;;;
 ;;;; Callbacks
 ;;;
 
@@ -240,6 +252,8 @@
       (force-output output)
       (print-properties)
       (force-output output)
+      (print-entries)
+      (force-output output)
       (print-threads)
       (force-output output)
       (print-values)
@@ -256,6 +270,22 @@
                         (format output "    (<property> name: {s} value: {s})" property value)))
                     (sort string<? properties key: (lambda (pair) (symbol->string (car pair)))))
           (format output ")"))))
+    
+    (define (print-entries)
+      (when (not-null? snapshot-entries)
+        (format output "{%}")
+        (format output "  (<entries>")
+        (snapshot-entries
+          (lambda (level message stack)
+            (format output "{%}")
+            (format output "    (<entry> level: {s} message: {s}{%}" level message)
+            (format output "      (<stack>")
+            (for-each (lambda (frame)
+                        (format output "{%}")
+                        (format output "        (<frame> location: {s})" frame))
+                      stack)
+            (format output "))")))
+        (format output ")")))
     
     (define (print-threads)
       (format output "{%}")

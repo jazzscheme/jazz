@@ -426,34 +426,52 @@ static double present_timediff(GstClockTimeDiff diff)
     return GST_TIME_AS_SECONDS((double) diff);
 }
 
+static void gst_listener_write(void* listener, char* c)
+{
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) listener;
+    send(socket, c, 1, 0);
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, c, 1);
+#endif
+}
+
+extern ___F64 ___time_to_seconds
+   (___F64 tim);
+
+extern void ___time_get_current_monotonic_time
+   (___F64 *tim);
+
 #ifdef _WIN32
 #define G_LOG_DOMAIN "GStreamer"
 #endif
 
+#define LOG_LEVEL_NONE        0
+#define LOG_LEVEL_G_ERROR     1
+#define LOG_LEVEL_G_CRITICAL  2
+#define LOG_LEVEL_G_WARNING   3
+#define LOG_LEVEL_GST_ERROR   4
+#define LOG_LEVEL_GST_WARNING 5
+
 static GMutex log_mutex;
 
 static GQueue* log_queue = NULL;
+static GQueue* log_user_queue = NULL;
 
 typedef struct log_entry_struct
 {
+    ___F64 time;
     int level;
     char* message;
     char* stack;
 } log_entry;
 
-static void* log_peek_last_entry()
-{
-    gpointer data;
-
-    g_mutex_lock(&log_mutex);
-    if (log_queue)
-        data = g_queue_peek_tail(log_queue);
-    else
-        data = NULL;
-    g_mutex_unlock(&log_mutex);
-    
-    return data;
-}
+static void* log_listener = NULL;
 
 static void* log_pop_last_entry()
 {
@@ -467,6 +485,27 @@ static void* log_pop_last_entry()
     g_mutex_unlock(&log_mutex);
     
     return data;
+}
+
+static void* log_pop_user_last_entry()
+{
+    gpointer data;
+
+    g_mutex_lock(&log_mutex);
+    if (log_user_queue)
+        data = g_queue_pop_tail(log_user_queue);
+    else
+        data = NULL;
+    g_mutex_unlock(&log_mutex);
+    
+    return data;
+}
+
+static ___F64 log_entry_time(void* data)
+{
+    log_entry* entry = (log_entry*) data;
+  
+    return entry->time;
 }
 
 static int log_entry_level(void* data)
@@ -494,30 +533,50 @@ static void log_push_entry(int level, gchar * message, gchar * stack)
 {
     log_entry* entry = (log_entry*) malloc(sizeof(log_entry));
 
+    ___F64 t, time;
+
+    ___time_get_current_monotonic_time (&t);
+
+    time = ___time_to_seconds (t);
+
+    entry->time = time;
     entry->level = level;
     entry->message = message;
     entry->stack = stack;
 
     g_mutex_lock(&log_mutex);
     g_queue_push_tail(log_queue, entry);
+    g_queue_push_tail(log_user_queue, entry);
+    if (log_listener)
+        gst_listener_write(log_listener, ".");
     g_mutex_unlock(&log_mutex);
 }
 
-static void jazz_g_log_handler(const gchar * log_domain, GLogLevelFlags log_level, const gchar * message, gpointer user_data)
+static void g_log_handler(const gchar * log_domain, GLogLevelFlags log_level, const gchar * message, gpointer user_data)
 {
+    int level;
     gchar *stack;
 
+    if ((log_level & G_LOG_LEVEL_ERROR) != 0)
+        level = LOG_LEVEL_G_ERROR;
+    else if ((log_level & G_LOG_LEVEL_CRITICAL) != 0)
+        level = LOG_LEVEL_G_CRITICAL;
+    else if ((log_level & G_LOG_LEVEL_WARNING) != 0)
+        level = LOG_LEVEL_G_WARNING;
+    else
+        level = LOG_LEVEL_NONE;
     stack = gst_debug_get_stack_trace(GST_STACK_TRACE_SHOW_FULL);
-    log_push_entry(log_level, g_strdup(message), stack);
+    log_push_entry(level, g_strdup(message), stack);
 
-    g_log_default_handler(G_LOG_DOMAIN, log_level, message, user_data);
+    if (!log_listener)
+        g_log_default_handler(G_LOG_DOMAIN, log_level, message, user_data);
 }
 
-void jazz_gst_log_function (GstDebugCategory * category,
+void gst_log_function (GstDebugCategory * category,
     GstDebugLevel level, const gchar * file, const gchar * function,
     gint line, GObject * object, GstDebugMessage * message, gpointer unused) G_GNUC_NO_INSTRUMENT;
 
-void jazz_gst_log_function (GstDebugCategory * category,
+void gst_log_function (GstDebugCategory * category,
     GstDebugLevel level, const gchar * file, const gchar * function,
     gint line, GObject * object, GstDebugMessage * message, gpointer unused)
 {
@@ -525,10 +584,25 @@ void jazz_gst_log_function (GstDebugCategory * category,
 
     if (level == GST_LEVEL_ERROR || level == GST_LEVEL_WARNING)
     {
+        if (level == GST_LEVEL_ERROR)
+            level = LOG_LEVEL_GST_ERROR;
+        else if (level == GST_LEVEL_WARNING)
+            level = LOG_LEVEL_GST_WARNING;
+        else
+            level = LOG_LEVEL_NONE;
         message_str = g_strdup(gst_debug_message_get(message));
         stack = gst_debug_get_stack_trace(GST_STACK_TRACE_SHOW_FULL);
         log_push_entry(level, message_str, stack);
     }
+}
+
+static void log_set_listener(void* listener)
+{
+    g_mutex_lock(&log_mutex);
+    log_listener = listener;
+    g_mutex_unlock(&log_mutex);
+
+    gst_debug_remove_log_function(gst_debug_log_default);
 }
 
 static void log_setup()
@@ -537,11 +611,38 @@ static void log_setup()
 
     g_mutex_init(&log_mutex);
     log_queue = g_queue_new();
+    log_user_queue = g_queue_new();
   
-    llf = G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_ERROR | G_LOG_FLAG_FATAL;
-    g_log_set_handler(G_LOG_DOMAIN, llf, jazz_g_log_handler, NULL);
+    llf = G_LOG_LEVEL_ERROR | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION;
+    g_log_set_handler(G_LOG_DOMAIN, llf, g_log_handler, NULL);
 
-    gst_debug_add_log_function(jazz_gst_log_function, NULL, NULL);
+    gst_debug_add_log_function(gst_log_function, NULL, NULL);
+}
+
+static void log_g_error(char* message)
+{
+    log_push_entry(LOG_LEVEL_G_ERROR, message, "");
+    // g_error(message);
+}
+
+static void log_g_critical(char* message)
+{
+    g_critical(message);
+}
+
+static void log_g_warning(char* message)
+{
+    g_warning(message);
+}
+
+static void log_gst_error(char* message)
+{
+    GST_ERROR(message);
+}
+
+static void log_gst_warning(char* message)
+{
+    GST_WARNING(message);
 }
 
 static void gst_version_fill(___SCMOBJ info)
@@ -933,21 +1034,6 @@ static GstPadMode gst_pad_get_mode(GstPad* pad)
 static gboolean gst_pad_is_flushing(GstPad* pad)
 {
     return GST_PAD_IS_FLUSHING(pad);
-}
-
-static void gst_listener_write(void* listener, char* c)
-{
-#ifdef _WIN32
-    SOCKET socket = (SOCKET) listener;
-    send(socket, c, 1, 0);
-#else
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
-    write(fd, c, 1);
-#endif
 }
 
 static void gst_listener_wakeup(void* listener)
@@ -1984,11 +2070,18 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_init NULL NULL) void)
 (gst-external (gst_deinit) void)
 (c-external (log_setup) void)
-(c-external (log_peek_last_entry) void*)
+(c-external (log_set_listener void*) void)
 (c-external (log_pop_last_entry) void*)
+(c-external (log_pop_user_last_entry) void*)
+(c-external (log_entry_time void*) double)
 (c-external (log_entry_level void*) int)
 (c-external (log_entry_message void*) char-string)
 (c-external (log_entry_stack void*) char-string)
+(c-external (log_g_error char-string) void)
+(c-external (log_g_critical char-string) void)
+(c-external (log_g_warning char-string) void)
+(c-external (log_gst_error char-string) void)
+(c-external (log_gst_warning char-string) void)
 (gst-external (gst_version_fill scheme-object) void)
 (gst-external (gst_parse_launch_aux char-string scheme-object scheme-object) scheme-object)
 (gst-external (gst_parse_bin_from_description_aux char-string gboolean scheme-object scheme-object) scheme-object)

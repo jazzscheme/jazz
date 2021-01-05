@@ -412,6 +412,11 @@ static char* g_error_message(GError* error)
 (c-type GstPlugin*               (pointer GstPlugin GstPlugin*))
 
 
+;;;
+;;;; Present
+;;;
+
+
 (c-declare jazz.stream.foreign #/C/
 static double present_time(GstClockTime time)
 {
@@ -425,7 +430,15 @@ static double present_timediff(GstClockTimeDiff diff)
 {
     return GST_TIME_AS_SECONDS((double) diff);
 }
+//#)
 
+
+;;;
+;;;; Listener
+;;;
+
+
+(c-declare jazz.stream.foreign #/C/
 static void gst_listener_write(void* listener, char* c)
 {
 #ifdef _WIN32
@@ -441,12 +454,99 @@ static void gst_listener_write(void* listener, char* c)
 #endif
 }
 
+static void gst_listener_set(void* listener)
+{
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) listener;
+    send(socket, "!", 1, 0);
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "!", 1);
+#endif
+}
+
+static void gst_listener_wakeup(void* listener)
+{
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) listener;
+    send(socket, ".", 1, 0);
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, ".", 1);
+#endif
+}
+
+static void gst_listener_eos(void* listener)
+{
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) listener;
+    send(socket, "^", 1, 0);
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "^", 1);
+#endif
+}
+//#)
+
+
+;;;
+;;;; Alloc
+;;;
+
+
+(c-declare jazz.stream.foreign #/C/
+static ___SCMOBJ alloc_foreign(void* ptr, ___SCMOBJ tags)
+{
+    ___SCMOBJ foreign = ___EXT(___alloc_scmobj) (___PSTATE, ___sFOREIGN, ___FOREIGN_SIZE<<___LWS);
+    ___FIELD(foreign,___FOREIGN_TAGS) = tags;
+    ___FIELD(foreign,___FOREIGN_RELEASE_FN) = ___CAST(___SCMOBJ, ___EXT(___release_pointer));
+    ___FIELD(foreign,___FOREIGN_PTR) = ___CAST(___SCMOBJ, ptr);
+    return foreign;
+}
+
+static ___SCMOBJ alloc_values(___SCMOBJ obj0, ___SCMOBJ obj1)
+{
+    ___SCMOBJ values = ___EXT(___alloc_scmobj) (___PSTATE, ___sBOXVALUES, 2*sizeof(___SCMOBJ));
+    ___SCMOBJ *ptr = ___CAST(___SCMOBJ*,___BODY(values));
+    ptr[0] = obj0;
+    ptr[1] = obj1;
+    return values;
+}
+//#)
+
+
+;;;
+;;;; Time
+;;;
+
+
+(c-declare jazz.stream.foreign #/C/
 extern ___F64 ___time_to_seconds
    (___F64 tim);
 
 extern void ___time_get_current_monotonic_time
    (___F64 *tim);
+//#)
 
+
+;;;
+;;;; Log
+;;;
+
+
+(c-declare jazz.stream.foreign #/C/
 #ifdef _WIN32
 #define G_LOG_DOMAIN "GStreamer"
 #endif
@@ -644,7 +744,15 @@ static void log_gst_warning(char* message)
 {
     GST_WARNING(message);
 }
+//#)
 
+
+;;;
+;;;; Various
+;;;
+
+
+(c-declare jazz.stream.foreign #/C/
 static void gst_version_fill(___SCMOBJ info)
 {
     ___U32 *ptr = ___CAST(___U32*, ___BODY(info));
@@ -749,24 +857,6 @@ static GstClockTime gst_adapter_prev_pts_aux(GstAdapter* adapter, ___SCMOBJ dist
     return pts;
 }
 
-static ___SCMOBJ alloc_foreign(void* ptr, ___SCMOBJ tags)
-{
-    ___SCMOBJ foreign = ___EXT(___alloc_scmobj) (___PSTATE, ___sFOREIGN, ___FOREIGN_SIZE<<___LWS);
-    ___FIELD(foreign,___FOREIGN_TAGS) = tags;
-    ___FIELD(foreign,___FOREIGN_RELEASE_FN) = ___CAST(___SCMOBJ, ___EXT(___release_pointer));
-    ___FIELD(foreign,___FOREIGN_PTR) = ___CAST(___SCMOBJ, ptr);
-    return foreign;
-}
-
-static ___SCMOBJ alloc_values(___SCMOBJ obj0, ___SCMOBJ obj1)
-{
-    ___SCMOBJ values = ___EXT(___alloc_scmobj) (___PSTATE, ___sBOXVALUES, 2*sizeof(___SCMOBJ));
-    ___SCMOBJ *ptr = ___CAST(___SCMOBJ*,___BODY(values));
-    ptr[0] = obj0;
-    ptr[1] = obj1;
-    return values;
-}
-
 static ___SCMOBJ gst_parse_launch_aux(char* desc, ___SCMOBJ element_tags, ___SCMOBJ error_tags)
 {
     GstElement* elem;
@@ -815,21 +905,6 @@ static ___SCMOBJ gst_parse_bin_from_description_aux(char* desc, gboolean ghost_u
     ___EXT(___release_scmobj)(values);
     
     return values;
-}
-
-static void gst_listener_set(void* listener)
-{
-#ifdef _WIN32
-    SOCKET socket = (SOCKET) listener;
-    send(socket, "!", 1, 0);
-#else
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
-    write(fd, "!", 1);
-#endif
 }
 
 typedef struct element_state_struct
@@ -1034,36 +1109,6 @@ static GstPadMode gst_pad_get_mode(GstPad* pad)
 static gboolean gst_pad_is_flushing(GstPad* pad)
 {
     return GST_PAD_IS_FLUSHING(pad);
-}
-
-static void gst_listener_wakeup(void* listener)
-{
-#ifdef _WIN32
-    SOCKET socket = (SOCKET) listener;
-    send(socket, ".", 1, 0);
-#else
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
-    write(fd, ".", 1);
-#endif
-}
-
-static void gst_listener_eos(void* listener)
-{
-#ifdef _WIN32
-    SOCKET socket = (SOCKET) listener;
-    send(socket, "^", 1, 0);
-#else
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-    int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
-    write(fd, "^", 1);
-#endif
 }
 
 static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
@@ -2065,6 +2110,11 @@ static void gst_print_messages(GstPipeline* pipeline)
     gst_object_unref(bus);
 }
 //#)
+
+
+;;;
+;;;; External
+;;;
 
 
 (gst-external (gst_init NULL NULL) void)

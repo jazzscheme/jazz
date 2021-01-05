@@ -284,7 +284,6 @@
     ((audioc) (test-audioc))
     ((audiog) (test-audiog))
     ((audioh) (test-audioh))
-    ((audiol) (test-audiol))
     ((audiox) (test-audiox))
     ((audiot) (test-audiot))
     ((camera) (test-camera))
@@ -2624,92 +2623,6 @@ description-end
     (gst_element_set_state audio GST_STATE_PLAYING)
     ;; application
     (boot-environment (new Test-Application))))
-
-
-;; investigate audio latency gritches
-(definition public (test-audiol)
-  (let ((audio (gst-pipeline "audiotestsrc samplesperbuffer=480 wave=silence is-live=true name=bootstrap"
-                             "queue name=queue"
-                             "audio/x-raw, format=S16LE, layout=interleaved, rate=48000, channels=2"
-                             (gst-element audiosink name: "sink")))
-        (mixer? #f)
-        (silence #f)
-        (sine #f)
-        (block #f))
-    (define (remove-bootstrap)
-      (with-unref ((bootstrap (gst_bin_get_by_name audio "bootstrap"))
-                   (queue (gst_bin_get_by_name audio "queue")))
-        (gst_element_unlink bootstrap queue)
-        (gst_element_set_state bootstrap GST_STATE_NULL)
-        (gst_bin_remove audio bootstrap)))
-    
-    (define (insert-mixer)
-      (when (not mixer?)
-        (let ((mixer (gst_element_factory_make "audiomixer" (gst-element-bin-name audio "mixer"))))
-          (with-unref ((queue (gst_bin_get_by_name audio "queue")))
-            (gst_bin_add audio mixer)
-            (gst_element_link mixer queue)
-            (gst_element_sync_state_with_parent mixer)
-            (set! mixer? #t)))))
-    
-    (define (add-silence)
-      (insert-mixer)
-      (let ((elem (gst_element_factory_make "audiotestsrc" (gst-element-bin-name audio "silence"))))
-        (g_object_set_boolean elem "is-live" #t)
-        (g_object_set_int elem "samplesperbuffer" 480)
-        (g_object_set_int elem "wave" 4)
-        (with-unref ((audio-mixer (gst_bin_get_by_name audio "mixer")))
-          (gst_bin_add audio elem)
-          (gst_element_link elem audio-mixer)
-          (gst_element_set_state elem GST_STATE_PLAYING))
-        (set! silence elem)))
-    
-    (define (add-sine)
-      (insert-mixer)
-      (let ((elem (gst_element_factory_make "audiotestsrc" (gst-element-bin-name audio "sine"))))
-        (g_object_set_boolean elem "is-live" #t)
-        (g_object_set_int elem "samplesperbuffer" 480)
-        (g_object_set_int elem "wave" 0)
-        (with-unref ((audio-mixer (gst_bin_get_by_name audio "mixer")))
-          (gst_bin_add audio elem)
-          (gst_element_link elem audio-mixer)
-          (gst_element_set_state elem GST_STATE_PLAYING))
-        (set! sine elem)))
-    
-    (define (toggle-blocked location)
-      (with-unref ((pad (gst_element_get_static_pad silence "src")))
-        (cond ((not block)
-               (set! block (gst_pad_add_drop_probe pad))
-               (terminal 'blocked))
-              (else
-               (gst_pad_remove_probe pad block)
-               (set! block #f)
-               (terminal 'unblocked)))))
-    
-    (define (keyer view key)
-      (case key
-        ((#\space)
-         (toggle-blocked koln))))
-    
-    (define (monitor-file bin name)
-      (let ((dir {Directory Home "Records"}))
-        (let ((filename (path-normalize (parse (new-file dir (format "{a}.raw" name))))))
-          (gst_monitor bin name 'file filename))))
-    
-    (gst_object_set_name audio "audio")
-    (gst_element_set_state audio GST_STATE_PAUSED)
-    (wait-audioclock audio "sink")
-    (gst_element_set_state audio GST_STATE_PLAYING)
-    (wait-playing audio)
-    (remove-bootstrap)
-    (add-silence)
-    (add-sine)
-    (monitor-file audio "mixer.src")
-    (monitor-file audio "queue.src")
-    (monitor-file audio "sink.sink")
-    (report-info audio "audiol")
-    ;; application
-    (boot-environment (new Test-Application keyer: keyer))))
 
 
 (definition (test-audiot)

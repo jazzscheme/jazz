@@ -533,11 +533,107 @@ static ___SCMOBJ alloc_values(___SCMOBJ obj0, ___SCMOBJ obj1)
 
 
 (c-declare jazz.stream.foreign #/C/
-extern ___F64 ___time_to_seconds
-   (___F64 tim);
+#ifdef _WIN32
+#define USE_QueryPerformanceCounter
+#endif
 
-extern void ___time_get_current_monotonic_time
-   (___F64 *tim);
+typedef ___F64 ___time;
+
+___U64 ___time_get_monotonic_time ___PVOID
+{
+#ifdef USE_mach_absolute_time
+
+  return mach_absolute_time ();
+
+#endif
+
+#ifdef USE_QueryPerformanceCounter
+
+  LARGE_INTEGER count;
+
+  if (QueryPerformanceCounter (&count))
+    return ___U64_from_ULONGLONG(count.QuadPart);
+  else
+    return ___U64_from_UM32(0);
+
+#endif
+
+#ifdef USE_clock_gettime_monotonic
+
+  /* The clock_gettime function is in POSIX.1b (realtime programming). */
+
+  struct timespec ts;
+
+  if (clock_gettime (CLOCK_MONOTONIC, &ts) == 0)
+    return ___U64_add_U64_U64(___U64_mul_UM32_UM32(ts.tv_sec, 1000000000),
+                              ___U64_from_UM32(ts.tv_nsec));
+  else
+    return ___U64_from_UM32(0);
+
+#endif
+}
+
+___U64 ___time_get_monotonic_time_frequency ___PVOID
+{
+#ifdef USE_mach_absolute_time
+
+  mach_timebase_info_data_t info;
+
+  mach_timebase_info (&info);
+
+  return ___U64_from_ULONGLONG(1000000000ULL * info.denom / info.numer);
+
+#endif
+
+#ifdef USE_QueryPerformanceCounter
+
+  LARGE_INTEGER freq;
+
+  if (QueryPerformanceFrequency (&freq))
+    return ___U64_from_ULONGLONG(freq.QuadPart);
+  else
+    return ___U64_from_UM32(1);
+
+#endif
+
+#ifdef USE_clock_gettime_monotonic
+
+  /* The clock_getres function is in POSIX.1b (realtime programming). */
+
+  struct timespec ts;
+
+  if (clock_getres (CLOCK_MONOTONIC, &ts) == 0)
+    return ___U64_from_ULONGLONG(1000000000ULL / (1000000000ULL * ts.tv_sec + ts.tv_nsec));
+  else
+    return ___U64_from_UM32(1);
+
+#endif
+}
+
+void ___time_get_current_monotonic_time
+   ___P((___time *tim),
+        (tim)
+___time *tim;)
+{
+    static int first_time = 1;
+    static double monotonic_frequency;
+    
+    if (first_time)
+    {
+        monotonic_frequency = ___time_get_monotonic_time_frequency();
+        first_time = 0;
+    }
+
+    *tim = ((double) ___time_get_monotonic_time()) / monotonic_frequency;
+}
+        
+___F64 ___time_to_seconds
+   ___P((___time tim),
+        (tim)
+___time tim;)
+{
+  return tim;
+}
 //#)
 
 
@@ -721,7 +817,7 @@ static void log_setup()
 
 static void log_g_error(char* message)
 {
-    log_push_entry(LOG_LEVEL_G_ERROR, message, "");
+    log_push_entry(LOG_LEVEL_G_ERROR, g_strdup(message), "");
     // g_error(message);
 }
 

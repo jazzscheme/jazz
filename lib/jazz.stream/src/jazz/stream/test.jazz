@@ -300,7 +300,6 @@
     ((gambit) (test-gambit))
     ((version) (test-version))
     ((registry) (test-registry))
-    ((log) (test-log))
     (else (error "Unknown script: {a}" script))))
 
 
@@ -3870,44 +3869,6 @@ description-end
                   (bind (name filename package description) info
                     (terminal name description)))
                 (sort nu<? info key: first)))))
-
-
-;;;
-;;;; Log
-;;;
-
-
-(definition public (test-log)
-  (let ((listener (open-stream-listener "log")))
-    (log_set_listener (get-write-file listener))
-    (let ((thread
-            (new-thread
-              (lambda ()
-                (declare (proper-tail-calls))
-                (let (loop)
-                  (let ((c (wait listener)))
-                    (case c
-                      ((#\.)
-                       (let ((entry (log_pop_user_last_entry)))
-                         (when entry
-                           (receive (time level message stack) (parse-log-entry entry)
-                             (terminal time level message))))
-                       (loop))
-                      ((#\@)
-                       )))))
-              'log)))
-        (thread-start! thread)))
-  (let ((delay .5))
-    (thread-start!
-      (new-thread
-        (lambda ()
-          (log_g_error "g_error") (sleep delay)
-          (log_g_critical "g_critical") (sleep delay)
-          (log_g_warning "g_warning") (sleep delay)
-          (log_gst_error "gst_error") (sleep delay)
-          (log_gst_warning "gst_warning")))))
-  ;; application
-  (boot-environment (new Test-Application)))
 
 
 ;;;

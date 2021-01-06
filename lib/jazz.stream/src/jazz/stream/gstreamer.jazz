@@ -82,8 +82,9 @@
   (let (loop)
     (let ((entry (log_pop_last_entry)))
       (when entry
-        (receive (level message stack) (parse-log-entry entry)
-          (proc level
+        (receive (time level message stack) (parse-log-entry entry)
+          (proc time
+                level
                 message
                 stack))
         (loop)))))
@@ -96,12 +97,23 @@
   (vector-ref log-names level))
 
 
+;; gstreamer system clock and gambit current-seconds rebase
+(definition gstreamer/gambit-time-rebase <fl>
+  +nan.0)
+
+(definition protected (setup-gstreamer/gambit-time)
+  (let ((gstreamer (timestamp->flonum (gst_system_clock_get_time)))
+        (gambit (current-seconds)))
+    (set! gstreamer/gambit-time-rebase
+          (- gambit gstreamer))))
+
+
 (definition protected (parse-log-entry entry)
   (let ((time (log_entry_time entry))
         (level (log_entry_level entry))
         (message (log_entry_message entry))
         (stack (log_entry_stack entry)))
-    (values time
+    (values (+ (timestamp->flonum time) gstreamer/gambit-time-rebase)
             level
             message
             (remove-empty (split stack "\n")))))

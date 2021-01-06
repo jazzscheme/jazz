@@ -528,117 +528,6 @@ static ___SCMOBJ alloc_values(___SCMOBJ obj0, ___SCMOBJ obj1)
 
 
 ;;;
-;;;; Time
-;;;
-
-
-(c-declare jazz.stream.foreign #/C/
-#ifdef _WIN32
-#define USE_mach_absolute_time
-#elif __APPLE__
-#include <mach/mach_time.h>
-#define USE_mach_absolute_time
-#else
-#define USE_clock_gettime_monotonic
-#endif
-
-typedef ___F64 ___time;
-
-static ___U64 ___time_get_monotonic_time ___PVOID
-{
-#ifdef USE_mach_absolute_time
-
-  return mach_absolute_time ();
-
-#endif
-
-#ifdef USE_QueryPerformanceCounter
-
-  LARGE_INTEGER count;
-
-  if (QueryPerformanceCounter (&count))
-    return ___U64_from_ULONGLONG(count.QuadPart);
-  else
-    return ___U64_from_UM32(0);
-
-#endif
-
-#ifdef USE_clock_gettime_monotonic
-
-  struct timespec ts;
-
-  if (clock_gettime (CLOCK_MONOTONIC, &ts) == 0)
-    return ___U64_add_U64_U64(___U64_mul_UM32_UM32(ts.tv_sec, 1000000000),
-                              ___U64_from_UM32(ts.tv_nsec));
-  else
-    return ___U64_from_UM32(0);
-
-#endif
-}
-
-static ___U64 ___time_get_monotonic_time_frequency ___PVOID
-{
-#ifdef USE_mach_absolute_time
-
-  mach_timebase_info_data_t info;
-
-  mach_timebase_info (&info);
-
-  return ___U64_from_ULONGLONG(1000000000ULL * info.denom / info.numer);
-
-#endif
-
-#ifdef USE_QueryPerformanceCounter
-
-  LARGE_INTEGER freq;
-
-  if (QueryPerformanceFrequency (&freq))
-    return ___U64_from_ULONGLONG(freq.QuadPart);
-  else
-    return ___U64_from_UM32(1);
-
-#endif
-
-#ifdef USE_clock_gettime_monotonic
-
-  struct timespec ts;
-
-  if (clock_getres (CLOCK_MONOTONIC, &ts) == 0)
-    return ___U64_from_ULONGLONG(1000000000ULL / (1000000000ULL * ts.tv_sec + ts.tv_nsec));
-  else
-    return ___U64_from_UM32(1);
-
-#endif
-}
-
-static void ___time_get_current_monotonic_time
-   ___P((___time *tim),
-        (tim)
-___time *tim;)
-{
-    static int first_time = 1;
-    static double monotonic_frequency;
-    
-    if (first_time)
-    {
-        monotonic_frequency = ___time_get_monotonic_time_frequency();
-        first_time = 0;
-    }
-
-    *tim = ((double) ___time_get_monotonic_time()) / monotonic_frequency;
-}
-        
-static ___F64 ___time_to_seconds
-   ___P((___time tim),
-        (tim)
-___time tim;)
-{
-  return tim;
-}
-//#)
-
-
-;;;
 ;;;; Log
 ;;;
 
@@ -662,7 +551,7 @@ static GQueue* log_user_queue = NULL;
 
 typedef struct log_entry_struct
 {
-    ___F64 time;
+    GstClockTime time;
     int level;
     char* message;
     char* stack;
@@ -698,7 +587,7 @@ static void* log_pop_user_last_entry()
     return data;
 }
 
-static ___F64 log_entry_time(void* data)
+static GstClockTime log_entry_time(void* data)
 {
     log_entry* entry = (log_entry*) data;
   
@@ -730,11 +619,9 @@ static void log_push_entry(int level, gchar * message, gchar * stack)
 {
     log_entry* entry = (log_entry*) malloc(sizeof(log_entry));
 
-    ___F64 t, time;
-
-    ___time_get_current_monotonic_time (&t);
-
-    time = ___time_to_seconds (t);
+    GstClock* clock = gst_system_clock_obtain();
+    GstClockTime time = gst_clock_get_time(clock);
+    gst_object_unref(clock);
 
     entry->time = time;
     entry->level = level;
@@ -2220,7 +2107,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (c-external (log_set_listener void*) void)
 (c-external (log_pop_last_entry) void*)
 (c-external (log_pop_user_last_entry) void*)
-(c-external (log_entry_time void*) double)
+(c-external (log_entry_time void*) GstClockTime)
 (c-external (log_entry_level void*) int)
 (c-external (log_entry_message void*) char-string)
 (c-external (log_entry_stack void*) char-string)

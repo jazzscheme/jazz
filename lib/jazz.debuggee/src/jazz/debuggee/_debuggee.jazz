@@ -210,7 +210,7 @@
     (detach-consoles)))
 
 
-(definition package (setup-debuggee (debugger: debugger #f))
+(definition package (setup-debuggee (debugger: debugger #f) (connection-exception-exit?: connection-exception-exit? #t))
   (let ((debugger-arg (or debugger (command-argument "debugger") default-debugger))
         (interactive-arg (command-argument "debugger-interactive")))
     (when debugger-arg
@@ -218,11 +218,14 @@
         (if (not port)
             (error "Ill-formed debugger argument: {a}" debugger-arg)
           (catch (connection-exception? exc
-                   (jazz.platform:system-message "Unable to connect to debugger"
-                     title: "Application"
-                     type: 'problem)
-                   (exit 1))
-            (attach-debuggee host port focus?: #t @annoying-when-starting-from-terminal (parse-boolean interactive-arg))))))))
+                   (if (not connection-exception-exit?)
+                       exc
+                     (jazz.platform:system-message "Unable to connect to debugger"
+                       title: "Application"
+                       type: 'problem)
+                     (exit 1)))
+            (attach-debuggee host port focus?: #t @annoying-when-starting-from-terminal (parse-boolean interactive-arg))
+            #f))))))
 
 
 (definition package (attach-debuggee host port (focus?: focus? #f))

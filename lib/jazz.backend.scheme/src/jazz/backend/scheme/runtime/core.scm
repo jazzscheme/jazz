@@ -1184,6 +1184,10 @@
 ;;;
 
 
+(define jazz:thread-int!
+  ##thread-int!)
+
+
 ;; need to fix this correctly
 (define jazz:thread-interrupt! (lambda rest
                                  (jazz:catch-exception-filter

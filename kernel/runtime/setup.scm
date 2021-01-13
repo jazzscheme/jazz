@@ -803,7 +803,7 @@ c-end
     
     (if (%%eq? (%%current-thread) jazz:quit-thread)
         (raise-quit)
-      (thread-interrupt! jazz:quit-thread raise-quit))))
+      (##thread-int! jazz:quit-thread raise-quit))))
 
 (define (jazz:quit-set! proc)
   (set! jazz:quit proc))

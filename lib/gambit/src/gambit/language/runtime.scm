@@ -1035,7 +1035,7 @@
 (native thread-group-terminate!)
 (native thread-group?)
 (native thread-init!)
-;;(native thread-interrupt!)
+(native thread-interrupt!)
 (native thread-join!)
 (native thread-mailbox-extract-and-rewind)
 (native thread-mailbox-next)

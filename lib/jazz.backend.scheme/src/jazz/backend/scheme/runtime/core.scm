@@ -1188,18 +1188,6 @@
   ##thread-int!)
 
 
-;; need to fix this correctly
-(define jazz:thread-interrupt! (lambda rest
-                                 (jazz:catch-exception-filter
-                                   (lambda (exc)
-                                     #t)
-                                   (lambda (exc)
-                                     #t)
-                                   (lambda ()
-                                     (apply thread-interrupt! rest))))
-        #; thread-interrupt!
-        )
-
 (define (jazz:thread-state-active? state)
   (or (thread-state-running? state)
       (thread-state-waiting? state)))

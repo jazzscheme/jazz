@@ -198,20 +198,21 @@
 (class Remote-Presence extends Object
   
   
-  (slot purpose           getter generate)
-  (slot uuid              getter generate)
-  (slot register          getter generate)
-  (slot listener          getter generate)
-  (slot connections       getter generate)
-  (slot connections-mutex getter generate)
-  (slot code              accessors generate)
-  (slot version           accessors generate)
-  (slot already-connected accessors generate)
-  (slot accept-handler    accessors generate)
-  (slot connect-handler   accessors generate)
-  (slot invoke-handler    accessors generate)
-  (slot process-handler   accessors generate)
-  (slot execute-handler   accessors generate)
+  (slot purpose            getter generate)
+  (slot uuid               getter generate)
+  (slot register           getter generate)
+  (slot listener           getter generate)
+  (slot connections        getter generate)
+  (slot connections-mutex  getter generate)
+  (slot code               accessors generate)
+  (slot version            accessors generate)
+  (slot already-connected  accessors generate)
+  (slot accept-handler     accessors generate)
+  (slot connect-handler    accessors generate)
+  (slot invoke-handler     accessors generate)
+  (slot process-handler    accessors generate)
+  (slot processing-handler accessors generate)
+  (slot execute-handler    accessors generate)
   
   
   (method override (initialize self purpose)
@@ -229,6 +230,7 @@
     (set! self.connect-handler (lambda (proc presence) (proc presence)))
     (set! self.invoke-handler (lambda (proc connection) (proc connection)))
     (set! self.process-handler (lambda (proc connection) (proc connection)))
+    (set! self.processing-handler #f)
     (set! self.execute-handler (lambda (proc connection) (proc connection))))
   
   
@@ -279,7 +281,7 @@
                 (write-port port code version (list local-uuid local-title local-service local-address))
                 (assert (eq? (read-port port code version) 'handshake)
                   (let ((lag (- (current-monotonic) start)))
-                    (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag #f invoke-handler process-handler execute-handler)))
+                    (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag #f invoke-handler process-handler processing-handler execute-handler)))
                       (when (and debug-remote? (debug-remote-presence? self))
                         (callee-garble-hack)
                         (debug-remote self '<<< remote-title remote-uuid 'accept connection))
@@ -325,7 +327,7 @@
                      (bind (remote-uuid remote-title remote-service remote-address) reply
                        (let ((lag (- (current-monotonic) start)))
                          (write-port port code version 'handshake)
-                         (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag slave? invoke-handler process-handler execute-handler)))
+                         (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag slave? invoke-handler process-handler processing-handler execute-handler)))
                            (when (and debug-remote? (debug-remote-presence? self))
                              (callee-garble-hack)
                              (callee-garble-hack)
@@ -416,25 +418,26 @@
 (class Remote-Connection extends Object
   
   
-  (slot presence          getter generate)
-  (slot port              getter generate)
-  (slot thread            accessors generate)
-  (slot write-mutex       getter generate)
-  (slot remote-uuid       getter generate)
-  (slot remote-title      getter generate)
-  (slot service           getter generate)   ; the peer's listener port
-  (slot address           getter generate)   ; the peer's address of us
-  (slot invocations       getter generate)
-  (slot invocations-mutex getter generate)
-  (slot lag               accessors generate)
-  (slot closing?          accessors generate)
-  (slot slave?            getter generate)
-  (slot invoke-handler    getter generate)
-  (slot process-handler   getter generate)
-  (slot execute-handler   getter generate)
+  (slot presence           getter generate)
+  (slot port               getter generate)
+  (slot thread             accessors generate)
+  (slot write-mutex        getter generate)
+  (slot remote-uuid        getter generate)
+  (slot remote-title       getter generate)
+  (slot service            getter generate)   ; the peer's listener port
+  (slot address            getter generate)   ; the peer's address of us
+  (slot invocations        getter generate)
+  (slot invocations-mutex  getter generate)
+  (slot lag                accessors generate)
+  (slot closing?           accessors generate)
+  (slot slave?             getter generate)
+  (slot invoke-handler     getter generate)
+  (slot process-handler    getter generate)
+  (slot processing-handler getter generate)
+  (slot execute-handler    getter generate)
   
   
-  (method override (initialize self presence port remote-uuid remote-title service address lag slave? invoke-handler process-handler execute-handler)
+  (method override (initialize self presence port remote-uuid remote-title service address lag slave? invoke-handler process-handler processing-handler execute-handler)
     (set! self.presence presence)
     (set! self.port port)
     (set! self.write-mutex (make-mutex 'write))
@@ -449,6 +452,7 @@
     (set! self.slave? slave?)
     (set! self.invoke-handler invoke-handler)
     (set! self.process-handler process-handler)
+    (set! self.processing-handler processing-handler)
     (set! self.execute-handler execute-handler))
   
   
@@ -509,6 +513,8 @@
                                    (close-connection presence remote-uuid self))
                                  (continuation-return exit #f))
                                (lambda ()
+                                 (when processing-handler
+                                   (processing-handler))
                                  (read-message self)))))
                 (bind (kind . rest) message
                   (case kind
@@ -740,9 +746,23 @@
   (let ((presence (require-presence purpose)))
     (set-process-handler presence process-handler)))
 
+(definition protected (set-presence-processing-handler processing-handler (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (set-processing-handler presence processing-handler)))
+
 (definition protected (set-presence-execute-handler execute-handler (purpose: purpose #f))
   (let ((presence (require-presence purpose)))
     (set-execute-handler presence execute-handler)))
+
+
+(definition protected (reset-presence-process-handler (purpose: purpose #f))
+  (set-presence-process-handler
+    (lambda (proc connection)
+      (proc connection))
+    purpose: purpose))
+
+(definition protected (reset-presence-processing-handler (purpose: purpose #f))
+  (set-presence-processing-handler #f purpose: purpose))
 
 
 ;;;

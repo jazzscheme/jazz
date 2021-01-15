@@ -76,6 +76,8 @@
 (hub connect-remote)
 (hub debug-remote)
 (hub debug-simplify)
+(hub disconnect)
+(hub disconnect-connection)
 (hub find-connection)
 (hub find-object)
 (hub get-address)
@@ -375,6 +377,13 @@
       (lambda ()
         (table-clear connections remote-uuid)
         (close connection))))
+  
+  
+  (method (disconnect-connection self remote-uuid connection)
+    (with-connections-mutex self
+      (lambda ()
+        (table-clear connections remote-uuid)
+        (disconnect connection))))
 
   
   ;;;
@@ -447,6 +456,10 @@
     (close-port port)
     (sever-invocations self)
     (nextmethod self))
+  
+  
+  (method (disconnect self)
+    (sever-invocations self))
   
   
   (method override (print self output readably)
@@ -795,6 +808,13 @@
           (assert (uuid=? (connect-remote presence host port)
                           uuid)))
         proxy))))
+
+
+(definition public (disconnect-remote-proxy remote-proxy)
+  (let ((presence (get-presence remote-proxy))
+        (uuid (get-uuid (get-ior remote-proxy))))
+    (let ((connection (require-connection presence uuid)))
+      (disconnect-connection presence uuid connection))))
 
 
 (definition public (close-remote-proxy remote-proxy)

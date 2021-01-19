@@ -142,7 +142,10 @@
                                       "audioconvert name=convert"
                                       "audioresample name=resample"
                                       "volume name=volume"
-                                      "audiopanorama name=panorama"
+                                      ;; wasapi regression
+                                      (cond-expand
+                                        (windows #f)
+                                        (else "audiopanorama name=panorama"))
                                       (gst-element audiosink name: "sink"))))
           (gst_object_set_name pipeline "sound")
           (with-unref ((filesrc (gst_bin_get_by_name pipeline "src")))
@@ -229,6 +232,10 @@
   
   
   (method override (set-panorama self pan)
-    (when audio?
-      (with-unref ((panorama (gst_bin_get_by_name pipeline "panorama")))
-        (g_object_set_double panorama "panorama" pan))))))
+    ;; wasapi regression
+    (cond-expand
+      (windows)
+      (else
+       (when audio?
+         (with-unref ((panorama (gst_bin_get_by_name pipeline "panorama")))
+           (g_object_set_double panorama "panorama" pan))))))))

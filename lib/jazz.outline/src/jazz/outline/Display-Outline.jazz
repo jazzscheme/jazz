@@ -96,18 +96,22 @@
   
   (method override (follow self display-v v)
     (define (follow-forward v)
-      (while (> v 0)
-        (let* ((height (+ (get-height first-displayed) row-spacing))
-               (remaining (- height first-displayed-offset)))
-          (if (< v remaining)
-              (begin
-                (increase! first-displayed-offset v)
-                (set! v 0))
-            (set! first-displayed (get-next first-displayed))
-            (increase! first-displayed-line)
-            (decrease! v remaining)
-            (set! first-displayed-offset 0))))
-      #t)
+      (continuation-capture
+        (lambda (return)
+          (while (> v 0)
+            (let* ((height (+ (get-height first-displayed) row-spacing))
+                   (remaining (- height first-displayed-offset)))
+              (if (< v remaining)
+                  (begin
+                    (increase! first-displayed-offset v)
+                    (set! v 0))
+                (set! first-displayed (get-next first-displayed))
+                (if (not first-displayed)
+                    (continuation-return return #f)
+                  (increase! first-displayed-line)
+                  (decrease! v remaining)
+                  (set! first-displayed-offset 0)))))
+          #t)))
     
     (define (follow-backward v)
       (continuation-capture
@@ -128,10 +132,7 @@
     ;; This is a patch for a complex bug
     ;; See the Outline-View.follow Bug.jazz file to reproduce it...
     (let ((succeeded?
-            ;; Patch around a difficult to reproduce bug
-            (if (not first-displayed)
-                #f
-              (cond ((> v 0) (follow-forward v))
-                    ((< v 0) (follow-backward (- v)))))))
+            (cond ((> v 0) (follow-forward v))
+                  ((< v 0) (follow-backward (- v))))))
       (when (not succeeded?)
         (update-displayed self display-v))))))

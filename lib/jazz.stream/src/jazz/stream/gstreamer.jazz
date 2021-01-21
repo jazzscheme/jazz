@@ -90,23 +90,12 @@
         (loop)))))
 
 
-;; gstreamer system clock and gambit current-seconds rebase
-(definition gstreamer/gambit-time-rebase <fl>
-  +nan.0)
-
-(definition protected (setup-gstreamer/gambit-time)
-  (let ((gstreamer (timestamp->flonum (gst_system_clock_get_time)))
-        (gambit (current-seconds)))
-    (set! gstreamer/gambit-time-rebase
-          (- gambit gstreamer))))
-
-
 (definition protected (parse-log-entry entry)
   (let ((time (log_entry_time entry))
         (level (log_entry_level entry))
         (message (log_entry_message entry))
         (stack (log_entry_stack entry)))
-    (values (+ (timestamp->flonum time) gstreamer/gambit-time-rebase)
+    (values (timestamp->flonum (- time gstreamer-start-time))
             level
             message
             (and stack (remove-empty (split stack "\n"))))))

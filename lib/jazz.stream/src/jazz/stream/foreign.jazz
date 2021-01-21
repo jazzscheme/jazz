@@ -544,6 +544,8 @@ static ___SCMOBJ alloc_values(___SCMOBJ obj0, ___SCMOBJ obj1)
 #define LOG_LEVEL_GST_ERROR   4
 #define LOG_LEVEL_GST_WARNING 5
 
+#define MAX_LOG_ENTRIES 100
+
 static GMutex log_mutex;
 
 static GQueue* log_queue = NULL;
@@ -647,10 +649,18 @@ static void log_push_entry(int level, gchar * category, gchar * function, gchar 
     entry->stack = stack;
 
     g_mutex_lock(&log_mutex);
+
     g_queue_push_tail(log_queue, entry);
+    if (g_queue_get_length(log_queue) > MAX_LOG_ENTRIES)
+        g_queue_pop_head(log_queue);
+
     g_queue_push_tail(log_user_queue, entry);
+    if (g_queue_get_length(log_user_queue) > MAX_LOG_ENTRIES)
+        g_queue_pop_head(log_user_queue);
+
     if (log_listener)
         gst_listener_write(log_listener, ".");
+
     g_mutex_unlock(&log_mutex);
 }
 

@@ -553,6 +553,8 @@ typedef struct log_entry_struct
 {
     GstClockTime time;
     int level;
+    char* category;
+    char* function;
     char* message;
     char* stack;
 } log_entry;
@@ -601,6 +603,20 @@ static int log_entry_level(void* data)
     return entry->level;
 }
 
+static char* log_entry_category(void* data)
+{
+    log_entry* entry = (log_entry*) data;
+  
+    return entry->category;
+}
+
+static char* log_entry_function(void* data)
+{
+    log_entry* entry = (log_entry*) data;
+  
+    return entry->function;
+}
+
 static char* log_entry_message(void* data)
 {
     log_entry* entry = (log_entry*) data;
@@ -615,7 +631,7 @@ static char* log_entry_stack(void* data)
     return entry->stack;
 }
 
-static void log_push_entry(int level, gchar * message, gchar * stack)
+static void log_push_entry(int level, gchar * category, gchar * function, gchar * message, gchar * stack)
 {
     log_entry* entry = (log_entry*) malloc(sizeof(log_entry));
 
@@ -625,6 +641,8 @@ static void log_push_entry(int level, gchar * message, gchar * stack)
 
     entry->time = time;
     entry->level = level;
+    entry->category = category;
+    entry->function = function;
     entry->message = message;
     entry->stack = stack;
 
@@ -650,7 +668,7 @@ static void g_log_handler(const gchar * log_domain, GLogLevelFlags log_level, co
     else
         level = LOG_LEVEL_NONE;
     stack = gst_debug_get_stack_trace(GST_STACK_TRACE_SHOW_FULL);
-    log_push_entry(level, g_strdup(message), stack);
+    log_push_entry(level, NULL, NULL, g_strdup(message), stack);
 
     if (!log_listener)
         g_log_default_handler(G_LOG_DOMAIN, log_level, message, user_data);
@@ -664,7 +682,7 @@ void gst_log_function (GstDebugCategory * category,
     GstDebugLevel level, const gchar * file, const gchar * function,
     gint line, GObject * object, GstDebugMessage * message, gpointer unused)
 {
-    gchar *message_str, *stack;
+    gchar *category_str, *function_str, *message_str, *stack;
 
     if (level == GST_LEVEL_ERROR || level == GST_LEVEL_WARNING)
     {
@@ -674,13 +692,15 @@ void gst_log_function (GstDebugCategory * category,
             level = LOG_LEVEL_GST_WARNING;
         else
             level = LOG_LEVEL_NONE;
+        category_str = g_strdup(gst_debug_category_get_name(category));
+        function_str = g_strdup(function);
         message_str = g_strdup(gst_debug_message_get(message));
         // too much for relatively high occurence warnings
         if (level == LOG_LEVEL_GST_WARNING)
             stack = NULL;
         else
             stack = gst_debug_get_stack_trace(GST_STACK_TRACE_SHOW_FULL);
-        log_push_entry(level, message_str, stack);
+        log_push_entry(level, category_str, function_str, message_str, stack);
     }
 }
 
@@ -2088,6 +2108,8 @@ static void gst_print_messages(GstPipeline* pipeline)
 (c-external (log_pop_user_first_entry) void*)
 (c-external (log_entry_time void*) GstClockTime)
 (c-external (log_entry_level void*) int)
+(c-external (log_entry_category void*) char-string)
+(c-external (log_entry_function void*) char-string)
 (c-external (log_entry_message void*) char-string)
 (c-external (log_entry_stack void*) char-string)
 (gst-external (gst_version_fill scheme-object) void)

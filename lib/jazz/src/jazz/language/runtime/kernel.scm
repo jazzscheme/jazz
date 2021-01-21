@@ -871,6 +871,7 @@
 
 (native jazz:new-queue)
 (native jazz:queue-empty?)
+(native jazz:queue-length)
 (native jazz:enqueue)
 (native jazz:enqueue-list)
 (native jazz:dequeue)

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; GStreamer
+;;;; GStreamer Directories
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,36 +35,36 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.stream.setup jazz
+(module protected jazz.stream.directories jazz
 
 
-(import (jazz.stream.directories))
+(definition protected *gstreamer-dir*
+  #f)
 
-
-;; TO RUN FROM SOURCE
-;; - uncomment GST_SOURCE in .profilerc
-;; - recompile jazz.stream.foreign
-
-
-(definition public (setup-gstreamer)
-  (unless (getenv "GST_DEBUG" #f)
-    (setenv "GST_DEBUG" "2"))
+(definition protected (gstreamer-dir)
+  (define (determine-install)
+    (define (try dir)
+      (if (and dir
+               (file-exists? (tie "{dir}gstreamer"))
+               (let ((scanner (add-extension "gst-plugin-scanner" (executable-extension kernel-platform))))
+                 (file-exists? (tie "{dir}gstreamer/libexec/gstreamer-1.0/{scanner}"))))
+          dir
+        #f))
+    
+    (or (cond-expand
+          (mac
+           (or (and kernel-bundle-install (try (string-append kernel-bundle-install "Libraries/")))
+               (and kernel-bundle-contents (try (string-append kernel-bundle-contents "Libraries/")))
+               (try (string-append kernel-install "Libraries/"))))
+          (else
+           (or (try kernel-bundle-install)
+               (try kernel-install))))
+        (error "Unable to find gstreamer")))
   
-  (cond-expand
-    (devel (setenv "GST_DEBUG_DUMP_DOT_DIR" (path-normalize (current-directory))))
-    (else))
-  
-  (if (cond-expand
-        (devel (getenv "GST_SOURCE" #f))
-        (else #f))
-      (begin
-        (setenv "GST_REGISTRY" (getenv "GST_SOURCE_REGISTRY"))
-        (setenv "GST_PLUGIN_SYSTEM_PATH" "")
-        (setenv "GST_PLUGIN_PATH" (getenv "GST_SOURCE_PLUGIN_PATH"))
-        (setenv "GST_PLUGIN_SCANNER" (getenv "GST_SOURCE_PLUGIN_SCANNER")))
-    (let ((gstreamer-dir (gstreamer-dir)))
-      (setenv "GST_REGISTRY"           (tie "{gstreamer-dir}registry.bin"))
-      (setenv "GST_PLUGIN_SYSTEM_PATH" (tie "{gstreamer-dir}lib/gstreamer-1.0"))
-      (setenv "GST_PLUGIN_SCANNER"     (tie "{gstreamer-dir}libexec/gstreamer-1.0/gst-plugin-scanner")))))
+  (or *gstreamer-dir*
+      (let ((dir (string-append (determine-install) "gstreamer/")))
+        (set! *gstreamer-dir* dir)
+        dir)))
 
-(setup-gstreamer))
+(definition protected (gstreamer-bin-dir)
+  (string-append (gstreamer-dir) "bin/")))

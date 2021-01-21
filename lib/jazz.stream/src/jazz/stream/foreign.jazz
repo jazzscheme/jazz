@@ -559,6 +559,7 @@ typedef struct log_entry_struct
     char* function;
     char* message;
     char* stack;
+    int refcount;
 } log_entry;
 
 static void* log_listener = NULL;
@@ -633,9 +634,31 @@ static char* log_entry_stack(void* data)
     return entry->stack;
 }
 
+static void log_ref_entry(log_entry* entry)
+{
+    entry->refcount++;
+}
+
+static void log_unref_entry(log_entry* entry)
+{
+    entry->refcount--;
+    if (entry->refcount <= 0)
+    {
+        if (entry->category)
+            g_free(entry->category);
+        if (entry->function)
+            g_free(entry->function);
+        g_free(entry->message);
+        if (entry->stack)
+            g_free(entry->stack);
+        free(entry);
+    }
+}
+
 static void log_push_entry(int level, gchar * category, gchar * function, gchar * message, gchar * stack)
 {
     log_entry* entry = (log_entry*) malloc(sizeof(log_entry));
+    log_entry* popped_entry;
 
     GstClock* clock = gst_system_clock_obtain();
     GstClockTime time = gst_clock_get_time(clock);
@@ -647,16 +670,25 @@ static void log_push_entry(int level, gchar * category, gchar * function, gchar 
     entry->function = function;
     entry->message = message;
     entry->stack = stack;
+    entry->refcount = 0;
 
     g_mutex_lock(&log_mutex);
 
     g_queue_push_tail(log_queue, entry);
+    log_ref_entry(entry);
     if (g_queue_get_length(log_queue) > MAX_LOG_ENTRIES)
-        g_queue_pop_head(log_queue);
+    {
+        popped_entry = (log_entry*) g_queue_pop_head(log_queue);
+        log_unref_entry(popped_entry);
+    }
 
     g_queue_push_tail(log_user_queue, entry);
+    log_ref_entry(entry);
     if (g_queue_get_length(log_user_queue) > MAX_LOG_ENTRIES)
-        g_queue_pop_head(log_user_queue);
+    {
+        popped_entry = g_queue_pop_head(log_user_queue);
+        log_unref_entry(popped_entry);
+    }
 
     if (log_listener)
         gst_listener_write(log_listener, ".");
@@ -2116,6 +2148,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (c-external (log_set_listener void* bool) void)
 (c-external (log_pop_first_entry) void*)
 (c-external (log_pop_user_first_entry) void*)
+(c-external (log_unref_entry void*) void)
 (c-external (log_entry_time void*) GstClockTime)
 (c-external (log_entry_level void*) int)
 (c-external (log_entry_category void*) char-string)

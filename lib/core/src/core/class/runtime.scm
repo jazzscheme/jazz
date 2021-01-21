@@ -2759,6 +2759,10 @@
   (%%null? (%%get-queue-head queue)))
 
 
+(define (jazz:queue-length queue)
+  (%%length (%%get-queue-head queue)))
+
+
 (define (jazz:enqueue queue object)
   (let ((added (%%cons object '())))
     (jazz:enqueue-impl queue added

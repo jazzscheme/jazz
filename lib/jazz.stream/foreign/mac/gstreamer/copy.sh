@@ -14,6 +14,23 @@ mkdir gstreamer
 
 
 #
+# bin
+#
+
+cpbin() {
+    cp $GSTREAMER/bin/$1 gstreamer/bin/$1
+}
+
+mkdir gstreamer/bin
+cpbin gst-device-monitor-1.0
+cpbin gst-discoverer-1.0
+cpbin gst-inspect-1.0
+cpbin gst-launch-1.0
+cpbin gst-play-1.0
+cpbin gst-typefind-1.0
+
+
+#
 # lib
 #
 

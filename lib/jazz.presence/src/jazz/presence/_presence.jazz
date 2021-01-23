@@ -463,7 +463,12 @@
   
   
   (method (disconnect self)
-    (close-port port)
+    ;; robust
+    (with-exception-catcher
+      (lambda (exc)
+        #f)
+      (lambda ()
+        (close-port port)))
     (sever-invocations self))
   
   
@@ -834,9 +839,11 @@
 (definition public (disconnect-remote-proxy remote-proxy)
   (let ((presence (get-presence remote-proxy))
         (uuid (get-uuid (get-ior remote-proxy))))
-    (let ((connection (require-connection presence uuid)))
-      (set-closing? connection #t)
-      (disconnect-connection presence uuid connection))))
+    (let ((connection (find-connection presence uuid)))
+      ;; robust
+      (when connection
+        (set-closing? connection #t)
+        (disconnect-connection presence uuid connection)))))
 
 
 (definition public (close-remote-proxy remote-proxy)

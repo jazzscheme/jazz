@@ -2370,15 +2370,25 @@ static void gst_print_messages(GstPipeline* pipeline)
 ;;   macs turning screen share off will result in a crash
 ;; - the non-blocking set state might also result in a better
 ;;   behavior by not being in a C call during a blocking set state
-(definition public (gst_element_set_state elem state)
+(definition public (gst_element_set_state elem state (timeout #f))
   (let ((listener (open-stream-listener)))
     (let ((data (gst_element_set_state_threaded elem state (get-write-file listener))))
-      (let ((c (wait listener)))
-        (assert (eqv? c #\!)
-          (gst_element_set_state_free data)
-          (close-stream-listener listener)
-          (when (gst_is_pipeline elem)
-            (set-bus-flushing elem)))))))
+      (define (waiting proc)
+        (if timeout
+            (let ((c (wait-timeout listener timeout)))
+              (if (eof-object? c)
+                  #f
+                (proc c)
+                #t))
+          (proc (wait listener))))
+      
+      (waiting
+        (lambda (c)
+          (assert (eqv? c #\!)
+            (gst_element_set_state_free data)
+            (close-stream-listener listener)
+            (when (gst_is_pipeline elem)
+              (set-bus-flushing elem))))))))
 
 
 ;; we are not using messages at the moment and

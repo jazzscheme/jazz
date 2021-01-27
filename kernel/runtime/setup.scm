@@ -654,11 +654,14 @@ c-end
                        (let ((arg (%%car scan)))
                          (if (%%not (jazz:option? arg))
                              (begin
-                               (let ((path (if (jazz:pathname-extension arg) arg (jazz:add-extension arg "jazz"))))
-                                 (if (file-exists? path)
-                                     (jazz:load-script path)
-                                   (jazz:error "Unable to find script {s}" path)))
+                               (run-script arg)
                                (iter (%%cdr scan))))))))
+            
+            (define (run-script arg)
+              (let ((path (if (jazz:pathname-extension arg) arg (jazz:add-extension arg "jazz"))))
+                (if (file-exists? path)
+                    (jazz:load-script path)
+                  (jazz:error "Unable to find script {s}" path))))
             
             (define (show-version)
               (%%write-string "Gambit" jazz:stdout-port)
@@ -682,9 +685,7 @@ c-end
                    (jazz:load-unit (%%string->symbol load)))
                   (interpret
                    (setup-runtime)
-                   (if (file-exists? interpret)
-                       (jazz:load-script interpret)
-                     (jazz:error "Unable to find script {s}" interpret)))
+                   (run-script interpret))
                   (test
                    (setup-runtime)
                    (jazz:test-product (%%string->symbol test)))

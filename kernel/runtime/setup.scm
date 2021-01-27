@@ -479,7 +479,7 @@ c-end
     (lambda ()
       (jazz:split-command-line (jazz:command-arguments)
                                '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit")
-                               '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "m" "module" "dialect" "listen")
+                               '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "m" "module" "dialect" "listen")
                                missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:find-option "v" options) (jazz:find-option "version" options)))
@@ -501,6 +501,7 @@ c-end
                 (dependencies (jazz:find-option "dependencies" options))
                 (ev (or (jazz:find-option "e" options) (jazz:find-option "eval" options)))
                 (load (or (jazz:find-option "l" options) (jazz:find-option "load" options)))
+                (interpret (or (jazz:find-option "i" options) (jazz:find-option "interpret" options)))
                 (test (or (jazz:find-option "t" options) (jazz:find-option "test" options)))
                 (run (or (jazz:find-option "r" options) (jazz:find-option "run" options)))
                 (update (jazz:find-option "update" options))
@@ -656,7 +657,7 @@ c-end
                                (let ((path (if (jazz:pathname-extension arg) arg (jazz:add-extension arg "jazz"))))
                                  (if (file-exists? path)
                                      (jazz:load-script path)
-                                   (jazz:error "Can't find file {s}" path)))
+                                   (jazz:error "Unable to find script {s}" path)))
                                (iter (%%cdr scan))))))))
             
             (define (show-version)
@@ -679,6 +680,11 @@ c-end
                   (load
                    (setup-runtime)
                    (jazz:load-unit (%%string->symbol load)))
+                  (interpret
+                   (setup-runtime)
+                   (if (file-exists? interpret)
+                       (jazz:load-script interpret)
+                     (jazz:error "Unable to find script {s}" interpret)))
                   (test
                    (setup-runtime)
                    (jazz:test-product (%%string->symbol test)))

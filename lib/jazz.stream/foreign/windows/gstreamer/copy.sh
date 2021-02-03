@@ -52,6 +52,7 @@ cpbundle gstreamer-1.0/libgstd3d
 cpbundle gstreamer-1.0/libgstdeinterlace
 cpbundle gstreamer-1.0/libgstdirectsound
 cpbundle gstreamer-1.0/libgstdirectsoundsrc
+cpbundle gstreamer-1.0/libgstid3demux
 cpbundle gstreamer-1.0/libgstisomp4
 cpbundle gstreamer-1.0/libgstjpeg
 cpbundle gstreamer-1.0/libgstlibav

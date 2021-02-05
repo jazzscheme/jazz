@@ -658,10 +658,15 @@ c-end
                                (iter (%%cdr scan))))))))
             
             (define (run-script arg)
-              (let ((path (if (jazz:pathname-extension arg) arg (jazz:add-extension arg "jazz"))))
+              (let ((path (add-jazz arg)))
                 (if (file-exists? path)
                     (jazz:load-script path)
                   (jazz:error "Unable to find script {s}" path))))
+            
+            (define (add-jazz path)
+              (if (jazz:pathname-extension path)
+                  path
+                (jazz:add-extension path "jazz")))
             
             (define (show-version)
               (%%write-string "Gambit" jazz:stdout-port)
@@ -685,7 +690,23 @@ c-end
                    (jazz:load-unit (%%string->symbol load)))
                   (interpret
                    (setup-runtime)
-                   (run-script interpret))
+                   (cond-expand
+                     (mac
+                      ;; hack around open setting the current directory arbitrarily to /
+                      (if (and (%%equal? (current-directory) "/")
+                               (%%not (jazz:string-starts-with? interpret "/")))
+                          (let ((path (add-jazz (%%string-append jazz:kernel-bundle-install interpret))))
+                            (if (file-exists? path)
+                                (run-script path)
+                              ;; there will be no controlling terminal so no error possible
+                              (let ((port (console-port)))
+                                (display (jazz:format "Unable to find script {s}" path) port)
+                                (newline port)
+                                (force-output port)
+                                (exit))))
+                        (run-script interpret)))
+                     (else
+                      (run-script interpret))))
                   (test
                    (setup-runtime)
                    (jazz:test-product (%%string->symbol test)))

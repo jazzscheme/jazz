@@ -75,6 +75,7 @@ cpbundle gstreamer-1.0/gstvorbis
 cpbundle gstreamer-1.0/gstvpx
 cpbundle gstreamer-1.0/gstwasapi
 cpbundle gstreamer-1.0/gstwavparse
+cpbundle gstreamer-1.0/gstwinks
 cpbundle gstreamer-1.0/gstwinscreencap
 cpbundle gstreamer-1.0/gstx264
 cpshared avcodec-58

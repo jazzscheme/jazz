@@ -57,6 +57,7 @@ cpbundle gstreamer-1.0/gstisomp4
 cpbundle gstreamer-1.0/gstjpeg
 cpbundle gstreamer-1.0/gstlibav
 cpbundle gstreamer-1.0/gstmatroska
+cpbundle gstreamer-1.0/gstmediafoundation
 cpbundle gstreamer-1.0/gstogg
 cpbundle gstreamer-1.0/gstopus
 cpbundle gstreamer-1.0/gstplayback
@@ -73,7 +74,6 @@ cpbundle gstreamer-1.0/gstvorbis
 cpbundle gstreamer-1.0/gstvpx
 cpbundle gstreamer-1.0/gstwasapi
 cpbundle gstreamer-1.0/gstwavparse
-cpbundle gstreamer-1.0/gstwinks
 cpbundle gstreamer-1.0/gstwinscreencap
 cpbundle gstreamer-1.0/gstx264
 cpshared avcodec-58

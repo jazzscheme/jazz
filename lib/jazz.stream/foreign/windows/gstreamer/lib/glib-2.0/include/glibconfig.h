@@ -115,7 +115,7 @@ typedef unsigned long long guintptr;
 #define G_OS_WIN32
 #define G_PLATFORM_WIN32
 
-#define G_VA_COPY va_copy
+/* #undef G_VA_COPY */
 
 
 #ifndef __cplusplus

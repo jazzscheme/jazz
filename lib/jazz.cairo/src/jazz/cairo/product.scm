@@ -162,7 +162,7 @@
   (windows
    (define jazz:platform-files
      (list (cons "lib/jazz.cairo/foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")
-           (cons "lib/jazz.cairo/foreign/windows/pixman/lib/libpixman-1-0.dll" "libpixman-1-0.dll")
+           (cons "lib/jazz.cairo/foreign/windows/pixman/lib/pixman-1-0.dll" "pixman-1-0.dll")
            (cons "lib/jazz.cairo/foreign/windows/expat/lib/libexpat-1.dll" "libexpat-1.dll")
            (cons "lib/jazz.cairo/foreign/windows/png/lib/libpng16-16.dll" "libpng16-16.dll"))))
   (else

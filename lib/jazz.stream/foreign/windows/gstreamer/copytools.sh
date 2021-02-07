@@ -1,6 +1,6 @@
 #! /bin/sh
 
-GSTREAMER=/c/gstreamer/1.0/mingw_x86_64
+GSTREAMER=/c/gstreamer/1.0/msvc_x86_64
 
 
 #

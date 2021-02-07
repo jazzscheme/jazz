@@ -1,6 +1,6 @@
 #! /bin/sh
 
-GSTREAMER=/c/gstreamer/1.0/mingw_x86_64
+GSTREAMER=/c/gstreamer/1.0/msvc_x86_64
 
 
 mkd() {
@@ -27,7 +27,7 @@ cplink() {
     cp $GSTREAMER/lib/$1.a lib/$1.a
 }
 
-cpbundle libpixman-1-0
+cpbundle pixman-1-0
 cplink libpixman-1.dll
 
 

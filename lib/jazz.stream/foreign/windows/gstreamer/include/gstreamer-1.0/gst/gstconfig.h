@@ -158,7 +158,7 @@
  * GST_STATIC_COMPILATION or the prototypes will cause the compiler to search
  * for the symbol inside a DLL.
  */
-#if (0 || defined(_MSC_VER)) && !defined(GST_STATIC_COMPILATION)
+#if (1 || defined(_MSC_VER)) && !defined(GST_STATIC_COMPILATION)
 # define GST_PLUGIN_EXPORT __declspec(dllexport)
 # ifdef GST_EXPORTS
 #  define GST_EXPORT __declspec(dllexport)

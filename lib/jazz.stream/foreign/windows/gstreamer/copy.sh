@@ -1,6 +1,7 @@
 #! /bin/sh
 
 GSTREAMER=/c/gstreamer/1.0/msvc_x86_64
+RNNOISE=/c/Home/gstreamer/rnnoise
 WEBRTC=/c/Home/gstreamer/webrtc/x64/Release
 WEBRTCAUDIOPROCESSING=/c/Home/gstreamer/webrtcaudioprocessing/build/plugin
 
@@ -122,6 +123,8 @@ cplink libgobject-2.0.dll
 cplink libglib-2.0.dll
 cplink libintl.dll
 
+cp $RNNOISE/rnnoise/windows/lib/rnnoise.dll bin/rnnoise.dll
+cp $RNNOISE/build/plugin/gstrnnoise.dll lib/gstreamer-1.0/gstrnnoise.dll
 cp $WEBRTC/webrtc.dll bin/webrtc.dll
 cp $WEBRTCAUDIOPROCESSING/libgstwebrtcaudioprocessing.dll lib/gstreamer-1.0/libgstwebrtcaudioprocessing.dll
 

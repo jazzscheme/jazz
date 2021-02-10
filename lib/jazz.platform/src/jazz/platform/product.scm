@@ -115,7 +115,8 @@
      '()))
   (windows
    (define jazz:platform-files
-     '()))
+     (list (cons "lib/jazz.platform/foreign/windows/gcc/lib/libgcc_s_dw2-1.dll" "libgcc_s_dw2-1.dll")
+           (cons "lib/jazz.platform/foreign/windows/gcc/lib/libstdc++-6.dll" "libstdc++-6.dll"))))
   (else
    (define jazz:platform-files
      '())))

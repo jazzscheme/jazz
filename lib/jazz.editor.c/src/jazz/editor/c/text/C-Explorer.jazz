@@ -38,10 +38,93 @@
 (module protected jazz.editor.c.text.C-Explorer jazz
 
 
-(import (jazz.editor))
+(import (jazz.editor)
+        (jazz.exemplar)
+        (jazz.text))
 
 
 (class C-Explorer extends Code-Explorer
+  
+  
+  ;; TRYOO NOT CORRECT QUICKY
+  (method override (text-constituent? self char)
+    (jazz-constituent? char))
+
+  
+  ;; TRYOO
+  (method override (forward-expr self)
+    (define (forward-quotes)
+      (let ((c (char-forward self 0)))
+        (and (memv? c '(#\quote #\backquote #\comma))
+             (begin
+               (when (and (eqv? c #\comma) (eqv? (char-forward self 1) #\at))
+                 (forward self))
+               (forward self)
+               (forward-whites self)
+               #t))))
+    
+    (forward-whites self)
+    (set-start self end)
+    (let ((s (get-start self)))
+      (while (forward-quotes))
+      (prog1 (forward-simple-expr self)
+        (set-start self s))))
+
+  
+  ;; TRYOO
+  (method override (backward-expr self)
+    (define (backward-quote)
+      (let ((c (char-backward self 0)))
+        (cond ((memv? c '(#\quote #\backquote #\comma #\at))
+               (backward self)
+               #t)
+              ((and (eqv? (char-backward self 1) #\comma) (eqv? c #\at))
+               (backward self)
+               (backward self)
+               #t)
+              (else
+               #f))))
+    
+    (backward-whites self)
+    (set-end self start)
+    (let ((found (backward-simple-expr self)))
+      (and found
+           (begin
+             (while (backward-quote))
+             found))))
+
+
+  ;; TRYOO
+  (method protected (forward-simple-expr self)
+    (let ((c (char-forward self 0)))
+      (and c
+           (cond ((string-delimiter? c)       (forward-string self))
+                 ((text-constituent? self c)  (forward-constituent self))
+                 ((eqv? c #\open-parenthesis) (forward-composite self 'list      #\close-parenthesis))
+                 ((eqv? c #\open-bracket)     (forward-composite self 'reference #\close-bracket))
+                 ((eqv? c #\open-brace)       (forward-composite self 'literal   #\close-brace))
+                 (else #f)))))
+  
+  
+  ;; TRYOO
+  (method protected (backward-simple-expr self)
+    (define (space-literal? c)
+      (and (eqv? (char-forward self 0) #\space)
+           (eqv? (char-backward self 0) #\backslash)
+           (eqv? (char-backward self 1) #\sharp)))
+    
+    (let ((c (char-backward self 0)))
+      (and c
+           (cond ((string-delimiter? c)        (backward-string self))
+                 ((text-constituent? self c)   (backward-constituent self))
+                 ((space-literal? c)           (backward self) (backward self))
+                 ((eqv? c #\close-parenthesis) (backward-composite self 'list      #\open-parenthesis))
+                 ((eqv? c #\close-bracket)     (backward-composite self 'reference #\open-bracket))
+                 ((eqv? c #\close-brace)       (backward-composite self 'literal   #\open-brace))
+                 ((eqv? c #\open-parenthesis)  #f)
+                 ((eqv? c #\open-bracket)      #f)
+                 ((eqv? c #\open-brace)        #f)
+                 (else (backward self))))))
   
   
   (method private (forward-single-line-comment self)
@@ -63,6 +146,12 @@
             (iterate))))))
   
   
+  ;; TRYOO
+  (method (forward-comments self)
+    (next-paragraph self))
+  
+  
+  @WASOO
   (method public (forward-comments self)
     (let (iterate)
       (let ((c (char-forward self 0)))
@@ -77,7 +166,23 @@
                     (iterate)))))))))
   
   
-  (method public (forward-whites self)
+  ;; TRYOO
+  (method override (forward-whites self) <void>
+    (let (iterate)
+      (let ((c (char-forward self 0)))
+        (when c
+          (if (whitespace? c)
+              (when (forward self)
+                (iterate))
+            (case c
+              ((#\semi-colon)
+               (forward-comments self)
+               (iterate)))))))
+    (call-line-hook self))
+  
+  
+  @WASOO
+  (method override (forward-whites self)
     (let (iterate)
       (let ((c (char-forward self 0)))
         (when c
@@ -94,9 +199,295 @@
                  (iterate)))))))
   
   
-  (method public (forward-identifier-or-number self)
+  ;; TRYOO
+  (method override (backward-whites self) <void>
     (let (iterate)
-      (forward-word self)
-      (when (eqv? (char-forward self 0) #\period)
-        (forward self)
-        (iterate))))))
+      (let ((c (char-backward self 0)))
+        (when (and c (whitespace? c) (backward self))
+          (iterate)))))
+
+  
+  ;; TRYOO
+  (method override (forward-constituent self)
+    (let ((keyword? (eqv? (char-forward self 0) #\colon))
+          (last #f))
+      (let (iterate)
+        (let ((c (char-forward self 0)))
+          (cond ((eqv? c #\backslash)
+                 (forward self)
+                 (forward self)
+                 (set! last c)
+                 (iterate))
+                ((or (not c) (not (text-constituent? self c)))
+                 (set! kind (if (or keyword? (and last (eqv? last #\colon))) 'keyword 'symbol))
+                 kind)
+                (else
+                 (forward self)
+                 (set! last c)
+                 (iterate)))))))
+
+  
+  ;; TRYOO
+  (method override (backward-constituent self)
+    (let ((keyword? (eqv? (char-backward self 0) #\colon))
+          (last #f))
+      (let (iterate)
+        (let ((c (char-backward self 0)))
+          (cond ((and (eqv? (char-backward self 1) #\backslash)
+                      (eqv? (char-backward self 2) #\sharp))
+                 (backward self)
+                 (backward self)
+                 (set! last c)
+                 (iterate))
+                ((or (not c) (not (text-constituent? self c)))
+                 (set! kind (if (or keyword? (eqv? last #\colon)) 'keyword 'symbol))
+                 kind)
+                (else
+                 (backward self)
+                 (set! last c)
+                 (iterate)))))))
+  
+  
+  ;; TRYOO
+  (method protected (forward-string self)
+    (forward self)
+    (let (iterate)
+      (call-line-hook self)
+      (let ((c (char-forward self 0)))
+        (cond ((not c)
+               #f)
+              ((eqv? c #\backslash)
+               (forward self)
+               (forward self)
+               (iterate))
+              ((string-delimiter? c)
+               (forward self)
+               (set! kind 'string)
+               kind)
+              (else
+               (forward self)
+               (iterate))))))
+  
+  
+  ;; TRYOO
+  (method protected (backward-string self)
+    (backward self)
+    (let (iterate)
+      (let ((c (char-backward self 0)))
+        (cond ((not c)
+               #f)
+              ((eqv? (char-backward self 1) #\backslash)
+               (backward self)
+               (backward self)
+               (iterate))
+              ((string-delimiter? c)
+               (backward self)
+               (set! kind 'string)
+               kind)
+              (else
+               (backward self)
+               (iterate))))))
+  
+  
+  ;; GAZOO
+  (method override (outer-expr self (atomic?: atomic? #f) (explore-whitespace?: explore-whitespace? #t) (uniform-style?: uniform-style? #f))
+    (let ((empty? (= start end))
+          (prv (previous-char self start 0))
+          (nxt (next-char self end 0)))
+      (define (reset)
+        (set-start self end)
+        (set! prv (previous-char self start 0))
+        (set! nxt (next-char self end 0)))
+      
+      (define (unquote-splicing? comma at)
+        (and (eqv? comma #\comma) (eqv? at #\at)))
+      
+      (define (quote? c)
+        (memv? c '(#\quote #\comma #\backquote)))
+      
+      (define (terminal? c)
+        (or (not c)
+            (whitespace? c)
+            (open-composite? self c)
+            (close-composite? self c)
+            (string-delimiter? c)
+            (quote? c)))
+      
+      (define (homogeneous? str)
+        (member? str '("#s8" "#s16" "#s32" "#s64" "#f32"
+                       "#u8" "#u16" "#u32" "#u64" "#f64")))
+      
+      (define (advance-quoting)
+        (let (iterate (count 0))
+          (define (skip-quoting)
+            (forward self)
+            (forward-whitespaces self)
+            (reset)
+            (iterate (+ count 1)))
+          
+          (cond ((unquote-splicing? nxt (next-char self end 1))
+                 (forward self)
+                 (skip-quoting))
+                ((unquote-splicing? prv nxt)
+                 (skip-quoting))
+                ((quote? nxt)
+                 (skip-quoting))
+                ((quote? prv)
+                 count)
+                (else
+                 count))))
+      
+      (define (advance-literal)
+        (outer-constituent)
+        (and (eqv? (get-char self start) #\sharp)
+             (begin
+               (forward-until self terminal?)
+               (reset)
+               #t)))
+      
+      (define (outer-style)
+        (let ((pos start))
+          (let ((style (get-style-at model pos)))
+            (define (try style-name)
+              (and (inherits? style style-name)
+                   (begin
+                     (select-style self
+                       (lambda (style <Exemplar>)
+                         (inherits? style style-name)))
+                     #t)))
+            
+            (or (try 'Text-String)
+                (try 'C-Syntax)))))
+      
+      (define (outer-literal)
+        (define (backward-to-sharp)
+          (let ((s (copy start)))
+            (backward-until self terminal?)
+            (if (eqv? (get-char self start) #\sharp)
+                #t
+              (set-start self s)
+              #f)))
+        
+        (and (backward-to-sharp)
+             (begin
+               (forward-until self terminal?)
+               (let ((marked (get-marked self)))
+                 (cond ((homogeneous? marked)
+                        (when (open-composite? self (next-char self end 0))
+                          (let ((s (copy start)))
+                            (forward-expr self)
+                            (set-start self s))))
+                       ((equal? marked "#\\")
+                        (forward self))
+                       ((equal? marked "#")
+                        (when (open-composite? self (next-char self end 0))
+                          (let ((s (copy start)))
+                            (forward-expr self)
+                            (set-start self s))))))
+               #t)))
+      
+      (define (outer-constituent)
+        (let ((prv-constituent? (and prv (text-constituent? self prv)))
+              (nxt-constituent? (and nxt (text-constituent? self nxt))))
+          (and (or prv-constituent? nxt-constituent?)
+               (begin
+                 (when prv-constituent?
+                   (backward-constituent self))
+                 (when nxt-constituent?
+                   (forward-constituent self))
+                 #t))))
+      
+      (define (outer-string)
+        (let ((prv-string? (and prv (string-delimiter? prv)))
+              (nxt-string? (and nxt (string-delimiter? nxt))))
+          (and (or prv-string? nxt-string?)
+               (begin
+                 (cond ((and prv-string? nxt-string?)
+                        (set-start self (previous-pos self start 1))
+                        (set-end self (next-pos self end 1)))
+                       (else
+                        (when prv-string?
+                          (backward-expr self))
+                        (when nxt-string?
+                          (forward-expr self))))
+                 #t))))
+      
+      (define (outer-composite)
+        (let ((prv-close-composite? (and prv (close-composite? self prv)))
+              (nxt-open-composite? (and nxt (open-composite? self nxt))))
+          (and (or prv-close-composite? nxt-open-composite?)
+               (begin
+                 (if prv-close-composite?
+                     (backward-expr self)
+                   (forward-expr self))
+                 #t))))
+      
+      (define (prepend-quoting)
+        (let ((s <Cell> (copy start)))
+          (backward-whitespaces self)
+          (backward self)
+          (when (unquote-splicing? (previous-char self start 0) (get-char self start))
+            (backward self))
+          (if (quote? (get-char self start))
+              #t
+            (set-start self s)
+            #f)))
+      
+      (define (prepend-literal)
+        (let ((s <Cell> (copy start)))
+          (and (not (terminal? (previous-char self start 0)))
+               (begin
+                 (backward-until self terminal?)
+                 (let ((c (get-char self start)))
+                   (if (eqv? c #\sharp)
+                       #t
+                     (set-start self s)
+                     #f))))))
+      
+      (define (prepend-expr-comment)
+        (and (eqv? (previous-char self start 0) #\at)
+             (backward self)))
+      
+      (define (composites-match? start end)
+        (or (and (eqv? start #\open-parenthesis) (eqv? end #\close-parenthesis))
+            (and (eqv? start #\open-bracket)     (eqv? end #\close-bracket))
+            (and (eqv? start #\open-brace)       (eqv? end #\close-brace))))
+      
+      (or (if empty?
+              (let ((quote-count (advance-quoting)))
+                (and (or (and uniform-style? (outer-style))
+                         (outer-literal)
+                         (outer-constituent)
+                         (outer-string)
+                         (outer-composite))
+                     (begin
+                       (when (> quote-count 0)
+                         (for-each (lambda (n) (prepend-quoting)) (naturals 0 quote-count)))
+                       #t)))
+            (or (outer-constituent)
+                (prepend-literal)
+                (and (prepend-quoting)
+                     (begin
+                       (while (prepend-quoting))
+                       #t))
+                (prepend-expr-comment)))
+          (and explore-whitespace?
+               (receive (start-pos start-char) (let ((e (copy end)))
+                                                 (backward-all-expr self)
+                                                 (set-end self e)
+                                                 (values (copy start) (previous-char self start 0)))
+                 (when (and start-char (not (open-composite? self start-char)))
+                   (explore-error self (format "Found unexpected character while exploring backward: {a}" (present-char self start-char)) (previous-pos self start-pos 1) start-pos))
+                 (receive (end-pos end-char) (let ((s (copy start)))
+                                               (forward-all-expr self)
+                                               (set-start self s)
+                                               (values (copy end) (next-char self end 0)))
+                   (when (and end-char (not (close-composite? self end-char)))
+                     (explore-error self (format "Found unexpected character while exploring forward: {a}" (present-char self end-char)) end-pos (next-pos self end-pos 1)))
+                   (when (and start-char end-char (not (composites-match? start-char end-char)))
+                     (explore-error self (format "Found mismatched open/close: {a} {a}" (present-char self start-char) (present-char self end-char)) end-pos (next-pos self end-pos 1)))
+                   (set-start self start-pos)
+                   (set-end self end-pos)
+                   (forward self)
+                   (backward self)
+                   (and start-char end-char)))))))))

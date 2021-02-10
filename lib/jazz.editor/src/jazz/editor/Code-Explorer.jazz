@@ -38,13 +38,56 @@
 (module protected jazz.editor.Code-Explorer jazz
 
 
-(import (jazz.text))
+(import (jazz.outline)
+        (jazz.text))
 
 
 (proclaim (warn optimizations))
 
 
 (class undocumented Code-Explorer extends Text-Explorer
+  
+  
+  (constant Composites
+    '((#\open-parenthesis #\close-parenthesis list)
+      (#\open-bracket     #\close-bracket     reference)
+      (#\open-brace       #\close-brace       literal)))
+  
+  
+  (constant Open-Composites
+    '(#\open-parenthesis
+      #\open-bracket
+      #\open-brace))
+  
+  
+  (constant Close-Composites
+    '(#\close-parenthesis
+      #\close-bracket
+      #\close-brace))
+  
+  
+  (method package (explore-error self message start end)
+    (let ((source (get-moniker (single-client model)))
+          (start (or start (text-beginning model)))
+          (end (or end (text-ending model))))
+      (signal (new Explore-Error source start: start end: end message: message))))
+  
+  
+  (method package (present-char self c)
+    (cond ((not c)
+           "EOF")
+          ((memv? c '(#\space #\tab #\return #\linefeed))
+           (char-symbol c))
+          (else
+           (string c))))
+  
+  
+  (method protected virtual (backward-whites self)
+    )
+  
+  
+  (method protected virtual (forward-whites self)
+    )
 
   
   (method public virtual (backward-expr self)
@@ -59,6 +102,20 @@
          (begin
            (set! kind 'string)
            kind)))
+
+  
+  (method public (backward-all-expr self)
+    (let ((initial-start (copy start)))
+      (while (backward-expr self)
+        )
+      (set! end initial-start)))
+
+  
+  (method public (forward-all-expr self)
+    (let ((initial-end (copy end)))
+      (while (forward-expr self)
+        )
+      (set! start initial-end)))
 
 
   (method public (collect-backward-exprs self) <list>
@@ -76,6 +133,33 @@
       (get-output fact)))
   
   
+  (method protected (forward-composite self knd <Object> delimiter)
+    (set-start self end)
+    (forward self)
+    (forward-all-expr self)
+    (forward-whites self)
+    (let ((c (char-forward self 0)))
+      (if (not (eqv? c delimiter))
+          (explore-error self (format "Found unexpected character while exploring forward: {a}" (present-char self c)) end (next-pos self end 1))
+        (forward self)
+        (set! kind knd)
+        kind)))
+  
+  
+  (method protected (backward-composite self knd <Object> delimiter)
+    (let ((initial-start (copy start)))
+      (backward self)
+      (backward-all-expr self)
+      (backward-whites self)
+      (let ((c (char-backward self 0)))
+        (if (not (eqv? c delimiter))
+            (explore-error self (format "Found unexpected character while exploring backward: {a}" (present-char self c)) (previous-pos self start 1) start)
+          (backward self)
+          (set! end initial-start)
+          (set! kind knd)
+          kind))))
+  
+  
   (method virtual (expression-comment? self mark)
     #f)
   
@@ -91,4 +175,21 @@
                       '())
                   (cons mark (iterate (cdr scan)))))
             '()))
-      list))))
+      list))
+  
+
+  ;;;
+  ;;;; Utilities
+  ;;;
+
+
+  (method public (open-composite? self char)
+    (memv? char Open-Composites))
+
+
+  (method public (close-composite? self char)
+    (memv? char Close-Composites))
+  
+  
+  (method public (composite-kind? self kind)
+    (memq? kind '(list reference literal)))))

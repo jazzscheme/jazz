@@ -301,23 +301,39 @@
     (iterate-table content proc))
   
   
+  (method public (->list self)
+    (table->list content))
+  
+  
+  (method public (<-list self lst)
+    (empty-table content)
+    (for-each (lambda (pair)
+                (bind (setting . value) pair
+                  (table-set! content setting value)))
+              lst)
+    (set! modified? #t))
+  
+  
   (method public (save-content self)
-    (define (find-longest list)
-      (apply max (map (lambda (info)
-                        (cardinality (symbol->string (car info))))
-                      list)))
-    
-    (call-with-output-file (path-settings file)
-      (lambda (output)
-        (let ((all (table->list content)))
-          (when (not-null? all)
-            (let ((max (find-longest all))
-                  (sorted (sort string<? all key: (lambda (info) (symbol->string (car info))))))
-              (for-each (lambda (info)
-                          (bind (setting . value) info
-                            (format output "{s}{_ :v} {s}{%}" setting (- max (cardinality (symbol->string setting))) value)))
-                        sorted))))))
+    (save-settings (table->list content) file)
     (set! modified? #f)))
+
+
+(definition public (save-settings all file)
+  (define (find-longest list)
+    (apply max (map (lambda (info)
+                      (cardinality (symbol->string (car info))))
+                    list)))
+  
+  (call-with-output-file (path-settings file)
+    (lambda (output)
+      (when (not-null? all)
+        (let ((max (find-longest all))
+              (sorted (sort string<? all key: (lambda (info) (symbol->string (car info))))))
+          (for-each (lambda (info)
+                      (bind (setting . value) info
+                        (format output "{s}{_ :v} {s}{%}" setting (- max (cardinality (symbol->string setting))) value)))
+                    sorted))))))
 
 
 ;;;

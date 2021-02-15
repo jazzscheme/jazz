@@ -677,6 +677,16 @@
         #f))))
 
 
+(define (jazz:vector-memv? obj vector)
+  (let ((len (%%vector-length vector)))
+    (let iter ((n 0))
+      (if (%%fx< n len)
+          (if (%%eqv? (%%vector-ref vector n) obj)
+              #t
+            (iter (%%fx+ n 1)))
+        #f))))
+
+
 (define (jazz:resize-vector vector size)
   (let ((new-vector (%%make-vector size #f)))
     (let iter ((offset (%%fx- (min size (%%vector-length vector)) 1)))

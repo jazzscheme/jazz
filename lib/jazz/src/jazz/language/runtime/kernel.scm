@@ -1177,6 +1177,15 @@
 
 
 ;;;
+;;;; Vector
+;;;
+
+
+(native jazz:vector-memq?)
+(native jazz:vector-memv?)
+
+
+;;;
 ;;;; Walker
 ;;;
 

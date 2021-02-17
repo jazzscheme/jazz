@@ -63,6 +63,7 @@ cplib gstreamer-1.0/libgstisomp4.dylib
 cplib gstreamer-1.0/libgstjpeg.dylib
 cplib gstreamer-1.0/libgstlibav.dylib
 cplib gstreamer-1.0/libgstmatroska.dylib
+cplib gstreamer-1.0/libgstmpegtsdemux.dylib
 cplib gstreamer-1.0/libgstogg.dylib
 cplib gstreamer-1.0/libgstopus.dylib
 cplib gstreamer-1.0/libgstosxaudio.dylib
@@ -100,6 +101,7 @@ cplib libgstbase-1.0.0.dylib
 cplib libgstcodecparsers-1.0.0.dylib
 cplib libgstfft-1.0.0.dylib
 cplib libgstgl-1.0.0.dylib
+cplib libgstmpegts-1.0.0.dylib
 cplib libgstpbutils-1.0.0.dylib
 cplib libgstreamer-1.0.0.dylib
 cplib libgstriff-1.0.0.dylib

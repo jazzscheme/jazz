@@ -59,6 +59,7 @@ cpbundle gstreamer-1.0/gstjpeg
 cpbundle gstreamer-1.0/gstlibav
 cpbundle gstreamer-1.0/gstmatroska
 cpbundle gstreamer-1.0/gstmediafoundation
+cpbundle gstreamer-1.0/gstmpegtsdemux
 cpbundle gstreamer-1.0/gstogg
 cpbundle gstreamer-1.0/gstopus
 cpbundle gstreamer-1.0/gstplayback
@@ -97,6 +98,7 @@ cpshared gstbase-1.0-0
 cpshared gstcodecparsers-1.0-0
 cpshared gstfft-1.0-0
 cpshared gstgl-1.0-0
+cpshared gstmpegts-1.0-0
 cpshared gstpbutils-1.0-0
 cpshared gstreamer-1.0-0
 cpshared gstriff-1.0-0

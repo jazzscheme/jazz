@@ -4181,6 +4181,29 @@
 
 
 ;;;
+;;;; Let Macro Form
+;;;
+
+
+(jazz:define-class jazz:Let-Macro-Form jazz:Form-Binding (constructor: jazz:allocate-let-macro-form)
+  ((expander getter: generate)))
+
+
+(define (jazz:new-let-macro-form name expander)
+  (jazz:allocate-let-macro-form name #f #f expander))
+
+
+(jazz:define-method (jazz:walk-binding-expandable? (jazz:Let-Macro-Form binding))
+  #t)
+
+
+(jazz:define-method (jazz:walk-binding-expand-form (jazz:Let-Macro-Form binding) walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (let ((expander (jazz:get-let-macro-form-expander binding)))
+      (apply expander (%%cdr form)))))
+
+
+;;;
 ;;;; Syntactic Closure
 ;;;
 

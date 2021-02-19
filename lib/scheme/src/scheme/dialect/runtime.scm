@@ -831,6 +831,60 @@
 
 
 ;;;
+;;;; Let Macro
+;;;
+
+
+(jazz:define-class jazz:Let-Macro jazz:Expression (constructor: jazz:allocate-let-macro)
+  ((body getter: generate)))
+
+
+(define (jazz:new-let-macro source body)
+  (jazz:allocate-let-macro #f source body))
+
+
+(jazz:define-method (jazz:emit-expression (jazz:Let-Macro expression) declaration walker resume environment backend)
+  (let ((body (jazz:get-let-macro-body expression)))
+    (let ((body-emit (jazz:emit-expression body declaration walker resume environment backend)))
+      (jazz:new-code
+        (jazz:emit backend 'let-macro expression declaration walker resume environment body-emit)
+        (jazz:get-code-type body-emit)
+        #f))))
+
+
+(jazz:define-method (jazz:tree-fold (jazz:Let-Macro expression) down up here seed environment)
+  (let ((seed1 (down expression seed environment)))
+    (up expression seed (jazz:tree-fold (jazz:get-let-macro-body expression) down up here seed1 environment) environment)))
+
+
+;;;
+;;;; Let Symbol
+;;;
+
+
+(jazz:define-class jazz:Let-Symbol jazz:Expression (constructor: jazz:allocate-let-symbol)
+  ((body getter: generate)))
+
+
+(define (jazz:new-let-symbol source body)
+  (jazz:allocate-let-symbol #f source body))
+
+
+(jazz:define-method (jazz:emit-expression (jazz:Let-Symbol expression) declaration walker resume environment backend)
+  (let ((body (jazz:get-let-symbol-body expression)))
+    (let ((body-emit (jazz:emit-expression body declaration walker resume environment backend)))
+      (jazz:new-code
+        (jazz:emit backend 'let-symbol expression declaration walker resume environment body-emit)
+        (jazz:get-code-type body-emit)
+        #f))))
+
+
+(jazz:define-method (jazz:tree-fold (jazz:Let-Symbol expression) down up here seed environment)
+  (let ((seed1 (down expression seed environment)))
+    (up expression seed (jazz:tree-fold (jazz:get-let-symbol-body expression) down up here seed1 environment) environment)))
+
+
+;;;
 ;;;; Receive
 ;;;
 
@@ -908,11 +962,11 @@
            (macro-forms (map (lambda (binding)
                                (let ((name (%%car binding))
                                      (expander (%%cadr binding)))
-                                 (jazz:new-macro-form name (eval expander))))
+                                 (jazz:new-let-macro-form name (eval expander))))
                              bindings))
            (new-environment (%%append macro-forms environment)))
-      `(begin
-         ,@(jazz:walk-body walker resume declaration new-environment body)))))
+      (jazz:new-let-macro form-src
+        (jazz:walk-body walker resume declaration new-environment body)))))
 
 
 ;;;
@@ -931,8 +985,8 @@
                                    (jazz:new-macro-symbol name (eval getter) (eval setter))))
                                bindings))
            (new-environment (%%append macro-symbols environment)))
-      `(begin
-         ,@(jazz:walk-body walker resume declaration new-environment body)))))
+      (jazz:new-let-symbol form-src
+         (jazz:walk-body walker resume declaration new-environment body)))))
 
 
 ;;;

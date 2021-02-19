@@ -110,6 +110,28 @@
 
 
 ;;;
+;;;; Let Macro
+;;;
+
+
+(jazz:define-emit (let-macro (scheme backend) expression declaration walker resume environment body-emit)
+  (jazz:simplify-begin
+    `(begin
+       ,@(jazz:sourcified-form body-emit))))
+
+
+;;;
+;;;; Let Symbol
+;;;
+
+
+(jazz:define-emit (let-symbol (scheme backend) expression declaration walker resume environment body-emit)
+  (jazz:simplify-begin
+    `(begin
+       ,@(jazz:sourcified-form body-emit))))
+
+
+;;;
 ;;;; Receive
 ;;;
 

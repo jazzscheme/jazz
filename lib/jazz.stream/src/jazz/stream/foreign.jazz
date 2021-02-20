@@ -2363,11 +2363,29 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (GST_MESSAGE_SRC GstMessage*) GstElement*)
 
 
+(definition pipeline-flushing
+  (make-table test: eq? weak-keys: #t))
+
+(definition pipeline-flushing-mutex
+  (make-mutex 'pipeline-flushing))
+
+(definition public (set-pipeline-flushing? pipeline flushing?)
+  (mutex-lock! pipeline-flushing-mutex)
+  (table-set! pipeline-flushing pipeline flushing?)
+  (mutex-unlock! pipeline-flushing-mutex)
+  (set-bus-flushing pipeline flushing?))
+
+(definition public (get-pipeline-flushing? pipeline)
+  (mutex-lock! pipeline-flushing-mutex)
+  (prog1 (table-ref pipeline-flushing pipeline #t)
+    (mutex-unlock! pipeline-flushing-mutex)))
+
+
 @blocking
 (definition public (gst_element_set_state elem state)
   (gst_element_set_state_blocking elem state)
   (when (gst_is_pipeline elem)
-    (set-bus-flushing elem)))
+    (set-bus-flushing elem (get-pipeline-flushing? elem))))
 
 
 ;; non-blocking listener-based set state
@@ -2394,7 +2412,7 @@ static void gst_print_messages(GstPipeline* pipeline)
             (gst_element_set_state_free data)
             (close-stream-listener listener)
             (when (gst_is_pipeline elem)
-              (set-bus-flushing elem))))))))
+              (set-bus-flushing elem (get-pipeline-flushing? elem)))))))))
 
 
 ;; we are not using messages at the moment and
@@ -2402,9 +2420,9 @@ static void gst_print_messages(GstPipeline* pipeline)
 ;; note that setting the bus to flushing from set_state
 ;; is a quick solution to gstreamer overriding flushing
 ;; when going to ready state
-(definition (set-bus-flushing pipeline)
+(definition (set-bus-flushing pipeline flushing?)
   (with-unref ((bus (gst_pipeline_get_bus pipeline)))
-    (gst_bus_set_flushing bus 1)))
+    (gst_bus_set_flushing bus (if flushing? 1 0))))
 
 
 ;; a try to debug memory corruption in the tags

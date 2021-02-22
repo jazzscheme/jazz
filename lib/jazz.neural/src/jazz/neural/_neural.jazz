@@ -1,0 +1,133 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Neural Networks
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.neural jazz
+
+
+(export (jazz.neural.array)
+        (jazz.neural.math))
+
+(import (jazz.neural.array)
+        (jazz.neural.math))
+
+
+;;;
+;;;; Layer
+;;;
+
+
+(class Layer extends Object
+  
+  
+  (slot dimension getter generate)
+  (slot neurons   getter generate)
+  (slot weights   getter generate)
+  
+  
+  (method override (initialize self dimension)
+    (nextmethod self)
+    (set! self.dimension dimension))
+  
+  
+  (method protected (setup self input)
+    (set! weights (random-array (get-dimension input) dimension)))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" dimension))))
+  
+  
+  (method (forward self input)
+    (set! neurons (array-sigmoid (array-dot input weights)))
+    neurons))
+
+
+;;;
+;;;; Network
+;;;
+
+
+(class Network extends Object
+  
+  
+  (slot input  getter generate)
+  (slot layers getter generate)
+  
+  
+  (method override (initialize self input-dimension)
+    (nextmethod self)
+    (set! self.input (new Layer input-dimension))
+    (set! self.layers '()))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (let ((layers (length layers)))
+          (format output "{a} layer{a}" layers (format-plural layers))))))
+  
+  
+  (method public (add-layer self layer)
+    (setup layer (if (null? layers) input (last layers)))
+    (set! layers (append! layers (list layer))))
+  
+
+  (method public (feedforward self input)
+    (declare (proper-tail-calls))
+    (let (loop (input input) (layers layers) (output #f))
+      (if (null? layers)
+          output
+        (let ((layer (car layers)))
+          (let ((output (forward layer input)))
+            (loop (get-neurons layer) (cdr layers) output))))))
+  
+  
+  @w
+  (method public (backpropagate self)
+    ;; application of the chain rule to find derivative of the loss function with respect to weights2 and weights1
+    (let ((d_weights2 (array-dot (array-transpose layer1)
+                                 (array* (array-scalar* (array- expected output) 2.)
+                                         (array-sigmoid-derivative output))))
+          (d_weights1 (array-dot (array-transpose input)
+                                 (array* (array-dot (array* (array-scalar* (array- expected output) 2.) (array-sigmoid-derivative output))
+                                                    (array-transpose weights2))
+                                         (array-sigmoid-derivative layer1)))))
+      ;; update the weights with the derivative (slope) of the loss function
+      (set! weights1 (array+ weights1 d_weights1))
+      (set! weights2 (array+ weights2 d_weights2))))))

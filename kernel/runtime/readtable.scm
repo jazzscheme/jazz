@@ -46,6 +46,7 @@
 
 (define (jazz:jazzify-readtable! readtable)
   (jazz:readtable-named-char-table-set! readtable (%%append (jazz:readtable-named-char-table readtable) jazz:named-chars))
+  (%%readtable-char-class-set! readtable #\[ #t jazz:read-array)
   (%%readtable-char-class-set! readtable #\{ #t jazz:read-literal)
   (%%readtable-char-class-set! readtable #\@ #t jazz:read-comment)
   (%%readtable-char-sharp-handler-set! readtable #\" jazz:read-delimited-string)
@@ -98,6 +99,34 @@
     ("tilde"                . #\x7E)
     ("delete"               . #\x7F)
     ("copyright"            . #\xA9)))
+
+
+(define (jazz:read-array re c)
+  (declare (proper-tail-calls))
+  (let ((port (jazz:readenv-port re))
+        (start-pos (%%readenv-current-filepos re)))
+    (read-char port)
+    (let ((lst (%%build-list re #t start-pos #\])))
+      (jazz:readenv-wrap re
+                         (if (%%null? lst)
+                             (%%vector)
+                           (let ((first (%%car lst))
+                                 (len (%%length lst)))
+                             (if (%%flonum? (jazz:source-code first))
+                                 (let ((array (%%make-f64vector len)))
+                                   (let loop ((lst lst) (n 0))
+                                        (if (%%not (%%null? lst))
+                                            (begin
+                                              (%%f64vector-set! array n (jazz:source-code (%%car lst)))
+                                              (loop (%%cdr lst) (%%fx+ n 1)))))
+                                   array)
+                               (let ((array (%%make-vector len)))
+                                 (let loop ((lst lst) (n 0))
+                                      (if (%%not (%%null? lst))
+                                          (begin
+                                            (%%vector-set! array n (jazz:source-code (%%car lst)))
+                                            (loop (%%cdr lst) (%%fx+ n 1)))))
+                                 array))))))))
 
 
 (define jazz:in-expression-comment?

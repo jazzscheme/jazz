@@ -1735,7 +1735,8 @@ static void gst_pad_connect_eos(GstPad* pad, void* listener)
 
 #define ANY_MONITOR     0
 #define FILE_MONITOR    1
-#define SILENCE_MONITOR 2
+#define QUEUE_MONITOR   2
+#define ANALYSE_MONITOR 3
 
 typedef struct monitor_any
 {
@@ -1750,6 +1751,16 @@ typedef struct monitor_file
     char* name;
     FILE* file;
 } file_monitor;
+
+typedef struct monitor_queue
+{
+    int monitor_kind;
+    gulong probe_id;
+    GMutex mutex;
+    GQueue* queue;
+    GstClockTime window;
+    int size;
+} queue_monitor;
 
 typedef struct monitor_analyse
 {
@@ -1789,9 +1800,41 @@ static void free_file_monitor(file_monitor* data)
     free(data);
 }
 
+static void init_queue_monitor(queue_monitor* data, GstClockTime window)
+{
+    data->monitor_kind = QUEUE_MONITOR;
+    g_mutex_init(&data->mutex);
+    data->queue = g_queue_new();
+    data->window = window;
+    data->size = 0;
+}
+
+static void free_queue_monitor(queue_monitor* data)
+{
+    GQueue* queue = data->queue;
+
+    g_mutex_lock(&data->mutex);
+    while (1)
+    {
+        GstBuffer* buffer = (GstBuffer*) g_queue_pop_head(queue);
+        if (! buffer)
+            break;
+        else
+        {
+            data->size -= gst_buffer_get_size(buffer);
+            gst_buffer_unref(buffer);
+        }
+    }
+    g_mutex_unlock(&data->mutex);
+
+    g_queue_free(queue);
+    
+    free(data);
+}
+
 static void init_analyse_monitor(analyse_monitor* data, void* listener, char* name)
 {
-    data->monitor_kind = ANY_MONITOR;
+    data->monitor_kind = ANALYSE_MONITOR;
     data->name = name;
     data->offset = 0;
     data->expected = GST_CLOCK_TIME_NONE;
@@ -1829,6 +1872,91 @@ cb_monitor_file(GstPad          *pad,
     gst_buffer_unmap(buffer, &map);
 
     return GST_PAD_PROBE_OK;
+}
+
+static GstPadProbeReturn
+cb_monitor_queue(GstPad          *pad,
+                 GstPadProbeInfo *info,
+                 gpointer         user_data)
+{
+    queue_monitor* data;
+    GMutex* mutex;
+    GQueue* queue;
+    GstClockTime window;
+    GstBuffer* buffer;
+
+    data = (queue_monitor*) user_data;
+    mutex = &data->mutex;
+    queue = data->queue;
+    window = data->window;
+    buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+    GstClockTime timestamp = GST_BUFFER_DTS_OR_PTS(buffer);
+
+    if (timestamp != GST_CLOCK_TIME_NONE)
+    {
+        g_mutex_lock(mutex);
+
+        GstClockTime prune;
+     
+        if (timestamp <= window)
+            prune = 0;
+        else
+            prune = timestamp - window;
+
+        gst_buffer_ref(buffer);
+        g_queue_push_tail(queue, buffer);
+        data->size += gst_buffer_get_size(buffer);
+
+        while (1)
+        {
+            GstBuffer* buf = (GstBuffer*) g_queue_peek_head(queue);
+            if (! buf)
+                break;
+            else
+            {
+                GstClockTime ts = GST_BUFFER_DTS_OR_PTS(buf);
+                if (ts > prune)
+                    break;
+                else
+                {
+                    g_queue_pop_head(queue);
+                    data->size -= gst_buffer_get_size(buf);
+                    gst_buffer_unref(buf);
+                }
+            }
+        }
+
+        g_mutex_unlock(mutex);
+    }
+
+    return GST_PAD_PROBE_OK;
+}
+
+static ___SCMOBJ copy_monitor_queue(queue_monitor* data)
+{
+    GMutex* mutex = &data->mutex;
+    GQueue* queue = data->queue;
+  
+    g_mutex_lock(mutex);
+
+    ___SCMOBJ r = ___EXT(___alloc_scmobj) (___PSTATE, ___sU8VECTOR, data->size);
+    ___U8 *ptr = ___CAST(___U8*,___BODY(r));
+    int length = g_queue_get_length(queue);
+    int offset = 0;
+    for (int n = 0; n < length; n++)
+    {
+        GstBuffer* buffer = (GstBuffer*) g_queue_peek_nth(queue, n);
+        GstMapInfo map;
+        gst_buffer_map(buffer, &map, GST_MAP_READ);
+        memcpy(ptr + offset, map.data, map.size);
+        offset += map.size;
+        gst_buffer_unmap(buffer, &map);
+    }
+    
+    g_mutex_unlock(mutex);
+    
+    ___EXT(___release_scmobj)(r);
+    return r;
 }
 
 static GstPadProbeReturn
@@ -2049,6 +2177,23 @@ static void* gst_monitor_file(GstPad* pad, char* filename, char* name)
     return (void*) data;
 }
 
+static void* gst_monitor_queue(GstPad* pad, GstClockTime window)
+{
+    queue_monitor* data = malloc(sizeof(queue_monitor));
+    init_queue_monitor(data, window);
+
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_DATA_DOWNSTREAM, (GstPadProbeCallback) cb_monitor_queue, data, NULL);
+
+    return (void*) data;
+}
+
+static ___SCMOBJ gst_monitor_queue_copy(void* info)
+{
+    queue_monitor* data = (queue_monitor*) info;
+  
+    return copy_monitor_queue(data);
+}
+
 static void* gst_monitor_analyse(GstPad* pad, void* listener, char* name)
 {
     analyse_monitor* data = malloc(sizeof(analyse_monitor));
@@ -2097,7 +2242,11 @@ static void gst_monitor_free(void* info)
             free_file_monitor((file_monitor*) data);
             break;
         }
-        case SILENCE_MONITOR: {
+        case QUEUE_MONITOR: {
+            free_queue_monitor((queue_monitor*) data);
+            break;
+        }
+        case ANALYSE_MONITOR: {
             free_analyse_monitor((analyse_monitor*) data);
             break;
         }
@@ -2327,6 +2476,8 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_print_message char-string GstMessage*) void)
 (gst-external (gst_print_error GstMessage*) void)
 (gst-external (gst_monitor_file GstPad* char-string char-string) void*)
+(gst-external (gst_monitor_queue GstPad* GstClockTime) void*)
+(gst-external (gst_monitor_queue_copy void*) scheme-object)
 (gst-external (gst_monitor_analyse GstPad* void* char-string) void*)
 (gst-external (gst_monitor_data GstPad* (call GST_PIPELINE GstElement*)) void*)
 (gst-external (gst_monitor_events GstPad* (call GST_PIPELINE GstElement*)) void*)

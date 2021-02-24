@@ -1,0 +1,160 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Neural Network Layers
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.neural.layer jazz
+
+
+(import (jazz.neural.activation)
+        (jazz.neural.array)
+        (jazz.neural.optimizer))
+
+
+;;;
+;;;; Layer
+;;;
+
+
+(class Layer extends Object
+  
+  
+  (slot input-dimension getter generate)
+  (slot dimension       getter generate)
+  (slot activation      getter generate)
+  
+  
+  (method override (initialize self dimension (activation: activation #f))
+    (nextmethod self)
+    (set! self.dimension dimension)
+    (set! self.activation (or activation sigmoid)))
+  
+  
+  (method protected virtual (setup self input optimizer)
+    (set! input-dimension (get-dimension input)))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" dimension))))
+  
+  
+  (method public virtual (forward-pass self X training)
+    )
+
+  
+  (method public virtual (backward-pass self accum-grad)
+    ))
+
+
+;;;
+;;;; Dense-Layer
+;;;
+
+
+(class Dense-Layer extends Layer
+  
+  
+  (slot layer-input getter generate)
+  (slot initial-W   getter generate)
+  (slot W           getter generate)
+  (slot w0          getter generate)
+  (slot W-opt       getter generate)
+  (slot w0-opt      getter generate)
+  
+  
+  (method override (initialize self dimension (activation: activation #f) (initial-W: initial-W #f))
+    (nextmethod self dimension activation: activation)
+    (set! self.initial-W initial-W))
+  
+  
+  (method override (setup self input optimizer)
+    (nextmethod self input optimizer)
+    (let ((limit (/ 1. (sqrt input-dimension))))
+      (set! self.W (or initial-W (random-array input-dimension dimension (- limit) limit)))
+      @debug
+      (format :terminal "{a} {a}{%}" (category-name (class-of self)) (present-array self.W))
+      (set! self.w0 (zero-array 1 dimension))
+      (set! self.W-opt (clone optimizer))
+      (set! self.w0-opt (clone optimizer))))
+  
+  
+  (method override (forward-pass self X training?)
+    (set! layer-input X)
+    (array+ (array-dot X W) w0))
+  
+  
+  (method override (backward-pass self accum-grad)
+    ;; save weights used during forwards pass
+    (let ((W W))
+      ;; calculate gradient w.r.t layer weights
+      (let ((grad-w (array-dot (array-transpose layer-input) accum-grad))
+            (grad-w0 (array-sum accum-grad)))
+        ;; update the layer weights
+        (set! self.W (update W-opt self.W grad-w))
+        (set! self.w0 (update w0-opt self.w0 grad-w0))
+        ;; return accumulated gradient for next layer calculated
+        ;; based on the weights used during the forward pass
+        (array-dot accum-grad (array-transpose W))))))
+
+
+;;;
+;;;; Activation-Layer
+;;;
+
+
+(class Activation-Layer extends Layer
+  
+  
+  (slot layer-input getter generate)
+  
+  
+  (method override (initialize self activation)
+    (set! self.activation activation))
+  
+  
+  (method override (setup self input optimizer)
+    (nextmethod self input optimizer)
+    (set! self.dimension input-dimension))
+
+  
+  (method override (forward-pass self X training?)
+    (set! layer-input X)
+    (activate activation X))
+
+  
+  (method override (backward-pass self accum-grad)
+    (array* accum-grad (activate-gradient activation layer-input)))))

@@ -41,26 +41,6 @@
 (import (jazz.neural.math))
 
 
-(definition public (array-sigmoid array)
-  (let ((rows (array-rows array))
-        (cols (array-cols array)))
-    (let ((result (make-array rows cols)))
-      (loop (for row from 0 below rows)
-            (loop (for col from 0 below cols)
-                  (array-set! result row col (sigmoid (array-ref array row col)))))
-      result)))
-
-
-(definition public (array-sigmoid-derivative array)
-  (let ((rows (array-rows array))
-        (cols (array-cols array)))
-    (let ((result (make-array rows cols)))
-      (loop (for row from 0 below rows)
-            (loop (for col from 0 below cols)
-                  (array-set! result row col (sigmoid-derivative (array-ref array row col)))))
-      result)))
-
-
 (definition public (make-array rows cols)
   (let ((array (make-vector rows)))
     (loop (for row from 0 below rows)
@@ -78,6 +58,16 @@
         (array-cols array)))
 
 
+(definition public (copy-array arr)
+  (let ((rows (array-rows arr))
+        (cols (array-cols arr)))
+    (let ((array (make-array rows cols)))
+      (loop (for row from 0 below rows)
+            (loop (for col from 0 below cols)
+                  (array-set! array row col (array-ref arr row col))))
+      array)))
+
+
 (definition public (array-ref array row col)
   (f64vector-ref (vector-ref array row) col))
 
@@ -93,6 +83,14 @@
       (loop (for row from 0 below rows)
             (f64vector-set! vec row (array-ref array row col)))
       vec)))
+
+
+(definition (vector->array vec rows)
+  (let ((cols (f64vector-length vec)))
+    (let ((array (make-array rows cols)))
+      (loop (for row from 0 below rows)
+            (vector-set! array row (f64vector-copy vec)))
+      array)))
 
 
 (definition public (vector-dot x y)
@@ -122,11 +120,36 @@
       result)))
 
 
+(definition public (array-mean array)
+  (let ((rows (array-rows array))
+        (total 0)
+        (count 0))
+    (loop (for row from 0 below rows)
+          (increase! total (array-ref array row 0))
+          (increase! count))
+    (/ total count)))
+
+
+(definition public (array-sum array)
+  (let ((rows (array-rows array))
+        (cols (array-cols array)))
+    (let ((sum (make-array 1 cols)))
+      (loop (for col from 0 below cols)
+            (array-set! sum 0 col (loop (for row from 0 below rows)
+                                        (sum (array-ref array row col)))))
+      sum)))
+
+
 (definition public (array+ x y)
   (let ((rows (array-rows x))
         (cols (array-cols x)))
-    (assert (= rows (array-rows y))
-      (assert (= cols (array-cols y))
+    (assert (= cols (array-cols y))
+      ;; non-general quicky
+      (let ((y-rows (array-rows y)))
+        (when (and (/= y-rows rows)
+                   (= y-rows 1))
+          (set! y (vector->array (array-row y 0) rows))))
+      (assert (= rows (array-rows y))
         (let ((result (make-array rows cols)))
           (loop (for row from 0 below rows)
                 (loop (for col from 0 below cols)
@@ -161,48 +184,126 @@
           result)))))
 
 
-(definition public (array-scalar* array scalar)
+(definition public (array-scalar+ scalar array)
   (let ((rows (array-rows array))
         (cols (array-cols array)))
     (let ((result (make-array rows cols)))
       (loop (for row from 0 below rows)
             (loop (for col from 0 below cols)
-                  (array-set! result row col (* (array-ref array row col) scalar))))
+                  (array-set! result row col (+ scalar (array-ref array row col)))))
       result)))
 
 
-(definition public (random-vector columns)
-  (let ((vec (make-f64vector columns)))
-    (loop (for col from 0 below columns)
-          (f64vector-set! vec col (random-real)))
+(definition public (array-scalar- scalar array)
+  (let ((rows (array-rows array))
+        (cols (array-cols array)))
+    (let ((result (make-array rows cols)))
+      (loop (for row from 0 below rows)
+            (loop (for col from 0 below cols)
+                  (array-set! result row col (- scalar (array-ref array row col)))))
+      result)))
+
+
+(definition public (array-scalar* scalar array)
+  (let ((rows (array-rows array))
+        (cols (array-cols array)))
+    (let ((result (make-array rows cols)))
+      (loop (for row from 0 below rows)
+            (loop (for col from 0 below cols)
+                  (array-set! result row col (* scalar (array-ref array row col)))))
+      result)))
+
+
+(definition public (array-scalar/ scalar array)
+  (let ((rows (array-rows array))
+        (cols (array-cols array)))
+    (let ((result (make-array rows cols)))
+      (loop (for row from 0 below rows)
+            (loop (for col from 0 below cols)
+                  (array-set! result row col (/ scalar (array-ref array row col)))))
+      result)))
+
+
+(definition public (array-negate array)
+  (let ((rows (array-rows array))
+        (cols (array-cols array)))
+    (let ((result (make-array rows cols)))
+      (loop (for row from 0 below rows)
+            (loop (for col from 0 below cols)
+                  (array-set! result row col (- (array-ref array row col)))))
+      result)))
+
+
+(definition public (array-exp array)
+  (let ((rows (array-rows array))
+        (cols (array-cols array)))
+    (let ((result (make-array rows cols)))
+      (loop (for row from 0 below rows)
+            (loop (for col from 0 below cols)
+                  (array-set! result row col (exp (array-ref array row col)))))
+      result)))
+
+
+(definition public (array-expt array power)
+  (let ((rows (array-rows array))
+        (cols (array-cols array)))
+    (let ((result (make-array rows cols)))
+      (loop (for row from 0 below rows)
+            (loop (for col from 0 below cols)
+                  (array-set! result row col (expt (array-ref array row col) power))))
+      result)))
+
+
+(definition (random-between min <fl> max <fl>) <fl>
+  (+ (* (random-real) (- max min)) min))
+
+
+(definition public (random-vector cols min <fl> max <fl>)
+  (let ((vec (make-f64vector cols)))
+    (loop (for col from 0 below cols)
+          (f64vector-set! vec col (random-between min max)))
     vec))
 
-(definition public (random-array rows columns)
-  (let ((mat (make-vector rows)))
+
+(definition public (random-array rows cols min <fl> max <fl>)
+  (let ((array (make-vector rows)))
     (loop (for row from 0 below rows)
-          (vector-set! mat row (random-vector columns)))
-    mat))
+          (vector-set! array row (random-vector cols min max)))
+    array))
+
+
+(definition public (zero-vector cols)
+  (make-f64vector cols 0.))
+
+
+(definition public (zero-array rows cols)
+  (let ((array (make-vector rows)))
+    (loop (for row from 0 below rows)
+          (vector-set! array row (zero-vector cols)))
+    array))
 
 
 (definition public (print-vector vec (output :terminal))
   (format output "[")
   (loop (for col from 0 below (f64vector-length vec))
-        (format output "{r precision: 3 justify: :right width: 6} " (f64vector-ref vec col)))
+        (format output "{r precision: 8 justify: :right width: 6} " (f64vector-ref vec col)))
   (format output "]"))
 
-(definition public (print-array mat (output :terminal))
-  (let ((rows (vector-length mat)))
+
+(definition public (print-array array (output :terminal))
+  (let ((rows (vector-length array)))
     (loop (for row from 0 below rows)
           (if (= row 0)
               (format output "[")
             (format output " "))
-          (let ((vec (vector-ref mat row)))
+          (let ((vec (vector-ref array row)))
             (print-vector vec output)
             (if (= row (- rows 1))
                 (format output "]")
               (format output "{%}"))))))
 
-(definition public (present-array mat)
+
+(definition public (present-array array)
   (let ((port (open-output-string)))
-    (print-array mat port)
+    (print-array array port)
     (get-output-string port))))

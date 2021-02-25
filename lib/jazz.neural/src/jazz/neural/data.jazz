@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Loss Functions
+;;;; Neural Network Data
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,71 +35,55 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.neural.loss jazz:
+(module protected jazz.neural.data jazz:
 
 
 (import (jazz (except + * - / expt exp log map max sqrt))
+        (jazz.io)
         (jazz.neural.array)
         (jazz.neural.overload))
 
 
-;;;
-;;;; Loss-Function
-;;;
+(definition public (load-data file)
+  (call-with-input-file (path-settings file)
+    (lambda (port)
+      (let ((data (read port))
+            (target (read port)))
+        (cons data target)))))
 
 
-(class Loss-Function extends Object
-  
-  
-  (method public virtual (loss self y y-pred)
-    )
-  
-  
-  (method public virtual (loss-gradient self y y-pred)
-    ))
+(definition public (to-categorical target)
+  (let ((rows (f64vector-length target))
+        (cols 10))
+    (let ((array (make-array rows cols)))
+      (loop (for row from 0 below rows)
+            (let ((digit (inexact->exact (f64vector-ref target row))))
+              (array-set! array row digit 1.)))
+      array)))
 
 
-;;;
-;;;; Square-Loss
-;;;
+(definition public (shuffle-data X y)
+  (let ((idx (random-sequence (naturals 0 (array-rows X)))))
+    (values (array-index X idx)
+            (array-index y idx))))
 
 
-(class Square-Loss extends Loss-Function
-  
-  
-  (method override (loss self y y-pred)
-    (* 0.5 (expt (- y y-pred) 2)))
-
-  
-  (method override (loss-gradient self y y-pred)
-    (- y-pred y)))
+(definition public (split-data X y (test-size: test-size 0.5))
+  (receive (X y) (shuffle-data X y)
+    (let ((split (fxround (* (cast <fl> (array-rows X)) (- 1. test-size)))))
+      (values
+        (subarray X 0 split) (subarray X split)
+        (subarray y 0 split) (subarray y split)))))
 
 
-(definition public square-loss
-  (new Square-Loss))
-
-
-;;;
-;;;; Cross-Entropy
-;;;
-
-
-(class Cross-Entropy extends Loss-Function
-  
-  
-  (method override (loss self y p)
-    ;; avoid division by zero
-    (let ((p (array-clip p 1e-15 (- 1. 1e-15))))
-      (- (- (* y (log p)))
-         (* (- 1 y) (log (- 1 p))))))
-
-
-  (method override (loss-gradient self y p)
-    ;; avoid division by zero
-    (let ((p (array-clip p 1e-15 (- 1. 1e-15))))
-      (+ (- (/ y p))
-         (/ (- 1 y) (- 1 p))))))
-
-
-(definition public cross-entropy
-  (new Cross-Entropy)))
+(definition public (split-batches X y batch-size)
+  (declare (proper-tail-calls))
+  (let ((count (array-rows X))
+        (batches (new-queue)))
+    (let (loop (from 0) (to batch-size))
+      (if (>= from count)
+          (queue-list batches)
+        (let ((to (min to count)))
+          (enqueue batches (cons (subarray X from to)
+                                 (subarray y from to))))
+        (loop to (+ to batch-size)))))))

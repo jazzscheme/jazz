@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Loss Functions
+;;;; Neural Network IO
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,71 +35,20 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.neural.loss jazz:
+(module protected jazz.neural.io jazz
 
 
-(import (jazz (except + * - / expt exp log map max sqrt))
-        (jazz.neural.array)
-        (jazz.neural.overload))
+(import (jazz.neural.array))
 
 
-;;;
-;;;; Loss-Function
-;;;
-
-
-(class Loss-Function extends Object
-  
-  
-  (method public virtual (loss self y y-pred)
-    )
-  
-  
-  (method public virtual (loss-gradient self y y-pred)
-    ))
-
-
-;;;
-;;;; Square-Loss
-;;;
-
-
-(class Square-Loss extends Loss-Function
-  
-  
-  (method override (loss self y y-pred)
-    (* 0.5 (expt (- y y-pred) 2)))
-
-  
-  (method override (loss-gradient self y y-pred)
-    (- y-pred y)))
-
-
-(definition public square-loss
-  (new Square-Loss))
-
-
-;;;
-;;;; Cross-Entropy
-;;;
-
-
-(class Cross-Entropy extends Loss-Function
-  
-  
-  (method override (loss self y p)
-    ;; avoid division by zero
-    (let ((p (array-clip p 1e-15 (- 1. 1e-15))))
-      (- (- (* y (log p)))
-         (* (- 1 y) (log (- 1 p))))))
-
-
-  (method override (loss-gradient self y p)
-    ;; avoid division by zero
-    (let ((p (array-clip p 1e-15 (- 1. 1e-15))))
-      (+ (- (/ y p))
-         (/ (- 1 y) (- 1 p))))))
-
-
-(definition public cross-entropy
-  (new Cross-Entropy)))
+(definition public (tell . rest)
+  (let ((first? #t))
+    (for-each (lambda (obj)
+                (if first?
+                    (set! first? #f)
+                  (format :terminal " "))
+                (if (array? obj)
+                    (print-array obj)
+                  (format :terminal "{a}" obj)))
+              rest))
+  (format :terminal "{%}")))

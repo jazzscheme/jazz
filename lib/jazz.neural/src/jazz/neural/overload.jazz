@@ -1,0 +1,181 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Operator Overload
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.neural.overload jazz:
+
+
+(import (jazz (except + * - / expt exp log map max sqrt))
+        (jazz.neural.array))
+
+
+(definition public shape
+  array-shape)
+
+
+(definition public zero
+  zero-array)
+
+
+(definition public (+ . rest)
+  (let ((n (length rest)))
+    (cond ((and (= n 2)
+                (real? (car rest))
+                (array? (cadr rest)))
+           (array-scalar+ (exact->inexact (car rest)) (cadr rest)))
+          ((and (= n 2)
+                (array? (car rest))
+                (real? (cadr rest)))
+           (array-scalar+ (exact->inexact (cadr rest)) (car rest)))
+          ((every? array? rest)
+           (apply array+ rest))
+          (else
+           (apply jazz:+ rest)))))
+
+
+(definition public (* . rest)
+  (let ((n (length rest)))
+    (cond ((and (= n 2)
+                (real? (car rest))
+                (array? (cadr rest)))
+           (array-scalar* (exact->inexact (car rest)) (cadr rest)))
+          ((and (= n 2)
+                (array? (car rest))
+                (real? (cadr rest)))
+           (array-scalar* (exact->inexact (cadr rest)) (car rest)))
+          ((every? array? rest)
+           (apply array* rest))
+          (else
+           (apply jazz:* rest)))))
+
+
+(definition public (- . rest)
+  (let ((n (length rest)))
+    (cond ((and (= n 2)
+                (real? (car rest))
+                (array? (cadr rest)))
+           (array-scalar- (exact->inexact (car rest)) (cadr rest)))
+          ((and (= n 2)
+                (array? (car rest))
+                (real? (cadr rest)))
+           (array-scalar+ (- (exact->inexact (cadr rest))) (car rest)))
+          ((every? array? rest)
+           (if (= 1 (length rest))
+               (array-negate (car rest))
+             (apply array- rest)))
+          (else
+           (apply jazz:- rest)))))
+
+
+(definition public (/ . rest)
+  (let ((n (length rest)))
+    (cond ((and (= n 2)
+                (real? (car rest))
+                (array? (cadr rest)))
+           (array-scalar/ (exact->inexact (car rest)) (cadr rest)))
+          ((and (= n 2)
+                (array? (car rest))
+                (real? (cadr rest)))
+           (array-scalar* (/ (exact->inexact (cadr rest))) (car rest)))
+          ((every? array? rest)
+           (apply array/ rest))
+          (else
+           (apply jazz:/ rest)))))
+
+
+(definition public (max . rest)
+  (if (and (pair? rest)
+           (array? (car rest)))
+      (apply array-max rest)
+    (error "Invalid arguments")))
+
+
+(definition public (sum . rest)
+  (if (and (pair? rest)
+           (array? (car rest)))
+      (apply array-sum rest)
+    (error "Invalid arguments")))
+
+
+(definition public (sqrt . rest)
+  (if (and (pair? rest)
+           (array? (car rest)))
+      (apply array-sqrt rest)
+    (apply jazz:sqrt rest)))
+
+
+(definition public (expt . rest)
+  (if (and (pair? rest)
+           (array? (car rest)))
+      (apply array-expt rest)
+    (apply jazz:expt rest)))
+
+
+(definition public (exp . rest)
+  (if (and (pair? rest)
+           (array? (car rest)))
+      (apply array-exp rest)
+    (apply jazz:exp rest)))
+
+
+(definition public (log . rest)
+  (if (and (pair? rest)
+           (array? (car rest)))
+      (apply array-log rest)
+    (apply jazz:log rest)))
+
+
+(definition public (dot . rest)
+  (if (and (pair? rest)
+           (array? (car rest)))
+      (apply array-dot rest)
+    (error "Invalid arguments")))
+
+
+(definition public (transpose . rest)
+  (if (and (pair? rest)
+           (array? (car rest)))
+      (apply array-transpose rest)
+    (error "Invalid arguments")))
+
+
+(definition public (map proc . rest)
+  (if (every? array? rest)
+      (case (length rest)
+        ((1) (apply array-map1 proc rest))
+        ((2) (apply array-map2 proc rest))
+        (else (error "Invalid arguments")))
+    (apply jazz:map proc rest))))

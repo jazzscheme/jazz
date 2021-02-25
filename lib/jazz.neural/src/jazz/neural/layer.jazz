@@ -35,12 +35,16 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.neural.layer jazz
+(module protected jazz.neural.layer jazz:
 
 
-(import (jazz.neural.activation)
+(import (jazz (except + * - / expt exp log map max sqrt))
+        (jazz.neural.activation)
         (jazz.neural.array)
-        (jazz.neural.optimizer))
+        (jazz.neural.io)
+        (jazz.neural.math)
+        (jazz.neural.optimizer)
+        (jazz.neural.overload))
 
 
 ;;;
@@ -53,13 +57,11 @@
   
   (slot input-dimension getter generate)
   (slot dimension       getter generate)
-  (slot activation      getter generate)
   
   
-  (method override (initialize self dimension (activation: activation #f))
+  (method override (initialize self dimension)
     (nextmethod self)
-    (set! self.dimension dimension)
-    (set! self.activation (or activation sigmoid)))
+    (set! self.dimension dimension))
   
   
   (method protected virtual (setup self input optimizer)
@@ -72,6 +74,10 @@
         (format output "{a}" dimension))))
   
   
+  (method protected virtual (present self)
+    (symbol->string (category-name (class-of self))))
+  
+  
   (method public virtual (forward-pass self X training)
     )
 
@@ -81,32 +87,24 @@
 
 
 ;;;
-;;;; Dense-Layer
+;;;; Dense
 ;;;
 
 
-(class Dense-Layer extends Layer
+(class Dense extends Layer
   
   
   (slot layer-input getter generate)
-  (slot initial-W   getter generate)
   (slot W           getter generate)
   (slot w0          getter generate)
   (slot W-opt       getter generate)
   (slot w0-opt      getter generate)
   
   
-  (method override (initialize self dimension (activation: activation #f) (initial-W: initial-W #f))
-    (nextmethod self dimension activation: activation)
-    (set! self.initial-W initial-W))
-  
-  
   (method override (setup self input optimizer)
     (nextmethod self input optimizer)
     (let ((limit (/ 1. (sqrt input-dimension))))
-      (set! self.W (or initial-W (random-array input-dimension dimension (- limit) limit)))
-      @debug
-      (format :terminal "{a} {a}{%}" (category-name (class-of self)) (present-array self.W))
+      (set! self.W (random-array input-dimension dimension (- limit) limit))
       (set! self.w0 (zero-array 1 dimension))
       (set! self.W-opt (clone optimizer))
       (set! self.w0-opt (clone optimizer))))
@@ -114,32 +112,67 @@
   
   (method override (forward-pass self X training?)
     (set! layer-input X)
-    (array+ (array-dot X W) w0))
+    (+ (dot X W) w0))
   
   
   (method override (backward-pass self accum-grad)
     ;; save weights used during forwards pass
     (let ((W W))
       ;; calculate gradient w.r.t layer weights
-      (let ((grad-w (array-dot (array-transpose layer-input) accum-grad))
-            (grad-w0 (array-sum accum-grad)))
+      (let ((grad-w (dot (transpose layer-input) accum-grad))
+            (grad-w0 (sum accum-grad axis: 0)))
         ;; update the layer weights
         (set! self.W (update W-opt self.W grad-w))
         (set! self.w0 (update w0-opt self.w0 grad-w0))
         ;; return accumulated gradient for next layer calculated
         ;; based on the weights used during the forward pass
-        (array-dot accum-grad (array-transpose W))))))
+        (dot accum-grad (transpose W))))))
 
 
 ;;;
-;;;; Activation-Layer
+;;;; Dropout
 ;;;
 
 
-(class Activation-Layer extends Layer
+(class Dropout extends Layer
+  
+  
+  (slot p    getter generate)
+  (slot mask getter generate)
+  
+  
+  (method override (initialize self p)
+    (set! self.p p)
+    (set! self.mask #f))
+  
+  
+  (method override (setup self input optimizer)
+    (nextmethod self input optimizer)
+    (set! self.dimension input-dimension))
+
+  
+  (method override (forward-pass self X training?)
+    (let ((c (if (not training?)
+                 (- 1 p)
+               (set! mask (map (lambda (x) (if (> x p) 1. 0.)) (random-array (array-rows X) (array-cols X))))
+               mask)))
+      (* X c)))
+
+  
+  (method override (backward-pass self accum-grad)
+    (* accum-grad mask)))
+
+
+;;;
+;;;; Activation
+;;;
+
+
+(class Activation extends Layer
   
   
   (slot layer-input getter generate)
+  (slot activation  getter generate)
   
   
   (method override (initialize self activation)
@@ -149,6 +182,16 @@
   (method override (setup self input optimizer)
     (nextmethod self input optimizer)
     (set! self.dimension input-dimension))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" (category-name (class-of activation))))))
+  
+  
+  (method override (present self)
+    (format "{a} ({a})" (nextmethod self) (category-name (class-of activation))))
 
   
   (method override (forward-pass self X training?)
@@ -157,4 +200,4 @@
 
   
   (method override (backward-pass self accum-grad)
-    (array* accum-grad (activate-gradient activation layer-input)))))
+    (* accum-grad (activate-gradient activation layer-input)))))

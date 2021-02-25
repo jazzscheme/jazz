@@ -35,26 +35,37 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.neural jazz
+(module jazz.neural jazz:
 
 
 (export (jazz.neural.activation)
         (jazz.neural.array)
+        (jazz.neural.data)
+        (jazz.neural.io)
         (jazz.neural.layer)
         (jazz.neural.loss)
         (jazz.neural.math)
-        (jazz.neural.optimizer))
+        (jazz.neural.optimizer)
+        (jazz.neural.overload))
 
-(import (jazz.neural.activation)
+(import (jazz (except + * - / expt exp log map max sqrt))
+        (jazz.neural.activation)
         (jazz.neural.array)
+        (jazz.neural.data)
+        (jazz.neural.io)
         (jazz.neural.layer)
         (jazz.neural.loss)
         (jazz.neural.math)
-        (jazz.neural.optimizer))
+        (jazz.neural.optimizer)
+        (jazz.neural.overload)
+        (jazz.settings))
 
 
-(definition debug?
-  #f)
+(definition public neural-debug?
+  (boolean-argument "debug" #f))
+
+(definition public (set-neural-debug? debug?)
+  (set! neural-debug? debug?))
 
 
 (class Model extends Object
@@ -81,7 +92,7 @@
           (format output "{a} layer{a}" layers (format-plural layers))))))
   
   
-  (method public (add-layer self layer)
+  (method public (add self layer)
     (setup layer (if (null? layers) input (last layers)) optimizer)
     (set! layers (append! layers (list layer))))
   
@@ -90,30 +101,46 @@
     (let ((name 'Input))
     (let ((layer-output X))
       (for-each (lambda (layer)
-                  (when (and debug? training?)
-                    (format :terminal "-> {a}{%}{a}{%}" name (present-array layer-output)))
-                  (set! name (category-name (class-of layer)))
+                  (when (and neural-debug? training?)
+                    (tell '-> name)
+                    (tell layer-output))
+                  (set! name (present layer))
                   (set! layer-output (forward-pass layer layer-output training?)))
                 layers)
-      (when (and debug? training?)
-        (format :terminal "-> {a}{%}{a}{%}{%}" name (present-array layer-output)))
+      (when (and neural-debug? training?)
+        (tell '-> name)
+        (tell layer-output))
       layer-output)))
   
   
   (method public (propagate-backward self loss-grad)
     (for-each-reversed (lambda (layer)
                          (set! loss-grad (backward-pass layer loss-grad))
-                         (when debug?
-                           (format :terminal "<- loss-grad {a}{%}{a}{%}" (category-name (class-of layer)) (present-array loss-grad))))
+                         (when neural-debug?
+                           (tell '<- 'loss-grad (present layer))
+                           (tell loss-grad)))
                        layers))
   
   
   (method public (train self X y)
     (let ((y-pred (feed-forward self X #t)))
       (let ((loss-grad (loss-gradient loss-function y y-pred)))
-        (when debug?
-          (format :terminal "<- loss-grad {a}{%}{a}{%}" 'Output (present-array loss-grad)))
+        (when neural-debug?
+          (tell '<- 'loss-grad 'Output)
+          (tell loss-grad))
         (propagate-backward self loss-grad))))
+  
+  
+  (method public (fit self X y (epochs: epochs 1) (batch-size: batch-size 64) (feedback: feedback 100))
+    (let ((batches (split-batches X y batch-size)))
+      (loop (for epoch from 1 to epochs)
+            (do (unless neural-debug?
+                  (when (= (modulo epoch feedback) 0)
+                    (tell epoch)))
+                (for-each (lambda (batch)
+                            (bind (X . y) batch
+                              (train self X y)))
+                          batches)))))
   
   
   (method public (predict self X)

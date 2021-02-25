@@ -35,10 +35,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.neural.optimizer jazz
+(module protected jazz.neural.optimizer jazz:
 
 
-(import (jazz.neural.array))
+(import (jazz (except + * - / expt exp log map max sqrt))
+        (jazz.neural.array)
+        (jazz.neural.overload))
 
 
 ;;;
@@ -66,12 +68,14 @@
   
   
   (slot learning-rate getter generate)
+  (slot momentum      getter generate)
   (slot w-updt        getter generate)
   
   
-  (method override (initialize self (learning-rate: learning-rate 0.01))
+  (method override (initialize self (learning-rate: learning-rate 0.01) (momentum: momentum #f))
     (nextmethod self)
     (set! self.learning-rate learning-rate)
+    (set! self.momentum momentum)
     (set! self.w-updt #f))
   
   
@@ -83,15 +87,75 @@
   
   
   (method override (update self w grad-wrt-w)
-    @not-needed-at-the-moment-comes-from-having-momentum
-    (when (not w-updt)
+    ;; if not initialized
+    (when (and momentum (not w-updt))
       (set! w-updt (zero-array (array-rows w) (array-cols w))))
-    ;; no momentum for the moment
-    (set! w-updt grad-wrt-w)
+    ;; use momentum if set
+    (if momentum
+        (set! w-updt (+ (* momentum w-updt) (* (- 1. momentum) grad-wrt-w)))
+      (set! w-updt grad-wrt-w))
     ;; move against the gradient to minimize loss
-    (array- w (array-scalar* learning-rate w-updt))))
+    (- w (* learning-rate w-updt))))
 
 
 (definition public sgd
-  (new Stochastic-Gradient-Descent)))
+  (new Stochastic-Gradient-Descent))
+
+
+;;;
+;;;; Adam
+;;;
+
+
+(class Adam extends Optimizer
+  
+  
+  (slot learning-rate getter generate)
+  (slot eps           getter generate)
+  (slot m             getter generate)
+  (slot v             getter generate)
+  (slot b1            getter generate)
+  (slot b2            getter generate)
+  (slot w-updt        getter generate)
+  
+  
+  (method override (initialize self (learning-rate: learning-rate 0.001) (b1: b1 0.9) (b2: b2 0.999))
+    (nextmethod self)
+    (set! self.learning-rate learning-rate)
+    (set! self.eps 1e-8)
+    (set! self.m #f)
+    (set! self.v #f)
+    ;; decay rates
+    (set! self.b1 b1)
+    (set! self.b2 b2)
+    (set! self.w-updt #f))
+  
+  
+  (method override (clone self)
+    (let ((copy (new (class-of self))))
+      (set-slot-value copy 'learning-rate learning-rate)
+      (set-slot-value copy 'eps eps)
+      (set-slot-value copy 'm m)
+      (set-slot-value copy 'v v)
+      (set-slot-value copy 'b1 b1)
+      (set-slot-value copy 'b2 b2)
+      (set-slot-value copy 'w-updt w-updt)
+      copy))
+  
+
+  (method override (update self w grad-wrt-w)
+    ;; if not initialized
+    (when (not m)
+      (set! m (zero (shape grad-wrt-w)))
+      (set! v (zero (shape grad-wrt-w))))
+    (set! m (+ (* b1 m) (* (- 1 b1) grad-wrt-w)))
+    (set! v (+ (* b2 v) (* (- 1 b2) (expt grad-wrt-w 2))))
+    (let ((m-hat (/ m (- 1 b1)))
+          (v-hat (/ v (- 1 b2))))
+      (set! w-updt (/ (* learning-rate m-hat) (+ (sqrt v-hat) eps))))
+    (- w w-updt)))
+
+
+(definition public adam
+  (new Adam)))
  

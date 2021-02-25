@@ -146,6 +146,7 @@
 (jazz:define-unsafe ^#eq?)
 (jazz:define-unsafe ^#equal?)
 (jazz:define-unsafe ^#eqv?)
+(jazz:define-unsafe ^#exact->inexact)
 (jazz:define-unsafe ^#exception->locat)
 (jazz:define-unsafe ^#f32vector)
 (jazz:define-unsafe ^#f32vector-length)

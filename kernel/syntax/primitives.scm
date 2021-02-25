@@ -287,8 +287,14 @@
 
 
 ;;;
-;;;; Exact
+;;;; Exactness
 ;;;
+
+
+(jazz:define-macro (%%exact->inexact obj)
+  (if jazz:debug-core?
+      `(exact->inexact ,obj)
+    `(^#exact->inexact ,obj)))
 
 
 (jazz:define-macro (%%inexact->exact obj)

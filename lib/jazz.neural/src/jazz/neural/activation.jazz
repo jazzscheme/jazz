@@ -35,18 +35,21 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.neural.activation jazz
+(module protected jazz.neural.activation jazz:
 
 
-(import (jazz.neural.array))
+(import (jazz (except + * - / expt exp log map max sqrt))
+        (jazz.neural.array)
+        (jazz.neural.io)
+        (jazz.neural.overload))
 
 
 ;;;
-;;;; Activation
+;;;; Activation-Function
 ;;;
 
 
-(class Activation extends Object
+(class Activation-Function extends Object
   
   
   (method public virtual (activate self x)
@@ -62,16 +65,16 @@
 ;;;
 
 
-(class Sigmoid extends Activation
+(class Sigmoid extends Activation-Function
   
   
   (method override (activate self x)
-    (array-scalar/ 1. (array-scalar+ 1. (array-exp (array-negate x)))))
+    (/ 1 (+ 1 (exp (- x)))))
   
   
   (method override (activate-gradient self x)
     (let ((val (activate self x)))
-      (array* val (array-scalar- 1. val)))))
+      (* val (- 1 val)))))
 
 
 (definition public sigmoid
@@ -79,20 +82,69 @@
 
 
 ;;;
+;;;; Softmax
+;;;
+
+
+(class Softmax extends Activation-Function
+  
+  
+  (method override (activate self x)
+    (let ((e-x (exp (- x (max x axis: 1)))))
+      (/ e-x (sum e-x axis: 1))))
+
+  
+  (method override (activate-gradient self x)
+    (let ((val (activate self x)))
+      (* val (- 1 val)))))
+
+
+(definition public softmax
+  (new Softmax))
+
+
+;;;
 ;;;; ReLU
 ;;;
 
 
-@convert
-(class ReLU extends Activation
-
-
+(class ReLU extends Activation-Function
+  
+  
   (method override (activate self x)
-    (if (>= x 0.)
-        x
-      0.)))
+    (map (lambda (x) (if (>= x 0) x 0)) x))
+
+  
+  (method override (activate-gradient self x)
+    (map (lambda (x) (if (>= x 0) 1 0)))))
 
 
-@convert
 (definition public relu
-  (new ReLU)))
+  (new ReLU))
+
+
+;;;
+;;;; Leaky-ReLU
+;;;
+
+
+(class Leaky-ReLU extends Activation-Function
+  
+  
+  (slot alpha getter generate)
+  
+  
+  (method override (initialize self (alpha: alpha 0.2))
+    (set! self.alpha alpha))
+
+  
+  (method override (activate self x)
+    (map (lambda (x) (if (>= x 0) x (* alpha x))) x))
+  
+
+  (method override (activate-gradient self x)
+    (map (lambda (x) (if (>= x 0) 1 alpha)) x)))
+
+
+(definition public leaky-relu
+  (new Leaky-ReLU)))

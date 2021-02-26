@@ -46,7 +46,7 @@
 
 (define (jazz:jazzify-readtable! readtable)
   (jazz:readtable-named-char-table-set! readtable (%%append (jazz:readtable-named-char-table readtable) jazz:named-chars))
-  (%%readtable-char-class-set! readtable #\[ #t jazz:read-array)
+  (%%readtable-char-class-set! readtable #\[ #t jazz:read-tensor)
   (%%readtable-char-class-set! readtable #\{ #t jazz:read-literal)
   (%%readtable-char-class-set! readtable #\@ #t jazz:read-comment)
   (%%readtable-char-sharp-handler-set! readtable #\" jazz:read-delimited-string)
@@ -101,7 +101,7 @@
     ("copyright"            . #\xA9)))
 
 
-(define (jazz:read-array re c)
+(define (jazz:read-tensor re c)
   (declare (proper-tail-calls))
   (let ((port (jazz:readenv-port re))
         (start-pos (%%readenv-current-filepos re)))
@@ -113,20 +113,20 @@
                            (let ((first (%%car lst))
                                  (len (%%length lst)))
                              (if (%%f64vector? (jazz:source-code first))
-                                 (let ((array (%%make-vector len)))
+                                 (let ((vec (%%make-vector len)))
                                    (let loop ((lst lst) (n 0))
                                         (if (%%not (%%null? lst))
                                             (begin
-                                              (%%vector-set! array n (jazz:source-code (%%car lst)))
+                                              (%%vector-set! vec n (jazz:source-code (%%car lst)))
                                               (loop (%%cdr lst) (%%fx+ n 1)))))
-                                   array)
-                               (let ((array (%%make-f64vector len)))
+                                   `(tensor ,vec))
+                               (let ((vec (%%make-f64vector len)))
                                  (let loop ((lst lst) (n 0))
                                       (if (%%not (%%null? lst))
                                           (begin
-                                            (%%f64vector-set! array n (%%exact->inexact (jazz:source-code (%%car lst))))
+                                            (%%f64vector-set! vec n (%%exact->inexact (jazz:source-code (%%car lst))))
                                             (loop (%%cdr lst) (%%fx+ n 1)))))
-                                 array))))))))
+                                 vec))))))))
 
 
 (define jazz:in-expression-comment?

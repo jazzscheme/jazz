@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Loss Functions
+;;;; Neural Product
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,84 +35,45 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.neural.loss jazz:
+(module jazz.neural.product jazz
 
 
-(import (jazz (except + * - / expt exp log map max sqrt))
-        (jazz.neural.data)
-        (jazz.neural.overload)
-        (jazz.neural.tensor))
+(import (jazz.io))
 
 
-;;;
-;;;; Loss-Function
-;;;
-
-
-(class Loss-Function extends Object
-  
-  
-  (method public virtual (loss self y y-pred)
-    )
-  
-  
-  (method public virtual (loss-gradient self y y-pred)
-    )
-  
-  
-  (method public virtual (accuracy self y p)
-    ))
+;; gcc test.c -o test -I/usr/local/opt/openblas/include -L/usr/local/opt/openblas/lib -lblas
+;; gcc test.c -o test -I/Library/Developer/CommandLineTools/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/Current/Headers -lblas
 
 
 ;;;
-;;;; Square-Loss
+;;;; Build
 ;;;
 
 
-(class Square-Loss extends Loss-Function
-  
-  
-  (method override (loss self y y-pred)
-    (* 0.5 (expt (- y y-pred) 2)))
-
-  
-  (method override (loss-gradient self y y-pred)
-    (- y-pred y))
-  
-  
-  (method override (accuracy self y y-pred)
-    (- 1. (mean (loss self y y-pred)))))
+(define (neural-units)
+  (cond-expand
+    (mac
+     `(;; apple accelerate framework
+       (jazz.neural.tensor cc-options: "-I/Library/Developer/CommandLineTools/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/Current/Headers" ld-options: "-lblas")
+       ;; openblas
+       ;; (jazz.neural.tensor cc-options: "-I/usr/local/opt/openblas/include" ld-options: "-L/usr/local/opt/openblas/lib -lblas")
+       ))
+    (else
+     `((jazz.neural.tensor)))))
 
 
-(definition public square-loss
-  (new Square-Loss))
+(define (build-neural descriptor #!key (unit #f) (skip-references? #f) (force? #f))
+  (let ((unit-specs (neural-units)))
+    (custom-compile/build unit-specs unit: unit force?: force?)
+    (if (or (not unit) (not (assq unit unit-specs)))
+        (build-product-descriptor descriptor))))
 
 
 ;;;
-;;;; Cross-Entropy
+;;;; Register
 ;;;
 
 
-(class Cross-Entropy extends Loss-Function
-  
-  
-  (method override (loss self y p)
-    ;; avoid division by zero
-    (let ((p (clip p 1e-15 (- 1. 1e-15))))
-      (- (- (* y (log p)))
-         (* (- 1 y) (log (- 1 p))))))
-
-
-  (method override (loss-gradient self y p)
-    ;; avoid division by zero
-    (let ((p (clip p 1e-15 (- 1. 1e-15))))
-      (+ (- (/ y p))
-         (/ (- 1 y) (- 1 p)))))
-
-  
-  (method override (accuracy self y p)
-    (accuracy-score (argmax y axis: 1) (argmax p axis: 1))))
-
-
-(definition public cross-entropy
-  (new Cross-Entropy)))
+(register-product 'jazz.neural
+  title: "Neural"
+  build: build-neural))

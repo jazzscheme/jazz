@@ -40,14 +40,14 @@
 
 (import (jazz (except + * - / expt exp log map max sqrt))
         (jazz.io)
-        (jazz.neural.array)
-        (jazz.neural.overload))
+        (jazz.neural.overload)
+        (jazz.neural.tensor))
 
 
 (definition public (load-data file)
   (call-with-input-file (path-settings file)
     (lambda (port)
-      (let ((data (read port))
+      (let ((data (tensor (cadr (read port))))
             (target (read port)))
         (cons data target)))))
 
@@ -55,35 +55,43 @@
 (definition public (to-categorical target)
   (let ((rows (f64vector-length target))
         (cols 10))
-    (let ((array (make-array rows cols)))
+    (let ((tensor (make-tensor rows cols)))
       (loop (for row from 0 below rows)
             (let ((digit (inexact->exact (f64vector-ref target row))))
-              (array-set! array row digit 1.)))
-      array)))
+              (tensor-set! tensor row digit 1.)))
+      tensor)))
 
 
 (definition public (shuffle-data X y)
-  (let ((idx (random-sequence (naturals 0 (array-rows X)))))
-    (values (array-index X idx)
-            (array-index y idx))))
+  (let ((idx (random-sequence (naturals 0 (tensor-rows X)))))
+    (values (tensor-index X idx)
+            (tensor-index y idx))))
 
 
 (definition public (split-data X y (test-size: test-size 0.5))
   (receive (X y) (shuffle-data X y)
-    (let ((split (fxround (* (cast <fl> (array-rows X)) (- 1. test-size)))))
+    (let ((split (fxround (* (cast <fl> (tensor-rows X)) (- 1. test-size)))))
       (values
-        (subarray X 0 split) (subarray X split)
-        (subarray y 0 split) (subarray y split)))))
+        (subtensor X 0 split) (subtensor X split)
+        (subtensor y 0 split) (subtensor y split)))))
 
 
 (definition public (split-batches X y batch-size)
   (declare (proper-tail-calls))
-  (let ((count (array-rows X))
+  (let ((count (tensor-rows X))
         (batches (new-queue)))
     (let (loop (from 0) (to batch-size))
       (if (>= from count)
           (queue-list batches)
         (let ((to (min to count)))
-          (enqueue batches (cons (subarray X from to)
-                                 (subarray y from to))))
-        (loop to (+ to batch-size)))))))
+          (enqueue batches (cons (subtensor X from to)
+                                 (subtensor y from to))))
+        (loop to (+ to batch-size))))))
+
+
+(definition public (accuracy-score y-true y-pred)
+  (let ((sum (loop (for true in-vector y-true)
+                   (for pred in-vector y-pred)
+                   (when (= true pred)
+                     (sum 1)))))
+    (/ (cast <fl> sum) (cast <fl> (vector-length y-true))))))

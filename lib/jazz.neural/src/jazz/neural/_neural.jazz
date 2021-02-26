@@ -39,18 +39,6 @@
 
 
 (export (jazz.neural.activation)
-        (jazz.neural.array)
-        (jazz.neural.data)
-        (jazz.neural.io)
-        (jazz.neural.layer)
-        (jazz.neural.loss)
-        (jazz.neural.math)
-        (jazz.neural.optimizer)
-        (jazz.neural.overload))
-
-(import (jazz (except + * - / expt exp log map max sqrt))
-        (jazz.neural.activation)
-        (jazz.neural.array)
         (jazz.neural.data)
         (jazz.neural.io)
         (jazz.neural.layer)
@@ -58,6 +46,18 @@
         (jazz.neural.math)
         (jazz.neural.optimizer)
         (jazz.neural.overload)
+        (jazz.neural.tensor))
+
+(import (jazz (except + * - / expt exp log map max sqrt))
+        (jazz.neural.activation)
+        (jazz.neural.data)
+        (jazz.neural.io)
+        (jazz.neural.layer)
+        (jazz.neural.loss)
+        (jazz.neural.math)
+        (jazz.neural.optimizer)
+        (jazz.neural.overload)
+        (jazz.neural.tensor)
         (jazz.settings))
 
 
@@ -135,12 +135,19 @@
     (let ((batches (split-batches X y batch-size)))
       (loop (for epoch from 1 to epochs)
             (do (unless neural-debug?
-                  (when (= (modulo epoch feedback) 0)
+                  (when (and feedback (= (modulo epoch feedback) 0))
                     (tell epoch)))
                 (for-each (lambda (batch)
                             (bind (X . y) batch
                               (train self X y)))
                           batches)))))
+  
+  
+  (method public (test self X y)
+    (let ((y-pred (feed-forward self X #f)))
+      (let ((loss (mean (loss loss-function y y-pred)))
+            (acc (accuracy loss-function y y-pred)))
+        (values loss acc))))
   
   
   (method public (predict self X)

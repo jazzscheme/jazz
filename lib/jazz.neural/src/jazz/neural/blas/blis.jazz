@@ -52,10 +52,14 @@
 (c-include "<blis.h>")
 
 
-(c-external (test_dgemm int) void
+(c-external (init_blas) void
   #/C/
     bli_thread_set_num_threads(6);
-    
+//#)
+
+
+(c-external (test_blas int) void
+  #/C/
     for( int iter=0 ; iter<___arg1 ;iter++)
     {
         int a_rows = 5000;
@@ -81,8 +85,8 @@
         rsc = 1; csc = m;
     
         bli_dgemm( BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE,
-                    m, n, k, &alpha, a, rsa, csa, b, rsb, csb,
-                             &beta, c, rsc, csc );
+                   m, n, k, &alpha, a, rsa, csa, b, rsb, csb,
+                            &beta, c, rsc, csc );
 
         free(a);
         free(b);
@@ -92,6 +96,30 @@
 
 
 (c-external (cblas_dgemm int int int scheme-object scheme-object scheme-object) void
+  #/C/
+    int m = ___arg1;
+    int n = ___arg2;
+    int k = ___arg3;
+    ___F64 *a = ___CAST(___F64*,___BODY(___arg4));
+    ___F64 *b = ___CAST(___F64*,___BODY(___arg5));
+    ___F64 *c = ___CAST(___F64*,___BODY(___arg6));
+
+    int rsa, csa;
+    int rsb, csb;
+    int rsc, csc;
+    rsa = 1; csa = m;
+    rsb = 1; csb = k;
+    rsc = 1; csc = m;
+    double alpha = 1.0;
+    double beta  = 1.0;
+
+    bli_dgemm( BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE,
+               m, n, k, &alpha, a, rsa, csa, b, rsb, csb,
+                        &beta, c, rsc, csc );
+//#)
+
+@w
+(c-external (bli_daddv int int int scheme-object scheme-object scheme-object) void
   #/C/
     int a_rows = ___arg1;
     int b_cols = ___arg2;
@@ -114,8 +142,6 @@
     b = malloc( k * n * sizeof( double ) );
     c = malloc( m * n * sizeof( double ) );
 
-    double alpha = 1.0;
-    double beta  = 1.0;
     m = a_rows;
     n = b_cols;
     k = a_cols;
@@ -123,7 +149,13 @@
     rsb = 1; csb = k;
     rsc = 1; csc = m;
 
-    bli_dgemm( BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE,
-                m, n, k, &alpha, a, rsa, csa, b, rsb, csb,
-                         &beta, c, rsc, csc );
+    BLIS_NO_CONJUGATE
+bli_dcopyv( BLIS_NO_CONJUGATE, 
+       dim_t   n,
+       ctype*  x, 1,
+       ctype*  y, 1
+     );
+    bli_daddv( BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE,
+               m, n, k, &alpha, a, rsa, csa, b, rsb, csb,
+                        &beta, c, rsc, csc );
 //#))

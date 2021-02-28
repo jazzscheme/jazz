@@ -39,6 +39,7 @@
 
 
 (import (jazz.foreign)
+        (jazz.listener)
         (jazz.neural.math)
         (jazz.platform.types))
 
@@ -47,28 +48,118 @@
           (warn optimizations))
 
 
+(definition default-blas
+  'blis)
+
+
 ;;;
 ;;;; Foreign
 ;;;
 
 
-(c-include "<cblas.h>")
+@nonblocking (
+(c-include "<glib.h>")
+(c-include "<unistd.h>")
 
 
-(c-external (cblas_dgemm int int int scheme-object scheme-object scheme-object) void
-  #/C/
-    int a_rows = ___arg1;
-    int b_cols = ___arg2;
-    int a_cols = ___arg3;
-    ___F64 *a = ___CAST(___F64*,___BODY(___arg4));
-    ___F64 *b = ___CAST(___F64*,___BODY(___arg5));
-    ___F64 *c = ___CAST(___F64*,___BODY(___arg6));
+(c-declare jazz.neural.tensor #/C/
+#ifdef BLIS_H
+    #include <blis.h>
+#else
+    #include <cblas.h>
+#endif
+
+static void gst_listener_set(void* listener)
+{
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) listener;
+    send(socket, "!", 1, 0);
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "!", 1);
+#endif
+}
+
+typedef struct dgemm_call_struct
+{
+    int a_rows;
+    int b_cols;
+    int a_cols;
+    double* a;
+    double* b;
+    double* c;
+    void* listener;
+    GThread* thread;
+} dgemm_call;
+
+static void* call_dgemm(void* data)
+{
+    dgemm_call* dc = (dgemm_call*) data;
+
+    int a_rows = dc->a_rows;
+    int b_cols = dc->b_cols;
+    int a_cols = dc->a_cols;
     int a_stride = a_cols;
     int b_stride = b_cols;
     int c_stride = b_cols;
 
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, a_rows, b_cols, a_cols, 1.0, a, a_stride, b, b_stride, 0.0, c, c_stride);
+    void* listener = dc->listener;
+  
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, a_rows, b_cols, a_cols, 1.0, dc->a, a_stride, dc->b, b_stride, 0.0, dc->c, c_stride);
+    
+    gst_listener_set(listener);
+  
+    return NULL;
+}
+
+static void* cblas_dgemm_threaded(int a_rows, int b_cols, int a_cols, ___SCMOBJ a, int a_offset, ___SCMOBJ b, ___SCMOBJ c, int c_offset, void* listener)
+{
+    dgemm_call* dc = malloc(sizeof(dgemm_call));
+    dc->a_rows = a_rows;
+    dc->b_cols = b_cols;
+    dc->a_cols = a_cols;
+    dc->a = ___CAST(___F64*,___BODY(a)) + a_offset;
+    dc->b = ___CAST(___F64*,___BODY(b));
+    dc->c = ___CAST(___F64*,___BODY(c)) + c_offset;
+    dc->listener = listener;
+    dc->thread = g_thread_new("dgemm_call", call_dgemm, (void*) dc);
+    
+    return (void*) dc;
+}
+
+static void cblas_dgemm_free(void* data)
+{
+    dgemm_call* dc = (dgemm_call*) data;
+    g_thread_join(dc->thread);
+    g_thread_unref(dc->thread);
+    free(data);
+}
 //#)
+
+
+(c-external (cblas_dgemm_threaded int int int scheme-object int scheme-object scheme-object int void*) void*)
+(c-external (cblas_dgemm_free void*) void)
+
+
+(definition cblas-listener
+  #f)
+
+(definition (require-cblas-listener)
+  (or cblas-listener
+      (let ((listener (open-stream-listener)))
+        (set! cblas-listener listener)
+        listener)))
+
+
+(definition public (call-dgemm a-rows b-cols a-cols a b c)
+  (let ((listener (require-cblas-listener)))
+    (let ((data (cblas_dgemm_threaded a-rows b-cols a-cols a 0 b c 0 (get-write-file listener))))
+      (wait listener)
+      (cblas_dgemm_free data)))))
 
 
 ;;;
@@ -177,22 +268,55 @@
       result)))
 
 
-(definition public (tensor-dot x <Tensor> y <Tensor>) <Tensor>
+(definition public (tensor-test count (blas #f))
+  (case (or blas default-blas)
+    ((accelerate)
+     (jazz.neural.blas.accelerate:test_dgemm count))
+    ((blis)
+     (jazz.neural.blas.blis:test_dgemm count))
+    ((openblas)
+     (jazz.neural.blas.openblas:test_dgemm count))
+    ((npopenblas)
+     (jazz.neural.blas.npopenblas:test_dgemm count))))
+
+
+(definition public (tensor-dot x <Tensor> y <Tensor> (blas #f)) <Tensor>
   (let ((x-rows (tensor-rows x))
         (x-cols (tensor-cols x))
         (y-rows (tensor-rows y))
         (y-cols (tensor-cols y)))
     (assert (= x-cols y-rows)
       (let ((result (make-tensor x-rows y-cols)))
-        (cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result))
-        @unoptimized
-        (loop (for row from 0 below x-rows)
-              (loop (for col from 0 below y-cols)
-                    (tensor-set! result row col (let ((result 0.))
-                                                  (loop (for n from 0 below x-cols)
-                                                        (increase! result (* (tensor-ref x row n) (tensor-ref y n col))))
-                                                  result))))
+        @nonblocking
+        (call-dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result))
+        (case (or blas default-blas)
+          ((accelerate)
+           (jazz.neural.blas.accelerate:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
+          ((blis)
+           (jazz.neural.blas.blis:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
+          ((openblas)
+           (jazz.neural.blas.openblas:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
+          ((npopenblas)
+           (jazz.neural.blas.npopenblas:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
+          (else
+           (loop (for row from 0 below x-rows)
+                 (loop (for col from 0 below y-cols)
+                       (tensor-set! result row col (let ((result 0.))
+                                                     (loop (for n from 0 below x-cols)
+                                                           (increase! result (* (tensor-ref x row n) (tensor-ref y n col))))
+                                                     result))))))
         result))))
+
+
+@wait
+(definition public (tensor-dot! x <Tensor> y <Tensor> result <Tensor>) <Tensor>
+  (let ((x-rows (tensor-rows x))
+        (x-cols (tensor-cols x))
+        (y-rows (tensor-rows y))
+        (y-cols (tensor-cols y)))
+    (assert (= x-cols y-rows)
+      (cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result))
+      result)))
 
 
 (definition public (tensor-transpose tensor <Tensor>) <Tensor>

@@ -41,28 +41,23 @@
 (import (jazz.io))
 
 
-;; gcc test.c -o test -I/usr/local/opt/openblas/include -L/usr/local/opt/openblas/lib -lblas
-;; gcc test.c -o test -I/Library/Developer/CommandLineTools/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/Current/Headers -lblas
-
-
 ;;;
 ;;;; Build
 ;;;
 
 
-(define (neural-units)
+(definition (neural-units)
   (cond-expand
     (mac
-     `(;; apple accelerate framework
-       (jazz.neural.tensor cc-options: "-I/Library/Developer/CommandLineTools/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/Current/Headers" ld-options: "-lblas")
-       ;; openblas
-       ;; (jazz.neural.tensor cc-options: "-I/usr/local/opt/openblas/include" ld-options: "-L/usr/local/opt/openblas/lib -lblas")
-       ))
+     `((jazz.neural.blas.accelerate cc-options: "-I/Library/Developer/CommandLineTools/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/Current/Headers" ld-options: "-lblas")
+       (jazz.neural.blas.blis cc-options: "-I/usr/local/include/blis" ld-options: "-L/usr/local/lib -lblis")
+       (jazz.neural.blas.openblas cc-options: "-I/usr/local/opt/openblas/include" ld-options: "-L/usr/local/opt/openblas/lib -lopenblas.0")
+       (jazz.neural.blas.npopenblas cc-options: "-I/usr/local/opt/openblas/include" ld-options: "-L/Users/cartier/Devel/neural/lib -lopenblas.0")))
     (else
      `((jazz.neural.tensor)))))
 
 
-(define (build-neural descriptor #!key (unit #f) (skip-references? #f) (force? #f))
+(definition (build-neural descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs (neural-units)))
     (custom-compile/build unit-specs unit: unit force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))

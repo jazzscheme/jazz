@@ -1,0 +1,132 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Numpy OpenBLAS
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.neural.blas.npopenblas jazz
+
+
+(import (jazz.foreign)
+        (jazz.listener)
+        (jazz.neural.math)
+        (jazz.platform.types))
+
+
+(proclaim (not check bounds types)
+          (warn optimizations))
+
+
+(c-include "<cblas.h>")
+(c-include "<stdlib.h>")
+
+
+(c-external (describe_blas) void
+  #/C/
+    printf("threads %d\n", openblas_get_num_threads());
+    printf("processors %d\n", openblas_get_num_procs());
+    printf("parallel %d\n", openblas_get_parallel());
+    printf("config %s\n", openblas_get_config());
+//#)
+
+
+(c-external (test_dgemm int) void
+  #/C/
+    for( int iter=0 ; iter<___arg1 ;iter++)
+    {
+        int a_rows = 5000;
+        int a_cols = 500;
+        int b_rows = 500;
+        int b_cols = 5000;
+        int c_rows = a_rows;
+        int c_cols = b_cols;
+        
+        double* a = (double*) malloc(a_rows * a_cols * sizeof(double));
+        double* b = (double*) malloc(b_rows * b_cols * sizeof(double));
+        double* c = (double*) malloc(c_rows * c_cols * sizeof(double));
+
+        double alpha = 1.0;
+        double beta  = 1.0;
+        int m, n, k;
+        int rsa, csa;
+        int rsb, csb;
+        int rsc, csc;
+        m = a_rows; n = b_cols; k = a_cols;
+        rsa = 1; csa = m;
+        rsb = 1; csb = k;
+        rsc = 1; csc = m;
+    
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0, a, a_cols, b, b_cols, 1.0, c, c_cols);
+
+        free(a);
+        free(b);
+        free(c);
+    }
+//#)
+
+
+(c-external (cblas_dgemm int int int scheme-object scheme-object scheme-object) void
+  #/C/
+    int a_rows = ___arg1;
+    int b_cols = ___arg2;
+    int a_cols = ___arg3;
+    ___F64 *a = ___CAST(___F64*,___BODY(___arg4));
+    ___F64 *b = ___CAST(___F64*,___BODY(___arg5));
+    ___F64 *c = ___CAST(___F64*,___BODY(___arg6));
+
+    // Create some matrix and vector operands to work with.
+    int m, n, k;
+    int rsa, csa;
+    int rsb, csb;
+    int rsc, csc;
+    int c_cols = b_cols;
+    m = a_rows; n = b_cols; k = a_cols;
+    rsa = 1; csa = m;
+    rsb = 1; csb = k;
+    rsc = 1; csc = m;
+    a = malloc( m * k * sizeof( double ) );
+    b = malloc( k * n * sizeof( double ) );
+    c = malloc( m * n * sizeof( double ) );
+
+    double alpha = 1.0;
+    double beta  = 1.0;
+    m = a_rows;
+    n = b_cols;
+    k = a_cols;
+    rsa = 1; csa = m;
+    rsb = 1; csb = k;
+    rsc = 1; csc = m;
+
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, 1.0, a, a_cols, b, b_cols, 1.0, c, c_cols);
+//#))

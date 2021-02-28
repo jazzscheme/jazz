@@ -132,15 +132,21 @@
   
   
   (method public (fit self X y (epochs: epochs 1) (batch-size: batch-size 64) (feedback: feedback 100))
-    (let ((batches (split-batches X y batch-size)))
-      (loop (for epoch from 1 to epochs)
-            (do (unless neural-debug?
-                  (when (and feedback (= (modulo epoch feedback) 0))
-                    (tell epoch)))
+    (let ((start (real-time)))
+      (let ((batches (split-batches X y batch-size)))
+        (loop (for epoch from 1 to epochs)
+              (begin
                 (for-each (lambda (batch)
                             (bind (X . y) batch
                               (train self X y)))
-                          batches)))))
+                          batches)
+                (unless neural-debug?
+                  (when (and feedback (= (modulo epoch feedback) 0))
+                    (let ((elapsed (- (real-time) start)))
+                      (let ((eps (/ (cast <fl> epoch) elapsed)))
+                        (format :terminal "{a} ({r precision: 1} eps){%}" epoch eps))))))))
+      (let ((duration (- (real-time) start)))
+        (format :terminal "duration: {r precision: 1}{%}" duration))))
   
   
   (method public (test self X y)

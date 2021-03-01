@@ -260,54 +260,49 @@ static void cblas_dgemm_free(void* data)
 
 
 (definition public (tensor vec) <Tensor>
-  (with-tensor 'tensor
-    (lambda ()
-  (let ((rows (vector-length vec))
-        (cols (f64vector-length (vector-ref vec 0))))
-    (let ((tensor (new Tensor rows cols)))
-      (let ((data (get-data tensor)))
-        (loop (for row from 0 below rows)
-              (loop (for col from 0 below cols)
-                    (f64vector-set! data (tidx cols row col) (f64vector-ref (vector-ref vec row) col)))))
-      tensor)))))
+  (with-tensor tensor
+    (let ((rows (vector-length vec))
+          (cols (f64vector-length (vector-ref vec 0))))
+      (let ((tensor (new Tensor rows cols)))
+        (let ((data (get-data tensor)))
+          (loop (for row from 0 below rows)
+                (loop (for col from 0 below cols)
+                      (f64vector-set! data (tidx cols row col) (f64vector-ref (vector-ref vec row) col)))))
+        tensor))))
 
 
 (definition public (tensor? obj)
-  (with-tensor 'tensor?
-    (lambda ()
-  (is? obj Tensor))))
+  (with-tensor tensor?
+    (is? obj Tensor)))
 
 
 (definition public (tensor=? x y)
-  (with-tensor 'tensor=?
-    (lambda ()
-  (and (is? x Tensor)
-       (is? y Tensor)
-       (= (get-rows x) (get-rows y))
-       (= (get-cols x) (get-cols y))
-       (equal? (get-data x) (get-data y))))))
+  (with-tensor tensor=?
+    (and (is? x Tensor)
+         (is? y Tensor)
+         (= (get-rows x) (get-rows y))
+         (= (get-cols x) (get-cols y))
+         (equal? (get-data x) (get-data y)))))
 
 (definition public (tensor/=? x y)
   (not (tensor=? x y)))
 
 
 (definition public (tensor-near? x y tolerance)
-  (with-tensor 'tensor-near?
-    (lambda ()
-  (let ((x-data (get-data x))
-        (y-data (get-data y))
-        (size (get-size x)))
-    (loop (for n from 0 below size)
-          (every
-            (<= (abs (- (f64vector-ref x-data n)
-                        (f64vector-ref y-data n)))
-                tolerance)))))))
+  (with-tensor tensor-near?
+    (let ((x-data (get-data x))
+          (y-data (get-data y))
+          (size (get-size x)))
+      (loop (for n from 0 below size)
+            (every
+              (<= (abs (- (f64vector-ref x-data n)
+                          (f64vector-ref y-data n)))
+                  tolerance))))))
 
 
 (definition public (make-tensor rows <fx> cols <fx>) <Tensor>
-  (with-tensor 'make-tensor
-    (lambda ()
-  (new Tensor rows cols))))
+  (with-tensor make-tensor
+    (new Tensor rows cols)))
 
 (definition public (tensor-rows tensor <Tensor>) <fx>
   (get-rows tensor))
@@ -331,289 +326,249 @@ static void cblas_dgemm_free(void* data)
 
 
 (definition public (copy-tensor tensor <Tensor> (blas #f)) <Tensor>
-  (with-tensor 'copy-tensor
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (case (or blas default-blas)
-          ((blis)
-           (jazz.neural.blas.blis:bli_dcopyv size data r-data))
-          (else
-           (loop (for n from 0 below size)
-                 (f64vector-set! r-data n (f64vector-ref data n))))))
-      result)))))
+  (with-tensor copy-tensor
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (case (or blas default-blas)
+            ((blis)
+             (jazz.neural.blas.blis:bli_dcopyv size data r-data))
+            (else
+             (loop (for n from 0 below size)
+                   (f64vector-set! r-data n (f64vector-ref data n))))))
+        result))))
 
 
 (definition public (subtensor tensor <Tensor> start <fx> (end <fx+> #f)) <Tensor>
-  (with-tensor 'subtensor
-    (lambda ()
-  (let ((end (or end (tensor-rows tensor))))
-    (let ((rows (- end start))
-          (cols (tensor-cols tensor)))
-      (let ((result (make-tensor rows cols)))
-        (loop (for row from 0 below rows)
-              (loop (for col from 0 below cols)
-                    (tensor-set! result row col (tensor-ref tensor (+ start row) col))))
-        result))))))
+  (with-tensor subtensor
+    (let ((end (or end (tensor-rows tensor))))
+      (let ((rows (- end start))
+            (cols (tensor-cols tensor)))
+        (let ((result (make-tensor rows cols)))
+          (loop (for row from 0 below rows)
+                (loop (for col from 0 below cols)
+                      (tensor-set! result row col (tensor-ref tensor (+ start row) col))))
+          result)))))
 
 
 (definition public (tensor-index tensor <Tensor> idx) <Tensor>
-  (with-tensor 'tensor-index
-    (lambda ()
-  (let ((len (length idx))
-        (cols (tensor-cols tensor)))
-    (let ((result (make-tensor len cols)))
-      (loop (for i in idx)
-            (for row from 0)
-            (loop (for col from 0 below cols)
-                  (tensor-set! result row col (tensor-ref tensor i col))))
-      result)))))
+  (with-tensor tensor-index
+    (let ((len (length idx))
+          (cols (tensor-cols tensor)))
+      (let ((result (make-tensor len cols)))
+        (loop (for i in idx)
+              (for row from 0)
+              (loop (for col from 0 below cols)
+                    (tensor-set! result row col (tensor-ref tensor i col))))
+        result))))
 
 
 (definition public (tensor-dot x <Tensor> y <Tensor> (blas #f)) <Tensor>
-  (with-tensor 'tensor-dot
-    (lambda ()
-  (let ((x-rows (tensor-rows x))
-        (x-cols (tensor-cols x))
-        (y-rows (tensor-rows y))
-        (y-cols (tensor-cols y)))
-    (assert (= x-cols y-rows)
-      (let ((result (make-tensor x-rows y-cols)))
-        @nonblocking
-        (call-dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result))
-        (case (or blas default-blas)
-          ((accelerate)
-           (jazz.neural.blas.accelerate:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
-          ((blis)
-           (jazz.neural.blas.blis:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
-          ((openblas)
-           (jazz.neural.blas.openblas:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
-          ((npopenblas)
-           (jazz.neural.blas.npopenblas:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
-          (else
-           (loop (for row from 0 below x-rows)
-                 (loop (for col from 0 below y-cols)
-                       (tensor-set! result row col (let ((result 0.))
-                                                     (loop (for n from 0 below x-cols)
-                                                           (increase! result (* (tensor-ref x row n) (tensor-ref y n col))))
-                                                     result))))))
-        result))))))
+  (with-tensor tensor-dot
+    (let ((x-rows (tensor-rows x))
+          (x-cols (tensor-cols x))
+          (y-rows (tensor-rows y))
+          (y-cols (tensor-cols y)))
+      (assert (= x-cols y-rows)
+        (let ((result (make-tensor x-rows y-cols)))
+          @nonblocking
+          (call-dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result))
+          (case (or blas default-blas)
+            ((accelerate)
+             (jazz.neural.blas.accelerate:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
+            ((blis)
+             (jazz.neural.blas.blis:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
+            ((openblas)
+             (jazz.neural.blas.openblas:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
+            ((npopenblas)
+             (jazz.neural.blas.npopenblas:cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result)))
+            (else
+             (loop (for row from 0 below x-rows)
+                   (loop (for col from 0 below y-cols)
+                         (tensor-set! result row col (let ((result 0.))
+                                                       (loop (for n from 0 below x-cols)
+                                                             (increase! result (* (tensor-ref x row n) (tensor-ref y n col))))
+                                                       result))))))
+          result)))))
 
 
 @wait
 (definition public (tensor-dot! x <Tensor> y <Tensor> result <Tensor>) <Tensor>
-  (with-tensor 'tensor-dot!
-    (lambda ()
-  (let ((x-rows (tensor-rows x))
-        (x-cols (tensor-cols x))
-        (y-rows (tensor-rows y))
-        (y-cols (tensor-cols y)))
-    (assert (= x-cols y-rows)
-      (cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result))
-      result)))))
+  (with-tensor tensor-dot!
+    (let ((x-rows (tensor-rows x))
+          (x-cols (tensor-cols x))
+          (y-rows (tensor-rows y))
+          (y-cols (tensor-cols y)))
+      (assert (= x-cols y-rows)
+        (cblas_dgemm x-rows y-cols x-cols (get-data x) (get-data y) (get-data result))
+        result))))
 
 
 (definition public (tensor-transpose tensor <Tensor>) <Tensor>
-  (with-tensor 'tensor-transpose
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor)))
-    (let ((result (make-tensor cols rows)))
-      (loop (for row from 0 below rows)
-            (loop (for col from 0 below cols)
-                  (tensor-set! result col row (tensor-ref tensor row col))))
-      result)))))
+  (with-tensor tensor-transpose
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor)))
+      (let ((result (make-tensor cols rows)))
+        (loop (for row from 0 below rows)
+              (loop (for col from 0 below cols)
+                    (tensor-set! result col row (tensor-ref tensor row col))))
+        result))))
 
 
 (definition public (tensor-mean tensor <Tensor>) <fl>
-  (with-tensor 'tensor-mean
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (total 0.)
-        (count 0))
-    (loop (for row from 0 below rows)
-          (increase! total (tensor-ref tensor row 0))
-          (increase! count))
-    (/ total (cast <fl> count))))))
+  (with-tensor tensor-mean
+    (let ((rows (tensor-rows tensor))
+          (total 0.)
+          (count 0))
+      (loop (for row from 0 below rows)
+            (increase! total (tensor-ref tensor row 0))
+            (increase! count))
+      (/ total (cast <fl> count)))))
 
 
 (definition public (tensor-max tensor <Tensor> (axis: axis 0)) <Tensor>
-  (with-tensor 'tensor-max
-    (lambda ()
-  (case axis
-    ((0)
-     (let ((rows (tensor-rows tensor))
-           (cols (tensor-cols tensor)))
-       (let ((sum (make-tensor 1 cols)))
-         (loop (for col from 0 below cols)
-               (tensor-set! sum 0 col (let ((max -inf.0))
-                                        (loop (for row from 0 below rows)
-                                              (let ((val (tensor-ref tensor row col)))
-                                                (when (> val max)
-                                                  (set! max val))))
-                                        max)))
-         sum)))
-    ((1)
-     (let ((rows (tensor-rows tensor))
-           (cols (tensor-cols tensor)))
-       (let ((sum (make-tensor rows 1)))
-         (loop (for row from 0 below rows)
-               (tensor-set! sum row 0 (let ((max -inf.0))
-                                        (loop (for col from 0 below cols)
-                                              (let ((val (tensor-ref tensor row col)))
-                                                (when (> val max)
-                                                  (set! max val))))
-                                        max)))
-         sum)))
-    (else
-     (error "Invalid axis: {s}" axis))))))
+  (with-tensor tensor-max
+    (case axis
+      ((0)
+       (let ((rows (tensor-rows tensor))
+             (cols (tensor-cols tensor)))
+         (let ((sum (make-tensor 1 cols)))
+           (loop (for col from 0 below cols)
+                 (tensor-set! sum 0 col (let ((max -inf.0))
+                                          (loop (for row from 0 below rows)
+                                                (let ((val (tensor-ref tensor row col)))
+                                                  (when (> val max)
+                                                    (set! max val))))
+                                          max)))
+           sum)))
+      ((1)
+       (let ((rows (tensor-rows tensor))
+             (cols (tensor-cols tensor)))
+         (let ((sum (make-tensor rows 1)))
+           (loop (for row from 0 below rows)
+                 (tensor-set! sum row 0 (let ((max -inf.0))
+                                          (loop (for col from 0 below cols)
+                                                (let ((val (tensor-ref tensor row col)))
+                                                  (when (> val max)
+                                                    (set! max val))))
+                                          max)))
+           sum)))
+      (else
+       (error "Invalid axis: {s}" axis)))))
 
 
 (definition public (tensor-argmax tensor <Tensor> (axis: axis 1)) <Tensor>
-  (with-tensor 'tensor-argmax
-    (lambda ()
-  (case axis
-    ((1)
-     (let ((rows (tensor-rows tensor))
-           (cols (tensor-cols tensor)))
-       (let ((indices (make-vector rows)))
-         (loop (for row from 0 below rows)
-               (let ((max -inf.0))
-                 (loop (for col from 0 below cols)
-                       (let ((val (tensor-ref tensor row col)))
-                         (when (> val max)
-                           (set! max val)
-                           (vector-set! indices row col))))))
-         indices)))
-    (else
-     (error "Invalid axis: {s}" axis))))))
+  (with-tensor tensor-argmax
+    (case axis
+      ((1)
+       (let ((rows (tensor-rows tensor))
+             (cols (tensor-cols tensor)))
+         (let ((indices (make-vector rows)))
+           (loop (for row from 0 below rows)
+                 (let ((max -inf.0))
+                   (loop (for col from 0 below cols)
+                         (let ((val (tensor-ref tensor row col)))
+                           (when (> val max)
+                             (set! max val)
+                             (vector-set! indices row col))))))
+           indices)))
+      (else
+       (error "Invalid axis: {s}" axis)))))
 
 
 (definition public (tensor-sum tensor <Tensor> (axis: axis 0)) <Tensor>
-  (with-tensor 'tensor-sum
-    (lambda ()
-  (case axis
-    ((0)
-     (let ((rows (tensor-rows tensor))
-           (cols (tensor-cols tensor)))
-       (let ((sum (make-tensor 1 cols)))
-         (loop (for col from 0 below cols)
-               (tensor-set! sum 0 col (loop (for row from 0 below rows)
-                                            (sum (tensor-ref tensor row col)))))
-         sum)))
-    ((1)
-     (let ((rows (tensor-rows tensor))
-           (cols (tensor-cols tensor)))
-       (let ((sum (make-tensor rows 1)))
-         (loop (for row from 0 below rows)
-               (tensor-set! sum row 0 (loop (for col from 0 below cols)
-                                            (sum (tensor-ref tensor row col)))))
-         sum)))
-    (else
-     (error "Invalid axis: {s}" axis))))))
+  (with-tensor tensor-sum
+    (case axis
+      ((0)
+       (let ((rows (tensor-rows tensor))
+             (cols (tensor-cols tensor)))
+         (let ((sum (make-tensor 1 cols)))
+           (loop (for col from 0 below cols)
+                 (tensor-set! sum 0 col (loop (for row from 0 below rows)
+                                              (sum (tensor-ref tensor row col)))))
+           sum)))
+      ((1)
+       (let ((rows (tensor-rows tensor))
+             (cols (tensor-cols tensor)))
+         (let ((sum (make-tensor rows 1)))
+           (loop (for row from 0 below rows)
+                 (tensor-set! sum row 0 (loop (for col from 0 below cols)
+                                              (sum (tensor-ref tensor row col)))))
+           sum)))
+      (else
+       (error "Invalid axis: {s}" axis)))))
 
 
 (definition public (tensor+ x <Tensor> y <Tensor> (blas #f)) <Tensor>
-  (with-tensor 'tensor+
-    (lambda ()
-  (let ((rows (tensor-rows x))
-        (cols (tensor-cols x))
-        (y-rows (tensor-rows y))
-        (y-cols (tensor-cols y)))
-    (assert (= cols y-cols)
-      (if (and (/= y-rows rows)
-               (= y-rows 1))
-          (let ((result (make-tensor rows cols)))
-            (loop (for row from 0 below rows)
-                  (loop (for col from 0 below cols)
-                        (tensor-set! result row col (+ (tensor-ref x row col)
-                                                       (tensor-ref y 0 col)))))
-            result)
-        (assert (= rows y-rows)
-          (let ((size (tensor-size x))
-                (x-data (get-data x))
-                (y-data (get-data y)))
-            (case (or blas default-blas)
-              ((blis)
-               (let ((result (copy-tensor y)))
-                 (let ((r-data (get-data result)))
-                   (jazz.neural.blas.blis:bli_dcopyv size x-data r-data))
-                 result))
-              (else
-               (let ((result (make-tensor rows cols)))
-                 (let ((r-data (get-data result)))
-                   (loop (for n from 0 below size)
-                         (f64vector-set! r-data n (+ (f64vector-ref x-data n)
-                                                     (f64vector-ref y-data n)))))
-                 result)))))))))))
+  (with-tensor tensor+
+    (let ((rows (tensor-rows x))
+          (cols (tensor-cols x))
+          (y-rows (tensor-rows y))
+          (y-cols (tensor-cols y)))
+      (assert (= cols y-cols)
+        (if (and (/= y-rows rows)
+                 (= y-rows 1))
+            (let ((result (make-tensor rows cols)))
+              (loop (for row from 0 below rows)
+                    (loop (for col from 0 below cols)
+                          (tensor-set! result row col (+ (tensor-ref x row col)
+                                                         (tensor-ref y 0 col)))))
+              result)
+          (assert (= rows y-rows)
+            (let ((size (tensor-size x))
+                  (x-data (get-data x))
+                  (y-data (get-data y)))
+              (case (or blas default-blas)
+                ((blis)
+                 (let ((result (copy-tensor y)))
+                   (let ((r-data (get-data result)))
+                     (jazz.neural.blas.blis:bli_dcopyv size x-data r-data))
+                   result))
+                (else
+                 (let ((result (make-tensor rows cols)))
+                   (let ((r-data (get-data result)))
+                     (loop (for n from 0 below size)
+                           (f64vector-set! r-data n (+ (f64vector-ref x-data n)
+                                                       (f64vector-ref y-data n)))))
+                   result))))))))))
 
 
 (definition public (tensor- x <Tensor> y <Tensor>) <Tensor>
-  (with-tensor 'tensor-
-    (lambda ()
-  (let ((rows (tensor-rows x))
-        (cols (tensor-cols x))
-        (y-rows (tensor-rows y))
-        (y-cols (tensor-cols y)))
-    (assert (= rows y-rows)
-      (if (and (/= cols 1) (= y-cols 1))
-          (let ((result (make-tensor rows cols)))
-            (loop (for row from 0 below rows)
-                  (loop (for col from 0 below cols)
-                        (tensor-set! result row col (- (tensor-ref x row col)
-                                                       (tensor-ref y row 0)))))
-            result)
-        (assert (= cols (tensor-cols y))
-          (let ((result (make-tensor rows cols)))
-            (let ((size (tensor-size x))
-                  (x-data (get-data x))
-                  (y-data (get-data y))
-                  (r-data (get-data result)))
-              (loop (for n from 0 below size)
-                    (f64vector-set! r-data n (- (f64vector-ref x-data n)
-                                                (f64vector-ref y-data n)))))
-            result))))))))
+  (with-tensor tensor-
+    (let ((rows (tensor-rows x))
+          (cols (tensor-cols x))
+          (y-rows (tensor-rows y))
+          (y-cols (tensor-cols y)))
+      (assert (= rows y-rows)
+        (if (and (/= cols 1) (= y-cols 1))
+            (let ((result (make-tensor rows cols)))
+              (loop (for row from 0 below rows)
+                    (loop (for col from 0 below cols)
+                          (tensor-set! result row col (- (tensor-ref x row col)
+                                                         (tensor-ref y row 0)))))
+              result)
+          (assert (= cols (tensor-cols y))
+            (let ((result (make-tensor rows cols)))
+              (let ((size (tensor-size x))
+                    (x-data (get-data x))
+                    (y-data (get-data y))
+                    (r-data (get-data result)))
+                (loop (for n from 0 below size)
+                      (f64vector-set! r-data n (- (f64vector-ref x-data n)
+                                                  (f64vector-ref y-data n)))))
+              result)))))))
 
 
 (definition public (tensor* x <Tensor> y <Tensor>) <Tensor>
-  (with-tensor 'tensor*
-    (lambda ()
-  (let ((rows (tensor-rows x))
-        (cols (tensor-cols x))
-        (y-rows (tensor-rows y))
-        (y-cols (tensor-cols y)))
-    (assert (= rows y-rows)
-      (assert (= cols y-cols)
-        (let ((result (make-tensor rows cols)))
-          (let ((size (tensor-size x))
-                (x-data (get-data x))
-                (y-data (get-data y))
-                (r-data (get-data result)))
-            (loop (for n from 0 below size)
-                  (f64vector-set! r-data n (* (f64vector-ref x-data n)
-                                              (f64vector-ref y-data n)))))
-          result)))))))
-
-
-(definition public (tensor/ x <Tensor> y <Tensor>) <Tensor>
-  (with-tensor 'tensor/
-    (lambda ()
-  (let ((rows (tensor-rows x))
-        (cols (tensor-cols x))
-        (y-rows (tensor-rows y))
-        (y-cols (tensor-cols y)))
-    (assert (= rows y-rows)
-      (if (and (/= cols 1) (= y-cols 1))
-          (let ((result (make-tensor rows cols)))
-            (loop (for row from 0 below rows)
-                  (loop (for col from 0 below cols)
-                        (tensor-set! result row col (/ (tensor-ref x row col)
-                                                       (tensor-ref y row 0)))))
-            result)
+  (with-tensor tensor*
+    (let ((rows (tensor-rows x))
+          (cols (tensor-cols x))
+          (y-rows (tensor-rows y))
+          (y-cols (tensor-cols y)))
+      (assert (= rows y-rows)
         (assert (= cols y-cols)
           (let ((result (make-tensor rows cols)))
             (let ((size (tensor-size x))
@@ -621,167 +576,182 @@ static void cblas_dgemm_free(void* data)
                   (y-data (get-data y))
                   (r-data (get-data result)))
               (loop (for n from 0 below size)
-                    (f64vector-set! r-data n (/ (f64vector-ref x-data n)
+                    (f64vector-set! r-data n (* (f64vector-ref x-data n)
                                                 (f64vector-ref y-data n)))))
-            result))))))))
+            result))))))
+
+
+(definition public (tensor/ x <Tensor> y <Tensor>) <Tensor>
+  (with-tensor tensor/
+    (let ((rows (tensor-rows x))
+          (cols (tensor-cols x))
+          (y-rows (tensor-rows y))
+          (y-cols (tensor-cols y)))
+      (assert (= rows y-rows)
+        (if (and (/= cols 1) (= y-cols 1))
+            (let ((result (make-tensor rows cols)))
+              (loop (for row from 0 below rows)
+                    (loop (for col from 0 below cols)
+                          (tensor-set! result row col (/ (tensor-ref x row col)
+                                                         (tensor-ref y row 0)))))
+              result)
+          (assert (= cols y-cols)
+            (let ((result (make-tensor rows cols)))
+              (let ((size (tensor-size x))
+                    (x-data (get-data x))
+                    (y-data (get-data y))
+                    (r-data (get-data result)))
+                (loop (for n from 0 below size)
+                      (f64vector-set! r-data n (/ (f64vector-ref x-data n)
+                                                  (f64vector-ref y-data n)))))
+              result)))))))
 
 
 (definition public (tensor-scalar+ scalar <fl> tensor <Tensor>) <Tensor>
-  (with-tensor 'tensor-scalar+
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (+ scalar (f64vector-ref data n)))))
-      result)))))
+  (with-tensor tensor-scalar+
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (+ scalar (f64vector-ref data n)))))
+        result))))
 
 
 (definition public (tensor-scalar- scalar <fl> tensor <Tensor>) <Tensor>
-  (with-tensor 'tensor-scalar-
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (- scalar (f64vector-ref data n)))))
-      result)))))
+  (with-tensor tensor-scalar-
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (- scalar (f64vector-ref data n)))))
+        result))))
 
 
 (definition public (tensor-scalar* scalar <fl> tensor <Tensor>) <Tensor>
-  (with-tensor 'tensor-scalar*
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (tensor_scalar_mul size scalar data r-data)
-        @lisp
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (* scalar (f64vector-ref data n)))))
-      result)))))
+  (with-tensor tensor-scalar*
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (tensor_scalar_mul size scalar data r-data)
+          @lisp
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (* scalar (f64vector-ref data n)))))
+        result))))
 
 
 (definition public (tensor-scalar/ scalar <fl> tensor <Tensor>) <Tensor>
-  (with-tensor 'tensor-scalar/
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (/ scalar (f64vector-ref data n)))))
-      result)))))
+  (with-tensor tensor-scalar/
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (/ scalar (f64vector-ref data n)))))
+        result))))
 
 
 (definition public (tensor-negate tensor <Tensor>) <Tensor>
-  (with-tensor 'tensor-negate
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (- (f64vector-ref data n)))))
-      result)))))
+  (with-tensor tensor-negate
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (- (f64vector-ref data n)))))
+        result))))
 
 
 (definition public (tensor-sqrt tensor <Tensor>) <Tensor>
-  (with-tensor 'tensor-sqrt
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (sqrt (f64vector-ref data n)))))
-      result)))))
+  (with-tensor tensor-sqrt
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (sqrt (f64vector-ref data n)))))
+        result))))
 
 
 (definition public (tensor-square tensor <Tensor>) <Tensor>
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-  (with-tensor 'tensor-square
-    (lambda ()
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (tensor_square size data r-data)
-        @lisp
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (expt (f64vector-ref data n) power))))
-      result)))))
+  (with-tensor tensor-square
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (tensor_square size data r-data)
+          @lisp
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (expt (f64vector-ref data n) power))))
+        result))))
 
 
 (definition public (tensor-expt tensor <Tensor> power <fx>) <Tensor>
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-  (with-tensor 'tensor-expt
-    (lambda ()
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (expt (f64vector-ref data n) power))))
-      result)))))
+  (with-tensor tensor-expt
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (expt (f64vector-ref data n) power))))
+        result))))
 
 
 (definition public (tensor-exp tensor <Tensor>) <Tensor>
-  (with-tensor 'tensor-exp
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (exp (f64vector-ref data n)))))
-      result)))))
+  (with-tensor tensor-exp
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (exp (f64vector-ref data n)))))
+        result))))
 
 
 (definition public (tensor-log tensor <Tensor>) <Tensor>
-  (with-tensor 'tensor-log
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (log (f64vector-ref data n)))))
-      result)))))
+  (with-tensor tensor-log
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (log (f64vector-ref data n)))))
+        result))))
 
 
 (definition public (tensor-clip tensor <Tensor> min <fl> max <fl>) <Tensor>
-  (with-tensor 'tensor-clip
-    (lambda ()
-  (let ((rows (tensor-rows tensor))
-        (cols (tensor-cols tensor))
-        (size (tensor-size tensor)))
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (r-data (get-data result)))
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (between min (f64vector-ref data n) max))))
-      result)))))
+  (with-tensor tensor-clip
+    (let ((rows (tensor-rows tensor))
+          (cols (tensor-cols tensor))
+          (size (tensor-size tensor)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data tensor))
+              (r-data (get-data result)))
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (between min (f64vector-ref data n) max))))
+        result))))
 
 
 (definition public (random-tensor rows <fx> cols <fx> (min #f) (max #f)) <Tensor>
@@ -813,57 +783,53 @@ static void cblas_dgemm_free(void* data)
 
 
 (definition public (tensor-map proc x <Tensor>) <Tensor>
-  (let ((rows (tensor-rows x))
-        (cols (tensor-cols x)))
-  (with-tensor 'tensor-map
-    (lambda ()
-    (let ((result (make-tensor rows cols)))
-      (let ((data (get-data x))
-            (r-data (get-data result))
-            (size (get-size result)))
-        (loop (for n from 0 below size)
-              (f64vector-set! r-data n (exact->inexact (proc (f64vector-ref data n))))))
-      result)))))
+  (with-tensor tensor-map
+    (let ((rows (tensor-rows x))
+          (cols (tensor-cols x)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data x))
+              (r-data (get-data result))
+              (size (get-size result)))
+          (loop (for n from 0 below size)
+                (f64vector-set! r-data n (exact->inexact (proc (f64vector-ref data n))))))
+        result))))
 
 
 (definition public (tensor-leaky-relu alpha x <Tensor>) <Tensor>
-  (let ((rows (tensor-rows x))
-        (cols (tensor-cols x)))
-    (with-tensor 'tensor-leaky-relu
-      (lambda ()
-        (let ((result (make-tensor rows cols)))
-          (let ((data (get-data x))
-                (r-data (get-data result))
-                (size (get-size result)))
-            (tensor_leaky_relu size alpha data r-data))
-          result))))
+  (with-tensor tensor-leaky-relu
+    (let ((rows (tensor-rows x))
+          (cols (tensor-cols x)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data x))
+              (r-data (get-data result))
+              (size (get-size result)))
+          (tensor_leaky_relu size alpha data r-data))
+        result)))
   @lisp
   (tensor-map (lambda (x <fl>) (if (>= x 0.) x (* alpha x))) x))
 
 
 (definition public (tensor-leaky-relu-gradient alpha x <Tensor>) <Tensor>
-  (let ((rows (tensor-rows x))
-        (cols (tensor-cols x)))
-    (with-tensor 'tensor-leaky-relu-gradient
-      (lambda ()
-        (let ((result (make-tensor rows cols)))
-          (let ((data (get-data x))
-                (r-data (get-data result))
-                (size (get-size result)))
-            (tensor_leaky_relu_gradient size alpha data r-data))
-          result))))
+  (with-tensor tensor-leaky-relu-gradient
+    (let ((rows (tensor-rows x))
+          (cols (tensor-cols x)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data x))
+              (r-data (get-data result))
+              (size (get-size result)))
+          (tensor_leaky_relu_gradient size alpha data r-data))
+        result)))
   @lisp
   (tensor-map (lambda (x <fl>) (if (>= x 0.) 1. alpha)) x))
 
 
 (definition public (tensor-dropout p x <Tensor>) <Tensor>
-  (let ((rows (tensor-rows x))
-        (cols (tensor-cols x)))
-    (with-tensor 'tensor-dropout
-      (lambda ()
-        (let ((result (make-tensor rows cols)))
-          (let ((data (get-data x))
-                (r-data (get-data result))
-                (size (get-size result)))
-            (tensor_dropout size p data r-data))
-          result))))))
+  (with-tensor tensor-dropout
+    (let ((rows (tensor-rows x))
+          (cols (tensor-cols x)))
+      (let ((result (make-tensor rows cols)))
+        (let ((data (get-data x))
+              (r-data (get-data result))
+              (size (get-size result)))
+          (tensor_dropout size p data r-data))
+        result)))))

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.neural jazz:
+(module jazz.neural jazz
 
 
 (export (jazz.neural.activation)
@@ -47,10 +47,10 @@
         (jazz.neural.math)
         (jazz.neural.optimizer)
         (jazz.neural.overload)
+        (jazz.neural.syntax)
         (jazz.neural.tensor))
 
-(import (jazz (except + * - / expt exp log map max sqrt))
-        (jazz.neural.activation)
+(import (jazz.neural.activation)
         (jazz.neural.blas)
         (jazz.neural.data)
         (jazz.neural.io)
@@ -59,8 +59,10 @@
         (jazz.neural.math)
         (jazz.neural.optimizer)
         (jazz.neural.overload)
+        (jazz.neural.syntax)
         (jazz.neural.tensor)
-        (jazz.settings))
+        (jazz.settings)
+        (profiler))
 
 
 (definition public neural-debug?
@@ -134,26 +136,33 @@
   
   
   (method public (fit self X y (epochs: epochs 1) (batch-size: batch-size 64) (feedback: feedback 100))
-    (let ((start (real-time)))
-      (let ((batches (split-batches X y batch-size)))
-        (loop (for epoch from 1 to epochs)
-              (begin
-                (for-each (lambda (batch)
-                            (bind (X . y) batch
-                              (train self X y)))
-                          batches)
-                (unless neural-debug?
-                  (when (and feedback (= (modulo epoch feedback) 0))
-                    (let ((elapsed (- (real-time) start)))
-                      (let ((eps (/ (cast <fl> epoch) elapsed)))
-                        (format :terminal "{a} ({r precision: 1} eps){%}" epoch eps))))))))
-      (let ((duration (- (real-time) start)))
-        (format :terminal "duration: {r precision: 1}{%}" duration))))
+    (define (do)
+      (let ((start (real-time)))
+        (let ((batches (split-batches X y batch-size)))
+          (loop (for epoch from 1 to epochs)
+                (begin
+                  (for-each (lambda (batch)
+                              (bind (X . y) batch
+                                (train self X y)))
+                            batches)
+                  (unless neural-debug?
+                    (when (and feedback (= (modulo epoch feedback) 0))
+                      (let ((elapsed (- (real-time) start)))
+                        (let ((eps (/ (cast <fl> epoch) elapsed)))
+                          (format :terminal "{a} ({r precision: 1} eps){%}" epoch eps))))))))
+        (let ((duration (- (real-time) start)))
+          (format :terminal "duration: {r precision: 1}{%}" duration))))
+    
+    (if (command-argument "profile")
+        (with-profile 'fit
+          (lambda ()
+            (do)))
+      (do)))
   
   
   (method public (test self X y)
     (let ((y-pred (feed-forward self X #f)))
-      (let ((loss (mean (loss loss-function y y-pred)))
+      (let ((loss (tensor-mean (loss loss-function y y-pred)))
             (acc (accuracy loss-function y y-pred)))
         (values loss acc))))
   

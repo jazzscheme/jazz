@@ -35,16 +35,19 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.neural.layer jazz:
+(module protected jazz.neural.layer jazz
 
 
-(import (jazz (except + * - / expt exp log map max sqrt))
-        (jazz.neural.activation)
+(import (jazz.neural.activation)
         (jazz.neural.io)
         (jazz.neural.math)
         (jazz.neural.optimizer)
         (jazz.neural.overload)
         (jazz.neural.tensor))
+
+
+(proclaim (not check bounds types)
+          (warn optimizations))
 
 
 ;;;
@@ -112,21 +115,21 @@
   
   (method override (forward-pass self X training?)
     (set! layer-input X)
-    (+ (dot X W) w0))
+    (tensor+ (tensor-dot X W) w0))
   
   
   (method override (backward-pass self accum-grad)
     ;; save weights used during forwards pass
     (let ((W W))
       ;; calculate gradient w.r.t layer weights
-      (let ((grad-w (dot (transpose layer-input) accum-grad))
-            (grad-w0 (sum accum-grad axis: 0)))
+      (let ((grad-w (tensor-dot (tensor-transpose layer-input) accum-grad))
+            (grad-w0 (tensor-sum accum-grad axis: 0)))
         ;; update the layer weights
         (set! self.W (update W-opt self.W grad-w))
         (set! self.w0 (update w0-opt self.w0 grad-w0))
         ;; return accumulated gradient for next layer calculated
         ;; based on the weights used during the forward pass
-        (dot accum-grad (transpose W))))))
+        (tensor-dot accum-grad (tensor-transpose W))))))
 
 
 ;;;
@@ -152,15 +155,15 @@
 
   
   (method override (forward-pass self X training?)
-    (let ((c (if (not training?)
-                 (- 1. p)
-               (set! mask (map (lambda (x <fl>) (if (> x p) 1. 0.)) (random-tensor (tensor-rows X) (tensor-cols X))))
-               mask)))
-      (* X c)))
+    (cond (training?
+           (set! mask (tensor-dropout p (random-tensor (tensor-rows X) (tensor-cols X))))
+           (tensor* X mask))
+          (else
+           (tensor-scalar* (- 1. p) X))))
 
   
   (method override (backward-pass self accum-grad)
-    (* accum-grad mask)))
+    (tensor* accum-grad mask)))
 
 
 ;;;
@@ -200,4 +203,4 @@
 
   
   (method override (backward-pass self accum-grad)
-    (* accum-grad (activate-gradient activation layer-input)))))
+    (tensor* accum-grad (activate-gradient activation layer-input)))))

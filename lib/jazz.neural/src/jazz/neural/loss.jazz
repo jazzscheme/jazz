@@ -35,13 +35,16 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.neural.loss jazz:
+(module protected jazz.neural.loss jazz
 
 
-(import (jazz (except + * - / expt exp log map max sqrt))
-        (jazz.neural.data)
+(import (jazz.neural.data)
         (jazz.neural.overload)
         (jazz.neural.tensor))
+
+
+(proclaim (not check bounds types)
+          (warn optimizations))
 
 
 ;;;
@@ -73,15 +76,15 @@
   
   
   (method override (loss self y y-pred)
-    (* 0.5 (expt (- y y-pred) 2)))
+    (tensor-scalar* 0.5 (tensor-square (tensor- y y-pred))))
 
   
   (method override (loss-gradient self y y-pred)
-    (- y-pred y))
+    (tensor- y-pred y))
   
   
   (method override (accuracy self y y-pred)
-    (- 1. (mean (loss self y y-pred)))))
+    (- 1. (tensor-mean (loss self y y-pred)))))
 
 
 (definition public square-loss
@@ -98,20 +101,20 @@
   
   (method override (loss self y p)
     ;; avoid division by zero
-    (let ((p (clip p 1e-15 (- 1. 1e-15))))
-      (- (- (* y (log p)))
-         (* (- 1. y) (log (- 1. p))))))
+    (let ((p (tensor-clip p 1e-15 (- 1. 1e-15))))
+      (tensor- (tensor-negate (tensor* y (tensor-log p)))
+               (tensor* (tensor-scalar- 1. y) (tensor-log (tensor-scalar- 1. p))))))
 
 
   (method override (loss-gradient self y p)
     ;; avoid division by zero
-    (let ((p (clip p 1e-15 (- 1. 1e-15))))
-      (+ (- (/ y p))
-         (/ (- 1. y) (- 1. p)))))
+    (let ((p (tensor-clip p 1e-15 (- 1. 1e-15))))
+      (tensor+ (tensor-negate (tensor/ y p))
+               (tensor/ (tensor-scalar- 1. y) (tensor-scalar- 1. p)))))
 
   
   (method override (accuracy self y p)
-    (accuracy-score (argmax y axis: 1) (argmax p axis: 1))))
+    (accuracy-score (tensor-argmax y axis: 1) (tensor-argmax p axis: 1))))
 
 
 (definition public cross-entropy

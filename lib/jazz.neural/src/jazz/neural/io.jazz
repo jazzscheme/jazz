@@ -41,6 +41,13 @@
 (import (jazz.neural.tensor))
 
 
+(definition public tell-precision
+  3)
+
+(definition public (set-tell-precision precision)
+  (set! tell-precision precision))
+
+
 (definition public (tell . rest)
   (let ((first? #t))
     (for-each (lambda (obj)
@@ -48,10 +55,81 @@
                     (set! first? #f)
                   (format :terminal " "))
                 (cond ((flonum? obj)
-                       (format :terminal "{r precision: 3}" obj))
+                       (print-flonum obj))
                       ((tensor? obj)
                        (print-tensor obj))
                       (else
                        (format :terminal "{a}" obj))))
               rest))
-  (format :terminal "{%}")))
+  (format :terminal "{%}"))
+
+
+;;;
+;;;; Flonum
+;;;
+
+
+(definition protected (print-flonum obj)
+  (if (not tell-precision)
+      (format :terminal "{a}" obj)
+    (format :terminal "{r precision: :v}" obj tell-precision)))
+
+
+;;;
+;;;; Tensor
+;;;
+
+
+(definition (print-tensor-row tensor <Tensor> row (output :terminal))
+  (format output "[")
+  (let ((cols (tensor-cols tensor)))
+    (define (print-col col)
+      (when (/= col 0)
+        (format output " "))
+      (let ((val (tensor-ref tensor row col)))
+        (if (>= val 0.)
+            (format output " ")
+          (format output "-")
+          (set! val (- val)))
+        (when (< val 1.)
+          (format output "0"))
+        (if (not tell-precision)
+            (format output "{a}" val)
+          (format output "{r precision: :v justify: :right width: :v}" val tell-precision tell-precision))))
+    
+    (if (<= cols 10)
+        (loop (for col from 0 below cols)
+              (print-col col))
+      (loop (for col from 0 below 5)
+            (print-col col))
+      (format output " ...")
+      (loop (for col from (- cols 5) below cols)
+            (print-col col))))
+  (format output "]"))
+
+
+(definition public (print-tensor tensor <Tensor> (output :terminal))
+  (let ((rows (tensor-rows tensor)))
+    (define (print-row row)
+      (if (= row 0)
+          (format output "[")
+        (format output " "))
+      (print-tensor-row tensor row output)
+      (if (= row (- rows 1))
+          (format output "]")
+        (format output "{%}")))
+    
+    (if (<= rows 20)
+        (loop (for row from 0 below rows)
+              (print-row row))
+      (loop (for row from 0 below 10)
+            (print-row row))
+      (format output " ...{%}")
+      (loop (for row from (- rows 10) below rows)
+            (print-row row)))))
+
+
+(definition public (present-tensor tensor <Tensor>)
+  (let ((port (open-output-string)))
+    (print-tensor tensor port)
+    (get-output-string port))))

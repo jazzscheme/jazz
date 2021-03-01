@@ -35,12 +35,15 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.neural.optimizer jazz:
+(module protected jazz.neural.optimizer jazz
 
 
-(import (jazz (except + * - / expt exp log map max sqrt))
-        (jazz.neural.overload)
+(import (jazz.neural.overload)
         (jazz.neural.tensor))
+
+
+(proclaim (not check bounds types)
+          (warn optimizations))
 
 
 ;;;
@@ -92,10 +95,10 @@
       (set! w-updt (zero-tensor (tensor-rows w) (tensor-cols w))))
     ;; use momentum if set
     (if momentum
-        (set! w-updt (+ (* momentum w-updt) (* (- 1. momentum) grad-wrt-w)))
+        (set! w-updt (tensor+ (tensor-scalar* momentum w-updt) (tensor-scalar* (tensor-scalar- 1. momentum) grad-wrt-w)))
       (set! w-updt grad-wrt-w))
     ;; move against the gradient to minimize loss
-    (- w (* learning-rate w-updt))))
+    (tensor- w (tensor-scalar* learning-rate w-updt))))
 
 
 (definition public sgd
@@ -146,14 +149,14 @@
   (method override (update self w grad-wrt-w)
     ;; if not initialized
     (when (not m)
-      (set! m (zero (shape grad-wrt-w)))
-      (set! v (zero (shape grad-wrt-w))))
-    (set! m (+ (* b1 m) (* (- 1. b1) grad-wrt-w)))
-    (set! v (+ (* b2 v) (* (- 1. b2) (expt grad-wrt-w 2))))
-    (let ((m-hat (/ m (- 1. b1)))
-          (v-hat (/ v (- 1. b2))))
-      (set! w-updt (/ (* learning-rate m-hat) (+ (sqrt v-hat) eps))))
-    (- w w-updt)))
+      (set! m (zero-tensor (tensor-shape grad-wrt-w)))
+      (set! v (zero-tensor (tensor-shape grad-wrt-w))))
+    (set! m (tensor+ (tensor-scalar* b1 m) (tensor-scalar* (- 1. b1) grad-wrt-w)))
+    (set! v (tensor+ (tensor-scalar* b2 v) (tensor-scalar* (- 1. b2) (tensor-square grad-wrt-w))))
+    (let ((m-hat (tensor-scalar* (/ (- 1. b1)) m))
+          (v-hat (tensor-scalar* (/ (- 1. b2)) v)))
+      (set! w-updt (tensor/ (tensor-scalar* learning-rate m-hat) (tensor-scalar+ eps (tensor-sqrt v-hat)))))
+    (tensor- w w-updt)))
 
 
 (definition public adam

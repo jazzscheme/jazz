@@ -44,16 +44,13 @@
         (jazz.platform.types))
 
 
-(proclaim (not check bounds types)
-          (warn optimizations))
-
-
 (c-include "<stdlib.h>")
 (c-include "<blis.h>")
 
 
 (c-external (init_blas) void
   #/C/
+    bli_init();
     bli_thread_set_num_threads(6);
 //#)
 
@@ -118,44 +115,22 @@
                         &beta, c, rsc, csc );
 //#)
 
-@w
-(c-external (bli_daddv int int int scheme-object scheme-object scheme-object) void
+
+(c-external (bli_dcopyv int scheme-object scheme-object) void
   #/C/
-    int a_rows = ___arg1;
-    int b_cols = ___arg2;
-    int a_cols = ___arg3;
-    ___F64 *a = ___CAST(___F64*,___BODY(___arg4));
-    ___F64 *b = ___CAST(___F64*,___BODY(___arg5));
-    ___F64 *c = ___CAST(___F64*,___BODY(___arg6));
+    int n = ___arg1;
+    ___F64 *x = ___CAST(___F64*,___BODY(___arg2));
+    ___F64 *y = ___CAST(___F64*,___BODY(___arg3));
 
-    // Create some matrix and vector operands to work with.
-    int m, n, k;
-    int rsa, csa;
-    int rsb, csb;
-    int rsc, csc;
-    int c_cols = b_cols;
-    m = a_rows; n = b_cols; k = a_cols;
-    rsa = 1; csa = m;
-    rsb = 1; csb = k;
-    rsc = 1; csc = m;
-    a = malloc( m * k * sizeof( double ) );
-    b = malloc( k * n * sizeof( double ) );
-    c = malloc( m * n * sizeof( double ) );
+    bli_dcopyv( BLIS_NO_CONJUGATE, n, x, 1, y, 1 );
+//#)
 
-    m = a_rows;
-    n = b_cols;
-    k = a_cols;
-    rsa = 1; csa = m;
-    rsb = 1; csb = k;
-    rsc = 1; csc = m;
 
-    BLIS_NO_CONJUGATE
-bli_dcopyv( BLIS_NO_CONJUGATE, 
-       dim_t   n,
-       ctype*  x, 1,
-       ctype*  y, 1
-     );
-    bli_daddv( BLIS_NO_TRANSPOSE, BLIS_NO_TRANSPOSE,
-               m, n, k, &alpha, a, rsa, csa, b, rsb, csb,
-                        &beta, c, rsc, csc );
+(c-external (bli_dcopyv int scheme-object scheme-object) void
+  #/C/
+    int n = ___arg1;
+    ___F64 *x = ___CAST(___F64*,___BODY(___arg2));
+    ___F64 *y = ___CAST(___F64*,___BODY(___arg3));
+
+    bli_daddv( BLIS_NO_CONJUGATE, n, x, 1, y, 1 );
 //#))

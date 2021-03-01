@@ -35,13 +35,16 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.neural.activation jazz:
+(module protected jazz.neural.activation jazz
 
 
-(import (jazz (except + * - / expt exp log map max sqrt))
-        (jazz.neural.io)
+(import (jazz.neural.io)
         (jazz.neural.overload)
         (jazz.neural.tensor))
+
+
+(proclaim (not check bounds types)
+          (warn optimizations))
 
 
 ;;;
@@ -69,12 +72,12 @@
   
   
   (method override (activate self x)
-    (/ 1. (+ 1. (exp (- x)))))
+    (tensor-scalar/ 1. (tensor-scalar+ 1. (tensor-exp (tensor-negate x)))))
   
   
   (method override (activate-gradient self x)
     (let ((val (activate self x)))
-      (* val (- 1. val)))))
+      (tensor* val (tensor-scalar- 1. val)))))
 
 
 (definition public sigmoid
@@ -90,13 +93,13 @@
   
   
   (method override (activate self x)
-    (let ((e-x (exp (- x (max x axis: 1)))))
-      (/ e-x (sum e-x axis: 1))))
+    (let ((e-x (tensor-exp (tensor- x (tensor-max x axis: 1)))))
+      (tensor/ e-x (tensor-sum e-x axis: 1))))
 
   
   (method override (activate-gradient self x)
     (let ((val (activate self x)))
-      (* val (- 1. val)))))
+      (tensor* val (tensor-scalar- 1. val)))))
 
 
 (definition public softmax
@@ -112,11 +115,11 @@
   
   
   (method override (activate self x)
-    (map (lambda (x <fl>) (if (>= x 0.) x 0.)) x))
+    (tensor-map (lambda (x <fl>) (if (>= x 0.) x 0.)) x))
 
   
   (method override (activate-gradient self x)
-    (map (lambda (x <fl>) (if (>= x 0.) 1. 0.)))))
+    (tensor-map (lambda (x <fl>) (if (>= x 0.) 1. 0.)) x)))
 
 
 (definition public relu
@@ -139,11 +142,11 @@
 
   
   (method override (activate self x)
-    (map (lambda (x <fl>) (if (>= x 0.) x (* alpha x))) x))
+    (tensor-leaky-relu alpha x))
   
 
   (method override (activate-gradient self x)
-    (map (lambda (x <fl>) (if (>= x 0.) 1. alpha)) x)))
+    (tensor-leaky-relu-gradient alpha x)))
 
 
 (definition public leaky-relu

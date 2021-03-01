@@ -53,7 +53,17 @@
   (set! calls (make-table test: eq?)))
 
 
-(definition protected (with-tensor name thunk)
+(syntax public with-tensor
+  (lambda (form-src usage-environment macro-environment)
+    (bind (name . body) (cdr (source-code form-src))
+      (sourcify-deep-if
+        `(call-with-tensor ',name
+           (lambda ()
+             ,@body))
+        form-src))))
+
+
+(definition protected (call-with-tensor name thunk)
   (let ((start (current-seconds)))
     (prog1 (thunk)
       (let ((elapsed (- (current-seconds) start)))

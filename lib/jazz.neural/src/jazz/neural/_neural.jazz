@@ -99,13 +99,13 @@
     (let ((name 'Input))
     (let ((layer-output X))
       (for-each (lambda (layer)
-                  (when (and neural-debug? training?)
+                  (when (and neural-print? training?)
                     (tell '-> name)
                     (tell layer-output))
                   (set! name (present layer))
                   (set! layer-output (forward-pass layer layer-output training?)))
                 layers)
-      (when (and neural-debug? training?)
+      (when (and neural-print? training?)
         (tell '-> name)
         (tell layer-output)
         (tell))
@@ -115,7 +115,7 @@
   (method public (propagate-backward self loss-grad)
     (for-each-reversed (lambda (layer)
                          (set! loss-grad (backward-pass layer loss-grad))
-                         (when neural-debug?
+                         (when neural-print?
                            (tell '<- 'loss-grad (present layer))
                            (tell loss-grad)))
                        layers))
@@ -124,7 +124,7 @@
   (method public (train self X y)
     (let ((y-pred (feed-forward self X #t)))
       (let ((loss-grad (loss-gradient loss-function y y-pred)))
-        (when neural-debug?
+        (when neural-print?
           (tell '<- 'loss-grad 'Output)
           (tell loss-grad))
         (propagate-backward self loss-grad))))
@@ -140,17 +140,17 @@
                               (bind (X . y) batch
                                 (train self X y)))
                             batches)
-                  (unless neural-debug?
+                  (unless neural-print?
                     (when (and feedback (= (modulo epoch feedback) 0))
                       (let ((elapsed (- (real-time) start)))
                         (let ((eps (/ (cast <fl> epoch) elapsed)))
                           (format :terminal "{a} ({r precision: 1} eps){%}" epoch eps))))))))
-        (when neural-debug?
+        (when neural-print?
           (format :terminal "{%}"))
         (let ((duration (- (real-time) start)))
           (format :terminal "duration: {r precision: 1}{%}" duration))))
     
-    (when neural-debug?
+    (when neural-print?
       (format :terminal "{%}"))
     (if (command-argument "profile")
         (with-profile 'fit
@@ -161,6 +161,10 @@
   
   (method public (test self X y)
     (let ((y-pred (feed-forward self X #f)))
+      (when neural-print?
+        (tell)
+        (tell '>>)
+        (tell y-pred))
       (let ((loss (tensor-mean (loss loss-function y y-pred)))
             (acc (accuracy loss-function y y-pred)))
         (values loss acc))))

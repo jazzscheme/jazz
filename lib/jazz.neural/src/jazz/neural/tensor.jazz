@@ -404,16 +404,29 @@ static void cblas_dgemm_free(void* data)
         result))))
 
 
-(definition public (subtensor tensor <Tensor> start <fx> (end <fx+> #f)) <Tensor>
+(definition public (subtensor tensor <Tensor> start <fx> (end <fx+> #f) (axis: axis 0)) <Tensor>
   (with-tensor subtensor
-    (let ((end (or end (tensor-rows tensor))))
-      (let ((rows (- end start))
-            (cols (tensor-cols tensor)))
-        (let ((result (make-tensor rows cols)))
-          (loop (for row from 0 below rows)
-                (loop (for col from 0 below cols)
-                      (tensor-set! result row col (tensor-ref tensor (+ start row) col))))
-          result)))))
+    (case axis
+      ((0)
+       (let ((end (or end (tensor-rows tensor))))
+         (let ((rows (- end start))
+               (cols (tensor-cols tensor)))
+           (let ((result (make-tensor rows cols)))
+             (loop (for row from 0 below rows)
+                   (loop (for col from 0 below cols)
+                         (tensor-set! result row col (tensor-ref tensor (+ start row) col))))
+             result))))
+      ((1)
+       (let ((end (or end (tensor-cols tensor))))
+         (let ((rows (tensor-rows tensor))
+               (cols (- end start)))
+           (let ((result (make-tensor rows cols)))
+             (loop (for row from 0 below rows)
+                   (loop (for col from 0 below cols)
+                         (tensor-set! result row col (tensor-ref tensor row (+ start col)))))
+             result))))
+      (else
+       (error "Invalid axis: {s}" axis)))))
 
 
 (definition public (tensor-index tensor <Tensor> idx) <Tensor>
@@ -486,13 +499,12 @@ static void cblas_dgemm_free(void* data)
 
 (definition public (tensor-mean tensor <Tensor>) <fl>
   (with-tensor tensor-mean
-    (let ((rows (tensor-rows tensor))
-          (total 0.)
-          (count 0))
-      (loop (for row from 0 below rows)
-            (increase! total (tensor-ref tensor row 0))
-            (increase! count))
-      (/ total (cast <fl> count)))))
+    (let ((total 0.)
+          (size (get-size tensor))
+          (data (get-data tensor)))
+      (loop (for n from 0 below size)
+            (increase! total (f64vector-ref data n)))
+      (/ total (cast <fl> size)))))
 
 
 (definition public (tensor-max tensor <Tensor> (axis: axis 0)) <Tensor>

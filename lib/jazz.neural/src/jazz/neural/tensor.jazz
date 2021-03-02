@@ -170,6 +170,17 @@ static void cblas_dgemm_free(void* data)
 //#)
 
 
+(c-external (alloc_tensor_data int) scheme-object
+  #/C/
+    int size = ___arg1;
+
+    ___SCMOBJ r = ___EXT(___alloc_scmobj) (___ps, ___sF64VECTOR, size*sizeof(___F64));
+    
+    ___EXT(___release_scmobj)(r);
+    ___return(r);
+//#)
+
+
 (c-external (copy_tensor int scheme-object scheme-object) void
   #/C/
     int n = ___arg1;
@@ -296,23 +307,33 @@ static void cblas_dgemm_free(void* data)
   
   (slot rows <fx>        getter generate)
   (slot cols <fx>        getter generate)
+  (slot size <fx>        getter generate)
   (slot data <f64vector> getter generate)
   
   
   (method override (initialize self rows cols)
     (set! self.rows rows)
     (set! self.cols cols)
-    (set! self.data (make-f64vector (* rows cols))))
+    (set! self.size (* self.rows self.cols))
+    (set! self.data (alloc_tensor_data size))
+    @validate
+    (loop (for n from 0 below self.size)
+          (f64vector-set! self.data n +nan.0)))
   
   
   (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
-        (format output "{a} {a}" rows cols))))
-  
-  
-  (method (get-size self) <fx>
-    (* rows cols)))
+        (format output "{a} {a}" rows cols)))))
+
+
+@validate
+(definition (validate-tensor tensor)
+  (let ((data (get-data tensor))
+        (size (get-size tensor)))
+    (loop (for n from 0 below size)
+          (when (eqv? (f64vector-ref data n) +nan.0)
+            (error "invalid tensor")))))
 
 
 (definition inline (tidx cols <fx> row <fx> col <fx>) <fx>
@@ -323,12 +344,12 @@ static void cblas_dgemm_free(void* data)
   (with-tensor tensor
     (let ((rows (vector-length vec))
           (cols (f64vector-length (vector-ref vec 0))))
-      (let ((tensor (new Tensor rows cols)))
-        (let ((data (get-data tensor)))
+      (let ((result (new Tensor rows cols)))
+        (let ((data (get-data result)))
           (loop (for row from 0 below rows)
                 (loop (for col from 0 below cols)
                       (f64vector-set! data (tidx cols row col) (f64vector-ref (vector-ref vec row) col)))))
-        tensor))))
+        result))))
 
 
 (definition public (tensor? obj)
@@ -401,6 +422,7 @@ static void cblas_dgemm_free(void* data)
              @lisp
              (loop (for n from 0 below size)
                    (f64vector-set! r-data n (f64vector-ref data n))))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -415,6 +437,7 @@ static void cblas_dgemm_free(void* data)
              (loop (for row from 0 below rows)
                    (loop (for col from 0 below cols)
                          (tensor-set! result row col (tensor-ref tensor (+ start row) col))))
+             @validate (validate-tensor result)
              result))))
       ((1)
        (let ((end (or end (tensor-cols tensor))))
@@ -424,6 +447,7 @@ static void cblas_dgemm_free(void* data)
              (loop (for row from 0 below rows)
                    (loop (for col from 0 below cols)
                          (tensor-set! result row col (tensor-ref tensor row (+ start col)))))
+             @validate (validate-tensor result)
              result))))
       (else
        (error "Invalid axis: {s}" axis)))))
@@ -438,6 +462,7 @@ static void cblas_dgemm_free(void* data)
               (for row from 0)
               (loop (for col from 0 below cols)
                     (tensor-set! result row col (tensor-ref tensor i col))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -467,6 +492,7 @@ static void cblas_dgemm_free(void* data)
                                                        (loop (for n from 0 below x-cols)
                                                              (increase! result (* (tensor-ref x row n) (tensor-ref y n col))))
                                                        result))))))
+          @validate (validate-tensor result)
           result)))))
 
 
@@ -494,6 +520,7 @@ static void cblas_dgemm_free(void* data)
         (loop (for row from 0 below rows)
               (loop (for col from 0 below cols)
                     (tensor-set! result col row (tensor-ref tensor row col))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -513,27 +540,29 @@ static void cblas_dgemm_free(void* data)
       ((0)
        (let ((rows (tensor-rows tensor))
              (cols (tensor-cols tensor)))
-         (let ((sum (make-tensor 1 cols)))
+         (let ((result (make-tensor 1 cols)))
            (loop (for col from 0 below cols)
-                 (tensor-set! sum 0 col (let ((max -inf.0))
-                                          (loop (for row from 0 below rows)
-                                                (let ((val (tensor-ref tensor row col)))
-                                                  (when (> val max)
-                                                    (set! max val))))
-                                          max)))
-           sum)))
+                 (tensor-set! result 0 col (let ((max -inf.0))
+                                             (loop (for row from 0 below rows)
+                                                   (let ((val (tensor-ref tensor row col)))
+                                                     (when (> val max)
+                                                       (set! max val))))
+                                             max)))
+           @validate (validate-tensor result)
+           result)))
       ((1)
        (let ((rows (tensor-rows tensor))
              (cols (tensor-cols tensor)))
-         (let ((sum (make-tensor rows 1)))
+         (let ((result (make-tensor rows 1)))
            (loop (for row from 0 below rows)
-                 (tensor-set! sum row 0 (let ((max -inf.0))
-                                          (loop (for col from 0 below cols)
-                                                (let ((val (tensor-ref tensor row col)))
-                                                  (when (> val max)
-                                                    (set! max val))))
-                                          max)))
-           sum)))
+                 (tensor-set! result row 0 (let ((max -inf.0))
+                                             (loop (for col from 0 below cols)
+                                                   (let ((val (tensor-ref tensor row col)))
+                                                     (when (> val max)
+                                                       (set! max val))))
+                                             max)))
+           @validate (validate-tensor result)
+           result)))
       (else
        (error "Invalid axis: {s}" axis)))))
 
@@ -563,24 +592,26 @@ static void cblas_dgemm_free(void* data)
      (with-tensor tensor-sum0
        (let ((rows (tensor-rows tensor))
              (cols (tensor-cols tensor)))
-         (let ((sum (make-tensor 1 cols)))
+         (let ((result (make-tensor 1 cols)))
            (let ((data (get-data tensor))
-                 (r-data (get-data sum)))
+                 (r-data (get-data result)))
              (tensor_sum0 rows cols data r-data))
            @lisp
            (loop (for col from 0 below cols)
-                 (tensor-set! sum 0 col (loop (for row from 0 below rows)
-                                              (sum (tensor-ref tensor row col)))))
-           sum))))
+                 (tensor-set! result 0 col (loop (for row from 0 below rows)
+                                                 (sum (tensor-ref tensor row col)))))
+           @validate (validate-tensor result)
+           result))))
     ((1)
      (with-tensor tensor-sum1
        (let ((rows (tensor-rows tensor))
              (cols (tensor-cols tensor)))
-         (let ((sum (make-tensor rows 1)))
+         (let ((result (make-tensor rows 1)))
            (loop (for row from 0 below rows)
-                 (tensor-set! sum row 0 (loop (for col from 0 below cols)
-                                              (sum (tensor-ref tensor row col)))))
-           sum))))
+                 (tensor-set! result row 0 (loop (for col from 0 below cols)
+                                                 (sum (tensor-ref tensor row col)))))
+           @validate (validate-tensor result)
+           result))))
     (else
      (error "Invalid axis: {s}" axis))))
 
@@ -599,6 +630,7 @@ static void cblas_dgemm_free(void* data)
                     (loop (for col from 0 below cols)
                           (tensor-set! result row col (+ (tensor-ref x row col)
                                                          (tensor-ref y 0 col)))))
+              @validate (validate-tensor result)
               result))
         (with-tensor tensor+
           (assert (= rows y-rows)
@@ -610,6 +642,7 @@ static void cblas_dgemm_free(void* data)
                  (let ((result (copy-tensor y)))
                    (let ((r-data (get-data result)))
                      (jazz.neural.blas.blis:bli_daddv size x-data r-data))
+                   @validate (validate-tensor result)
                    result))
                 (else
                  (let ((result (make-tensor rows cols)))
@@ -617,6 +650,7 @@ static void cblas_dgemm_free(void* data)
                      (loop (for n from 0 below size)
                            (f64vector-set! r-data n (+ (f64vector-ref x-data n)
                                                        (f64vector-ref y-data n)))))
+                   @validate (validate-tensor result)
                    result))))))))))
 
 
@@ -633,6 +667,7 @@ static void cblas_dgemm_free(void* data)
                     (loop (for col from 0 below cols)
                           (tensor-set! result row col (- (tensor-ref x row col)
                                                          (tensor-ref y row 0)))))
+              @validate (validate-tensor result)
               result))
         (with-tensor tensor-
           (assert (= cols (tensor-cols y))
@@ -644,6 +679,7 @@ static void cblas_dgemm_free(void* data)
                 (loop (for n from 0 below size)
                       (f64vector-set! r-data n (- (f64vector-ref x-data n)
                                                   (f64vector-ref y-data n)))))
+              @validate (validate-tensor result)
               result)))))))
 
 
@@ -663,6 +699,7 @@ static void cblas_dgemm_free(void* data)
               (loop (for n from 0 below size)
                     (f64vector-set! r-data n (* (f64vector-ref x-data n)
                                                 (f64vector-ref y-data n)))))
+            @validate (validate-tensor result)
             result))))))
 
 
@@ -679,6 +716,7 @@ static void cblas_dgemm_free(void* data)
                     (loop (for col from 0 below cols)
                           (tensor-set! result row col (/ (tensor-ref x row col)
                                                          (tensor-ref y row 0)))))
+              @validate (validate-tensor result)
               result))
         (with-tensor tensor/
           (assert (= cols y-cols)
@@ -690,6 +728,7 @@ static void cblas_dgemm_free(void* data)
                 (loop (for n from 0 below size)
                       (f64vector-set! r-data n (/ (f64vector-ref x-data n)
                                                   (f64vector-ref y-data n)))))
+              @validate (validate-tensor result)
               result)))))))
 
 
@@ -703,6 +742,7 @@ static void cblas_dgemm_free(void* data)
               (r-data (get-data result)))
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (+ scalar (f64vector-ref data n)))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -716,6 +756,7 @@ static void cblas_dgemm_free(void* data)
               (r-data (get-data result)))
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (- scalar (f64vector-ref data n)))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -731,6 +772,7 @@ static void cblas_dgemm_free(void* data)
           @lisp
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (* scalar (f64vector-ref data n)))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -744,6 +786,7 @@ static void cblas_dgemm_free(void* data)
               (r-data (get-data result)))
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (/ scalar (f64vector-ref data n)))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -757,6 +800,7 @@ static void cblas_dgemm_free(void* data)
               (r-data (get-data result)))
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (- (f64vector-ref data n)))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -772,6 +816,7 @@ static void cblas_dgemm_free(void* data)
           @lisp
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (sqrt (f64vector-ref data n)))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -787,6 +832,7 @@ static void cblas_dgemm_free(void* data)
           @lisp
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (expt (f64vector-ref data n) power))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -800,6 +846,7 @@ static void cblas_dgemm_free(void* data)
               (r-data (get-data result)))
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (expt (f64vector-ref data n) power))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -813,6 +860,7 @@ static void cblas_dgemm_free(void* data)
               (r-data (get-data result)))
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (exp (f64vector-ref data n)))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -826,6 +874,7 @@ static void cblas_dgemm_free(void* data)
               (r-data (get-data result)))
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (log (f64vector-ref data n)))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -839,18 +888,20 @@ static void cblas_dgemm_free(void* data)
               (r-data (get-data result)))
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (between min (f64vector-ref data n) max))))
+        @validate (validate-tensor result)
         result))))
 
 
 (definition public (random-tensor rows <fx> cols <fx> (min #f) (max #f)) <Tensor>
-  (let ((tensor (make-tensor rows cols)))
-    (let ((data (get-data tensor))
-          (size (tensor-size tensor)))
+  (let ((result (make-tensor rows cols)))
+    (let ((data (get-data result))
+          (size (tensor-size result)))
       (loop (for n from 0 below size)
             (f64vector-set! data n (if min
                                        (random-between min max)
                                      (random-unit)))))
-    tensor))
+    @validate (validate-tensor result)
+    result))
 
 
 (definition (->shape rest)
@@ -862,12 +913,13 @@ static void cblas_dgemm_free(void* data)
 
 (definition public (zero-tensor . rest) <Tensor>
   (bind (rows cols) (->shape rest)
-    (let ((tensor (make-tensor rows cols)))
-      (let ((data (get-data tensor))
-            (size (tensor-size tensor)))
+    (let ((result (make-tensor rows cols)))
+      (let ((data (get-data result))
+            (size (tensor-size result)))
         (loop (for n from 0 below size)
               (f64vector-set! data n 0.)))
-      tensor)))
+      @validate (validate-tensor result)
+      result)))
 
 
 (definition public (tensor-map proc x <Tensor>) <Tensor>
@@ -880,6 +932,7 @@ static void cblas_dgemm_free(void* data)
               (size (get-size result)))
           (loop (for n from 0 below size)
                 (f64vector-set! r-data n (exact->inexact (proc (f64vector-ref data n))))))
+        @validate (validate-tensor result)
         result))))
 
 
@@ -892,6 +945,7 @@ static void cblas_dgemm_free(void* data)
               (r-data (get-data result))
               (size (get-size result)))
           (tensor_leaky_relu size alpha data r-data))
+        @validate (validate-tensor result)
         result)))
   @lisp
   (tensor-map (lambda (x <fl>) (if (>= x 0.) x (* alpha x))) x))
@@ -906,6 +960,7 @@ static void cblas_dgemm_free(void* data)
               (r-data (get-data result))
               (size (get-size result)))
           (tensor_leaky_relu_gradient size alpha data r-data))
+        @validate (validate-tensor result)
         result)))
   @lisp
   (tensor-map (lambda (x <fl>) (if (>= x 0.) 1. alpha)) x))
@@ -920,4 +975,5 @@ static void cblas_dgemm_free(void* data)
               (r-data (get-data result))
               (size (get-size result)))
           (tensor_dropout size p data r-data))
+        @validate (validate-tensor result)
         result)))))

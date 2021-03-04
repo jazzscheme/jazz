@@ -2425,6 +2425,10 @@
              (if (%%ratnum? (jazz:source-code code-emit))
                  (jazz:sourcify-if (%%ratnum->flonum (jazz:source-code code-emit)) (jazz:get-code-source code))
                `(%%ratnum->flonum ,(jazz:sourcified-form code)))))
+          ;; flonum to flovec
+          ((and (%%subtype? expected-type jazz:Flovec)
+                (%%subtype? code-type jazz:Flonum))
+           (jazz:sourcified-form code))
           (else
            #; ;; incompatible cast test
            (%%unless (%%eq? code-type jazz:Any)

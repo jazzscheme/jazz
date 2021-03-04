@@ -545,6 +545,17 @@
     (jazz:type-error n jazz:Flonum)))
 
 
+(define (jazz:->flonum value)
+  (cond ((%%flonum? value)
+         value)
+        ((%%fixnum? value)
+         (%%fixnum->flonum value))
+        ((%%ratnum? value)
+         (%%ratnum->flonum value))
+        (else
+         (jazz:type-error value jazz:Flonum))))
+
+
 (define (jazz:arithmetic-shift-left x y)
   (arithmetic-shift x y))
 

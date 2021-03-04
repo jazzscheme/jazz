@@ -2434,7 +2434,13 @@
                  (jazz:simplify-let
                    `(let ((,value ,(jazz:simplify-let `(let () ,(jazz:simplify-begin (jazz:sourcified-form code))))))
                       ,(jazz:emit-cast type value source-declaration walker resume environment backend))))
-             (jazz:sourcified-form code))))))
+             (begin
+               (%%when (%%subtype? resolved-type jazz:Flonum)
+                 (jazz:warning "Warning: In {a}{a}: Unchecked untyped cast <fl> {a}"
+                               (jazz:get-declaration-locator source-declaration)
+                               (jazz:present-expression-location source #f)
+                               (jazz:desourcify-all (jazz:get-code-source code))))
+               (jazz:sourcified-form code)))))))
 
 
 (define (jazz:emit-implicit-cast code type)

@@ -38,6 +38,65 @@
 (module protected jazz.neural.syntax jazz
 
 
+(syntax public with&
+  (lambda (form-src usage-environment macro-environment)
+    (bind (args . body) (cdr (source-code form-src))
+      (sourcify-deep-if
+        `(let& ,(map (lambda (arg)
+                       `(,arg ,arg))
+                     (source-code args))
+           ,@body)
+        form-src))))
+
+
+(syntax public let&
+  (lambda (form-src usage-environment macro-environment)
+    (bind (bindings . body) (cdr (source-code form-src))
+      (sourcify-deep-if
+        `(let ,(map (lambda (binding)
+                      (bind (var val) (source-code binding)
+                        `(,var (ref ,val))))
+                    (source-code bindings))
+           (prog1
+               (let ()
+                 ,@body)
+             ,@(map (lambda (binding)
+                      (bind (var val) (source-code binding)
+                        `(unref ,var)))
+                    (source-code bindings))))
+        form-src))))
+
+
+(syntax public letret&
+  (lambda (form-src usage-environment macro-environment)
+    (bind (bindings . body) (cdr (source-code form-src))
+      (sourcify-deep-if
+        `(let ,(map (lambda (binding)
+                      (bind (var val) (source-code binding)
+                        `(,var (ref ,val))))
+                    (source-code bindings))
+           (prog1
+               (let ()
+                 ,@body)
+             ,@(map (lambda (binding)
+                      (bind (var val) (source-code binding)
+                        `(retref ,var)))
+                    (source-code bindings))))
+        form-src))))
+
+
+(syntax public set&
+  (lambda (form-src usage-environment macro-environment)
+    (bind (var val) (cdr (source-code form-src))
+      (sourcify-deep-if
+        (let ((value (generate-symbol "value")))
+          `(let ((,value ,val))
+             (when (tensor? ,var)
+               (unref ,var))
+             (set! ,var (and ,value (ref ,value)))))
+        form-src))))
+
+
 ;;;
 ;;;; Profile
 ;;;
@@ -57,6 +116,9 @@
   (lambda (form-src usage-environment macro-environment)
     (bind (name . body) (cdr (source-code form-src))
       (sourcify-deep-if
+        `(let ()
+           ,@body)
+        @w
         `(call-with-tensor ',name
            (lambda ()
              ,@body))

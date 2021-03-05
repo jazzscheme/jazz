@@ -39,7 +39,7 @@
 
 
 (import (jazz.neural.io)
-        (jazz.neural.overload)
+        (jazz.neural.syntax (phase syntax))
         (jazz.neural.tensor))
 
 
@@ -71,13 +71,15 @@
 (class Sigmoid extends Activation-Function
   
   
-  (method override (activate self x)
-    (tensor-scalar/ 1. (tensor-scalar+ 1. (tensor-exp (tensor-negate x)))))
+  (method override (activate self x <Tensor>) <Tensor>
+    (with& (x)
+      (tensor-scalar/ 1. (tensor-scalar+ 1. (tensor-exp (tensor-negate x))))))
   
   
-  (method override (activate-gradient self x)
-    (let ((val (activate self x)))
-      (tensor* val (tensor-scalar- 1. val)))))
+  (method override (activate-gradient self x <Tensor>) <Tensor>
+    (with& (x)
+      (let& ((val (activate self x)))
+        (tensor* val (tensor-scalar- 1. val))))))
 
 
 (definition public sigmoid
@@ -92,14 +94,16 @@
 (class Softmax extends Activation-Function
   
   
-  (method override (activate self x)
-    (let ((e-x (tensor-exp (tensor- x (tensor-max x axis: 1)))))
-      (tensor/ e-x (tensor-sum e-x axis: 1))))
+  (method override (activate self x <Tensor>) <Tensor>
+    (with& (x)
+      (let& ((e-x (tensor-exp (tensor- x (tensor-max x axis: 1)))))
+        (tensor/ e-x (tensor-sum e-x axis: 1)))))
 
   
-  (method override (activate-gradient self x)
-    (let ((val (activate self x)))
-      (tensor* val (tensor-scalar- 1. val)))))
+  (method override (activate-gradient self x <Tensor>) <Tensor>
+    (with& (x)
+      (let& ((val (activate self x)))
+        (tensor* val (tensor-scalar- 1. val))))))
 
 
 (definition public softmax
@@ -114,12 +118,14 @@
 (class ReLU extends Activation-Function
   
   
-  (method override (activate self x)
-    (tensor-map (lambda (x <fl>) (if (>= x 0.) x 0.)) x))
+  (method override (activate self x <Tensor>) <Tensor>
+    (with& (x)
+      (tensor-map (lambda (x <fl>) (if (>= x 0.) x 0.)) x)))
 
   
-  (method override (activate-gradient self x)
-    (tensor-map (lambda (x <fl>) (if (>= x 0.) 1. 0.)) x)))
+  (method override (activate-gradient self x <Tensor>) <Tensor>
+    (with& (x)
+      (tensor-map (lambda (x <fl>) (if (>= x 0.) 1. 0.)) x))))
 
 
 (definition public relu
@@ -137,16 +143,18 @@
   (slot alpha <fl> getter generate)
   
   
-  (method override (initialize self (alpha: alpha 0.2))
+  (method override (initialize self (alpha: alpha <fl> 0.2))
     (set! self.alpha alpha))
 
   
-  (method override (activate self x)
-    (tensor-leaky-relu alpha x))
+  (method override (activate self x <Tensor>) <Tensor>
+    (with& (x)
+      (tensor-leaky-relu alpha x)))
   
 
-  (method override (activate-gradient self x)
-    (tensor-leaky-relu-gradient alpha x)))
+  (method override (activate-gradient self x <Tensor>) <Tensor>
+    (with& (x)
+      (tensor-leaky-relu-gradient alpha x))))
 
 
 (definition public leaky-relu

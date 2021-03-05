@@ -42,8 +42,8 @@
         (jazz.neural.io)
         (jazz.neural.math)
         (jazz.neural.optimizer)
-        (jazz.neural.overload)
         (jazz.neural.settings)
+        (jazz.neural.syntax (phase syntax))
         (jazz.neural.tensor))
 
 
@@ -87,6 +87,10 @@
 
   
   (method public virtual (backward-pass self accum-grad)
+    )
+  
+  
+  (method public virtual (unref-layer self)
     ))
 
 
@@ -108,32 +112,42 @@
   (method override (setup self input optimizer)
     (nextmethod self input optimizer)
     (let ((limit (/ 1. (sqrt input-dimension))))
-      (set! self.W (random-tensor input-dimension dimension (- limit) limit))
+      (set& self.W (random-tensor input-dimension dimension (- limit) limit))
       (when neural-print?
         (tell '<< (present self))
         (tell self.W))
-      (set! self.w0 (zero-tensor 1 dimension))
+      (set& self.w0 (zero-tensor 1 dimension))
       (set! self.W-opt (clone optimizer))
       (set! self.w0-opt (clone optimizer))))
   
   
-  (method override (forward-pass self X training?)
-    (set! layer-input X)
-    (tensor+ (tensor-dot X W) w0))
+  (method override (forward-pass self X <Tensor> training?) <Tensor>
+    (with& (X)
+      (set& layer-input X)
+      (tensor+ (tensor-dot X W) w0)))
   
   
-  (method override (backward-pass self accum-grad)
-    ;; save weights used during forwards pass
-    (let ((W W))
-      ;; calculate gradient w.r.t layer weights
-      (let ((grad-w (tensor-dot (tensor-transpose layer-input) accum-grad))
-            (grad-w0 (tensor-sum accum-grad axis: 0)))
-        ;; update the layer weights
-        (set! self.W (update W-opt self.W grad-w))
-        (set! self.w0 (update w0-opt self.w0 grad-w0))
-        ;; return accumulated gradient for next layer calculated
-        ;; based on the weights used during the forward pass
-        (tensor-dot accum-grad (tensor-transpose W))))))
+  (method override (backward-pass self accum-grad <Tensor>) <Tensor>
+    (with& (accum-grad)
+      ;; save weights used during forwards pass
+      (let& ((W W))
+        ;; calculate gradient w.r.t layer weights
+        (let& ((grad-w (tensor-dot (tensor-transpose layer-input) accum-grad))
+               (grad-w0 (tensor-sum accum-grad axis: 0)))
+          ;; update the layer weights
+          (set& self.W (update W-opt self.W grad-w))
+          (set& self.w0 (update w0-opt self.w0 grad-w0))
+          ;; return accumulated gradient for next layer calculated
+          ;; based on the weights used during the forward pass
+          (tensor-dot accum-grad (tensor-transpose W))))))
+  
+  
+  (method override (unref-layer self)
+    (unref layer-input)
+    (unref W)
+    (unref w0)
+    (unref-optimizer W-opt)
+    (unref-optimizer w0-opt)))
 
 
 ;;;
@@ -148,9 +162,9 @@
   (slot mask      getter generate)
   
   
-  (method override (initialize self p)
+  (method override (initialize self p <fl>)
     (set! self.p p)
-    (set! self.mask #f))
+    (set& self.mask #f))
   
   
   (method override (setup self input optimizer)
@@ -158,16 +172,23 @@
     (set! self.dimension input-dimension))
 
   
-  (method override (forward-pass self X training?)
-    (cond (training?
-           (set! mask (tensor-dropout p (random-tensor (tensor-rows X) (tensor-cols X))))
-           (tensor* X mask))
-          (else
-           (tensor-scalar* (- 1. p) X))))
+  (method override (forward-pass self X <Tensor> training?) <Tensor>
+    (with& (X)
+      (cond (training?
+             (set& mask (tensor-dropout p (random-tensor (tensor-rows X) (tensor-cols X))))
+             (tensor* X mask))
+            (else
+             (tensor-scalar* (- 1. p) X)))))
 
   
-  (method override (backward-pass self accum-grad)
-    (tensor* accum-grad mask)))
+  (method override (backward-pass self accum-grad <Tensor>) <Tensor>
+    (with& (accum-grad)
+      (tensor* accum-grad mask)))
+  
+  
+  (method override (unref-layer self)
+    (when mask
+      (unref mask))))
 
 
 ;;;
@@ -201,10 +222,16 @@
     (format "{a} ({a})" (nextmethod self) (category-name (class-of activation))))
 
   
-  (method override (forward-pass self X training?)
-    (set! layer-input X)
-    (activate activation X))
+  (method override (forward-pass self X <Tensor> training?) <Tensor>
+    (with& (X)
+      (set& layer-input X)
+      (activate activation X)))
 
   
-  (method override (backward-pass self accum-grad)
-    (tensor* accum-grad (activate-gradient activation layer-input)))))
+  (method override (backward-pass self accum-grad <Tensor>) <Tensor>
+    (with& (accum-grad)
+      (tensor* accum-grad (activate-gradient activation layer-input))))
+  
+  
+  (method override (unref-layer self)
+    (unref layer-input))))

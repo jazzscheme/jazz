@@ -46,7 +46,6 @@
         (jazz.neural.loss)
         (jazz.neural.math)
         (jazz.neural.optimizer)
-        (jazz.neural.overload)
         (jazz.neural.settings)
         (jazz.neural.syntax)
         (jazz.neural.tensor))
@@ -59,7 +58,6 @@
         (jazz.neural.loss)
         (jazz.neural.math)
         (jazz.neural.optimizer)
-        (jazz.neural.overload)
         (jazz.neural.settings)
         (jazz.neural.syntax)
         (jazz.neural.tensor)
@@ -95,80 +93,94 @@
     (set! layers (append! layers (list layer))))
   
   
-  (method public (feed-forward self X training?)
-    (let ((name 'Input))
-    (let ((layer-output X))
-      (for-each (lambda (layer)
-                  (when (and neural-print? training?)
-                    (tell '-> name)
-                    (tell layer-output))
-                  (set! name (present layer))
-                  (set! layer-output (forward-pass layer layer-output training?)))
-                layers)
-      (when (and neural-print? training?)
-        (tell '-> name)
-        (tell layer-output)
-        (tell))
-      layer-output)))
+  (method public (feed-forward self X <Tensor> training?) <Tensor>
+    (with& (X)
+      (let ((name 'Input))
+        (letret& ((layer-output X))
+          (for-each (lambda (layer)
+                      (when (and neural-print? training?)
+                        (tell '-> name)
+                        (tell layer-output))
+                      (set! name (present layer))
+                      (set& layer-output (forward-pass layer layer-output training?)))
+                    layers)
+          (when (and neural-print? training?)
+            (tell '-> name)
+            (tell layer-output)
+            (tell))
+          layer-output))))
   
   
-  (method public (propagate-backward self loss-grad)
-    (for-each-reversed (lambda (layer)
-                         (set! loss-grad (backward-pass layer loss-grad))
-                         (when neural-print?
-                           (tell '<- 'loss-grad (present layer))
-                           (tell loss-grad)))
-                       layers))
+  (method public (propagate-backward self loss-grad <Tensor>)
+    (with& (loss-grad)
+      (let& ((lg loss-grad))
+        (for-each-reversed (lambda (layer)
+                             (set& lg (backward-pass layer lg))
+                             (when neural-print?
+                               (tell '<- 'loss-grad (present layer))
+                               (tell lg)))
+                           layers))))
   
   
-  (method public (train self X y)
-    (let ((y-pred (feed-forward self X #t)))
-      (let ((loss-grad (loss-gradient loss-function y y-pred)))
-        (when neural-print?
-          (tell '<- 'loss-grad 'Output)
-          (tell loss-grad))
-        (propagate-backward self loss-grad))))
+  (method public (train self X <Tensor> y <Tensor>)
+    (with& (X y)
+      (let& ((y-pred (feed-forward self X #t)))
+        (let& ((loss-grad (loss-gradient loss-function y y-pred)))
+          (when neural-print?
+            (tell '<- 'loss-grad 'Output)
+            (tell loss-grad))
+          (propagate-backward self loss-grad)))))
   
   
-  (method public (fit self X y (epochs: epochs 1) (batch-size: batch-size 64) (feedback: feedback 100))
-    (define (do)
-      (let ((start (real-time)))
-        (let ((batches (split-batches X y batch-size)))
-          (loop (for epoch from 1 to epochs)
-                (begin
-                  (for-each (lambda (batch)
-                              (bind (X . y) batch
-                                (train self X y)))
-                            batches)
-                  (unless neural-print?
-                    (when (and feedback (= (modulo epoch feedback) 0))
-                      (let ((elapsed (- (real-time) start)))
-                        (let ((eps (/ (cast <fl> epoch) elapsed)))
-                          (format :terminal "{a} ({r precision: 1} eps){%}" epoch eps))))))))
-        (when neural-print?
-          (format :terminal "{%}"))
-        (let ((duration (- (real-time) start)))
-          (format :terminal "duration: {r precision: 1}{%}" duration))))
-    
-    (when neural-print?
-      (format :terminal "{%}"))
-    (if (command-argument "profile")
-        (with-profile 'fit
-          (lambda ()
-            (do)))
-      (do)))
-  
-  
-  (method public (test self X y)
-    (let ((y-pred (feed-forward self X #f)))
+  (method public (fit self X <Tensor> y <Tensor> (epochs: epochs 1) (batch-size: batch-size 64) (feedback: feedback 100))
+    (with& (X y)
+      (define (do)
+        (let ((start (real-time)))
+          (let ((batches (ref-object (split-batches X y batch-size))))
+            (loop (for epoch from 1 to epochs)
+                  (begin
+                    (for-each (lambda (batch)
+                                (bind (X . y) batch
+                                  (train self X y)))
+                              batches)
+                    (unless neural-print?
+                      (when (and feedback (= (modulo epoch feedback) 0))
+                        (let ((elapsed (- (real-time) start)))
+                          (let ((eps (/ (cast <fl> epoch) elapsed)))
+                            (format :terminal "{a} ({r precision: 1} eps){%}" epoch eps)))))))
+            (unref-object batches))
+          (when neural-print?
+            (format :terminal "{%}"))
+          (let ((duration (- (real-time) start)))
+            (format :terminal "duration: {r precision: 1}{%}" duration))))
+      
       (when neural-print?
-        (tell)
-        (tell '>>)
-        (tell y-pred))
-      (let ((loss (tensor-mean (loss loss-function y y-pred)))
-            (acc (accuracy loss-function y y-pred)))
-        (values loss acc))))
+        (format :terminal "{%}"))
+      (if (command-argument "profile")
+          (with-profile 'fit
+            (lambda ()
+              (do)))
+        (do))))
   
   
-  (method public (predict self X)
-    (feed-forward self X #f))))
+  (method public (test self X <Tensor> y <Tensor>)
+    (with& (X y)
+      (let& ((y-pred (feed-forward self X #f)))
+        (when neural-print?
+          (tell)
+          (tell '>>)
+          (tell y-pred))
+        (let ((loss (tensor-mean (loss loss-function y y-pred))))
+          (let ((acc (accuracy loss-function y y-pred)))
+            (values loss acc))))))
+  
+  
+  (method public (predict self X <Tensor>) <Tensor>
+    (with& (X)
+      (feed-forward self X #f)))
+  
+  
+  (method public (unref-model self)
+    (unref-layer input)
+    (for-each unref-layer layers)
+    (unref-optimizer optimizer))))

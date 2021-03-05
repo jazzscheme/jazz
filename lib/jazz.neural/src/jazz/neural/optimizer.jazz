@@ -38,7 +38,7 @@
 (module protected jazz.neural.optimizer jazz
 
 
-(import (jazz.neural.overload)
+(import (jazz.neural.syntax (phase syntax))
         (jazz.neural.tensor))
 
 
@@ -59,6 +59,10 @@
   
   
   (method public virtual (update self w grad-wrt-w)
+    )
+  
+  
+  (method public virtual (unref-optimizer self)
     ))
 
 
@@ -79,7 +83,7 @@
     (nextmethod self)
     (set! self.learning-rate learning-rate)
     (set! self.momentum momentum)
-    (set! self.w-updt #f))
+    (set& self.w-updt #f))
   
   
   (method override (clone self)
@@ -89,16 +93,22 @@
       copy))
   
   
-  (method override (update self w grad-wrt-w)
-    ;; if not initialized
-    (when (and momentum (not w-updt))
-      (set! w-updt (zero-tensor (tensor-rows w) (tensor-cols w))))
-    ;; use momentum if set
-    (if momentum
-        (set! w-updt (tensor+ (tensor-scalar* momentum w-updt) (tensor-scalar* (tensor-scalar- 1. momentum) grad-wrt-w)))
-      (set! w-updt grad-wrt-w))
-    ;; move against the gradient to minimize loss
-    (tensor- w (tensor-scalar* learning-rate w-updt))))
+  (method override (update self w <Tensor> grad-wrt-w <Tensor>) <Tensor>
+    (with& (w grad-wrt-w)
+      ;; if not initialized
+      (when (and momentum (not w-updt))
+        (set& w-updt (zero-tensor (tensor-rows w) (tensor-cols w))))
+      ;; use momentum if set
+      (if momentum
+          (set& w-updt (tensor+ (tensor-scalar* momentum w-updt) (tensor-scalar* (tensor-scalar- 1. momentum) grad-wrt-w)))
+        (set& w-updt grad-wrt-w))
+      ;; move against the gradient to minimize loss
+      (tensor- w (tensor-scalar* learning-rate w-updt))))
+  
+  
+  (method override (unref-optimizer self)
+    (when w-updt
+      (unref w-updt))))
 
 
 (definition public sgd
@@ -126,12 +136,12 @@
     (nextmethod self)
     (set! self.learning-rate learning-rate)
     (set! self.eps 1e-8)
-    (set! self.m #f)
-    (set! self.v #f)
+    (set& self.m #f)
+    (set& self.v #f)
     ;; decay rates
     (set! self.b1 b1)
     (set! self.b2 b2)
-    (set! self.w-updt #f))
+    (set& self.w-updt #f))
   
   
   (method override (clone self)
@@ -146,17 +156,27 @@
       copy))
   
 
-  (method override (update self w grad-wrt-w)
-    ;; if not initialized
-    (when (not m)
-      (set! m (zero-tensor (tensor-shape grad-wrt-w)))
-      (set! v (zero-tensor (tensor-shape grad-wrt-w))))
-    (set! m (tensor+ (tensor-scalar* b1 m) (tensor-scalar* (- 1. b1) grad-wrt-w)))
-    (set! v (tensor+ (tensor-scalar* b2 v) (tensor-scalar* (- 1. b2) (tensor-square grad-wrt-w))))
-    (let ((m-hat (tensor-scalar* (/ (- 1. b1)) m))
-          (v-hat (tensor-scalar* (/ (- 1. b2)) v)))
-      (set! w-updt (tensor/ (tensor-scalar* learning-rate m-hat) (tensor-scalar+ eps (tensor-sqrt v-hat)))))
-    (tensor- w w-updt)))
+  (method override (update self w <Tensor> grad-wrt-w <Tensor>) <Tensor>
+    (with& (w grad-wrt-w)
+      ;; if not initialized
+      (when (not m)
+        (set& m (zero-tensor (tensor-shape grad-wrt-w)))
+        (set& v (zero-tensor (tensor-shape grad-wrt-w))))
+      (set& m (tensor+ (tensor-scalar* b1 m) (tensor-scalar* (- 1. b1) grad-wrt-w)))
+      (set& v (tensor+ (tensor-scalar* b2 v) (tensor-scalar* (- 1. b2) (tensor-square grad-wrt-w))))
+      (let ((m-hat (tensor-scalar* (/ (- 1. b1)) m))
+            (v-hat (tensor-scalar* (/ (- 1. b2)) v)))
+        (set& w-updt (tensor/ (tensor-scalar* learning-rate m-hat) (tensor-scalar+ eps (tensor-sqrt v-hat)))))
+      (tensor- w w-updt)))
+  
+  
+  (method override (unref-optimizer self)
+    (when m
+      (unref m))
+    (when v
+      (unref v))
+    (when w-updt
+      (unref w-updt))))
 
 
 (definition public adam

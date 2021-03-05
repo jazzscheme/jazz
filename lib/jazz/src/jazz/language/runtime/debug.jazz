@@ -212,7 +212,7 @@
   (get-procedure-name (continuation-creator cont)))
 
 
-(definition public (continuation-stack cont (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (identifiers?: identifiers? #f) (depth: depth #f))
+(definition public (continuation-stack cont (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (identifiers?: identifiers? #f) (locations?: locations? #f) (depth: depth #f))
   (define (package-name name)
     (if (and identifiers? (symbol? name))
         (reference-name name)
@@ -226,10 +226,25 @@
     (map package-variable variables))
   
   (let ((stack (get-continuation-stack cont depth)))
+    (define (->code-name name)
+      (if (symbol? name)
+          (let ((str (symbol->string name)))
+            (if (starts-with? str "%%")
+                (string->symbol (substring str 2 (string-length str)))
+              name))
+        name))
+    
     (map (lambda (cont)
-           (let ((name (package-name (get-continuation-name cont))))
+           (let ((name (->code-name (package-name (get-continuation-name cont)))))
              (cond ((and (not dynamic-environment?) (not lexical-environment?))
-                    name)
+                    (if (not locations?)
+                        name
+                      (cons name
+                            (let ((location (get-continuation-location cont)))
+                              (if (not location)
+                                  (list #f #f)
+                                (bind (container line col) location
+                                  (list line col)))))))
                    ((not dynamic-environment?)
                     (cons name (package-variables (get-continuation-lexical-environment cont))))
                    (else
@@ -238,10 +253,10 @@
          stack)))
 
 
-(definition public (execution-stack (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (identifiers?: identifiers? #f) (depth: depth #f))
+(definition public (execution-stack (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (identifiers?: identifiers? #f) (locations?: locations? #f) (depth: depth #f))
   (continuation-capture
     (lambda (cont)
-      (continuation-stack cont dynamic-environment?: dynamic-environment? lexical-environment?: lexical-environment? identifiers?: identifiers? depth: depth))))
+      (continuation-stack cont dynamic-environment?: dynamic-environment? lexical-environment?: lexical-environment? identifiers?: identifiers? locations?: locations? depth: depth))))
 
 
 (definition public (execution-backtrace (depth #f))

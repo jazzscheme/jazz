@@ -102,16 +102,6 @@
 ;;;
 
 
-(definition calls
-  (make-table test: equal?))
-
-(definition protected (tensor-calls)
-  calls)
-
-(definition protected (tensor-reset-calls)
-  (set! calls (make-table test: eq?)))
-
-
 (syntax public with-tensor
   (lambda (form-src usage-environment macro-environment)
     (bind (name . body) (cdr (source-code form-src))
@@ -119,18 +109,16 @@
         `(let ()
            ,@body)
         @w
-        `(call-with-tensor ',name
-           (lambda ()
-             ,@body))
-        form-src))))
-
-
-(definition protected (call-with-tensor name thunk)
-  (let ((start (current-seconds)))
-    (prog1 (thunk)
-      (let ((elapsed (- (current-seconds) start)))
-        (let ((call (table-ref calls name #f)))
-          (if (not call)
-              (table-set! calls name (cons elapsed 1))
-            (set-car! call (+ (car call) elapsed))
-            (set-cdr! call (+ (cdr call) 1)))))))))
+        (let ((start (generate-symbol "start"))
+              (elapsed (generate-symbol "elapsed"))
+              (call (generate-symbol "call")))
+          `(let ((,start (current-seconds)))
+             (prog1 (let ()
+                      ,@body)
+               (let ((,elapsed (- (current-seconds) ,start)))
+                 (let ((,call (table-ref calls ',name #f)))
+                   (if (not ,call)
+                       (table-set! calls ',name (cons ,elapsed 1))
+                     (set-car! ,call (+ (car ,call) ,elapsed))
+                     (set-cdr! ,call (+ (cdr ,call) 1))))))))
+        form-src)))))

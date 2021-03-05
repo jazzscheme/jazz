@@ -58,6 +58,7 @@
 
 
 (c-include "<math.h>")
+(c-include "<stdlib.h>")
 (c-include "<string.h>")
 
 
@@ -181,6 +182,16 @@ static void cblas_dgemm_free(void* data)
 //#)
 
 
+(c-external (random_tensor int scheme-object) void
+  #/C/
+    int n = ___arg1;
+    ___F64 *r = ___CAST(___F64*,___BODY(___arg2));
+
+    for (int i = 0; i < n; i++)
+        *r++ = (float)rand()/((float)RAND_MAX);
+//#)
+
+
 (c-external (tensor_transpose int int scheme-object scheme-object) void
   #/C/
     int rows = ___arg1;
@@ -288,7 +299,22 @@ static void cblas_dgemm_free(void* data)
 
 
 ;;;
-;;;; Tensor
+;;;; Profile
+;;;
+
+
+(definition calls
+  (make-table test: equal?))
+
+(definition protected (tensor-calls)
+  calls)
+
+(definition protected (tensor-reset-calls)
+  (set! calls (make-table test: eq?)))
+
+
+;;;
+;;;; Leaks
 ;;;
 
 
@@ -343,6 +369,11 @@ static void cblas_dgemm_free(void* data)
   0)
 
 
+;;;
+;;;; Pool
+;;;
+
+
 (definition *orphan*
   9999)
 
@@ -395,6 +426,11 @@ static void cblas_dgemm_free(void* data)
     (format :terminal "{%}cache: {a}, live: {a}{%}"
       (units cache)
       (units live))))
+
+
+;;;
+;;;; Tensor
+;;;
 
 
 (class Tensor extends Object
@@ -1033,14 +1069,20 @@ static void cblas_dgemm_free(void* data)
           result)))))
 
 
-(definition public (random-tensor rows <fx> cols <fx> (min #f) (max #f)) <Tensor>
+(definition public (random-tensor rows <fx> cols <fx>) <Tensor>
+  (let ((result (make-tensor rows cols)))
+    (let ((data (get-data result))
+          (size (tensor-size result)))
+      (random_tensor size data))
+    result))
+
+
+(definition public (random-tensor-between rows <fx> cols <fx> min <fl> max <fl>) <Tensor>
   (let ((result (make-tensor rows cols)))
     (let ((data (get-data result))
           (size (tensor-size result)))
       (loop (for n from 0 below size)
-            (f64vector-set! data n (if min
-                                       (random-between min max)
-                                     (random-unit)))))
+            (f64vector-set! data n (random-between min max))))
     result))
 
 

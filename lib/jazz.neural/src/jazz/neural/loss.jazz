@@ -39,7 +39,7 @@
 
 
 (import (jazz.neural.data)
-        (jazz.neural.overload)
+        (jazz.neural.syntax (phase syntax))
         (jazz.neural.tensor))
 
 
@@ -75,16 +75,19 @@
 (class Square-Loss extends Loss-Function
   
   
-  (method override (loss self y y-pred)
-    (tensor-scalar* 0.5 (tensor-square (tensor- y y-pred))))
+  (method override (loss self y <Tensor> y-pred <Tensor>) <Tensor>
+    (with& (y y-pred)
+      (tensor-scalar* 0.5 (tensor-square (tensor- y y-pred)))))
 
   
-  (method override (loss-gradient self y y-pred)
-    (tensor- y-pred y))
+  (method override (loss-gradient self y <Tensor> y-pred <Tensor>) <Tensor>
+    (with& (y y-pred)
+      (tensor- y-pred y)))
   
   
-  (method override (accuracy self y y-pred)
-    (- 1. (tensor-mean (loss self y y-pred)))))
+  (method override (accuracy self y <Tensor> y-pred <Tensor>)
+    (with& (y y-pred)
+      (- 1. (tensor-mean (loss self y y-pred))))))
 
 
 (definition public square-loss
@@ -99,22 +102,25 @@
 (class Cross-Entropy extends Loss-Function
   
   
-  (method override (loss self y p)
-    ;; avoid division by zero
-    (let ((p (tensor-clip p 1e-15 (- 1. 1e-15))))
-      (tensor- (tensor-negate (tensor* y (tensor-log p)))
-               (tensor* (tensor-scalar- 1. y) (tensor-log (tensor-scalar- 1. p))))))
+  (method override (loss self y <Tensor> p <Tensor>) <Tensor>
+    (with& (y p)
+      ;; avoid division by zero
+      (let& ((p (tensor-clip p 1e-15 (- 1. 1e-15))))
+        (tensor- (tensor-negate (tensor* y (tensor-log p)))
+                 (tensor* (tensor-scalar- 1. y) (tensor-log (tensor-scalar- 1. p)))))))
 
 
-  (method override (loss-gradient self y p)
-    ;; avoid division by zero
-    (let ((p (tensor-clip p 1e-15 (- 1. 1e-15))))
-      (tensor+ (tensor-negate (tensor/ y p))
-               (tensor/ (tensor-scalar- 1. y) (tensor-scalar- 1. p)))))
+  (method override (loss-gradient self y <Tensor> p <Tensor>) <Tensor>
+    (with& (y p)
+      ;; avoid division by zero
+      (let& ((p (tensor-clip p 1e-15 (- 1. 1e-15))))
+        (tensor+ (tensor-negate (tensor/ y p))
+                 (tensor/ (tensor-scalar- 1. y) (tensor-scalar- 1. p))))))
 
   
-  (method override (accuracy self y p)
-    (accuracy-score (tensor-argmax y axis: 1) (tensor-argmax p axis: 1))))
+  (method override (accuracy self y <Tensor> p <Tensor>)
+    (with& (y p)
+      (accuracy-score (tensor-argmax y axis: 1) (tensor-argmax p axis: 1)))))
 
 
 (definition public cross-entropy

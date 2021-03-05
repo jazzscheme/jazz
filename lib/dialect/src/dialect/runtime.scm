@@ -2440,10 +2440,10 @@
                       ,(jazz:emit-cast type value source-declaration walker resume environment backend))))
              (begin
                (%%when (%%subtype? expected-type jazz:Flonum)
-                 (jazz:warning "Warning: In {a}{a}: Unchecked untyped cast <fl> {a}"
-                               (jazz:get-declaration-locator source-declaration)
-                               (jazz:present-expression-location source #f)
-                               (jazz:desourcify-all (jazz:get-code-source code))))
+                 (jazz:unsafe-warning "Unsafe: In {a}{a}: Unchecked untyped cast <fl> {a}"
+                                      (jazz:get-declaration-locator source-declaration)
+                                      (jazz:present-expression-location source #f)
+                                      (jazz:desourcify-all (jazz:get-code-source code))))
                (jazz:sourcified-form code)))))))
 
 

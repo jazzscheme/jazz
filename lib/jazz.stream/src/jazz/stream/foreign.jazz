@@ -548,12 +548,15 @@ static ___SCMOBJ alloc_values(___SCMOBJ obj0, ___SCMOBJ obj1)
 
 static GMutex log_mutex;
 
+static int log_id = 0;
+
 static GQueue* log_queue = NULL;
 static GQueue* log_user_queue = NULL;
 
 typedef struct log_entry_struct
 {
     GstClockTime time;
+    int id;
     int level;
     char* category;
     char* function;
@@ -597,6 +600,13 @@ static GstClockTime log_entry_time(void* data)
     log_entry* entry = (log_entry*) data;
   
     return entry->time;
+}
+
+static int log_entry_id(void* data)
+{
+    log_entry* entry = (log_entry*) data;
+  
+    return entry->id;
 }
 
 static int log_entry_level(void* data)
@@ -673,6 +683,8 @@ static void log_push_entry(int level, gchar * category, gchar * function, gchar 
     entry->refcount = 0;
 
     g_mutex_lock(&log_mutex);
+
+    entry->id = log_id++;
 
     g_queue_push_tail(log_queue, entry);
     log_ref_entry(entry);
@@ -2304,6 +2316,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (c-external (log_pop_user_first_entry) void*)
 (c-external (log_unref_entry void*) void)
 (c-external (log_entry_time void*) GstClockTime)
+(c-external (log_entry_id void*) int)
 (c-external (log_entry_level void*) int)
 (c-external (log_entry_category void*) char-string)
 (c-external (log_entry_function void*) char-string)

@@ -1760,7 +1760,6 @@ typedef struct monitor_file
 {
     int monitor_kind;
     gulong probe_id;
-    char* name;
     FILE* file;
 } file_monitor;
 
@@ -1796,10 +1795,9 @@ static void free_any_monitor(any_monitor* data)
     free(data);
 }
 
-static void init_file_monitor(file_monitor* data, FILE* file, char* name)
+static void init_file_monitor(file_monitor* data, FILE* file)
 {
     data->monitor_kind = FILE_MONITOR;
-    data->name = name;
     data->file = file;
 }
 
@@ -2175,14 +2173,11 @@ cb_monitor_queries(GstPad          *pad,
     return GST_PAD_PROBE_OK;
 }
 
-static void* gst_monitor_file(GstPad* pad, char* filename, char* name)
+static void* gst_monitor_file(GstPad* pad, char* filename)
 {
     file_monitor* data = malloc(sizeof(file_monitor));
     FILE* file = fopen(filename, "wb");
-    // quicky
-    char* copy = malloc(strlen(name)+1);
-    strcpy(copy, name);
-    init_file_monitor(data, file, copy);
+    init_file_monitor(data, file);
 
     data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_monitor_file, data, NULL);
     
@@ -2488,7 +2483,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_print_pad GstElement* char-string) void)
 (gst-external (gst_print_message char-string GstMessage*) void)
 (gst-external (gst_print_error GstMessage*) void)
-(gst-external (gst_monitor_file GstPad* char-string char-string) void*)
+(gst-external (gst_monitor_file GstPad* char-string) void*)
 (gst-external (gst_monitor_queue GstPad* GstClockTime) void*)
 (gst-external (gst_monitor_queue_copy void*) scheme-object)
 (gst-external (gst_monitor_analyse GstPad* void* char-string) void*)

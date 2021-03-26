@@ -1018,7 +1018,7 @@
   #t)
 
 
-(definition public (parse-leaks file/port (ignore-audio/x-raw-caps?: ignore-audio/x-raw-caps? default-ignore-audio/x-raw-caps?))
+(definition public (parse-leaks file/port (include-stack?: include-stack? #t) (ignore-audio/x-raw-caps?: ignore-audio/x-raw-caps? default-ignore-audio/x-raw-caps?))
   (define (read-entries input)
     (let ((queue (new-queue)))
       (let (iter)
@@ -1028,7 +1028,7 @@
             (let ((pos (search line "GST_TRACER :0::")))
               (when pos
                 (let ((info (substring line (+ pos 16) (string-length line)))
-                      (stack (read-stack input)))
+                      (stack (if include-stack? (read-stack input) '())))
                   (enqueue queue (cons info stack)))))
             (iter))))))
   
@@ -1106,7 +1106,7 @@
 
 
 (definition public (report-leaks (file: file #f) (ignore-audio/x-raw-caps?: ignore-audio/x-raw-caps? default-ignore-audio/x-raw-caps?))
-  (receive (entries ignored) (parse-leaks (or file default-leaks-file) ignore-audio/x-raw-caps?: ignore-audio/x-raw-caps?)
+  (receive (entries ignored) (parse-leaks (or file default-leaks-file) include-stack?: #f ignore-audio/x-raw-caps?: ignore-audio/x-raw-caps?)
     (let ((count (length entries))
           (ignored (if (null? ignored) "" (format " ({a} audio/x-raw caps ignored)" (length ignored)))))
       (if (= count 0)

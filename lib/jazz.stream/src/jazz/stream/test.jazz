@@ -285,6 +285,7 @@
     ((audiog) (test-audiog))
     ((audioh) (test-audioh))
     ((audiox) (test-audiox))
+    ((echo) (test-echo))
     ((audiot) (test-audiot))
     ((camera) (test-camera))
     ((screen) (test-screen))
@@ -2623,6 +2624,223 @@ description-end
           (gst_element_set_state b GST_STATE_PLAYING))))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
+
+
+;;;
+;;;; Echo
+;;;
+
+
+;; TODO
+;; - maybe look at how to render audio like
+;;   audacity and combine it with reading raw
+;;   audio correctly using a similar approach to
+;;   stream reader that feeds into an appsrc
+
+
+(definition replay-dir
+  {Directory Home "Documents" "Together" "test" "replays" "replay_2021-03-25_13-28-05_persephone&guillaume"})
+
+(definition replay-speaker
+  "Persephone")
+
+(definition replay-listener
+  "Guillaume")
+
+
+(definition public (test-echo)
+  (define (collect-audio target)
+    (collect-files replay-dir
+      (lambda (file)
+        (starts-with? (get-base file) target))))
+  
+  (define (find-audio files str)
+    (find-if (lambda (file) (search (get-base file) str)) files))
+  
+  (define (extract-name files)
+    (let ((file (car files)))
+      (car (split-string (get-base file) #\.))))
+  
+  (define (extract-info file)
+    (let ((extension (get-extension file)))
+      (bind (fmt channels rate) (split-string extension #\_)
+        (list fmt (string->number rate) (string->number channels)))))
+  
+  (define (determine-caps info)
+    (bind (fmt rate channels) info
+      (tie "audio/x-raw, format={fmt}, layout=interleaved, rate={rate}, channels={channels}")))
+  
+  (define (determine-blocksize info)
+    (bind (fmt rate channels) info
+      (* 960 channels)))
+  
+  (let ((speaker-files (collect-audio replay-speaker))
+        (listener-files (collect-audio replay-listener)))
+    (let ((speaker-name (extract-name speaker-files))
+          (speaker-probe-file (find-audio speaker-files "audio.probe"))
+          (speaker-mic-file (find-audio speaker-files "mic.src"))
+          (speaker-processor-file (find-audio speaker-files "mic.processor"))
+          (listener-name (extract-name listener-files))
+          (listener-probe-file (find-audio listener-files "audio.probe"))
+          (listener-mic-file (find-audio listener-files "mic.src"))
+          (listener-processor-file (find-audio listener-files "mic.processor")))
+      (let ((speaker-probe-info (extract-info speaker-probe-file))
+            (speaker-mic-info (extract-info speaker-mic-file))
+            (speaker-processor-info (extract-info speaker-processor-file))
+            (listener-probe-info (extract-info listener-probe-file))
+            (listener-mic-info (extract-info listener-mic-file))
+            (listener-processor-info (extract-info listener-processor-file)))
+        (let ((pipelines (make-table test: eq?)))
+          (define (speaker-probe)
+            (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize speaker-probe-info))
+                          (determine-caps speaker-probe-info)
+                          audiosink))
+          
+          (define (speaker-mic)
+            (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize speaker-mic-info))
+                          (determine-caps speaker-mic-info)
+                          audiosink))
+          
+          (define (speaker-processor)
+            (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize speaker-processor-info))
+                          (determine-caps speaker-processor-info)
+                          audiosink))
+          
+          (define (speaker-probe-live)
+            (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize speaker-probe-info))
+                          (determine-caps speaker-probe-info)
+                          "queue max-size-time=200000000 name=queue"
+                          "webrtcaudioprobe delay=0 name=probe"
+                          audiosink))
+          
+          (define (speaker-mic-live)
+            (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize speaker-mic-info))
+                          (determine-caps speaker-mic-info)
+                          "queue name=queue"
+                          "audioresample"
+                          (gst-element "webrtcaudioprocessor"
+                                       echo-cancel: "true"
+                                       noise-suppression: "true"
+                                       gain-controller: "true"
+                                       logging-severity: "info"
+                                       name: "processor")
+                          audiosink))
+          
+          (define (listener-probe)
+            (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize listener-probe-info))
+                          (determine-caps listener-probe-info)
+                          audiosink))
+          
+          (define (listener-mic)
+            (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize listener-mic-info))
+                          (determine-caps listener-mic-info)
+                          audiosink))
+          
+          (define (listener-processor)
+            (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize listener-processor-info))
+                          (determine-caps listener-processor-info)
+                          audiosink))
+          
+          (define (listener-probe-live)
+            (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize listener-probe-info))
+                          (determine-caps listener-probe-info)
+                          "audiorate name=rate"
+                          "queue max-size-time=200000000 name=queue"
+                          "webrtcaudioprobe delay=0 name=probe"
+                          "fakesink sync=true"))
+          
+          (define (listener-mic-live)
+            (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize listener-mic-info))
+                          (determine-caps listener-mic-info)
+                          "audiorate"
+                          "queue name=queue"
+                          "audioresample"
+                          (gst-element "webrtcaudioprocessor"
+                                       echo-cancel: "true"
+                                       noise-suppression: "true"
+                                       gain-controller: "true"
+                                       logging-severity: "info"
+                                       name: "processor")
+                          audiosink))
+          
+          (define (drawer view surface)
+            (set-font surface {Font Label point-size: 24})
+            (let ((h 45)
+                  (v 15)
+                  (color {Color Dark-Red}))
+              (draw-text surface h (+ v  30) (format "#1 {a}" (get-name speaker-probe-file)) color)
+              (draw-text surface h (+ v  60) (format "#2 {a}" (get-name speaker-mic-file)) color)
+              (draw-text surface h (+ v  90) (format "#3 {a}" (get-name speaker-processor-file)) color)
+              (draw-text surface h (+ v 120) (format "#4 {a} live processing" speaker-name) color)
+              (draw-text surface h (+ v 180) (format "#5 {a}" (get-name listener-probe-file)) color)
+              (draw-text surface h (+ v 210) (format "#6 {a}" (get-name listener-mic-file)) color)
+              (draw-text surface h (+ v 240) (format "#7 {a}" (get-name listener-processor-file)) color)
+              (draw-text surface h (+ v 270) (format "#8 {a} live processing" listener-name) color)))
+          
+          (define (release-all)
+            (iterate-table-safe pipelines
+              (lambda (name pipeline)
+                (gst_bin_release pipeline)
+                (table-clear pipelines name))))
+          
+          (define (play name make file)
+            (let ((pipeline (make)))
+              (gst_object_set_name pipeline (->string name))
+              (with-unref ((src (gst_bin_get_by_name pipeline "src")))
+                (g_object_set_string src "location" (path-normalize (parse file))))
+              (gst_element_set_state pipeline GST_STATE_PLAYING)
+              (wait-playing pipeline)
+              (table-set! pipelines name pipeline)
+              (format :terminal "play {a}{%}" (get-base file))))
+          
+          (define (play-speaker-live)
+            (play 'speaker-probe-live speaker-probe-live speaker-probe-file)
+            (play 'speaker-mic-live speaker-mic-live speaker-mic-file))
+          
+          (define (play-listener-live)
+            (play 'listener-probe-live listener-probe-live listener-probe-file)
+            (play 'listener-mic-live listener-mic-live listener-mic-file))
+          
+          (define (keyer view key)
+            (case key
+              ((#\0)
+               (release-all)
+               (format :terminal "stop all{%}"))
+              ((#\1)
+               (release-all)
+               (play 'speaker-probe speaker-probe speaker-probe-file))
+              ((#\2)
+               (release-all)
+               (play 'speaker-mic speaker-mic speaker-mic-file))
+              ((#\3)
+               (release-all)
+               (play 'speaker-processor speaker-processor speaker-processor-file))
+              ((#\4)
+               (release-all)
+               (play-speaker-live))
+              ((#\5)
+               (release-all)
+               (play 'listener-probe listener-probe listener-probe-file))
+              ((#\6)
+               (release-all)
+               (play 'listener-mic listener-mic listener-mic-file))
+              ((#\7)
+               (release-all)
+               (play 'listener-processor listener-processor listener-processor-file))
+              ((#\8)
+               (release-all)
+               (play-listener-live))
+              ((#\l)
+               (release-all)
+               (gst_deinit)
+               (report-leaks)
+               (exit))))
+          
+          (define (closer app)
+            (release-all))
+          
+          ;; application
+          (boot-environment (new Test-Application drawer: drawer keyer: keyer closer: closer)))))))
 
 
 ;;;

@@ -131,15 +131,6 @@ install_name_tool -change @rpath/libwebrtc.dylib @rpath/gstreamer/lib/libwebrtc.
 
 
 #
-# libexec
-#
-
-mkdir gstreamer/libexec
-mkdir gstreamer/libexec/gstreamer-1.0
-cp $GSTREAMER/libexec/gstreamer-1.0/gst-plugin-scanner gstreamer/libexec/gstreamer-1.0
-
-
-#
 # include
 #
 

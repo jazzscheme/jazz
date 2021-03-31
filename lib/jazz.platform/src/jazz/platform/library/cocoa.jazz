@@ -38,7 +38,8 @@
 (module protected jazz.platform.library.cocoa jazz
 
 
-(import (jazz.io))
+(import (jazz.io)
+        (jazz.platform))
 
 
 ;;;
@@ -134,6 +135,88 @@
                             (cdr lines))))
               (values (car all) (cdr all))))
         (error "System call otool -L failed")))))
+
+
+(definition public (library-load-commands file)
+  (define cmd-prefix
+    "          cmd ")
+  
+  (define name-prefix
+    "         name ")
+  
+  (define path-prefix
+    "         path ")
+  
+  (define (parse-cmd line)
+    (let ((str (substring line (string-length cmd-prefix) (string-length line))))
+      (cond ((equal? str "LC_ID_DYLIB") 'id)
+            ((equal? str "LC_LOAD_DYLIB") 'load)
+            ((equal? str "LC_RPATH") 'rpath)
+            (else #f))))
+  
+  (define (parse-id scan)
+    (let ((scan (cddr scan)))
+      (let ((line (car scan)))
+        (assert (starts-with? line name-prefix)
+          (let ((id (remove-offset (substring line (string-length name-prefix) (string-length line)))))
+            (values id (cdr scan)))))))
+  
+  (define (parse-load scan)
+    (let ((scan (cddr scan)))
+      (let ((line (car scan)))
+        (assert (starts-with? line name-prefix)
+          (let ((load (remove-offset (substring line (string-length name-prefix) (string-length line)))))
+            (values load (cdr scan)))))))
+  
+  (define (parse-rpath scan)
+    (let ((scan (cddr scan)))
+      (let ((line (car scan)))
+        (assert (starts-with? line path-prefix)
+          (let ((rpath (remove-offset (substring line (string-length path-prefix) (string-length line)))))
+            (values rpath (cdr scan)))))))
+  
+  (define (remove-offset str)
+    (let ((pos (search str " (offset ")))
+      (if pos
+          (substring str 0 pos)
+        str)))
+  
+  (let ((port (open-process (list path: "otool" arguments: `("-l" ,(parse file))))))
+    (let ((status (process-status port)))
+      (if (= status 0)
+          (let ((lines (read-all port read-line)))
+            (close-port port)
+            (let ((queue (new-queue)))
+              (let (iter (scan lines))
+                (if (null? scan)
+                    (let ((partition (partition (queue-list queue) key: car)))
+                      (let ((id (assq 'id partition))
+                            (load (assq 'load partition))
+                            (rpath (assq 'rpath partition)))
+                        (values (if id (assert (= 1 (length (cdr id))) (cdadr id)) #f)
+                                (if load (map cdr (cdr load)) '())
+                                (if rpath (map cdr (cdr rpath)) '()))))
+                  (let ((line (car scan)))
+                    (cond ((starts-with? line cmd-prefix)
+                           (let ((cmd (parse-cmd line)))
+                             (case cmd
+                               ((id)
+                                (receive (id scan) (parse-id scan)
+                                  (enqueue queue (cons cmd id))
+                                  (iter scan)))
+                               ((load)
+                                (receive (load scan) (parse-load scan)
+                                  (enqueue queue (cons cmd load))
+                                  (iter scan)))
+                               ((rpath)
+                                (receive (rpath scan) (parse-rpath scan)
+                                  (enqueue queue (cons cmd rpath))
+                                  (iter scan)))
+                               (else
+                                (iter (cdr scan))))))
+                          (else
+                           (iter (cdr scan)))))))))
+        (error "System call otool -l failed")))))
 
 
 (definition public (library-dependencies-tree rpath-dir file)

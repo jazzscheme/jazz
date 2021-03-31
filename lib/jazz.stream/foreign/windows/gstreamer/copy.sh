@@ -17,7 +17,6 @@ mkd() {
 mkd bin
 mkd include
 mkd lib
-mkd libexec
 
 
 #
@@ -130,14 +129,6 @@ cp $RNNOISE/rnnoise/windows/lib/rnnoise.dll bin/rnnoise.dll
 cp $RNNOISE/build/plugin/gstrnnoise.dll lib/gstreamer-1.0/gstrnnoise.dll
 cp $WEBRTC/webrtc.dll bin/webrtc.dll
 cp $WEBRTCAUDIOPROCESSING/libgstwebrtcaudioprocessing.dll lib/gstreamer-1.0/libgstwebrtcaudioprocessing.dll
-
-
-#
-# libexec
-#
-
-mkdir libexec/gstreamer-1.0
-cp $GSTREAMER/libexec/gstreamer-1.0/gst-plugin-scanner libexec/gstreamer-1.0
 
 
 #

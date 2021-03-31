@@ -1,7 +1,6 @@
 #! /bin/sh
 
 GSTREAMER_LIB="/home/cartier/Devel/gstreamer/cerbero/build/dist/linux_x86_64/lib"
-GSTREAMER_LIBEXEC="/home/cartier/Devel/gstreamer/cerbero/build/dist/linux_x86_64/libexec"
 GSTREAMER_INCLUDE="/home/cartier/Devel/gstreamer/cerbero/build/dist/linux_x86_64/include"
 
 if [ -d gstreamer ]; then
@@ -100,17 +99,6 @@ cpshared libvorbisenc.so 2
 cpshared libx264.so 157
 #cpshared libbz2.so 1.0
 cpshared libz.so 1
-
-
-#
-# libexec
-#
-
-mkdir gstreamer/libexec
-mkdir gstreamer/libexec/gstreamer-1.0
-echo Copying gst-plugin-scanner
-cp $GSTREAMER_LIBEXEC/gstreamer-1.0/gst-plugin-scanner gstreamer/libexec/gstreamer-1.0
-patchelf --set-rpath '$ORIGIN/../../lib' gstreamer/libexec/gstreamer-1.0/gst-plugin-scanner
 
 
 #

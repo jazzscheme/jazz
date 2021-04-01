@@ -38,7 +38,39 @@
 (module protected jazz.stream.setup jazz
 
 
-(import (jazz.stream.directories))
+(import (jazz.io)
+        (jazz.stream.directories))
+
+
+;; augment to force refresh of the registry cache
+(definition registry-version
+  1)
+
+(definition (maybe-refresh-registry-cache registry-path version-path)
+  (let ((registry-file (new File (tokenise-filename registry-path)))
+        (version-file (new File (tokenise-filename version-path))))
+    (define (load-version)
+      (if (not (exists? version-file))
+          #f
+        (call-with-input-file (path-settings version-file)
+          (lambda (port)
+            (catch-exception-filter
+              (lambda (exc)
+                #t)
+              (lambda (exc)
+                #f)
+              (lambda ()
+                (read port)))))))
+    
+    (define (save-version)
+      (call-with-output-file (path-settings version-file)
+        (lambda (port)
+          (write registry-version port))))
+    
+    (let ((version (load-version)))
+      (when (not (equal? version registry-version))
+        (delete registry-file error?: #f)
+        (save-version)))))
 
 
 ;; TO RUN FROM SOURCE
@@ -62,7 +94,10 @@
         (setenv "GST_PLUGIN_SYSTEM_PATH" "")
         (setenv "GST_PLUGIN_PATH" (getenv "GST_SOURCE_PLUGIN_PATH")))
     (let ((gstreamer-dir (gstreamer-dir)))
-      (setenv "GST_REGISTRY"           (tie "{gstreamer-dir}registry.bin"))
-      (setenv "GST_PLUGIN_SYSTEM_PATH" (tie "{gstreamer-dir}lib/gstreamer-1.0")))))
+      (let ((registry-path (tie "{gstreamer-dir}registry.bin"))
+            (version-path (tie "{gstreamer-dir}version")))
+        (maybe-refresh-registry-cache registry-path version-path)
+        (setenv "GST_REGISTRY" registry-path)
+        (setenv "GST_PLUGIN_SYSTEM_PATH" (tie "{gstreamer-dir}lib/gstreamer-1.0"))))))
 
 (setup-gstreamer))

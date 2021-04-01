@@ -389,29 +389,18 @@
 ;;;
 
 
-(definition public Version-Info
-  #f)
-
-
-(definition (version-info)
-  (unless Version-Info
-    (set! Version-Info
-          (let ((info (OSVERSIONINFOEX-make)))
-            (OSVERSIONINFOEX-dwOSVersionInfoSize-set! info (OSVERSIONINFOEX-sizeof))
-            (GetVersionEx info)
-            info)))
-  Version-Info)
-
-
-(definition public Platform-Version
+(definition *platform-version*
   #f)
 
 
 (definition public (get-platform-version)
-  (unless Platform-Version
-    (set! Platform-Version
-          (let ((info (version-info)))
-            (new Version
-              (OSVERSIONINFOEX-dwMajorVersion-ref info)
-              (OSVERSIONINFOEX-dwMinorVersion-ref info)))))
-  Platform-Version))
+  (or *platform-version*
+      (let ((info (OSVERSIONINFOEX-make)))
+        (OSVERSIONINFOEX-dwOSVersionInfoSize-set! info (OSVERSIONINFOEX-sizeof))
+        (GetVersionEx info)
+        (let ((version
+                (new Version
+                  (OSVERSIONINFOEX-dwMajorVersion-ref info)
+                  (OSVERSIONINFOEX-dwMinorVersion-ref info))))
+          (set! *platform-version* version)
+          version)))))

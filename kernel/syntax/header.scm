@@ -58,7 +58,7 @@
             (else
              (- n)))))
 
-  (let ((src `(lambda ,(cdr pattern) ,@rest)))
+  (let ((src `(##lambda ,(cdr pattern) ,@rest)))
     `(begin
        (##define-macro ,pattern
          ,@rest)

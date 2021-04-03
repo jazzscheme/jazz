@@ -955,7 +955,8 @@
 (jazz:define-macro (%%remove elem lst)
   (%%force-uniqueness (elem lst)
     `(%%check-list ,lst 2 (%%remove ,elem ,lst)
-       (^#remove ,elem ,lst))))
+       ;; bongo
+       (^#remq ,elem ,lst))))
 
 (jazz:define-macro (%%reverse lst)
   (if jazz:debug-core?

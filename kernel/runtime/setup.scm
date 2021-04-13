@@ -479,7 +479,7 @@ c-end
     (lambda ()
       (jazz:split-command-line (jazz:command-arguments)
                                '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit")
-                               '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "m" "module" "dialect" "listen")
+                               '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "m" "module" "dialect" "listen")
                                missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:find-option "v" options) (jazz:find-option "version" options)))
@@ -499,6 +499,7 @@ c-end
                 (jazz-repository (jazz:find-option "jazz-repository" options))
                 (repositories (jazz:find-option "repositories" options))
                 (dependencies (jazz:find-option "dependencies" options))
+                (recompile-references (symbol-argument (jazz:find-option "recompile-references" options)))
                 (ev (or (jazz:find-option "e" options) (jazz:find-option "eval" options)))
                 (load (or (jazz:find-option "l" options) (jazz:find-option "load" options)))
                 (interpret (or (jazz:find-option "i" options) (jazz:find-option "interpret" options)))
@@ -578,9 +579,10 @@ c-end
               (set! jazz:link (or link (jazz:build-link)))
               (set! jazz:link-options (jazz:parse-link jazz:link))
               (set! jazz:jobs jobs)
+              (set! jazz:recompile-references recompile-references)
               (if (not jazz:kernel-interpreted?)
                   (jazz:disable-crash-window))
-              (if (or debug? (%%eqv? jobs 0) dry?)
+              (if (or debug? (%%eqv? jobs 0) recompile-references dry?)
                   (jazz:debug-build? #t))
               (if keep-c?
                   (set! jazz:compile-options (%%cons 'keep-c jazz:compile-options)))

@@ -56,22 +56,25 @@
   
   (define (module-references-valid? version lst)
     (define (recompile-reference? module-locator module-references)
-      (%%continuation-capture
-        (lambda (return)
-          (jazz:for-each-higher-jazz-version version
-            (lambda (jazz-version)
-              (let ((recompile-references (jazz:get-version-recompile-references jazz-version)))
-                (if (and recompile-references
-                         (jazz:some? (lambda (recompile-reference)
-                                       (if (%%symbol? recompile-reference)
-                                           (%%eq? recompile-reference module-locator)
-                                         (and (%%eq? (%%car recompile-reference) module-locator)
-                                              (jazz:some? (lambda (recompile-symbol)
-                                                            (%%memq recompile-symbol module-references))
-                                                          (%%cdr recompile-reference)))))
-                                     recompile-references))
-                    (%%continuation-return return #t)))))
-          #f)))
+      (if (and jazz:recompile-references
+               (%%eq? jazz:recompile-references module-locator))
+          #t
+        (%%continuation-capture
+          (lambda (return)
+            (jazz:for-each-higher-jazz-version version
+              (lambda (jazz-version)
+                (let ((recompile-references (jazz:get-version-recompile-references jazz-version)))
+                  (if (and recompile-references
+                           (jazz:some? (lambda (recompile-reference)
+                                         (if (%%symbol? recompile-reference)
+                                             (%%eq? recompile-reference module-locator)
+                                           (and (%%eq? (%%car recompile-reference) module-locator)
+                                                (jazz:some? (lambda (recompile-symbol)
+                                                              (%%memq recompile-symbol module-references))
+                                                            (%%cdr recompile-reference)))))
+                                       recompile-references))
+                      (%%continuation-return return #t)))))
+            #f))))
     
     (let ((module-locator (%%car lst))
           (module-references (%%cdr lst)))

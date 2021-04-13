@@ -108,6 +108,9 @@
 (jazz:define-variable jazz:warnings
   #f)
 
+(define jazz:recompile-references
+  #f)
+
 (define (jazz:link-objects?)
   (%%memq 'objects jazz:link-options))
 

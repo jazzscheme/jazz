@@ -71,6 +71,7 @@
         (jazz.tree)
         (jazz.ui)
         (jazz.ui.dialog)
+        (jazz.ui.preferences)
         (jazz.view)
         (jazz.window)
         (jazz.workspace))
@@ -92,8 +93,6 @@
   (slot guest-actions            initialize '()                       getter generate)
   (slot focus-actions            initialize '()                       getter generate)
   (slot bindings-designer        initialize #f                        getter generate)
-  @skin-convert
-  (slot skins-designer           initialize #f                        getter generate)
   (slot workspaces-designer      initialize #f                        getter generate)
   (slot shortcut-table           initialize #f                        getter generate)
   (slot shortcut-hook            initialize #f                        accessors generate)
@@ -1197,41 +1196,44 @@
   
   
   (method protected virtual (install-skins self)
-    @skin-convert
     (with-safe-execution "loading the skins"
       (lambda ()
-        (let ((skins (load-skins)))
-          (set-skins-designer skins)
-          (set-skin (child skins (or (get-active skins) (default-skin))))))
-      continue-handler:
-      (lambda (err)
-        (let ((skins (default-skins)))
-          (set-skins-designer skins)
-          (set-skin (child skins (default-skin)))))))
+        (let ((skins (load-skins self)))
+          (when skins
+            (assert (is? skins Skins-Preferences)
+              (let ((ui-skin (registered-skin 'ui))
+                    (active (get-active skins)))
+                (for-each (lambda (skin)
+                            (assert (is? skin Skin-Preferences)
+                              (let ((name (get-name skin))
+                                    (title (get-title skin))
+                                    (inherit (get-inherit skin))
+                                    (children (get-children skin)))
+                                (assert name
+                                  (assert title
+                                    (assert (= 1 (length children))
+                                      (let ((trait (car children)))
+                                        (assert (is? trait Trait)
+                                          (set-name trait name)
+                                          (let ((parent (resolve-trait ui-skin (or inherit 'jazz))))
+                                            (set-parent trait parent)
+                                            (add-to-index ui-skin name trait))
+                                          (let ((look (new Look name: name title: title)))
+                                            (register-look look)
+                                            (when (eq? active name)
+                                              (set-look look)))))))))))
+                          (get-children skins)))))))))
   
   
   (method package virtual (skins-file self)
-    @skin-convert
     {File Profile "settings" "Skins.jml"})
   
   
   (method protected virtual (load-skins self)
-    @skin-convert
-    (let ((file (skins-file)))
-      (if (and (is-alias? 'Profile) (exists? file))
-          (instantiate (read-form file))
-        (default-skins))))
-  
-  
-  (method protected (set-skins-designer self skins)
-    @skin-convert
-    (set! skins-designer (new (former-class) form: (get-form skins) reference: skins)))
-  
-  
-  (method (save-skins self)
-    @skin-convert
-    (when (and skins-designer (get-modified? skins-designer) (file? (get-origin (get-form skins-designer))))
-      (save skins-designer)))
+    (let ((file (skins-file self)))
+      (and (is-alias? 'Profile)
+           (exists? file)
+           (instantiate (read-form file)))))
 
   
   ;;;

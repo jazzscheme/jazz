@@ -1247,6 +1247,8 @@
 
 ;; adapted from ##display-gc-report
 (define (jazz:present-absolute-seconds secs)
+  (declare (not safe))
+  
   (define (scale x m)
     (##flonum->exact-int (##flround (##fl* x m))))
   

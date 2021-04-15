@@ -47,13 +47,13 @@
 (define (jazz:generate-global-symbol #!optional (prefix "sym"))
   (let ((for (jazz:generate-symbol-for))
         (context (jazz:generate-symbol-context)))
-    (cond ((##not for)
+    (cond ((%%not for)
            (error "Invalid call to generate-global-symbol without a for"))
-          ((##not context)
+          ((%%not context)
            (error "Invalid call to generate-global-symbol without a context"))
           (else
            (let ((module (jazz:string-replace (symbol->string context) #\. #\/)))
-             (let ((name (##string-append module "_" prefix for)))
+             (let ((name (%%string-append module "_" prefix for)))
                (##gensym (##string->uninterned-symbol name))))))))
 
 
@@ -83,7 +83,7 @@
 
 
 (define (jazz:null/pair? obj)
-  (or (##null? obj) (##pair? obj)))
+  (or (%%null? obj) (%%pair? obj)))
 
 
 ;;;

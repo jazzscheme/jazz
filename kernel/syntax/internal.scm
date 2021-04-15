@@ -529,7 +529,7 @@
       (or word-size
           (let ((size
                   (%%danger jazz:word-size
-                    (##u8vector-length '#(0)))))
+                    (%%u8vector-length '#(0)))))
             (set! word-size size)
             size)))))
 
@@ -537,23 +537,23 @@
 (define (jazz:header-get obj)
   (%%danger jazz:header-get
     (if (= (jazz:word-size) 4)
-        (##u32vector-ref obj -1)
-      (##u64vector-ref obj -1))))
+        (%%u32vector-ref obj -1)
+      (%%u64vector-ref obj -1))))
 
 (define (jazz:header-set! obj h)
   (%%danger jazz:header-set!
     (if (= (jazz:word-size) 4)
-        (##u32vector-set! obj -1 h)
-      (##u64vector-set! obj -1 h))))
+        (%%u32vector-set! obj -1 h)
+      (%%u64vector-set! obj -1 h))))
 
 
 (define (jazz:make-thread-with-stack stack-len thunk)
   (%%danger jazz:make-thread-with-stack
     (let* ((pt ##primordial-thread)
-           (thread-len (##vector-length pt))
+           (thread-len (%%vector-length pt))
            (total-len (+ thread-len stack-len))
            (thread (make-vector total-len #f)))
-      (##vector-set! thread 0 (##vector-ref pt 0))
+      (%%vector-set! thread 0 (%%vector-ref pt 0))
       (jazz:header-set! thread
                         (+ (bitwise-and (jazz:header-get pt) -4)
                            (bitwise-and (jazz:header-get thread) 3)))
@@ -565,7 +565,7 @@
 ;; work around PERM not being mutable
 (define (jazz:thread-local-set! vec n value)
   (%%danger jazz:thread-local-set!
-    (##f64vector-set! vec n value)))
+    (%%f64vector-set! vec n value)))
 
 
 ;;;
@@ -612,16 +612,16 @@
   (if jazz:debug-core?
       (%%force-uniqueness (values n)
         `(%%check-values ,values 1 (%%values-ref ,values ,n)
-           (if (%%fx< ,n (##vector-length ,values))
-               (##vector-ref ,values ,n)
+           (if (%%fx< ,n (%%vector-length ,values))
+               (%%vector-ref ,values ,n)
              (error "Out of bounds"))))
-    `(##vector-ref ,values ,n)))
+    `(%%vector-ref ,values ,n)))
 
 (jazz:define-macro (%%values-set! values n obj)
   (if jazz:debug-core?
       (%%force-uniqueness (values n)
         `(%%check-values ,values 1 (%%values-set! ,values ,n ,obj)
-           (if (%%fx< ,n (##vector-length ,values))
-               (##vector-set! ,values ,n ,obj)
+           (if (%%fx< ,n (%%vector-length ,values))
+               (%%vector-set! ,values ,n ,obj)
              (error "Out of bounds"))))
-    `(##vector-set! ,values ,n ,obj))))
+    `(%%vector-set! ,values ,n ,obj))))

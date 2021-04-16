@@ -617,6 +617,38 @@
       #f)))
 
 
+(definition public (wait-caps appsink)
+  (declare (proper-tail-calls))
+  (with-unref ((pad (gst_element_get_static_pad appsink "sink")))
+    (let (loop (n 0))
+      (if (> n 1000)
+          #f
+        (if (not (gst_pad_has_current_caps pad))
+            (begin
+              (sleep .01)
+              (loop (+ n 1)))
+          (gst_pad_get_current_caps pad))))))
+
+
+(definition public (wait-caps-string appsink)
+  (let ((caps (wait-caps appsink)))
+    (and caps
+         (let ((caps-string (gst_caps_to_string caps)))
+           (gst_caps_unref caps)
+           caps-string))))
+
+
+(definition public (wait-caps-string/resolution appsink)
+  (let ((caps (wait-caps appsink)))
+    (and caps
+         (let ((caps-string (gst_caps_to_string caps))
+               (struc (gst_caps_get_structure caps 0)))
+           (let ((width (gst_structure_get_int struc "width"))
+                 (height (gst_structure_get_int struc "height")))
+             (gst_caps_unref caps)
+             (values caps-string (new Dimension width height)))))))
+
+
 (definition public (gst_element_release elem)
   (gst_element_set_state elem GST_STATE_NULL)
   (gst_object_unref elem))

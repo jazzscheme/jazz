@@ -55,7 +55,7 @@
 
 (define-setting trace-gst
   (lambda (name rest)
-    (unless (memq? name '(gst_app_sink_try_pull gst_app_src_write gst_element_get_running_time move-u8vector->pointer!))
+    (unless (memq? name '(gst_app_sink_try_pull_buffer gst_app_sink_try_pull_frame gst_app_src_write gst_element_get_running_time move-u8vector->pointer!))
       (let ((port (console-port)))
         (define (present obj)
           (cond ((u8vector? obj)
@@ -375,6 +375,8 @@ static char* g_error_message(GError* error)
 (c-type GstStructure*            (pointer GstStructure GstStructure*))
 (c-type GstBuffer                (native "GstBuffer"))
 (c-type GstBuffer*               (pointer GstBuffer GstBuffer*))
+(c-type GstMapInfo               (native "GstMapInfo"))
+(c-type GstMapInfo*              (pointer GstMapInfo GstMapInfo*))
 (c-type GstAdapter               (native "GstAdapter"))
 (c-type GstAdapter*              (pointer GstAdapter GstAdapter*))
 (c-type GstBin                   (native "GstBin"))
@@ -877,6 +879,11 @@ static GstClockTime gst_buffer_get_duration(GstBuffer* buffer)
     return GST_BUFFER_DURATION(buffer);
 }
 
+static bool gst_buffer_is_keyframe(GstBuffer* buffer)
+{
+    return (GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_DELTA_UNIT) ? 0 : 1);
+}
+
 static void gst_buffer_set_pts(GstBuffer* buffer, GstClockTime pts)
 {
     GST_BUFFER_PTS(buffer) = pts;
@@ -890,6 +897,51 @@ static void gst_buffer_set_dts(GstBuffer* buffer, GstClockTime dts)
 static void gst_buffer_set_duration(GstBuffer* buffer, GstClockTime duration)
 {
     GST_BUFFER_DURATION(buffer) = duration;
+}
+
+static int gst_buffer_copy_memory(GstBuffer* buffer, ___SCMOBJ vec)
+{
+    ___U8 *data = ___CAST(___U8*, ___BODY(vec));
+    int data_size = ___HD_BYTES(___HEADER(vec));
+    int size;
+
+    GstMapInfo map;
+    gst_buffer_map(buffer, &map, GST_MAP_READ);
+    if (map.size > data_size)
+        size = -2;
+    else
+    {
+        memmove(data, map.data, map.size);
+        size = map.size;
+    }
+    gst_buffer_unmap(buffer, &map);
+
+    return size;
+}
+
+static GstMapInfo* gst_buffer_map_aux(GstBuffer* buffer)
+{
+    GstMapInfo* map = (GstMapInfo*) calloc(sizeof(GstMapInfo), 1);
+  
+    gst_buffer_map(buffer, map, GST_MAP_READ);
+    
+    return map;
+}
+
+static void gst_buffer_unmap_aux(GstBuffer* buffer, GstMapInfo* map)
+{
+    gst_buffer_unmap(buffer, map);
+    free((void*) map);
+}
+
+static int gst_mapinfo_size(GstMapInfo* map)
+{
+    return map->size;
+}
+
+static void* gst_mapinfo_data(GstMapInfo* map)
+{
+    return map->data;
 }
 
 static GstClockTime gst_adapter_prev_pts_aux(GstAdapter* adapter, ___SCMOBJ distance)
@@ -1307,7 +1359,30 @@ static void gst_print_error(GstMessage *msg)
     g_error_free(error);
 }
 
-static int gst_app_sink_try_pull(GstElement* elem, ___SCMOBJ vec, ___SCMOBJ info)
+static GstBuffer* gst_app_sink_try_pull_buffer(GstElement* elem)
+{
+    GstSample *sample;
+    sample = gst_app_sink_try_pull_sample(GST_APP_SINK(elem), 0);
+    if (sample)
+    {
+        GstBuffer* buffer = gst_sample_get_buffer(sample);
+        if (buffer)
+        {
+            gst_buffer_ref(buffer);
+            gst_sample_unref(sample);
+            return buffer;
+        }
+        else
+        {
+            gst_sample_unref(sample);
+            return NULL;
+        }
+    }
+    else
+        return NULL;
+}
+
+static int gst_app_sink_try_pull_frame(GstElement* elem, ___SCMOBJ vec, ___SCMOBJ info)
 {
     int size;
     ___U8 *data = ___CAST(___U8*, ___BODY(vec));
@@ -2399,10 +2474,16 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_buffer_get_pts GstBuffer*) GstClockTime)
 (gst-external (gst_buffer_get_dts GstBuffer*) GstClockTime)
 (gst-external (gst_buffer_get_duration GstBuffer*) GstClockTime)
+(gst-external (gst_buffer_is_keyframe GstBuffer*) bool)
 (gst-external (gst_buffer_set_pts GstBuffer* GstClockTime) void)
 (gst-external (gst_buffer_set_dts GstBuffer* GstClockTime) void)
 (gst-external (gst_buffer_set_duration GstBuffer* GstClockTime) void)
 (gst-external (gst_buffer_unref GstBuffer*) void)
+(gst-external (gst_buffer_copy_memory GstBuffer* scheme-object) int)
+(gst-external (gst_buffer_map GstBuffer*) GstMapInfo* "gst_buffer_map_aux")
+(gst-external (gst_buffer_unmap GstBuffer* GstMapInfo*) void "gst_buffer_unmap_aux")
+(gst-external (gst_mapinfo_size GstMapInfo*) int)
+(gst-external (gst_mapinfo_data GstMapInfo*) void*)
 (gst-external (gst_adapter_new) GstAdapter*)
 (gst-external (gst_adapter_clear GstAdapter*) void)
 (gst-external (gst_adapter_flush GstAdapter* gsize) void)
@@ -2526,7 +2607,8 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_app_src_write_now GstElement* scheme-object int uint64) GstFlowReturn)
 (gst-external (gst_app_src_write_pointer_now GstElement* void* int uint64) GstFlowReturn)
 (gst-external (gst_app_sink_connect_listener_signals GstElement* void*) void)
-(gst-external (gst_app_sink_try_pull GstElement* scheme-object scheme-object) int)
+(gst-external (gst_app_sink_try_pull_buffer GstElement*) GstBuffer*)
+(gst-external (gst_app_sink_try_pull_frame GstElement* scheme-object scheme-object) int)
 (gst-external (gst_app_sink_is_eos (call GST_APP_SINK GstElement*)) bool)
 (gst-external (gst_audio_ring_buffer_acquired GstElement*) bool)
 (gst-external (gst_tracing_get_active_tracers) GList*)

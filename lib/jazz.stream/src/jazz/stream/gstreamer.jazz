@@ -817,21 +817,27 @@
   (gst_app_sink_connect_listener_signals elem (get-write-file listener)))
 
 
-(definition public (gst_app_sink_read listener elem vec info)
+(definition public (gst_app_sink_read_frame listener elem vec info)
   (if (get-closed? listener)
       #f
     (let ((c (wait listener)))
       (if (or (eqv? c #\^)
               (eqv? c #\@))
           #f
-        (validate-try-pull (gst_app_sink_try_pull elem vec info))))))
+        (validate-try-pull-frame (gst_app_sink_try_pull_frame elem vec info))))))
 
 
-(definition protected (validate-try-pull size)
+(definition protected (validate-try-pull-frame size)
   (case size
-    ((-1) (error "Appsink try-pull no sample returned"))
-    ((-2) (error "Appsink try-pull buffer too small"))
+    ((-1) (error "No sample returned by appsink try-pull"))
+    ((-2) (error "Frame too small for sample returned by appsink try-pull"))
     (else size)))
+
+
+(definition protected (validate-try-pull-buffer buffer)
+  (if (not buffer)
+      (error "No sample returned by appsink try-pull")
+    buffer))
 
 
 ;;;

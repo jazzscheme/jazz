@@ -100,8 +100,6 @@
                 (eq? jazz:kernel-safety 'sealed))
             '()
           '((not proper-tail-calls)
-            ;; bongo seems bugged in latest
-            #;
             (not optimize-dead-local-variables)))
       
       ,@(if jazz:debug-user?

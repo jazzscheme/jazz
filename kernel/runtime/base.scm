@@ -236,6 +236,12 @@
 ;;;
 
 
+;; needed when running in core as core turns off
+;; block but block is needed for track memory that
+;; uses jazz:global-ref in its defines
+(declare (block))
+
+
 (define (jazz:global-bound? symbol)
   (and (%%global-var? symbol)
        (%%not (%%unbound? (%%global-var-ref symbol)))))

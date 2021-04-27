@@ -45,7 +45,8 @@
 
 (define (jazz:load-file pathname . rest)
   (let ((quiet? (if (%%null? rest) #f (%%car rest))))
-    (%%load pathname (lambda rest #f) #f #t #f quiet?))
+    ;; bongall
+    (%%load pathname (lambda rest #f) #f #t quiet?))
   (void))
 
 

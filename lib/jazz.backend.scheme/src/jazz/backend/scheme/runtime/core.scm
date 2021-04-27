@@ -536,7 +536,7 @@
 
 (define (jazz:fixnum->flonum n)
   (if (%%fixnum? n)
-      (%%fixnum->flonum n)
+      (jazz:track (%%fixnum->flonum n))
     (jazz:type-error n jazz:Fixnum)))
 
 (define (jazz:flonum->fixnum n)
@@ -1299,16 +1299,26 @@
 
 
 (define (jazz:udp-socket-receive-buffer-size port)
+  #f
+  #; ;; bongall
   (##udp-socket-receive-buffer-size port))
 
 (define (jazz:udp-socket-receive-buffer-size-set! port size)
+  #f
+  #; ;; bongall
   (##udp-socket-receive-buffer-size-set! port size))
 
 (define (jazz:udp-socket-send-buffer-size port)
+  #f
+  #; ;; bongall
   (##udp-socket-send-buffer-size port))
 
 (define (jazz:udp-socket-send-buffer-size-set! port size)
+  #f
+  #; ;; bongall
   (##udp-socket-send-buffer-size-set! port size))
 
 (define (jazz:udp-socket-send-again-count port)
+  #f
+  #; ;; bongall
   (##udp-socket-send-again-count port)))

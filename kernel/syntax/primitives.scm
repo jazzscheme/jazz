@@ -269,9 +269,10 @@
 ;;;
 
 
-(jazz:define-synto (%%load path script-callback clone-cte? raise-os-exception? linker-name quiet?)
+;; bongall
+(jazz:define-macro (%%load path script-callback clone-cte? raise-os-exception? quiet?)
   ;; DANGER : temporary hack until proper primitive exists
-  `(^#load ,path ,script-callback ,clone-cte? ,raise-os-exception? ,linker-name ,quiet?))
+  `(^#load ,path ,script-callback ,clone-cte? ,raise-os-exception? ,quiet?))
 
 
 ;;;

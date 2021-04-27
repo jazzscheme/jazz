@@ -612,8 +612,8 @@
   (if jazz:debug-core?
       (%%force-uniqueness (values n)
         `(%%check-values ,values 1 (%%values-ref ,values ,n)
-           (if (%%fx< ,n (%%vector-length ,values))
-               (%%vector-ref ,values ,n)
+           (if (%%fx< ,n (^#vector-length ,values))
+               (^#vector-ref ,values ,n)
              (error "Out of bounds"))))
     `(%%vector-ref ,values ,n)))
 
@@ -621,7 +621,7 @@
   (if jazz:debug-core?
       (%%force-uniqueness (values n)
         `(%%check-values ,values 1 (%%values-set! ,values ,n ,obj)
-           (if (%%fx< ,n (%%vector-length ,values))
-               (%%vector-set! ,values ,n ,obj)
+           (if (%%fx< ,n (^#vector-length ,values))
+               (^#vector-ref ,values ,n ,obj)
              (error "Out of bounds"))))
     `(%%vector-set! ,values ,n ,obj))))

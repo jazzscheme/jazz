@@ -170,6 +170,8 @@
 (native jazz:continuation-next)
 (native jazz:continuation-backtrace)
 (native jazz:track)
+(native jazz:track-depth)
+(native jazz:track-depth-set!)
 
 
 ;;;

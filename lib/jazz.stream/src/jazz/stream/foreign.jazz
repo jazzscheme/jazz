@@ -1711,7 +1711,8 @@ typedef struct probe_rate
     int probe_kind;
     gulong probe_id;
     double target_rate;
-    double first_time;
+    double last_time;
+    double average_elapse;
     int allowed;
     int dropped;
 } rate_probe;
@@ -1720,7 +1721,7 @@ static void init_rate_probe(rate_probe* data, double rate)
 {
     data->probe_kind = RATE_PROBE;
     data->target_rate = rate;
-    data->first_time = -1;
+    data->last_time = -1;
 }
 
 static void free_rate_probe(rate_probe* data)
@@ -1739,26 +1740,30 @@ cb_rate_data(GstPad          *pad,
         return GST_PAD_PROBE_DROP;
 
     GstBuffer* buffer;
-    double time;
+    double time, elapse;
+    double target_elapse = 1 / data->target_rate;
     
     buffer = GST_PAD_PROBE_INFO_BUFFER(info);
     time = GST_TIME_AS_SECONDS((double) GST_BUFFER_PTS(buffer));
     
-    if (data->first_time == -1)
+    if (data->last_time == -1)
     {
-        data->first_time = time;
+        data->last_time = time;
+        data->average_elapse = target_elapse;
         data->allowed = 1;
         data->dropped = 0;
         return GST_PAD_PROBE_OK;
     }
     else
     {
-        double elapsed = time - data->first_time;
-        double rate_so_far = data->allowed / elapsed;
+        double elapse = time - data->last_time;
+        double new_average_elapse = (elapse + 127 * data->average_elapse) / 128;
         
-        if (rate_so_far <= data->target_rate)
+        if (new_average_elapse >= target_elapse)
         {
             data->allowed++;
+            data->last_time = time;
+            data->average_elapse = new_average_elapse;
             return GST_PAD_PROBE_OK;
         }
         else
@@ -1817,7 +1822,7 @@ static void* gst_pad_add_rate_probe(GstPad* pad, int rate)
 static void gst_rate_probe_reset(void* info)
 {
     rate_probe* data = (rate_probe*) info;
-    data->first_time = -1;
+    data->last_time = -1;
 }
 
 static int gst_rate_probe_get_rate(void* info)
@@ -1830,7 +1835,19 @@ static void gst_rate_probe_set_rate(void* info, int rate)
 {
     rate_probe* data = (rate_probe*) info;
     data->target_rate = rate;
-    data->first_time = -1;
+    data->last_time = -1;
+}
+
+static int gst_rate_probe_get_allowed(void* info)
+{
+    rate_probe* data = (rate_probe*) info;
+    return data->allowed;
+}
+
+static int gst_rate_probe_get_dropped(void* info)
+{
+    rate_probe* data = (rate_probe*) info;
+    return data->dropped;
 }
 
 static void gst_pad_probe_free(void* info)
@@ -2467,6 +2484,8 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_rate_probe_reset void*) void)
 (gst-external (gst_rate_probe_get_rate void*) int)
 (gst-external (gst_rate_probe_set_rate void* int) void)
+(gst-external (gst_rate_probe_get_allowed void*) int)
+(gst-external (gst_rate_probe_get_dropped void*) int)
 (gst-external (gst_pad_remove_probe GstPad* void*) (:free 2) void "gst_pad_remove_probe_aux")
 (gst-external (gst_pad_probe_free void*) :free void "gst_pad_probe_free")
 (gst-external (gst_pad_connect_eos GstPad* void*) void)

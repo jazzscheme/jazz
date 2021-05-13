@@ -174,8 +174,10 @@
   (let ((port (jazz:readenv-port re)))
     (parameterize ((jazz:in-expression-comment? #t))
       (read-char port)
-      (read port)   ; comment name
-      (read port))  ; commented expr
+      (if (%%memv (peek-char port) '(#\space #\return #\newline))
+          (read-char port) ; comment space
+        (read port))       ; comment name
+      (read port))         ; commented expr
     (%%read-datum-or-label-or-none-or-dot re)))
 
 

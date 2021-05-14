@@ -783,6 +783,7 @@
 ;;;
 
 
+@no-rebase-experiment
 (definition protected adapter-tolerance
   .03)
 
@@ -790,25 +791,27 @@
 (class Time-Adapter extends Object
   
   
+  @no-rebase-experiment
   (slot moving-deviation <fl> initialize 0. getter generate)
   (slot timestamp-offset      initialize #f getter generate)
 
 
   (method public (rebase-time self kind appsrc timestamp (rebase-proc #f))
-    (let ((running-time (gst_element_get_running_time appsrc)))
-      (if (= running-time GST_CLOCK_TIME_NONE)
-          (error "Invalid pipeline running time")
-        (let ((perfect-offset (- running-time timestamp)))
-          (if (not timestamp-offset)
-              (set! timestamp-offset perfect-offset)
-            (let ((deviation (timestamp->flonum (- perfect-offset timestamp-offset))))
-              (set! moving-deviation (/ (+ (* moving-deviation 31.) deviation) 32.))
-              (when (> (abs moving-deviation) adapter-tolerance)
-                (when rebase-proc
-                  (rebase-proc (timestamp->flonum (- perfect-offset timestamp-offset))))
-                (set! timestamp-offset perfect-offset)
-                (set! moving-deviation 0.)))))
-        timestamp-offset))))
+    (if (not timestamp-offset)
+        (let ((running-time (gst_element_get_running_time appsrc)))
+          (if (= running-time GST_CLOCK_TIME_NONE)
+              (error "Invalid pipeline running time")
+            (let ((perfect-offset (- running-time timestamp)))
+              (set! timestamp-offset perfect-offset))))
+      @no-rebase-experiment
+      (let ((deviation (timestamp->flonum (- perfect-offset timestamp-offset))))
+        (set! moving-deviation (/ (+ (* moving-deviation 31.) deviation) 32.))
+        (when (> (abs moving-deviation) adapter-tolerance)
+          (when rebase-proc
+            (rebase-proc (timestamp->flonum (- perfect-offset timestamp-offset))))
+          (set! timestamp-offset perfect-offset)
+          (set! moving-deviation 0.))))
+    timestamp-offset))
 
 
 ;;;

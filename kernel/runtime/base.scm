@@ -117,6 +117,62 @@
   (merge-sort l))
 
 
+;; stable merge sort from srfi-32 reference implementation
+;; https://github.com/scheme-requests-for-implementation/srfi-32
+
+(define (jazz:sort-stable elt< lis)              ; A stable, natural merge sort
+  
+  (define (getrun lis) ; Pick off a contiguous run of sorted data.
+    (let lp ((xs (%%cdr lis)) (prev (%%car lis)) (i 1))
+         (if (%%pair? xs)
+             (let ((x (%%car xs)))
+               (if (elt< x prev) 
+                   (values i xs)
+                 (lp (%%cdr xs) x (%%fx+ i 1))))
+           (values i xs))))
+  
+  (define (cmerge a la b lb)	; Counted merge.
+    (let recur ((x (%%car a)) (a a) (la la)
+                (y (%%car b)) (b b) (lb lb))
+         (if (elt< y x)
+             (%%cons y (let ((lb (%%fx- lb 1)))
+                         (if (%%fx= lb 0)
+                             a
+                           (let ((b (%%cdr b)))
+                             (recur x a la 
+                               (%%car b) b lb)))))
+           (%%cons x (let ((la (%%fx- la 1)))
+                       (if (%%fx= la 0)
+                           b
+                         (let ((a (%%cdr a)))
+                           (recur (%%car a) a la
+                             y b lb))))))))
+  
+  (define (grow s ls ls2 u lw)	; The core of the sort algorithm.
+    (if (or (%%fx<= lw ls) (%%not (%%pair? u)))
+        (values s ls u)
+      (let ((ls2 (let lp ((ls2 ls2))
+                      (let ((ls2*2 (%%fx+ ls2 ls2)))
+                        (if (%%fx<= ls2*2 ls) (lp ls2*2) ls2)))))
+        ;; LS2 is now the largest power of two <= LS.
+        (receive (lr u2) (getrun u)	; Get a run.
+          (receive (t lt u3) (grow u lr 1 u2 ls2) ; Grow it.
+            (grow (cmerge s ls t lt) (%%fx+ ls lt) ; Merge &
+              (%%fx+ ls2 ls2) u3 lw))))))	     ;   loop.
+  
+  (define (first lis i)	; Nil-terminate LIS.
+    (if (%%fx= 0 i)
+        '()
+      (%%cons (%%car lis) (first (%%cdr lis) (%%fx- i 1)))))
+  
+  (if (%%not (%%pair? lis))
+      '()		; Note: (LENGTH LIS) or any constant 
+    (receive (lr tail) (getrun lis)	; guaranteed to be greater can be used
+      (let ((infinity #o100000000))	; in place of INFINITY.
+        (receive (a la v) (grow lis lr 1 tail infinity)
+          (first a la))))))
+
+
 ;;;
 ;;;; String
 ;;;

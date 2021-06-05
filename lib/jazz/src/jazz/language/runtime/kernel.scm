@@ -716,6 +716,7 @@
 (native jazz:last-pair)
 (native jazz:proper-list)
 (native jazz:sort-list)
+(native jazz:sort-stable)
 
 ;; until high-level optimized
 (native jazz:kernel-some?)

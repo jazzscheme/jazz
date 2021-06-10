@@ -131,10 +131,12 @@
         (expand-variables iter
           (expand-tests
             (expand-bindings
-              (simplify-begin
-                `(begin
-                   ,@(expand-alterations iter))))
-             finally)))))
+              (if (null? alterations)
+                  '(unspecified)
+                (simplify-begin
+                  `(begin
+                     ,@(expand-alterations iter)))))
+            finally)))))
   
   
   (define (expand-globals inner)

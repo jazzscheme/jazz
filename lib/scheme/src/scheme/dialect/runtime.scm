@@ -956,9 +956,9 @@
 
 
 (define (jazz:walk-let-macro walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (let* ((bindings (%%cadr form))
-           (body (%%cddr form))
+  (let ((form (%%cdr (jazz:source-code form-src))))
+    (let* ((bindings (%%desourcify (%%car form)))
+           (body (%%cdr form))
            (macro-forms (map (lambda (binding)
                                (let ((name (%%car binding))
                                      (expander (%%cadr binding)))
@@ -975,9 +975,9 @@
 
 
 (define (jazz:walk-let-symbol walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (let* ((bindings (%%cadr form))
-           (body (%%cddr form))
+  (let ((form (%%cdr (jazz:source-code form-src))))
+    (let* ((bindings (%%desourcify (%%car form)))
+           (body (%%cdr form))
            (macro-symbols (map (lambda (binding)
                                  (let ((name (%%car binding))
                                        (getter (%%cadr binding))

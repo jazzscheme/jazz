@@ -419,8 +419,9 @@
                             (let ((cc-options (case platform
                                                   ((mac) "-D___DYNAMIC -mmacosx-version-min=10.12")
                                                   (else "-D___DYNAMIC"))))
-                              ;; reduce long compilation time for purely syntactic primitives
-                              (let ((cc-options (if (equal? name "primitives")
+                              ;; reduce long compilation time for purely syntactic files
+                              (let ((cc-options (if (or (equal? name "primitives")
+                                                        (equal? name "unsafe"))
                                                     (string-append "-O0 -U___SINGLE_HOST " cc-options)
                                                   cc-options)))
                                 (compile-file dst options: (%%cons 'obj options) cc-options: cc-options))))

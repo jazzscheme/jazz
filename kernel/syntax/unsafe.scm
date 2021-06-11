@@ -51,7 +51,7 @@
     jazz:debug-core?))
 
 
-(jazz:define-macro (%%danger name expr)
+(jazz:define-synto (%%danger name expr)
   #;
   `(begin
      (pp '(***DANGER ,name))
@@ -59,26 +59,29 @@
   expr)
 
 
-(jazz:define-macro (jazz:unsafe expr)
-  (let ((oper (car expr))
-        (args (cdr expr)))
-    `(let ()
-       (declare (not safe))
-       (,oper ,@(map (lambda (arg)
-                       (if jazz:debug-user?
-                           `(let ()
-                              (declare (safe))
-                              ,arg)
-                         arg))
-                     args)))))
+(jazz:define-synto (jazz:unsafe expr)
+  (let ((form (##source-code expr)))
+    (let ((oper (##car form))
+          (args (##cdr form)))
+      `(let ()
+         (declare (not safe))
+         (,oper ,@(map (lambda (arg)
+                         (if jazz:debug-user?
+                             `(let ()
+                                (declare (safe))
+                                ,arg)
+                           arg))
+                       args))))))
 
 
 (jazz:define-macro (jazz:define-unsafe name)
   (let ((str (symbol->string name)))
     (let ((suffix (substring str 2 (string-length str))))
       (let ((lowlevel (string->symbol (string-append "##" suffix))))
-        `(jazz:define-macro (,name . rest)
-           `(jazz:unsafe (,',lowlevel ,@rest)))))))
+        `(jazz:define-syntax ,name
+           (lambda (src)
+             (let ((rest (##cdr (##source-code src))))
+               (##sourcify-deep `(jazz:unsafe (,',lowlevel ,@rest)) src))))))))
 
 
 ;;;

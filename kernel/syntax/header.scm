@@ -97,6 +97,45 @@
 
 
 ;;;
+;;;; Synto
+;;;
+
+
+;; DANGER : temporary hack until proper primitive exists
+(define-runtime-macro (jazz:define-synto pattern . rest)
+  (let ((name (##car pattern))
+        (variables (##cdr pattern)))
+    (let ((expander
+            `(lambda (src)
+               (let ((src (##source-code src)))
+                 ,(let iter ((scan variables))
+                       (cond ((##null? scan)
+                              (if (##null? (cdr rest))
+                                  (##car rest)
+                                (##cons 'begin rest)))
+                             ((##symbol? scan)
+                              `(let ((,scan (##cdr src)))
+                                 ,(iter '())))
+                             (else
+                              `(let ((src (##cdr src)))
+                                 (let ((,(##car scan) (##car src)))
+                                   ,(iter (##cdr scan)))))))))))
+      `(begin
+         (##define-syntax ,name
+                          ,expander)
+         (##top-cte-add-macro!
+           ##interaction-cte
+           ',name
+           (##make-macro-descr
+             #t
+             -1
+             ,expander
+             #f))
+         (jazz:register-macro ',name
+                              ,expander)))))
+
+
+;;;
 ;;;; Subtypes
 ;;;
 

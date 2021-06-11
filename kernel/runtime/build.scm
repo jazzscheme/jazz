@@ -419,7 +419,11 @@
                             (let ((cc-options (case platform
                                                   ((mac) "-D___DYNAMIC -mmacosx-version-min=10.12")
                                                   (else "-D___DYNAMIC"))))
-                              (compile-file dst options: (%%cons 'obj options) cc-options: cc-options)))
+                              ;; reduce long compilation time for purely syntactic primitives
+                              (let ((cc-options (if (equal? name "primitives")
+                                                    (string-append "-O0 -U___SINGLE_HOST " cc-options)
+                                                  cc-options)))
+                                (compile-file dst options: (%%cons 'obj options) cc-options: cc-options))))
                           (jazz:update-manifest-compile-time name digest mnf src #f))))
                   #t)
               #f))))

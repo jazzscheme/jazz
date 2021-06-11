@@ -107,19 +107,21 @@
         (variables (##cdr pattern)))
     (let ((expander
             `(lambda (src)
-               (let ((src (##source-code src)))
-                 ,(let iter ((scan variables))
-                       (cond ((##null? scan)
-                              (if (##null? (cdr rest))
-                                  (##car rest)
-                                (##cons 'begin rest)))
-                             ((##symbol? scan)
-                              `(let ((,scan (##cdr src)))
-                                 ,(iter '())))
-                             (else
-                              `(let ((src (##cdr src)))
-                                 (let ((,(##car scan) (##car src)))
-                                   ,(iter (##cdr scan)))))))))))
+               (##sourcify-deep
+                 (let ((src (##source-code src)))
+                   ,(let iter ((scan variables))
+                         (cond ((##null? scan)
+                                (if (##null? (cdr rest))
+                                    (##car rest)
+                                  (##cons 'begin rest)))
+                               ((##symbol? scan)
+                                `(let ((,scan (##cdr src)))
+                                   ,(iter '())))
+                               (else
+                                `(let ((src (##cdr src)))
+                                   (let ((,(##car scan) (##car src)))
+                                     ,(iter (##cdr scan))))))))
+                 src))))
       `(begin
          (##define-syntax ,name
                           ,expander)

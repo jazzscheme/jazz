@@ -78,10 +78,8 @@
   (let ((str (symbol->string name)))
     (let ((suffix (substring str 2 (string-length str))))
       (let ((lowlevel (string->symbol (string-append "##" suffix))))
-        `(jazz:define-syntax ,name
-           (lambda (src)
-             (let ((rest (##cdr (##source-code src))))
-               (##sourcify-deep `(jazz:unsafe (,',lowlevel ,@rest)) src))))))))
+        `(jazz:define-synto (,name . rest)
+           `(jazz:unsafe (,',lowlevel ,@rest)))))))
 
 
 ;;;

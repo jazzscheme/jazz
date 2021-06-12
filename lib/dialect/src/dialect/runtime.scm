@@ -6352,6 +6352,31 @@
 ;;;
 
 
+;; to debug sourcification
+(define (resourcify)
+  (define (transform-src src)
+    (let ((code (cadr src))
+          (line (- (caddr src) 1))
+          (col (- (cadddr src) 1)))
+      (##make-source (transform code) (##make-locat  "/Users/cartier/Devel/together/app/devel/jazz/lib/jazz.test/src/jazz/test/_test.jazz" (##make-filepos line col 0)))))
+  
+  (define (transform-list lst)
+    (cons (transform (car lst))
+          (transform (cdr lst))))
+  
+  (define (transform obj)
+    (cond ((and (pair? obj)
+                (eq? (car obj) 'source))
+           (transform-src obj))
+          ((%%pair? obj)
+           (transform-list obj))
+          (else
+           obj)))
+  
+  (transform
+    '(source begin 41 1)))
+
+
 (jazz:define-syntax module
   (lambda (form-src)
     (let ((emit (jazz:generate-module (%%cdr (jazz:source-code form-src)) 'scheme)))

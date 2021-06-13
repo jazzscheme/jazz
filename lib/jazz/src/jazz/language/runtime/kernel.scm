@@ -337,6 +337,7 @@
 (native jazz:handle-exception-filter)
 (native jazz:catch-exception-filter)
 (native jazz:dump-exception)
+(native jazz:new-walk-problems)
 
 
 ;;;

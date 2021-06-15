@@ -70,6 +70,17 @@
       (error "Unable to find entry: {s}" name)))
 
 
+(definition cataloguer-modules
+  (make-table test: equal?))
+
+
+(definition public (cache-cataloguer-module name)
+  (or (table-ref cataloguer-modules name #f)
+      (let ((entry (find-cataloguer-entry name 'module)))
+        (table-set! cataloguer-modules name entry)
+        entry)))
+
+
 (definition public (location->entry location)
   (bind (file line) location
     (let ((file-entry (cache-file-entry file)))
@@ -121,16 +132,16 @@
         (when entry
           (enqueue queue entry))))
     
-    (define (resolve-class module-entry class-name)
+    (define (process-class module-entry class-name)
       (let ((class-entries (entry-resolve module-entry class-name)))
         (when (= 1 (length class-entries))
           (let ((class-entry (car class-entries)))
             (process-namespace class-entry)
             (let ((extends (category-entry-extends class-entry)))
               (when extends
-                (resolve-class module-entry extends)))))))
+                (process-class module-entry extends)))))))
     
-    (define (resolve-interface module-entry interface-name)
+    (define (process-interface module-entry interface-name)
       (let ((interface-entries (entry-resolve module-entry interface-name)))
         (when (= 1 (length interface-entries))
           (let ((interface-entry (car interface-entries)))
@@ -153,10 +164,12 @@
           (process-namespace class-entry)
           (let ((extends (category-entry-extends class-entry)))
             (when extends
-              (resolve-class module-entry extends)))
-          (for-each (lambda (interface-name)
-                      (resolve-interface module-entry interface-name))
-                    (class-entry-implements class-entry))))
+              (process-class module-entry extends)))
+          (let ((implements (class-entry-implements class-entry)))
+            (when implements
+              (for-each (lambda (interface-name)
+                          (process-interface module-entry interface-name))
+                        implements)))))
       (process-module module-entry))
     (remove-duplicates (queue-list queue))))
 
@@ -181,7 +194,7 @@
 
 
 (definition public (module-entry name)
-  (find-cataloguer-entry name 'module))
+  (cache-cataloguer-module name))
 
 
 (definition public (module-entry-dialect entry)

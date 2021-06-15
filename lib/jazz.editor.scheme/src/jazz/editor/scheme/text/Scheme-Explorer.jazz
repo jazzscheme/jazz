@@ -210,8 +210,21 @@
   (method (walk-unit self context symbol form declaration keyword expression doc)
     (walk-namespace self context 'unit symbol form declaration keyword expression doc))
   
+  
   (method (walk-module self context symbol form declaration keyword expression doc)
-    (walk-namespace self context 'module symbol form declaration keyword expression doc))
+    (let ((entry context))
+      (keyword context start end)
+      (let ((modifiers (walk-modifiers self context declaration keyword (get-modifiers form))))
+        (when (and (forward-expr self) (eq? kind 'symbol))
+          (set! entry (declaration context 'module modifiers symbol '() #f start end (get-marked self) (symbol-documented? self (find-marked-symbol self) doc)))
+          (walk-keywords self entry declaration keyword expression (get-keywords form))
+          (when (and entry (forward-expr self))
+            (let ((dialect (get-marked self)))
+              (let ((parameters (list (cons 'dialect dialect))))
+                (set-parameters entry parameters))))
+          (walk-declarations self entry declaration keyword expression doc))
+        entry)))
+  
   
   (method (walk-script self context symbol form declaration keyword expression doc)
     (define (determine-name)
@@ -250,7 +263,31 @@
   
   
   (method (walk-invoices self context invoices-kind symbol form declaration keyword expression doc)
-    (walk-anonymous self context invoices-kind symbol form declaration keyword expression doc))
+    (define (collect-invoices)
+      (let ((queue (new-queue)))
+        (let (iterate)
+          (cond ((enter-list self)
+                 (when (forward-expr self)
+                   (enqueue queue (list (get-marked self))))
+                 (exit-list self)
+                 (iterate))
+                ((forward-expr self)
+                 (enqueue queue (get-marked self))
+                 (iterate))
+                (else
+                 (queue-list queue))))))
+    
+    (let ((entry context)
+          (start start)
+          (end end))
+      (keyword context start end)
+      (set! entry (declaration context invoices-kind '() symbol '() #f start end (get-marked self) #f))
+      (when entry
+        (let ((invoices (collect-invoices)))
+          (let ((parameters (list (cons 'invoices invoices))))
+            (set-parameters entry parameters))))
+      (walk-expressions self entry expression 'code #f)
+      entry))
   
   
   (method (walk-anonymous self context anonymous-kind symbol form declaration keyword expression doc)

@@ -89,15 +89,76 @@
       #f)))
 
 
-(definition public (category-entry-extends entry)
-  (entry-parameter entry 'extends))
+;;;
+;;;; Resolve
+;;;
 
 
-(definition public (class-entry-implements entry)
-  (let ((implements (entry-parameter entry 'implements)))
-    (and implements
-         (let ((implements (read-string-element implements)))
-           (map ->string (listify implements))))))
+(definition public (entry-resolve entry name)
+  (let ((queue (new-queue))
+        (processed-imports (make-table test: equal?)))
+    (define (process-module entry)
+      (process-namespace entry)
+      (let ((dialect (module-entry-dialect entry))
+            (imports (module-entry-imports entry)))
+        (let ((effective-imports (if (ends-with? dialect ":") imports (cons dialect imports))))
+          (for-each process-import effective-imports))))
+    
+    (define (process-import import)
+      (let ((module-name (if (pair? import) (car import) import)))
+        (unless (table-ref processed-imports module-name #f)
+          (table-set! processed-imports module-name #t)
+          (let ((module-entry (module-entry module-name)))
+            (when module-entry
+              (for-each (lambda (export)
+                          (when (pair? export)
+                            (process-import export)))
+                        (module-entry-exports module-entry))
+              (process-namespace module-entry))))))
+    
+    (define (process-namespace entry)
+      (let ((entry (find-definition entry name)))
+        (when entry
+          (enqueue queue entry))))
+    
+    (define (resolve-class module-entry class-name)
+      (let ((class-entries (entry-resolve module-entry class-name)))
+        (when (= 1 (length class-entries))
+          (let ((class-entry (car class-entries)))
+            (process-namespace class-entry)
+            (let ((extends (category-entry-extends class-entry)))
+              (when extends
+                (resolve-class module-entry extends)))))))
+    
+    (define (resolve-interface module-entry interface-name)
+      (let ((interface-entries (entry-resolve module-entry interface-name)))
+        (when (= 1 (length interface-entries))
+          (let ((interface-entry (car interface-entries)))
+            (process-namespace interface-entry)))))
+    
+    (define (entry-class entry)
+      (if (eq? (get-kind entry) 'class)
+          entry
+        (let ((parent (get-parent entry)))
+          (and parent
+               (eq? (get-kind parent) 'class)
+               parent))))
+    
+    (let ((module-entry (module-entry name)))
+      (when module-entry
+        (enqueue queue module-entry)))
+    (let ((module-entry (entry-module entry)))
+      (let ((class-entry (entry-class entry)))
+        (when class-entry
+          (process-namespace class-entry)
+          (let ((extends (category-entry-extends class-entry)))
+            (when extends
+              (resolve-class module-entry extends)))
+          (for-each (lambda (interface-name)
+                      (resolve-interface module-entry interface-name))
+                    (class-entry-implements class-entry))))
+      (process-module module-entry))
+    (remove-duplicates (queue-list queue))))
 
 
 ;;;
@@ -106,12 +167,56 @@
 
 
 (definition public (entry-module entry)
-  (let ((file-entry (get-file-definition entry)))
-    (let ((file-definitions (get-definitions file-entry)))
-      (assert (not-null? file-definitions)
-        (let ((module-entry (car file-definitions)))
-          (assert (eq? (get-kind module-entry) 'module)
-            module-entry))))))
+  (let (iter (entry entry))
+    (cond ((not entry)
+           (error "Unable to find entry module"))
+          ((eq? (get-kind entry) 'module)
+           entry)
+          (else
+           (iter (get-parent entry))))))
+
+
+(definition public (entry-invoices entry)
+  (or (entry-parameter entry 'invoices) '()))
+
+
+(definition public (module-entry name)
+  (find-cataloguer-entry name 'module))
+
+
+(definition public (module-entry-dialect entry)
+  (entry-parameter entry 'dialect))
+
+
+(definition public (module-entry-imports entry)
+  (let ((imports (new-queue)))
+    (for-each (lambda (entry)
+                (when (eq? (get-kind entry) 'import)
+                  (for-each (lambda (ref)
+                              (enqueue imports ref))
+                            (entry-invoices entry))))
+              (get-definitions entry))
+    (queue-list imports)))
+
+
+(definition public (module-entry-exports entry)
+  (let ((exports (new-queue)))
+    (for-each (lambda (entry)
+                (when (eq? (get-kind entry) 'export)
+                  (for-each (lambda (ref)
+                              (enqueue exports ref))
+                            (entry-invoices entry))))
+              (get-definitions entry))
+    (queue-list exports)))
+
+
+;;;
+;;;; Category
+;;;
+
+
+(definition public (category-entry-extends entry)
+  (entry-parameter entry 'extends))
 
 
 ;;;
@@ -139,6 +244,13 @@
       (if (not ascendant)
           ascendants
         (iter ascendant (cons ascendant ascendants))))))
+
+
+(definition public (class-entry-implements entry)
+  (let ((implements (entry-parameter entry 'implements)))
+    (and implements
+         (let ((implements (read-string-element implements)))
+           (map ->string (listify implements))))))
 
 
 (definition public (class-entry-interfaces entry)

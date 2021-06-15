@@ -42,6 +42,7 @@
         (jazz.application)
         (jazz.catalog)
         (jazz.catalog.edit)
+        (jazz.catalog.entry)
         (jazz.editor)
         (jazz.editor.lisp)
         (jazz.event)
@@ -261,6 +262,32 @@
   
   (method protected virtual (edition-workspace self)
     #f)
+  
+  
+  (method protected (selection-entry self)
+    (let ((moniker (get-moniker self)))
+      (and moniker
+           (let ((file-entry (cache-file-entry moniker)))
+             (and file-entry
+                  (let ((start (get-start self)))
+                    (let ((line (get-line start))
+                          (col (get-col start)))
+                      (let ((file (get-file file-entry)))
+                        (location->entry (list file line col))))))))))
+  
+  
+  (method (on-edit-definition self evt)
+    (let ((form (current-expr self))
+          (appl (current-application)))
+      (when form
+        (let ((target (standardize-form self form #t))
+              (entry (selection-entry self))
+              (workspace (edition-workspace self))
+              (context (get-context self))
+              (history-item (current-history-item self)))
+          (if (not entry)
+              (edit-definitions appl target workspace: workspace context: context history-item: history-item)
+            (edit-definition appl entry target workspace: workspace context: context history-item: history-item))))))
 
   
   (method (on-edit-definitions self evt)

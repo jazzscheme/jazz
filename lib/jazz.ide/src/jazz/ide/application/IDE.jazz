@@ -746,8 +746,13 @@
   
   
   (method override (edit-definition self entry object (context: context #f) (workspace: workspace #f) (history-item: history-item #f))
+    (define (filter-hubs entries)
+      (collect-if (lambda (entry)
+                    (neq? (get-kind entry) 'hub))
+                  entries))
+    
     (let ((name (->string object)))
-      (let ((entries (entry-resolve entry name)))
+      (let ((entries (filter-hubs (entry-resolve entry name))))
         (if (null? entries)
             (bell)
           (add-history self history-item)
@@ -758,8 +763,13 @@
   
   (method override (edit-definitions self object (class: class #f) (context: context #f) (workspace: workspace #f) (history-item: history-item #f))
     ;; todo: show only entries belonging to class
-    (define (filter-entries entries class)
+    (define (filter-class entries class)
       entries)
+    
+    (define (filter-hubs entries)
+      (collect-if (lambda (entry)
+                    (neq? (get-kind entry) 'hub))
+                  entries))
     
     (if (and (symbol? object)
              (composite-reference? object))
@@ -768,7 +778,7 @@
               (bell)
             (edit-entry entry)))
       (let ((name (->string object)))
-        (let ((definitions (filter-entries (get-coalesced-definitions (get-cataloguer) name context: context) class)))
+        (let ((definitions (filter-hubs (filter-class (get-coalesced-definitions (get-cataloguer) name context: context) class))))
           (if (null? definitions)
               (bell)
             (add-history self history-item)

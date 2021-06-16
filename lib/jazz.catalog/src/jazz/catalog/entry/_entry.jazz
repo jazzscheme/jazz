@@ -107,9 +107,11 @@
 
 (definition public (entry-resolve entry name)
   (let ((queue (new-queue))
+        (unsorted-queue (new-queue))
         (processed-imports (make-table test: equal?)))
     (define (process-module entry)
-      (process-namespace entry)
+      (process-namespace entry 'private)
+      (process-categories entry 'private)
       (let ((dialect (module-entry-dialect entry))
             (imports (module-entry-imports entry)))
         (let ((effective-imports (if (ends-with? dialect ":") imports (cons dialect imports))))
@@ -125,18 +127,42 @@
                           (when (pair? export)
                             (process-import export)))
                         (module-entry-exports module-entry))
-              (process-namespace module-entry))))))
+              (process-namespace module-entry 'public)
+              (process-categories module-entry 'public))))))
     
-    (define (process-namespace entry)
+    (define (process-namespace entry access (queue queue))
       (let ((entry (find-definition entry name)))
         (when entry
-          (enqueue queue entry))))
+          (case (get-kind entry)
+            ((definition)
+             (when (or (eq? access 'private)
+                       (let ((modifiers (get-modifiers entry)))
+                         (or (memq? 'protected modifiers)
+                             (memq? 'package modifiers)
+                             (memq? 'public modifiers))))
+               (enqueue queue entry)))
+            ((method)
+             (when (or (eq? access 'private)
+                       (let ((modifiers (get-modifiers entry)))
+                         (and (not (memq? 'private modifiers))
+                              (or (memq? 'package modifiers)
+                                  (memq? 'public modifiers)
+                                  (memq? 'override modifiers)))))
+               (enqueue queue entry)))
+            (else
+             (enqueue queue entry))))))
+    
+    (define (process-categories entry access)
+      (for-each (lambda (def)
+                  (when (memq? (get-kind def) '(class interface))
+                    (process-namespace def access)))
+                (get-definitions entry)))
     
     (define (process-class module-entry class-name)
       (let ((class-entries (entry-resolve module-entry class-name)))
         (when (= 1 (length class-entries))
           (let ((class-entry (car class-entries)))
-            (process-namespace class-entry)
+            (process-namespace class-entry 'private unsorted-queue)
             (let ((extends (category-entry-extends class-entry)))
               (when extends
                 (process-class module-entry extends)))))))
@@ -145,7 +171,7 @@
       (let ((interface-entries (entry-resolve module-entry interface-name)))
         (when (= 1 (length interface-entries))
           (let ((interface-entry (car interface-entries)))
-            (process-namespace interface-entry)))))
+            (process-namespace interface-entry 'private unsorted-queue)))))
     
     (define (entry-class entry)
       (if (eq? (get-kind entry) 'class)
@@ -161,7 +187,7 @@
     (let ((module-entry (entry-module entry)))
       (let ((class-entry (entry-class entry)))
         (when class-entry
-          (process-namespace class-entry)
+          (process-namespace class-entry 'private unsorted-queue)
           (let ((extends (category-entry-extends class-entry)))
             (when extends
               (process-class module-entry extends)))
@@ -171,7 +197,10 @@
                           (process-interface module-entry interface-name))
                         implements)))))
       (process-module module-entry))
-    (remove-duplicates (queue-list queue))))
+    (let ((unsorted (remove-duplicates (queue-list unsorted-queue)))
+          (sorted (remove-duplicates (queue-list queue))))
+      (append unsorted
+              (sort string<? (difference sorted unsorted) key: present)))))
 
 
 ;;;

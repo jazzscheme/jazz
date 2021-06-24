@@ -130,12 +130,13 @@
       (expand-globals
         (expand-variables iter
           (expand-tests
-            (expand-bindings
-              (if (null? alterations)
-                  '(unspecified)
-                (simplify-begin
-                  `(begin
-                     ,@(expand-alterations iter)))))
+            (let ((alterations (expand-alterations iter)))
+              (expand-bindings
+                (if (null? alterations)
+                    '(unspecified)
+                  (simplify-begin
+                    `(begin
+                       ,@alterations)))))
             finally)))))
   
   

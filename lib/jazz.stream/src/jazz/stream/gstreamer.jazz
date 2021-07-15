@@ -789,7 +789,18 @@
     "format"      'int     GST_FORMAT_TIME))
 
 
-(class Source-Adapter extends Object
+;;;
+;;;; Adapter
+;;;
+
+
+(interface Source-Adapter
+  
+  
+  (method public virtual abstract (adapt-time self appsrc timestamp)))
+
+
+(class Source-Coupler extends Object implements Source-Adapter
   
   
   (slot timestamp-offset initialize #f getter generate)
@@ -799,7 +810,7 @@
     (set! timestamp-offset #f))
 
 
-  (method public (adapt-time self appsrc timestamp)
+  (method override (adapt-time self appsrc timestamp)
     (or timestamp-offset
         (let ((running-time (gst_element_get_running_time appsrc)))
           (if (= running-time GST_CLOCK_TIME_NONE)
@@ -808,6 +819,31 @@
               (set! timestamp-offset perfect-offset)
               perfect-offset))))))
 
+
+(definition protected rebase-tolerance
+  .03)
+
+
+(class Source-Rebaser extends Object implements Source-Adapter
+  
+  
+  (slot moving-deviation <fl> initialize 0. getter generate)
+  (slot timestamp-offset      initialize #f getter generate)
+
+
+  (method override (adapt-time self appsrc timestamp)
+    (let ((running-time (gst_element_get_running_time appsrc)))
+      (if (= running-time GST_CLOCK_TIME_NONE)
+          (error "Invalid pipeline running time")
+        (let ((perfect-offset (- running-time timestamp)))
+          (if (not timestamp-offset)
+              (set! timestamp-offset perfect-offset)
+            (let ((deviation (timestamp->flonum (abs (- perfect-offset timestamp-offset)))))
+              (set! moving-deviation (/ (+ (* moving-deviation 31.) deviation) 32.))
+              (when (> moving-deviation rebase-tolerance)
+                (set! timestamp-offset perfect-offset)
+                (set! moving-deviation 0.)))))
+        timestamp-offset))))
 
 ;;;
 ;;;; AppSink

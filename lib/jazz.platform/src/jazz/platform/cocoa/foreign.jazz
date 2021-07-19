@@ -3907,6 +3907,100 @@ void platformUpdateSystemActivity(UInt8 activity)
 }
 
 
+#include <CoreAudio/CoreAudio.h>
+
+
+const int AudioError = -1;
+const int AudioUnknownOutput = 0;
+const int AudioSpeakersOutput = 1;
+const int AudioHeadphonesOutput = 2;
+
+
+int platformAudioDefaultOutput()
+{
+    AudioDeviceID defaultDevice = 0;
+    UInt32 defaultSize = sizeof(AudioDeviceID);
+    OSStatus err;
+    
+    const AudioObjectPropertyAddress defaultAddr = {
+        kAudioHardwarePropertyDefaultOutputDevice,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMaster
+    };
+    
+    err = AudioObjectGetPropertyData(kAudioObjectSystemObject, &defaultAddr, 0, NULL, &defaultSize, &defaultDevice);
+    if (err != kAudioHardwareNoError)
+        return AudioError;
+    
+    AudioObjectPropertyAddress sourceAddr = {
+        kAudioDevicePropertyDataSource,
+        kAudioDevicePropertyScopeOutput,
+        kAudioObjectPropertyElementMaster
+    };
+    
+    UInt32 dataSourceId = 0;
+    UInt32 dataSourceIdSize = sizeof(UInt32);
+    err = AudioObjectGetPropertyData(defaultDevice, &sourceAddr, 0, NULL, &dataSourceIdSize, &dataSourceId);
+    if (err != kAudioHardwareNoError)
+        return AudioError;
+    
+    if (dataSourceId == 'ispk') {
+        return AudioSpeakersOutput;
+    } else if (dataSourceId == 'hdpn') {
+        return AudioHeadphonesOutput;
+    }
+    else {
+        return AudioUnknownOutput;
+    }
+}
+
+
+void gst_listener_write(void* listener, char* c)
+{
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, c, 1);
+}
+
+
+OSStatus default_output_proc(AudioObjectID inObjectID,
+                             UInt32 inNumberAddresses,
+                             const AudioObjectPropertyAddress* inAddresses,
+                             void* listener)
+{
+    gst_listener_write(listener, ".");
+}
+
+
+AudioObjectPropertyAddress defaultOutputAddr = {
+    kAudioHardwarePropertyDefaultOutputDevice,
+    kAudioObjectPropertyScopeGlobal,
+    kAudioObjectPropertyElementMaster
+};
+
+
+void platformAudioMonitorDefaultOutput(void* listener)
+{
+    AudioObjectAddPropertyListener(kAudioObjectSystemObject,
+                                   &defaultOutputAddr,
+                                   default_output_proc,
+                                   listener);
+}
+
+void platformAudioUnmonitorDefaultOutput(void* listener)
+{
+    AudioObjectRemovePropertyListener(kAudioObjectSystemObject,
+                                      &defaultOutputAddr,
+                                      default_output_proc,
+                                      NULL);
+
+    gst_listener_write(listener, "@");
+}
+
+
 void platformFillOperatingSystemVersion(___SCMOBJ info)
 {
     ___U32 *ptr = ___CAST(___U32*, ___BODY(info));
@@ -4154,6 +4248,9 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformPlaySound char-string double) void)
 (platform-external (platformUserAttention) void)
 (platform-external (platformUpdateSystemActivity unsigned-int8) void)
+(platform-external (platformAudioDefaultOutput) int)
+(platform-external (platformAudioMonitorDefaultOutput void*) void)
+(platform-external (platformAudioUnmonitorDefaultOutput void*) void)
 (platform-external (platformFillOperatingSystemVersion scheme-object) void)
 (platform-external (platformRunningApplications) NSArray*)
 (platform-external (platformRunningApplicationProcessIdentifier NSRunningApplication*) int)
@@ -4215,6 +4312,11 @@ ___SCMOBJ platformProcessThreads()
 (c-enumerant NSWarningAlertStyle)
 (c-enumerant NSInformationalAlertStyle)
 (c-enumerant NSCriticalAlertStyle)
+
+(c-enumerant AudioError)
+(c-enumerant AudioUnknownOutput)
+(c-enumerant AudioSpeakersOutput)
+(c-enumerant AudioHeadphonesOutput)
 
 
 ;;;

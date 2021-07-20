@@ -127,7 +127,7 @@
             (freetype-lib-path       (quoter "lib/jazz.freetype/foreign/linux/freetype/lib"))
             (png-lib-path            (quoter "lib/jazz.cairo/foreign/linux/png/lib")))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
-              (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfreetype" " -lcairo")))
+              (ld-flags (string-append "-Wl,-rpath,\\$ORIGIN/../../../../.." " -L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfreetype" " -lcairo")))
           (list cc-flags ld-flags))))))
 
 

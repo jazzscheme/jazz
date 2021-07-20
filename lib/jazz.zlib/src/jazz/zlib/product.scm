@@ -67,7 +67,7 @@
            (zlib-lib-path      (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/linux/zlib/lib")))
        `((jazz.zlib.foreign
            cc-options: ,(string-append "-I" zlib-include-path)
-           ld-options: ,(string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" zlib-lib-path " -lz")))))))
+           ld-options: ,(string-append "-Wl,-rpath,\\$ORIGIN/../../../../.." " -L" zlib-lib-path " -lz")))))))
 
 
 (cond-expand

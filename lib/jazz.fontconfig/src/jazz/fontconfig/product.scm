@@ -76,7 +76,7 @@
             (png-include-path        (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/linux/png/include"))
             (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/linux/png/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
-              (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig")))
+              (ld-flags (string-append "-Wl,-rpath,\\$ORIGIN/../../../../.." " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig")))
           (list cc-flags ld-flags))))))
 
 

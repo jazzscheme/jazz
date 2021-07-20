@@ -108,6 +108,9 @@
       ;; note that this is note completely ideal as
       ;; the header will keep being regenerated if we
       ;; alternate building using different gambits
+      #;
+      ;; bongo this is less needed in the latest gambit
+      ;; where loading of gambit's header is much faster
       (let ((src (string-append jazz:source "kernel/syntax/header.scm"))
             (o1 (string-append jazz:source "kernel/syntax/header.o1"))
             (ver (string-append jazz:source "kernel/syntax/header.ver"))

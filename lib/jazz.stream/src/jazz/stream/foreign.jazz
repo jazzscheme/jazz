@@ -517,6 +517,36 @@ static void gst_listener_voice(void* listener)
 #endif
 }
 
+static void gst_listener_freeze(void* listener)
+{
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) listener;
+    send(socket, "<", 1, 0);
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "<", 1);
+#endif
+}
+
+static void gst_listener_thaw(void* listener)
+{
+#ifdef _WIN32
+    SOCKET socket = (SOCKET) listener;
+    send(socket, ">", 1, 0);
+#else
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, ">", 1);
+#endif
+}
+
 static void gst_listener_silence(void* listener)
 {
 #ifdef _WIN32
@@ -1101,6 +1131,22 @@ static void gst_element_wait_state_aux(GstElement* elem)
 {
     GstState state, pending;
     gst_element_get_state(elem, &state, &pending, GST_CLOCK_TIME_NONE);
+}
+
+static gboolean gst_element_send_freeze(GstElement* elem)
+{
+    return
+        gst_element_send_event(elem,
+            gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM,
+                gst_structure_new_empty("freeze")));
+}
+
+static gboolean gst_element_send_thaw(GstElement* elem)
+{
+    return
+        gst_element_send_event(elem,
+            gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM,
+                gst_structure_new_empty("thaw")));
 }
 
 static GstClockTime gst_system_clock_get_time()
@@ -1697,6 +1743,7 @@ cb_drop_data(GstPad          *pad,
 #define DROP_PROBE  1
 #define RATE_PROBE  2
 #define VOICE_PROBE 3
+#define VIDEO_PROBE 4
 
 typedef struct probe_any
 {
@@ -1822,6 +1869,24 @@ static void free_voice_probe(voice_probe* data)
     free(data);
 }
 
+typedef struct probe_video
+{
+    int probe_kind;
+    gulong probe_id;
+    gpointer listener;
+} video_probe;
+
+static void init_video_probe(video_probe* data, gpointer listener)
+{
+    data->probe_kind = VIDEO_PROBE;
+    data->listener = listener;
+}
+
+static void free_video_probe(video_probe* data)
+{
+    free(data);
+}
+
 static GstPadProbeReturn
 cb_connect_eos(GstPad * pad, GstPadProbeInfo * info, gpointer listener)
 {
@@ -1914,6 +1979,10 @@ static void gst_pad_probe_free(void* info)
             free_voice_probe((voice_probe*) data);
             break;
         }
+        case VIDEO_PROBE: {
+            free_video_probe((video_probe*) data);
+            break;
+        }
     }
 }
 
@@ -1951,6 +2020,44 @@ static void* gst_pad_add_voice_probe(GstPad* pad, gpointer listener)
     init_voice_probe(data, listener);
 
     data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, (GstPadProbeCallback) cb_voice_events, data, NULL);
+    
+    return (void*) data;
+}
+
+static GstPadProbeReturn
+cb_video_events(GstPad          *pad,
+                GstPadProbeInfo *info,
+                gpointer         user_data)
+{
+    video_probe* data = (video_probe*) user_data;
+
+    GstEvent* event;
+    
+    event = GST_PAD_PROBE_INFO_EVENT(info);
+
+    switch (GST_EVENT_TYPE (event)) {
+        case GST_EVENT_CUSTOM_DOWNSTREAM: {
+            if (gst_structure_has_name(gst_event_get_structure(event), "freeze"))
+            {
+                gst_listener_freeze(data->listener);
+            }
+            else if (gst_structure_has_name(gst_event_get_structure(event), "thaw"))
+            {
+                gst_listener_thaw(data->listener);
+            }
+            break;
+        }
+    }
+
+    return GST_PAD_PROBE_OK;
+}
+
+static void* gst_pad_add_video_probe(GstPad* pad, gpointer listener)
+{
+    video_probe* data = malloc(sizeof(video_probe));
+    init_video_probe(data, listener);
+
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, (GstPadProbeCallback) cb_video_events, data, NULL);
     
     return (void*) data;
 }
@@ -2577,6 +2684,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_rate_probe_get_allowed void*) int)
 (gst-external (gst_rate_probe_get_dropped void*) int)
 (gst-external (gst_pad_add_voice_probe GstPad* gpointer) :alloc void*)
+(gst-external (gst_pad_add_video_probe GstPad* gpointer) :alloc void*)
 (gst-external (gst_pad_remove_probe GstPad* void*) (:free 2) void "gst_pad_remove_probe_aux")
 (gst-external (gst_pad_probe_free void*) :free void "gst_pad_probe_free")
 (gst-external (gst_pad_connect_eos GstPad* void*) void)
@@ -2630,6 +2738,8 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_element_wait_state GstElement*) void "gst_element_wait_state_aux")
 (gst-external (gst_element_seek_simple GstElement* GstFormat GstSeekFlags int64) :gboolean)
 (gst-external (gst_element_send_event GstElement* GstEvent*) :gboolean)
+(gst-external (gst_element_send_freeze GstElement*) :gboolean)
+(gst-external (gst_element_send_thaw GstElement*) :gboolean)
 (gst-external (gst_element_get_bus GstElement*) GstBus*)
 (gst-external (gst_element_get_base_time GstElement*) GstClockTime)
 (gst-external (gst_element_get_parent GstElement*) GstElement*)

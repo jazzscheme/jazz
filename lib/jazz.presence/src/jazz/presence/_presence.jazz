@@ -575,9 +575,11 @@
   
   
   (method (result self rest)
-    (bind (method-name cookie result) rest
+    (bind (kind method-name cookie result) rest
       (when (and debug-remote? (debug-remote-presence? presence) (debug-remote-method? method-name))
-        (debug-remote presence '<<< remote-title remote-uuid 'result method-name (debug-simplify presence result))
+        (if (eq? kind 'call)
+            (debug-remote presence '<<< remote-title remote-uuid 'result method-name (debug-simplify presence result))
+          (debug-remote presence '<<< remote-title remote-uuid 'return method-name))
         (caller-garble-hack))
       (let ((mutex (serial->object cookie)))
         (mutex-specific-set! mutex result)
@@ -603,9 +605,9 @@
                   (lambda (connection)
                     (case kind
                       ((send)
-                       (write-message self `(result ,method-name ,cookie ,(unspecified))))
+                       (write-message self `(result ,kind ,method-name ,cookie ,(unspecified))))
                       ((call)
-                       (write-message self `(result ,method-name ,cookie ,result)))))
+                       (write-message self `(result ,kind ,method-name ,cookie ,result)))))
                   self))))
           (list 'presence-execution method-name)))))
   

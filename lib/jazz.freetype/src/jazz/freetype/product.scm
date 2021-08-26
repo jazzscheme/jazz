@@ -80,7 +80,8 @@
      (list (cons "lib/jazz.freetype/foreign/mac/freetype/lib/libfreetype.6.dylib" "Libraries/libfreetype.6.dylib"))))
   (windows
    (define jazz:platform-files
-     (list (cons "lib/jazz.freetype/foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll"))))
+     (list (cons "lib/jazz.freetype/foreign/windows/freetype/lib/bz2.dll" "bz2.dll")
+           (cons "lib/jazz.freetype/foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll"))))
   (else
    (define jazz:platform-files
      (list (cons "lib/jazz.freetype/foreign/linux/freetype/lib/libfreetype.so.6" "libfreetype.so.6")))))

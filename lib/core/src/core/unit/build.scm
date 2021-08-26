@@ -441,6 +441,10 @@
                            show-console: #f))))))
           (case platform
             ((mac)
+             (jazz:call-process
+               (list
+                 path: "install_name_tool"
+                 arguments: `("-change" "/usr/local/lib/gcc/10/libgcc_s.1.dylib" "@rpath/libgcc_s.1.dylib" ,bin-o1)))
              (if rpaths
                  (for-each (lambda (rpath)
                              (jazz:call-process

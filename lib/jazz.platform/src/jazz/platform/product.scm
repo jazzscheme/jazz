@@ -115,7 +115,8 @@
   (windows
    (define jazz:platform-files
      (list (cons "lib/jazz.platform/foreign/windows/gcc/lib/libgcc_s_seh-1.dll" "libgcc_s_seh-1.dll")
-           (cons "lib/jazz.platform/foreign/windows/gcc/lib/libstdc++-6.dll" "libstdc++-6.dll"))))
+           (cons "lib/jazz.platform/foreign/windows/gcc/lib/libstdc++-6.dll" "libstdc++-6.dll")
+           (cons "lib/jazz.platform/foreign/windows/gcc/lib/libwinpthread-1.dll" "libwinpthread-1.dll"))))
   (else
    (define jazz:platform-files
      '())))

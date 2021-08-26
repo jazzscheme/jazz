@@ -423,6 +423,19 @@
                     options))))
           (if (not (= exit-status 0))
               (jazz:error "C compilation failed while linking module"))
+          (case platform
+            ((mac)
+             (jazz:call-process
+               (list
+                 path: "install_name_tool"
+                 arguments: `("-change" "/usr/local/lib/gcc/10/libgcc_s.1.dylib" "@rpath/libgcc_s.1.dylib" ,bin-o1)))
+             (if rpaths
+                 (for-each (lambda (rpath)
+                             (jazz:call-process
+                               (list
+                                 path: "install_name_tool"
+                                 arguments: `("-add_rpath" ,rpath ,bin-o1))))
+                           rpaths))))
           (let ((id (and (jazz:global-bound? 'apple-developer-id)
                          (jazz:global-ref 'apple-developer-id))))
             (if id
@@ -439,19 +452,6 @@
                            path: "/usr/bin/codesign"
                            arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,bin-o1)
                            show-console: #f))))))
-          (case platform
-            ((mac)
-             (jazz:call-process
-               (list
-                 path: "install_name_tool"
-                 arguments: `("-change" "/usr/local/lib/gcc/10/libgcc_s.1.dylib" "@rpath/libgcc_s.1.dylib" ,bin-o1)))
-             (if rpaths
-                 (for-each (lambda (rpath)
-                             (jazz:call-process
-                               (list
-                                 path: "install_name_tool"
-                                 arguments: `("-add_rpath" ,rpath ,bin-o1))))
-                           rpaths))))
           (delete-file linkfile)))))
   
   (let ((will-link? (and update-bin? (or (jazz:link-objects?) (and bin (not jazz:single-objects?))))))

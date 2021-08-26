@@ -914,6 +914,10 @@
                (jazz:call-process
                  (list
                    path: "install_name_tool"
+                   arguments: `("-change" "/usr/local/lib/gcc/10/libgcc_s.1.dylib" "@rpath/libgcc_s.1.dylib" ,(image-file))))
+               (jazz:call-process
+                 (list
+                   path: "install_name_tool"
                    arguments: `("-add_rpath" "@executable_path/Libraries" ,(image-file))))
                (if (and bundle (not library-image?))
                    (begin

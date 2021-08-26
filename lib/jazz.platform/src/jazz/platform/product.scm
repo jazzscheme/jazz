@@ -111,7 +111,7 @@
 (cond-expand
   (cocoa
    (define jazz:platform-files
-     '()))
+     (list (cons "lib/jazz.platform/foreign/mac/gcc/lib/libgcc_s.1.dylib" "Libraries/libgcc_s.1.dylib"))))
   (windows
    (define jazz:platform-files
      (list (cons "lib/jazz.platform/foreign/windows/gcc/lib/libgcc_s_seh-1.dll" "libgcc_s_seh-1.dll")

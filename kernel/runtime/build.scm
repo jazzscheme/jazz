@@ -929,16 +929,18 @@
                        (list
                          path: "install_name_tool"
                          arguments: `("-add_rpath" "@executable_path/../../../Libraries" ,(image-file))))))))
-            (let ((id (and (jazz:global-bound? 'apple-developer-id)
-                           (jazz:global-ref 'apple-developer-id))))
+            (let ((id (getenv "JAZZ_APPLE_DEVELOPER_ID" #f)))
               (if id
-                  (cond #;
-                        (mac?
+                  (cond (mac?
                          (feedback-message "; signing {a}..." (if library-image? "library" "executable"))
-                         (jazz:call-process
-                           (list
-                             path: "/usr/bin/codesign"
-                             arguments: `("--sign" ,id ,(string-append kernel-dir "/" kernel-name)))))
+                         (let ((entitlements (getenv "JAZZ_APPLE_ENTITLEMENTS" #f)))
+                           (let ((entitlements-arguments (if (not entitlements)
+                                                             '()
+                                                           (list "--entitlements" entitlements))))
+                             (jazz:call-process
+                               (list
+                                 path: "/usr/bin/codesign"
+                                 arguments: `("--options" "runtime" ,@entitlements-arguments "--timestamp" "--sign" ,id ,(string-append kernel-dir "/" kernel-name)))))))
                         (ios?
                          (feedback-message "; signing {a}..." (if library-image? "library" "executable"))
                          (jazz:call-process

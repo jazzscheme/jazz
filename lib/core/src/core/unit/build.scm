@@ -436,15 +436,13 @@
                                  path: "install_name_tool"
                                  arguments: `("-add_rpath" ,rpath ,bin-o1))))
                            rpaths))))
-          (let ((id (and (jazz:global-bound? 'apple-developer-id)
-                         (jazz:global-ref 'apple-developer-id))))
+          (let ((id (getenv "JAZZ_APPLE_DEVELOPER_ID" #f)))
             (if id
-                (cond #;
-                      (mac?
+                (cond (mac?
                        (jazz:call-process
                          (list
                            path: "/usr/bin/codesign"
-                           arguments: `("--sign" ,id ,bin-o1)
+                           arguments: `("--options" "runtime" "--timestamp" "--sign" ,id ,bin-o1)
                            show-console: #f)))
                       (ios?
                        (jazz:call-process
@@ -460,7 +458,7 @@
       (if (or will-compile? will-link?)
           (let ((path (%%get-resource-path src)))
             (jazz:push-changed-units path)
-            (display "; compiling ")
+            (display "; compiling & signing ")
             (display path)
             (display "...")
             (newline)

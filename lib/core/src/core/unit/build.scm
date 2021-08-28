@@ -394,7 +394,7 @@
           (string-append bin-pathname-base ".o1"))
       (jazz:probe-numbered-pathname (string-append bin-pathname-base ".o") 1)))
   
-  (define (link-o1)
+  (define (link-o1 apple-id)
     (let ((bin-o1 (determine-o1)))
       (let ((bin-output (string-append bin-pathname-base bin-extension))
             (linkfile (string-append bin-o1 bin-extension)))
@@ -436,29 +436,29 @@
                                  path: "install_name_tool"
                                  arguments: `("-add_rpath" ,rpath ,bin-o1))))
                            rpaths))))
-          (let ((id (getenv "JAZZ_APPLE_DEVELOPER_ID" #f)))
-            (if id
-                (cond (mac?
-                       (jazz:call-process
-                         (list
-                           path: "/usr/bin/codesign"
-                           arguments: `("--options" "runtime" "--timestamp" "--sign" ,id ,bin-o1)
-                           show-console: #f)))
-                      (ios?
-                       (jazz:call-process
-                         (list
-                           path: "/usr/bin/codesign"
-                           arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,bin-o1)
-                           show-console: #f))))))
+          (if apple-id
+              (cond (mac?
+                     (jazz:call-process
+                       (list
+                         path: "/usr/bin/codesign"
+                         arguments: `("--options" "runtime" "--timestamp" "--sign" ,apple-id ,bin-o1)
+                         show-console: #f)))
+                    (ios?
+                     (jazz:call-process
+                       (list
+                         path: "/usr/bin/codesign"
+                         arguments: `("--force" "--sign" ,apple-id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,bin-o1)
+                         show-console: #f)))))
           (delete-file linkfile)))))
   
   (let ((will-link? (and update-bin? (or (jazz:link-objects?) (and bin (not jazz:single-objects?))))))
     (let ((will-compile? (and update-obj? (or will-link? (jazz:link-libraries?))))
-          (dry? (jazz:dry-run?)))
+          (dry? (jazz:dry-run?))
+          (apple-id (getenv "JAZZ_APPLE_DEVELOPER_ID" #f)))
       (if (or will-compile? will-link?)
           (let ((path (%%get-resource-path src)))
             (jazz:push-changed-units path)
-            (display "; compiling & signing ")
+            (display (if apple-id "; compiling & signing " "; compiling "))
             (display path)
             (display "...")
             (newline)
@@ -468,7 +468,7 @@
             (if will-compile? (compile))
             (if update-bin?
                 (if will-link?
-                    (link-o1)
+                    (link-o1 apple-id)
                   (delete-o1-files)))
             (if will-compile? (update-manifest)))))))
 

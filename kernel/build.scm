@@ -147,7 +147,7 @@
   (jazz:unspecified-option))
 
 (jazz:define-option jazz:default-compiler
-  'c)
+  (jazz:unspecified-option))
 
 (jazz:define-option jazz:default-processor
   (jazz:unspecified-option))
@@ -269,7 +269,7 @@
   (let* ((name (jazz:validate-name (jazz:require-name name template)))
          (system (jazz:validate-system (jazz:require-system system template)))
          (platform (jazz:validate-platform (jazz:require-platform platform template)))
-         (compiler (jazz:validate-compiler (jazz:require-compiler compiler template)))
+         (compiler (jazz:validate-compiler (jazz:require-compiler platform compiler template)))
          (processor (jazz:validate-processor (jazz:require-processor processor template)))
          (windowing (jazz:validate-windowing (jazz:require-windowing platform windowing template)))
          (safety (jazz:validate-safety (jazz:require-safety safety template)))
@@ -677,12 +677,16 @@
     c++))
 
 
-(define (jazz:guess-compiler)
-  'c)
+(define (jazz:guess-compiler platform)
+  ;; at the moment only the C++ compiler with its exceptions
+  ;; plays well with visual C's structured exception handling
+  (if (eq? platform 'windows)
+      'c++
+    'c))
 
 
-(define (jazz:require-compiler compiler template)
-  (jazz:or-option compiler (jazz:get-configuration-compiler template) (jazz:default-compiler) (jazz:guess-compiler)))
+(define (jazz:require-compiler platform compiler template)
+  (jazz:or-option compiler (jazz:get-configuration-compiler template) (jazz:default-compiler) (jazz:guess-compiler platform)))
 
 
 (define (jazz:validate-compiler compiler)

@@ -84,8 +84,8 @@
     (define jazz:opengl-units
       (let ((glew-include-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/include"))
             (glew-lib-path     (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/lib")))
-        `((jazz.opengl.glew.foreign cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" glew-include-path)) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))
-          (jazz.opengl.glew.header cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" glew-include-path)) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))))))
+        `((jazz.opengl.glew.foreign cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" glew-include-path)) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))
+          (jazz.opengl.glew.header cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" glew-include-path)) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))))))
   (x11
     (define jazz:opengl-units
       (let ((glew-include-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/linux/opengl/glew/include"))
@@ -114,7 +114,7 @@
         (list (string-append "-L" glew-lib-path) "-lopengl32" "-lglew32" "-mwindows")))
     (cocoa
       (let ((glew-lib-path (jazz:jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/lib")))
-        (list (string-append "-L" glew-lib-path) "-framework" "OpenGL" "-lglew")))
+        (list (string-append "-L" glew-lib-path) "-framework" "OpenGL" "-lGLEW")))
     (x11
       (let ((glew-lib-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/linux/opengl/glew/lib")))
         (list (string-append "-L" glew-lib-path) "-lGL")))

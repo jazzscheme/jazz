@@ -1788,16 +1788,18 @@ typedef struct probe_rate
     int probe_kind;
     gulong probe_id;
     double target_rate;
+    int fix_decreasing_pts;
     double last_time;
     double average_elapse;
     int allowed;
     int dropped;
 } rate_probe;
 
-static void init_rate_probe(rate_probe* data, double rate)
+static void init_rate_probe(rate_probe* data, double rate, int fix_decreasing_pts)
 {
     data->probe_kind = RATE_PROBE;
     data->target_rate = rate;
+    data->fix_decreasing_pts = fix_decreasing_pts;
     data->last_time = -1;
 }
 
@@ -1821,6 +1823,14 @@ cb_rate_data(GstPad          *pad,
     double target_elapse = 1 / data->target_rate;
     
     buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+    
+    // this is a bug fix around the camera sometimes
+    // returning decreasing pts in avfvideosrc and maybe
+    // also on windows. note that this code relies on the
+    // element setting do-timestamp=true
+    if (data->fix_decreasing_pts)
+        GST_BUFFER_PTS(buffer) = GST_BUFFER_DTS(buffer);
+
     time = GST_TIME_AS_SECONDS((double) GST_BUFFER_PTS(buffer));
     
     if (data->last_time == -1)
@@ -1922,10 +1932,10 @@ static void* gst_pad_add_drop_probe(GstPad* pad)
     return (void*) data;
 }
 
-static void* gst_pad_add_rate_probe(GstPad* pad, int rate)
+static void* gst_pad_add_rate_probe(GstPad* pad, int rate, int fix_decreasing_pts)
 {
     rate_probe* data = malloc(sizeof(rate_probe));
-    init_rate_probe(data, rate);
+    init_rate_probe(data, rate, fix_decreasing_pts);
 
     data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_rate_data, data, NULL);
     
@@ -2677,7 +2687,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_pad_link GstPad* GstPad*) GstPadLinkReturn)
 (gst-external (gst_pad_add_block_probe GstPad*) :alloc void*)
 (gst-external (gst_pad_add_drop_probe GstPad*) :alloc void*)
-(gst-external (gst_pad_add_rate_probe GstPad* int) :alloc void*)
+(gst-external (gst_pad_add_rate_probe GstPad* int bool) :alloc void*)
 (gst-external (gst_rate_probe_reset void*) void)
 (gst-external (gst_rate_probe_get_rate void*) int)
 (gst-external (gst_rate_probe_set_rate void* int) void)

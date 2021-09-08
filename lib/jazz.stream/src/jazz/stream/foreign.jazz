@@ -1789,6 +1789,8 @@ typedef struct probe_rate
     gulong probe_id;
     double target_rate;
     int fix_decreasing_pts;
+    GstClockTime smallest_latency;
+    int smallest_debug_count;
     double last_time;
     double average_elapse;
     int allowed;
@@ -1800,6 +1802,8 @@ static void init_rate_probe(rate_probe* data, double rate, int fix_decreasing_pt
     data->probe_kind = RATE_PROBE;
     data->target_rate = rate;
     data->fix_decreasing_pts = fix_decreasing_pts;
+    data->smallest_latency = GST_CLOCK_TIME_NONE;
+    data->smallest_debug_count = 0;
     data->last_time = -1;
 }
 
@@ -1829,7 +1833,41 @@ cb_rate_data(GstPad          *pad,
     // also on windows. note that this code relies on the
     // element setting do-timestamp=true
     if (data->fix_decreasing_pts)
-        GST_BUFFER_PTS(buffer) = GST_BUFFER_DTS(buffer);
+    {
+        GstClockTime dts, pts;
+
+        dts = GST_BUFFER_DTS(buffer);
+        pts = GST_BUFFER_PTS(buffer);
+        // smallest_latency is used to re-subtract from
+        // the dts running time the latency between the
+        // operating system timestamp and the actual
+        // reception that gstreamer includes in the pts
+        // see avfvideosrc getSampleBuffer for an example
+        // note that this is necessary for audio video sync
+        if (dts >= pts)
+        {
+            GstClockTime latency = dts - pts;
+            if (data->smallest_latency == GST_CLOCK_TIME_NONE || latency < data->smallest_latency)
+                data->smallest_latency = latency;
+            // if ((data->smallest_debug_count % 100) == 0 || latency < 0.02)
+            //     printf("*** %.3f %.3f\n", GST_TIME_AS_SECONDS((double) latency), GST_TIME_AS_SECONDS((double) data->smallest_latency));
+            // data->smallest_debug_count++;
+            GST_BUFFER_PTS(buffer) = dts - data->smallest_latency;
+        }
+        else
+        {
+            if (data->smallest_latency == GST_CLOCK_TIME_NONE)
+            {
+                printf("REALLY???\n");
+                GST_BUFFER_PTS(buffer) = dts;
+            }
+            else
+            {
+                printf("OH RATS\n");
+                GST_BUFFER_PTS(buffer) = dts + data->smallest_latency;
+            }
+        }
+    }
 
     time = GST_TIME_AS_SECONDS((double) GST_BUFFER_PTS(buffer));
     
@@ -1837,6 +1875,8 @@ cb_rate_data(GstPad          *pad,
     {
         data->last_time = time;
         data->average_elapse = target_elapse;
+        data->smallest_latency = GST_CLOCK_TIME_NONE;
+        data->smallest_debug_count = 0;
         data->allowed = 1;
         data->dropped = 0;
         return GST_PAD_PROBE_OK;
@@ -2015,6 +2055,12 @@ static int gst_rate_probe_get_dropped(void* info)
 {
     rate_probe* data = (rate_probe*) info;
     return data->dropped;
+}
+
+static int gst_stat_probe_get_size(void* info)
+{
+    stat_probe* data = (stat_probe*) info;
+    return data->size;
 }
 
 static void gst_pad_probe_free(void* info)
@@ -2738,6 +2784,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_rate_probe_set_rate void* int) void)
 (gst-external (gst_rate_probe_get_allowed void*) int)
 (gst-external (gst_rate_probe_get_dropped void*) int)
+(gst-external (gst_stat_probe_get_size void*) int)
 (gst-external (gst_pad_add_voice_probe GstPad* gpointer) :alloc void*)
 (gst-external (gst_pad_add_video_probe GstPad* gpointer) :alloc void*)
 (gst-external (gst_pad_remove_probe GstPad* void*) (:free 2) void "gst_pad_remove_probe_aux")

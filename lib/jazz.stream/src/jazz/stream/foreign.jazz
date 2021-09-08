@@ -1861,6 +1861,40 @@ cb_rate_data(GstPad          *pad,
     }
 }
 
+typedef struct probe_stat
+{
+    int probe_kind;
+    gulong probe_id;
+    int size;
+} stat_probe;
+
+static void init_stat_probe(stat_probe* data)
+{
+    data->probe_kind = RATE_PROBE;
+    data->size = 0;
+}
+
+static void free_stat_probe(stat_probe* data)
+{
+    free(data);
+}
+
+static GstPadProbeReturn
+cb_stat_data(GstPad          *pad,
+             GstPadProbeInfo *info,
+             gpointer         user_data)
+{
+    stat_probe* data = (stat_probe*) user_data;
+
+    GstBuffer* buffer;
+    
+    buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+
+    data->size += gst_buffer_get_size(buffer);
+
+    return GST_PAD_PROBE_OK;
+}
+
 typedef struct probe_voice
 {
     int probe_kind;
@@ -1938,6 +1972,16 @@ static void* gst_pad_add_rate_probe(GstPad* pad, int rate, int fix_decreasing_pt
     init_rate_probe(data, rate, fix_decreasing_pts);
 
     data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_rate_data, data, NULL);
+    
+    return (void*) data;
+}
+
+static void* gst_pad_add_stat_probe(GstPad* pad)
+{
+    stat_probe* data = malloc(sizeof(stat_probe));
+    init_stat_probe(data);
+
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_stat_data, data, NULL);
     
     return (void*) data;
 }
@@ -2688,6 +2732,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_pad_add_block_probe GstPad*) :alloc void*)
 (gst-external (gst_pad_add_drop_probe GstPad*) :alloc void*)
 (gst-external (gst_pad_add_rate_probe GstPad* int bool) :alloc void*)
+(gst-external (gst_pad_add_stat_probe GstPad*) :alloc void*)
 (gst-external (gst_rate_probe_reset void*) void)
 (gst-external (gst_rate_probe_get_rate void*) int)
 (gst-external (gst_rate_probe_set_rate void* int) void)

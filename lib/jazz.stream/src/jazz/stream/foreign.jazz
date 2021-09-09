@@ -1790,7 +1790,6 @@ typedef struct probe_rate
     double target_rate;
     int fix_decreasing_pts;
     GstClockTime smallest_latency;
-    int smallest_debug_count;
     double last_time;
     double average_elapse;
     int allowed;
@@ -1803,7 +1802,6 @@ static void init_rate_probe(rate_probe* data, double rate, int fix_decreasing_pt
     data->target_rate = rate;
     data->fix_decreasing_pts = fix_decreasing_pts;
     data->smallest_latency = GST_CLOCK_TIME_NONE;
-    data->smallest_debug_count = 0;
     data->last_time = -1;
 }
 
@@ -1849,23 +1847,14 @@ cb_rate_data(GstPad          *pad,
             GstClockTime latency = dts - pts;
             if (data->smallest_latency == GST_CLOCK_TIME_NONE || latency < data->smallest_latency)
                 data->smallest_latency = latency;
-            // if ((data->smallest_debug_count % 100) == 0 || latency < 0.02)
-            //     printf("*** %.3f %.3f\n", GST_TIME_AS_SECONDS((double) latency), GST_TIME_AS_SECONDS((double) data->smallest_latency));
-            // data->smallest_debug_count++;
             GST_BUFFER_PTS(buffer) = dts - data->smallest_latency;
         }
         else
         {
             if (data->smallest_latency == GST_CLOCK_TIME_NONE)
-            {
-                printf("REALLY???\n");
                 GST_BUFFER_PTS(buffer) = dts;
-            }
             else
-            {
-                printf("OH RATS\n");
                 GST_BUFFER_PTS(buffer) = dts + data->smallest_latency;
-            }
         }
     }
 
@@ -1876,7 +1865,6 @@ cb_rate_data(GstPad          *pad,
         data->last_time = time;
         data->average_elapse = target_elapse;
         data->smallest_latency = GST_CLOCK_TIME_NONE;
-        data->smallest_debug_count = 0;
         data->allowed = 1;
         data->dropped = 0;
         return GST_PAD_PROBE_OK;

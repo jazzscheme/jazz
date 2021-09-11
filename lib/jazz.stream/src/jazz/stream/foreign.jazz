@@ -589,6 +589,47 @@ static ___SCMOBJ alloc_values(___SCMOBJ obj0, ___SCMOBJ obj1)
 }
 //#)
 
+ 
+;;;
+;;;; VAD
+;;;
+
+
+;; copy from gstremovesilence private
+
+(c-declare jazz.stream.foreign #/C/
+#define VAD_POWER_ALPHA 0x0800
+
+// this code tries to match the mac
+// preferences input level indicator
+double power_level(guint64 power)
+{
+    double level = power / 4294967295.0;
+
+    if (level > .4)
+        level = .4;
+    level = level / .4;
+    level = pow(level, 1.0/5.0);
+
+    return level;
+}
+
+guint64 sound_power(gint16 * data, gint len)
+{
+    guint64 power;
+    gint i;
+
+    power = 0;
+    for (i = 0; i < len; i++) {
+        power = VAD_POWER_ALPHA * ((data[i] * data[i] >> 14) & 0xFFFF) +
+            (0xFFFF - VAD_POWER_ALPHA) * (power >> 16) +
+            ((0xFFFF - VAD_POWER_ALPHA) * (power & 0xFFFF) >> 16);
+    }
+
+    return power;
+}
+//#)
+
 
 ;;;
 ;;;; Log
@@ -1742,8 +1783,10 @@ cb_drop_data(GstPad          *pad,
 #define BLOCK_PROBE 0
 #define DROP_PROBE  1
 #define RATE_PROBE  2
-#define VOICE_PROBE 3
-#define VIDEO_PROBE 4
+#define POWER_PROBE 3
+#define STAT_PROBE  4
+#define VOICE_PROBE 5
+#define VIDEO_PROBE 6
 
 typedef struct probe_any
 {
@@ -1889,6 +1932,49 @@ cb_rate_data(GstPad          *pad,
     }
 }
 
+typedef struct probe_power
+{
+    int probe_kind;
+    gulong probe_id;
+    double level;
+    double average_level;
+} power_probe;
+
+static void init_power_probe(power_probe* data)
+{
+    data->probe_kind = POWER_PROBE;
+    data->level = 0;
+    data->average_level = 0;
+}
+
+static void free_power_probe(power_probe* data)
+{
+    free(data);
+}
+
+static GstPadProbeReturn
+cb_power_data(GstPad          *pad,
+              GstPadProbeInfo *info,
+              gpointer         user_data)
+{
+    power_probe* data = (power_probe*) user_data;
+
+    GstBuffer* buffer;
+    GstMapInfo map;
+    guint64 power;
+    
+    buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+
+    gst_buffer_map(buffer, &map, GST_MAP_READ);
+    power = sound_power((gint16 *) map.data, map.size / sizeof(gint16));
+    gst_buffer_unmap(buffer, &map);
+
+    data->level = power_level(power);
+    data->average_level = (data->average_level * 15. + data->level) / 16.;
+
+    return GST_PAD_PROBE_OK;
+}
+
 typedef struct probe_stat
 {
     int probe_kind;
@@ -1898,7 +1984,7 @@ typedef struct probe_stat
 
 static void init_stat_probe(stat_probe* data)
 {
-    data->probe_kind = RATE_PROBE;
+    data->probe_kind = STAT_PROBE;
     data->size = 0;
 }
 
@@ -2004,6 +2090,16 @@ static void* gst_pad_add_rate_probe(GstPad* pad, int rate, int fix_decreasing_pt
     return (void*) data;
 }
 
+static void* gst_pad_add_power_probe(GstPad* pad)
+{
+    power_probe* data = malloc(sizeof(power_probe));
+    init_power_probe(data);
+
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_power_data, data, NULL);
+    
+    return (void*) data;
+}
+
 static void* gst_pad_add_stat_probe(GstPad* pad)
 {
     stat_probe* data = malloc(sizeof(stat_probe));
@@ -2043,6 +2139,18 @@ static int gst_rate_probe_get_dropped(void* info)
 {
     rate_probe* data = (rate_probe*) info;
     return data->dropped;
+}
+
+static double gst_power_probe_get_level(void* info)
+{
+    power_probe* data = (power_probe*) info;
+    return data->level;
+}
+
+static double gst_power_probe_get_average_level(void* info)
+{
+    power_probe* data = (power_probe*) info;
+    return data->average_level;
 }
 
 static int gst_stat_probe_get_size(void* info)
@@ -2766,12 +2874,15 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_pad_add_block_probe GstPad*) :alloc void*)
 (gst-external (gst_pad_add_drop_probe GstPad*) :alloc void*)
 (gst-external (gst_pad_add_rate_probe GstPad* int bool) :alloc void*)
+(gst-external (gst_pad_add_power_probe GstPad*) :alloc void*)
 (gst-external (gst_pad_add_stat_probe GstPad*) :alloc void*)
 (gst-external (gst_rate_probe_reset void*) void)
 (gst-external (gst_rate_probe_get_rate void*) int)
 (gst-external (gst_rate_probe_set_rate void* int) void)
 (gst-external (gst_rate_probe_get_allowed void*) int)
 (gst-external (gst_rate_probe_get_dropped void*) int)
+(gst-external (gst_power_probe_get_level void*) double)
+(gst-external (gst_power_probe_get_average_level void*) double)
 (gst-external (gst_stat_probe_get_size void*) int)
 (gst-external (gst_pad_add_voice_probe GstPad* gpointer) :alloc void*)
 (gst-external (gst_pad_add_video_probe GstPad* gpointer) :alloc void*)

@@ -65,7 +65,7 @@
             (freetype-lib-path     (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/linux/freetype/lib"))
             (png-lib-path          (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/linux/png/lib")))
         (let ((cc-flags (string-append "-I" freetype-include-path))
-              (ld-flags (string-append "-Wl,-rpath,\\$ORIGIN/../../../../.." " -L" freetype-lib-path " -L" png-lib-path " -lfreetype")))
+              (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" freetype-lib-path " -L" png-lib-path " -lfreetype")))
           (list cc-flags ld-flags))))))
 
 

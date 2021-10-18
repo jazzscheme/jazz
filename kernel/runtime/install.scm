@@ -48,6 +48,22 @@
 
 
 (cond-expand
+  (windows
+   (c-include "<shlobj.h>")
+   
+   (define CSIDL_PERSONAL          5)
+   (define CSIDL_DESKTOPDIRECTORY 16)
+   (define CSIDL_LOCAL_APPDATA    28)
+   (define CSIDL_PROGRAM_FILES    38)
+   
+   (c-external (get-special-folder int) wchar_t-string
+     "wchar_t szDir[MAX_PATH];
+      SHGetSpecialFolderPathW(0, szDir, ___arg1, FALSE);
+      ___return(szDir);"))
+  (else))
+
+
+(cond-expand
   (mac
     (c-external (jazz:platform-executable-path) char-string
             "char path[1024];

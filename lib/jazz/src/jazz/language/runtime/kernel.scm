@@ -442,6 +442,21 @@
 
 
 ;;;
+;;;; Install
+;;;
+
+
+(cond-expand
+  (windows
+   (native CSIDL_PERSONAL)
+   (native CSIDL_DESKTOPDIRECTORY)
+   (native CSIDL_LOCAL_APPDATA)
+   (native CSIDL_PROGRAM_FILES)
+   (native get-special-folder))
+  (else))
+
+
+;;;
 ;;;; Integer
 ;;;
 

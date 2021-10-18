@@ -451,9 +451,10 @@
                    (if (%%not (file-exists? dir))
                        (create-directory dir))
                    dir))
-             (if (file-exists? "~")
+             ;; gambit uses HOME to determine the location of ~
+             (if (getenv "HOME" #f)
                  "~"
-               (jazz:error "Unable to find homedir"))))
+               (get-special-folder CSIDL_LOCAL_APPDATA))))
          
          (or home-dir
              (let ((home (home-heuristic)))

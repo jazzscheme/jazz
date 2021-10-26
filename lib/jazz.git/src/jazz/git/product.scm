@@ -61,7 +61,11 @@
            ld-options: ,(string-append "-L" git-lib-path " -lgit2 -lws2_32"))))))
   (else
    (define jazz:git-units
-     '())))
+     (let ((git-include-path  (jazz:quote-jazz-pathname "lib/jazz.git/foreign/linux/libgit2/include"))
+           (git-lib-path      (jazz:quote-jazz-pathname "lib/jazz.git/foreign/linux/libgit2/lib")))
+       `((jazz.git.foreign
+           cc-options: ,(string-append "-I" git-include-path)
+           ld-options: ,(string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" git-lib-path " -lgit2")))))))
 
 
 (cond-expand
@@ -73,7 +77,7 @@
      (list (cons "lib/jazz.git/foreign/windows/libgit2/lib/git2.dll" "git2.dll"))))
   (else
    (define jazz:platform-files
-     '())))
+     (list (cons "lib/jazz.git/foreign/linux/libgit2/lib/libgit2.so.1.3.0" "libgit2.so.1.3.0")))))
 
 
 (define (jazz:copy-platform-files)

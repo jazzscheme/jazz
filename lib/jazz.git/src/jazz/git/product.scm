@@ -77,7 +77,7 @@
      (list (cons "lib/jazz.git/foreign/windows/libgit2/lib/git2.dll" "git2.dll"))))
   (else
    (define jazz:platform-files
-     (list (cons "lib/jazz.git/foreign/linux/libgit2/lib/libgit2.so.1.3.0" "libgit2.so.1.3.0")))))
+     (list (cons "lib/jazz.git/foreign/linux/libgit2/lib/libgit2.so.1.3" "libgit2.so.1.3")))))
 
 
 (define (jazz:copy-platform-files)

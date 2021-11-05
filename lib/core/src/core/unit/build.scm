@@ -192,7 +192,8 @@
 (define (jazz:wrap-single-host-cc-options str)
   (if (or (eq? jazz:kernel-safety 'core)
           (eq? jazz:kernel-safety 'debug)
-          (eq? jazz:kernel-safety 'develop))
+          (eq? jazz:kernel-safety 'develop)
+          (eq? jazz:kernel-safety 'release))
       (string-append "-U___SINGLE_HOST " str)
     str))
 

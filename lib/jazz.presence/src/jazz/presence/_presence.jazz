@@ -270,7 +270,19 @@
   (method (accept-remote self port)
     (accept-handler
       (lambda (presence)
-        (let ((message (read-port port code version)))
+        (let ((message
+                ;; only reply to an invalid code/version here in accept
+                ;; as always replying could be used maliciously to try
+                ;; and figure out the communication protocol. also note
+                ;; that by simply replying, the client will report the
+                ;; right invalid code/version error
+                (catch (Invalid-Code exc
+                         (write-port port code version #f)
+                         (signal exc))
+                  (catch (Invalid-Version exc
+                           (write-port port code version #f)
+                           (signal exc))
+                    (read-port port code version)))))
           (bind (remote-kind remote-uuid remote-title remote-service remote-address) message
             (define (accept)
               (let ((local-uuid uuid)

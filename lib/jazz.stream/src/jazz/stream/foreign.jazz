@@ -183,6 +183,11 @@ ___SCMOBJ CHARSTRINGFREE_to_SCMOBJ(char *src, ___SCMOBJ *dst, int arg_num)
 
 
 (c-declare jazz.stream.foreign #/C/
+static GType g_value_type(GValue* value)
+{
+    return G_VALUE_TYPE(value);
+}
+
 static char* g_value_type_name(GValue* value)
 {
     return (char*) G_VALUE_TYPE_NAME(value);
@@ -280,6 +285,7 @@ static char* g_error_message(GError* error)
 (c-external (g_value_set_double GValue* double) void)
 (c-external (g_value_get_string GValue*) (cast char-string))
 (c-external (g_value_set_string GValue* char-string) void)
+(c-external (g_value_type GValue*) GType)
 (c-external (g_value_type_name GValue*) char-string)
 (c-external (g_list_free GList*) void)
 (c-external (g_object_class_name (call G_OBJECT GObject*)) char-string)
@@ -377,6 +383,8 @@ static char* g_error_message(GError* error)
 (c-type GstPad*                  (pointer GstPad GstPad*))
 (c-type GstCaps                  (native "GstCaps"))
 (c-type GstCaps*                 (pointer GstCaps GstCaps*))
+(c-type GstCapsFeatures          (native "GstCapsFeatures"))
+(c-type GstCapsFeatures*         (pointer GstCapsFeatures GstCapsFeatures*))
 (c-type GstStructure             (native "GstStructure"))
 (c-type GstStructure*            (pointer GstStructure GstStructure*))
 (c-type GstBuffer                (native "GstBuffer"))
@@ -924,6 +932,21 @@ static gboolean gst_object_flag_is_set(GstObject* obj, int flag)
     return GST_OBJECT_FLAG_IS_SET(obj, flag);
 }
 
+static GValue* gst_value_get_fraction_range_min_aux(GValue* value)
+{
+    return (GValue*) gst_value_get_fraction_range_min(value);
+}
+
+static GValue* gst_value_get_fraction_range_max_aux(GValue* value)
+{
+    return (GValue*) gst_value_get_fraction_range_max(value);
+}
+
+static GValue* gst_value_list_get_value_aux(GValue* value, guint index)
+{
+    return (GValue*) gst_value_list_get_value(value, index);
+}
+
 static char* gst_structure_get_name_aux(GstStructure* struc)
 {
     return (char*) gst_structure_get_name(struc);
@@ -974,6 +997,16 @@ static GValue* gst_structure_get_fraction_range_min_aux(GstStructure* struc, cha
 static GValue* gst_structure_get_fraction_range_max_aux(GstStructure* struc, char* name)
 {
     return (GValue*) gst_value_get_fraction_range_max(gst_structure_get_value(struc, name));
+}
+
+static char* gst_structure_nth_field_name_aux(GstStructure* struc, guint index)
+{
+    return (char*) gst_structure_nth_field_name(struc, index);
+}
+
+static bool gst_caps_features_is_system_memory(GstCapsFeatures* features)
+{
+    return gst_caps_features_is_equal(features, GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY);
 }
 
 static GstBuffer* gst_buffer_new_allocate_aux(gsize size)
@@ -2880,7 +2913,11 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_value_get_fraction_numerator GValue*) int)
 (gst-external (gst_value_get_fraction_denominator GValue*) int)
 (gst-external (gst_value_set_fraction GValue* int int) void)
+(gst-external (gst_value_get_fraction_range_min GValue*) GValue* "gst_value_get_fraction_range_min_aux")
+(gst-external (gst_value_get_fraction_range_max GValue*) GValue* "gst_value_get_fraction_range_max_aux")
 (gst-external (gst_value_get_buffer GValue*) GstBuffer*)
+(gst-external (gst_value_list_get_size GValue*) guint)
+(gst-external (gst_value_list_get_value GValue* guint) GValue* "gst_value_list_get_value_aux")
 (gst-external (gst_pad_get_name GstPad*) char-string)
 (gst-external (gst_pad_get_mode GstPad*) GstPadMode)
 (gst-external (gst_pad_is_flushing GstPad*) gboolean)
@@ -2917,14 +2954,6 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_pad_push_force_key_unit GstPad*) :gboolean)
 (gst-external (gst_ghost_pad_new char-string GstPad*) GstPad*)
 (gst-external (gst_task_thread GstTask*) void*)
-(gst-external (gst_caps_new_empty_simple char-string) GstCaps*)
-(gst-external (gst_caps_from_string char-string) GstCaps*)
-(gst-external (gst_caps_is_fixed GstCaps*) gboolean)
-(gst-external (gst_caps_get_size GstCaps*) guint)
-(gst-external (gst_caps_get_structure GstCaps* int) GstStructure*)
-(gst-external (gst_caps_set_value GstCaps* char-string GValue*) void)
-(gst-external (gst_caps_to_string GstCaps*) char-string-free)
-(gst-external (gst_caps_unref GstCaps*) void)
 (gst-external (gst_structure_get_name GstStructure*) char-string "gst_structure_get_name_aux")
 (gst-external (gst_structure_get_int GstStructure* char-string) int "gst_structure_get_int_aux")
 (gst-external (gst_structure_get_uint64 GstStructure* char-string) uint64 "gst_structure_get_uint64_aux")
@@ -2934,7 +2963,19 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_structure_get_fraction_range_min GstStructure* char-string) GValue* "gst_structure_get_fraction_range_min_aux")
 (gst-external (gst_structure_get_fraction_range_max GstStructure* char-string) GValue* "gst_structure_get_fraction_range_max_aux")
 (gst-external (gst_structure_to_string GstStructure*) char-string)
+(gst-external (gst_structure_n_fields GstStructure*) gint)
+(gst-external (gst_structure_nth_field_name GstStructure* guint) char-string "gst_structure_nth_field_name_aux")
 (gst-external (gst_structure_free GstStructure*) void)
+(gst-external (gst_caps_new_empty_simple char-string) GstCaps*)
+(gst-external (gst_caps_from_string char-string) GstCaps*)
+(gst-external (gst_caps_is_fixed GstCaps*) gboolean)
+(gst-external (gst_caps_get_size GstCaps*) guint)
+(gst-external (gst_caps_get_structure GstCaps* int) GstStructure*)
+(gst-external (gst_caps_get_features GstCaps* int) GstCapsFeatures*)
+(gst-external (gst_caps_set_value GstCaps* char-string GValue*) void)
+(gst-external (gst_caps_to_string GstCaps*) char-string-free)
+(gst-external (gst_caps_unref GstCaps*) void)
+(gst-external (gst_caps_features_is_system_memory GstCapsFeatures*) bool)
 (gst-external (gst_buffer_new_allocate gsize) GstBuffer* "gst_buffer_new_allocate_aux")
 (gst-external (gst_buffer_new_wrapped gpointer gsize) GstBuffer*)
 (gst-external (gst_buffer_get_size GstBuffer*) int)
@@ -3099,6 +3140,8 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_plugin_get_description GstPlugin*) char-string "gst_plugin_get_description_aux")
 (gst-external (gst_debug_bin_to_dot_file (call GST_BIN GstElement*) int char-string) void)
 (gst-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")
+(gst-external (GST_TYPE_FRACTION_RANGE) GType "___return(GST_TYPE_FRACTION_RANGE);")
+(gst-external (GST_TYPE_LIST) GType "___return(GST_TYPE_LIST);")
 (gst-external (GST_MESSAGE_TYPE GstMessage*) GstMessageType)
 (gst-external (GST_MESSAGE_SRC GstMessage*) GstElement*)
 

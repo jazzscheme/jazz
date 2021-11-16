@@ -489,6 +489,13 @@
 
 
 (define (jazz:outline-generate-filter-access declarations #!optional (public-lookup #f))
+  declarations
+  ;; only generating public definitions works for using
+  ;; a .o1 as a library that can be imported but doesn't
+  ;; work for ctrl-enter which needs access to all fields
+  ;; maybe one day the debugger could generate or retrieve
+  ;; the full outline and send it to the debuggee!?
+  #;
   (jazz:collect-if (lambda (decl)
                      (or (%%not (%%eq? (jazz:get-declaration-access decl) 'private))
                          (and public-lookup

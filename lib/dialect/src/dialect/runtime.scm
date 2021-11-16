@@ -1828,7 +1828,7 @@
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Export-Declaration declaration) meta)
-  `(native ,(jazz:get-export-declaration-symbol declaration)))
+  `(native ,@(jazz:outline-generate-modifiers declaration) ,(jazz:get-export-declaration-symbol declaration)))
 
 
 
@@ -1863,7 +1863,7 @@
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Export-Syntax-Declaration declaration) meta)
-  `(native-syntax ,(jazz:get-export-syntax-declaration-symbol declaration)))
+  `(native-syntax ,@(jazz:outline-generate-modifiers declaration) ,(jazz:get-export-syntax-declaration-symbol declaration)))
 
 
 ;;;

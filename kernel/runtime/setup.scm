@@ -478,7 +478,7 @@ c-end
   (jazz:with-quit
     (lambda ()
       (jazz:split-command-line (jazz:command-arguments)
-                               '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit")
+                               '("v" "version" "nosource" "debug" "f" "force" "force-outlines" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit")
                                '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "m" "module" "dialect" "listen")
                                missing-argument-for-option
         (lambda (commands options remaining)
@@ -494,6 +494,7 @@ c-end
                 (gvm? (jazz:find-option "gvm" options))
                 (emit? (jazz:find-option "emit" options))
                 (dry? (jazz:find-option "dry" options))
+                (force-outlines? (jazz:find-option "force-outlines" options))
                 (gambit? (or (jazz:find-option "g" options) (jazz:find-option "gambit" options)))
                 (build-repository (jazz:find-option "build-repository" options))
                 (jazz-repository (jazz:find-option "jazz-repository" options))
@@ -582,7 +583,7 @@ c-end
               (set! jazz:recompile-references recompile-references)
               (if (not jazz:kernel-interpreted?)
                   (jazz:disable-crash-window))
-              (if (or debug? (%%eqv? jobs 0) recompile-references dry?)
+              (if (or debug? (%%eqv? jobs 0) recompile-references dry? force-outlines?)
                   (jazz:debug-build? #t))
               (if keep-c?
                   (set! jazz:compile-options (%%cons 'keep-c jazz:compile-options)))
@@ -596,6 +597,8 @@ c-end
                   (jazz:save-emit? #t))
               (if dry?
                   (jazz:dry-run? #t))
+              (if force-outlines?
+                  (jazz:force-outlines? #t))
               (if report
                   (jazz:setup-report report))
               (if reporting?

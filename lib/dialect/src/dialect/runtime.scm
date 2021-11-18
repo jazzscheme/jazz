@@ -2653,12 +2653,14 @@
         (let ((output (open-output-string)))
           (let iter ()
                (let ((c (peekc)))
-                 (if (%%eqv? c #\>)
+                 (if (or (%%eqv? c #\+)
+                         (%%eqv? c #\>))
                      (get-output-string output)
                    (begin
                      (readc)
                      (write-char c output)
                      (iter)))))))
+      
       
       (define (parse-atomic)
         (let ((name (parse-name)))
@@ -2677,7 +2679,11 @@
                      (let ((str (parse-string)))
                        (let ((size (%%string->number str)))
                          (if (%%fixnum? size)
-                             (jazz:new-fixed-type class size)
+                             (if (%%eqv? (peekc) #\+)
+                                 (begin
+                                   (readc)
+                                   (jazz:new-nillable-type (jazz:new-fixed-type class size)))
+                               (jazz:new-fixed-type class size))
                            (ill-formed (jazz:format "size expected: {a}" str)))))
                    (ill-formed (jazz:format "Invalid fixed type: {s}" name)))))
               ((#\<)

@@ -5498,18 +5498,35 @@
       (bytes->32-bit-integer b1 b2 b3 b4))))
 
 
-(definition public (write-binary-content data port (encoder #f))
+(definition public (write-binary-content u8vect port)
+  (let ((size (u8vector-length u8vect)))
+    (write-32-bit-integer size port)
+    (write-subu8vector u8vect 0 size port)
+    (+ 4 size)))
+
+
+(definition public (read-binary-content port)
+  (let ((size (read-32-bit-integer port)))
+    (if (eof-object? size)
+        size
+      (let ((u8vect (make-u8vector size)))
+        (let ((read (read-subu8vector u8vect 0 size port)))
+          (if (/= read size)
+              (eof-object)
+            u8vect))))))
+
+
+(definition public (write-binary-object data port (encoder #f))
   (let ((u8vect (if encoder
                     (object->u8vector data encoder)
                   (object->u8vector data))))
     (let ((size (u8vector-length u8vect)))
       (write-32-bit-integer size port)
       (write-subu8vector u8vect 0 size port)
-      (force-output port)
       (+ 4 size))))
 
 
-(definition public (read-binary-content port (decoder #f))
+(definition public (read-binary-object port (decoder #f))
   (let ((size (read-32-bit-integer port)))
     (if (eof-object? size)
         size
@@ -5523,11 +5540,11 @@
 
 
 (definition public (write-binary data port)
-  (write-binary-content data port serialize))
+  (write-binary-object data port serialize))
 
 
 (definition public (read-binary port)
-  (read-binary-content port deserialize))
+  (read-binary-object port deserialize))
 
 
 ;;;

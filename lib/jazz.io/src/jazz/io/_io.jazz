@@ -1641,6 +1641,32 @@
     (delete-directory (parse self)))
   
   
+  (method public (delete-empty-directories self)
+    (iterate-directory self
+      delete-empty-directories
+      files?: #f
+      directories?: #t
+      recursive?: #f)
+    (delete-if-empty self))
+  
+  
+  (method public (delete-if-empty self)
+    (when (empty? self)
+      (delete-empty self)))
+  
+  
+  (method public (empty? self)
+    (continuation-capture
+      (lambda (return)
+        (iterate-directory self
+          (lambda (path)
+            (continuation-return return #f))
+          files?: #t
+          directories?: #t
+          recursive?: #f)
+        #t)))
+  
+  
   (method override (get-content self (nodes?: nodes? #t) (leaves?: leaves? #t))
     (define (collect-nodes fact)
       (iterate-directory self

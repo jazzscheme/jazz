@@ -452,6 +452,9 @@
       (%%substring pathname 0 (%%fx+ pos 1)))))
 
 
+(define (jazz:file-last-access-seconds pathname)
+  (time->seconds (file-last-access-time pathname)))
+
 (define (jazz:file-last-modification-seconds pathname)
   (time->seconds (file-last-modification-time pathname)))
 

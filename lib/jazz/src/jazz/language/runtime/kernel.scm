@@ -835,6 +835,7 @@
 (native jazz:pathname-link?)
 (native jazz:pathname-expand)
 (native jazz:pathname-normalize)
+(native jazz:file-last-access-seconds)
 (native jazz:file-last-modification-seconds)
 (native jazz:add-extension)
 (native jazz:copy-file)

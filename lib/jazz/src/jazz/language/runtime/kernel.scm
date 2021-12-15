@@ -719,6 +719,9 @@
 (native jazz:pkg-config-version)
 (native jazz:pkg-config-cflags)
 (native jazz:pkg-config-libs)
+(native jazz:file-executable?)
+(native jazz:file-permissions)
+(native jazz:file-permissions-set!)
 
 
 ;;;
@@ -834,6 +837,7 @@
 (native jazz:pathname-normalize)
 (native jazz:file-last-modification-seconds)
 (native jazz:add-extension)
+(native jazz:copy-file)
 (native jazz:current-directory)
 (native jazz:with-current-directory)
 (native jazz:directory-content)

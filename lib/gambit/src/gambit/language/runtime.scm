@@ -167,7 +167,6 @@
 ;;;
 
 
-(native copy-file)
 (native create-directory)
 (native create-fifo)
 (native create-link)

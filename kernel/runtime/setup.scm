@@ -60,6 +60,42 @@ c-end
 
 
 ;;;
+;;;; Permissions
+;;;
+
+
+(cond-expand
+  (windows)
+  (else
+   (c-declare #<<end-of-code
+#include <sys/stat.h>
+end-of-code
+)
+   (define jazz:file-executable?
+     (c-lambda (char-string) bool
+     #<<end-of-code
+       struct stat sb;
+       stat(___arg1, &sb);
+       ___return(sb.st_mode & S_IXUSR);
+end-of-code
+))
+   (set! jazz:file-permissions
+         (c-lambda (char-string) int
+     #<<end-of-code
+       struct stat sb;
+       stat(___arg1, &sb);
+       ___return(sb.st_mode);
+end-of-code
+))
+   (set! jazz:file-permissions-set!
+         (c-lambda (char-string int) void
+     #<<end-of-code
+       chmod(___arg1, ___arg2);
+end-of-code
+))))
+
+
+;;;
 ;;;; Forward
 ;;;
 

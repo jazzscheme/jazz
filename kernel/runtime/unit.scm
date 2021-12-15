@@ -764,7 +764,7 @@
         (jazz:create-directories (jazz:repository-pathname jazz:Build-Repository dir))
         (if (file-exists? dst)
             (delete-file dst))
-        (copy-file src dst)
+        (jazz:copy-file src dst)
         (load-package)))))
 
 

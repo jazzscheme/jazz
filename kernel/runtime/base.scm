@@ -423,7 +423,7 @@
                     (if (or (%%eq? copy? #t) (copy? name level))
                         (case (jazz:pathname-type sub-src)
                           ((file)
-                           (copy-file sub-src sub-dst))
+                           (jazz:copy-file sub-src sub-dst))
                           ((directory)
                            (copy (string-append sub-src "/") (string-append sub-dst "/") (%%fx+ level 1)))))))
                 src-content)))

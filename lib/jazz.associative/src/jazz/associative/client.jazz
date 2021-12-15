@@ -57,13 +57,19 @@
 
 
 (definition public (jas-download repo host path what)
+  (define content?
+    #f)
+  
   (define (feedback stage . rest)
     (case stage
       ((connect)
        (format :terminal "Connecting to {a}{%}" path))
       ((deconnect)
-       (format :terminal "{%}"))
+       (if (not content?)
+           (format :terminal "Already up to date{%}")
+         (format :terminal "{%}")))
       ((progress)
+       (set! content? #t)
        (bind (total-objects received-objects received-bytes) rest
          (let ((percentage (fxfloor (percentage received-objects total-objects))))
            (format :terminal "Downloading {a}% ({a}/{a}) {a}\r" percentage received-objects total-objects (present-bytes received-bytes)))))))
@@ -77,13 +83,19 @@
 
 
 (definition public (jas-upload repo host path what)
+  (define content?
+    #f)
+  
   (define (feedback stage . rest)
     (case stage
       ((connect)
        (format :terminal "Connecting to {a}{%}" path))
       ((deconnect)
-       (format :terminal "{%}"))
+       (if (not content?)
+           (format :terminal "Everything up-to-date{%}")
+         (format :terminal "{%}")))
       ((progress)
+       (set! content? #t)
        (bind (total-objects sent-objects sent-bytes) rest
          (let ((percentage (fxfloor (percentage sent-objects total-objects))))
            (format :terminal "Uploading {a}% ({a}/{a}) {a}\r" percentage sent-objects total-objects (present-bytes sent-bytes)))))))
@@ -151,32 +163,33 @@
   
   
   (method protected (download-all self)
-    (write-binary-object (list 'download 'all) port)
     (let ((index (get-index repository)))
       (let ((diff (diff repository remote-index index)))
         (let ((changes (get-changes diff))
               (total (+ (get-added diff) (get-modified diff)))
               (received 0)
               (downloaded 0))
-          (write-deflated-object changes port)
-          (force-output port)
-          (for-each (lambda (change)
-                      (bind (what path . rest) change
-                        (case what
-                          ((added modified)
-                           (let ((content (read-binary-content port)))
-                             (increase! received)
-                             (increase! downloaded (u8vector-length content))
-                             (when feedback
-                               (feedback 'progress total received downloaded))
-                             (let ((digest (car rest))
-                                   (flags (caddr rest)))
-                               (let ((file (new-file (get-working repository) (tokenise-filename path))))
-                                 (store-object repository content digest)
-                                 (retrieve-file repository digest file flags))))))))
-                    changes)
-          (setup-entries index (get-entries remote-index))
-          (save-to-file index)))))
+          (when (> total 0)
+            (write-binary-object (list 'download 'all) port)
+            (write-deflated-object changes port)
+            (force-output port)
+            (for-each (lambda (change)
+                        (bind (what path . rest) change
+                          (case what
+                            ((added modified)
+                             (let ((content (read-binary-content port)))
+                               (increase! received)
+                               (increase! downloaded (u8vector-length content))
+                               (when feedback
+                                 (feedback 'progress total received downloaded))
+                               (let ((digest (car rest))
+                                     (flags (caddr rest)))
+                                 (let ((file (new-file (get-working repository) (tokenise-filename path))))
+                                   (store-object repository content digest)
+                                   (retrieve-file repository digest file flags))))))))
+                      changes)
+            (setup-entries index (get-entries remote-index))
+            (save-to-file index))))))
   
   
   (method protected (download-file self path)
@@ -186,11 +199,11 @@
             (file (new-file (get-working repository) (tokenise-filename path))))
         (if (not remote-entry)
             (signal (new Not-Found-Error message: (format "Entry not found: {a}" path)))
-          (if (and entry (equal? (second entry) (second remote-entry))
-                ;; this is a fail safe against someone deleting
-                ;; a file without the jas index being updated
-                (exists? file))
-              #f
+          (when (or (not entry)
+                    (not (equal? (second entry) (second remote-entry)))
+                    ;; this is a fail safe against someone deleting
+                    ;; a file without the jas index being updated
+                    (not (exists? file)))
             (write-binary-object (list 'download path) port)
             (force-output port)
             (let ((content (read-binary-content port))
@@ -205,33 +218,39 @@
   
   
   (method protected (upload-all self)
-    (write-binary-object (list 'upload 'all) port)
     (let ((index (get-index repository)))
       (let ((diff (diff repository index remote-index)))
         (let ((changes (get-changes diff))
               (total (+ (get-added diff) (get-modified diff)))
               (sent 0)
               (uploaded 0))
-          (write-deflated-object (get-entries index) port)
-          (write-deflated-object changes port)
-          (force-output port)
-          (for-each (lambda (change)
-                      (bind (what path . rest) change
-                        (case what
-                          ((added modified)
-                           (let ((content (car (jas-retrieve-content repository path))))
-                             (write-binary-content content port)
-                             (increase! sent)
-                             (increase! uploaded (u8vector-length content))
-                             (when feedback
-                               (feedback 'progress total sent uploaded)))))))
-                    changes)))))
+          (when (> total 0)
+            (write-binary-object (list 'upload 'all) port)
+            (write-deflated-object (get-entries index) port)
+            (write-deflated-object changes port)
+            (force-output port)
+            (for-each (lambda (change)
+                        (bind (what path . rest) change
+                          (case what
+                            ((added modified)
+                             (let ((content (car (jas-retrieve-content repository path))))
+                               (write-binary-content content port)
+                               (increase! sent)
+                               (increase! uploaded (u8vector-length content))
+                               (when feedback
+                                 (feedback 'progress total sent uploaded)))))))
+                      changes))))))
   
   
   (method protected (upload-file self path)
-    (bind (content digest flags) (jas-retrieve-content repository path)
-      (write-binary-object (list 'upload path digest flags) port)
-      (write-binary-content content port)
-      (force-output port)
-      (when feedback
-        (feedback 'progress 1 1 (u8vector-length content)))))))
+    (let ((index (get-index repository)))
+      (let ((entry (find-entry index path))
+            (remote-entry (find-entry remote-index path)))
+        (when (or (not remote-entry)
+                  (not (equal? (second entry) (second remote-entry))))
+          (bind (content digest flags) (jas-retrieve-content repository path)
+            (write-binary-object (list 'upload path digest flags) port)
+            (write-binary-content content port)
+            (force-output port)
+            (when feedback
+              (feedback 'progress 1 1 (u8vector-length content))))))))))

@@ -1144,6 +1144,7 @@
 (native jazz:current-monotonic-nanoseconds)
 (native jazz:current-monotonic-frequency)
 (native jazz:present-seconds)
+(native jazz:present-bytes)
 
 
 ;;;

@@ -1,0 +1,208 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; JAS Server
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jas.server jazz
+
+
+(import (jazz.associative)
+        (jazz.associative.remote)
+        (jazz.io)
+        (jazz.network)
+        (jazz.zlib))
+
+
+(definition jas-server
+  #f)
+
+(definition jas-directory
+  #f)
+
+
+(definition package (start-jas-server)
+  (let ((host (let ((arg (command-argument "host")))
+                (or arg "*")))
+        (directory (let ((arg (command-argument "directory")))
+                     (if (not arg)
+                         (current-directory-get)
+                       (new Directory (tokenise-filename arg))))))
+    (let ((server (new Jas-Server host: host service: jas-service)))
+      (start server)
+      (set! jas-server server)
+      (set! jas-directory directory))))
+
+
+(definition package (stop-jas-server)
+  (when jas-server
+    (stop jas-server)
+    (set! jas-server #f)))
+
+
+(definition (jas-server-connect port)
+  (define (reply response)
+    (write-binary-object response port)
+    (force-output port))
+  
+  (let ((key (read-binary-object port)))
+    (if (not (equal? key jas-key))
+        (reply 'invalid-key)
+      (let ((path (read-binary-object port)))
+        (let ((directory (new-directory jas-directory path)))
+          (if (not (exists? directory))
+              (reply 'inexistant-repository)
+            (reply 'connected)
+            (let ((repository (new Associative-Repository directory)))
+              (let ((connection (new Jas-Connection port repository)))
+                (send-entries connection)
+                (process connection)))))))))
+
+
+;;;
+;;;; Server
+;;;
+
+
+(class Jas-Server extends TCP-Server
+  
+  
+  (method override (server-name self)
+    'jas-server)
+  
+  
+  (method override (connection-name self)
+    'jas-connection)
+  
+  
+  (method override (accept-connection self port)
+    (jas-server-connect port)))
+
+
+;;;
+;;;; Connection
+;;;
+
+
+(class Jas-Connection extends Object
+  
+  
+  (slot port       getter generate)
+  (slot repository getter generate)
+  
+  
+  (method override (initialize self port repository)
+    (nextmethod self)
+    (set! self.port port)
+    (set! self.repository repository))
+  
+  
+  (method protected (send-entries self)
+    (write-deflated-object (get-entries (get-index repository)) port)
+    (force-output port))
+  
+  
+  (method protected (process self)
+    (declare (proper-tail-calls))
+    (let (loop)
+      (let ((request (read-binary-object port)))
+        (if (eof-object? request)
+            #f
+          (bind (command . arguments) request
+            (case command
+              ((deconnect))
+              ((download)
+               (let ((what (car arguments)))
+                 (cond ((eq? what 'all)
+                        (download-all self)
+                        (loop))
+                       (else
+                        (download-file self what)
+                        (loop)))))
+              ((upload)
+               (let ((what (car arguments)))
+                 (cond ((eq? what 'all)
+                        (upload-all self)
+                        (loop))
+                       (else
+                        (upload-file self what (cadr arguments) (caddr arguments))
+                        (loop)))))))))))
+  
+  
+  (method protected (download-all self)
+    (let ((changes (read-deflated-object port)))
+      (for-each (lambda (change)
+                  (bind (what path . rest) change
+                    (case what
+                      ((added modified)
+                       (let ((content (car (jas-retrieve-content repository path))))
+                         (write-binary-content content port))))))
+                changes))
+    (force-output port))
+  
+  
+  (method protected (download-file self path)
+    (let ((content (car (jas-retrieve-content repository path))))
+      (write-binary-content content port)
+      (force-output port)))
+  
+  
+  (method protected (upload-all self)
+    (let ((index (get-index repository)))
+      (let ((entries (read-deflated-object port))
+            (changes (read-deflated-object port)))
+        (for-each (lambda (change)
+                    (bind (what path . rest) change
+                      (case what
+                        ((added modified)
+                         (let ((content (read-binary-content port)))
+                           (let ((digest (car rest))
+                                 (flags (caddr rest)))
+                             (let ((file (new-file (get-working repository) (tokenise-filename path))))
+                               (store-object repository content digest)
+                               (retrieve-file repository digest file flags))))))))
+                  changes)
+        (setup-entries index entries)
+        (save-to-file index))))
+  
+  
+  (method protected (upload-file self path digest flags)
+    (let ((index (get-index repository)))
+      (let ((content (read-binary-content port)))
+        (let ((file (new-file (get-working repository) (tokenise-filename path))))
+          (store-object repository content digest)
+          (retrieve-file repository digest file flags)
+          (let ((entry (list path digest (get-last-modification-seconds file))))
+            (update index path 'file (list entry))
+            (save-to-file index))))))))

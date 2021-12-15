@@ -39,6 +39,7 @@
 
 
 (import (jazz.associative)
+        (jazz.associative.client)
         (jazz.io))
 
 
@@ -60,8 +61,11 @@
       (format output "  jas status{%}")
       (format output "  jas diff{%}")
       (format output "  jas log{%}")
+      (format output "  jas download{%}")
+      (format output "  jas upload{%}")
       (format output "  jas parse{%}")
       (format output "  jas retrieve{%}")
+      (format output "  jas scan{%}")
       (format output "  jas cat (git cat-file){%}")
       (format output "{%}")
       (format output "Help:{%}")
@@ -275,6 +279,34 @@
                       (iter parent count))))))))))))
 
 
+(definition package (jas$download arguments)
+  (with-jas
+    (lambda (output)
+      (let ((what (if (null? arguments)
+                      'all
+                    (car arguments))))
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((remote (jas-config-get repo 'remote)))
+            (if (not remote)
+                (format output "Remote not set")
+              (bind (host path) (split remote "/")
+                (jas-download repo host path what)))))))))
+
+
+(definition package (jas$upload arguments)
+  (with-jas
+    (lambda (output)
+      (let ((what (if (null? arguments)
+                      'all
+                    (car arguments))))
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((remote (jas-config-get repo 'remote)))
+            (if (not remote)
+                (format output "Remote not set")
+              (bind (host path) (split remote "/")
+                (jas-upload repo host path what)))))))))
+
+
 (definition package (jas$parse arguments)
   (with-jas
     (lambda (output)
@@ -296,6 +328,17 @@
         (let ((repo (jas-open (jas-directory "."))))
           (let ((digest (jas-resolve repo (jas-parse repo (car arguments)))))
             (pp (jas-retrieve repo digest) output)))))))
+
+
+(definition package (jas$scan arguments)
+  (with-jas
+    (lambda (output)
+      (if (null? arguments)
+          (format output "Not enough arguments for jas scan{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((path (car arguments)))
+            (bind (path digest seconds flags) (jas-scan repo path)
+              (format output "{a} {a} {a}{%}" digest seconds flags))))))))
 
 
 (definition package (jas$cat arguments)

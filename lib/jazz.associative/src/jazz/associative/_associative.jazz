@@ -1005,26 +1005,36 @@
       (save-to-file self)))
   
   
+  (method package (entry-unchanged? self entry)
+    (let ((path (car entry)))
+      (let ((actual-entry (find-entry self path)))
+        (and actual-entry
+             (equal? (second entry) (second actual-entry))))))
+  
+  
   (method package (add-file self path file)
     (let ((entry (scan-file repository path file base: self)))
-      (let ((entries (list entry)))
-        (bind (path digest seconds) entry
-          (store-file repository file digest)
-          (update self path 'file entries)
-          (save-to-file self)
-          entries))))
+      (unless (entry-unchanged? self entry)
+        (let ((entries (list entry)))
+          (bind (path digest seconds) entry
+            (store-file repository file digest)
+            (update self path 'file entries)
+            (save-to-file self))))))
   
   
   (method package (add-directory self path dir)
-    (let ((entries (scan-directory repository path dir base: self)))
+    (let ((entries (scan-directory repository path dir base: self))
+          (added? #f))
       (for-each (lambda (entry)
-                  (bind (path digest seconds) entry
-                    (let ((file (new-file directory (tokenise-filename path))))
-                      (store-file repository file digest))))
+                  (unless (entry-unchanged? self entry)
+                    (bind (path digest seconds) entry
+                      (let ((file (new-file directory (tokenise-filename path))))
+                        (store-file repository file digest)))
+                    (set! added? #t)))
                 entries)
-      (update self path 'directory entries)
-      (save-to-file self)
-      entries))
+      (when added?
+        (update self path 'directory entries)
+        (save-to-file self))))
   
   
   (method package (remove-file self path file)

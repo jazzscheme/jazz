@@ -48,7 +48,7 @@
     `((gambit.log.implementation.loglib-scm cc-options: ,(string-append "-I" gambit-log-path)))))
 
 
-(define (jazz:build-gambit-log descriptor #!key (unit #f) (force? #f))
+(define (jazz:build-gambit-log descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:gambit-log-units))
     (jazz:custom-compile/build unit-specs unit: unit force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))

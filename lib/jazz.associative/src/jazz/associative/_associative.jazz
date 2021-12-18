@@ -1024,23 +1024,27 @@
   
   
   (method package (add-file self path file)
-    (let ((entry (scan-file repository path file base: self)))
+    (let ((open? (open? repository))
+          (entry (scan-file repository path file base: self)))
       (unless (entry-unchanged? self entry)
         (let ((entries (list entry)))
           (bind (path digest seconds) entry
-            (store-file repository file digest)
+            (unless open?
+              (store-file repository file digest))
             (update self path 'file entries)
             (save-to-file self))))))
   
   
   (method package (add-directory self path dir)
-    (let ((entries (scan-directory repository path dir base: self))
+    (let ((open? (open? repository))
+          (entries (scan-directory repository path dir base: self))
           (added? #f))
       (for-each (lambda (entry)
                   (unless (entry-unchanged? self entry)
-                    (bind (path digest seconds) entry
-                      (let ((file (new-file directory (tokenise-filename path))))
-                        (store-file repository file digest)))
+                    (unless open?
+                      (bind (path digest seconds) entry
+                        (let ((file (new-file directory (tokenise-filename path))))
+                          (store-file repository file digest))))
                     (set! added? #t)))
                 entries)
       (when added?

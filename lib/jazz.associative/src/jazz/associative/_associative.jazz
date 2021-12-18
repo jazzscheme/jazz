@@ -98,8 +98,8 @@
 ;;;
 
 
-(definition public (jas-init root (bare?: bare? #f))
-  (new Associative-Repository root init?: #t bare?: bare?))
+(definition public (jas-init root (bare?: bare? #f) (open?: open? #f))
+  (new Associative-Repository root init?: #t bare?: bare? open?: open?))
 
 
 (definition public (jas-open root)
@@ -234,7 +234,7 @@
   (slot heads           getter generate)
   
   
-  (method override (initialize self root (init?: init? #f) (bare?: bare? #f))
+  (method override (initialize self root (init?: init? #f) (bare?: bare? #f) (open?: open? #f))
     (define (jas-bare?)
       (if init?
           bare?
@@ -250,23 +250,33 @@
               (else
                (jas-exception "Not a jas repository")))))
     
+    (define (jas-open? directory)
+      (if init?
+          open?
+        (not (exists? (new-directory directory "objects")))))
+    
     (initialize-aliases)
     (let ((bare? (jas-bare?)))
       (set! working (and (not bare?) root))
       (set! directory (if bare? root (jas-directory)))
-      (set! head (new-file directory "HEAD"))
-      (set! index (new Associative-Index self working file: (new-file directory "index")))
-      (set! objects (new-directory directory "objects"))
-      (set! heads (new-directory directory '("refs" "heads")))
-      (set! disregard '(".DS_Store" ".gitignore"))
-      (set! ignore '())
-      (when init?
-        (init self bare?))
-      (register-configs self)))
+      (let ((open? (jas-open? directory)))
+        (set! head (new-file directory "HEAD"))
+        (set! index (new Associative-Index self working file: (new-file directory "index")))
+        (set! objects (and (not open?) (new-directory directory "objects")))
+        (set! heads (new-directory directory '("refs" "heads")))
+        (set! disregard '(".DS_Store" ".gitignore"))
+        (set! ignore '())
+        (when init?
+          (init self bare? open?))
+        (register-configs self))))
   
   
   (method package (bare? self)
     (not working))
+  
+  
+  (method package (open? self)
+    (not objects))
   
   
   ;;;
@@ -274,11 +284,12 @@
   ;;;
   
   
-  (method package (init self bare?)
+  (method package (init self bare? open?)
     (create-directories directory)
     (when bare?
       (create (new-file directory ".jasbare")))
-    (create-directories objects)
+    (unless open?
+      (create-directories objects))
     (create-directories heads))
   
   

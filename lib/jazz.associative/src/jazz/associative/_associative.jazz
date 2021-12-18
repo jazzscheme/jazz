@@ -360,8 +360,8 @@
   
   
   (method package (store-object self content digest)
-    (let ((objects-file (objects-file self digest)))
-      (save-binary objects-file content)
+    (let ((file (objects-file self digest)))
+      (save-binary file content)
       content))
   
   
@@ -379,23 +379,23 @@
       read))
   
   
-  (method package (retrieve-file self digest file flags)
+  (method package (retrieve-file self digest file flags (content #f))
     (create-directories file)
     (let ((permissions (if (executable? flags) #o755 #o644)))
-      (save-binary file (retrieve-blob self digest (get-extension file)))
+      (save-binary file (retrieve-blob self digest (get-extension file) content))
       (file-permissions-set! (parse file) permissions)))
   
   
-  (method package (retrieve-blob self digest extension)
-    (let ((object-content (retrieve-object self digest)))
+  (method package (retrieve-blob self digest extension (content #f))
+    (let ((object-content (or content (retrieve-object self digest))))
       (if (already-compressed? extension)
           object-content
         (zlib-inflate object-content))))
   
   
   (method package (retrieve-object self digest)
-    (let ((objects-file (objects-file self digest)))
-      (load-binary objects-file)))
+    (let ((file (objects-file self digest)))
+      (load-binary file)))
   
   
   ;;;
@@ -1094,7 +1094,13 @@
     (print-unreadable self output
       (lambda (output)
         (let ((len (length changes)))
-          (format output "with {a} change{a}" (format-cardinality len) (format-plural len)))))))
+          (format output "with {a} change{a}" (format-cardinality len) (format-plural len))))))
+  
+  
+  (method package (get-added/modified self)
+    (collect-if (lambda (change)
+                  (memq? (car change) '(added modified)))
+                changes)))
 
 
 ;;;

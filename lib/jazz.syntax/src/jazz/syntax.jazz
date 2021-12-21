@@ -64,6 +64,31 @@
 
 
 ;;;
+;;;; Delayed
+;;;
+
+
+(syntax public export-delayed
+  (lambda (form-src usage-environment macro-environment)
+    (bind (module-hack module-name . exports) (cdr (source-code form-src))
+      (let ((module-hack (source-code module-hack))
+            (module-name (source-code module-name))
+            (exports (source-code exports)))
+        (sourcify-deep-if
+          `(begin
+             ,@(map (lambda (export)
+                      (let ((export (source-code export)))
+                        `(definition public ,export
+                           (lambda rest
+                             (load-unit ',module-name)
+                             (inline (set! ,(string->symbol (string-append (symbol->string module-hack) ":" (symbol->string export)))
+                                           ,(string->symbol (string-append (symbol->string module-name) ":" (symbol->string export)))))
+                             (apply ,export rest)))))
+                    exports))
+          form-src)))))
+
+
+;;;
 ;;;; Time
 ;;;
 

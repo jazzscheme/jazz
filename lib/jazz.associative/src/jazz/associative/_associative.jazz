@@ -670,11 +670,13 @@
             (flags (determine-flags filename)))
         (or (and base (let ((entry (find-entry base path)))
                         (and entry
-                             (bind (entry-path entry-digest entry-seconds entry-flags) entry
+                             (let ((entry-digest (get-digest entry))
+                                   (entry-seconds (get-seconds entry))
+                                   (entry-flags (get-flags entry)))
                                (and entry-seconds
                                     (if (and (= entry-seconds seconds)
                                              (= entry-flags flags))
-                                        (list path entry-digest seconds flags)
+                                        (new Associative-Entry path entry-digest seconds flags)
                                       (let ((digest (digest-file (parse file) 'SHA-1)))
                                         ;; update base entry seconds
                                         ;; we do not update the digest
@@ -682,15 +684,16 @@
                                         ;; path + seconds = correct digest
                                         (when (equal? entry-digest digest)
                                           (set-third! entry seconds))
-                                        (list path digest seconds flags))))))))
-            (list path
-                  (digest-file filename 'SHA-1)
-                  seconds
-                  flags)))))
+                                        (new Associative-Entry path digest seconds flags))))))))
+            (new Associative-Entry
+              path
+              (digest-file filename 'SHA-1)
+              seconds
+              flags)))))
   
   
   (method package (scan-blob self path content)
-    (list path (digest-u8vector content 'SHA-1) #f))
+    (new Associative-Entry path (digest-u8vector content 'SHA-1) #f 0))
   
   
   (method package (scan-directory self dirpath dir (base: base #f))
@@ -708,7 +711,7 @@
         (for-each (lambda (entry)
                     (bind (kind path digest . rest) entry
                       (case kind
-                        ((blob) (enqueue entries (list (string-append prefix path) digest #f (car rest))))
+                        ((blob) (enqueue entries (new Associative-Entry (string-append prefix path) digest #f (car rest))))
                         ((tree) (scan (string-append prefix path "/") digest)))))
                   (retrieve self tree)))
       
@@ -731,7 +734,9 @@
             (if (null? entries)
                 (store-tree self (queue-list queue))
               (let ((entry (car entries)))
-                (bind (path digest seconds flags) entry
+                (let ((path (get-path entry))
+                      (digest (get-digest entry))
+                      (flags (get-flags entry)))
                   (if (starts-with? path prefix)
                       (let ((slash (search path "/" start: len)))
                         (if (not slash)
@@ -766,25 +771,25 @@
       (merge-ordered (lambda (what key left right)
                        (case what
                          ((:left)
-                          (enqueue queue (list 'added key (second left) (third left) (fourth left)))
+                          (enqueue queue (list 'added key (get-digest left) (get-seconds left) (get-flags left)))
                           (increase! added))
                          ((:right)
-                          (enqueue queue (list 'removed key (second right) (third right) (fourth right)))
+                          (enqueue queue (list 'removed key (get-digest right) (get-seconds right) (get-flags right)))
                           (increase! removed))
                          ((:same)
-                          (let ((left-digest (second left))
-                                (left-flags (fourth left))
-                                (right-digest (second right))
-                                (right-flags (fourth right)))
+                          (let ((left-digest (get-digest left))
+                                (left-flags (get-flags left))
+                                (right-digest (get-digest right))
+                                (right-flags (get-flags right)))
                             (unless (and (equal? left-digest right-digest)
                                          (= left-flags right-flags))
-                              (let ((left-seconds (third left))
-                                    (right-seconds (third right)))
+                              (let ((left-seconds (get-seconds left))
+                                    (right-seconds (get-seconds right)))
                                 (enqueue queue (list 'modified key left-digest left-seconds left-flags right-digest right-seconds right-flags))
                                 (increase! modified)))))))
                      (get-entries left-index)
                      (get-entries right-index)
-                     key: car
+                     key: get-path
                      case-insensitive?: #t)
       (new Associative-Diff (queue-list queue) added modified removed)))
   
@@ -933,7 +938,7 @@
     (set! self.file file)
     (set! self.paths (make-table test: equal?))
     (setup-entries self (or entries (if (and file (exists? file))
-                                        (load-from-file self)
+                                        (list->entries (load-from-file self))
                                       '()))))
   
   
@@ -947,7 +952,7 @@
   (method package (setup-entries self lst)
     (set! entries lst)
     (for-each (lambda (entry)
-                (table-set! paths (car entry) entry))
+                (table-set! paths (get-path entry) entry))
               entries))
   
   
@@ -960,7 +965,11 @@
     (call-with-output-file (path-settings file)
       (lambda (output)
         (for-each (lambda (entry)
-                    (format output "{s}{%}" entry))
+                    (format output "({s} {s} {s} {s}){%}"
+                      (get-path entry)
+                      (get-digest entry)
+                      (get-seconds entry)
+                      (get-flags entry)))
                   entries))))
   
   
@@ -969,7 +978,7 @@
       (if (null? scan)
           (proc prev scan)
         (let ((entry (car scan)))
-          (let ((entry-path (car entry)))
+          (let ((entry-path (get-path entry)))
             (if (test entry-path path)
                 (iter prev (cdr scan))
               (case (ci-compare entry-path path)
@@ -991,7 +1000,7 @@
           (when (test entry-path path)
             (table-clear paths entry-path))))
       (for-each (lambda (entry)
-                  (let ((path (car entry)))
+                  (let ((path (get-path entry)))
                     (table-set! paths path entry)))
                 added)
       (updating self path test
@@ -1017,7 +1026,7 @@
                   (case what
                     ((added modified)
                      (bind (digest seconds flags) rest
-                       (let ((entry (list path digest seconds flags)))
+                       (let ((entry (new Associative-Entry path digest seconds flags)))
                          (update self path 'file (list entry)))))
                     ((removed)
                      (update self path 'file '())))))
@@ -1027,10 +1036,10 @@
   
   
   (method package (entry-unchanged? self entry)
-    (let ((path (car entry)))
+    (let ((path (get-path entry)))
       (let ((actual-entry (find-entry self path)))
         (and actual-entry
-             (equal? (second entry) (second actual-entry))))))
+             (equal? (get-digest entry) (get-digest actual-entry))))))
   
   
   (method package (add-file self path file)
@@ -1038,7 +1047,8 @@
           (entry (scan-file repository path file base: self)))
       (unless (entry-unchanged? self entry)
         (let ((entries (list entry)))
-          (bind (path digest seconds) entry
+          (let ((path (get-path entry))
+                (digest (get-digest entry)))
             (unless open?
               (store-file repository file digest))
             (update self path 'file entries)
@@ -1052,7 +1062,8 @@
       (for-each (lambda (entry)
                   (unless (entry-unchanged? self entry)
                     (unless open?
-                      (bind (path digest seconds) entry
+                      (let ((path (get-path entry))
+                            (digest (get-digest entry)))
                         (let ((file (new-file directory (tokenise-filename path))))
                           (store-file repository file digest))))
                     (set! added? #t)))
@@ -1081,6 +1092,49 @@
       (lambda (entry-path entry)
         (when (starts-with? entry-path path ignore-case?: #t)
           (proc entry-path))))))
+
+
+;;;
+;;;; Entry
+;;;
+
+
+(class Associative-Entry extends Object
+  
+  
+  (slot path    getter generate)
+  (slot digest  getter generate)
+  (slot seconds getter generate)
+  (slot flags   getter generate)
+  
+  
+  (method override (initialize self path digest seconds flags)
+    (set! self.path path)
+    (set! self.digest digest)
+    (set! self.seconds seconds)
+    (set! self.flags flags))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" path)))))
+
+
+(definition protected (list->entries lst)
+  (map (lambda (info)
+         (bind (path digest seconds flags) info
+           (new Associative-Entry path digest seconds flags)))
+       lst))
+
+
+(definition protected (entries->list entries)
+  (map (lambda (entry)
+         (list (get-path entry)
+               (get-digest entry)
+               (get-seconds entry)
+               (get-flags entry)))
+       entries))
 
 
 ;;;
@@ -1142,7 +1196,7 @@
     ;; passing sort?: #t to iterate-directory doesn't work
     ;; as sorting each directory children can yield a global
     ;; result that is different because of the / separators
-    (sort ci<? (queue-list entries) key: car)))
+    (sort ci<? (queue-list entries) key: get-path)))
 
 
 ;;;

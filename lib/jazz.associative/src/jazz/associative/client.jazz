@@ -154,7 +154,7 @@
          (terminal 'inexistant-repository)
          (exit))
         ((connected)
-         (setup-entries remote-index (read-deflated-object port))))))
+         (setup-entries remote-index (list->entries (read-deflated-object port)))))))
   
   
   (method protected (deconnect self)
@@ -193,7 +193,7 @@
                                   (when (memq? what '(added modified))
                                     (let ((cache-entry (find-entry cache-index path)))
                                       (if (and cache-entry
-                                               (equal? (second cache-entry) digest))
+                                               (equal? (get-digest cache-entry) digest))
                                           (enqueue local-changes change)
                                         (enqueue remote-changes change))))))
                               changes)
@@ -249,15 +249,15 @@
         (if (not remote-entry)
             (signal (new Not-Found-Error message: (format "Entry not found: {a}" path)))
           (when (or (not entry)
-                    (not (equal? (second entry) (second remote-entry)))
+                    (not (equal? (get-digest entry) (get-digest remote-entry)))
                     ;; this is a fail safe against someone deleting
                     ;; a file without the jas index being updated
                     (not (exists? file)))
             (write-binary-object (list 'download path) port)
             (force-output port)
             (let ((content (read-binary-content port))
-                  (digest (second remote-entry))
-                  (flags (fourth remote-entry)))
+                  (digest (get-digest remote-entry))
+                  (flags (get-flags remote-entry)))
               (when feedback
                 (feedback 'progress 1 1 (u8vector-length content)))
               (store-object repository content digest)
@@ -275,7 +275,7 @@
               (uploaded 0))
           (when (> total 0)
             (write-binary-object (list 'upload 'all) port)
-            (write-deflated-object (get-entries index) port)
+            (write-deflated-object (entries->list (get-entries index)) port)
             (write-deflated-object changes port)
             (force-output port)
             (for-each (lambda (change)
@@ -296,7 +296,7 @@
       (let ((entry (find-entry index path))
             (remote-entry (find-entry remote-index path)))
         (when (or (not remote-entry)
-                  (not (equal? (second entry) (second remote-entry))))
+                  (not (equal? (get-digest entry) (get-digest remote-entry))))
           (bind (content digest flags) (jas-retrieve-content repository path)
             (write-binary-object (list 'upload path digest flags) port)
             (write-binary-content content port)

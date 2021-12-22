@@ -161,7 +161,7 @@
   
   
   (method protected (download-all self)
-    (let ((changes (read-deflated-object port)))
+    (let ((changes (list->changes (read-deflated-object port))))
       (for-each (lambda (change)
                   (bind (what path . rest) change
                     (case what
@@ -180,19 +180,20 @@
   
   (method protected (upload-all self)
     (let ((index (get-index repository)))
-      (let ((entries (read-deflated-object port))
-            (changes (read-deflated-object port)))
+      (let ((entries (list->entries (read-deflated-object port)))
+            (changes (list->changes (read-deflated-object port))))
         (for-each (lambda (change)
                     (bind (what path . rest) change
                       (case what
                         ((added modified)
                          (let ((content (read-binary-content port)))
-                           (let ((digest (car rest))
-                                 (flags (caddr rest)))
-                             (store-object repository content digest)
-                             (unless (bare? repository)
-                               (let ((file (new-file (get-working repository) (tokenise-filename path))))
-                                 (retrieve-file repository digest file flags)))))))))
+                           (let ((entry (car rest)))
+                             (let ((digest (get-digest entry))
+                                   (flags (get-flags entry)))
+                               (store-object repository content digest)
+                               (unless (bare? repository)
+                                 (let ((file (new-file (get-working repository) (tokenise-filename path))))
+                                   (retrieve-file repository digest file flags))))))))))
                   changes)
         (setup-entries index entries)
         (save-to-file index))))

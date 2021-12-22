@@ -82,6 +82,9 @@
                     (let ((cache-repository (new Associative-Repository cache-dir)))
                       (download-all-with-cache client cache-repository)))
                (download-all client)))
+            ((starts-with? what ":")
+             (let ((set (string->symbol (substring what 1 (string-length what)))))
+               (download-set client set)))
             (else
              (download-file client what))))))
 
@@ -220,24 +223,36 @@
                       (save-to-file index)))))))))))
   
   
+  (method protected (download-set self set)
+    (let ((index (get-index repository)))
+      (let ((diff (diff-sets repository remote-index index set)))
+        (let ((changes (get-added/modified diff)))
+          (let ((total (length changes)))
+            (when (> total 0)
+              (download-changes self changes total 0 0)
+              (update-changes index changes)))))))
+  
+  
   (method protected (download-changes self changes total received downloaded)
     (write-binary-object (list 'download 'all) port)
-    (write-deflated-object changes port)
+    (write-deflated-object (changes->list changes) port)
     (force-output port)
     (for-each (lambda (change)
-                (bind (what path digest seconds flags) change
+                (bind (what path remote-entry) change
                   (let ((content (read-binary-content port)))
                     (increase! received)
                     (increase! downloaded (u8vector-length content))
                     (when feedback
                       (feedback 'progress total received downloaded))
-                    (if (bare? repository)
-                        (store-object repository content digest)
-                      (let ((file (new-file (get-working repository) (tokenise-filename path))))
-                        (if (open? repository)
-                            (retrieve-file repository digest file flags content)
+                    (let ((digest (get-digest remote-entry))
+                          (flags (get-flags remote-entry)))
+                      (if (bare? repository)
                           (store-object repository content digest)
-                          (retrieve-file repository digest file flags)))))))
+                        (let ((file (new-file (get-working repository) (tokenise-filename path))))
+                          (if (open? repository)
+                              (retrieve-file repository digest file flags content)
+                            (store-object repository content digest)
+                            (retrieve-file repository digest file flags))))))))
               changes))
   
   
@@ -276,7 +291,7 @@
           (when (> total 0)
             (write-binary-object (list 'upload 'all) port)
             (write-deflated-object (entries->list (get-entries index)) port)
-            (write-deflated-object changes port)
+            (write-deflated-object (changes->list changes) port)
             (force-output port)
             (for-each (lambda (change)
                         (bind (what path . rest) change

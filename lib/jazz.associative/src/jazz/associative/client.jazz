@@ -280,8 +280,13 @@
                   (flags (get-flags remote-entry)))
               (when feedback
                 (feedback 'progress 1 1 (u8vector-length content)))
-              (store-object repository content digest)
-              (retrieve-file repository digest file flags)
+              (if (bare? repository)
+                  (store-object repository content digest)
+                (let ((file (new-file (get-working repository) (tokenise-filename path))))
+                  (if (open? repository)
+                      (retrieve-file repository digest file flags content)
+                    (store-object repository content digest)
+                    (retrieve-file repository digest file flags))))
               (update index path 'file (list remote-entry))
               (save-to-file index)))))))
   

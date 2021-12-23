@@ -196,11 +196,12 @@
                         (local-changes (new-queue))
                         (remote-changes (new-queue)))
                     (for-each (lambda (change)
-                                (bind (what path digest) change
+                                (bind (what path . rest) change
                                   (when (memq? what '(added modified))
-                                    (let ((cache-entry (find-entry cache-index path)))
+                                    (let ((remote-entry (car rest))
+                                          (cache-entry (find-entry cache-index path)))
                                       (if (and cache-entry
-                                               (equal? (get-digest cache-entry) digest))
+                                               (equal? (get-digest cache-entry) (get-digest remote-entry)))
                                           (enqueue local-changes change)
                                         (enqueue remote-changes change))))))
                               changes)
@@ -210,7 +211,7 @@
                           (downloaded 0))
                       ;; local
                       (for-each (lambda (change)
-                                  (bind (what path digest seconds flags) change
+                                  (bind (what path) change
                                     (let ((pathname (tokenise-filename path)))
                                       (let ((src (new-file (get-working cache-repository) pathname))
                                             (dst (new-file (get-working repository) pathname)))
@@ -298,7 +299,7 @@
             (write-deflated-object (changes->list changes) port)
             (force-output port)
             (for-each (lambda (change)
-                        (bind (what path . rest) change
+                        (bind (what path) change
                           (case what
                             ((added modified)
                              (let ((content (car (jas-retrieve-content repository path))))

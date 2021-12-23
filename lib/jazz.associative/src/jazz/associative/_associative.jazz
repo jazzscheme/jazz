@@ -702,7 +702,8 @@
   (method package (scan-file self path file (base: base #f))
     (let ((filename (parse file)))
       (let ((seconds (get-last-modification-seconds file))
-            (flags (determine-flags filename)))
+            (flags (determine-flags filename))
+            (set (determine-set self path)))
         (or (and base (let ((entry (find-entry base path)))
                         (and entry
                              (let ((entry-digest (get-digest entry))
@@ -711,10 +712,10 @@
                                    (entry-set (get-set entry)))
                                (and entry-seconds
                                     (if (and (= entry-seconds seconds)
-                                             (= entry-flags flags))
+                                             (= entry-flags flags)
+                                             (eq? entry-set set))
                                         (new Associative-Entry path entry-digest entry-seconds entry-flags entry-set)
-                                      (let ((digest (digest-file (parse file) 'SHA-1))
-                                            (set (determine-set self path)))
+                                      (let ((digest (digest-file (parse file) 'SHA-1)))
                                         ;; update base entry seconds
                                         ;; we do not update the digest
                                         ;; we are only creating a fast test
@@ -727,7 +728,7 @@
               (digest-file filename 'SHA-1)
               seconds
               flags
-              (determine-set self path))))))
+              set)))))
   
   
   (method package (scan-blob self path content)
@@ -848,7 +849,8 @@
                           (increase! removed))
                          ((:same)
                           (unless (and (equal? (get-digest left) (get-digest right))
-                                       (= (get-flags left) (get-flags right)))
+                                       (= (get-flags left) (get-flags right))
+                                       (eq? (get-set left) (get-set right)))
                             (enqueue queue (list 'modified key left right))
                             (increase! modified)))))
                      left-entries
@@ -1122,7 +1124,8 @@
       (let ((actual-entry (find-entry self path)))
         (and actual-entry
              (equal? (get-digest entry) (get-digest actual-entry))
-             (= (get-flags entry) (get-flags actual-entry))))))
+             (= (get-flags entry) (get-flags actual-entry))
+             (eq? (get-set entry) (get-set actual-entry))))))
   
   
   (method package (add-file self path file)

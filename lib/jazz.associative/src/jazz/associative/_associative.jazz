@@ -355,14 +355,16 @@
                     (cons 'file line))))
                (load-lines file)))
     
-    (iterate-directory sets
-      (lambda (file)
-        (let ((name (string->symbol (get-name file)))
-              (conditions (load-conditions file)))
-          (table-set! filters name (new Associative-Filter name conditions))))
-      files?: #t
-      directories?: #f
-      recursive?: #f))
+    ;; backward compatible
+    (when (exists? sets)
+      (iterate-directory sets
+        (lambda (file)
+          (let ((name (string->symbol (get-name file)))
+                (conditions (load-conditions file)))
+            (table-set! filters name (new Associative-Filter name conditions))))
+        files?: #t
+        directories?: #f
+        recursive?: #f)))
   
   
   ;;;
@@ -1218,9 +1220,16 @@
     (set! seconds sec)))
 
 
+;; backward compatible
 (definition protected (list->entry lst)
-  (bind (path digest seconds flags set) lst
-    (new Associative-Entry path digest seconds flags set)))
+  (bind (path digest seconds . rest) lst
+    (if (null? rest)
+        (new Associative-Entry path digest seconds 0 #f)
+      (bind (flags . rest) rest
+        (if (null? rest)
+            (new Associative-Entry path digest seconds flags #f)
+          (bind (set) rest
+            (new Associative-Entry path digest seconds flags set)))))))
 
 (definition protected (list->entries lst)
   (map list->entry lst))

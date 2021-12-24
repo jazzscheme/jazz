@@ -118,14 +118,16 @@
 (class Jas-Connection extends Object
   
   
-  (slot port       getter generate)
-  (slot repository getter generate)
+  (slot port        getter generate)
+  (slot repository  getter generate)
+  (slot save-index? getter generate)
   
   
   (method override (initialize self port repository)
     (nextmethod self)
     (set! self.port port)
-    (set! self.repository repository))
+    (set! self.repository repository)
+    (set! self.save-index? #f))
   
   
   (method protected (send-entries self)
@@ -141,14 +143,16 @@
             #f
           (bind (command . arguments) request
             (case command
-              ((deconnect))
+              ((deconnect)
+               (when save-index?
+                 (save-to-file (get-index repository))))
               ((download)
                (let ((what (car arguments)))
                  (cond ((eq? what 'all)
                         (download-all self)
                         (loop))
                        (else
-                        (download-file self what)
+                        (download-file self what (cadr arguments))
                         (loop)))))
               ((upload)
                (let ((what (car arguments)))
@@ -172,10 +176,14 @@
     (force-output port))
   
   
-  (method protected (download-file self path)
+  (method protected (download-file self path new-set)
     (let ((content (car (jas-retrieve-content repository path))))
       (write-binary-content content port)
-      (force-output port)))
+      (force-output port))
+    (when new-set
+      (let ((entry (find-entry repository path)))
+        (set-set entry new-set))
+      (set! save-index? #t)))
   
   
   (method protected (upload-all self)

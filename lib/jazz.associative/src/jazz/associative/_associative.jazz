@@ -276,13 +276,12 @@
           (set! self.objects (and (not open?) (new-directory directory "objects")))
           (set! self.heads (new-directory directory '("refs" "heads")))
           (set! self.sets (new-directory directory '("sets")))
-          (set! self.filters (make-table test: eq?))
+          (set! self.filters (load-filters self))
           (set! self.disregard '(".DS_Store" ".gitignore"))
           (set! self.ignore '())
           (when init?
             (init self bare? open?))
-          (register-configs self)
-          (load-filters self)))))
+          (register-configs self)))))
   
   
   (method package (bare? self)
@@ -343,6 +342,10 @@
   
   
   (method (load-filters self)
+    (define (load-sets file)
+      (call-with-input-file (path-settings file)
+        read-all))
+    
     (define (load-conditions file)
       (collect (lambda (line)
                  (cond ((empty-string? line)
@@ -357,14 +360,24 @@
     
     ;; backward compatible
     (when (exists? sets)
-      (iterate-directory sets
-        (lambda (file)
-          (let ((name (string->symbol (get-name file)))
-                (conditions (load-conditions file)))
-            (table-set! filters name (new Associative-Filter name conditions))))
-        files?: #t
-        directories?: #f
-        recursive?: #f)))
+      (let ((names #f)
+            (filters '()))
+        (iterate-directory sets
+          (lambda (file)
+            (let ((name (get-name file)))
+              (if (filename=? name ".sets")
+                  (set! names (load-sets file))
+                (let ((name (string->symbol (get-name file)))
+                      (conditions (load-conditions file)))
+                  (set! filters (cons (new Associative-Filter name conditions) filters))))))
+          files?: #t
+          directories?: #f
+          recursive?: #f)
+        (if (not names)
+            (sort nu<? filters key: get-name)
+          (map (lambda (name)
+                 (find filters name key: get-name return: 'item))
+               names)))))
   
   
   ;;;
@@ -807,10 +820,10 @@
   (method (determine-set self path)
     (continuation-capture
       (lambda (return)
-        (iterate-table filters
-          (lambda (name filter)
-            (when (filter-path filter path)
-              (continuation-return return name))))
+        (for-each (lambda (filter)
+                    (when (filter-path filter path)
+                      (continuation-return return (get-name filter))))
+                  filters)
         #f)))
   
   

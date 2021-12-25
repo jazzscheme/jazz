@@ -71,6 +71,11 @@
     (set! jas-server #f)))
 
 
+;;;
+;;;; Server
+;;;
+
+
 (definition (jas-server-connect port)
   (define (reply response)
     (write-binary-object response port)
@@ -84,15 +89,14 @@
           (if (not (exists? directory))
               (reply 'inexistant-repository)
             (reply 'connected)
-            (let ((repository (new Associative-Repository directory)))
-              (let ((connection (new Jas-Connection port repository)))
+            (let ((repository (register-shared-repository directory)))
+              (let ((connection (new Jas-Connection port directory repository)))
                 (send-entries connection)
                 (process connection)))))))))
 
 
-;;;
-;;;; Server
-;;;
+(definition (jas-server-deconnect directory)
+  (unregister-shared-repository directory))
 
 
 (class Jas-Server extends TCP-Server
@@ -111,6 +115,56 @@
 
 
 ;;;
+;;;; Shared
+;;;
+
+
+(definition shared-repositories
+  (make-table test: pathname=? hash: pathname-hash))
+
+(definition shared-mutex
+  (make-mutex 'shared))
+
+
+(definition (register-shared-repository directory)
+  (mutex-lock! shared-mutex)
+  (prog1 (let ((shared (table-ref shared-repositories directory #f)))
+           (if (not shared)
+               (let ((shared (new Shared-Repository directory)))
+                 (table-set! shared-repositories directory shared)
+                 shared)
+             (increase-count! shared)
+             shared))
+    (mutex-unlock! shared-mutex)))
+
+
+(definition (unregister-shared-repository directory)
+  (mutex-lock! shared-mutex)
+  (let ((shared (table-ref shared-repositories directory)))
+    (when (<= (decrease-count! shared) 0)
+      (when (get-modified? shared)
+        (save-to-file (get-index shared)))
+      (table-clear shared-repositories directory)))
+  (mutex-unlock! shared-mutex))
+
+
+(class Shared-Repository extends Associative-Repository
+  
+  
+  (slot count     initialize 1  getter generate)
+  (slot modified? initialize #f accessors generate)
+  
+  
+  (method protected (increase-count! self)
+    (increase! count)
+    count)
+  
+  (method protected (decrease-count! self)
+    (decrease! count)
+    count))
+
+
+;;;
 ;;;; Connection
 ;;;
 
@@ -119,13 +173,15 @@
   
   
   (slot port        getter generate)
+  (slot directory   getter generate)
   (slot repository  getter generate)
   (slot save-index? getter generate)
   
   
-  (method override (initialize self port repository)
+  (method override (initialize self port directory repository)
     (nextmethod self)
     (set! self.port port)
+    (set! self.directory directory)
     (set! self.repository repository)
     (set! self.save-index? #f))
   
@@ -140,12 +196,11 @@
     (let (loop)
       (let ((request (read-binary-object port)))
         (if (eof-object? request)
-            #f
+            (unregister-shared-repository directory)
           (bind (command . arguments) request
             (case command
               ((deconnect)
-               (when save-index?
-                 (save-to-file (get-index repository))))
+               (jas-server-deconnect directory))
               ((download)
                (let ((what (car arguments)))
                  (cond ((eq? what 'all)
@@ -182,8 +237,9 @@
       (force-output port))
     (when new-set
       (let ((entry (find-entry repository path)))
-        (set-set entry new-set))
-      (set! save-index? #t)))
+        (when (neq? (get-set entry) new-set)
+          (set-set entry new-set)
+          (set-modified? repository #t)))))
   
   
   (method protected (upload-all self)

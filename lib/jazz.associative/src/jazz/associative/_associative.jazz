@@ -724,12 +724,13 @@
                              (let ((entry-digest (get-digest entry))
                                    (entry-seconds (get-seconds entry))
                                    (entry-flags (get-flags entry))
-                                   (entry-set (get-set entry)))
+                                   (entry-set (get-set entry))
+                                   (entry-live? (get-live? entry)))
                                (and entry-seconds
                                     (if (and (= entry-seconds seconds)
                                              (= entry-flags flags)
                                              (eq? entry-set set))
-                                        (new Associative-Entry path entry-digest entry-seconds entry-flags entry-set)
+                                        (new Associative-Entry path entry-digest entry-seconds entry-flags entry-set entry-live?)
                                       (let ((digest (digest-file (parse file) 'SHA-1)))
                                         ;; update base entry seconds
                                         ;; we do not update the digest
@@ -737,17 +738,18 @@
                                         ;; path + seconds = correct digest
                                         (when (equal? entry-digest digest)
                                           (set-seconds entry seconds))
-                                        (new Associative-Entry path digest seconds flags set))))))))
+                                        (new Associative-Entry path digest seconds flags set #f))))))))
             (new Associative-Entry
               path
               (digest-file filename 'SHA-1)
               seconds
               flags
-              set)))))
+              set
+              #f)))))
   
   
   (method package (scan-blob self path content)
-    (new Associative-Entry path (digest-u8vector content 'SHA-1) #f 0 #f))
+    (new Associative-Entry path (digest-u8vector content 'SHA-1) #f 0 #f #f))
   
   
   (method package (scan-directory self dirpath dir (base: base #f))
@@ -765,7 +767,7 @@
         (for-each (lambda (entry)
                     (bind (kind path digest . rest) entry
                       (case kind
-                        ((blob) (enqueue entries (new Associative-Entry (string-append prefix path) digest #f (car rest) #f)))
+                        ((blob) (enqueue entries (new Associative-Entry (string-append prefix path) digest #f (car rest) #f #f)))
                         ((tree) (scan (string-append prefix path "/") digest)))))
                   (retrieve self tree)))
       
@@ -841,7 +843,13 @@
   (method package (diff-sets self left-index right-index sets)
     (define (filter entries)
       (collect-if (lambda (entry)
-                    (memq? (get-set entry) sets))
+                    (let ((entry-set (get-set entry)))
+                      (some? (lambda (set)
+                               (if (pair? set)
+                                   (and (eq? (car set) entry-set)
+                                        (get-live? entry))
+                                 (eq? set entry-set)))
+                             sets)))
                   entries))
     
     (diff-entries self
@@ -1208,14 +1216,16 @@
   (slot seconds getter generate)
   (slot flags   getter generate)
   (slot set     getter generate)
+  (slot live?   getter generate)
   
   
-  (method override (initialize self path digest seconds flags set)
+  (method override (initialize self path digest seconds flags set live?)
     (set! self.path path)
     (set! self.digest digest)
     (set! self.seconds seconds)
     (set! self.flags flags)
-    (set! self.set set))
+    (set! self.set set)
+    (set! self.live? live?))
   
   
   (method override (print self output readably)
@@ -1226,27 +1236,30 @@
   
   (method override (copy-object self deep?)
     (new Associative-Entry
-      path digest seconds flags set))
+      path digest seconds flags set live?))
   
   
   (method package (set-seconds self sec)
     (set! seconds sec))
   
   
-  (method package (set-set self s)
-    (set! set s)))
+  (method package (set-live? self flag)
+    (set! live? flag)))
 
 
 ;; backward compatible
 (definition protected (list->entry lst)
   (bind (path digest seconds . rest) lst
     (if (null? rest)
-        (new Associative-Entry path digest seconds 0 #f)
+        (new Associative-Entry path digest seconds 0 #f #f)
       (bind (flags . rest) rest
         (if (null? rest)
-            (new Associative-Entry path digest seconds flags #f)
-          (bind (set) rest
-            (new Associative-Entry path digest seconds flags set)))))))
+            (new Associative-Entry path digest seconds flags #f #f)
+          (bind (set . rest) rest
+            (if (null? rest)
+                (new Associative-Entry path digest seconds flags set #f)
+              (bind (live? . rest) rest
+                (new Associative-Entry path digest seconds flags set live?)))))))))
 
 (definition protected (list->entries lst)
   (map list->entry lst))
@@ -1257,7 +1270,8 @@
         (get-digest entry)
         (get-seconds entry)
         (get-flags entry)
-        (get-set entry)))
+        (get-set entry)
+        (get-live? entry)))
 
 (definition protected (entries->list entries)
   (map entry->list entries))

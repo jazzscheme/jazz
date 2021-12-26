@@ -61,6 +61,7 @@
       (format output "  jas status{%}")
       (format output "  jas diff{%}")
       (format output "  jas log{%}")
+      (format output "  jas clone{%}")
       (format output "  jas download{%}")
       (format output "  jas upload{%}")
       (format output "  jas parse{%}")
@@ -280,6 +281,24 @@
                     (when (or (not count) (> count 0))
                       (format output "{%}")
                       (iter parent count))))))))))))
+
+
+(definition package (jas$clone arguments)
+  (with-jas
+    (lambda (output)
+      (let ((dir (current-directory-get))
+            (remote (car arguments)))
+        (bind (host path) (split remote "/")
+          (let ((dirpath (if (null? (cdr arguments))
+                             path
+                           (cadr arguments))))
+            (let ((dir (new-directory dir (tokenise-filename dirpath))))
+              (if (exists? dir)
+                  (format output "Directory already exists{%}")
+                (format output "Cloning into {a}{%}" dirpath)
+                (let ((repo (jas-init dir)))
+                  (jas-config-set repo 'remote remote)
+                  (jas-download repo host path 'all))))))))))
 
 
 (definition package (jas$download arguments)

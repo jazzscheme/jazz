@@ -666,6 +666,8 @@
 (native jazz:register-reader-extension)
 (native jazz:get-load-interpreted-hook)
 (native jazz:set-load-interpreted-hook)
+(native jazz:get-unit-not-found-hook)
+(native jazz:set-unit-not-found-hook)
 (native jazz:get-evaluate-forms-hook)
 (native jazz:set-evaluate-forms-hook)
 (native jazz:get-console-evaluate-hook)

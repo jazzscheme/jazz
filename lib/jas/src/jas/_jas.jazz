@@ -284,21 +284,28 @@
 
 
 (definition package (jas$clone arguments)
+  (define (parse str)
+    (let ((pos (find str #\:)))
+      (if (not pos)
+          (values str #f)
+        (values (substring str 0 pos) (substring str pos (string-length str))))))
+  
   (with-jas
     (lambda (output)
       (let ((dir (current-directory-get))
             (remote (car arguments)))
-        (bind (host path) (split remote "/")
-          (let ((dirpath (if (null? (cdr arguments))
-                             path
-                           (cadr arguments))))
-            (let ((dir (new-directory dir (tokenise-filename dirpath))))
-              (if (exists? dir)
-                  (format output "Directory already exists{%}")
-                (format output "Cloning into {a}{%}" dirpath)
-                (let ((repo (jas-init dir)))
-                  (jas-config-set repo 'remote remote)
-                  (jas-download repo host path 'all))))))))))
+        (receive (remote sets) (parse (car arguments))
+          (bind (host path) (split remote "/")
+            (let ((dirpath (if (null? (cdr arguments))
+                               path
+                             (cadr arguments))))
+              (let ((dir (new-directory dir (tokenise-filename dirpath))))
+                (if (exists? dir)
+                    (format output "Directory already exists{%}")
+                  (format output "Cloning into {a}{%}" dirpath)
+                  (let ((repo (jas-init dir)))
+                    (jas-config-set repo 'remote remote)
+                    (jas-download repo host path (or sets 'all))))))))))))
 
 
 (definition package (jas$download arguments)

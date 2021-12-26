@@ -840,21 +840,25 @@
                   (get-entries right-index)))
   
   
-  (method package (diff-sets self left-index right-index sets)
-    (define (filter entries)
+  (method package (diff-sets self remote-index local-index sets)
+    (define (filter kind entries)
       (collect-if (lambda (entry)
                     (let ((entry-set (get-set entry)))
                       (some? (lambda (set)
+                               ;; only live
                                (if (pair? set)
-                                   (and (eq? (car set) entry-set)
-                                        (get-live? entry))
+                                   (let ((set (car set)))
+                                     (if (eq? kind 'remote)
+                                         (and (eq? set entry-set)
+                                              (get-live? entry))
+                                       (eq? set entry-set)))
                                  (eq? set entry-set)))
                              sets)))
                   entries))
     
     (diff-entries self
-                  (filter (get-entries left-index))
-                  (filter (get-entries right-index))))
+                  (filter 'remote (get-entries remote-index))
+                  (filter 'local (get-entries local-index))))
   
   
   (method package (diff-entries self left-entries right-entries)

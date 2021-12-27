@@ -439,9 +439,8 @@
   
   (method package (retrieve-file self digest file flags (content #f))
     (create-directories file)
-    (let ((permissions (if (executable? flags) #o755 #o644)))
-      (save-binary file (retrieve-blob self digest (get-extension file) content))
-      (file-permissions-set! (parse file) permissions)))
+    (save-binary file (retrieve-blob self digest (get-extension file) content))
+    (set-permissions file flags))
   
   
   (method package (retrieve-blob self digest extension (content #f))
@@ -1406,12 +1405,24 @@
   1)
 
 
-(definition (executable? flags)
-  (mask-bit-set? flags Executable-Flag))
-
-
 (definition (determine-flags filename)
-  (if (file-executable? filename) Executable-Flag 0))
+  (cond-expand
+    (windows
+     0)
+    (else
+     (if (file-executable? filename)
+         Executable-Flag
+       0))))
+
+
+(definition (set-permissions file flags)
+  (cond-expand
+    (windows)
+    (else
+     (let ((permissions (if (mask-bit-set? flags Executable-Flag)
+                            #o755
+                          #o644)))
+       (file-permissions-set! (parse file) permissions)))))
 
 ;;;
 ;;;; Compressed

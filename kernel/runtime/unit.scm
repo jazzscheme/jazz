@@ -230,6 +230,10 @@
     #f))
 
 
+(define jazz:kernel-root
+  (or jazz:kernel-bundle-root jazz:kernel-install))
+
+
 (define (jazz:install-path filename)
   (if (%%not filename)
       jazz:kernel-install

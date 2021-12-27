@@ -493,6 +493,7 @@
 (native jazz:kernel-bundle-contents)
 (native jazz:kernel-bundle-root)
 (native jazz:kernel-bundle-install)
+(native jazz:kernel-root)
 (native jazz:kernel-source)
 (native jazz:kernel-source-accessible?)
 (native jazz:kernel-source-access?)

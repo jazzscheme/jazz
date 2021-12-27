@@ -628,7 +628,7 @@
                               ((removed)
                                (delete file)
                                (discard-directory (get-parent file))
-                               (remove-file staging-index path file))
+                               (remove-file staging-index path))
                               ((modified)
                                (let ((entry (car rest)))
                                  (let ((digest (get-digest entry))
@@ -653,21 +653,28 @@
   
   
   (method package (remove-path self path)
-    (receive (path pathname) (normalize-path self path)
-      (cond ((directory? pathname)
-             (iterate-subpaths index path
-               (lambda (subpath)
-                 (let ((file (new-file working (tokenise-filename subpath))))
-                   (when (exists? file)
-                     (delete file)))))
-             (delete-empty-directories pathname)
-             (remove-directory index path pathname))
-            (else
-             (discarding-directories self
-               (lambda (discard-directory)
-                 (delete pathname)
-                 (discard-directory (get-parent pathname))
-                 (remove-file index path pathname)))))))
+    (if (bare? self)
+        (cond ((equal? path ".")
+               (remove-directory index ""))
+              ((ends-with? path "/")
+               (remove-directory index path))
+              (else
+               (remove-file index path)))
+      (receive (path pathname) (normalize-path self path)
+        (cond ((directory? pathname)
+               (iterate-subpaths index path
+                 (lambda (subpath)
+                   (let ((file (new-file working (tokenise-filename subpath))))
+                     (when (exists? file)
+                       (delete file)))))
+               (delete-empty-directories pathname)
+               (remove-directory index path))
+              (else
+               (discarding-directories self
+                 (lambda (discard-directory)
+                   (delete pathname)
+                   (discard-directory (get-parent pathname))
+                   (remove-file index path))))))))
   
   
   (method (normalize-path self path)
@@ -1186,12 +1193,12 @@
         (save-to-file self))))
   
   
-  (method package (remove-file self path file)
+  (method package (remove-file self path)
     (update self path 'file '())
     (save-to-file self))
   
   
-  (method package (remove-directory self path directory)
+  (method package (remove-directory self path)
     (update self path 'directory '())
     (save-to-file self))
   

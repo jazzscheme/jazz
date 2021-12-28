@@ -846,25 +846,43 @@
                   (get-entries right-index)))
   
   
-  (method package (diff-sets self remote-index local-index sets)
-    (define (filter kind entries)
-      (collect-if (lambda (entry)
-                    (let ((entry-set (get-set entry)))
-                      (some? (lambda (set)
-                               ;; only live
-                               (if (pair? set)
-                                   (let ((set (car set)))
-                                     (if (eq? kind 'remote)
-                                         (and (eq? set entry-set)
-                                              (get-live? entry))
-                                       (eq? set entry-set)))
-                                 (eq? set entry-set)))
-                             sets)))
-                  entries))
-    
-    (diff-entries self
-                  (filter 'remote (get-entries remote-index))
-                  (filter 'local (get-entries local-index))))
+  (method package (diff-sets self remote-index local-index sets update-sets)
+    (let ((local-entries (get-entries local-index))
+          (remote-entries (get-entries remote-index)))
+      (define (determine-effective-sets)
+        (if (not update-sets)
+            sets
+          (let ((queue (new-queue))
+                (local-sets (make-table test: eq?)))
+            (enqueue-list queue sets)
+            (for-each (lambda (entry)
+                        (table-set! local-sets (get-set entry) #t))
+                      local-entries)
+            (for-each (lambda (set)
+                        (when (table-ref local-sets set #f)
+                          (enqueue queue set)))
+                      update-sets)
+            (queue-list queue))))
+      
+      (let ((effective-sets (determine-effective-sets)))
+        (define (filter kind entries)
+          (collect-if (lambda (entry)
+                        (let ((entry-set (get-set entry)))
+                          (some? (lambda (set)
+                                   ;; only live
+                                   (if (pair? set)
+                                       (let ((set (car set)))
+                                         (if (eq? kind 'remote)
+                                             (and (eq? set entry-set)
+                                                  (get-live? entry))
+                                           (eq? set entry-set)))
+                                     (eq? set entry-set)))
+                                 effective-sets)))
+                      entries))
+        
+        (diff-entries self
+                      (filter 'remote remote-entries)
+                      (filter 'local local-entries)))))
   
   
   (method package (diff-entries self left-entries right-entries)

@@ -1238,6 +1238,8 @@
 (native jazz:get-catalog-entry)
 (native jazz:release-catalog-entries)
 (native jazz:outline-feedback)
+(native jazz:get-outline-not-found-hook)
+(native jazz:set-outline-not-found-hook)
 (native jazz:get-outline-hook)
 (native jazz:set-outline-hook)
 (native jazz:outline-unit)

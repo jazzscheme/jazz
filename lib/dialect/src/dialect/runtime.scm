@@ -6235,6 +6235,16 @@
                      #f)))
 
 
+(define jazz:outline-not-found-hook
+  #f)
+
+(define (jazz:get-outline-not-found-hook)
+  jazz:outline-not-found-hook)
+
+(define (jazz:set-outline-not-found-hook hook)
+  (set! jazz:outline-not-found-hook hook))
+
+
 (define jazz:outline-hook
   #f)
 
@@ -6247,34 +6257,42 @@
 
 (define (jazz:outline-unit unit-name #!key (use-catalog? #t) (error? #t))
   (define (load-toplevel-declaration)
-    (jazz:with-unit-resources unit-name #f
-      (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-        (let ((src (try-sourceless-outline unit-name src bin)))
-          (if (%%not src)
-              (if (%%not error?)
-                  #f
-                (raise (jazz:new-walk-source-not-found (jazz:format "Unable to locate unit source: {s}" unit-name) unit-name)))
-            (jazz:with-verbose (jazz:outline-verbose?) "outlining" (jazz:resource-pathname src)
-              (lambda ()
-                ;; not reading the literals is necessary as reading a literal will load units
-                (let ((form (jazz:read-toplevel-form src read-literals?: #f)))
-                  (parameterize ((jazz:requested-unit-name unit-name)
-                                 (jazz:requested-unit-resource src)
-                                 (jazz:requested-pathname #f)
-                                 (jazz:walk-for 'interpret)
-                                 (jazz:generate-symbol-for "%outline^")
-                                 (jazz:generate-symbol-context unit-name))
-                    (let ((kind (jazz:source-code (%%car (jazz:source-code form)))))
-                      (case kind
-                        ((unit)
-                         (jazz:parse-unit-declaration (%%cdr (jazz:source-code form))))
-                        ((module)
-                         (jazz:parse-module-declaration (%%cdr (jazz:source-code form)))))))))))))))
-  
-  (define (try-sourceless-outline unit-name src bin)
-    (if (and (%%not src) bin)
-        (jazz:bin->otl bin)
-      src))
+    (let try-again ((first-try? #t))
+      (jazz:with-unit-resources unit-name #f
+        (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+          (let ((src (if (%%not src)
+                         (if (%%not bin)
+                             #f
+                           (let ((otl (jazz:bin->otl bin)))
+                             (let ((otl-path (jazz:resource-pathname otl)))
+                               (if (file-exists? otl-path)
+                                   otl
+                                 #f))))
+                       src)))
+            (if (%%not src)
+                (if (and jazz:unit-not-found-hook first-try?)
+                    (begin
+                      (jazz:outline-not-found-hook unit-name)
+                      (try-again #f))
+                  (if (%%not error?)
+                      #f
+                    (raise (jazz:new-walk-source-not-found (jazz:format "Unable to locate unit source: {s}" unit-name) unit-name))))
+              (jazz:with-verbose (jazz:outline-verbose?) "outlining" (jazz:resource-pathname src)
+                (lambda ()
+                  ;; not reading the literals is necessary as reading a literal will load units
+                  (let ((form (jazz:read-toplevel-form src read-literals?: #f)))
+                    (parameterize ((jazz:requested-unit-name unit-name)
+                                   (jazz:requested-unit-resource src)
+                                   (jazz:requested-pathname #f)
+                                   (jazz:walk-for 'interpret)
+                                   (jazz:generate-symbol-for "%outline^")
+                                   (jazz:generate-symbol-context unit-name))
+                      (let ((kind (jazz:source-code (%%car (jazz:source-code form)))))
+                        (case kind
+                          ((unit)
+                           (jazz:parse-unit-declaration (%%cdr (jazz:source-code form))))
+                          ((module)
+                           (jazz:parse-module-declaration (%%cdr (jazz:source-code form))))))))))))))))
   
   (if (not use-catalog?)
       (load-toplevel-declaration)

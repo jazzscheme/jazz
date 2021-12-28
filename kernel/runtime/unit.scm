@@ -2193,7 +2193,7 @@
 
 
 (define (jazz:load-unit-src/bin unit-name #!key (force-source? #f))
-  (let try-again ((after-hook? #f))
+  (let try-again ((first-try? #t))
     (jazz:with-unit-resources unit-name #f
       (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
         (if jazz:TARGET-HACK?
@@ -2246,10 +2246,10 @@
                 (else
                  (if force-source?
                      (jazz:error "Unable to find unit source: {s}" unit-name)
-                   (if (and jazz:unit-not-found-hook (not after-hook?))
+                   (if (and jazz:unit-not-found-hook first-try?)
                        (begin
                          (jazz:unit-not-found-hook unit-name)
-                         (try-again #t))
+                         (try-again #f))
                      (jazz:error "Unable to find unit: {s}" unit-name))))))))))
 
 

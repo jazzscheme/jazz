@@ -39,26 +39,133 @@
 
 
 (import (jazz.associative)
-        (jazz.version))
+        (jazz.version)
+        (jazz.zlib))
 
 
 (definition package jas-service
   51000)
 
 
-(definition package jas-code
-  (code-string->32-bit-integer "JASS"))
-
-(definition package jas-version
-  {Version 1 0 0})
-
-
-(definition package jas-header
-  (32-bit-integer->bytes jas-code
+(definition jas-code <u8vector>
+  (32-bit-integer->bytes (code-string->32-bit-integer "JASR")
     (lambda (b1 b2 b3 b4)
-      (version->bytes jas-version
-        (lambda (b5 b6 b7 b8)
-          (u8vector b1 b2 b3 b4 b5 b6 b7 b8))))))
+      (u8vector b1 b2 b3 b4))))
+
+(definition jas-code-length <fx>
+  (u8vector-length jas-code))
+
+
+(definition jas-version <u8vector>
+  (version->bytes {Version 1 0 0}
+    (lambda (b1 b2 b3 b4)
+      (u8vector b1 b2 b3 b4))))
+
+(definition jas-version-length <fx>
+  (u8vector-length jas-version))
+
+
+;;;
+;;;; Broke
+;;;
+
+
+(class Jas-Connection-Broke extends Exception)
+
+
+(definition public (throw-jas-connection-broke)
+  (throw (new Jas-Connection-Broke)))
+
+
+(definition public (jas-connection-exception? exc)
+  (or (os-exception? exc)
+      (and (object? exc)
+           (is? exc Jas-Connection-Broke))))
+
+;;;
+;;;; Validation
+;;;
+
+
+(definition package (jas-write-code port)
+  (write-subu8vector jas-code 0 jas-code-length port))
+
+
+(definition package (jas-read-valid-code? port)
+  (let ((code (make-u8vector jas-code-length 0)))
+    (read-subu8vector code 0 jas-code-length port)
+    (equal? code jas-code)))
+
+
+(definition package (jas-write-version port)
+  (write-subu8vector jas-version 0 jas-version-length port))
+
+
+(definition package (jas-read-valid-version? port)
+  (let ((version (make-u8vector jas-version-length 0)))
+    (read-subu8vector version 0 jas-version-length port)
+    (equal? version jas-version)))
+
+
+;;;
+;;;; I/O
+;;;
+
+
+(definition package (jas-write-content content port)
+  (catch (os-exception? exc
+           (throw-jas-connection-broke))
+    (write-binary-content content port)))
+
+
+(definition package (jas-read-content port)
+  (let ((content (catch (os-exception? exc
+                         (throw-jas-connection-broke))
+                  (read-binary-content port))))
+    (if (eof-object? content)
+        (throw-jas-connection-broke)
+      content)))
+
+
+(definition package (jas-write-object object port)
+  (catch (os-exception? exc
+           (throw-jas-connection-broke))
+    (write-binary-object object port)))
+
+
+(definition package (jas-read-object port)
+  (let ((object (catch (os-exception? exc
+                         (throw-jas-connection-broke))
+                  (read-binary-object port))))
+    (if (eof-object? object)
+        (throw-jas-connection-broke)
+      object)))
+
+
+(definition package (jas-write-deflated object port)
+  (catch (os-exception? exc
+           (throw-jas-connection-broke))
+    (write-deflated-object object port)))
+
+
+(definition package (jas-read-deflated port)
+  (let ((object (catch (os-exception? exc
+                         (throw-jas-connection-broke))
+                  (read-deflated-object port))))
+    (if (eof-object? object)
+        (throw-jas-connection-broke)
+      object)))
+
+
+(definition package (jas-force-output port)
+  (catch (os-exception? exc
+           (throw-jas-connection-broke))
+    (force-output port)))
+
+
+;;;
+;;;; Content
+;;;
 
 
 (definition package (jas-retrieve-content repository path)

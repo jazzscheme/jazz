@@ -42,7 +42,7 @@
         (jazz.associative.remote)
         (jazz.io)
         (jazz.network)
-        (jazz.zlib))
+        (jazz.snapshot))
 
 
 (definition jas-server
@@ -76,27 +76,36 @@
 ;;;
 
 
-(definition (jas-server-connect port)
+(definition (jas-server-accept port)
   (define (reply response)
-    (write-binary-object response port)
-    (force-output port))
+    (jas-write-object response port)
+    (jas-force-output port))
   
-  (let ((header (read-binary-content port)))
-    (if (not (equal? header jas-header))
-        (reply 'invalid-header)
-      (let ((path (read-binary-object port)))
-        (let ((directory (new-directory jas-directory path)))
-          (if (not (exists? directory))
-              (reply 'inexistant-repository)
-            (reply 'connected)
-            (let ((repository (register-shared-repository directory)))
-              (let ((connection (new Jas-Connection port directory repository)))
-                (send-entries connection)
-                (process connection)))))))))
-
-
-(definition (jas-server-deconnect directory)
-  (unregister-shared-repository directory))
+  (when (jas-read-valid-code? port)
+    (if (not (jas-read-valid-version? port))
+        (reply 'invalid-version)
+      (catch-exception-filter
+        (lambda (exc)
+          (if (and (object? exc)
+                   (is? exc Jas-Connection-Broke))
+              (begin
+                (snapshot-process exception: exc)
+                #t)
+            #f))
+        (lambda (exc)
+          )
+        (lambda ()
+          (let ((path (jas-read-object port)))
+            (let ((directory (new-directory jas-directory path)))
+              (if (not (exists? directory))
+                  (reply 'inexistant-repository)
+                (reply 'connected)
+                (let ((repository (register-shared-repository directory)))
+                  (unwind-protect
+                      (let ((connection (new Jas-Connection port directory repository)))
+                        (send-entries connection)
+                        (process connection))
+                    (unregister-shared-repository directory)))))))))))
 
 
 (class Jas-Server extends TCP-Server
@@ -111,7 +120,7 @@
   
   
   (method override (accept-connection self port)
-    (jas-server-connect port)))
+    (jas-server-accept port)))
 
 
 ;;;
@@ -193,54 +202,51 @@
   
   
   (method protected (send-entries self)
-    (write-deflated-object (entries->list (get-entries (get-index repository))) port)
-    (force-output port))
+    (jas-write-deflated (entries->list (get-entries (get-index repository))) port)
+    (jas-force-output port))
   
   
   (method protected (process self)
     (declare (proper-tail-calls))
     (let (loop)
-      (let ((request (read-binary-object port)))
-        (if (eof-object? request)
-            (unregister-shared-repository directory)
-          (bind (command . arguments) request
-            (case command
-              ((deconnect)
-               (jas-server-deconnect directory))
-              ((download)
-               (let ((what (car arguments)))
-                 (cond ((eq? what 'all)
-                        (download-all self)
-                        (loop))
-                       (else
-                        (download-file self what (cadr arguments))
-                        (loop)))))
-              ((upload)
-               (let ((what (car arguments)))
-                 (cond ((eq? what 'all)
-                        (upload-all self)
-                        (loop))
-                       (else
-                        (upload-file self what (cadr arguments) (caddr arguments))
-                        (loop)))))))))))
+      (let ((request (jas-read-object port)))
+        (bind (command . arguments) request
+          (case command
+            ((deconnect))
+            ((download)
+             (let ((what (car arguments)))
+               (cond ((eq? what 'all)
+                      (download-all self)
+                      (loop))
+                     (else
+                      (download-file self what (cadr arguments))
+                      (loop)))))
+            ((upload)
+             (let ((what (car arguments)))
+               (cond ((eq? what 'all)
+                      (upload-all self)
+                      (loop))
+                     (else
+                      (upload-file self what (cadr arguments) (caddr arguments))
+                      (loop))))))))))
   
   
   (method protected (download-all self)
-    (let ((changes (list->changes (read-deflated-object port))))
+    (let ((changes (list->changes (jas-read-deflated port))))
       (for-each (lambda (change)
                   (bind (what path) change
                     (case what
                       ((added modified)
                        (let ((content (car (jas-retrieve-content repository path))))
-                         (write-binary-content content port))))))
+                         (jas-write-content content port))))))
                 changes))
-    (force-output port))
+    (jas-force-output port))
   
   
   (method protected (download-file self path update-live?)
     (let ((content (car (jas-retrieve-content repository path))))
-      (write-binary-content content port)
-      (force-output port))
+      (jas-write-content content port)
+      (jas-force-output port))
     (when update-live?
       (let ((entry (find-entry repository path)))
         (when (not (get-live? entry))
@@ -250,13 +256,13 @@
   
   (method protected (upload-all self)
     (let ((index (get-index repository)))
-      (let ((entries (list->entries (read-deflated-object port)))
-            (changes (list->changes (read-deflated-object port))))
+      (let ((entries (list->entries (jas-read-deflated port)))
+            (changes (list->changes (jas-read-deflated port))))
         (for-each (lambda (change)
                     (bind (what path . rest) change
                       (case what
                         ((added modified)
-                         (let ((content (read-binary-content port)))
+                         (let ((content (jas-read-content port)))
                            (let ((entry (car rest)))
                              (let ((digest (get-digest entry))
                                    (flags (get-flags entry)))
@@ -271,7 +277,7 @@
   
   (method protected (upload-file self path digest flags)
     (let ((index (get-index repository)))
-      (let ((content (read-binary-content port)))
+      (let ((content (jas-read-content port)))
         (let ((file (new-file (get-working repository) (tokenise-filename path))))
           (store-object repository content digest)
           (retrieve-file repository digest file flags)

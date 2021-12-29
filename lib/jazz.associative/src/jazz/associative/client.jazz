@@ -40,8 +40,7 @@
 
 (import (jazz.associative)
         (jazz.associative.remote)
-        (jazz.io)
-        (jazz.zlib))
+        (jazz.io))
 
 
 ;;;
@@ -152,10 +151,11 @@
   (method protected (connect self)
     (when feedback
       (feedback 'connect))
-    (write-binary-content jas-header port)
-    (write-binary-object path port)
-    (force-output port)
-    (let ((response (read-binary-object port)))
+    (jas-write-code port)
+    (jas-write-version port)
+    (jas-write-object path port)
+    (jas-force-output port)
+    (let ((response (jas-read-object port)))
       (case response
         ((invalid-header)
          (format :terminal "Invalid header{%}")
@@ -164,12 +164,12 @@
          (format :terminal "Inexistant repository{%}")
          (exit))
         ((connected)
-         (setup-entries remote-index (list->entries (read-deflated-object port)))))))
+         (setup-entries remote-index (list->entries (jas-read-deflated port)))))))
   
   
   (method protected (deconnect self)
-    (write-binary-object '(deconnect) port)
-    (force-output port)
+    (jas-write-object '(deconnect) port)
+    (jas-force-output port)
     (close-port port)
     (set! port #f)
     (when feedback
@@ -242,12 +242,12 @@
   
   
   (method protected (download-changes self changes total received downloaded)
-    (write-binary-object (list 'download 'all) port)
-    (write-deflated-object (changes->list changes) port)
-    (force-output port)
+    (jas-write-object (list 'download 'all) port)
+    (jas-write-deflated (changes->list changes) port)
+    (jas-force-output port)
     (for-each (lambda (change)
                 (bind (what path remote-entry) change
-                  (let ((content (read-binary-content port)))
+                  (let ((content (jas-read-content port)))
                     (increase! received)
                     (increase! downloaded (u8vector-length content))
                     (when feedback
@@ -276,9 +276,9 @@
                     ;; this is a fail safe against someone deleting
                     ;; a file without the jas index being updated
                     (not (exists? file)))
-            (write-binary-object (list 'download path update-live?) port)
-            (force-output port)
-            (let ((content (read-binary-content port))
+            (jas-write-object (list 'download path update-live?) port)
+            (jas-force-output port)
+            (let ((content (jas-read-content port))
                   (digest (get-digest remote-entry))
                   (flags (get-flags remote-entry)))
               (when feedback
@@ -302,16 +302,16 @@
               (sent 0)
               (uploaded 0))
           (when (> total 0)
-            (write-binary-object (list 'upload 'all) port)
-            (write-deflated-object (entries->list (get-entries index)) port)
-            (write-deflated-object (changes->list changes) port)
-            (force-output port)
+            (jas-write-object (list 'upload 'all) port)
+            (jas-write-deflated (entries->list (get-entries index)) port)
+            (jas-write-deflated (changes->list changes) port)
+            (jas-force-output port)
             (for-each (lambda (change)
                         (bind (what path) change
                           (case what
                             ((added modified)
                              (let ((content (car (jas-retrieve-content repository path))))
-                               (write-binary-content content port)
+                               (jas-write-content content port)
                                (increase! sent)
                                (increase! uploaded (u8vector-length content))
                                (when feedback
@@ -326,8 +326,8 @@
         (when (or (not remote-entry)
                   (not (equal? (get-digest entry) (get-digest remote-entry))))
           (bind (content digest flags) (jas-retrieve-content repository path)
-            (write-binary-object (list 'upload path digest flags) port)
-            (write-binary-content content port)
-            (force-output port)
+            (jas-write-object (list 'upload path digest flags) port)
+            (jas-write-content content port)
+            (jas-force-output port)
             (when feedback
               (feedback 'progress 1 1 (u8vector-length content))))))))))

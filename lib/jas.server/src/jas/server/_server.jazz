@@ -41,6 +41,7 @@
 (import (jazz.associative)
         (jazz.associative.remote)
         (jazz.io)
+        (jazz.logger)
         (jazz.network)
         (jazz.snapshot))
 
@@ -59,6 +60,7 @@
                      (if (not arg)
                          (current-directory-get)
                        (new Directory (tokenise-filename arg))))))
+    (logger "Start server")
     (let ((server (new Jas-Server host: host service: jas-service)))
       (start server)
       (set! jas-server server)
@@ -66,6 +68,7 @@
 
 
 (definition package (stop-jas-server)
+  (logger "Stop server")
   (when jas-server
     (stop jas-server)
     (set! jas-server #f)))
@@ -81,14 +84,27 @@
     (jas-write-object response port)
     (jas-force-output port))
   
-  (when (jas-read-valid-code? port)
+  (define (valid-path? path)
+    (and (string? path)
+         (every? (lambda (c)
+                   (or (alphanumeric? c)
+                       (eqv? c #\-)
+                       (eqv? c #\_)))
+                 path)))
+  
+  (logger "Accept connection")
+  (if (not (jas-read-valid-code? port))
+      (logger "Invalid code")
     (if (not (jas-read-valid-version? port))
-        (reply 'invalid-version)
+        (begin
+          (logger "Invalid version")
+          (reply 'invalid-version))
       (catch-exception-filter
         (lambda (exc)
           (if (and (object? exc)
                    (is? exc Jas-Connection-Broke))
               (begin
+                (logger "Connection broke")
                 (snapshot-process exception: exc)
                 #t)
             #f))
@@ -96,16 +112,24 @@
           )
         (lambda ()
           (let ((path (jas-read-object port)))
-            (let ((directory (new-directory jas-directory path)))
-              (if (not (exists? directory))
-                  (reply 'inexistant-repository)
-                (reply 'connected)
-                (let ((repository (register-shared-repository directory)))
-                  (unwind-protect
-                      (let ((connection (new Jas-Connection port directory repository)))
-                        (send-entries connection)
-                        (process connection))
-                    (unregister-shared-repository directory)))))))))))
+            (if (not (valid-path? path))
+                (begin
+                  (logger "Invalid path {a}" path)
+                  (reply 'invalid-path))
+              (let ((directory (new-directory jas-directory path)))
+                (if (not (exists? directory))
+                    (begin
+                      (logger "Inexistant repository {a}" path)
+                      (reply 'inexistant-repository))
+                  (logger "Connect {a}" path)
+                  (reply 'connected)
+                  (let ((repository (register-shared-repository path directory)))
+                    (unwind-protect
+                        (let ((connection (new Jas-Connection port directory repository)))
+                          (send-entries connection)
+                          (process connection))
+                      (unregister-shared-repository path directory)))
+                  (logger "Deconnect {a}" path))))))))))
 
 
 (class Jas-Server extends TCP-Server
@@ -135,8 +159,9 @@
   (make-mutex 'shared))
 
 
-(definition (register-shared-repository directory)
+(definition (register-shared-repository path directory)
   (mutex-lock! shared-mutex)
+  (logger "Register {a} {l}" path (table-values shared-repositories))
   (prog1 (let ((shared (table-ref shared-repositories directory #f)))
            (if (not shared)
                (let ((shared (new Shared-Repository directory)))
@@ -144,16 +169,19 @@
                  shared)
              (increase-count! shared)
              shared))
+    (logger "Registered {a} {l}" path (table-values shared-repositories))
     (mutex-unlock! shared-mutex)))
 
 
-(definition (unregister-shared-repository directory)
+(definition (unregister-shared-repository path directory)
   (mutex-lock! shared-mutex)
+  (logger "Unregister {a} {l}" path (table-values shared-repositories))
   (let ((shared (table-ref shared-repositories directory)))
     (when (<= (decrease-count! shared) 0)
       (when (get-modified? shared)
         (save-to-file (get-index shared)))
       (table-clear shared-repositories directory)))
+  (logger "Unregistered {a} {l}" path (table-values shared-repositories))
   (mutex-unlock! shared-mutex))
 
 

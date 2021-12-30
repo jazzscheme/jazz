@@ -40,18 +40,29 @@
 
 (import (jazz.debuggee)
         (jazz.io)
+        (jazz.logger)
         (jazz.snapshot)
         (jas.server)
         (jas.server.report))
 
 
+(definition (prepare-logger)
+  (set-logger-directory {Directory Home ".jas" "logs"})
+  (set-logger-prefix "jas-server"))
+
+
+(definition (prepare-snapshots)
+  (let ((snapshots-dir {Directory Home ".jas" "crashes"}))
+    (create-directories snapshots-dir)
+    (snapshots-directory snapshots-dir)
+    (snapshot-max-depth 1)))
+
+
 (register-product-run 'jas-server
   (lambda (descriptor)
     (initialize-aliases)
-    (let ((snapshots-dir {Directory Home ".jas" "crashes"}))
-      (create-directories snapshots-dir)
-      (snapshots-directory snapshots-dir)
-      (snapshot-max-depth 1))
+    (prepare-logger)
+    (prepare-snapshots)
     (send-crash-reports)
     (start-jas-server)
     (if (not (get-controller-debugger))

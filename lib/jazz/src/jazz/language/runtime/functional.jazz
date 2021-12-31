@@ -4508,6 +4508,47 @@
 
 
 ;;;
+;;;; ReadWrite Gate
+;;;
+
+
+(class ReadWrite-Gate extends Object
+  
+  
+  (slot reader-count initialize 0)
+  (slot reader-mutex initialize (make-mutex 'reader))
+  (slot work-mutex   initialize (make-mutex 'work))
+  
+  
+  (method public (reader-lock! self)
+    (mutex-lock! reader-mutex)
+    (when (= reader-count 0)
+      (mutex-lock! work-mutex +inf.0 #f))
+    (increase! reader-count)
+    (mutex-unlock! reader-mutex))
+  
+  
+  (method public (reader-unlock! self)
+    (mutex-lock! reader-mutex)
+    (decrease! reader-count)
+    (when (= reader-count 0)
+      (mutex-unlock! work-mutex))
+    (mutex-unlock! reader-mutex))
+  
+  
+  (method public (writer-lock! self)
+    (mutex-lock! work-mutex))
+  
+  
+  (method public (writer-unlock! self)
+    (mutex-unlock! work-mutex)))
+
+
+(definition public (make-readwrite-gate)
+  (new ReadWrite-Gate))
+
+
+;;;
 ;;;; Priority Queue
 ;;;
 

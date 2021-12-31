@@ -43,89 +43,6 @@
         (jazz.io))
 
 
-;;;
-;;;; Interface
-;;;
-
-
-(definition (with-jas-client repo host path feedback what proc)
-  (let ((client (new Jas-Client repo host path feedback: feedback)))
-    (connect client)
-    (proc client)
-    (deconnect client)))
-
-
-(definition public (jas-download repo host path what (cache: cache #f))
-  (define content?
-    #f)
-  
-  (define (feedback stage . rest)
-    (case stage
-      ((connect)
-       (format :terminal "Connecting to {a}{%}" path))
-      ((deconnect)
-       (if (not content?)
-           (format :terminal "Already up to date{%}")
-         (format :terminal "{%}")))
-      ((progress)
-       (set! content? #t)
-       (bind (total-objects received-objects received-bytes) rest
-         (let ((percentage (fxfloor (percentage received-objects total-objects))))
-           (format :terminal "Downloading {a}% ({a}/{a}) {a}\r" percentage received-objects total-objects (present-bytes received-bytes)))))))
-  
-  (with-jas-client repo host path feedback what
-    (lambda (client)
-      (cond ((eq? what 'all)
-             (if cache
-                 (let ((cache-dir (new Directory (tokenise-filename cache))))
-                    (let ((cache-repository (new Associative-Repository cache-dir)))
-                      (download-all-with-cache client cache-repository)))
-               (download-all client)))
-            ((starts-with? what ":")
-             (let ((sets (map (lambda (name)
-                                (cond ((empty-string? name)
-                                       #f)
-                                      ((ends-with? name "^")
-                                       (list (string->symbol (substring name 0 (- (string-length name) 1)))))
-                                      (else
-                                       (string->symbol name))))
-                              (split (substring what 1 (string-length what)) ":"))))
-               (download-sets client sets)))
-            (else
-             (download-file client what))))))
-
-
-(definition public (jas-upload repo host path what)
-  (define content?
-    #f)
-  
-  (define (feedback stage . rest)
-    (case stage
-      ((connect)
-       (format :terminal "Connecting to {a}{%}" path))
-      ((deconnect)
-       (if (not content?)
-           (format :terminal "Everything up-to-date{%}")
-         (format :terminal "{%}")))
-      ((progress)
-       (set! content? #t)
-       (bind (total-objects sent-objects sent-bytes) rest
-         (let ((percentage (fxfloor (percentage sent-objects total-objects))))
-           (format :terminal "Uploading {a}% ({a}/{a}) {a}\r" percentage sent-objects total-objects (present-bytes sent-bytes)))))))
-  
-  (with-jas-client repo host path feedback what
-    (lambda (client)
-      (cond ((eq? what 'all)
-             (upload-all client))
-            (else
-             (upload-file client what))))))
-
-
-;;;
-;;;; Client
-;;;
-
-
 (class Not-Found-Error extends Error)
 
 
@@ -149,23 +66,27 @@
   
   
   (method protected (connect self)
+    (define (connect-exception? exc)
+      (or (os-exception? exc)
+          (and (object? exc)
+               (is? exc Jas-Connection-Broke))))
+    
     (when feedback
       (feedback 'connect))
-    (jas-write-code port)
-    (jas-write-version port)
-    (jas-write-object path port)
-    (jas-force-output port)
+    (catch (connect-exception? exc
+             (throw (new Jas-Unable-To-Connect)))
+      (jas-write-code port)
+      (jas-write-version port)
+      (jas-write-object path port)
+      (jas-force-output port))
     (let ((response (jas-read-object port)))
       (case response
         ((invalid-version)
-         (format :terminal "Invalid version{%}")
-         (exit))
+         (throw (new Jas-Invalid-Version)))
         ((invalid-path)
-         (format :terminal "Invalid path: {a}{%}" path)
-         (exit))
+         (throw (new Jas-Invalid-Path)))
         ((inexistant-repository)
-         (format :terminal "Inexistant repository: {a}{%}" path)
-         (exit))
+         (throw (new Jas-Inexistant-Repository)))
         ((connected)
          (setup-entries remote-index (list->entries (jas-read-deflated port)))))))
   

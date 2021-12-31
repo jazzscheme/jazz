@@ -40,6 +40,7 @@
 
 (import (jazz.associative)
         (jazz.associative.client)
+        (jazz.associative.remote)
         (jazz.io))
 
 
@@ -393,6 +394,94 @@
     (lambda (output)
       (let ((repo (jas-open (jas-directory "."))))
         ))))
+
+
+;;;
+;;;; Client
+;;;
+
+
+(definition (with-jas-client repo host path feedback what proc)
+  (catch (Jas-Unable-To-Connect exc
+           (format :terminal "Unable to connect to server{%}"))
+    (catch (Jas-Invalid-Version exc
+             (format :terminal "Invalid version{%}"))
+      (catch (Jas-Invalid-Path exc
+               (format :terminal "Invalid path{%}"))
+        (catch (Jas-Inexistant-Repository exc
+                 (format :terminal "Inexistant repository{%}"))
+          (catch (Jas-Connection-Broke exc
+                   (format :terminal "Connection broke{%}"))
+            (let ((client (new Jas-Client repo host path feedback: feedback)))
+              (connect client)
+              (proc client)
+              (deconnect client))))))))
+
+
+(definition package (jas-download repo host path what (cache: cache #f))
+  (define new-content?
+    #f)
+  
+  (define (feedback stage . rest)
+    (case stage
+      ((connect)
+       (format :terminal "Connecting to {a}{%}" path))
+      ((deconnect)
+       (if (not new-content?)
+           (format :terminal "Already up to date{%}")
+         (format :terminal "{%}")))
+      ((progress)
+       (set! new-content? #t)
+       (bind (total-objects received-objects received-bytes) rest
+         (let ((percentage (fxfloor (percentage received-objects total-objects))))
+           (format :terminal "Downloading {a}% ({a}/{a}) {a}\r" percentage received-objects total-objects (present-bytes received-bytes)))))))
+  
+  (with-jas-client repo host path feedback what
+    (lambda (client)
+      (cond ((eq? what 'all)
+             (if cache
+                 (let ((cache-dir (new Directory (tokenise-filename cache))))
+                    (let ((cache-repository (new Associative-Repository cache-dir)))
+                      (download-all-with-cache client cache-repository)))
+               (download-all client)))
+            ((starts-with? what ":")
+             (let ((sets (map (lambda (name)
+                                (cond ((empty-string? name)
+                                       #f)
+                                      ((ends-with? name "^")
+                                       (list (string->symbol (substring name 0 (- (string-length name) 1)))))
+                                      (else
+                                       (string->symbol name))))
+                              (split (substring what 1 (string-length what)) ":"))))
+               (download-sets client sets)))
+            (else
+             (download-file client what))))))
+
+
+(definition package (jas-upload repo host path what)
+  (define new-content?
+    #f)
+  
+  (define (feedback stage . rest)
+    (case stage
+      ((connect)
+       (format :terminal "Connecting to {a}{%}" path))
+      ((deconnect)
+       (if (not new-content?)
+           (format :terminal "Everything up-to-date{%}")
+         (format :terminal "{%}")))
+      ((progress)
+       (set! new-content? #t)
+       (bind (total-objects sent-objects sent-bytes) rest
+         (let ((percentage (fxfloor (percentage sent-objects total-objects))))
+           (format :terminal "Uploading {a}% ({a}/{a}) {a}\r" percentage sent-objects total-objects (present-bytes sent-bytes)))))))
+  
+  (with-jas-client repo host path feedback what
+    (lambda (client)
+      (cond ((eq? what 'all)
+             (upload-all client))
+            (else
+             (upload-file client what))))))
 
 
 ;;;

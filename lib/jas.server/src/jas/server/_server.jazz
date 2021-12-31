@@ -121,15 +121,18 @@
                     (begin
                       (logger "Inexistant repository {a}" path)
                       (reply 'inexistant-repository))
-                  (logger "Connect {a}" path)
-                  (reply 'connected)
-                  (let ((repository (register-shared-repository path directory)))
-                    (unwind-protect
-                        (let ((connection (new Jas-Connection port directory repository)))
-                          (send-entries connection)
-                          (process connection))
-                      (unregister-shared-repository path directory)))
-                  (logger "Deconnect {a}" path))))))))))
+                  (let ((access (jas-read-object port)))
+                    (logger "Connect {a} ({a})" path access)
+                    (reply 'connected)
+                    (let ((repository (register-shared-repository path directory access)))
+                      (gate-lock! repository access)
+                      (unwind-protect
+                          (let ((connection (new Jas-Connection port path directory repository)))
+                            (send-entries connection)
+                            (process connection))
+                        (gate-unlock! repository access)
+                        (unregister-shared-repository path directory access)))
+                    (logger "Deconnect {a}" path)))))))))))
 
 
 (class Jas-Server extends TCP-Server
@@ -152,44 +155,12 @@
 ;;;
 
 
-(definition shared-repositories
-  (make-table test: pathname=? hash: pathname-hash))
-
-(definition shared-mutex
-  (make-mutex 'shared))
-
-
-(definition (register-shared-repository path directory)
-  (mutex-lock! shared-mutex)
-  (logger "Register {a} {l}" path (table-values shared-repositories))
-  (prog1 (let ((shared (table-ref shared-repositories directory #f)))
-           (if (not shared)
-               (let ((shared (new Shared-Repository directory)))
-                 (table-set! shared-repositories directory shared)
-                 shared)
-             (increase-count! shared)
-             shared))
-    (logger "Registered {a} {l}" path (table-values shared-repositories))
-    (mutex-unlock! shared-mutex)))
-
-
-(definition (unregister-shared-repository path directory)
-  (mutex-lock! shared-mutex)
-  (logger "Unregister {a} {l}" path (table-values shared-repositories))
-  (let ((shared (table-ref shared-repositories directory)))
-    (when (<= (decrease-count! shared) 0)
-      (when (get-modified? shared)
-        (save-to-file (get-index shared)))
-      (table-clear shared-repositories directory)))
-  (logger "Unregistered {a} {l}" path (table-values shared-repositories))
-  (mutex-unlock! shared-mutex))
-
-
 (class Shared-Repository extends Associative-Repository
   
   
-  (slot count     initialize 1  getter generate)
-  (slot modified? initialize #f accessors generate)
+  (slot count     initialize 1                     getter generate)
+  (slot gate      initialize (make-readwrite-gate) getter generate)
+  (slot modified? initialize #f                    accessors generate)
   
   
   (method protected (increase-count! self)
@@ -201,10 +172,69 @@
     count)
   
   
+  (method protected (gate-lock! self access)
+    (case access
+      ((read) (reader-lock! gate))
+      ((write) (writer-lock! gate))))
+  
+  (method protected (gate-unlock! self access)
+    (case access
+      ((read) (reader-unlock! gate))
+      ((write) (writer-unlock! gate))))
+  
+  
   (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (format output "({a})" count)))))
+
+
+(definition shared-repositories
+  (make-table test: equal?))
+
+(definition shared-mutex
+  (make-mutex 'shared))
+
+
+(definition (register-shared-repository path directory access)
+  (mutex-lock! shared-mutex)
+  (logger "Register {a} :{a}" path (show-repositories))
+  (prog1 (let ((shared (table-ref shared-repositories path #f)))
+           (if (not shared)
+               (let ((shared (new Shared-Repository directory)))
+                 (table-set! shared-repositories path shared)
+                 shared)
+             (increase-count! shared)
+             shared))
+    (logger "Registered {a} :{a}" path (show-repositories))
+    (mutex-unlock! shared-mutex)))
+
+
+(definition (unregister-shared-repository path directory access)
+  (mutex-lock! shared-mutex)
+  (logger "Unregister {a} :{a}" path (show-repositories))
+  (let ((shared (table-ref shared-repositories path)))
+    (when (<= (decrease-count! shared) 0)
+      (when (get-modified? shared)
+        (logger "Save index for read live {a}" path)
+        (save-to-file (get-index shared)))
+      (table-clear shared-repositories path)))
+  (logger "Unregistered {a} :{a}" path (show-repositories))
+  (mutex-unlock! shared-mutex))
+
+
+(definition (show-repositories)
+  (let ((port (open-output-string))
+        (first? #t))
+    (iterate-table shared-repositories
+      (lambda (path repo)
+        (if first?
+            (begin
+              (format port " ")
+              (set! first? #f))
+          (format port ", "))
+        (format port "{a} {a}" path (get-count repo))))
+    (get-output-string port)))
 
 
 ;;;
@@ -216,17 +246,17 @@
   
   
   (slot port        getter generate)
+  (slot path        getter generate)
   (slot directory   getter generate)
   (slot repository  getter generate)
-  (slot save-index? getter generate)
   
   
-  (method override (initialize self port directory repository)
+  (method override (initialize self port path directory repository)
     (nextmethod self)
     (set! self.port port)
+    (set! self.path path)
     (set! self.directory directory)
-    (set! self.repository repository)
-    (set! self.save-index? #f))
+    (set! self.repository repository))
   
   
   (method protected (send-entries self)
@@ -244,17 +274,21 @@
             ((download)
              (let ((what (car arguments)))
                (cond ((eq? what 'all)
+                      (logger "Download all {a}" path)
                       (download-all self)
                       (loop))
                      (else
+                      (logger "Download file {a} {a}" path what)
                       (download-file self what (cadr arguments))
                       (loop)))))
             ((upload)
              (let ((what (car arguments)))
                (cond ((eq? what 'all)
+                      (logger "Upload all {a}" path)
                       (upload-all self)
                       (loop))
                      (else
+                      (logger "Upload file {a} {a}" path what)
                       (upload-file self what (cadr arguments) (caddr arguments))
                       (loop))))))))))
   
@@ -300,15 +334,20 @@
                                    (retrieve-file repository digest file flags))))))))))
                   changes)
         (setup-entries-preserving-live index entries)
-        (save-to-file index))))
+        (logger "Save index for write {a}" path)
+        (save-to-file index)
+        (set-modified? repository #f))))
   
   
   (method protected (upload-file self path digest flags)
     (let ((index (get-index repository)))
       (let ((content (jas-read-content port)))
-        (let ((file (new-file (get-working repository) (tokenise-filename path))))
-          (store-object repository content digest)
-          (retrieve-file repository digest file flags)
-          (let ((entry (list path digest (get-last-modification-seconds file) flags)))
+        (store-object repository content digest)
+        (let ((file (and (not (bare? repository)) (new-file (get-working repository) (tokenise-filename path)))))
+          (when file
+            (retrieve-file repository digest file flags))
+          (let ((entry (new Associative-Entry path digest (and file (get-last-modification-seconds file)) flags #f #f)))
             (update index path 'file (list entry))
-            (save-to-file index))))))))
+            (logger "Save index for write {a}" path)
+            (save-to-file index)
+            (set-modified? repository #f))))))))

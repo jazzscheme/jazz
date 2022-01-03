@@ -214,6 +214,10 @@
   (scan repo path))
 
 
+(definition public (jas-collect repo dry?)
+  (collect-objects repo dry?))
+
+
 ;;;
 ;;;; Repository
 ;;;
@@ -453,6 +457,33 @@
   (method package (retrieve-object self digest)
     (let ((file (objects-file self digest)))
       (load-binary file)))
+  
+  
+  ;;;
+  ;;;; Collect
+  ;;;
+  
+  
+  (method package (collect-objects self dry?)
+    (if (read-head self)
+        (jas-exception "Only commitless repositories can be collected")
+      (let ((alive (make-table test: equal?)))
+        (for-each (lambda (entry)
+                    (let ((digest (get-digest entry)))
+                      (table-set! alive digest #t)))
+                  (get-entries index))
+        (let ((queue (new-queue)))
+          (iterate-directory objects
+            (lambda (file)
+              (let ((digest (get-name file)))
+                (when (not (table-ref alive digest #f))
+                  (enqueue queue file)))))
+          (let ((dead (queue-list queue)))
+            (let ((count (length dead)))
+              (if dry?
+                  (format :terminal "{a} object{a} would be collected{%}" (capitalize (format-cardinality count)) (format-plural count))
+                (for-each delete dead)
+                (format :terminal "{a} object{a} collected{%}" (capitalize (format-cardinality count)) (format-plural count)))))))))
   
   
   ;;;

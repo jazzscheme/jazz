@@ -4482,6 +4482,75 @@
 
 
 ;;;
+;;;; Waiter
+;;;
+
+
+(class Waiter extends Object
+  
+  
+  (slot time             getter generate)
+  (slot proc             getter generate)
+  (slot mutex   <object> getter generate)
+  (slot condvar <object> getter generate)
+  (slot thread  <object> getter generate)
+  (slot done?            getter generate)
+  
+  
+  (method override (initialize self)
+    (nextmethod self)
+    (set! self.time #f)
+    (set! self.proc #f)
+    (set! self.mutex (make-mutex 'waiter))
+    (set! self.condvar (make-condition-variable 'waiter))
+    (set! self.thread (new-thread (lambda () (wait self)) 'waiter))
+    (set! self.done? #f)
+    (thread-start! thread))
+  
+  
+  (method public (done self)
+    (mutex-lock! mutex)
+    (set! done? #t)
+    (condition-variable-signal! condvar)
+    (mutex-unlock! mutex))
+  
+  
+  (method public (in self elapse proc)
+    (mutex-lock! mutex)
+    (set! self.time (+ (current-seconds) elapse))
+    (set! self.proc proc)
+    (condition-variable-signal! condvar)
+    (mutex-unlock! mutex))
+  
+  
+  (method (wait self)
+    (declare (proper-tail-calls))
+    (let (loop-wait)
+      (if done?
+          #f
+        (mutex-lock! mutex)
+        (if (not time)
+            (begin
+              (mutex-unlock! mutex condvar)
+              (loop-wait))
+          (let ((now (current-seconds)))
+            (let ((remaining (- time now)))
+              (if (<= remaining 0.)
+                  (begin
+                    (proc)
+                    (set! time #f)
+                    (set! proc #f)
+                    (mutex-unlock! mutex condvar)
+                    (loop-wait))
+                (mutex-unlock! mutex condvar remaining)
+                (loop-wait)))))))))
+
+
+(definition public (make-waiter)
+  (new Waiter))
+
+
+;;;
 ;;;; Box
 ;;;
 

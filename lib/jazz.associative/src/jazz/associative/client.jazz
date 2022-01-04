@@ -109,7 +109,7 @@
         (let ((changes (get-added/modified diff)))
           (let ((total (length changes)))
             (when (> total 0)
-              (download-changes self changes total 0 0)
+              (download-changes self 'all '() changes total 0 0)
               (setup-entries index (get-entries remote-index))
               (save-to-file index)))))))
   
@@ -152,7 +152,7 @@
                                           (feedback 'progress total received downloaded))))))
                                 local-changes)
                       ;; remote
-                      (download-changes self remote-changes total received downloaded)
+                      (download-changes self 'all '() remote-changes total received downloaded)
                       ;; index
                       (setup-entries index (get-entries remote-index))
                       (save-to-file index)))))))))))
@@ -164,12 +164,12 @@
         (let ((changes (get-added/modified diff)))
           (let ((total (length changes)))
             (when (> total 0)
-              (download-changes self changes total 0 0)
+              (download-changes self 'sets (list sets) changes total 0 0)
               (update-changes index changes)))))))
   
   
-  (method protected (download-changes self changes total received downloaded)
-    (jas-write-object (list 'download 'all) port)
+  (method protected (download-changes self what arguments changes total received downloaded)
+    (jas-write-object `(download ,what ,@arguments) port)
     (jas-write-deflated (changes->list changes) port)
     (jas-force-output port)
     (for-each (lambda (change)

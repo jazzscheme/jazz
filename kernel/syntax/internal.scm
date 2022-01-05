@@ -69,6 +69,18 @@
 
 
 ;;;
+;;;; Libraries
+;;;
+
+
+(cond-expand
+  (mac
+   (define (jazz:use-dlclose)
+     (##use-dlclose)))
+  (else))
+
+
+;;;
 ;;;; Compiler
 ;;;
 

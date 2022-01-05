@@ -693,6 +693,10 @@
 (native jazz:image-load-counter)
 (native jazz:object-load-counter)
 (native jazz:interpreted-load-counter)
+(cond-expand
+  (mac
+   (native jazz:use-dlclose))
+  (else))
 (native jazz:compiler-present?)
 (native jazz:compiler-name)
 (native jazz:compiler-extension)

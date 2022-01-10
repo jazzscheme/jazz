@@ -1294,7 +1294,7 @@
 
 
 ;; adapted from ##display-gc-report
-(define (jazz:present-bytes bytes)
+(define (jazz:present-binary-bytes bytes)
   (declare (not safe))
   
   (define (scale x m)

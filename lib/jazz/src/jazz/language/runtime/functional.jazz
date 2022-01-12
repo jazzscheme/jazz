@@ -4514,10 +4514,10 @@
     (mutex-unlock! mutex))
   
   
-  (method public (in self elapse proc)
+  (method public (in self delay proc)
     (mutex-lock! mutex)
     (let ((first-time? (not time)))
-      (set! self.time (+ (current-seconds) elapse))
+      (set! self.time (+ (current-seconds) delay))
       (set! self.proc proc)
       (if first-time?
           (thread-start!
@@ -4538,11 +4538,19 @@
         (let ((now (current-seconds)))
           (let ((remaining (- time now)))
             (if (<= remaining 0.)
-                (begin
-                  (proc)
-                  (set! time #f)
-                  (set! proc #f)
-                  (mutex-unlock! mutex))
+                (let ((again-delay #f))
+                  (define (again delay)
+                    (set! time (+ now delay))
+                    (set! again-delay delay))
+                 
+                  (proc again)
+                  (if again-delay
+                      (begin
+                        (mutex-unlock! mutex condvar again-delay)
+                        (loop-wait))
+                    (set! time #f)
+                    (set! proc #f)
+                    (mutex-unlock! mutex)))
               (mutex-unlock! mutex condvar remaining)
               (loop-wait))))))))
 

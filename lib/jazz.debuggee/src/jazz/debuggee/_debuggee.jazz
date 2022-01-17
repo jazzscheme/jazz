@@ -1017,22 +1017,35 @@
 
 
 ;;;
-;;;; Step
+;;;; Stepper
 ;;;
 
 
-(definition public (install-step)
+;; quick hack to mitigate the problem of stepping
+;; into large macro expanded code that does not
+;; correspond well with the original source code
+(definition last-step-cmd
+  #f)
+(definition last-step-locat
+  #f)
+
+
+(definition public (install-stepper (step-level 5))
   (declare (proper-tail-calls))
-  (install-step-handler
+  (install-step-handler step-level
     (lambda (locat executer)
-      (continuation-capture
-        (lambda (cont)
-          (invoke-debugger 'break #f #f #f cont
-            locat: locat
-            stepper: (lambda (cmd)
-                       (continuation-graft cont
-                         (lambda ()
-                           (executer cmd))))))))))
+      (if (and last-step-cmd (equal? locat last-step-locat))
+          (executer last-step-cmd)
+        (set! last-step-locat locat)
+        (continuation-capture
+          (lambda (cont)
+            (invoke-debugger 'break #f #f #f cont
+              locat: locat
+              stepper: (lambda (cmd)
+                         (set! last-step-cmd cmd)
+                         (continuation-graft cont
+                           (lambda ()
+                             (executer cmd)))))))))))
 
 
 ;;;

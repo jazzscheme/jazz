@@ -137,12 +137,12 @@
   #t)
 
 
-(jazz:define-method (jazz:emit-binding-assignment (jazz:Define-Declaration declaration) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-binding-assignment (jazz:Define-Declaration declaration) value source-declaration walker resume environment backend form-src)
   (let ((value (jazz:emit-expression value source-declaration walker resume environment backend)))
     (jazz:new-code
       (jazz:emit backend 'define-assignment declaration source-declaration walker resume environment value)
       jazz:Any
-      #f)))
+      form-src)))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Define-Declaration declaration) down up here seed environment)

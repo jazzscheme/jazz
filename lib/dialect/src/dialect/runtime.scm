@@ -215,7 +215,7 @@
 (jazz:define-virtual (jazz:walker-bindings (jazz:Walker walker)))
 (jazz:define-virtual (jazz:walk-form (jazz:Walker walker) resume declaration environment form-src))
 (jazz:define-virtual (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
-(jazz:define-virtual (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
+(jazz:define-virtual (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value form-src))
 (jazz:define-virtual (jazz:validate-proclaim (jazz:Walker walker) resume declaration form-src))
 (jazz:define-virtual (jazz:runtime-export (jazz:Walker walker) declaration))
 (jazz:define-virtual (jazz:lookup-environment (jazz:Walker walker) resume declaration environment symbol-src symbol))
@@ -271,7 +271,7 @@
 (jazz:define-virtual (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration walker resume environment backend))
 (jazz:define-virtual (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments arguments-codes source-declaration walker resume environment backend))
 (jazz:define-virtual (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration walker resume environment backend))
-(jazz:define-virtual (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment backend))
+(jazz:define-virtual (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment backend form-src))
 
 
 (jazz:define-method (jazz:walk-binding-lookup (jazz:Walk-Binding binding) symbol source-declaration)
@@ -332,7 +332,7 @@
   #f)
 
 
-(jazz:define-method (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment backend form-src)
   (jazz:unspecified))
 
 
@@ -3869,7 +3869,7 @@
   #t)
 
 
-(jazz:define-method (jazz:emit-binding-assignment (jazz:Variable binding) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-binding-assignment (jazz:Variable binding) value source-declaration walker resume environment backend form-src)
   (let ((value-code (jazz:emit-expression value source-declaration walker resume environment backend)))
     (receive (annotated-frame annotated-variable annotated-type) (jazz:find-annotated binding environment)
       (%%when (%%class-is? annotated-variable jazz:Annotated-Variable)
@@ -3878,7 +3878,7 @@
       (jazz:new-code
         (jazz:emit backend 'variable-assignment binding source-declaration walker resume environment binding-code value-code)
         jazz:Any
-        #f))))
+        form-src))))
 
 
 (define (jazz:register-variable declaration suffix value)
@@ -5351,12 +5351,12 @@
    (symbol-source getter: generate)))
 
 
-(define (jazz:new-assignment binding value symbol-src)
-  (jazz:allocate-assignment #f #f binding value symbol-src))
+(define (jazz:new-assignment source binding value symbol-src)
+  (jazz:allocate-assignment #f source binding value symbol-src))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Assignment expression) declaration walker resume environment backend)
-  (jazz:emit-binding-assignment (jazz:get-assignment-binding expression) (jazz:get-assignment-value expression) declaration walker resume environment backend))
+  (jazz:emit-binding-assignment (jazz:get-assignment-binding expression) (jazz:get-assignment-value expression) declaration walker resume environment backend (jazz:get-expression-source expression)))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Assignment expression) down up here seed environment)
@@ -5366,12 +5366,12 @@
       environment))
 
 
-(jazz:define-method (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value)
+(jazz:define-method (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value form-src)
   (let ((binding (jazz:lookup-symbol walker resume declaration environment symbol-src)))
     (if binding
         (begin
           (jazz:walk-binding-validate-assignment binding walker resume declaration symbol-src)
-          (jazz:new-assignment binding (jazz:walk walker resume declaration environment value) symbol-src))
+          (jazz:new-assignment form-src binding (jazz:walk walker resume declaration environment value) symbol-src))
       (jazz:walk-free-assignment walker resume declaration symbol-src))))
 
 
@@ -5636,7 +5636,7 @@
     (let ((variable (%%cadr (jazz:source-code form-src)))
           (value (%%car (%%cddr (jazz:source-code form-src)))))
       (if (%%symbol? (jazz:unwrap-syntactic-closure variable))
-          (jazz:walk-symbol-assignment walker resume declaration environment variable value)
+          (jazz:walk-symbol-assignment walker resume declaration environment variable value form-src)
         (jazz:walk-error walker resume declaration variable "Illegal set! of {s}" (%%desourcify variable))))))
 
 

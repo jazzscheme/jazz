@@ -39,7 +39,10 @@
 
 
 (import (jazz.application)
+        (jazz.catalog)
+        (jazz.catalog.edit)
         (jazz.editor)
+        (jazz.editor.jazz)
         (jazz.event)
         (jazz.graphic)
         (jazz.handler)
@@ -48,6 +51,7 @@
         (jazz.markup)
         (jazz.outline)
         (jazz.platform)
+        (jazz.project)
         (jazz.resource)
         (jazz.stream)
         (jazz.text)
@@ -62,9 +66,11 @@
   (property file initialize #f accessors generate)
   
   
+  (slot kind)
   (slot port)
   (slot entries)
   (slot ignored)
+  (slot active initialize #f)
   
   
   (form
@@ -73,7 +79,7 @@
         (<Separator>                                       size: {Dimension 2 0})
         (<Label-View>                 name: file-label     justification: (head -3) title: "File:" size: {Dimension 37 20} font: {Font Label})
         (<Border-View>                                     size: {Dimension 300 20} border-type: fill border-insets: {Rect 0 1 0 0}
-          (<Border-View>              name: file-border    border-type: edge style: entry
+          (<Border-View>                                   border-type: edge style: entry
             (<Moniker-Widget>         name: file           protocol: file display-protocol?: #f display-logical?: #f moniker-update-handler: {Event-Handler :form on-moniker-update})))
         (<Separator>                                       size: {Dimension 24 0})
         (<Label-View>                 name: filter-label   justification: (head -3) title: "Filter:" size: {Dimension 37 20} font: {Font Label})
@@ -88,25 +94,30 @@
         (<Separator>                                       location: tail size: {Dimension 40 0})
         (<Push-Tool>                  name: update         location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Update" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-update-leaks}))
       (<Splitter-View>                                     location: center orientation: vert mode: relative division: 50 style: document
-        (<Splitter-View>                                   location: first orientation: horz mode: relative division: 35 style: document
-          (<Border-View>              name: text-border    location: first border-type: edge style: entry
+        (<Splitter-View>                                   location: first orientation: horz mode: relative division: 40 style: document
+          (<Border-View>                                   location: first border-type: edge style: entry
             (<Scroller-View>                               style: document hscroll?: #t vscroll?: #t
               (<!>                    name: content        layout-type: fill
                 (<Tree-Header>                             style: document
                   (<!>                name: content
                     (<Life-Tree>      name: life-tree      selection-handler: {Event-Handler :form on-selection-change}))))))
-          (<Border-View>              name: text-border    location: second border-type: edge style: entry
+          (<Border-View>                                   location: second border-type: edge style: entry
             (<Scroller-View>                               style: document hscroll?: #t vscroll?: #t
               (<!>                    name: content        layout-type: fill
                 (<Tree-Header>                             style: document
                   (<!>                name: content
                     (<Objects-Tree>   name: objects-tree   selection-handler: {Event-Handler :form on-selection-change})))))))
-        (<Border-View>                name: tree-border    location: second border-type: edge style: entry
-          (<Scroller-View>                                 style: document hscroll?: #t vscroll?: #t
-            (<!>                      name: content        layout-type: fill
-              (<Tree-Header>                               style: document
-                (<!>                  name: content
-                  (<Stack-Tree>       name: stack-tree     double-click-handler: {Event-Handler :form on-double-click})))))))))
+        (<Splitter-View>                                   location: second orientation: horz mode: relative division: 35 style: document
+          (<Border-View>                                   location: first border-type: edge style: entry
+            (<Scroller-View>                               style: document hscroll?: #t vscroll?: #t
+              (<!>                    name: content        layout-type: fill
+                (<Tree-Header>                             style: document
+                  (<!>                name: content
+                    (<Stack-Tree>     name: stack-tree     selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click}))))))
+          (<Border-View>                                   location: second border-type: edge style: entry
+            (<Scroller-View>                               hscroll?: #t vscroll?: #t
+              (<!>                    name: content
+                (<Jazz-Text-View>     name: text           left-padding: 12 editable?: #f))))))))
   
   
   ;;;
@@ -163,9 +174,12 @@
       (case (get-name sender)
         ((objects-tree)
          (update-life self sender)
-         (update-stack self sender))
+         (select-first-row (locate self 'life-tree)))
         ((life-tree)
-         (update-stack self sender)))))
+         (update-stack self sender)
+         (update-first-frame self sender))
+        ((stack-tree)
+         (update-frame self sender)))))
   
   
   (method (on-double-click self evt)
@@ -180,6 +194,9 @@
   (method (on-update-leaks self evt)
     (if (not file)
         (bell)
+      (when port
+        (close-port port))
+      (set! port (open-input-file (path-settings file)))
       (update-leaks self)))
   
   
@@ -190,14 +207,28 @@
   
   (method (update-file self)
     (set! file (get-moniker (locate self 'file)))
+    (set! kind (determine-kind self file))
     (set! port (open-input-file (path-settings file)))
     (update-leaks self))
   
   
+  (method (determine-kind self file)
+    (call-with-input-file (path-settings file)
+      (lambda (port)
+        (if (equal? (read-line port) "jazz")
+            'jazz
+          'gstreamer))))
+  
+  
   (method (update-leaks self)
-    (receive (e i) (parse-leaks port)
-      (set! entries e)
-      (set! ignored i))
+    (case kind
+      ((jazz)
+       (set! entries (read-leaks port))
+       (set! ignored '()))
+      (else
+       (receive (e i) (parse-leaks port)
+         (set! entries e)
+         (set! ignored i))))
     (update-ignored self)
     (update self))
   
@@ -216,15 +247,17 @@
             (lambda ()
               (for-each (lambda (entry)
                           (bind (what type address description refcount) entry
-                            (when (equal? what "object-alive")
-                              (add-row tree children: (list (new Tree-Node title: type)
+                            (when (memq? what '(alive invalid))
+                              (add-row tree children: (list (new Tree-Node title: (->string what))
+                                                            (new Tree-Label title: type)
                                                             (new Tree-Label title: address)
                                                             (new Tree-Label title: description)
                                                             (new Tree-Label title: refcount))
                                 user-data: entry))))
                         entries))))
         (remove-every-row (locate self 'life-tree))
-        (remove-every-row (locate self 'stack-tree)))))
+        (remove-every-row (locate self 'stack-tree))
+        (clear-frame self))))
   
   
   (method (update-life self sender)
@@ -238,9 +271,24 @@
                 (with-update-locked tree
                   (lambda ()
                     (for-each (lambda (entry)
-                                (bind (what type address description refcount) entry
+                                (bind (what type address description refcount stack) entry
+                                  (define (present-description)
+                                    (define (present-frame frame)
+                                      (bind (name line col) frame
+                                        (if (not line)
+                                            (->string name)
+                                          (format "{a} + {a}" name line))))
+                                    
+                                    (if (eq? kind 'jazz)
+                                        (let ((frame (find-first-frame self stack)))
+                                          (if (not frame)
+                                               description
+                                            (present-frame frame)))
+                                      description))
+                                  
                                   (when (equal? address sender-address)
-                                    (add-row tree children: (list (new Tree-Label title: description)
+                                    (add-row tree children: (list (new Tree-Node title: (->string what))
+                                                                  (new Tree-Label title: (present-description))
                                                                   (new Tree-Label title: refcount))
                                       user-data: entry))))
                               entries))))))))))
@@ -256,20 +304,110 @@
               (bind (what type address description refcount stack) entry
                 (with-update-locked tree
                   (lambda ()
-                    (for-each (lambda (frame)
-                                (bind (library function offset) frame
-                                  (add-row tree children: (list (new Tree-Node title: (string-append function " + " offset))
-                                                                (new Tree-Label title: library))
-                                    user-data: frame)))
-                              stack))))))))))
+                    (if (eq? kind 'jazz)
+                        (for-each (lambda (frame)
+                                    (bind (name line col) frame
+                                      (define (present-frame)
+                                        (if (not line)
+                                            (->string name)
+                                          (format "{a} + {a}" name line)))
+                                      
+                                      (add-row tree children: (list (new Tree-Node title: (present-frame))
+                                                                    (new Tree-Label title: ""))
+                                        user-data: frame)))
+                                  stack)
+                      (for-each (lambda (frame)
+                                  (bind (library function offset) frame
+                                    (add-row tree children: (list (new Tree-Node title: (string-append function " + " offset))
+                                                                  (new Tree-Label title: library))
+                                      user-data: frame)))
+                                stack)))))))))))
+  
+  
+  (method (find-first-frame self stack)
+    (cond ((null? stack)
+           #f)
+          ((>= (length stack) 3)
+           (third stack))
+          (else
+           (last stack))))
+  
+  
+  (method (update-first-frame self sender)
+    (if (eq? kind 'jazz)
+        (let ((entry (get-single-selected-data sender)))
+          (if entry
+              (bind (what type address description refcount stack) entry
+                (let ((frame (find-first-frame self stack)))
+                  (if frame
+                      (show-frame self frame)
+                    (clear-frame self))))
+            (clear-frame self)))
+      (clear-frame self)))
+  
+  
+  (method (update-frame self sender)
+    (if (eq? kind 'jazz)
+        (let ((frame (get-single-selected-data sender)))
+          (if frame
+              (show-frame self frame)
+            (clear-frame self)))
+      (clear-frame self)))
+  
+  
+  (method (show-frame self frame)
+    (bind (name line col) frame
+      (if (and (symbol? name)
+               (composite-reference? name)
+               line)
+          (let ((entry (locator->entry name)))
+            (if entry
+                (let ((moniker (get-moniker entry)))
+                  (if (exists? moniker)
+                      (install-frame self moniker line col)
+                    (clear-frame self)))
+              (clear-frame self)))
+        (clear-frame self))))
+  
+  
+  (method (install-frame self moniker line col)
+    (let ((text (locate self 'text)))
+      (define (install-indicator cell)
+        (fill (get-model text) {Color Frame} cell)
+        (ensure-cell-displayed text cell)
+        (set! active cell))
+      
+      (define (uninstall-indicator)
+        (unfill (get-model text) active)
+        (set! active #f))
+      
+      (when active
+        (uninstall-indicator))
+      (set-moniker text moniker)
+      (install-indicator (new Cell line col))))
+  
+  
+  (method (clear-frame self)
+    (let ((text (locate self 'text)))
+      (set-moniker text #f))
+    (set! active #f))
   
   
   (method (edit-frame self sender)
     (let ((frame (get-single-selected-data sender)))
       (if (not frame)
           (bell)
-        (bind (library function offset) frame
-          (edit-definitions (current-application) function))))))
+        (if (eq? kind 'jazz)
+            (bind (name line col) frame
+              (if (and (symbol? name)
+                       (composite-reference? name))
+                  (let ((entry (locator->entry name)))
+                    (if (not entry)
+                        (bell)
+                      (edit-entry entry)))
+                (bell)))
+          (bind (library function offset) frame
+            (edit-definitions (current-application) function)))))))
 
 
 ;;;
@@ -282,7 +420,8 @@
   
   (form
     (<install>                               filled-column: description multiple-selection?: #t
-      (<Tree-Node-Column>  name: type        title: "Type" width: 200 toplevel-controls?: #f display-images?: #f)
+      (<Tree-Node-Column>  name: what        title: "What" width: 100 toplevel-controls?: #f display-images?: #f)
+      (<Tree-Label-Column> name: type        title: "Type" width: 200)
       (<Tree-Label-Column> name: address     title: "Address" width: 150)
       (<Tree-Label-Column> name: description title: "Description" width: 175)
       (<Tree-Label-Column> name: refcount    title: "Refcount" width: 80))))
@@ -298,6 +437,7 @@
   
   (form
     (<install>                               filled-column: description multiple-selection?: #t
+      (<Tree-Node-Column>  name: what        title: "What" width: 100 toplevel-controls?: #f display-images?: #f)
       (<Tree-Label-Column> name: description title: "Description" width: 175)
       (<Tree-Label-Column> name: refcount    title: "Refcount" width: 80))))
 

@@ -1226,6 +1226,14 @@
                              rest)))
         (values what fields))))
   
+  (define (parse-what what description)
+    (cond ((equal? what "object-alive")
+           'alive)
+          ((equal? what "object-refings")
+           'ref)
+          (else
+           (error "Unknown what: {s}" what))))
+  
   (define (parse-type-name value)
     (if (starts-with? value "(string)")
         (substring value 8 (string-length value))
@@ -1269,15 +1277,22 @@
                               (description (parse-description (cdr (assoc "description" fields))))
                               (refcount (parse-refcount (cdr (assoc "ref-count" fields))))
                               (stack (parse-stack stack)))
-                          (let ((entry (list what type address description refcount stack)))
-                            (if (and ignore-audio/x-raw-caps?
-                                     (equal? type "GstCaps")
-                                     (equal? description "audio/x-raw"))
-                                (enqueue ignored entry)
-                              (enqueue kept entry))))))))
+                          (let ((what (parse-what what description)))
+                            (let ((entry (list what type address description refcount stack)))
+                              (if (and ignore-audio/x-raw-caps?
+                                       (equal? type "GstCaps")
+                                       (equal? description "audio/x-raw"))
+                                  (enqueue ignored entry)
+                                (enqueue kept entry)))))))))
                 entries)
       (values (queue-list kept)
               (queue-list ignored)))))
+
+
+(definition public (read-leaks port)
+  (let ((header (read-line port)))
+    (assert (equal? header "jazz")
+      (read-all port))))
 
 
 (definition public (report-leaks (file: file #f) (ignore-audio/x-raw-caps?: ignore-audio/x-raw-caps? default-ignore-audio/x-raw-caps?))

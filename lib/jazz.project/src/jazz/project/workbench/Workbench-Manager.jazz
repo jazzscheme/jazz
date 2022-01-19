@@ -765,9 +765,13 @@
   
   (method (synchronize-content self)
     (define (synchronize-filter project pathname)
-      (let ((ext (get-extension pathname))
-            (ignored-extensions '("project" "package")))
-        (not (member? ext ignored-extensions test: extension=?))))
+      (and (let ((ext (get-extension pathname))
+                 (ignored-extensions '("project" "package")))
+             (not (member? ext ignored-extensions test: extension=?)))
+           ;; ignore gambit build directories
+           (or (not (directory? pathname))
+               (let ((base (get-base pathname)))
+                 (not (string-find base #\@))))))
     
     (let ((object (selected-object self)))
       (if (find-descendant object (lambda (descendant) (is? descendant Project)) include-self?: #f)

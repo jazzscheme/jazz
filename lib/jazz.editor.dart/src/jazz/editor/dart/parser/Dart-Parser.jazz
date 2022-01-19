@@ -1,0 +1,274 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Dart Parser
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.editor.dart.parser.Dart-Parser jazz
+
+
+(import (jazz.catalog)
+        (jazz.editor.c)
+        (jazz.editor.clike)
+        (jazz.editor.dart)
+        (jazz.editor.java)
+        (jazz.io))
+
+
+;; quick copy/paste of the java parse code
+;; until it becomes clear what can be unified
+
+
+(class Dart-Parser extends File-Parser
+  
+  
+  (definition ignored-references
+    (let ((syntax (new Dart-Syntax #f)))
+      (get-keywords syntax)))
+  
+  
+  ;;;
+  ;;;; Constituent
+  ;;;
+  
+  
+  (method meta override (get-constituent-test self)
+    c-constituent?)
+  
+  
+  ;;;
+  ;;;; Parse
+  ;;;
+  
+  
+  (method override (parse self file digest dialect)
+    (define (parse-definitions)
+      (let ((lines (list->vector (load-lines file char-encoding: char-encoding char-encoding-errors: #f)))
+            (fact (new List-Factory)))
+      (loop (for n from 0 below (cardinality lines))
+            (do
+              (let* ((line (vector-ref lines n))
+                     (item (or (find-package line n)
+                               (find-import line n)
+                               (find-definition lines line n))))
+                (when item (put fact item)))))
+      (get-output fact)))
+    
+    ;;;
+    ;;;; Package
+    ;;;
+    
+    (define package
+      "package")
+    
+    (define (find-package line n)
+      (let ((len (string-length line))
+            (col (skip-whitespace line)))
+        (and (and (> len (+ col (string-length package)))
+                  (string=? package (substring line col (+ col (string-length package)))))
+             (let* ((start (+ col (string-length package)))
+                    (col (skip-whitespace line start: start)))
+               (and (and (> col start) (< col len))
+                    (let* ((start col)
+                           (col (skip (lambda (c) (or (c-constituent? c) (eqv? c #\period))) line start: start)))
+                      (and (and (> col start) (< col len))
+                           (new Java-Package-Entry (subseq line start col) n start n col))))))))
+    
+    ;;;
+    ;;;; Import
+    ;;;
+    
+    (define import
+      "import")
+    
+    (define (find-import line n)
+      (let ((len (string-length line))
+            (col (skip-whitespace line)))
+        (and (and (> len (+ col (string-length import)))
+                  (string=? import (substring line col (+ col (string-length import)))))
+             (let* ((start (+ col (string-length import)))
+                    (col (skip-whitespace line start: start)))
+               (and (and (> col start) (< col len))
+                    (let* ((start col)
+                           (col (skip (lambda (c) (or (c-constituent? c) (eqv? c #\period))) line start: start)))
+                      (and (and (> col start) (< col len))
+                           (new Java-Import-Entry (subseq line start col) n start n col))))))))
+    
+    ;;;
+    ;;;; Definition
+    ;;;
+    
+    (define visibilities
+      '("private"
+        "protected"
+        "public"))
+    
+    (define modifiers
+      '())
+    
+    (define (collect-references lines l c endl name)
+      (declare (proper-tail-calls))
+      (let ((references '())
+            (count (vector-length lines))
+            (line (vector-ref lines l)))
+        (let ((len (string-length line)))
+          (define (get)
+            (if (< c len)
+                (prog1 (string-ref line c)
+                  (increase! c))
+              (let ((nl (+ l 1)))
+                (if (and endl (>= nl endl))
+                    #f
+                  (let (iter (nl nl))
+                    (if (>= nl count)
+                        #f
+                      (let ((nline (vector-ref lines nl)))
+                        (if (empty-string? nline)
+                            (iter (+ nl 1))
+                          (set! l nl)
+                          (set! line nline)
+                          (set! len (string-length line))
+                          (set! c 0)
+                          (string-ref line c)))))))))
+          
+          (define (add reference)
+            (unless (or (equal? reference name)
+                        (member? reference ignored-references)
+                        (member? reference references))
+              (set! references (cons reference references))))
+          
+          (define (process level)
+            (process-character level (get)))
+          
+          (define (process-character level c)
+            (cond ((not c))
+                  ((whitespace? c)
+                   (process level))
+                  ((c-constituent? c)
+                   (process-constituent level c))
+                  ((eqv? c #\{)
+                   (process-open level))
+                  ((eqv? c #\})
+                   (process-close level))
+                  (else
+                   (process level))))
+          
+          (define (process-constituent level c)
+            (let ((constituent (string c)))
+              (let (iter)
+                (let ((c (get)))
+                  (if (and c (c-constituent? c))
+                      (begin
+                        (set! constituent (string-append constituent (string c)))
+                        (iter))
+                    (add constituent)
+                    (process-character level c))))))
+          
+          (define (process-open level)
+            (process (+ level 1)))
+          
+          (define (process-close level)
+            (let ((new-level (- level 1)))
+              (when (or endl (> new-level 0))
+                (process new-level))))
+          
+          (process 0)
+          (values l c references))))
+    
+    (define (find-definition lines line n)
+      (let ((len (string-length line))
+            (line-start (skip-whitespace line))
+            (visibility #f))
+        (and (some? (lambda (vis)
+                      (and (and (> len (+ line-start (string-length vis)))
+                                (string=? vis (substring line line-start (+ line-start (string-length vis)))))
+                           (begin
+                             (set! visibility (+ line-start (string-length vis)))
+                             #t)))
+                    visibilities)
+             (let ((col (search line " = ")))
+               (if col
+                   (let ((start (skip c-constituent? line reversed?: #t start: col)))
+                     (let ((name (subseq line start col)))
+                       (receive (endl endc references) (collect-references lines n line-start (+ n 1) name)
+                         (new Java-Definition-Entry name 'variable '() n start n col n line-start endl endc references))))
+                 (let ((last (string-ref line (- len 1))))
+                   (define (constructor?)
+                     (let ((pos (skip c-constituent? line start: (+ visibility 1))))
+                       (and (< pos len)
+                            (eqv? (string-ref line pos) #\())))
+                   
+                   (cond ((search line " throws ")
+                          =>
+                           (lambda (pos)
+                             (let ((start (search line "(" reversed?: #t start: pos)))
+                               (and start
+                                    (let ((col start))
+                                      (let ((start (skip c-constituent? line reversed?: #t start: col)))
+                                        (let ((name (subseq line start col))
+                                              (kind (if (constructor?) 'constructor 'method)))
+                                          (receive (endl endc references) (collect-references lines n line-start #f name)
+                                            (new Java-Definition-Entry name 'method '() n start n col n line-start endl endc references)))))))))
+                         ((eqv? last #\))
+                          (let ((start (search line "(" reversed?: #t start: len)))
+                            (and start
+                                 (let ((col start))
+                                   (let ((start (skip c-constituent? line reversed?: #t start: col)))
+                                     (let ((name (subseq line start col))
+                                           (kind (if (constructor?) 'constructor 'method)))
+                                       (receive (endl endc references) (collect-references lines n line-start #f name)
+                                         (new Java-Definition-Entry name 'method '() n start n col n line-start endl endc references))))))))
+                         ((eqv? last #\;)
+                          (let ((col (- len 1)))
+                            (let ((start (skip c-constituent? line reversed?: #t start: col)))
+                              (let ((name (subseq line start col)))
+                                (receive (endl endc references) (collect-references lines n line-start (+ n 1) name)
+                                  (new Java-Definition-Entry name 'variable '() n start n col n line-start endl endc references))))))
+                         ((let ((try (lambda (kind str)
+                                       (let ((pos (search line str)))
+                                         (and pos
+                                              (cons kind (+ pos (string-length str))))))))
+                            (or (try 'class " class ")
+                                (try 'interface " interface ")
+                                (try 'enum " enum ")))
+                          => (lambda (found)
+                               (bind (kind . start) found
+                                 (let ((col (skip c-constituent? line start: start)))
+                                   (let ((name (subseq line start col)))
+                                     (receive (endl endc references) (collect-references lines n line-start (+ n 1) name)
+                                       (new Java-Definition-Entry name kind '() n start n col n line-start endl endc references)))))))
+                         (else
+                          #f))))))))
+    
+    (new Java-File-Entry catalog file digest dialect (parse-definitions)))))

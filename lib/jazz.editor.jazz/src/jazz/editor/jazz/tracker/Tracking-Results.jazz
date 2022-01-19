@@ -252,8 +252,8 @@
             ((pair? (car data))
              (collect (lambda (info)
                         (bind (entry line value minimum maximum) info
-                          (when entry
-                            (list (list (get-file (get-file-definition entry)) line #f) value minimum maximum))))
+                          (and entry
+                               (list (list (get-file (get-file-definition entry)) line #f) value minimum maximum))))
                       data))
             (else
              (list (list data 0 0 0))))))
@@ -266,26 +266,34 @@
   
   (method (view-tracking self)
     (define (add-entry allocation)
-      (bind (info container line) allocation
-        (define (determine-entry)
-          (when container
-            (let ((file-entry (cache-container-entry container)))
-              (when file-entry
-                (or (line->entry file-entry (- line 1))
-                    (get-root-definition file-entry))))))
-        
-        (cons (determine-entry) allocation)))
+      (bind (info container line stack) allocation
+        ;; hack around a gambit bug fixed in latest
+        (let ((container (remove-trailing #\" container)))
+          (define (determine-entry)
+            (and container
+                 (let ((file-entry (cache-container-entry container)))
+                   (and file-entry
+                        (or (line->entry file-entry (- line 1))
+                            (get-root-definition file-entry))))))
+          
+          (cons (determine-entry) (list info container line stack)))))
     
     (define (add-stack tree father stack)
       (for-each (lambda (frame)
                   (bind (creator locat) frame
-                    (bind (container line col) locat
-                      (add-row tree
-                        father: father
-                        children: (list (new Tree-Node title: (->string container))
-                                        (new Tree-Label title: "")
-                                        (new Tree-Label title: ""))
-                        user-data: locat))))
+                    ;; quick try
+                    (when locat
+                      (bind (container line col) locat
+                        (let ((title (let ((entry (cache-container-entry container)))
+                                       (if entry
+                                           (get-location-name entry)
+                                         (->string container)))))
+                          (add-row tree
+                                   father: father
+                                   children: (list (new Tree-Node title: (->string container))
+                                                   (new Tree-Label title: "")
+                                                   (new Tree-Label title: ""))
+                                   user-data: locat))))))
                 stack))
     
     (define (sort-allocations partition)

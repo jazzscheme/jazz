@@ -75,6 +75,8 @@
         (<Push-Tool>          name: restart    size: {Dimension 22 22} enabled?: #f tooltip?: #t tooltip-text: "Restart" resource: {Image-Resource "Restart"} portfolio: :images action-handler: {Event-Handler :guest on-restart})
         (<Push-Tool>          name: break      size: {Dimension 22 22} enabled?: #f tooltip?: #t tooltip-text: "Break" resource: {Image-Resource "Break"} portfolio: :images action-handler: {Event-Handler :guest on-break})
         (<Push-Tool>          name: continue   size: {Dimension 22 22} enabled?: #f tooltip?: #t tooltip-text: "Continue" resource: {Image-Resource "Continue"} portfolio: :images action-handler: {Event-Handler :guest on-continue})
+        (<Push-Tool>          name: step       size: {Dimension 22 22} enabled?: #f tooltip?: #t tooltip-text: "Step" resource: {Image-Resource "StepInto"} portfolio: :images action-handler: {Event-Handler :guest on-step})
+        (<Push-Tool>          name: step-over  size: {Dimension 22 22} enabled?: #f tooltip?: #t tooltip-text: "Step Over" resource: {Image-Resource "StepOver"} portfolio: :images action-handler: {Event-Handler :guest on-step-over})
         (<Separator>                           size: {Dimension 5 0})
         (<Toggle-Tool>        name: detailed   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show Detailed Information" resource: {Image-Resource "All"} portfolio: :images action-handler: {Event-Handler :guest on-toggle-detailed})
         (<Separator>                           size: {Dimension 2 0})
@@ -191,7 +193,7 @@
       (thread-changed (get-debugger-manager) (selected-thread self) user-origin: user-origin)))
   
   
-  (method (on-restart self evt)
+  (method package (on-restart self evt)
     (let ((restart (car (get-restarts (get-active-stop (selected-thread self))))))
       (restart-stop self restart)))
   
@@ -203,6 +205,60 @@
   (method (on-continue self evt)
     (continue-stop self))
   
+  
+  (method (on-step self evt)
+    (step-stop self 'step))
+  
+  
+  (method (on-step-over self evt)
+    (step-stop self 'leap))
+    
+  
+  ;; super quicky
+  (method package (on-restart-safe self evt)
+    (let ((thread (selected-thread self)))
+      (when thread
+        (let ((stop (get-active-stop thread)))
+          (when stop
+            (let ((restarts (get-restarts stop)))
+              (when (not-null? restarts)
+                (let ((restart (car restarts)))
+                  (restart-stop self restart)))))))))
+  
+  
+  ;; super quicky
+  (method (on-break-safe self evt)
+    (let ((thread (selected-thread self)))
+      (when thread
+        (break-thread self))))
+  
+  
+  ;; super quicky
+  (method package (on-continue-safe self evt)
+    (let ((thread (selected-thread self)))
+      (when thread
+        (let ((stop (get-active-stop thread)))
+          (when stop
+            (continue-stop self))))))
+  
+  
+  ;; super quicky
+  (method package (on-step-safe self evt)
+    (let ((thread (selected-thread self)))
+      (when thread
+        (let ((stop (get-active-stop thread)))
+          (when stop
+            (step-stop self 'step))))))
+  
+  
+  ;; super quicky
+  (method package (on-step-over-safe self evt)
+    (let ((thread (selected-thread self)))
+      (when thread
+        (let ((stop (get-active-stop thread)))
+          (when stop
+            (step-stop self 'leap))))))
+
   
   (method (on-terminate self evt)
     (terminate-thread self))
@@ -262,11 +318,9 @@
   (method package (step-stop self command)
     (let ((thread (selected-thread self)))
       (let ((stop (get-active-stop thread)))
-        (with-thread-refresh self thread
+        (with-remote-exception-handler process
           (lambda ()
-            (with-remote-exception-handler process
-              (lambda ()
-                (step-stop process stop command))))))))
+            (step-stop process stop command))))))
   
   
   (method package (repl-thread self)
@@ -301,7 +355,9 @@
     (receive (restarts break? continue?) (selected-state self)
       (set-enabled? (locate self 'restart) (not-null? restarts))
       (set-enabled? (locate self 'break) break?)
-      (set-enabled? (locate self 'continue) continue?)))
+      (set-enabled? (locate self 'continue) continue?)
+      (set-enabled? (locate self 'step) continue?)
+      (set-enabled? (locate self 'step-over) continue?)))
   
   
   (method (selected-state self)
@@ -311,8 +367,8 @@
         (let ((stop (get-active-stop thread)))
           (if (not stop)
               (values '() #t #f)
-            (values (get-restarts stop) #f  (and (eq? (get-kind stop) 'break)
-                                                  (not (is? thread Debugged-Continuation)))))))))
+            (values (get-restarts stop) #f (and (eq? (get-kind stop) 'break)
+                                                (not (is? thread Debugged-Continuation)))))))))
   
   ;;;
   ;;;; Update

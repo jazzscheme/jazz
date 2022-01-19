@@ -110,12 +110,12 @@
     (get-selected? (locate self 'hidden)))
   
   
-  (method public (thread-changed self new-thread)
+  (method public (thread-changed self new-thread (new-stop #f))
     (set! process (get-process (get-debugger-manager)))
     (set! thread new-thread)
     (update-frames self)
     (when (view-visible? self)
-      (select-first-frame self)))
+      (select-first-frame self new-stop)))
   
   
   ;;;
@@ -196,12 +196,15 @@
   ;;;
   
   
-  (method public (select-first-frame self)
+  (method public (select-first-frame self stop)
     (let ((tree (locate self 'frames)))
-      (let ((preferred-selection (min 2 (- (get-visible-count tree) 1))))
-        (when (and (not (get-single-selection tree)) (>= preferred-selection 0))
-          ;; force?: #t user-origin: #t to test the stepper
-          (set-single-selection tree preferred-selection force?: #t)))))
+      (if (and stop (eq? (get-kind stop) 'break))
+          (when (> (get-visible-count tree) 0)
+            ;; force?: #t user-origin: #t to test the stepper
+            (set-single-selection tree 0 force?: #t user-origin: #t))
+        (let ((preferred-selection (min 2 (- (get-visible-count tree) 1))))
+          (when (and (not (get-single-selection tree)) (>= preferred-selection 0))
+            (set-single-selection tree preferred-selection force?: #t))))))
   
   
   (method public (selected-frame self)

@@ -64,6 +64,7 @@
 (hub get-children)
 (hub get-content)
 (hub get-context)
+(hub get-data)
 (hub get-descendant-anchors)
 (hub get-directory)
 (hub get-extension)
@@ -116,8 +117,7 @@
   (jazz.io.Path (autoload Path))
   (jazz.io.URL (autoload URL)))
 
-(import (jazz.component.hubs)
-        (jazz.time))
+(import (jazz.time))
 
 
 ;;;
@@ -1228,10 +1228,9 @@
   
   
   (method public (get-size self)
-    (unimplemented 'get-size)
-    @windows-specific
-    (with ((input (new File-Reader self readable?: #f)))
-      (get-size input)))
+    (call-with-input-file (path-settings self)
+      (lambda (port)
+        (input-port-byte-position port 0 2))))
 
 
   (method override (get-last-modification-seconds self)
@@ -1641,6 +1640,32 @@
     (delete-directory (parse self)))
   
   
+  (method public (delete-empty-directories self)
+    (iterate-directory self
+      delete-empty-directories
+      files?: #f
+      directories?: #t
+      recursive?: #f)
+    (delete-if-empty self))
+  
+  
+  (method public (delete-if-empty self)
+    (when (empty? self)
+      (delete-empty self)))
+  
+  
+  (method public (empty? self)
+    (continuation-capture
+      (lambda (return)
+        (iterate-directory self
+          (lambda (path)
+            (continuation-return return #f))
+          files?: #t
+          directories?: #t
+          recursive?: #f)
+        #t)))
+  
+  
   (method override (get-content self (nodes?: nodes? #t) (leaves?: leaves? #t))
     (define (collect-nodes fact)
       (iterate-directory self
@@ -1678,11 +1703,11 @@
   ;;;
   
   
-  (method public (collect-files self predicate)
+  (method public (collect-files self (predicate #f))
     (let ((fact (new List-Factory)))
       (iterate-directory self
         (lambda (file)
-          (when (predicate file)
+          (when (or (not predicate) (predicate file))
             (put fact file)))
         recursive?: #f)
       (get-output fact)))

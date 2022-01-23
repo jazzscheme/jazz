@@ -1,0 +1,260 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Associative Client
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.associative.client jazz
+
+
+(import (jazz.associative)
+        (jazz.associative.remote)
+        (jazz.io))
+
+
+(class Not-Found-Error extends Error)
+
+
+(class Jas-Client extends Object
+  
+  
+  (slot repository   getter generate)
+  (slot remote-index getter generate)
+  (slot path         getter generate)
+  (slot access       getter generate)
+  (slot port         getter generate)
+  (slot feedback     getter generate)
+  
+  
+  (method override (initialize self repo host path access (feedback: feedback #f))
+    (nextmethod self)
+    (set! self.repository repo)
+    (set! self.remote-index (new Associative-Index #f #f))
+    (set! self.path path)
+    (set! self.access access)
+    (set! self.port (open-tcp-client (list server-address: host port-number: jas-service)))
+    (set! self.feedback feedback))
+  
+  
+  (method protected (connect self)
+    (define (connect-exception? exc)
+      (or (os-exception? exc)
+          (and (object? exc)
+               (is? exc Jas-Connection-Broke))))
+    
+    (when feedback
+      (feedback 'connect))
+    (catch (connect-exception? exc
+             (throw (new Jas-Unable-To-Connect)))
+      (jas-write-code port)
+      (jas-write-version port)
+      (jas-write-object path port)
+      (jas-write-object access port)
+      (jas-force-output port))
+    (let ((response (jas-read-object port)))
+      (case response
+        ((invalid-version)
+         (throw (new Jas-Invalid-Version)))
+        ((invalid-path)
+         (throw (new Jas-Invalid-Path)))
+        ((inexistant-repository)
+         (throw (new Jas-Inexistant-Repository)))
+        ((connected)
+         (setup-entries remote-index (list->entries (jas-read-deflated port)))))))
+  
+  
+  (method protected (deconnect self)
+    (jas-write-object '(deconnect) port)
+    (jas-force-output port)
+    (close-port port)
+    (set! port #f)
+    (when feedback
+      (feedback 'deconnect)))
+  
+  
+  (method protected (download-all self)
+    (let ((index (get-index repository)))
+      (let ((diff (diff repository remote-index index)))
+        (let ((changes (get-added/modified diff)))
+          (let ((total (length changes)))
+            (when (> total 0)
+              (download-changes self 'all '() changes total 0 0)
+              (setup-entries index (get-entries remote-index))
+              (save-to-file index)))))))
+  
+  
+  (method protected (download-all-with-cache self cache-repository)
+    (assert (open? repository)
+      (assert (not (bare? cache-repository))
+        (let ((index (get-index repository)))
+          (let ((diff (diff repository remote-index index)))
+            (let ((changes (get-added/modified diff)))
+              (let ((total (length changes)))
+                (when (> total 0)
+                  (let ((cache-index (get-index cache-repository))
+                        (local-changes (new-queue))
+                        (remote-changes (new-queue)))
+                    (for-each (lambda (change)
+                                (bind (what path . rest) change
+                                  (when (memq? what '(added modified))
+                                    (let ((remote-entry (car rest))
+                                          (cache-entry (find-entry cache-index path)))
+                                      (if (and cache-entry
+                                               (equal? (get-digest cache-entry) (get-digest remote-entry)))
+                                          (enqueue local-changes change)
+                                        (enqueue remote-changes change))))))
+                              changes)
+                    (let ((local-changes (queue-list local-changes))
+                          (remote-changes (queue-list remote-changes))
+                          (received 0)
+                          (downloaded 0))
+                      ;; local
+                      (for-each (lambda (change)
+                                  (bind (what path) change
+                                    (let ((pathname (tokenise-filename path)))
+                                      (let ((src (new-file (get-working cache-repository) pathname))
+                                            (dst (new-file (get-working repository) pathname)))
+                                        (create-directories dst)
+                                        (duplicate src dst)
+                                        (increase! received)
+                                        (when feedback
+                                          (feedback 'progress total received downloaded))))))
+                                local-changes)
+                      ;; remote
+                      (download-changes self 'all '() remote-changes total received downloaded)
+                      ;; index
+                      (setup-entries index (get-entries remote-index))
+                      (save-to-file index)))))))))))
+  
+  
+  (method protected (download-sets self sets (update-sets #f))
+    (let ((index (get-index repository)))
+      (let ((diff (diff-sets repository remote-index index sets update-sets)))
+        (let ((changes (get-added/modified diff)))
+          (let ((total (length changes)))
+            (when (> total 0)
+              (download-changes self 'sets (list sets) changes total 0 0)
+              (update-changes index changes)))))))
+  
+  
+  (method protected (download-changes self what arguments changes total received downloaded)
+    (jas-write-object `(download ,what ,@arguments) port)
+    (jas-write-deflated (changes->list changes) port)
+    (jas-force-output port)
+    (for-each (lambda (change)
+                (bind (what path remote-entry) change
+                  (let ((content (jas-read-content port)))
+                    (increase! received)
+                    (increase! downloaded (u8vector-length content))
+                    (when feedback
+                      (feedback 'progress total received downloaded))
+                    (let ((digest (get-digest remote-entry))
+                          (flags (get-flags remote-entry)))
+                      (if (bare? repository)
+                          (store-object repository content digest)
+                        (let ((file (new-file (get-working repository) (tokenise-filename path))))
+                          (if (open? repository)
+                              (retrieve-file repository digest file flags content)
+                            (store-object repository content digest)
+                            (retrieve-file repository digest file flags))))))))
+              changes))
+  
+  
+  (method protected (download-file self path (update-live? #f))
+    (let ((index (get-index repository)))
+      (let ((entry (find-entry index path))
+            (remote-entry (find-entry remote-index path))
+            (file (new-file (get-working repository) (tokenise-filename path))))
+        (if (not remote-entry)
+            (signal (new Not-Found-Error message: (format "Entry not found: {a}" path)))
+          (when (or (not entry)
+                    (not (equal? (get-digest entry) (get-digest remote-entry)))
+                    ;; this is a fail safe against someone deleting
+                    ;; a file without the jas index being updated
+                    (not (exists? file)))
+            (jas-write-object (list 'download path update-live?) port)
+            (jas-force-output port)
+            (let ((content (jas-read-content port))
+                  (digest (get-digest remote-entry))
+                  (flags (get-flags remote-entry)))
+              (when feedback
+                (feedback 'progress 1 1 (u8vector-length content)))
+              (if (bare? repository)
+                  (store-object repository content digest)
+                (let ((file (new-file (get-working repository) (tokenise-filename path))))
+                  (if (open? repository)
+                      (retrieve-file repository digest file flags content)
+                    (store-object repository content digest)
+                    (retrieve-file repository digest file flags))))
+              (update index path 'file (list remote-entry))
+              (save-to-file index)))))))
+  
+  
+  (method protected (upload-all self)
+    (let ((index (get-index repository)))
+      (let ((diff (diff repository index remote-index)))
+        (let ((changes (get-changes diff))
+              (total (+ (get-added diff) (get-modified diff)))
+              (sent 0)
+              (uploaded 0))
+          (when (> total 0)
+            (jas-write-object (list 'upload 'all) port)
+            (jas-write-deflated (entries->list (get-entries index)) port)
+            (jas-write-deflated (changes->list changes) port)
+            (jas-force-output port)
+            (for-each (lambda (change)
+                        (bind (what path) change
+                          (case what
+                            ((added modified)
+                             (let ((content (car (jas-retrieve-content repository path))))
+                               (jas-write-content content port)
+                               (increase! sent)
+                               (increase! uploaded (u8vector-length content))
+                               (when feedback
+                                 (feedback 'progress total sent uploaded)))))))
+                      changes))))))
+  
+  
+  (method protected (upload-file self path)
+    (let ((index (get-index repository)))
+      (let ((entry (find-entry index path))
+            (remote-entry (find-entry remote-index path)))
+        (when (or (not remote-entry)
+                  (not (equal? (get-digest entry) (get-digest remote-entry))))
+          (bind (content digest flags) (jas-retrieve-content repository path)
+            (jas-write-object (list 'upload path digest flags) port)
+            (jas-write-content content port)
+            (jas-force-output port)
+            (when feedback
+              (feedback 'progress 1 1 (u8vector-length content))))))))))

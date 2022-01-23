@@ -1,0 +1,363 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; JAS Server
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jas.server jazz
+
+
+(import (jazz.associative)
+        (jazz.associative.remote)
+        (jazz.io)
+        (jazz.logger)
+        (jazz.network)
+        (jazz.snapshot))
+
+
+(definition jas-server
+  #f)
+
+(definition jas-directory
+  #f)
+
+
+(definition package (start-jas-server)
+  (let ((host (let ((arg (command-argument "host")))
+                (or arg "*")))
+        (directory (let ((arg (command-argument "directory")))
+                     (if (not arg)
+                         (current-directory-get)
+                       (new Directory (tokenise-filename arg))))))
+    (logger "Start server")
+    (let ((server (new Jas-Server host: host service: jas-service)))
+      (start server)
+      (set! jas-server server)
+      (set! jas-directory directory))))
+
+
+(definition package (stop-jas-server)
+  (logger "Stop server")
+  (when jas-server
+    (stop jas-server)
+    (set! jas-server #f)))
+
+
+;;;
+;;;; Server
+;;;
+
+
+(definition (jas-server-accept port)
+  (logger "Accept connection")
+  (let ((code (jas-read-code port)))
+    (if (not code)
+        (logger "Incomplete code")
+      (if (not (equal? code jas-code))
+          (logger "Invalid code")
+        (let ((version (jas-read-version port)))
+          (if (not version)
+              (logger "Incomplete version")
+            (catch-exception-filter
+              (lambda (exc)
+                (if (and (object? exc)
+                         (is? exc Jas-Connection-Broke))
+                    (begin
+                      (logger "Connection broke")
+                      (snapshot-process exception: exc)
+                      #t)
+                  #f))
+              (lambda (exc)
+                )
+              (lambda ()
+                (define (reply response)
+                  (jas-write-object response port)
+                  (jas-force-output port))
+                
+                (define (valid-path? path)
+                  (and (string? path)
+                       (every? (lambda (c)
+                                 (or (alphanumeric? c)
+                                     (eqv? c #\-)
+                                     (eqv? c #\_)))
+                               path)))
+                
+                (if (not (equal? version jas-version))
+                    (begin
+                      (logger "Invalid version")
+                      (reply 'invalid-version))
+                  (let ((path (jas-read-object port)))
+                    (if (not (valid-path? path))
+                        (begin
+                          (logger "Invalid path {a}" path)
+                          (reply 'invalid-path))
+                      (let ((directory (new-directory jas-directory path)))
+                        (if (not (exists? directory))
+                            (begin
+                              (logger "Inexistant repository {a}" path)
+                              (reply 'inexistant-repository))
+                          (let ((access (jas-read-object port)))
+                            (logger "Connect {a} ({a})" path access)
+                            (reply 'connected)
+                            (let ((repository (register-shared-repository path directory access)))
+                              (gate-lock! repository access)
+                              (unwind-protect
+                                  (let ((connection (new Jas-Connection port path directory repository)))
+                                    (send-entries connection)
+                                    (process connection))
+                                (gate-unlock! repository access)
+                                (unregister-shared-repository path directory access)))
+                            (logger "Deconnect {a}" path)))))))))))))))
+
+
+(class Jas-Server extends TCP-Server
+  
+  
+  (method override (server-name self)
+    'jas-server)
+  
+  
+  (method override (connection-name self)
+    'jas-connection)
+  
+  
+  (method override (accept-connection self port)
+    (jas-server-accept port)))
+
+
+;;;
+;;;; Shared
+;;;
+
+
+(class Shared-Repository extends Associative-Repository
+  
+  
+  (slot count     initialize 1                     getter generate)
+  (slot gate      initialize (make-readwrite-gate) getter generate)
+  (slot modified? initialize #f                    accessors generate)
+  
+  
+  (method protected (increase-count! self)
+    (increase! count)
+    count)
+  
+  (method protected (decrease-count! self)
+    (decrease! count)
+    count)
+  
+  
+  (method protected (gate-lock! self access)
+    (case access
+      ((read) (reader-lock! gate))
+      ((write) (writer-lock! gate))))
+  
+  (method protected (gate-unlock! self access)
+    (case access
+      ((read) (reader-unlock! gate))
+      ((write) (writer-unlock! gate))))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "({a})" count)))))
+
+
+(definition shared-repositories
+  (make-table test: equal?))
+
+(definition shared-mutex
+  (make-mutex 'shared))
+
+
+(definition (register-shared-repository path directory access)
+  (mutex-lock! shared-mutex)
+  (logger "Register {a} :{a}" path (show-repositories))
+  (prog1 (let ((shared (table-ref shared-repositories path #f)))
+           (if (not shared)
+               (let ((shared (new Shared-Repository directory)))
+                 (table-set! shared-repositories path shared)
+                 shared)
+             (increase-count! shared)
+             shared))
+    (logger "Registered {a} :{a}" path (show-repositories))
+    (mutex-unlock! shared-mutex)))
+
+
+(definition (unregister-shared-repository path directory access)
+  (mutex-lock! shared-mutex)
+  (logger "Unregister {a} :{a}" path (show-repositories))
+  (let ((shared (table-ref shared-repositories path)))
+    (when (<= (decrease-count! shared) 0)
+      (when (get-modified? shared)
+        (logger "Save index for read live {a}" path)
+        (save-to-file (get-index shared)))
+      (table-clear shared-repositories path)))
+  (logger "Unregistered {a} :{a}" path (show-repositories))
+  (mutex-unlock! shared-mutex))
+
+
+(definition (show-repositories)
+  (let ((port (open-output-string))
+        (first? #t))
+    (iterate-table shared-repositories
+      (lambda (path repo)
+        (if first?
+            (begin
+              (format port " ")
+              (set! first? #f))
+          (format port ", "))
+        (format port "{a} {a}" path (get-count repo))))
+    (get-output-string port)))
+
+
+;;;
+;;;; Connection
+;;;
+
+
+(class Jas-Connection extends Object
+  
+  
+  (slot port        getter generate)
+  (slot path        getter generate)
+  (slot directory   getter generate)
+  (slot repository  getter generate)
+  
+  
+  (method override (initialize self port path directory repository)
+    (nextmethod self)
+    (set! self.port port)
+    (set! self.path path)
+    (set! self.directory directory)
+    (set! self.repository repository))
+  
+  
+  (method protected (send-entries self)
+    (jas-write-deflated (entries->list (get-entries (get-index repository))) port)
+    (jas-force-output port))
+  
+  
+  (method protected (process self)
+    (declare (proper-tail-calls))
+    (let (loop)
+      (let ((request (jas-read-object port)))
+        (bind (command . arguments) request
+          (case command
+            ((deconnect))
+            ((download)
+             (let ((what (car arguments)))
+               (cond ((eq? what 'all)
+                      (logger "Download all {a}" path)
+                      (download-all self)
+                      (loop))
+                     ((eq? what 'sets)
+                      (logger "Download sets {a} {l separator: \", \"}" path (cadr arguments))
+                      (download-all self)
+                      (loop))
+                     (else
+                      (logger "Download file {a} {a}" path what)
+                      (download-file self what (cadr arguments))
+                      (loop)))))
+            ((upload)
+             (let ((what (car arguments)))
+               (cond ((eq? what 'all)
+                      (logger "Upload all {a}" path)
+                      (upload-all self)
+                      (loop))
+                     (else
+                      (logger "Upload file {a} {a}" path what)
+                      (upload-file self what (cadr arguments) (caddr arguments))
+                      (loop))))))))))
+  
+  
+  (method protected (download-all self)
+    (let ((changes (list->changes (jas-read-deflated port))))
+      (for-each (lambda (change)
+                  (bind (what path) change
+                    (case what
+                      ((added modified)
+                       (let ((content (car (jas-retrieve-content repository path))))
+                         (jas-write-content content port))))))
+                changes))
+    (jas-force-output port))
+  
+  
+  (method protected (download-file self path update-live?)
+    (let ((content (car (jas-retrieve-content repository path))))
+      (jas-write-content content port)
+      (jas-force-output port))
+    (when update-live?
+      (let ((entry (find-entry repository path)))
+        (when (not (get-live? entry))
+          (set-live? entry #t)
+          (set-modified? repository #t)))))
+  
+  
+  (method protected (upload-all self)
+    (let ((index (get-index repository)))
+      (let ((entries (list->entries (jas-read-deflated port)))
+            (changes (list->changes (jas-read-deflated port))))
+        (for-each (lambda (change)
+                    (bind (what path . rest) change
+                      (case what
+                        ((added modified)
+                         (let ((content (jas-read-content port)))
+                           (let ((entry (car rest)))
+                             (let ((digest (get-digest entry))
+                                   (flags (get-flags entry)))
+                               (store-object repository content digest)
+                               (unless (bare? repository)
+                                 (let ((file (new-file (get-working repository) (tokenise-filename path))))
+                                   (retrieve-file repository digest file flags))))))))))
+                  changes)
+        (setup-entries-preserving-live index entries)
+        (logger "Save index for write {a}" path)
+        (save-to-file index)
+        (set-modified? repository #f))))
+  
+  
+  (method protected (upload-file self path digest flags)
+    (let ((index (get-index repository)))
+      (let ((content (jas-read-content port)))
+        (store-object repository content digest)
+        (let ((file (and (not (bare? repository)) (new-file (get-working repository) (tokenise-filename path)))))
+          (when file
+            (retrieve-file repository digest file flags))
+          (let ((entry (new Associative-Entry path digest (and file (get-last-modification-seconds file)) flags #f #f)))
+            (update index path 'file (list entry))
+            (logger "Save index for write {a}" path)
+            (save-to-file index)
+            (set-modified? repository #f))))))))

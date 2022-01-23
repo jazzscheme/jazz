@@ -230,6 +230,10 @@
     #f))
 
 
+(define jazz:kernel-root
+  (or jazz:kernel-bundle-root jazz:kernel-install))
+
+
 (define (jazz:install-path filename)
   (if (%%not filename)
       jazz:kernel-install
@@ -764,7 +768,7 @@
         (jazz:create-directories (jazz:repository-pathname jazz:Build-Repository dir))
         (if (file-exists? dst)
             (delete-file dst))
-        (copy-file src dst)
+        (jazz:copy-file src dst)
         (load-package)))))
 
 
@@ -1742,6 +1746,19 @@
 
 
 ;;;
+;;;; Script
+;;;
+
+
+(define (jazz:setup-script)
+  (set! jazz:process-product 'script)
+  (set! jazz:process-name 'script)
+  (set! jazz:process-title "Script")
+  (if jazz:debugger
+      (jazz:load-debuggee)))
+
+
+;;;
 ;;;; Master
 ;;;
 
@@ -2169,6 +2186,16 @@
   (set! jazz:load-interpreted-hook hook))
 
 
+(define jazz:unit-not-found-hook
+  #f)
+
+(define (jazz:get-unit-not-found-hook)
+  jazz:unit-not-found-hook)
+
+(define (jazz:set-unit-not-found-hook hook)
+  (set! jazz:unit-not-found-hook hook))
+
+
 ;; quick hack so that once we switch repositories to target
 ;; we don't load any binary code anymore as it will be ios!
 (define jazz:TARGET-HACK?
@@ -2179,59 +2206,64 @@
 
 
 (define (jazz:load-unit-src/bin unit-name #!key (force-source? #f))
-  (jazz:with-unit-resources unit-name #f
-    (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-      (if jazz:TARGET-HACK?
-          (begin
-            (set! obj #f)
-            (set! bin #f)
-            (set! load-proc #f)
-            (set! obj-uptodate? #f)
-            (set! bin-uptodate? #f)
-            (set! lib-uptodate? #f)
-            (set! manifest #f)))
-      (parameterize ((jazz:requested-unit-name unit-name)
-                     (jazz:requested-unit-resource (if bin-uptodate? bin src))
-                     (jazz:requested-pathname #f))
-        (cond ((and lib-uptodate? (not force-source?))
-               (jazz:increment-image-load-counter)
-               (jazz:with-verbose (jazz:load-verbose?) "loading lib" (symbol->string unit-name)
-                 (lambda ()
+  (let try-again ((first-try? #t))
+    (jazz:with-unit-resources unit-name #f
+      (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+        (if jazz:TARGET-HACK?
+            (begin
+              (set! obj #f)
+              (set! bin #f)
+              (set! load-proc #f)
+              (set! obj-uptodate? #f)
+              (set! bin-uptodate? #f)
+              (set! lib-uptodate? #f)
+              (set! manifest #f)))
+        (parameterize ((jazz:requested-unit-name unit-name)
+                       (jazz:requested-unit-resource (if bin-uptodate? bin src))
+                       (jazz:requested-pathname #f))
+          (cond ((and lib-uptodate? (not force-source?))
+                 (jazz:increment-image-load-counter)
+                 (jazz:with-verbose (jazz:load-verbose?) "loading lib" (symbol->string unit-name)
+                   (lambda ()
+                     (parameterize ((jazz:walk-for 'runtime))
+                       (load-proc)))))
+                ((and bin-uptodate? (not force-source?))
+                 (jazz:increment-object-load-counter)
+                 (let ((quiet? (or (%%not src) (let ((ext (%%get-resource-extension src)))
+                                                 (and ext (%%string=? ext "jazz"))))))
                    (parameterize ((jazz:walk-for 'runtime))
-                     (load-proc)))))
-              ((and bin-uptodate? (not force-source?))
-               (jazz:increment-object-load-counter)
-               (let ((quiet? (or (%%not src) (let ((ext (%%get-resource-extension src)))
-                                               (and ext (%%string=? ext "jazz"))))))
-                 (parameterize ((jazz:walk-for 'runtime))
-                   (jazz:load-resource unit-name "loading bin" bin quiet?))))
-              (src
-                (if (or (%%not jazz:load-interpreted-hook)
-                        (%%not (jazz:load-interpreted-hook unit-name)))
-                    (begin
-                      (jazz:increment-interpreted-load-counter)
-                      (let ((warn (jazz:warn-interpreted?)))
-                        (if warn
-                            (case warn
-                              ((error)
-                               (jazz:error "Loading {a} interpreted" unit-name))
-                              ((stack)
-                               (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
-                               (pp (jazz:current-load-stack)))
-                              (else
-                               (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
-                               (if (and (%%pair? warn) (%%memq unit-name warn))
-                                   (pp (jazz:current-load-stack)))))))
-                      (parameterize ((jazz:walk-for 'interpret)
-                                     (jazz:generate-symbol-for "&")
-                                     (jazz:generate-symbol-context unit-name))
-                        (jazz:with-extension-reader (%%get-resource-extension src)
-                          (lambda ()
-                            (jazz:load-resource unit-name "loading src" src)))))))
-              (else
-               (if force-source?
-                   (jazz:error "Unable to find unit source: {s}" unit-name)
-                 (jazz:error "Unable to find unit: {s}" unit-name))))))))
+                     (jazz:load-resource unit-name "loading bin" bin quiet?))))
+                (src
+                 (if (or (%%not jazz:load-interpreted-hook)
+                         (%%not (jazz:load-interpreted-hook unit-name)))
+                     (begin
+                       (jazz:increment-interpreted-load-counter)
+                       (let ((warn (jazz:warn-interpreted?)))
+                         (if warn
+                             (case warn
+                               ((error)
+                                (jazz:error "Loading {a} interpreted" unit-name))
+                               ((stack)
+                                (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
+                                (pp (jazz:current-load-stack)))
+                               (else
+                                (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
+                                (if (and (%%pair? warn) (%%memq unit-name warn))
+                                    (pp (jazz:current-load-stack)))))))
+                       (parameterize ((jazz:walk-for 'interpret)
+                                      (jazz:generate-symbol-for "&")
+                                      (jazz:generate-symbol-context unit-name))
+                         (jazz:with-extension-reader (%%get-resource-extension src)
+                           (lambda ()
+                             (jazz:load-resource unit-name "loading src" src)))))))
+                (else
+                 (if force-source?
+                     (jazz:error "Unable to find unit source: {s}" unit-name)
+                   (if (and jazz:unit-not-found-hook first-try?)
+                       (begin
+                         (jazz:unit-not-found-hook unit-name)
+                         (try-again #f))
+                     (jazz:error "Unable to find unit: {s}" unit-name))))))))))
 
 
 (define (jazz:unit-loadable? unit-name)

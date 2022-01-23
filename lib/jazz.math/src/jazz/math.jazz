@@ -68,10 +68,9 @@
         (loop (iter x) (- c 1))))))
 
 
-(definition public (moving-average last-average <fl> value <fl> window <fl>) <fl>
-  (if (= last-average -1.)
-      value
-    (/ (+ (* (- window 1.) last-average) value) window)))
+;;;
+;;;; Average
+;;;
 
 
 (class Average extends Object
@@ -94,4 +93,121 @@
   
   (method public (add self x)
     (increase! total x)
-    (increase! count))))
+    (increase! count)))
+
+
+;;;
+;;;; Moving Average
+;;;
+
+
+(definition public (moving-average last-average <fl> value <fl> window <fl>) <fl>
+  (if (= last-average -1.)
+      value
+    (/ (+ (* (- window 1.) last-average) value) window)))
+
+
+;;;
+;;;; Windowed MinMax
+;;;
+
+
+;;  Adapted from linux win_minmax by Kathleen Nichols
+;;
+;;  Kathleen Nichols' algorithm for tracking the minimum (or maximum)
+;;  value of a data stream over some fixed time interval.  (E.g.,
+;;  the minimum RTT over the past five minutes.) It uses constant
+;;  space and constant time per update yet almost always delivers
+;;  the same minimum as an implementation that has to keep all the
+;;  data in the window.
+;;
+;;  The algorithm keeps track of the best, 2nd best & 3rd best min
+;;  values, maintaining an invariant that the measurement time of
+;;  the n'th best >= n-1'th best. It also makes sure that the three
+;;  values are widely separated in the time window since that bounds
+;;  the worse case error when that data is monotonically increasing
+;;  over the window.
+;;
+;;  Upon getting a new min, we can forget everything earlier because
+;;  it has no value - the new min is <= everything else in the window
+;;  by definition and it's the most recent. So we restart fresh on
+;;  every new min and overwrites 2nd & 3rd choices. The same property
+;;  holds for 2nd & 3rd best.
+(class Windowed-MinMax extends Object
+  
+  
+  (slot t0 <fl> getter generate)
+  (slot v0 <fl> getter generate)
+  (slot t1 <fl> getter generate)
+  (slot v1 <fl> getter generate)
+  (slot t2 <fl> getter generate)
+  (slot v2 <fl> getter generate)
+  
+  
+  (method public (minmax self) <fl>
+    v0)
+
+  
+  (method public (reset self time measurement <fl>) <fl>
+    (set! t0 time)
+    (set! t1 time)
+    (set! t2 time)
+    (set! v0 measurement)
+    (set! v1 measurement)
+    (set! v2 measurement)
+    measurement)
+  
+  
+  ;;  As time advances, update the 1st, 2nd, and 3rd choices.
+  (method (subwindow-update self window time value <fl>) <fl>
+    (let ((dt (- time t0)))
+      (cond ((unlikely (> dt window))
+             ;; Passed entire window without a new val so make 2nd
+             ;; choice the new val & 3rd choice the new 2nd choice.
+             ;; we may have to iterate this since our 2nd choice
+             ;; may also be outside the window (we checked on entry
+             ;; that the third choice was in the window).
+             (set! t0 t1) (set! v0 v1)
+             (set! t1 t2) (set! v1 v2)
+             (set! t2 time) (set! v2 value)
+             (when (unlikely (> (- time t0) window))
+               (set! t0 t1) (set! v0 v1)
+               (set! t1 t2) (set! v1 v2)
+               (set! t2 time) (set! v2 value)))
+            ((unlikely (and (= t1 t0) (> dt (/ window 4))))
+             ;; We've passed a quarter of the window without a new val
+             ;; so take a 2nd choice from the 2nd quarter of the window.
+             (set! t1 time) (set! v1 value)
+             (set! t2 time) (set! v2 value))
+            ((unlikely (and (= t2 t1) (> dt (/ window 2))))
+             ;; We've passed half the window without finding a new val
+             ;; so take a 3rd choice from the last half of the window
+             (set! t2 time)
+             (set! v2 value))))
+    v0)
+  
+  
+  ;;  Check if new measurement updates the 1st, 2nd or 3rd choice max.
+  (method public (running-max self window time measurement <fl>) <fl>
+    (if (or (unlikely (>= measurement v0))       ;; found new max?
+            (unlikely (> (- time t2) window)))   ;; nothing left in window?
+        (reset self time measurement)            ;; forget earlier samples
+      (cond ((unlikely (>= measurement v1))
+             (set! t1 time) (set! v1 measurement)
+             (set! t2 time) (set! v2 measurement))
+            ((unlikely (>= measurement v2))
+             (set! t2 time) (set! v2 measurement)))
+      (subwindow-update self window time measurement)))
+  
+  
+  ;;  Check if new measurement updates the 1st, 2nd or 3rd choice min.
+  (method public (running-min self window time measurement <fl>) <fl>
+    (if (or (unlikely (<= measurement v0))       ;; found new min?
+            (unlikely (> (- time t2) window)))   ;; nothing left in window?
+        (reset self time measurement)            ;; forget earlier samples
+      (cond ((unlikely (<= measurement v1))
+             (set! t1 time) (set! v1 measurement)
+             (set! t2 time) (set! v2 measurement))
+            ((unlikely (<= measurement v2))
+             (set! t2 time) (set! v2 measurement)))
+      (subwindow-update self window time measurement)))))

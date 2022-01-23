@@ -320,15 +320,7 @@
 ;;;
 
 
-;; if [ -z "$2" ]; then
-;;   header="Update"
-;; else
-;;   header="$2"
-;; fi
-;; info="$(./jaz -l info)"
-;; message="`echo -e "$header\\n\\n$info"`"
-
-(definition public (deploy-application descriptor installation-directory (make: make #f) (install: install #f) (commit-message: commit-message #f))
+(definition public (deploy-application descriptor installation-directory (make: make #f) (install: install #f))
   (let ((jazz (string-append kernel-install "jazz"))
         (name (product-descriptor-name descriptor)))
     (let ((make (or make name))
@@ -347,27 +339,19 @@
           arguments: `("-install"
                        ,(symbol->string install))))
       (feedback "")
-      (deploy-directory name installation-directory commit-message: commit-message))))
+      (deploy-directory name installation-directory))))
 
 
-(definition public (deploy-directory name dir (commit-message: commit-message #f))
+(definition public (deploy-directory name dir)
   (feedback "Deploying {a}" name)
-  (let ((dirname (parse dir))
-        (commit-message (or commit-message "Update")))
+  (let ((dirname (parse dir)))
     (call-process
       (list
-        path: "git"
+        path: "jas"
         arguments: `("add" ".")
         directory: dirname))
     (call-process
       (list
-        path: "git"
-        arguments: `("commit" "-a" "-m" ,commit-message "--allow-empty")
-        directory: dirname))
-    (call-process
-      (list
-        path: (cond-expand
-                (windows "C:\\Program Files\\Git\\bin\\git")
-                (else "git"))
-        arguments: `("push")
+        path: "jas"
+        arguments: `("upload")
         directory: dirname)))))

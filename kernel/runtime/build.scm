@@ -1073,9 +1073,9 @@
   (let ((proc (jazz:build-setup)))
     (if proc
         (proc platform safety optimize? source destination properties)
-      (begin
-        (jazz:build-source-access? (jazz:getf properties source-access?: #t))
-        (jazz:build-single-objects? (jazz:getf properties single-objects?: #f))))))
+      (let ((binaries? (jazz:getf properties binaries?: #f)))
+        (jazz:build-source-access? (jazz:getf properties source-access?: (not binaries?)))
+        (jazz:build-single-objects? (jazz:getf properties single-objects?: binaries?))))))
 
 
 (define (jazz:determine-binary-repositories destination-directory #!optional (absolutize? #f))

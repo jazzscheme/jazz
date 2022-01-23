@@ -150,12 +150,12 @@
   #t)
 
 
-(jazz:define-method (jazz:emit-binding-assignment (jazz:Definition-Declaration declaration) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-binding-assignment (jazz:Definition-Declaration declaration) value source-declaration walker resume environment backend form-src)
   (let ((value (jazz:emit-expression value source-declaration walker resume environment backend)))
     (jazz:new-code
       (jazz:emit backend 'definition-assignment declaration source-declaration walker resume environment value)
       jazz:Any
-      #f)))
+      form-src)))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Definition-Declaration declaration) down up here seed environment)
@@ -674,14 +674,14 @@
   #t)
 
 
-(jazz:define-method (jazz:emit-binding-assignment (jazz:Slot-Declaration declaration) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-binding-assignment (jazz:Slot-Declaration declaration) value source-declaration walker resume environment backend form-src)
   (let ((self (jazz:*self*)))
     (if self
         (let ((value (jazz:emit-expression value source-declaration walker resume environment backend)))
           (jazz:new-code
             (jazz:emit backend 'slot-assignment declaration source-declaration walker resume environment self value)
             jazz:Any
-            #f))
+            form-src))
       (jazz:error "Illegal assignment to a slot: {s}" (jazz:get-declaration-locator declaration)))))
 
 
@@ -1144,13 +1144,13 @@
 ;;;
 
 
-(jazz:define-method (jazz:walk-symbol-assignment (jazz:Jazz-Walker walker) resume declaration environment symbol-src value)
+(jazz:define-method (jazz:walk-symbol-assignment (jazz:Jazz-Walker walker) resume declaration environment symbol-src value form-src)
   (let ((name (jazz:extract-selfdot (jazz:source-code symbol-src))))
     (if (and name (jazz:jazz-walker-supports-selfdot? walker))
         (let ((slot-declaration (jazz:lookup-declaration (jazz:find-class-declaration declaration) name jazz:private-access declaration)))
           (%%assertion (%%class-is? slot-declaration jazz:Slot-Declaration) (jazz:error "Slot expected: self.{s}" name)
-            (jazz:new-assignment slot-declaration (jazz:walk walker resume declaration environment value) symbol-src)))
-        (nextmethod walker resume declaration environment symbol-src value))))
+            (jazz:new-assignment form-src slot-declaration (jazz:walk walker resume declaration environment value) symbol-src)))
+      (nextmethod walker resume declaration environment symbol-src value form-src))))
 
 
 ;;;

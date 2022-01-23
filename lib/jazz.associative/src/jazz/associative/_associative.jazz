@@ -75,6 +75,7 @@
 (hub retrieve)
 (hub retrieve-blob)
 (hub save-to-file)
+(hub scan)
 (hub scan-directory)
 (hub scan-file)
 (hub staging-index)
@@ -97,8 +98,8 @@
 ;;;
 
 
-(definition public (jas-init root (bare?: bare? #f))
-  (new Associative-Repository root init?: #t bare?: bare?))
+(definition public (jas-init root (bare?: bare? #f) (open?: open? #f))
+  (new Associative-Repository root init?: #t bare?: bare? open?: open?))
 
 
 (definition public (jas-open root)
@@ -192,6 +193,7 @@
 (definition public (jas-branch? repo ref)
   (branch? repo ref))
 
+
 (definition public (jas-branch-name repo ref)
   (branch-name repo ref))
 
@@ -208,9 +210,24 @@
   (retrieve repo digest))
 
 
+(definition public (jas-scan repo path)
+  (scan repo path))
+
+
+(definition public (jas-collect repo dry?)
+  (collect-objects repo dry?))
+
+
 ;;;
 ;;;; Repository
 ;;;
+
+
+(definition ignored-toplevel-dirnames
+  '(".jas" ".git"))
+
+(definition ignored-dirnames
+  '("_CodeSignature"))
 
 
 (class Associative-Repository extends Object
@@ -226,16 +243,18 @@
   (slot index           getter generate)
   (slot objects         getter generate)
   (slot heads           getter generate)
+  (slot sets            getter generate)
+  (slot filters         getter generate)
   
   
-  (method override (initialize self root (init?: init? #f) (bare?: bare? #f))
+  (method override (initialize self root (init?: init? #f) (bare?: bare? #f) (open?: open? #f) (directory: directory #f))
     (define (jas-bare?)
       (if init?
           bare?
         (exists? (new-file root ".jasbare"))))
     
     (define (jas-directory)
-      (let ((dir (new-directory root ".jas")))
+      (let ((dir (or directory (new-directory root ".jas"))))
         (cond ((exists? dir)
                dir)
               (init?
@@ -244,23 +263,37 @@
               (else
                (jas-exception "Not a jas repository")))))
     
+    (define (jas-open? directory)
+      (if init?
+          open?
+        (not (exists? (new-directory directory "objects")))))
+    
     (initialize-aliases)
     (let ((bare? (jas-bare?)))
-      (set! working (and (not bare?) root))
-      (set! directory (if bare? root (jas-directory)))
-      (set! head (new-file directory "HEAD"))
-      (set! index (new Associative-Index self working file: (new-file directory "index")))
-      (set! objects (new-directory directory "objects"))
-      (set! heads (new-directory directory '("refs" "heads")))
-      (set! disregard '(".DS_Store" ".gitignore"))
-      (set! ignore '())
-      (when init?
-        (init self bare?))
-      (register-configs self)))
+      (let ((working (and (not bare?) root))
+            (directory (if bare? root (jas-directory))))
+        (set! self.working working)
+        (set! self.directory directory)
+        (let ((open? (jas-open? directory)))
+          (set! self.head (new-file directory "HEAD"))
+          (set! self.index (new Associative-Index self working file: (new-file directory "index")))
+          (set! self.objects (and (not open?) (new-directory directory "objects")))
+          (set! self.heads (new-directory directory '("refs" "heads")))
+          (set! self.sets (new-directory directory '("sets")))
+          (set! self.filters (load-filters self))
+          (set! self.disregard '(".DS_Store" ".gitignore"))
+          (set! self.ignore '())
+          (when init?
+            (init self bare? open?))
+          (register-configs self)))))
   
   
   (method package (bare? self)
     (not working))
+  
+  
+  (method package (open? self)
+    (not objects))
   
   
   ;;;
@@ -268,12 +301,14 @@
   ;;;
   
   
-  (method package (init self bare?)
+  (method package (init self bare? open?)
     (create-directories directory)
     (when bare?
       (create (new-file directory ".jasbare")))
-    (create-directories objects)
-    (create-directories heads))
+    (unless open?
+      (create-directories objects))
+    (create-directories heads)
+    (create-directories sets))
   
   
   ;;;
@@ -282,7 +317,7 @@
   
   
   (method (register-configs self)
-    (let ((global {File Home ".jas"})
+    (let ((global {File Home ".jasconfig"})
           (local (new-file directory "config")))
       (define (new-settings file)
         (when (not (exists? file))
@@ -303,6 +338,50 @@
     (let ((settings local-settings))
       (set-setting settings key value)
       (save-content settings)))
+  
+  
+  ;;;
+  ;;;; Load
+  ;;;
+  
+  
+  (method (load-filters self)
+    (define (load-sets file)
+      (call-with-input-file (path-settings file)
+        read-all))
+    
+    (define (load-conditions file)
+      (collect (lambda (line)
+                 (cond ((empty-string? line)
+                    #f)
+                   ((starts-with? line ".")
+                    (cons 'extension (filename-extension line)))
+                   ((ends-with? line "/")
+                    (cons 'directory line))
+                   (else
+                    (cons 'file line))))
+               (load-lines file)))
+    
+    ;; backward compatible
+    (when (exists? sets)
+      (let ((names #f)
+            (filters '()))
+        (iterate-directory sets
+          (lambda (file)
+            (let ((name (get-name file)))
+              (if (filename=? name ".sets")
+                  (set! names (load-sets file))
+                (let ((name (string->symbol (get-name file)))
+                      (conditions (load-conditions file)))
+                  (set! filters (cons (new Associative-Filter name conditions) filters))))))
+          files?: #t
+          directories?: #f
+          recursive?: #f)
+        (if (not names)
+            (sort nu<? filters key: get-name)
+          (map (lambda (name)
+                 (find filters name key: get-name return: 'item))
+               names)))))
   
   
   ;;;
@@ -343,8 +422,8 @@
   
   
   (method package (store-object self content digest)
-    (let ((objects-file (objects-file self digest)))
-      (save-binary objects-file content)
+    (let ((file (objects-file self digest)))
+      (save-binary file content)
       content))
   
   
@@ -362,21 +441,49 @@
       read))
   
   
-  (method (retrieve-file self digest file)
+  (method package (retrieve-file self digest file flags (content #f))
     (create-directories file)
-    (save-binary file (retrieve-blob self digest (get-extension file))))
+    (save-binary file (retrieve-blob self digest (get-extension file) content))
+    (set-permissions file flags))
   
   
-  (method package (retrieve-blob self digest extension)
-    (let ((object-content (retrieve-object self digest)))
+  (method package (retrieve-blob self digest extension (content #f))
+    (let ((object-content (or content (retrieve-object self digest))))
       (if (already-compressed? extension)
           object-content
         (zlib-inflate object-content))))
   
   
   (method package (retrieve-object self digest)
-    (let ((objects-file (objects-file self digest)))
-      (load-binary objects-file)))
+    (let ((file (objects-file self digest)))
+      (load-binary file)))
+  
+  
+  ;;;
+  ;;;; Collect
+  ;;;
+  
+  
+  (method package (collect-objects self dry?)
+    (if (read-head self)
+        (jas-exception "Only commitless repositories can be collected")
+      (let ((alive (make-table test: equal?)))
+        (for-each (lambda (entry)
+                    (let ((digest (get-digest entry)))
+                      (table-set! alive digest #t)))
+                  (get-entries index))
+        (let ((queue (new-queue)))
+          (iterate-directory objects
+            (lambda (file)
+              (let ((digest (get-name file)))
+                (when (not (table-ref alive digest #f))
+                  (enqueue queue file)))))
+          (let ((dead (queue-list queue)))
+            (let ((count (length dead)))
+              (if dry?
+                  (format :terminal "{a} object{a} would be collected{%}" (capitalize (format-cardinality count)) (format-plural count))
+                (for-each delete dead)
+                (format :terminal "{a} object{a} collected{%}" (capitalize (format-cardinality count)) (format-plural count)))))))))
   
   
   ;;;
@@ -432,9 +539,15 @@
                              (delete file)
                              (discard-directory (get-parent file)))
                             ((removed)
-                             (retrieve-file self (car rest) file))
+                             (let ((entry (car rest)))
+                               (let ((digest (get-digest entry))
+                                     (flags (get-flags entry)))
+                                 (retrieve-file self digest file flags))))
                             ((modified)
-                             (retrieve-file self (caddr rest) file))))))
+                             (let ((entry (cadr rest)))
+                               (let ((digest (get-digest entry))
+                                     (flags (get-flags entry)))
+                                 (retrieve-file self digest file flags))))))))
                     (get-changes diff))))))
   
   
@@ -454,7 +567,8 @@
               files?: #t
               directories?: #t
               recursive?: #f
-              ignored-toplevel-dirnames: '(".jas" ".git"))
+              ignored-toplevel-dirnames: ignored-toplevel-dirnames
+              ignored-dirnames: ignored-dirnames)
             #t)))
       
       (prog1 (proc discard-directory)
@@ -537,14 +651,20 @@
                           (let ((file (new-file working (tokenise-filename path))))
                             (case what
                               ((added)
-                               (retrieve-file self (car rest) file)
+                               (let ((entry (car rest)))
+                                 (let ((digest (get-digest entry))
+                                       (flags (get-flags entry)))
+                                   (retrieve-file self digest file flags)))
                                (add-file staging-index path file))
                               ((removed)
                                (delete file)
                                (discard-directory (get-parent file))
-                               (remove-file staging-index path file))
+                               (remove-file staging-index path))
                               ((modified)
-                               (retrieve-file self (cadr rest) file)
+                               (let ((entry (car rest)))
+                                 (let ((digest (get-digest entry))
+                                       (flags (get-flags entry)))
+                                   (retrieve-file self digest file flags)))
                                (add-file staging-index path file))))))
                       (get-changes diff))))
         (save-to-file staging-index))))
@@ -556,37 +676,49 @@
   
   
   (method package (add-path self path)
-    (let ((path (normalize-path self path)))
-      (cond ((empty-string? path)
-             (add-directory index "" working))
-            ((ends-with? path "/")
-             (add-directory index path (new-directory working path)))
+    (receive (path pathname) (normalize-path self path)
+      (cond ((directory? pathname)
+             (add-directory index path pathname))
             (else
-             (add-file index path (new-file working path))))))
+             (add-file index path pathname)))))
   
   
   (method package (remove-path self path)
-    (let ((path (normalize-path self path)))
-      (cond ((empty-string? path)
-             (remove-directory index "" working))
-            ((ends-with? path "/")
-             (remove-directory index path (new-directory working path)))
-            (else
-             (remove-file index path (new-file working path))))))
-  
-  
-  (method package (apply-changes self changes)
-    (apply-changes index changes))
+    (if (bare? self)
+        (cond ((equal? path ".")
+               (remove-directory index ""))
+              ((ends-with? path "/")
+               (remove-directory index path))
+              (else
+               (remove-file index path)))
+      (receive (path pathname) (normalize-path self path)
+        (cond ((directory? pathname)
+               (iterate-subpaths index path
+                 (lambda (subpath)
+                   (let ((file (new-file working (tokenise-filename subpath))))
+                     (when (exists? file)
+                       (delete file)))))
+               (delete-empty-directories pathname)
+               (remove-directory index path))
+              (else
+               (discarding-directories self
+                 (lambda (discard-directory)
+                   (delete pathname)
+                   (discard-directory (get-parent pathname))
+                   (remove-file index path))))))))
   
   
   (method (normalize-path self path)
     (if (equal? path ".")
-        ""
+        (values "" working)
       (let ((pathname (string-append (parse working) path)))
         (if (file-exists? pathname)
             (case (pathname-type pathname)
-              ((file) path)
-              (else (normalize-directory path)))
+              ((file)
+               (values path (new-file working (tokenise-filename path))))
+              (else
+               (let ((path (normalize-directory path)))
+                 (values path (new-directory working (tokenise-filename path))))))
           (jas-exception "Unable to find {a}" path)))))
   
   
@@ -614,27 +746,47 @@
     (new Associative-Index self #f entries: (scan-tree self tree)))
   
   
+  (method (scan self path)
+    (receive (path pathname) (normalize-path self path)
+      (scan-file self path pathname base: index)))
+  
+  
   (method package (scan-file self path file (base: base #f))
-    (let ((seconds (get-last-modification-seconds file)))
-      (or (and base (let ((entry (find-entry base path)))
-                      (and entry
-                           (bind (entry-path entry-digest entry-seconds) entry
-                             (and entry-seconds
-                                  (if (= entry-seconds seconds)
-                                      (list path entry-digest seconds)
-                                    (let ((digest (digest-file (parse file) 'SHA-1)))
-                                      ;; update base entry seconds
-                                      ;; we do not update the digest
-                                      ;; we are only creating a fast test
-                                      ;; path + seconds = correct digest
-                                      (when (equal? entry-digest digest)
-                                        (set-third! entry seconds))
-                                      (list path digest seconds))))))))
-          (list path (digest-file (parse file) 'SHA-1) seconds))))
+    (let ((filename (parse file)))
+      (let ((seconds (get-last-modification-seconds file))
+            (flags (determine-flags filename))
+            (set (determine-set self path)))
+        (or (and base (let ((entry (find-entry base path)))
+                        (and entry
+                             (let ((entry-digest (get-digest entry))
+                                   (entry-seconds (get-seconds entry))
+                                   (entry-flags (get-flags entry))
+                                   (entry-set (get-set entry))
+                                   (entry-live? (get-live? entry)))
+                               (and entry-seconds
+                                    (if (and (= entry-seconds seconds)
+                                             (= entry-flags flags)
+                                             (eq? entry-set set))
+                                        (new Associative-Entry path entry-digest entry-seconds entry-flags entry-set entry-live?)
+                                      (let ((digest (digest-file (parse file) 'SHA-1)))
+                                        ;; update base entry seconds
+                                        ;; we do not update the digest
+                                        ;; we are only creating a fast test
+                                        ;; path + seconds = correct digest
+                                        (when (equal? entry-digest digest)
+                                          (set-seconds entry seconds))
+                                        (new Associative-Entry path digest seconds flags set #f))))))))
+            (new Associative-Entry
+              path
+              (digest-file filename 'SHA-1)
+              seconds
+              flags
+              set
+              #f)))))
   
   
   (method package (scan-blob self path content)
-    (list path (digest-u8vector content 'SHA-1) #f))
+    (new Associative-Entry path (digest-u8vector content 'SHA-1) #f 0 #f #f))
   
   
   (method package (scan-directory self dirpath dir (base: base #f))
@@ -650,9 +802,9 @@
     (let ((entries (new-queue)))
       (define (scan prefix tree)
         (for-each (lambda (entry)
-                    (bind (kind path digest) entry
+                    (bind (kind path digest . rest) entry
                       (case kind
-                        ((blob) (enqueue entries (list (string-append prefix path) digest #f)))
+                        ((blob) (enqueue entries (new Associative-Entry (string-append prefix path) digest #f (car rest) #f #f)))
                         ((tree) (scan (string-append prefix path "/") digest)))))
                   (retrieve self tree)))
       
@@ -675,12 +827,14 @@
             (if (null? entries)
                 (store-tree self (queue-list queue))
               (let ((entry (car entries)))
-                (bind (path digest seconds) entry
+                (let ((path (get-path entry))
+                      (digest (get-digest entry))
+                      (flags (get-flags entry)))
                   (if (starts-with? path prefix)
                       (let ((slash (search path "/" start: len)))
                         (if (not slash)
-                            (let ((file (new-file directory path)))
-                              (enqueue queue (list 'blob (get-name file) digest))
+                            (let ((file (new-file directory (tokenise-filename path))))
+                              (enqueue queue (list 'blob (get-name file) digest flags))
                               (set! entries (cdr entries))
                               (iter))
                           (let ((name (substring path len slash))
@@ -698,30 +852,94 @@
   
   
   ;;;
+  ;;;; Set
+  ;;;
+  
+  
+  (method (determine-set self path)
+    (continuation-capture
+      (lambda (return)
+        (for-each (lambda (filter)
+                    (when (filter-path filter path)
+                      (continuation-return return (get-name filter))))
+                  filters)
+        #f)))
+  
+  
+  ;;;
   ;;;; Diff
   ;;;
   
   
   (method package (diff self left-index right-index)
-    (let ((queue (new-queue)))
+    (diff-entries self
+                  (get-entries left-index)
+                  (get-entries right-index)))
+  
+  
+  (method package (diff-sets self remote-index local-index sets update-sets)
+    (let ((local-entries (get-entries local-index))
+          (remote-entries (get-entries remote-index)))
+      (define (determine-effective-sets)
+        (if (not update-sets)
+            sets
+          (let ((queue (new-queue))
+                (local-sets (make-table test: eq?)))
+            (enqueue-list queue sets)
+            (for-each (lambda (entry)
+                        (table-set! local-sets (get-set entry) #t))
+                      local-entries)
+            (for-each (lambda (set)
+                        (when (table-ref local-sets set #f)
+                          (enqueue queue set)))
+                      update-sets)
+            (queue-list queue))))
+      
+      (let ((effective-sets (determine-effective-sets)))
+        (define (filter kind entries)
+          (collect-if (lambda (entry)
+                        (let ((entry-set (get-set entry)))
+                          (some? (lambda (set)
+                                   ;; only live
+                                   (if (pair? set)
+                                       (let ((set (car set)))
+                                         (if (eq? kind 'remote)
+                                             (and (eq? set entry-set)
+                                                  (get-live? entry))
+                                           (eq? set entry-set)))
+                                     (eq? set entry-set)))
+                                 effective-sets)))
+                      entries))
+        
+        (diff-entries self
+                      (filter 'remote remote-entries)
+                      (filter 'local local-entries)))))
+  
+  
+  (method package (diff-entries self left-entries right-entries)
+    (let ((queue (new-queue))
+          (added 0)
+          (modified 0)
+          (removed 0))
       (merge-ordered (lambda (what key left right)
                        (case what
                          ((:left)
-                          (enqueue queue (list 'added key (second left) (third left))))
+                          (enqueue queue (list 'added key left))
+                          (increase! added))
                          ((:right)
-                          (enqueue queue (list 'removed key (second right) (third right))))
+                          (enqueue queue (list 'removed key right))
+                          (increase! removed))
                          ((:same)
-                          (let ((left-digest (second left))
-                                (right-digest (second right)))
-                            (unless (equal? left-digest right-digest)
-                              (let ((left-seconds (third left))
-                                    (right-seconds (third right)))
-                                (enqueue queue (list 'modified key left-digest left-seconds right-digest right-seconds))))))))
-                     (get-entries left-index)
-                     (get-entries right-index)
-                     key: car
+                          (unless (and (equal? (get-digest left) (get-digest right))
+                                       (= (get-flags left) (get-flags right))
+                                       (eq? (get-set left) (get-set right)))
+                            (enqueue queue (list 'modified key left right))
+                            (increase! modified)))))
+                     left-entries
+                     right-entries
+                     key: get-path
                      case-insensitive?: #t)
-      (new Associative-Diff (queue-list queue))))
+      (new Associative-Diff (queue-list queue) added modified removed)))
   
   
   ;;;
@@ -868,7 +1086,7 @@
     (set! self.file file)
     (set! self.paths (make-table test: equal?))
     (setup-entries self (or entries (if (and file (exists? file))
-                                        (load-from-file self)
+                                        (list->entries (load-from-file self))
                                       '()))))
   
   
@@ -882,8 +1100,28 @@
   (method package (setup-entries self lst)
     (set! entries lst)
     (for-each (lambda (entry)
-                (table-set! paths (car entry) entry))
+                (table-set! paths (get-path entry) entry))
               entries))
+  
+  
+  (method package (setup-entries-preserving-live self lst)
+    (let ((preserved
+            (map (lambda (entry)
+                   (let ((path (get-path entry)))
+                     (let ((actual-entry (find-entry self path)))
+                       (if (and actual-entry
+                                (get-live? actual-entry)
+                                (not (get-live? entry)))
+                           (new Associative-Entry
+                             path
+                             (get-digest entry)
+                             (get-seconds entry)
+                             (get-flags entry)
+                             (get-set entry)
+                             #t)
+                         entry))))
+                 lst)))
+      (setup-entries self preserved)))
   
   
   (method (load-from-file self)
@@ -895,28 +1133,38 @@
     (call-with-output-file (path-settings file)
       (lambda (output)
         (for-each (lambda (entry)
-                    (format output "{s}{%}" entry))
+                    (format output "({s} {s} {s} {s} {s} {s}){%}"
+                      (get-path entry)
+                      (get-digest entry)
+                      (get-seconds entry)
+                      (get-flags entry)
+                      (get-set entry)
+                      (get-live? entry)))
                   entries))))
   
   
   (method (updating self path test proc)
-    (let (iter (prev #f) (scan entries))
-      (if (null? scan)
-          (proc prev scan)
-        (let ((entry (car scan)))
-          (let ((entry-path (car entry)))
-            (if (test entry-path path)
-                (iter prev (cdr scan))
-              (case (ci-compare entry-path path)
-                ((:less)
-                 (iter scan (cdr scan)))
-                ((:equal)
-                 (proc prev (cdr scan)))
-                ((:greater)
-                 (proc prev scan)))))))))
+    (declare (proper-tail-calls))
+    (let ((head (cons #f entries)))
+      (let (iter (prev head) (scan entries))
+        (if (null? scan)
+            (proc prev scan)
+          (let ((entry (car scan)))
+            (let ((entry-path (get-path entry)))
+              (if (test entry-path path)
+                  (iter prev (cdr scan))
+                (case (ci-compare entry-path path)
+                  ((:less)
+                   (iter scan (cdr scan)))
+                  ((:equal)
+                   (proc prev (cdr scan)))
+                  ((:greater)
+                   (proc prev scan))))))))
+      (set! entries (cdr head))))
   
   
-  (method package (update self path path-type added)
+  (method package (update self path path-type replace)
+    (declare (proper-tail-calls))
     (let ((test (if (eq? path-type 'file)
                     ci=?
                   (lambda (entry-path path)
@@ -926,75 +1174,187 @@
           (when (test entry-path path)
             (table-clear paths entry-path))))
       (for-each (lambda (entry)
-                  (bind (path digest seconds) entry
+                  (let ((path (get-path entry)))
                     (table-set! paths path entry)))
-                added)
+                replace)
       (updating self path test
         (lambda (prev next)
-          (cond ((not prev)
-                 (if (null? added)
-                     (set! entries next)
-                   (let ((added (copy added)))
-                     (set-cdr! (last-pair added) next)
-                     (set! entries added))))
-                (else
-                 (if (null? added)
-                     (set-cdr! prev next)
-                   (let ((added (copy added)))
-                     (set-cdr! prev added)
-                     (set-cdr! (last-pair added) next)))))))
+          (if (null? replace)
+              (set-cdr! prev next)
+            (let ((replace (copy replace)))
+              (set-cdr! prev replace)
+              (set-cdr! (last-pair replace) next)))))
       entries))
   
   
-  (method package (apply-changes self changes)
-    (for-each (lambda (change)
-                (bind (what path . rest) change
-                  (case what
-                    ((added modified)
-                     (bind (digest seconds) rest
-                       (let ((entry (list path digest seconds)))
-                         (update self path 'file (list entry)))))
-                    ((removed)
-                     (update self path 'file '())))))
-              changes)
-    (when file
-      (save-to-file self)))
+  (method package (update-changes self changes)
+    (declare (proper-tail-calls))
+    (let ((head (cons #f entries)))
+      (let (iter (prev head) (scan entries) (changes changes))
+        (if (null? changes)
+            (begin
+              (set! entries (cdr head))
+              (when file
+                (save-to-file self)))
+          (let ((change (car changes)))
+            (bind (what path . rest) change
+              (define (update next)
+                (case what
+                  ((added modified)
+                   (let ((entry (copy (car rest))))
+                     (let ((pair (cons entry next)))
+                       (set-cdr! prev pair)
+                       (table-set! paths path entry)
+                       (iter prev pair (cdr changes)))))
+                  ((removed)
+                   (set-cdr! prev next)
+                   (table-clear paths path)
+                   (iter prev next (cdr changes)))))
+              
+              (if (null? scan)
+                  (update scan)
+                (case (ci-compare (get-path (car scan)) path)
+                  ((:less)
+                   (iter scan (cdr scan) changes))
+                  ((:equal)
+                   (update (cdr scan)))
+                  ((:greater)
+                   (update scan))))))))))
+  
+  
+  (method package (entry-unchanged? self entry)
+    (let ((path (get-path entry)))
+      (let ((actual-entry (find-entry self path)))
+        (and actual-entry
+             (equal? (get-digest entry) (get-digest actual-entry))
+             (= (get-flags entry) (get-flags actual-entry))
+             (eq? (get-set entry) (get-set actual-entry))))))
   
   
   (method package (add-file self path file)
-    (let ((entry (scan-file repository path file base: self)))
-      (let ((entries (list entry)))
-        (bind (path digest seconds) entry
-          (store-file repository file digest)
-          (update self path 'file entries)
-          (save-to-file self)
-          entries))))
+    (let ((open? (open? repository))
+          (entry (scan-file repository path file base: self)))
+      (unless (entry-unchanged? self entry)
+        (let ((entries (list entry)))
+          (let ((path (get-path entry))
+                (digest (get-digest entry)))
+            (unless open?
+              (store-file repository file digest))
+            (update self path 'file entries)
+            (save-to-file self))))))
   
   
   (method package (add-directory self path dir)
-    (let ((entries (scan-directory repository path dir base: self)))
+    (let ((open? (open? repository))
+          (entries (scan-directory repository path dir base: self))
+          (added? #f))
       (for-each (lambda (entry)
-                  (bind (path digest seconds) entry
-                    (let ((file (new-file directory path)))
-                      (store-file repository file digest))))
+                  (unless (entry-unchanged? self entry)
+                    (unless open?
+                      (let ((path (get-path entry))
+                            (digest (get-digest entry)))
+                        (let ((file (new-file directory (tokenise-filename path))))
+                          (store-file repository file digest))))
+                    (set! added? #t)))
                 entries)
-      (update self path 'directory entries)
-      (save-to-file self)
-      entries))
+      (when added?
+        (update self path 'directory entries)
+        (save-to-file self))))
   
   
-  (method package (remove-file self path file)
+  (method package (remove-file self path)
     (update self path 'file '())
     (save-to-file self))
   
   
-  (method package (remove-directory self path directory)
+  (method package (remove-directory self path)
     (update self path 'directory '())
     (save-to-file self))
   
   
   (method package (find-entry self path)
-    (table-ref paths path #f)))
+    (table-ref paths path #f))
+  
+  
+  (method package (iterate-subpaths self path proc)
+    (iterate-table-safe paths
+      (lambda (entry-path entry)
+        (when (starts-with? entry-path path ignore-case?: #t)
+          (proc entry-path))))))
+
+
+;;;
+;;;; Entry
+;;;
+
+
+(class Associative-Entry extends Object
+  
+  
+  (slot path    getter generate)
+  (slot digest  getter generate)
+  (slot seconds getter generate)
+  (slot flags   getter generate)
+  (slot set     getter generate)
+  (slot live?   getter generate)
+  
+  
+  (method override (initialize self path digest seconds flags set live?)
+    (set! self.path path)
+    (set! self.digest digest)
+    (set! self.seconds seconds)
+    (set! self.flags flags)
+    (set! self.set set)
+    (set! self.live? live?))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{s}" path))))
+  
+  
+  (method override (copy-object self deep?)
+    (new Associative-Entry
+      path digest seconds flags set live?))
+  
+  
+  (method package (set-seconds self sec)
+    (set! seconds sec))
+  
+  
+  (method package (set-live? self flag)
+    (set! live? flag)))
+
+
+;; backward compatible
+(definition protected (list->entry lst)
+  (bind (path digest seconds . rest) lst
+    (if (null? rest)
+        (new Associative-Entry path digest seconds 0 #f #f)
+      (bind (flags . rest) rest
+        (if (null? rest)
+            (new Associative-Entry path digest seconds flags #f #f)
+          (bind (set . rest) rest
+            (if (null? rest)
+                (new Associative-Entry path digest seconds flags set #f)
+              (bind (live? . rest) rest
+                (new Associative-Entry path digest seconds flags set live?)))))))))
+
+(definition protected (list->entries lst)
+  (map list->entry lst))
+
+
+(definition protected (entry->list entry)
+  (list (get-path entry)
+        (get-digest entry)
+        (get-seconds entry)
+        (get-flags entry)
+        (get-set entry)
+        (get-live? entry)))
+
+(definition protected (entries->list entries)
+  (map entry->list entries))
 
 
 ;;;
@@ -1005,18 +1365,83 @@
 (class Associative-Diff extends Object
   
   
-  (slot changes getter generate)
+  (slot changes  getter generate)
+  (slot added    getter generate)
+  (slot modified getter generate)
+  (slot removed  getter generate)
   
   
-  (method override (initialize self changes)
-    (set! self.changes changes))
+  (method override (initialize self changes added modified removed)
+    (set! self.changes changes)
+    (set! self.added added)
+    (set! self.modified modified)
+    (set! self.removed removed))
   
   
   (method override (print self output readably)
     (print-unreadable self output
       (lambda (output)
         (let ((len (length changes)))
-          (format output "with {a} change{a}" (format-cardinality len) (format-plural len)))))))
+          (format output "with {a} change{a}" (format-cardinality len) (format-plural len))))))
+  
+  
+  (method package (get-added/modified self)
+    (collect-if (lambda (change)
+                  (memq? (car change) '(added modified)))
+                changes)))
+
+
+;;;
+;;;; Filter
+;;;
+
+
+(class Associative-Filter extends Object
+  
+  
+  (slot name       getter generate)
+  (slot conditions getter generate)
+  
+  
+  (method override (initialize self name conditions)
+    (set! self.name name)
+    (set! self.conditions conditions))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" name))))
+  
+  
+  (method package (filter-path self path)
+    (let ((extension (filename-extension path)))
+      (some? (lambda (condition)
+               (bind (kind . target) condition
+                 (case kind
+                   ((extension) (extension=? extension target))
+                   ((directory) (starts-with? path target test: filename=?))
+                   ((file) (filename=? path target)))))
+             conditions))))
+
+
+;;;
+;;;; Changes
+;;;
+
+
+(definition protected (list->changes lst)
+  (map (lambda (change)
+         (bind (what path . lsts) change
+           (cons what (cons path (map list->entry lsts)))))
+       lst))
+
+
+(definition protected (changes->list changes)
+  (map (lambda (change)
+         (bind (what path . entries) change
+           (cons what (cons path (map entry->list entries)))))
+       changes))
 
 
 ;;;
@@ -1038,13 +1463,42 @@
       files?: #t
       directories?: #f
       recursive?: #t
-      ignored-toplevel-dirnames: '(".jas" ".git")
+      ignored-toplevel-dirnames: ignored-toplevel-dirnames
+      ignored-dirnames: ignored-dirnames
       sort?: #f)
     ;; passing sort?: #t to iterate-directory doesn't work
     ;; as sorting each directory children can yield a global
     ;; result that is different because of the / separators
-    (sort ci<? (queue-list entries) key: car)))
+    (sort ci<? (queue-list entries) key: get-path)))
 
+
+;;;
+;;;; Flags
+;;;
+
+
+(definition Executable-Flag
+  1)
+
+
+(definition (determine-flags filename)
+  (cond-expand
+    (windows
+     0)
+    (else
+     (if (file-executable? filename)
+         Executable-Flag
+       0))))
+
+
+(definition (set-permissions file flags)
+  (cond-expand
+    (windows)
+    (else
+     (let ((permissions (if (mask-bit-set? flags Executable-Flag)
+                            #o755
+                          #o644)))
+       (file-permissions-set! (parse file) permissions)))))
 
 ;;;
 ;;;; Compressed
@@ -1112,7 +1566,12 @@
 (definition public (jas-describe obj output)
   (define (describe-index index)
     (for-each (lambda (entry)
-                (apply debug entry))
+                (let ((path (get-path entry))
+                      (digest (get-digest entry))
+                      (seconds (get-seconds entry))
+                      (flags (get-flags entry))
+                      (set (get-set entry)))
+                  (format output "{s} {s} {a} {a} {a}{%}" path digest seconds flags set)))
               (get-entries index)))
   
   (define (describe-diff diff)

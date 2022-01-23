@@ -452,6 +452,9 @@
       (%%substring pathname 0 (%%fx+ pos 1)))))
 
 
+(define (jazz:file-last-access-seconds pathname)
+  (time->seconds (file-last-access-time pathname)))
+
 (define (jazz:file-last-modification-seconds pathname)
   (time->seconds (file-last-modification-time pathname)))
 
@@ -462,17 +465,46 @@
     (%%string-append filename "." extension)))
 
 
-(define (jazz:copy-file src dst #!key (feedback #f))
+(cond-expand
+  (windows)
+  (else
+   ;; redefined in compiled code
+   (define jazz:file-permissions
+     #f)
+   
+   (define jazz:file-permissions-set!
+     #f)
+   
+   (set! jazz:file-permissions
+     (lambda (filename)
+       (error "Called too early")))
+   
+   (set! jazz:file-permissions-set!
+     (lambda (filename permissions)
+       (error "Called too early")))))
+
+
+(define (jazz:copy-file src dst)
+  (cond-expand
+    (windows
+     (copy-file src dst))
+    (else
+     (let ((permissions (jazz:file-permissions src)))
+       (copy-file src dst)
+       (jazz:file-permissions-set! dst permissions)))))
+
+
+(define (jazz:copy-file-if-needed src dst #!key (feedback #f))
   (if (jazz:file-needs-update? src dst)
       (begin
         (if feedback
             (feedback "; copying {a}..." src))
         (if (file-exists? dst)
             (delete-file dst))
-        (copy-file src dst))))
+        (jazz:copy-file src dst))))
 
 
-(define (jazz:copy-files src dst #!key (feedback #f))
+(define (jazz:copy-files-if-needed src dst #!key (feedback #f))
   (if (not (file-exists? dst))
       (begin
         (if feedback
@@ -483,7 +515,7 @@
                     (dst-pathname (string-append dst "/" file)))
                 (case (jazz:pathname-type src-pathname)
                   ((file)
-                   (jazz:copy-file src-pathname dst-pathname feedback: #f)))))
+                   (jazz:copy-file-if-needed src-pathname dst-pathname feedback: #f)))))
             (directory-files src)))
 
 

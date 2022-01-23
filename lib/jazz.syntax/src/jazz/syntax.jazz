@@ -64,6 +64,31 @@
 
 
 ;;;
+;;;; Delayed
+;;;
+
+
+(syntax public export-delayed
+  (lambda (form-src usage-environment macro-environment)
+    (bind (module-hack module-name . exports) (cdr (source-code form-src))
+      (let ((module-hack (source-code module-hack))
+            (module-name (source-code module-name))
+            (exports (source-code exports)))
+        (sourcify-deep-if
+          `(begin
+             ,@(map (lambda (export)
+                      (let ((export (source-code export)))
+                        `(definition public ,export
+                           (lambda rest
+                             (load-unit ',module-name)
+                             (inline (set! ,(string->symbol (string-append (symbol->string module-hack) ":" (symbol->string export)))
+                                           ,(string->symbol (string-append (symbol->string module-name) ":" (symbol->string export)))))
+                             (apply ,export rest)))))
+                    exports))
+          form-src)))))
+
+
+;;;
 ;;;; Time
 ;;;
 
@@ -97,6 +122,33 @@
       (new Time-Special
         (walk walker resume declaration environment expr)
         (walk walker resume declaration environment port)))))
+
+
+;;;
+;;;; Inline
+;;;
+
+
+(class Inline extends Expression
+  
+  
+  (slot expression getter generate)
+  
+  
+  (method override (initialize self expression . rest)
+    (apply nextmethod self rest)
+    (set! self.expression expression))
+  
+  
+  (method override (emit-expression self declaration walker resume environment backend)
+    expression))
+
+
+(special-form (inline walker resume declaration environment form-src)
+  (let ((form (source-code (cdr (source-code form-src)))))
+    (let ((code (car form)))
+      (new Inline
+        code))))
 
 
 ;;;

@@ -4482,6 +4482,84 @@
 
 
 ;;;
+;;;; Waiter
+;;;
+
+
+(class Waiter extends Object
+  
+  
+  (slot name             getter generate)
+  (slot time             getter generate)
+  (slot proc             getter generate)
+  (slot mutex   <object> getter generate)
+  (slot condvar <object> getter generate)
+  (slot done?            getter generate)
+  
+  
+  (method override (initialize self name)
+    (nextmethod self)
+    (set! self.name name)
+    (set! self.time #f)
+    (set! self.proc #f)
+    (set! self.mutex (make-mutex name))
+    (set! self.condvar (make-condition-variable name))
+    (set! self.done? #f))
+  
+  
+  (method public (done self)
+    (mutex-lock! mutex)
+    (set! done? #t)
+    (condition-variable-signal! condvar)
+    (mutex-unlock! mutex))
+  
+  
+  (method public (in self delay proc)
+    (mutex-lock! mutex)
+    (let ((first-time? (not time)))
+      (set! self.time (+ (current-seconds) delay))
+      (set! self.proc proc)
+      (if first-time?
+          (thread-start!
+            (new-thread
+              (lambda ()
+                (wait self))
+              name))
+        (condition-variable-signal! condvar)))
+    (mutex-unlock! mutex))
+  
+  
+  (method (wait self)
+    (declare (proper-tail-calls))
+    (let (loop-wait)
+      (if done?
+          #f
+        (mutex-lock! mutex)
+        (let ((now (current-seconds)))
+          (let ((remaining (- time now)))
+            (if (<= remaining 0.)
+                (let ((again-delay #f))
+                  (define (again delay)
+                    (set! time (+ now delay))
+                    (set! again-delay delay))
+                 
+                  (proc again)
+                  (if again-delay
+                      (begin
+                        (mutex-unlock! mutex condvar again-delay)
+                        (loop-wait))
+                    (set! time #f)
+                    (set! proc #f)
+                    (mutex-unlock! mutex)))
+              (mutex-unlock! mutex condvar remaining)
+              (loop-wait))))))))
+
+
+(definition public (make-waiter (name (unspecified)))
+  (new Waiter name))
+
+
+;;;
 ;;;; Box
 ;;;
 
@@ -4505,6 +4583,47 @@
       (system-format output "~{{a} {a}}"
         (category-name (class-of self))
         boxed))))
+
+
+;;;
+;;;; ReadWrite Gate
+;;;
+
+
+(class ReadWrite-Gate extends Object
+  
+  
+  (slot reader-count initialize 0)
+  (slot reader-mutex initialize (make-mutex 'reader))
+  (slot work-mutex   initialize (make-mutex 'work))
+  
+  
+  (method public (reader-lock! self)
+    (mutex-lock! reader-mutex)
+    (when (= reader-count 0)
+      (mutex-lock! work-mutex +inf.0 #f))
+    (increase! reader-count)
+    (mutex-unlock! reader-mutex))
+  
+  
+  (method public (reader-unlock! self)
+    (mutex-lock! reader-mutex)
+    (decrease! reader-count)
+    (when (= reader-count 0)
+      (mutex-unlock! work-mutex))
+    (mutex-unlock! reader-mutex))
+  
+  
+  (method public (writer-lock! self)
+    (mutex-lock! work-mutex))
+  
+  
+  (method public (writer-unlock! self)
+    (mutex-unlock! work-mutex)))
+
+
+(definition public (make-readwrite-gate)
+  (new ReadWrite-Gate))
 
 
 ;;;
@@ -5498,18 +5617,35 @@
       (bytes->32-bit-integer b1 b2 b3 b4))))
 
 
-(definition public (write-binary-content data port (encoder #f))
+(definition public (write-binary-content u8vect port)
+  (let ((size (u8vector-length u8vect)))
+    (write-32-bit-integer size port)
+    (write-subu8vector u8vect 0 size port)
+    (+ 4 size)))
+
+
+(definition public (read-binary-content port)
+  (let ((size (read-32-bit-integer port)))
+    (if (eof-object? size)
+        size
+      (let ((u8vect (make-u8vector size)))
+        (let ((read (read-subu8vector u8vect 0 size port)))
+          (if (/= read size)
+              (eof-object)
+            u8vect))))))
+
+
+(definition public (write-binary-object data port (encoder #f))
   (let ((u8vect (if encoder
                     (object->u8vector data encoder)
                   (object->u8vector data))))
     (let ((size (u8vector-length u8vect)))
       (write-32-bit-integer size port)
       (write-subu8vector u8vect 0 size port)
-      (force-output port)
       (+ 4 size))))
 
 
-(definition public (read-binary-content port (decoder #f))
+(definition public (read-binary-object port (decoder #f))
   (let ((size (read-32-bit-integer port)))
     (if (eof-object? size)
         size
@@ -5523,11 +5659,11 @@
 
 
 (definition public (write-binary data port)
-  (write-binary-content data port serialize))
+  (write-binary-object data port serialize))
 
 
 (definition public (read-binary port)
-  (read-binary-content port deserialize))
+  (read-binary-object port deserialize))
 
 
 ;;;

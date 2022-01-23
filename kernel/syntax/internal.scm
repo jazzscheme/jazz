@@ -69,6 +69,18 @@
 
 
 ;;;
+;;;; Libraries
+;;;
+
+
+(cond-expand
+  (mac
+   (define (jazz:use-dlclose)
+     (##use-dlclose)))
+  (else))
+
+
+;;;
 ;;;; Compiler
 ;;;
 
@@ -476,7 +488,7 @@
 ;;;
 
 
-(define (jazz:install-step-handler proc)
+(define (jazz:install-step-handler step-level proc)
   (define (handler leapable? $code rte execute-body . other)
     (##step-off)
     (jazz:process-step
@@ -486,8 +498,14 @@
         (%%apply execute-body (%%cons $code (%%cons rte other))))))
   
   (%%danger jazz:install-step-handler
-    (let ((cs (##current-stepper)))
-      (vector-set! cs 0 (vector handler handler handler handler handler handler handler))
+    (let ((cs (##current-stepper))
+          (handlers (vector #f #f #f #f #f #f #f)))
+      (let loop ((n 0))
+           (if (< n step-level)
+               (begin
+                 (vector-set! handlers n handler)
+                 (loop (+ n 1)))))
+      (vector-set! cs 0 handlers)
       (void))))
 
 

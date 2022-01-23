@@ -493,6 +493,7 @@
 (native jazz:kernel-bundle-contents)
 (native jazz:kernel-bundle-root)
 (native jazz:kernel-bundle-install)
+(native jazz:kernel-root)
 (native jazz:kernel-source)
 (native jazz:kernel-source-accessible?)
 (native jazz:kernel-source-access?)
@@ -666,6 +667,8 @@
 (native jazz:register-reader-extension)
 (native jazz:get-load-interpreted-hook)
 (native jazz:set-load-interpreted-hook)
+(native jazz:get-unit-not-found-hook)
+(native jazz:set-unit-not-found-hook)
 (native jazz:get-evaluate-forms-hook)
 (native jazz:set-evaluate-forms-hook)
 (native jazz:get-console-evaluate-hook)
@@ -690,6 +693,10 @@
 (native jazz:image-load-counter)
 (native jazz:object-load-counter)
 (native jazz:interpreted-load-counter)
+(cond-expand
+  (mac
+   (native jazz:use-dlclose))
+  (else))
 (native jazz:compiler-present?)
 (native jazz:compiler-name)
 (native jazz:compiler-extension)
@@ -719,6 +726,9 @@
 (native jazz:pkg-config-version)
 (native jazz:pkg-config-cflags)
 (native jazz:pkg-config-libs)
+(native jazz:file-executable?)
+(native jazz:file-permissions)
+(native jazz:file-permissions-set!)
 
 
 ;;;
@@ -832,8 +842,10 @@
 (native jazz:pathname-link?)
 (native jazz:pathname-expand)
 (native jazz:pathname-normalize)
+(native jazz:file-last-access-seconds)
 (native jazz:file-last-modification-seconds)
 (native jazz:add-extension)
+(native jazz:copy-file)
 (native jazz:current-directory)
 (native jazz:with-current-directory)
 (native jazz:directory-content)
@@ -1140,6 +1152,7 @@
 (native jazz:current-monotonic-nanoseconds)
 (native jazz:current-monotonic-frequency)
 (native jazz:present-seconds)
+(native jazz:present-binary-bytes)
 
 
 ;;;
@@ -1229,6 +1242,8 @@
 (native jazz:get-catalog-entry)
 (native jazz:release-catalog-entries)
 (native jazz:outline-feedback)
+(native jazz:get-outline-not-found-hook)
+(native jazz:set-outline-not-found-hook)
 (native jazz:get-outline-hook)
 (native jazz:set-outline-hook)
 (native jazz:outline-unit)

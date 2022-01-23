@@ -35,12 +35,15 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.stream.foreign jazz
+(module jazz.stream.foreign jazz
 
+
+(require (jazz.stream.setup))
 
 (import (jazz.foreign)
         (jazz.listener)
         (jazz.platform.types)
+        (jazz.stream.header)
         (jazz.stream.syntax (phase syntax))
         (jazz.syntax (phase syntax)))
 
@@ -141,13 +144,6 @@
 (c-type GList*   (pointer GList GList*))
 (c-type GError   (native "GError"))
 (c-type GError*  (pointer GError GError*))
-
-
-(c-enumerant G_TYPE_BOOLEAN)
-(c-enumerant G_TYPE_INT)
-(c-enumerant G_TYPE_UINT64)
-(c-enumerant G_TYPE_DOUBLE)
-(c-enumerant G_TYPE_STRING)
 
 
 (c-declare jazz.stream.foreign #/C/
@@ -319,46 +315,10 @@ static char* g_error_message(GError* error)
 ;;;
 
 
-(c-enumerant GST_STATE_NULL)
-(c-enumerant GST_STATE_READY)
-(c-enumerant GST_STATE_PAUSED)
-(c-enumerant GST_STATE_PLAYING)
-(c-enumerant GST_STATE_CHANGE_FAILURE)
-(c-enumerant GST_STATE_CHANGE_SUCCESS)
-(c-enumerant GST_STATE_CHANGE_ASYNC)
-(c-enumerant GST_STATE_CHANGE_NO_PREROLL)
-(c-enumerant GST_CLOCK_TIME_NONE "U64")
-(c-enumerant GST_MESSAGE_EOS)
-(c-enumerant GST_MESSAGE_ERROR)
-(c-enumerant GST_MESSAGE_WARNING)
-(c-enumerant GST_MESSAGE_STATE_CHANGED)
-(c-enumerant GST_MESSAGE_STREAM_STATUS)
-(c-enumerant GST_MESSAGE_QOS)
-(c-enumerant GST_FORMAT_TIME)
-(c-enumerant GST_EVENT_CAPS)
-(c-enumerant GST_SEEK_FLAG_FLUSH)
-(c-enumerant GST_APP_STREAM_TYPE_STREAM)
-(c-enumerant GST_APP_STREAM_TYPE_SEEKABLE)
-(c-enumerant GST_APP_STREAM_TYPE_RANDOM_ACCESS)
-(c-enumerant GST_PAD_UNKNOWN)
-(c-enumerant GST_PAD_SRC)
-(c-enumerant GST_PAD_SINK)
-(c-enumerant GST_PAD_LINK_OK)
-(c-enumerant GST_PAD_LINK_WRONG_HIERARCHY)
-(c-enumerant GST_PAD_LINK_WAS_LINKED)
-(c-enumerant GST_PAD_LINK_WRONG_DIRECTION)
-(c-enumerant GST_PAD_LINK_NOFORMAT)
-(c-enumerant GST_PAD_LINK_NOSCHED)
-(c-enumerant GST_PAD_LINK_REFUSED)
-(c-enumerant GST_PAD_MODE_NONE)
-(c-enumerant GST_PAD_MODE_PUSH)
-(c-enumerant GST_PAD_MODE_PULL)
 (c-enumerant GST_TYPE_DISCOVERER_CONTAINER_INFO)
 (c-enumerant GST_TYPE_DISCOVERER_STREAM_INFO)
 (c-enumerant GST_TYPE_DISCOVERER_AUDIO_INFO)
 (c-enumerant GST_TYPE_DISCOVERER_VIDEO_INFO)
-(c-enumerant GST_PLUGIN_FLAG_BLACKLISTED)
-(c-enumerant GST_DEBUG_GRAPH_SHOW_ALL)
 
 
 (c-type GstClockTime         uint64)
@@ -3208,17 +3168,6 @@ static void gst_print_messages(GstPipeline* pipeline)
     (gst_bus_set_flushing bus (if flushing? 1 0))))
 
 
-;; a try to debug memory corruption in the tags
-;; the hypothesis is that they need to be permanent objects
-;; and putting them here in compiled code is based on the result
-;; of tests showing constants are movable in interpreted code
-(definition protected element-tags
-  '(GstElement*))
-
-(definition protected error-tags
-  '(GError*))
-
-
 (gst-external (move-u8vector->pointer! scheme-object void*) void
   #/C/
     memmove(___arg2, ___BODY(___arg1), ___HD_BYTES(___HEADER(___arg1)));
@@ -3290,8 +3239,11 @@ static void gst_print_messages(GstPipeline* pipeline)
 ;;;
 
 
-(definition protected gstreamer-start-time
+(definition gstreamer-start-time
   #f)
+
+(definition protected (get-gstreamer-start-time)
+  gstreamer-start-time)
 
 
 (definition gstreamer-initialized?
@@ -3303,6 +3255,10 @@ static void gst_print_messages(GstPipeline* pipeline)
     (gst_registry_fork_set_enabled 0)
     (gst_init)
     (set! gstreamer-start-time (gst_system_clock_get_time))
+    (log_setup)
+    (for-each (lambda (hook)
+                (hook))
+              gstreamer-hooks)
     (set! gstreamer-initialized? #t)))
 
 

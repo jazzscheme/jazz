@@ -1,0 +1,71 @@
+;;;============
+;;;  Together
+;;;============
+;;;
+;;;; Server Reports
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 2012-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+
+
+(module jas.server.report jazz
+
+
+(import (jazz.io))
+
+
+(definition curl-path
+  "/usr/bin/curl")
+
+
+(definition monitor-directory
+  {Directory Home ".jas" "crashes"})
+
+(definition monitor-remote
+  "http://jas.togethersphere.com")
+
+
+(cond-expand
+  (windows
+   (definition public (send-crash-reports)
+     ))
+  (else
+   (definition public (send-crash-reports)
+     (define (send-crash crash)
+       (bind (file remote) crash
+         (let ((port (open-process
+                       (list
+                         path: curl-path
+                         arguments: (list "--silent" "-T" (parse file) "-H" "Content-Type: text/plain" (string-append remote "/crashes/" (get-name file)))
+                         show-console: #f))))
+           (let ((status (process-status port)))
+             (when (= status 0)
+               (delete file))))))
+     
+     (define (send-crashes crashes)
+       (for-each send-crash crashes))
+     
+     (define (collect-crashes)
+       (let ((queue (new-queue)))
+         (when (exists? monitor-directory)
+           (iterate-directory monitor-directory
+             (lambda (file)
+               (when (extension=? (get-extension file) "snapshot")
+                 (enqueue queue (list file monitor-remote))))
+             files?: #t
+             directories?: #f
+             recursive?: #f))
+         (queue-list queue)))
+     
+     (let ((crashes (collect-crashes)))
+       (let ((count (length crashes)))
+         (when (> count 0)
+           (thread-start!
+             (new-thread
+               (lambda ()
+                 (send-crashes crashes))
+               'send-crash-reports)))
+         count))))))

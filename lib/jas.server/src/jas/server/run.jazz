@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; JAS Run
+;;;; JAS Server Run
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,45 +35,38 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jas.run jazz
+(module jas.server.run jazz
 
 
-(import (jas))
+(import (jazz.debuggee)
+        (jazz.io)
+        (jazz.logger)
+        (jazz.snapshot)
+        (jas.server)
+        (jas.server.report))
 
 
-(definition (jas)
-  (let ((arguments (command-arguments)))
-    (if (null? arguments)
-        (jas$help '())
-      (bind (command . arguments) arguments
-        (case (string->symbol command)
-          ((help) (jas$help arguments))
-          ((init) (jas$init arguments))
-          ((config) (jas$config arguments))
-          ((list) (jas$list arguments))
-          ((add) (jas$add arguments))
-          ((remove) (jas$remove arguments))
-          ((commit) (jas$commit arguments))
-          ((discard) (jas$discard arguments))
-          ((restore) (jas$restore arguments))
-          ((reset) (jas$reset arguments))
-          ((branch) (jas$branch arguments))
-          ((checkout) (jas$checkout arguments))
-          ((log) (jas$log arguments))
-          ((status) (jas$status arguments))
-          ((diff) (jas$diff arguments))
-          ((clone) (jas$clone arguments))
-          ((download) (jas$download arguments))
-          ((upload) (jas$upload arguments))
-          ((parse) (jas$parse arguments))
-          ((retrieve) (jas$retrieve arguments))
-          ((scan) (jas$scan arguments))
-          ((cat) (jas$cat arguments))
-          ((collect) (jas$collect arguments))
-          ((test) (jas$test arguments))
-          (else (format (current-output-port) "Unknown jas command: {a}{%}" command)))))))
+(definition (prepare-logger)
+  (set-logger-directory {Directory Home ".jas" "logs"})
+  (set-logger-prefix "jas-server"))
 
 
-(register-product-run 'jas
+(definition (prepare-snapshots)
+  (let ((snapshots-dir {Directory Home ".jas" "crashes"}))
+    (create-directories snapshots-dir)
+    (snapshots-directory snapshots-dir)
+    (snapshot-prefix "Jas-Server")
+    (snapshot-max-depth 1)))
+
+
+(register-product-run 'jas-server
   (lambda (descriptor)
-    (jas))))
+    (initialize-aliases)
+    (prepare-logger)
+    (prepare-snapshots)
+    (send-crash-reports)
+    (start-jas-server)
+    (if (not (get-controller-debugger))
+        (sleep +inf.0)
+      (set-default-context 'jas.server)
+      (start-jazz-repl)))))

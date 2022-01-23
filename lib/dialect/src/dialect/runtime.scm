@@ -215,7 +215,7 @@
 (jazz:define-virtual (jazz:walker-bindings (jazz:Walker walker)))
 (jazz:define-virtual (jazz:walk-form (jazz:Walker walker) resume declaration environment form-src))
 (jazz:define-virtual (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
-(jazz:define-virtual (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
+(jazz:define-virtual (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value form-src))
 (jazz:define-virtual (jazz:validate-proclaim (jazz:Walker walker) resume declaration form-src))
 (jazz:define-virtual (jazz:runtime-export (jazz:Walker walker) declaration))
 (jazz:define-virtual (jazz:lookup-environment (jazz:Walker walker) resume declaration environment symbol-src symbol))
@@ -271,7 +271,7 @@
 (jazz:define-virtual (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration walker resume environment backend))
 (jazz:define-virtual (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments arguments-codes source-declaration walker resume environment backend))
 (jazz:define-virtual (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration walker resume environment backend))
-(jazz:define-virtual (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment backend))
+(jazz:define-virtual (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment backend form-src))
 
 
 (jazz:define-method (jazz:walk-binding-lookup (jazz:Walk-Binding binding) symbol source-declaration)
@@ -332,7 +332,7 @@
   #f)
 
 
-(jazz:define-method (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment backend form-src)
   (jazz:unspecified))
 
 
@@ -3869,7 +3869,7 @@
   #t)
 
 
-(jazz:define-method (jazz:emit-binding-assignment (jazz:Variable binding) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-binding-assignment (jazz:Variable binding) value source-declaration walker resume environment backend form-src)
   (let ((value-code (jazz:emit-expression value source-declaration walker resume environment backend)))
     (receive (annotated-frame annotated-variable annotated-type) (jazz:find-annotated binding environment)
       (%%when (%%class-is? annotated-variable jazz:Annotated-Variable)
@@ -3878,7 +3878,7 @@
       (jazz:new-code
         (jazz:emit backend 'variable-assignment binding source-declaration walker resume environment binding-code value-code)
         jazz:Any
-        #f))))
+        form-src))))
 
 
 (define (jazz:register-variable declaration suffix value)
@@ -5351,12 +5351,12 @@
    (symbol-source getter: generate)))
 
 
-(define (jazz:new-assignment binding value symbol-src)
-  (jazz:allocate-assignment #f #f binding value symbol-src))
+(define (jazz:new-assignment source binding value symbol-src)
+  (jazz:allocate-assignment #f source binding value symbol-src))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Assignment expression) declaration walker resume environment backend)
-  (jazz:emit-binding-assignment (jazz:get-assignment-binding expression) (jazz:get-assignment-value expression) declaration walker resume environment backend))
+  (jazz:emit-binding-assignment (jazz:get-assignment-binding expression) (jazz:get-assignment-value expression) declaration walker resume environment backend (jazz:get-expression-source expression)))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Assignment expression) down up here seed environment)
@@ -5366,12 +5366,12 @@
       environment))
 
 
-(jazz:define-method (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value)
+(jazz:define-method (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value form-src)
   (let ((binding (jazz:lookup-symbol walker resume declaration environment symbol-src)))
     (if binding
         (begin
           (jazz:walk-binding-validate-assignment binding walker resume declaration symbol-src)
-          (jazz:new-assignment binding (jazz:walk walker resume declaration environment value) symbol-src))
+          (jazz:new-assignment form-src binding (jazz:walk walker resume declaration environment value) symbol-src))
       (jazz:walk-free-assignment walker resume declaration symbol-src))))
 
 
@@ -5636,7 +5636,7 @@
     (let ((variable (%%cadr (jazz:source-code form-src)))
           (value (%%car (%%cddr (jazz:source-code form-src)))))
       (if (%%symbol? (jazz:unwrap-syntactic-closure variable))
-          (jazz:walk-symbol-assignment walker resume declaration environment variable value)
+          (jazz:walk-symbol-assignment walker resume declaration environment variable value form-src)
         (jazz:walk-error walker resume declaration variable "Illegal set! of {s}" (%%desourcify variable))))))
 
 
@@ -6235,6 +6235,16 @@
                      #f)))
 
 
+(define jazz:outline-not-found-hook
+  #f)
+
+(define (jazz:get-outline-not-found-hook)
+  jazz:outline-not-found-hook)
+
+(define (jazz:set-outline-not-found-hook hook)
+  (set! jazz:outline-not-found-hook hook))
+
+
 (define jazz:outline-hook
   #f)
 
@@ -6247,34 +6257,42 @@
 
 (define (jazz:outline-unit unit-name #!key (use-catalog? #t) (error? #t))
   (define (load-toplevel-declaration)
-    (jazz:with-unit-resources unit-name #f
-      (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-        (let ((src (try-sourceless-outline unit-name src bin)))
-          (if (%%not src)
-              (if (%%not error?)
-                  #f
-                (raise (jazz:new-walk-source-not-found (jazz:format "Unable to locate unit source: {s}" unit-name) unit-name)))
-            (jazz:with-verbose (jazz:outline-verbose?) "outlining" (jazz:resource-pathname src)
-              (lambda ()
-                ;; not reading the literals is necessary as reading a literal will load units
-                (let ((form (jazz:read-toplevel-form src read-literals?: #f)))
-                  (parameterize ((jazz:requested-unit-name unit-name)
-                                 (jazz:requested-unit-resource src)
-                                 (jazz:requested-pathname #f)
-                                 (jazz:walk-for 'interpret)
-                                 (jazz:generate-symbol-for "%outline^")
-                                 (jazz:generate-symbol-context unit-name))
-                    (let ((kind (jazz:source-code (%%car (jazz:source-code form)))))
-                      (case kind
-                        ((unit)
-                         (jazz:parse-unit-declaration (%%cdr (jazz:source-code form))))
-                        ((module)
-                         (jazz:parse-module-declaration (%%cdr (jazz:source-code form)))))))))))))))
-  
-  (define (try-sourceless-outline unit-name src bin)
-    (if (and (%%not src) bin)
-        (jazz:bin->otl bin)
-      src))
+    (let try-again ((first-try? #t))
+      (jazz:with-unit-resources unit-name #f
+        (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+          (let ((src (if (%%not src)
+                         (if (%%not bin)
+                             #f
+                           (let ((otl (jazz:bin->otl bin)))
+                             (let ((otl-path (jazz:resource-pathname otl)))
+                               (if (file-exists? otl-path)
+                                   otl
+                                 #f))))
+                       src)))
+            (if (%%not src)
+                (if (and jazz:unit-not-found-hook first-try?)
+                    (begin
+                      (jazz:outline-not-found-hook unit-name)
+                      (try-again #f))
+                  (if (%%not error?)
+                      #f
+                    (raise (jazz:new-walk-source-not-found (jazz:format "Unable to locate unit source: {s}" unit-name) unit-name))))
+              (jazz:with-verbose (jazz:outline-verbose?) "outlining" (jazz:resource-pathname src)
+                (lambda ()
+                  ;; not reading the literals is necessary as reading a literal will load units
+                  (let ((form (jazz:read-toplevel-form src read-literals?: #f)))
+                    (parameterize ((jazz:requested-unit-name unit-name)
+                                   (jazz:requested-unit-resource src)
+                                   (jazz:requested-pathname #f)
+                                   (jazz:walk-for 'interpret)
+                                   (jazz:generate-symbol-for "%outline^")
+                                   (jazz:generate-symbol-context unit-name))
+                      (let ((kind (jazz:source-code (%%car (jazz:source-code form)))))
+                        (case kind
+                          ((unit)
+                           (jazz:parse-unit-declaration (%%cdr (jazz:source-code form))))
+                          ((module)
+                           (jazz:parse-module-declaration (%%cdr (jazz:source-code form))))))))))))))))
   
   (if (not use-catalog?)
       (load-toplevel-declaration)

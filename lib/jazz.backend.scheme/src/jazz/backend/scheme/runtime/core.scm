@@ -1293,6 +1293,51 @@
     (%%string-append "-" (jazz:present-absolute-seconds (- secs)))))
 
 
+;; adapted from ##display-gc-report
+(define (jazz:present-binary-bytes bytes)
+  (declare (not safe))
+  
+  (define (scale x m)
+    (##flonum->exact-int (##flround (##fl* x m))))
+  
+  (define (show x*1000 unit)
+    (define (decimals d)
+      (let* ((n (##round (##/ x*1000 (##expt 10 (##fx- 3 d)))))
+             (n-str (##number->string n 10))
+             (n-str-len (##string-length n-str))
+             (str (if (##fx< n-str-len d)
+                      (##string-append
+                        (##make-string (##fx- d n-str-len) #\0)
+                        n-str)
+                    n-str))
+             (len (##string-length str))
+             (split (##fx- len d)))
+        (##string-append
+          (if (##fx= d 0)
+              str
+            (##string-append (##substring str 0 split)
+              "."
+              (##substring str split len)))
+          unit)))
+    
+    (cond ((##< x*1000 10000)
+           (decimals 1))
+          (else
+           (decimals 0))))
+  
+  (if (##< bytes 1024)
+      (##string-append (##number->string bytes) "B")
+    (let ((bytes (##exact->inexact bytes)))
+      (let ((k (scale bytes 9.765625e-1)))
+        (if (##< k 1024000)
+            (show k "K")
+          (let ((m (scale bytes 9.5367431640625e-4)))
+            (if (##< m 1024000)
+                (show m "M")
+              (let ((g (scale bytes 9.313225746154785e-7)))
+                (show g "G")))))))))
+
+
 ;;;
 ;;;; UDP
 ;;;

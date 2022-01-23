@@ -42,7 +42,7 @@
         (jazz.dialect.classes.foundation))
 
 (import (fmt (except fl upcase downcase))
-        (fmt.fmt-c))
+        (fmt.fmt-c (except c-inline)))
 
 
 ;; TODO
@@ -232,7 +232,7 @@
         ((Or) (emit-or expr env tail?))
         ((If) (emit-if expr env tail?))
         ((Cond) (emit-cond expr env tail?))
-        ((Inline) (emit-inline expr env tail?))
+        ((C-Inline) (emit-inline expr env tail?))
         ((For) (emit-for expr env tail?))
         ((Assignment) (emit-assignment expr env tail?))
         ((Cast) (emit-cast expr env tail?))
@@ -676,7 +676,7 @@
                           (get-positional signature)))
           (return-type (type->c return-type)))
       (let ((expr `(%fun ,return-type ,(name->c name) ,arguments ,@body)))
-        (let ((expr (if #f @fix-me-was-working-in-c++ (eq? expansion 'inline) `(inline ,expr) expr)))
+        (let ((expr (if #f @fix-me-was-working-in-c++ (eq? expansion 'inline) `(c-inline ,expr) expr)))
           (let ((code (c-expr/sexp expr)))
             (when (and (or (debug-optimize?) bailout?) (not disable-optimize?))
               (when bailout?
@@ -877,7 +877,6 @@
            (eq? (car expr) 'quote))
       (cadr expr)
     expr))
-  
 
 
 ;;;
@@ -965,11 +964,11 @@
 
 
 ;;;
-;;;; Inline
+;;;; C-Inline
 ;;;
 
 
-(class Inline extends Expression
+(class C-Inline extends Expression
   
   
   (slot code      getter generate)
@@ -986,10 +985,10 @@
     (call-emit-expression expansion declaration walker resume environment backend)))
 
 
-(special-form (inline walker resume declaration environment form-src)
+(special-form (c-inline walker resume declaration environment form-src)
   (let ((form (source-code (cdr (source-code form-src)))))
     (let ((code (car form)))
-      (new Inline
+      (new C-Inline
         (source-code code)
         (walk walker resume declaration environment
           code)))))

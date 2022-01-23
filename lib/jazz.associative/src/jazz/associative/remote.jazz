@@ -1,0 +1,191 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Associative Remote Protocol
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.associative.remote jazz
+
+
+(import (jazz.associative)
+        (jazz.version)
+        (jazz.zlib))
+
+
+(definition package jas-service
+  51000)
+
+
+(definition package jas-code <u8vector>
+  (32-bit-integer->bytes (code-string->32-bit-integer "JASR")
+    (lambda (b1 b2 b3 b4)
+      (u8vector b1 b2 b3 b4))))
+
+(definition jas-code-length <fx>
+  (u8vector-length jas-code))
+
+
+(definition package jas-version <u8vector>
+  (version->bytes {Version 1 0 0}
+    (lambda (b1 b2 b3 b4)
+      (u8vector b1 b2 b3 b4))))
+
+(definition jas-version-length <fx>
+  (u8vector-length jas-version))
+
+
+;;;
+;;;; Broke
+;;;
+
+
+(class Jas-Connection-Exception extends Exception)
+
+
+(class Jas-Unable-To-Connect extends Jas-Connection-Exception)
+
+
+(class Jas-Invalid-Version extends Jas-Connection-Exception)
+
+
+(class Jas-Invalid-Path extends Jas-Connection-Exception)
+
+
+(class Jas-Inexistant-Repository extends Jas-Connection-Exception)
+
+
+(class Jas-Connection-Broke extends Jas-Connection-Exception)
+
+
+(definition public (throw-jas-connection-broke)
+  (throw (new Jas-Connection-Broke)))
+
+;;;
+;;;; Validation
+;;;
+
+
+(definition package (jas-write-code port)
+  (write-subu8vector jas-code 0 jas-code-length port))
+
+
+(definition package (jas-read-code port)
+  (catch (os-exception? exc
+           #f)
+    (let ((code (make-u8vector jas-code-length 0)))
+      (if (= (read-subu8vector code 0 jas-code-length port) jas-code-length)
+          code
+        #f))))
+
+
+(definition package (jas-write-version port)
+  (write-subu8vector jas-version 0 jas-version-length port))
+
+
+(definition package (jas-read-version port)
+  (catch (os-exception? exc
+           #f)
+    (let ((version (make-u8vector jas-version-length 0)))
+      (if (= (read-subu8vector version 0 jas-version-length port) jas-version-length)
+          version
+        #f))))
+
+
+;;;
+;;;; I/O
+;;;
+
+
+(definition package (jas-write-content content port)
+  (catch (os-exception? exc
+           (throw-jas-connection-broke))
+    (write-binary-content content port)))
+
+
+(definition package (jas-read-content port)
+  (let ((content (catch (os-exception? exc
+                         (throw-jas-connection-broke))
+                  (read-binary-content port))))
+    (if (eof-object? content)
+        (throw-jas-connection-broke)
+      content)))
+
+
+(definition package (jas-write-object object port)
+  (catch (os-exception? exc
+           (throw-jas-connection-broke))
+    (write-binary-object object port)))
+
+
+(definition package (jas-read-object port)
+  (let ((object (catch (os-exception? exc
+                         (throw-jas-connection-broke))
+                  (read-binary-object port))))
+    (if (eof-object? object)
+        (throw-jas-connection-broke)
+      object)))
+
+
+(definition package (jas-write-deflated object port)
+  (catch (os-exception? exc
+           (throw-jas-connection-broke))
+    (write-deflated-object object port)))
+
+
+(definition package (jas-read-deflated port)
+  (let ((object (catch (os-exception? exc
+                         (throw-jas-connection-broke))
+                  (read-deflated-object port))))
+    (if (eof-object? object)
+        (throw-jas-connection-broke)
+      object)))
+
+
+(definition package (jas-force-output port)
+  (catch (os-exception? exc
+           (throw-jas-connection-broke))
+    (force-output port)))
+
+
+;;;
+;;;; Content
+;;;
+
+
+(definition package (jas-retrieve-content repository path)
+  (let ((entry (find-entry repository path)))
+    (and entry
+         (let ((digest (get-digest entry))
+               (flags (get-flags entry)))
+           (list (retrieve-object repository digest) digest flags))))))

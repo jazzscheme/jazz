@@ -39,6 +39,8 @@
 
 
 (import (jazz.associative)
+        (jazz.associative.client)
+        (jazz.associative.remote)
         (jazz.io))
 
 
@@ -60,9 +62,14 @@
       (format output "  jas status{%}")
       (format output "  jas diff{%}")
       (format output "  jas log{%}")
+      (format output "  jas clone{%}")
+      (format output "  jas download{%}")
+      (format output "  jas upload{%}")
       (format output "  jas parse{%}")
       (format output "  jas retrieve{%}")
+      (format output "  jas scan{%}")
       (format output "  jas cat (git cat-file){%}")
+      (format output "  jas collect (git gc){%}")
       (format output "{%}")
       (format output "Help:{%}")
       (format output "  jas help{%}")
@@ -73,9 +80,12 @@
   (with-jas
     (lambda (output)
       (let ((dir (current-directory-get))
-            (bare? (jas-switch arguments "bare")))
-        (let ((repo (jas-init dir bare?: bare?)))
-          (format output "Initialized empty JAS repository in {a}{%}" (parse (get-directory repo))))))))
+            (bare? (jas-switch arguments "bare"))
+            (open? (jas-switch arguments "open")))
+        (if (and bare? open?)
+            (format output "A repository cannot be both bare and open{%}")
+          (let ((repo (jas-init dir bare?: bare? open?: open?)))
+            (format output "Initialized empty JAS repository in {a}{%}" (parse (get-directory repo)))))))))
 
 
 (definition package (jas$config arguments)
@@ -275,6 +285,61 @@
                       (iter parent count))))))))))))
 
 
+(definition package (jas$clone arguments)
+  (define (parse str)
+    (let ((pos (find str #\:)))
+      (if (not pos)
+          (values str #f)
+        (values (substring str 0 pos) (substring str pos (string-length str))))))
+  
+  (with-jas
+    (lambda (output)
+      (let ((dir (current-directory-get))
+            (remote (car arguments)))
+        (receive (remote sets) (parse (car arguments))
+          (bind (host path) (split remote "/")
+            (let ((dirpath (if (null? (cdr arguments))
+                               path
+                             (cadr arguments))))
+              (let ((dir (new-directory dir (tokenise-filename dirpath))))
+                (if (exists? dir)
+                    (format output "Directory already exists{%}")
+                  (format output "Cloning into {a}{%}" dirpath)
+                  (let ((repo (jas-init dir)))
+                    (jas-config-set repo 'remote remote)
+                    (jas-download repo host path (or sets 'all))))))))))))
+
+
+(definition package (jas$download arguments)
+  (with-jas
+    (lambda (output)
+      (let ((what (if (or (null? arguments)
+                          (starts-with? (car arguments) "-"))
+                      'all
+                    (car arguments)))
+            (cache (jas-argument arguments "cache" "c")))
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((remote (jas-config-get repo 'remote)))
+            (if (not remote)
+                (format output "Remote not set{%}")
+              (bind (host path) (split remote "/")
+                (jas-download repo host path what cache: cache)))))))))
+
+
+(definition package (jas$upload arguments)
+  (with-jas
+    (lambda (output)
+      (let ((what (if (null? arguments)
+                      'all
+                    (car arguments))))
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((remote (jas-config-get repo 'remote)))
+            (if (not remote)
+                (format output "Remote not set{%}")
+              (bind (host path) (split remote "/")
+                (jas-upload repo host path what)))))))))
+
+
 (definition package (jas$parse arguments)
   (with-jas
     (lambda (output)
@@ -298,6 +363,21 @@
             (pp (jas-retrieve repo digest) output)))))))
 
 
+(definition package (jas$scan arguments)
+  (with-jas
+    (lambda (output)
+      (if (null? arguments)
+          (format output "Not enough arguments for jas scan{%}")
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((path (car arguments)))
+            (let ((entry (jas-scan repo path)))
+              (let ((digest (get-digest entry))
+                    (seconds (get-seconds entry))
+                    (flags (get-flags entry))
+                    (set (get-set entry)))
+                (format output "{a} {a} {a} {a}{%}" digest seconds flags set)))))))))
+
+
 (definition package (jas$cat arguments)
   (with-jas
     (lambda (output)
@@ -310,11 +390,107 @@
               (write-subu8vector content 0 (u8vector-length content) output))))))))
 
 
+(definition package (jas$collect arguments)
+  (with-jas
+    (lambda (output)
+      (let ((dry? (jas-switch arguments "dry")))
+        (let ((repo (jas-open (jas-directory "."))))
+          (jas-collect repo dry?))))))
+
+
 (definition package (jas$test arguments)
   (with-jas
     (lambda (output)
       (let ((repo (jas-open (jas-directory "."))))
         ))))
+
+
+;;;
+;;;; Client
+;;;
+
+
+(definition (with-jas-client repo host path access feedback what proc)
+  (catch (Jas-Unable-To-Connect exc
+           (format :terminal "Unable to connect to server{%}"))
+    (catch (Jas-Invalid-Version exc
+             (format :terminal "Invalid version{%}"))
+      (catch (Jas-Invalid-Path exc
+               (format :terminal "Invalid path{%}"))
+        (catch (Jas-Inexistant-Repository exc
+                 (format :terminal "Inexistant repository{%}"))
+          (catch (Jas-Connection-Broke exc
+                   (format :terminal "Connection broke{%}"))
+            (let ((client (new Jas-Client repo host path access feedback: feedback)))
+              (connect client)
+              (proc client)
+              (deconnect client))))))))
+
+
+(definition package (jas-download repo host path what (cache: cache #f))
+  (define new-content?
+    #f)
+  
+  (define (feedback stage . rest)
+    (case stage
+      ((connect)
+       (format :terminal "Connecting to {a}{%}" path))
+      ((deconnect)
+       (if (not new-content?)
+           (format :terminal "Already up to date{%}")
+         (format :terminal "{%}")))
+      ((progress)
+       (set! new-content? #t)
+       (bind (total-objects received-objects received-bytes) rest
+         (let ((percentage (fxfloor (percentage received-objects total-objects))))
+           (format :terminal "Downloading {a}% ({a}/{a}) {a}\r" percentage received-objects total-objects (present-binary-bytes received-bytes)))))))
+  
+  (with-jas-client repo host path 'read feedback what
+    (lambda (client)
+      (cond ((eq? what 'all)
+             (if cache
+                 (let ((cache-dir (new Directory (tokenise-filename cache))))
+                    (let ((cache-repository (new Associative-Repository cache-dir)))
+                      (download-all-with-cache client cache-repository)))
+               (download-all client)))
+            ((starts-with? what ":")
+             (let ((sets (map (lambda (name)
+                                (cond ((empty-string? name)
+                                       #f)
+                                      ((ends-with? name "^")
+                                       (list (string->symbol (substring name 0 (- (string-length name) 1)))))
+                                      (else
+                                       (string->symbol name))))
+                              (split (substring what 1 (string-length what)) ":"))))
+               (download-sets client sets)))
+            (else
+             (download-file client what))))))
+
+
+(definition package (jas-upload repo host path what)
+  (define new-content?
+    #f)
+  
+  (define (feedback stage . rest)
+    (case stage
+      ((connect)
+       (format :terminal "Connecting to {a}{%}" path))
+      ((deconnect)
+       (if (not new-content?)
+           (format :terminal "Everything up-to-date{%}")
+         (format :terminal "{%}")))
+      ((progress)
+       (set! new-content? #t)
+       (bind (total-objects sent-objects sent-bytes) rest
+         (let ((percentage (fxfloor (percentage sent-objects total-objects))))
+           (format :terminal "Uploading {a}% ({a}/{a}) {a}\r" percentage sent-objects total-objects (present-binary-bytes sent-bytes)))))))
+  
+  (with-jas-client repo host path 'write feedback what
+    (lambda (client)
+      (cond ((eq? what 'all)
+             (upload-all client))
+            (else
+             (upload-file client what))))))
 
 
 ;;;

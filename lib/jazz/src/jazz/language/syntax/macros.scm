@@ -49,6 +49,7 @@
         unless
         prog1
         while
+        unlikely
         unwind-protect
         catch
         ~
@@ -133,6 +134,12 @@
            (begin
              expr ...
              (iterate)))))))
+
+
+(define-syntax unlikely
+  (syntax-rules ()
+    ((unlikely expr)
+     expr)))
 
 
 (define-syntax unwind-protect

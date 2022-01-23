@@ -65,7 +65,7 @@
 (jazz:define-virtual-syntax (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration walker resume environment backend))
 (jazz:define-virtual-syntax (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments arguments-codes source-declaration walker resume environment backend))
 (jazz:define-virtual-syntax (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration walker resume environment backend))
-(jazz:define-virtual-syntax (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment backend))
+(jazz:define-virtual-syntax (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment backend form-src))
 
 
 ;;;
@@ -117,7 +117,7 @@
 (jazz:define-virtual-syntax (jazz:walker-bindings (jazz:Walker walker)))
 (jazz:define-virtual-syntax (jazz:walk-form (jazz:Walker walker) resume declaration environment form))
 (jazz:define-virtual-syntax (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
-(jazz:define-virtual-syntax (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
+(jazz:define-virtual-syntax (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value form-src))
 (jazz:define-virtual-syntax (jazz:validate-proclaim (jazz:Walker walker) resume declaration form-src))
 (jazz:define-virtual-syntax (jazz:runtime-export (jazz:Walker walker) declaration))
 (jazz:define-virtual-syntax (jazz:lookup-environment (jazz:Walker walker) resume declaration environment symbol-src symbol))

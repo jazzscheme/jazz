@@ -185,7 +185,7 @@
     (for-each (lambda (info)
                 (let ((source (car info))
                       (build (cdr info)))
-                  (jazz:copy-file (source-file source) (build-file build) feedback: jazz:feedback)))
+                  (jazz:copy-file-if-needed (source-file source) (build-file build) feedback: jazz:feedback)))
               jazz:platform-files)))
 
 

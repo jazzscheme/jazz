@@ -1746,6 +1746,19 @@
 
 
 ;;;
+;;;; Script
+;;;
+
+
+(define (jazz:setup-script)
+  (set! jazz:process-product 'script)
+  (set! jazz:process-name 'script)
+  (set! jazz:process-title "Script")
+  (if jazz:debugger
+      (jazz:load-debuggee)))
+
+
+;;;
 ;;;; Master
 ;;;
 

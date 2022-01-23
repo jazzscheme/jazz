@@ -731,6 +731,7 @@ end-of-code
                    (jazz:load-unit (%%string->symbol load)))
                   (interpret
                    (setup-runtime)
+                   (jazz:setup-script)
                    (cond-expand
                      (mac
                       ;; hack around open setting the current directory arbitrarily to /
@@ -826,6 +827,7 @@ end-of-code
                   ((or (%%not (%%null? commands))
                        (%%not (%%null? remaining)))
                    (setup-runtime)
+                   (jazz:setup-script)
                    (run-scripts (%%append commands remaining)))
                   (else
                    (if debug?

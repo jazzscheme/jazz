@@ -1343,6 +1343,12 @@
 ;;;
 
 
+(define (jazz:udp-socket-tos port)
+  (##udp-socket-tos port))
+
+(define (jazz:udp-socket-tos-set! port size)
+  (##udp-socket-tos-set! port size))
+
 (define (jazz:udp-socket-receive-buffer-size port)
   (##udp-socket-receive-buffer-size port))
 

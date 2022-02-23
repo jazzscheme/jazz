@@ -670,11 +670,11 @@
 ;;;
 
 
-(jazz:define-synto (%%get-heartbeat-interval! u64vect i)
-  (%%force-uniqueness (u64vect i)
-    `(%%check-f64vector ,u64vect 1 (%%get-heartbeat-interval! ,u64vect ,i)
-       (%%check-fixnum ,i 2 (%%get-heartbeat-interval! ,u64vect ,i)
-         (^#get-heartbeat-interval! ,u64vect ,i)))))
+(jazz:define-synto (%%get-heartbeat-interval! f64vect i)
+  (%%force-uniqueness (f64vect i)
+    `(%%check-f64vector ,f64vect 1 (%%get-heartbeat-interval! ,f64vect ,i)
+       (%%check-fixnum ,i 2 (%%get-heartbeat-interval! ,f64vect ,i)
+         (^#get-heartbeat-interval! ,f64vect ,i)))))
 
 (jazz:define-synto (%%set-heartbeat-interval! seconds)
   (%%force-uniqueness (seconds)

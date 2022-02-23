@@ -97,14 +97,32 @@
 
 
 ;;;
-;;;; Moving Average
+;;;; Exponential Moving
 ;;;
 
 
-(definition public (moving-average last-average <fl> value <fl> window <fl>) <fl>
-  (if (= last-average -1.)
-      value
-    (/ (+ (* (- window 1.) last-average) value) window)))
+(class Exponential-Moving extends Object
+  
+  
+  ;; (31 * ave + x) / 32 is alpha = 1 / 32
+  (slot alpha                  getter generate)
+  (slot average  initialize #f getter generate)
+  (slot variance initialize #f getter generate)
+  
+  
+  (method override (initialize self alpha)
+    (nextmethod self)
+    (set! self.alpha alpha))
+  
+  
+  (method public (update self x)
+    (cond ((not average)
+           (set! average x)
+           (set! variance 0.))
+          (else
+           (let ((delta (- x average)))
+             (set! average (+ average (* alpha delta)))
+             (set! variance (* (- 1. alpha) (+ variance (* alpha (square delta))))))))))
 
 
 ;;;

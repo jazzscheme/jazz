@@ -1180,6 +1180,8 @@
 ;;;
 
 
+(native jazz:udp-socket-tos)
+(native jazz:udp-socket-tos-set!)
 (native jazz:udp-socket-receive-buffer-size)
 (native jazz:udp-socket-receive-buffer-size-set!)
 (native jazz:udp-socket-send-buffer-size)

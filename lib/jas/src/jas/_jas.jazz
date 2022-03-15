@@ -65,6 +65,7 @@
       (format output "  jas clone{%}")
       (format output "  jas download{%}")
       (format output "  jas upload{%}")
+      (format output "  jas mirror{%}")
       (format output "  jas parse{%}")
       (format output "  jas retrieve{%}")
       (format output "  jas scan{%}")
@@ -340,6 +341,18 @@
                 (jas-upload repo host path what)))))))))
 
 
+(definition package (jas$mirror arguments)
+  (with-jas
+    (lambda (output)
+      (if (not-null? arguments)
+          (format output "Too many arguments for jas mirror{%}")
+        (let ((directory (current-directory-get)))
+          (let ((mirrors-file (new-file directory ".mirrors")))
+            (if (not (exists? mirrors-file))
+                (format output "Inexistant .mirrors configuration file{%}")
+              (jas-mirror directory mirrors-file))))))))
+
+
 (definition package (jas$parse arguments)
   (with-jas
     (lambda (output)
@@ -491,6 +504,25 @@
              (upload-all client))
             (else
              (upload-file client what))))))
+
+
+(definition package (jas-mirror directory mirrors-file)
+  (define (load-mirrors)
+    (call-with-input-file (path-settings mirrors-file)
+      read-all))
+  
+  (define (mirror-repository remote)
+    (bind (host path) (split remote "/")
+      (let ((dir (new-directory directory path)))
+        (if (not (exists? dir))
+            (let ((repo (jas-init dir)))
+              (jas-config-set repo 'remote remote)
+              (jas-download repo host path 'all))
+          (let ((repo (jas-open dir)))
+            (assert (equal? remote (jas-config-get repo 'remote))
+              (jas-download repo host path 'all)))))))
+  
+  (for-each mirror-repository (load-mirrors)))
 
 
 ;;;

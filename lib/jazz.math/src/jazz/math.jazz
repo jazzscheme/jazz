@@ -228,4 +228,64 @@
              (set! t2 time) (set! v2 measurement))
             ((unlikely (<= measurement v2))
              (set! t2 time) (set! v2 measurement)))
-      (subwindow-update self window time measurement)))))
+      (subwindow-update self window time measurement))))
+
+
+;;;
+;;;; Windowed History
+;;;
+
+
+;;   +----+----+----+----+----+ add
+;;   | T0 | T1 | T2 | T3 | T4 | <---
+;;   +----+----+----+----+----+
+;;   ^                        ^
+;;  HEAD                     TAIL
+
+
+(class Windowed-History extends Object
+  
+  
+  (slot window       <fl>        getter generate)
+  (slot size         <fx>        getter generate)
+  (slot content-size <fx>        getter generate)
+  (slot content      <f64vector> getter generate)
+  (slot head         <fx>        getter generate)
+  (slot tail         <fx>        getter generate)
+  (slot count        <fx>        getter generate)
+  
+  
+  (method override (initialize self window <fl> size)
+    (nextmethod self)
+    (set! self.window window)
+    (set! self.size size)
+    (set! self.content-size (* size 2))
+    (set! self.content (make-f64vector content-size))
+    (set! self.head 0)
+    (set! self.tail 0)
+    (set! self.count 0))
+  
+  
+  (method public (record self now <fl> value <fl>)
+    (cond ((< count size)
+           (f64vector-set! content tail now)
+           (f64vector-set! content (+ tail 1) value)
+           (set! tail (modulo (+ tail 2) content-size))
+           (increase! count))
+          (else
+           (f64vector-set! content tail now)
+           (f64vector-set! content (+ tail 1) value)
+           (set! tail (modulo (+ tail 2) content-size))
+           (set! head tail))))
+  
+  
+  (method public (iterate-window self now <fl> proc)
+    (declare (proper-tail-calls))
+    (let (loop (n (- count 1)))
+      (when (>= n 0)
+        (let ((pos (modulo (+ head (* n 2)) content-size)))
+          (let ((time (f64vector-ref content pos))
+                (value (f64vector-ref content (+ pos 1))))
+            (when (<= (- now time) window)
+              (proc time value)
+              (loop (- n 1))))))))))

@@ -335,7 +335,7 @@
 ;;;
 
 
-(definition public (deploy-application descriptor installation-directory (make: make #f) (install: install #f) (use: use 'git))
+(definition public (deploy-application descriptor installation-directory (make: make #f) (install: install #f))
   (let ((jazz (string-append kernel-install "jazz"))
         (name (product-descriptor-name descriptor)))
     (let ((make (or make name))
@@ -354,37 +354,10 @@
           arguments: `("-install"
                        ,(symbol->string install))))
       (feedback "")
-      (case use
-        ((git)
-         (deploy-git name installation-directory))
-        ((jas)
-         (deploy-jas name installation-directory))))))
+      (deploy-directory name installation-directory))))
 
 
-(definition public (deploy-git name dir)
-  (feedback "Deploying {a}" name)
-  (let ((dirname (parse dir))
-        (commit-message "Update"))
-    (call-process
-      (list
-        path: "git"
-        arguments: `("add" ".")
-        directory: dirname))
-    (call-process
-      (list
-        path: "git"
-        arguments: `("commit" "-a" "-m" ,commit-message "--allow-empty")
-        directory: dirname))
-    (call-process
-      (list
-        path: (cond-expand
-                (windows "C:\\Program Files\\Git\\bin\\git")
-                (else "git"))
-        arguments: `("push")
-        directory: dirname))))
-
-
-(definition public (deploy-jas name dir)
+(definition public (deploy-directory name dir)
   (feedback "Deploying {a}" name)
   (let ((dirname (parse dir)))
     (call-process

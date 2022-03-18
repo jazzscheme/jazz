@@ -3901,9 +3901,30 @@ void platformUserAttention()
 }
 
 
-void platformUpdateSystemActivity(UInt8 activity)
+#import <IOKit/pwr_mgt/IOPMLib.h>
+
+
+static CFStringRef* reasonForActivity= CFSTR("Working");
+
+static IOPMAssertionID noDisplaySleepAssertionID = 0;
+
+
+void platformUpdateSystemActivity(bool activity)
 {
-    UpdateSystemActivity(activity);
+    if (activity)
+    {
+        if (! noDisplaySleepAssertionID)
+            IOPMAssertionCreateWithName(kIOPMAssertionTypeNoDisplaySleep,
+                                        kIOPMAssertionLevelOn, reasonForActivity, &noDisplaySleepAssertionID);
+    }
+    else
+    {
+        if (noDisplaySleepAssertionID)
+        {
+            IOPMAssertionRelease(noDisplaySleepAssertionID);
+            noDisplaySleepAssertionID = 0;
+        }
+    }
 }
 
 
@@ -4248,7 +4269,7 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformSystemSound char-string double) void)
 (platform-external (platformPlaySound char-string double) void)
 (platform-external (platformUserAttention) void)
-(platform-external (platformUpdateSystemActivity unsigned-int8) void)
+(platform-external (platformUpdateSystemActivity bool) void)
 (platform-external (platformAudioDefaultOutput) int)
 (platform-external (platformAudioMonitorDefaultOutput void*) void)
 (platform-external (platformAudioUnmonitorDefaultOutput void*) void)

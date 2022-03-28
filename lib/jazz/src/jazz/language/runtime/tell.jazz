@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Language Runtime
+;;;; Tell
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,19 +35,48 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.runtime scheme
+(module protected jazz.language.runtime.tell jazz.dialect
 
 
-(export (jazz.language.runtime.kernel)
-        (jazz.language.runtime.debug)
-        (jazz.language.runtime.exception)
+(proclaim (warn optimizations))
+
+
+(import (jazz.language.runtime.hubs)
+        (jazz.language.runtime.kernel)
         (jazz.language.runtime.format)
-        (jazz.language.runtime.functional)
-        (jazz.language.runtime.geometry)
-        (jazz.language.runtime.homogeneous)
-        (jazz.language.runtime.hubs)
-        (jazz.language.runtime.object)
-        (jazz.language.runtime.output)
-        (jazz.language.runtime.parse)
-        (jazz.language.runtime.platform)
-        (jazz.language.runtime.tell)))
+        (jazz.language.runtime.functional))
+
+
+(native private jazz:error)
+
+
+(definition public tell-precision
+  3)
+
+(definition public (set-tell-precision precision)
+  (set! tell-precision precision))
+
+
+(definition public (tell . rest)
+  (let ((first? #t))
+    (for-each (lambda (obj)
+                (if first?
+                    (set! first? #f)
+                  (format :terminal " "))
+                (cond ((flonum? obj)
+                       (tell-flonum obj))
+                      (else
+                       (format :terminal "{a}" obj))))
+              rest))
+  (format :terminal "{%}"))
+
+
+;;;
+;;;; Flonum
+;;;
+
+
+(definition protected (tell-flonum obj)
+  (if (not tell-precision)
+      (format :terminal "{a}" obj)
+    (format :terminal "{r precision: :v}" obj tell-precision))))

@@ -2652,10 +2652,10 @@ description-end
 
 
 (definition replay-dir
-  {Directory Home "Documents" "Together" "test" "replays" "replay_2021-03-25_13-28-05_persephone&guillaume"})
+  {Directory Home "Together" "stable" "replays" "replay_2022-04-07_10-41-57"})
 
 (definition replay-speaker
-  "Persephone")
+  "Barbara")
 
 (definition replay-listener
   "Guillaume")
@@ -2685,18 +2685,21 @@ description-end
   
   (define (determine-blocksize info)
     (bind (fmt rate channels) info
-      (* 960 channels)))
-  
+      (* (/ rate 100) (formatsize fmt) channels)))
+    
+  (define (formatsize fmt)
+    2)
+
   (let ((speaker-files (collect-audio replay-speaker))
         (listener-files (collect-audio replay-listener)))
     (let ((speaker-name (extract-name speaker-files))
-          (speaker-probe-file (find-audio speaker-files "audio.probe"))
-          (speaker-mic-file (find-audio speaker-files "mic.src"))
-          (speaker-processor-file (find-audio speaker-files "mic.processor"))
+          (speaker-probe-file (find-audio speaker-files "audio.sink"))
+          (speaker-mic-file (find-audio speaker-files "microphone.src"))
+          (speaker-processor-file (find-audio speaker-files "microphone.processor"))
           (listener-name (extract-name listener-files))
-          (listener-probe-file (find-audio listener-files "audio.probe"))
-          (listener-mic-file (find-audio listener-files "mic.src"))
-          (listener-processor-file (find-audio listener-files "mic.processor")))
+          (listener-probe-file (find-audio listener-files "probe.sink" @w "audio.sink"))
+          (listener-mic-file (find-audio listener-files "processor.sink" @w "microphone.src"))
+          (listener-processor-file (find-audio listener-files "microphone.processor")))
       (let ((speaker-probe-info (extract-info speaker-probe-file))
             (speaker-mic-info (extract-info speaker-mic-file))
             (speaker-processor-info (extract-info speaker-processor-file))
@@ -2729,6 +2732,7 @@ description-end
           (define (speaker-mic-live)
             (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize speaker-mic-info))
                           (determine-caps speaker-mic-info)
+                          "volume name=volume"
                           "queue name=queue"
                           "audioresample"
                           (gst-element "webrtcaudioprocessor"
@@ -2754,7 +2758,7 @@ description-end
                           (determine-caps listener-processor-info)
                           audiosink))
           
-          (define (listener-probe-live)
+          (define (listener-probe-nonlive)
             (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize listener-probe-info))
                           (determine-caps listener-probe-info)
                           "audiorate name=rate"
@@ -2762,10 +2766,30 @@ description-end
                           "webrtcaudioprobe delay=0 name=probe"
                           "fakesink sync=true"))
           
-          (define (listener-mic-live)
+          (define (listener-mic-nonlive)
             (gst-pipeline (format "filesrc blocksize={a} name=src" (determine-blocksize listener-mic-info))
                           (determine-caps listener-mic-info)
                           "audiorate"
+                          "queue name=queue"
+                          "audioresample"
+                          (gst-element "webrtcaudioprocessor"
+                                       echo-cancel: "true"
+                                       noise-suppression: "true"
+                                       gain-controller: "false"
+                                       logging-severity: "info"
+                                       name: "processor")
+                          audiosink))
+          
+          (define (listener-probe-live)
+            (gst-pipeline "appsrc name=src"
+                          "audiomixer"
+                          "queue max-size-time=200000000 name=queue"
+                          "webrtcaudioprobe delay=0 name=probe"
+                          "fakesink sync=true"))
+          
+          (define (listener-mic-live)
+            (gst-pipeline "appsrc name=src"
+                          "volume name=volume"
                           "queue name=queue"
                           "audioresample"
                           (gst-element "webrtcaudioprocessor"
@@ -2784,16 +2808,21 @@ description-end
               (draw-text surface h (+ v  30) (format "#1 {a}" (get-name speaker-probe-file)) color)
               (draw-text surface h (+ v  60) (format "#2 {a}" (get-name speaker-mic-file)) color)
               (draw-text surface h (+ v  90) (format "#3 {a}" (get-name speaker-processor-file)) color)
-              (draw-text surface h (+ v 120) (format "#4 {a} live processing" speaker-name) color)
+              (draw-text surface h (+ v 120) (format "#4 {a} live processing" speaker-name) color))
               (draw-text surface h (+ v 180) (format "#5 {a}" (get-name listener-probe-file)) color)
               (draw-text surface h (+ v 210) (format "#6 {a}" (get-name listener-mic-file)) color)
               (draw-text surface h (+ v 240) (format "#7 {a}" (get-name listener-processor-file)) color)
-              (draw-text surface h (+ v 270) (format "#8 {a} live processing" listener-name) color)))
+              (draw-text surface h (+ v 270) (format "#8 {a} nonlive processing" listener-name) color)
+              (draw-text surface h (+ v 300) (format "#9 {a} live processing" listener-name) color))
           
           (define (release-all)
             (iterate-table-safe pipelines
-              (lambda (name pipeline)
-                (gst_bin_release pipeline)
+              (lambda (name info)
+                (if (pair? info)
+                    (bind (pipeline thread) info
+                      (thread-terminate! thread)
+                      (gst_bin_release pipeline))
+                  (gst_bin_release info))
                 (table-clear pipelines name))))
           
           (define (play name make file)
@@ -2806,13 +2835,66 @@ description-end
               (table-set! pipelines name pipeline)
               (format :terminal "play {a}{%}" (get-base file))))
           
+          (define (play-live name make file info what)
+            (let ((pipeline (make)))
+              (gst_object_set_name pipeline (->string name))
+              (with-unref ((appsrc (gst_bin_get_by_name pipeline "src")))
+                (bind (fmt rate channels) info
+                  (gst-app-src-set-caps appsrc "audio/x-raw"
+                    "format"   'string fmt
+                    "layout"   'string "interleaved"
+                    "rate"     'int    rate
+                    "channels" 'int    channels))
+                (g-object-set appsrc
+                              "is-live"     'boolean #t
+                              "stream-type" 'int     GST_APP_STREAM_TYPE_STREAM
+                              "format"      'int     GST_FORMAT_TIME)
+                (let ((size (determine-blocksize info)))
+                  (let ((buffer (make-u8vector size))
+                        (duration (flonum->timestamp .01)))
+                    (let ((thread (new-thread
+                                    (lambda ()
+                                      (declare (proper-tail-calls))
+                                      (call-with-input-file (path-settings file)
+                                        (lambda (port)
+                                          (let ((adapter (new Source-Coupler)))
+                                            (let (loop (timestamp 0))
+                                              (let ((time (timestamp->flonum timestamp)))
+                                                (let ((read (read-subu8vector buffer 0 size port)))
+                                                  (when (= read size)
+                                                    (let ((extra-offset 0)
+                                                          (timestamp-offset (adapt-time adapter appsrc timestamp)))
+                                                      (let ((dts (+ timestamp timestamp-offset extra-offset))
+                                                            (pts (+ timestamp timestamp-offset extra-offset)))
+                                                        (gst_app_src_write appsrc buffer size dts pts duration)))
+                                                    (sleep .009)
+                                                    (loop (+ timestamp duration))))))))))
+                                    'input)))
+                      (gst_element_set_state pipeline GST_STATE_PLAYING)
+                      (table-set! pipelines name (list pipeline thread))
+                      (format :terminal "play {a}{%}" (get-base file))
+                      (values pipeline thread)))))))
+          
+          (define (play-sync probe-name probe-make probe-file probe-info mic-name mic-make mic-file mic-info)
+            (receive (probe-pipeline probe-thread) (play-live probe-name probe-make probe-file probe-info 'probe)
+              (receive (mic-pipeline mic-thread) (play-live mic-name mic-make mic-file mic-info 'mic)
+                (wait-playing probe-pipeline)
+                (wait-playing mic-pipeline)
+                (thread-start! probe-thread)
+                (thread-start! mic-thread))))
+          
           (define (play-speaker-live)
             (play 'speaker-probe-live speaker-probe-live speaker-probe-file)
             (play 'speaker-mic-live speaker-mic-live speaker-mic-file))
           
+          (define (play-listener-nonlive)
+            (play 'listener-probe-nonlive listener-probe-nonlive listener-probe-file)
+            (play 'listener-mic-nonlive listener-mic-nonlive listener-mic-file))
+          
           (define (play-listener-live)
-            (play 'listener-probe-live listener-probe-live listener-probe-file)
-            (play 'listener-mic-live listener-mic-live listener-mic-file))
+            (play-sync
+              'listener-probe-live listener-probe-live listener-probe-file listener-probe-info
+              'listener-mic-live listener-mic-live listener-mic-file listener-mic-info))
           
           (define (keyer view key)
             (case key
@@ -2842,6 +2924,9 @@ description-end
                (play 'listener-processor listener-processor listener-processor-file))
               ((#\8)
                (release-all)
+               (play-listener-nonlive))
+              ((#\9)
+               (release-all)
                (play-listener-live))
               ((#\l)
                (release-all)
@@ -2853,7 +2938,7 @@ description-end
             (release-all))
           
           ;; application
-          (boot-environment (new Test-Application drawer: drawer keyer: keyer closer: closer)))))))
+          (boot-environment (new Test-Application size: {Dimension 820 390} drawer: drawer keyer: keyer closer: closer)))))))
 
 
 ;;;

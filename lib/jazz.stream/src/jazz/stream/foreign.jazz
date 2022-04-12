@@ -2306,7 +2306,8 @@ static void gst_pad_connect_eos(GstPad* pad, void* listener)
 #define ANY_MONITOR     0
 #define FILE_MONITOR    1
 #define QUEUE_MONITOR   2
-#define ANALYSE_MONITOR 3
+#define PRINT_MONITOR   3
+#define ANALYSE_MONITOR 4
 
 typedef struct monitor_any
 {
@@ -2330,6 +2331,15 @@ typedef struct monitor_queue
     GstClockTime window;
     int size;
 } queue_monitor;
+
+typedef struct monitor_print
+{
+    int monitor_kind;
+    gulong probe_id;
+    void* pipeline;
+    bool timestamps;
+    GstClockTime expected;
+} print_monitor;
 
 typedef struct monitor_analyse
 {
@@ -2397,6 +2407,19 @@ static void free_queue_monitor(queue_monitor* data)
 
     g_queue_free(queue);
     
+    free(data);
+}
+
+static void init_print_monitor(print_monitor* data, void* pipeline, bool timestamps)
+{
+    data->monitor_kind = PRINT_MONITOR;
+    data->pipeline = pipeline;
+    data->timestamps = timestamps;
+    data->expected = GST_CLOCK_TIME_NONE;
+}
+
+static void free_print_monitor(print_monitor* data)
+{
     free(data);
 }
 
@@ -2525,6 +2548,122 @@ static ___SCMOBJ copy_monitor_queue(queue_monitor* data)
     
     ___EXT(___release_scmobj)(r);
     return r;
+}
+
+static void print(char* s)
+{
+    printf("%s", s);
+    fflush(stdout);
+}
+
+static GstPadProbeReturn
+cb_monitor_print(GstPad          *pad,
+                 GstPadProbeInfo *info,
+                 gpointer        user_data)
+{
+    print_monitor* data;
+    GstPipeline* pipeline;
+    bool timestamps;
+    GstMiniObject* miniobj;
+    GstBuffer* buffer;
+    gsize size;
+
+    data = (print_monitor*) user_data;
+    pipeline = data->pipeline;
+    timestamps = data->timestamps;
+    miniobj = GST_PAD_PROBE_INFO_DATA(info);
+
+    if (GST_IS_BUFFER(miniobj))
+    {
+        buffer = GST_BUFFER_CAST(miniobj);
+        size = gst_buffer_get_size(buffer);
+        GstClockTime dts = GST_BUFFER_DTS(buffer);
+        GstClockTime pts = GST_BUFFER_PTS(buffer);
+        GstClockTime duration = GST_BUFFER_DURATION(buffer);
+
+        if (timestamps)
+        {
+            GstClock* clock = gst_pipeline_get_clock(pipeline);
+            GstClockTime abs_time = gst_clock_get_time(clock);
+            GstClockTime base_time = gst_element_get_base_time(GST_ELEMENT(pipeline));
+            gst_object_unref(clock);
+            GstClockTime running_time = abs_time - base_time;
+            printf("%s %.3f \n", GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_GAP) ? "G" : ".", present_timediff(pts - running_time));
+        }
+        else
+        {
+            if (GST_BUFFER_IS_DISCONT(buffer))
+                print("D");
+            else if (GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_GAP))
+                print("G");
+            else
+                print(".");
+            if (data->expected != GST_CLOCK_TIME_NONE)
+            {
+                GstClockTimeDiff diff;
+                diff = pts - data->expected;
+                if (diff > 1)
+                {
+                    printf(" > %.3f ", present_timediff(diff));
+                    fflush(stdout);
+                }
+                else if (diff < -1)
+                {
+                    printf(" < %.3f ", present_timediff(diff));
+                    fflush(stdout);
+                }
+            }
+            data->expected = pts + duration;
+        }
+    }
+    else if (GST_IS_BUFFER_LIST(miniobj))
+    {
+        print("L");
+    }
+    else if (GST_IS_EVENT(miniobj))
+    {
+        GstEvent *event = GST_EVENT(miniobj);
+        if (GST_EVENT_TYPE (event) == GST_EVENT_GAP) {
+            print("^");
+            GstClockTime timestamp;
+            GstClockTime duration;
+            gst_event_parse_gap(event, &timestamp, &duration);
+
+            if (timestamps)
+            {
+                GstClock* clock = gst_pipeline_get_clock(pipeline);
+                GstClockTime abs_time = gst_clock_get_time(clock);
+                GstClockTime base_time = gst_element_get_base_time(GST_ELEMENT(pipeline));
+                gst_object_unref(clock);
+                GstClockTime running_time = abs_time - base_time;
+                printf(" %.3f \n", present_timediff(timestamp - running_time));
+            }
+            else
+            {
+                if (data->expected != GST_CLOCK_TIME_NONE)
+                {
+                    GstClockTimeDiff diff;
+                    diff = timestamp - data->expected;
+                    if (diff > 1)
+                    {
+                        printf(" > %.3f ", present_timediff(diff));
+                        fflush(stdout);
+                    }
+                    else if (diff < -1)
+                    {
+                        printf(" < %.3f ", present_timediff(diff));
+                        fflush(stdout);
+                    }
+                }
+                data->expected = timestamp + duration;
+            }
+        }
+        else {
+            print("*");
+        }
+    }
+
+    return GST_PAD_PROBE_OK;
 }
 
 static GstPadProbeReturn
@@ -2759,10 +2898,20 @@ static ___SCMOBJ gst_monitor_queue_copy(void* info)
     return copy_monitor_queue(data);
 }
 
-static void* gst_monitor_analyse(GstPad* pad, void* listener, char* name)
+static void* gst_monitor_print(GstPad* pad, void* pipeline, bool timestamps)
+{
+    print_monitor* data = malloc(sizeof(print_monitor));
+    init_print_monitor(data, pipeline, timestamps);
+
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_DATA_DOWNSTREAM, (GstPadProbeCallback) cb_monitor_print, data, NULL);
+
+    return (void*) data;
+}
+
+static void* gst_monitor_analyse(GstPad* pad, void* pipeline, char* name)
 {
     analyse_monitor* data = malloc(sizeof(analyse_monitor));
-    init_analyse_monitor(data, listener, name);
+    init_analyse_monitor(data, pipeline, name);
 
     data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_DATA_DOWNSTREAM, (GstPadProbeCallback) cb_monitor_analyse, data, NULL);
 
@@ -3089,6 +3238,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_monitor_file GstPad* char-string) void*)
 (gst-external (gst_monitor_queue GstPad* GstClockTime) void*)
 (gst-external (gst_monitor_queue_copy void*) scheme-object)
+(gst-external (gst_monitor_print GstPad* void* bool) void*)
 (gst-external (gst_monitor_analyse GstPad* void* char-string) void*)
 (gst-external (gst_monitor_data GstPad* (call GST_PIPELINE GstElement*)) void*)
 (gst-external (gst_monitor_events GstPad* (call GST_PIPELINE GstElement*)) void*)

@@ -1417,17 +1417,29 @@ static GstDiscoverer* gst_discoverer_new_aux()
     return gst_discoverer_new(5 * GST_SECOND, NULL);
 }
 
-static GstDiscovererInfo* gst_discoverer_discover_uri_aux(GstDiscoverer* disc, char* uri)
+static ___SCMOBJ gst_discoverer_discover_uri_aux(GstDiscoverer* disc, char* uri, ___SCMOBJ discoverer_info_tags, ___SCMOBJ error_tags)
 {
     GstDiscovererInfo* info;
-    GError* err = NULL;
+    GError* error = NULL;
     
-    info = gst_discoverer_discover_uri(disc, uri, &err);
+    info = gst_discoverer_discover_uri(disc, uri, &error);
     
-    if (err)
-        g_print(" %s\n", err->message);
+    ___SCMOBJ foreign = alloc_foreign(info, discoverer_info_tags);
+
+    ___SCMOBJ err;
+    if (! error)
+        err = ___FAL;
+    else
+        err = alloc_foreign(error, error_tags);
+
+    ___SCMOBJ values = alloc_values(foreign, err);
     
-    return info;
+    ___EXT(___release_scmobj)(foreign);
+    if (err != ___FAL)
+        ___EXT(___release_scmobj)(err);
+    ___EXT(___release_scmobj)(values);
+    
+    return values;
 }
 
 static GstDiscovererStreamInfo* gst_discoverer_stream_info_list_data(GList* list)
@@ -3201,7 +3213,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_system_clock_get_time) GstClockTime)
 (gst-external (gst_clock_get_time GstClock*) GstClockTime)
 (gst-external (gst_discoverer_new) GstDiscoverer* "gst_discoverer_new_aux")
-(gst-external (gst_discoverer_discover_uri GstDiscoverer* char-string) GstDiscovererInfo* "gst_discoverer_discover_uri_aux")
+(gst-external (gst_discoverer_discover_uri_aux GstDiscoverer* char-string scheme-object scheme-object) scheme-object)
 (gst-external (gst_discoverer_info_get_duration GstDiscovererInfo*) GstClockTime)
 (gst-external (gst_discoverer_info_get_stream_info GstDiscovererInfo*) GstDiscovererStreamInfo*)
 (gst-external (gst_discoverer_stream_info_get_caps GstDiscovererStreamInfo*) GstCaps*)

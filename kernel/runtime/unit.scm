@@ -265,6 +265,13 @@
 (set! jazz:jazz-source jazz:kernel-source)
 
 
+;; quick solution that assumes the jazz repo is at the toplevel
+(define jazz:kernel-source-root
+  (if jazz:kernel-source
+      (jazz:parent-directory jazz:kernel-source)
+    #f))
+
+
 ;; quick solution to build needing source
 (define (jazz:setup-kernel-source)
   (set! jazz:kernel-source-access? #t)

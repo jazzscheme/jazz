@@ -61,6 +61,7 @@
         (jazz.platform.windows.Shell)
         (jazz.platform.windows.User)
         (jazz.platform.windows.User1)
+        (jazz.platform.windows.GDI)
         (jazz.foreign)
         (jazz.io)
         (jazz.version)
@@ -81,11 +82,60 @@
 ;;;
 
 
-(definition public (initialize-platform)
+(definition public (platform-initialize)
   (set-platform-log system-log)
   (system-timezone-set! get-timezone-offset)
   (local-timezone-set! get-timezone-offset)
+  ;; only works if done before the next call
+  (setup-windows-scale)
   (SetProcessDPIAware))
+
+
+(definition (setup-windows-scale)
+  (let ((hwnd (GetDesktopWindow)))
+    (let ((hdc (GetDC hwnd)))
+      (let ((physical (GetDeviceCaps hdc DESKTOPVERTRES))
+            (virtual (GetDeviceCaps hdc VERTRES)))
+        (when (/= physical virtual)
+          (let ((scale (/ (cast <fl> physical) (cast <fl> virtual))))
+            (let ((rounded-scale (/ (cast <fl> (fxround (* scale 100.))) 100.)))
+              (set! windows-scale rounded-scale)))))
+      (ReleaseDC hwnd hdc))))
+
+
+;;;
+;;;; Scale
+;;;
+
+
+(definition public windows-scale <fl>
+  1.)
+
+
+(definition public (user->device shape <Object>)
+  (define (->device i)
+    (fxfloor (* (cast <fl> i) windows-scale)))
+  
+  (typecase shape
+    ((Integer)
+     (->device shape))
+    ((Point)
+     (new Point (->device (get-h shape)) (->device (get-v shape))))
+    ((Dimension)
+     (new Dimension (->device (get-width shape)) (->device (get-height shape))))))
+
+
+(definition public (device->user shape <Object>)
+  (define (->user i)
+    (fxfloor (/ (cast <fl> i) windows-scale)))
+  
+  (typecase shape
+    ((Integer)
+     (->user shape))
+    ((Point)
+     (new Point (->user (get-h shape)) (->user (get-v shape))))
+    ((Dimension)
+     (new Dimension (->user (get-width shape)) (->user (get-height shape))))))
 
 
 ;;;

@@ -586,19 +586,19 @@
     ((WM_PAINT)           (with ((region (platform-get-update-region (get-handle window))))
                             (paint window region)))
     ((WM_SETCURSOR)       (cursor-update window (= (loword lparam) HTCLIENT)))
-    ((WM_MOUSEMOVE)       (call-mouse-moved window (cast <fl> (get-x-lparam lparam)) (cast <fl> (get-y-lparam lparam))))
-    ((WM_MOUSEWHEEL)      (let ((global (new Point (get-x-lparam lparam) (get-y-lparam lparam))))
+    ((WM_MOUSEMOVE)       (call-mouse-moved window (cast <fl> (device->user (get-x-lparam lparam))) (cast <fl> (device->user (get-y-lparam lparam)))))
+    ((WM_MOUSEWHEEL)      (let ((global (new Point (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam)))))
                             (let ((local (acquire-point (get-handle window) (cache-desktop-window) global)))
                               (mouse-wheel window (get-h local) (get-v local) (wheel-point (quotient (get-wheel-delta-wparam wparam) 3))))))
-    ((WM_LBUTTONDOWN)     (mouse-down window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_LBUTTONUP)       (mouse-up window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_LBUTTONDBLCLK)   (double-click window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_MBUTTONDOWN)     (middle-mouse-down window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_MBUTTONUP)       (middle-mouse-up window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_RBUTTONDOWN)     (right-mouse-down window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_RBUTTONUP)       (right-mouse-up window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_RBUTTONDBLCLK)   (right-double-click window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_CONTEXTMENU)     (let ((pos (acquire-point (get-handle window) (platform-get-desktop) (new Point (get-x-lparam lparam) (get-y-lparam lparam)))))
+    ((WM_LBUTTONDOWN)     (mouse-down window (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam))))
+    ((WM_LBUTTONUP)       (mouse-up window (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam))))
+    ((WM_LBUTTONDBLCLK)   (double-click window (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam))))
+    ((WM_MBUTTONDOWN)     (middle-mouse-down window (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam))))
+    ((WM_MBUTTONUP)       (middle-mouse-up window (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam))))
+    ((WM_RBUTTONDOWN)     (right-mouse-down window (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam))))
+    ((WM_RBUTTONUP)       (right-mouse-up window (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam))))
+    ((WM_RBUTTONDBLCLK)   (right-double-click window (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam))))
+    ((WM_CONTEXTMENU)     (let ((pos (acquire-point (get-handle window) (platform-get-desktop) (new Point (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam))))))
                             (context-menu window (get-h pos) (get-v pos))))
     ((WM_SYSKEYDOWN)      (if (= wparam VK_MENU) (system-key-down window) unprocessed))
     ((WM_SYSKEYUP)        (if (= wparam VK_MENU) (system-key-up window) unprocessed))
@@ -606,7 +606,7 @@
     ((WM_KEYUP)           (key-up window wparam))
     ((WM_CHAR)            (call-key-press window (integer->char wparam)))
     ((WM_MOVE)            (call-position-change window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_SIZE)            (call-size-change window (convert-state wparam) (get-x-lparam lparam) (get-y-lparam lparam)))
+    ((WM_SIZE)            (call-size-change window (convert-state wparam) (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam))))
     ((WM_MOUSELEAVE)      (mouse-leave window))
     ((WM_MOUSEACTIVATE)   (if (mouse-activate? window)
                               (mouse-activate window)
@@ -818,6 +818,14 @@
   (SetWindowPos handle NULL 0 0 (get-width size) (get-height size) (bitwise-ior SWP_NOCOPYBITS SWP_NOMOVE SWP_NOZORDER SWP_NOACTIVATE)))
 
 
+(definition package (platform-get-frame-bounds handle) <Rect>
+  (let ((rect (RECT-make)))
+    (GetWindowRect handle rect)
+    (MapWindowPoints NULL handle (RECT->POINTS rect) 2)
+    (prog1 (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))
+      (RECT-free rect))))
+
+
 (definition package (platform-get-frame-rect handle) <Rect>
   (let ((rect (RECT-make)))
     (GetWindowRect handle rect)
@@ -829,25 +837,27 @@
   (SetWindowPos handle NULL (get-left rect) (get-top rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
 
 
+(definition package (platform-get-content-rect handle)
+  (position/size->rect {Point 0 0} (platform-get-content-size handle)))
+
+
 (definition package (platform-get-content-size handle) <Dimension>
+  (let ((rect (RECT-make)))
+    (GetClientRect handle rect)
+    (prog1 (device->user (new Dimension (RECT-right-ref rect) (RECT-bottom-ref rect)))
+      (RECT-free rect))))
+
+
+(definition package (platform-get-content-device-size handle) <Dimension>
   (let ((rect (RECT-make)))
     (GetClientRect handle rect)
     (prog1 (new Dimension (RECT-right-ref rect) (RECT-bottom-ref rect))
       (RECT-free rect))))
 
 
-(definition package (platform-set-content-size handle new-size)
-  (let ((delta (nu- new-size (platform-get-content-size handle))))
-    (unless (nu=? delta {Dimension 0 0})
-      (platform-set-frame-size handle (nu+ (platform-get-frame-size handle) delta)))))
-
-
-(definition package (platform-get-bounds handle) <Rect>
-  (let ((rect (RECT-make)))
-    (GetWindowRect handle rect)
-    (MapWindowPoints NULL handle (RECT->POINTS rect) 2)
-    (prog1 (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))
-      (RECT-free rect))))
+(definition package (platform-set-content-size handle size)
+  (let ((frame-border (nu- (platform-get-frame-size handle) (platform-get-content-device-size handle))))
+    (platform-set-frame-size handle (nu+ (user->device size) frame-border))))
 
 
 (definition package (platform-mouse-position) <Point>
@@ -889,13 +899,6 @@
 
 (definition package (platform-enable-window handle)
   (EnableWindow handle #t))
-
-
-(definition package (platform-get-client-rect handle)
-  (let ((rect (RECT-make)))
-    (GetClientRect handle rect)
-    (prog1 (RECT->rect rect)
-      (RECT-free rect))))
 
 
 (definition package (platform-scroll-window handle delta rect clip-rect)

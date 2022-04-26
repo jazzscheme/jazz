@@ -495,6 +495,7 @@
 (native jazz:kernel-bundle-install)
 (native jazz:kernel-root)
 (native jazz:kernel-source)
+(native jazz:kernel-source-root)
 (native jazz:kernel-source-accessible?)
 (native jazz:kernel-source-access?)
 (native jazz:kernel-version)

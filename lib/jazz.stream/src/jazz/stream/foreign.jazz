@@ -301,6 +301,7 @@ static char* g_error_message(GError* error)
 (c-external (g_object_set_double (call G_OBJECT GObject*) char-string double NULL) void "g_object_set")
 (c-external (g_object_get_string (call G_OBJECT GObject*) char-string) char-string-free "g_object_get_string")
 (c-external (g_object_set_string (call G_OBJECT GObject*) char-string char-string NULL) void "g_object_set")
+(c-external (g_object_set_utf-8-string (call G_OBJECT GObject*) char-string UTF-8-string NULL) void "g_object_set")
 (c-external (g_object_get_pointer (call G_OBJECT GObject*) char-string) gpointer "g_object_get_pointer")
 (c-external (g_object_set_pointer (call G_OBJECT GObject*) char-string gpointer NULL) void "g_object_set")
 (c-external (g_signal_emit_by_name gpointer char-string) void)
@@ -1300,6 +1301,23 @@ static bool gst_is_base_sink(GstElement* elem)
     return GST_IS_BASE_SINK(elem);
 }
 
+static void gst_audio_decoder_get_latency_aux(GstElement* elem, ___SCMOBJ info)
+{
+    ___U64 *info_ptr = ___CAST(___U64*, ___BODY(info));
+    GstAudioDecoder *dec = GST_AUDIO_DECODER_CAST(elem);
+    GstClockTime min_latency;
+    GstClockTime max_latency;
+    gst_audio_decoder_get_latency(dec, &min_latency, &max_latency);
+    info_ptr[0] = min_latency;
+    info_ptr[1] = max_latency;
+}
+
+static void gst_audio_decoder_set_latency_aux(GstElement* elem, GstClockTime min_latency, GstClockTime max_latency)
+{
+    GstAudioDecoder *dec = GST_AUDIO_DECODER_CAST(elem);
+    gst_audio_decoder_set_latency(dec, min_latency, max_latency);
+}
+
 static GstState gst_message_state_changed_get_new_state(GstMessage *msg)
 {
     GstState old_state, new_state;
@@ -1400,17 +1418,29 @@ static GstDiscoverer* gst_discoverer_new_aux()
     return gst_discoverer_new(5 * GST_SECOND, NULL);
 }
 
-static GstDiscovererInfo* gst_discoverer_discover_uri_aux(GstDiscoverer* disc, char* uri)
+static ___SCMOBJ gst_discoverer_discover_uri_aux(GstDiscoverer* disc, char* uri, ___SCMOBJ discoverer_info_tags, ___SCMOBJ error_tags)
 {
     GstDiscovererInfo* info;
-    GError* err = NULL;
+    GError* error = NULL;
     
-    info = gst_discoverer_discover_uri(disc, uri, &err);
+    info = gst_discoverer_discover_uri(disc, uri, &error);
     
-    if (err)
-        g_print(" %s\n", err->message);
+    ___SCMOBJ foreign = alloc_foreign(info, discoverer_info_tags);
+
+    ___SCMOBJ err;
+    if (! error)
+        err = ___FAL;
+    else
+        err = alloc_foreign(error, error_tags);
+
+    ___SCMOBJ values = alloc_values(foreign, err);
     
-    return info;
+    ___EXT(___release_scmobj)(foreign);
+    if (err != ___FAL)
+        ___EXT(___release_scmobj)(err);
+    ___EXT(___release_scmobj)(values);
+    
+    return values;
 }
 
 static GstDiscovererStreamInfo* gst_discoverer_stream_info_list_data(GList* list)
@@ -1615,6 +1645,11 @@ static GstFlowReturn gst_app_src_write_pointer_now(GstElement* elem, void* ptr, 
     GST_BUFFER_DURATION(buffer) = duration;
     gst_object_unref(clock);
     return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
+}
+
+static GstFlowReturn gst_app_src_write_event(GstElement* elem, GstEvent* event)
+{
+    return gst_app_src_push_event(GST_APP_SRC(elem), event);
 }
 
 static bool gst_audio_ring_buffer_acquired(GstElement* elem)
@@ -2284,7 +2319,8 @@ static void gst_pad_connect_eos(GstPad* pad, void* listener)
 #define ANY_MONITOR     0
 #define FILE_MONITOR    1
 #define QUEUE_MONITOR   2
-#define ANALYSE_MONITOR 3
+#define PRINT_MONITOR   3
+#define ANALYSE_MONITOR 4
 
 typedef struct monitor_any
 {
@@ -2308,6 +2344,15 @@ typedef struct monitor_queue
     GstClockTime window;
     int size;
 } queue_monitor;
+
+typedef struct monitor_print
+{
+    int monitor_kind;
+    gulong probe_id;
+    void* pipeline;
+    bool timestamps;
+    GstClockTime expected;
+} print_monitor;
 
 typedef struct monitor_analyse
 {
@@ -2375,6 +2420,19 @@ static void free_queue_monitor(queue_monitor* data)
 
     g_queue_free(queue);
     
+    free(data);
+}
+
+static void init_print_monitor(print_monitor* data, void* pipeline, bool timestamps)
+{
+    data->monitor_kind = PRINT_MONITOR;
+    data->pipeline = pipeline;
+    data->timestamps = timestamps;
+    data->expected = GST_CLOCK_TIME_NONE;
+}
+
+static void free_print_monitor(print_monitor* data)
+{
     free(data);
 }
 
@@ -2503,6 +2561,122 @@ static ___SCMOBJ copy_monitor_queue(queue_monitor* data)
     
     ___EXT(___release_scmobj)(r);
     return r;
+}
+
+static void print(char* s)
+{
+    printf("%s", s);
+    fflush(stdout);
+}
+
+static GstPadProbeReturn
+cb_monitor_print(GstPad          *pad,
+                 GstPadProbeInfo *info,
+                 gpointer        user_data)
+{
+    print_monitor* data;
+    GstPipeline* pipeline;
+    bool timestamps;
+    GstMiniObject* miniobj;
+    GstBuffer* buffer;
+    gsize size;
+
+    data = (print_monitor*) user_data;
+    pipeline = data->pipeline;
+    timestamps = data->timestamps;
+    miniobj = GST_PAD_PROBE_INFO_DATA(info);
+
+    if (GST_IS_BUFFER(miniobj))
+    {
+        buffer = GST_BUFFER_CAST(miniobj);
+        size = gst_buffer_get_size(buffer);
+        GstClockTime dts = GST_BUFFER_DTS(buffer);
+        GstClockTime pts = GST_BUFFER_PTS(buffer);
+        GstClockTime duration = GST_BUFFER_DURATION(buffer);
+
+        if (timestamps)
+        {
+            GstClock* clock = gst_pipeline_get_clock(pipeline);
+            GstClockTime abs_time = gst_clock_get_time(clock);
+            GstClockTime base_time = gst_element_get_base_time(GST_ELEMENT(pipeline));
+            gst_object_unref(clock);
+            GstClockTime running_time = abs_time - base_time;
+            printf("%s %.3f \n", GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_GAP) ? "G" : ".", present_timediff(pts - running_time));
+        }
+        else
+        {
+            if (GST_BUFFER_IS_DISCONT(buffer))
+                print("D");
+            else if (GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_GAP))
+                print("G");
+            else
+                print(".");
+            if (data->expected != GST_CLOCK_TIME_NONE)
+            {
+                GstClockTimeDiff diff;
+                diff = pts - data->expected;
+                if (diff > 1)
+                {
+                    printf(" > %.3f ", present_timediff(diff));
+                    fflush(stdout);
+                }
+                else if (diff < -1)
+                {
+                    printf(" < %.3f ", present_timediff(diff));
+                    fflush(stdout);
+                }
+            }
+            data->expected = pts + duration;
+        }
+    }
+    else if (GST_IS_BUFFER_LIST(miniobj))
+    {
+        print("L");
+    }
+    else if (GST_IS_EVENT(miniobj))
+    {
+        GstEvent *event = GST_EVENT(miniobj);
+        if (GST_EVENT_TYPE (event) == GST_EVENT_GAP) {
+            print("^");
+            GstClockTime timestamp;
+            GstClockTime duration;
+            gst_event_parse_gap(event, &timestamp, &duration);
+
+            if (timestamps)
+            {
+                GstClock* clock = gst_pipeline_get_clock(pipeline);
+                GstClockTime abs_time = gst_clock_get_time(clock);
+                GstClockTime base_time = gst_element_get_base_time(GST_ELEMENT(pipeline));
+                gst_object_unref(clock);
+                GstClockTime running_time = abs_time - base_time;
+                printf(" %.3f \n", present_timediff(timestamp - running_time));
+            }
+            else
+            {
+                if (data->expected != GST_CLOCK_TIME_NONE)
+                {
+                    GstClockTimeDiff diff;
+                    diff = timestamp - data->expected;
+                    if (diff > 1)
+                    {
+                        printf(" > %.3f ", present_timediff(diff));
+                        fflush(stdout);
+                    }
+                    else if (diff < -1)
+                    {
+                        printf(" < %.3f ", present_timediff(diff));
+                        fflush(stdout);
+                    }
+                }
+                data->expected = timestamp + duration;
+            }
+        }
+        else {
+            print("*");
+        }
+    }
+
+    return GST_PAD_PROBE_OK;
 }
 
 static GstPadProbeReturn
@@ -2737,10 +2911,20 @@ static ___SCMOBJ gst_monitor_queue_copy(void* info)
     return copy_monitor_queue(data);
 }
 
-static void* gst_monitor_analyse(GstPad* pad, void* listener, char* name)
+static void* gst_monitor_print(GstPad* pad, void* pipeline, bool timestamps)
+{
+    print_monitor* data = malloc(sizeof(print_monitor));
+    init_print_monitor(data, pipeline, timestamps);
+
+    data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_DATA_DOWNSTREAM, (GstPadProbeCallback) cb_monitor_print, data, NULL);
+
+    return (void*) data;
+}
+
+static void* gst_monitor_analyse(GstPad* pad, void* pipeline, char* name)
 {
     analyse_monitor* data = malloc(sizeof(analyse_monitor));
-    init_analyse_monitor(data, listener, name);
+    init_analyse_monitor(data, pipeline, name);
 
     data->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_DATA_DOWNSTREAM, (GstPadProbeCallback) cb_monitor_analyse, data, NULL);
 
@@ -3018,16 +3202,20 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_base_sink_get_latency (call GST_BASE_SINK GstElement*)) GstClockTime)
 @gstreamer-1.18
 (gst-external (gst_base_sink_get_stats (call GST_BASE_SINK GstElement*)) GstStructure*)
+(gst-external (gst_audio_decoder_get_latency GstElement* scheme-object) void "gst_audio_decoder_get_latency_aux")
+(gst-external (gst_audio_decoder_set_latency GstElement* GstClockTime GstClockTime) void "gst_audio_decoder_set_latency_aux")
 (gst-external (gst_event_new_eos) GstEvent*)
 (gst-external (gst_event_new_stream_start char-string) GstEvent*)
 (gst-external (gst_event_new_latency GstClockTime) GstEvent*)
 (gst-external (gst_event_new_caps GstCaps*) GstEvent*)
+(gst-external (gst_event_new_gap GstClockTime GstClockTime) GstEvent*)
 (gst-external (gst_message_state_changed_get_new_state GstMessage*) GstState)
 (gst-external (gst_message_unref GstMessage*) void)
 (gst-external (gst_system_clock_get_time) GstClockTime)
 (gst-external (gst_clock_get_time GstClock*) GstClockTime)
+(gst-external (gst_filename_to_uri UTF-8-string NULL) char-string)
 (gst-external (gst_discoverer_new) GstDiscoverer* "gst_discoverer_new_aux")
-(gst-external (gst_discoverer_discover_uri GstDiscoverer* char-string) GstDiscovererInfo* "gst_discoverer_discover_uri_aux")
+(gst-external (gst_discoverer_discover_uri_aux GstDiscoverer* char-string scheme-object scheme-object) scheme-object)
 (gst-external (gst_discoverer_info_get_duration GstDiscovererInfo*) GstClockTime)
 (gst-external (gst_discoverer_info_get_stream_info GstDiscovererInfo*) GstDiscovererStreamInfo*)
 (gst-external (gst_discoverer_stream_info_get_caps GstDiscovererStreamInfo*) GstCaps*)
@@ -3064,6 +3252,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_monitor_file GstPad* char-string) void*)
 (gst-external (gst_monitor_queue GstPad* GstClockTime) void*)
 (gst-external (gst_monitor_queue_copy void*) scheme-object)
+(gst-external (gst_monitor_print GstPad* void* bool) void*)
 (gst-external (gst_monitor_analyse GstPad* void* char-string) void*)
 (gst-external (gst_monitor_data GstPad* (call GST_PIPELINE GstElement*)) void*)
 (gst-external (gst_monitor_events GstPad* (call GST_PIPELINE GstElement*)) void*)
@@ -3078,6 +3267,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_app_src_write GstElement* scheme-object int uint64 uint64 uint64) GstFlowReturn)
 (gst-external (gst_app_src_write_now GstElement* scheme-object int uint64) GstFlowReturn)
 (gst-external (gst_app_src_write_pointer_now GstElement* void* int uint64) GstFlowReturn)
+(gst-external (gst_app_src_write_event GstElement* GstEvent*) GstFlowReturn)
 (gst-external (gst_app_sink_connect_listener_signals GstElement* void*) void)
 (gst-external (gst_app_sink_try_pull_buffer GstElement*) GstBuffer*)
 (gst-external (gst_app_sink_try_pull_frame GstElement* scheme-object scheme-object) int)

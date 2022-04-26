@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; iOS
+;;;; Tell
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,101 +35,48 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.platform.ios jazz
+(module protected jazz.language.runtime.tell jazz.dialect
 
 
-(export (jazz.platform.ios.foreign)
-        (jazz.platform.ios.camera))
-(import (jazz.platform.ios.foreign)
-        (jazz.platform.ios.camera))
+(proclaim (warn optimizations))
 
 
-;;;
-;;;; Prime
-;;;
+(import (jazz.language.runtime.hubs)
+        (jazz.language.runtime.kernel)
+        (jazz.language.runtime.format)
+        (jazz.language.runtime.functional))
 
 
-(definition public (prime-platform)
-  )
+(native private jazz:error)
 
 
-;;;
-;;;; Initialize
-;;;
+(definition public tell-precision
+  3)
+
+(definition public (set-tell-precision precision)
+  (set! tell-precision precision))
 
 
-(definition public (platform-initialize)
-  )
-
-
-;;;
-;;;; System
-;;;
-
-
-(definition protected (system-memory)
-  (unimplemented))
-
-
-;;;
-;;;; Bell
-;;;
-
-
-(definition protected (bell-internal)
-  )
+(definition public (tell . rest)
+  (let ((first? #t))
+    (for-each (lambda (obj)
+                (if first?
+                    (set! first? #f)
+                  (format :terminal " "))
+                (cond ((flonum? obj)
+                       (tell-flonum obj))
+                      (else
+                       (format :terminal "{a}" obj))))
+              rest))
+  (format :terminal "{%}"))
 
 
 ;;;
-;;;; Keyboard
+;;;; Flonum
 ;;;
 
 
-(definition public (key-down? key)
-  #f)
-
-
-(definition public (shift-down?)
-  #f)
-
-
-(definition public (control-down?)
-  #f)
-
-
-(definition public (alt-down?)
-  #f)
-
-
-(definition public (meta-down?)
-  #f)
-
-
-(definition public (modifiers-down)
-  (values (shift-down?)
-          (control-down?)
-          (alt-down?)
-          (meta-down?)))
-
-
-;;;
-;;;; Directory
-;;;
-
-
-(definition public (directory-writable? dirname)
-  ;; super quicky
-  #t)
-
-
-;;;
-;;;; Temporary
-;;;
-
-
-(definition public (get-temporary-directory)
-  (unimplemented 'get-temporary-directory))
-
-
-(definition public (get-temporary-file . rest)
-  (unimplemented 'get-temporary-file)))
+(definition protected (tell-flonum obj)
+  (if (not tell-precision)
+      (format :terminal "{a}" obj)
+    (format :terminal "{r precision: :v}" obj tell-precision))))

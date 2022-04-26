@@ -92,7 +92,6 @@
 (hub get-reference)
 (hub get-remote-title)
 (hub get-service)
-(hub get-slave?)
 (hub get-stub-interface)
 (hub get-uuid)
 (hub get-values)
@@ -293,7 +292,7 @@
                 (write-port port code version (list local-uuid local-title local-service local-address))
                 (assert (eq? (read-port port code version) 'handshake)
                   (let ((lag (- (current-monotonic) start)))
-                    (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag #f invoke-handler process-handler processing-handler execute-handler)))
+                    (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag invoke-handler process-handler processing-handler execute-handler)))
                       (when (and debug-remote? (debug-remote-presence? self))
                         (callee-garble-hack)
                         (debug-remote self '<<< remote-title remote-uuid 'accept connection))
@@ -315,7 +314,7 @@
   ;;;
   
   
-  (method (connect-remote self host service (slave? #f))
+  (method (connect-remote self host service)
     (when (and debug-remote? (debug-remote-presence? self))
       (debug-remote self '>>> #f #f 'open host service)
       (caller-garble-hack))
@@ -339,7 +338,7 @@
                      (bind (remote-uuid remote-title remote-service remote-address) reply
                        (let ((lag (- (current-monotonic) start)))
                          (write-port port code version 'handshake)
-                         (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag slave? invoke-handler process-handler processing-handler execute-handler)))
+                         (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag invoke-handler process-handler processing-handler execute-handler)))
                            (when (and debug-remote? (debug-remote-presence? self))
                              (callee-garble-hack)
                              (callee-garble-hack)
@@ -442,14 +441,13 @@
   (slot invocations-mutex  getter generate)
   (slot lag                accessors generate)
   (slot closing?           accessors generate)
-  (slot slave?             getter generate)
   (slot invoke-handler     getter generate)
   (slot process-handler    getter generate)
   (slot processing-handler getter generate)
   (slot execute-handler    getter generate)
   
   
-  (method override (initialize self presence port remote-uuid remote-title service address lag slave? invoke-handler process-handler processing-handler execute-handler)
+  (method override (initialize self presence port remote-uuid remote-title service address lag invoke-handler process-handler processing-handler execute-handler)
     (set! self.presence presence)
     (set! self.port port)
     (set! self.write-mutex (make-mutex 'write))
@@ -461,7 +459,6 @@
     (set! self.invocations-mutex (make-mutex 'invocations))
     (set! self.lag lag)
     (set! self.closing? #f)
-    (set! self.slave? slave?)
     (set! self.invoke-handler invoke-handler)
     (set! self.process-handler process-handler)
     (set! self.processing-handler processing-handler)
@@ -797,9 +794,9 @@
   (ior->proxy (new IOR purpose uuid (serialize-runtime-reference (reify-reference Register-Stub)) #f '())))
 
 
-(definition public (connect-remote-register host port (purpose: purpose #f) (slave?: slave? #f))
+(definition public (connect-remote-register host port (purpose: purpose #f))
   (let ((presence (require-presence purpose)))
-    (let ((uuid (connect-remote presence host port slave?)))
+    (let ((uuid (connect-remote presence host port)))
       (new-remote-register purpose uuid))))
 
 
@@ -878,6 +875,14 @@
 (definition public (closing-remote-proxy-safe remote-proxy)
   (let ((presence (get-presence remote-proxy))
         (uuid (get-uuid (get-ior remote-proxy))))
+    (let ((connection (find-connection presence uuid)))
+      (when connection
+        (set-closing? connection #t)))))
+
+
+;; quick safe version
+(definition public (closing-remote-connection-safe purpose uuid)
+  (let ((presence (require-presence purpose)))
     (let ((connection (find-connection presence uuid)))
       (when connection
         (set-closing? connection #t)))))

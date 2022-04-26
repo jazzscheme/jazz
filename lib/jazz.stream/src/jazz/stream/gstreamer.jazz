@@ -433,8 +433,8 @@
 (definition public (gst_parse_bin_from_description desc ghost_unlinked_pads)
   (receive (bin err) (gst_parse_bin_from_description_aux desc ghost_unlinked_pads element-tags error-tags)
     (if err
-          (error "Create bin error: {a}" (g_error_message err))
-        bin)))
+        (error "Create bin error: {a}" (g_error_message err))
+      bin)))
 
 
 (definition public (gst-pipeline . elements)
@@ -776,6 +776,8 @@
                          (cons pad (gst_monitor_file pad effective-filename)))))
                     ((queue)
                      (cons pad (gst_monitor_queue pad (flonum->timestamp (car rest)))))
+                    ((print)
+                     (cons pad (gst_monitor_print pad bin (if (not-null? rest) (car rest) #f))))
                     ((analyse)
                      (cons pad (gst_monitor_analyse pad (car rest) name)))
                     ((data)
@@ -954,6 +956,15 @@
 
 
 ;;;
+;;;; URI
+;;;
+
+
+(definition public (gst-parse-uri file)
+  (gst_filename_to_uri (parse file)))
+
+
+;;;
 ;;;; Discoverer
 ;;;
 
@@ -970,7 +981,7 @@
 
 (definition protected (with-discoverer-info file proc)
   (with-unref ((discoverer (gst_discoverer_new)))
-    (with-unref ((discoverer-info (gst_discoverer_discover_uri discoverer (parse-uri file))))
+    (with-unref ((discoverer-info (gst_discoverer_discover_uri discoverer (gst-parse-uri file))))
       (proc discoverer-info))))
 
 
@@ -993,6 +1004,8 @@
                 (gst_caps_unref caps))))))
       
       (ecase (G_OBJECT_TYPE container-info)
+        ((GST_TYPE_DISCOVERER_AUDIO_INFO)
+         (audio-info container-info))
         ((GST_TYPE_DISCOVERER_STREAM_INFO)
          (let ((caps (gst_discoverer_stream_info_get_caps container-info)))
            (let ((caps-string (gst_caps_to_string caps)))
@@ -1045,7 +1058,7 @@
 
 (definition public (discover-image file)
   (with-unref ((discoverer (gst_discoverer_new)))
-    (with-unref ((discoverer-info (gst_discoverer_discover_uri discoverer (parse-uri file))))
+    (with-unref ((discoverer-info (gst_discoverer_discover_uri discoverer (gst-parse-uri file))))
       (let ((stream-info (gst_discoverer_info_get_stream_info discoverer-info)))
         (if (= (G_OBJECT_TYPE stream-info) GST_TYPE_DISCOVERER_VIDEO_INFO)
             (let ((caps (gst_discoverer_stream_info_get_caps stream-info)))
@@ -1056,6 +1069,13 @@
                            (gst_caps_to_string caps))
                 (gst_caps_to_string caps)))
           #f)))))
+
+
+(definition public (gst_discoverer_discover_uri discover uri)
+  (receive (discoverer-info err) (gst_discoverer_discover_uri_aux discover uri discoverer-info-tags error-tags)
+    (if err
+        (error "Discoverer discover error: {a}" (g_error_message err))
+      discoverer-info)))
 
 
 ;;;

@@ -513,6 +513,13 @@
     (platform-set-frame-rect handle rect)))
 
 
+(definition package (platform-get-frame-bounds handle)
+  (with-NSRect #f
+    (lambda (rect)
+      (platformGetWindowViewRect handle rect)
+      (NSRect->rect rect))))
+
+
 (definition package (platform-get-frame-rect handle)
   (with-NSRect #f
     (lambda (rect)
@@ -541,30 +548,21 @@
 
 
 (definition package (platform-set-content-size handle size)
-  (let ((rect (platform-get-content-rect handle)))
+  (define (get-content-rect)
+    (with-NSRect #f
+      (lambda (rect)
+        (platformGetWindowContentRect handle rect)
+        (window-cartesian->rect handle rect))))
+  
+  (define (set-content-rect rect)
+    (with-NSRect (window-rect->cartesian handle rect)
+      (lambda (rect)
+        (platformSetWindowContentRect handle rect))))
+  
+  (let ((rect (get-content-rect)))
     (set-right rect (+ (get-left rect) (get-width size)))
     (set-bottom rect (+ (get-top rect) (get-height size)))
-    (platform-set-content-rect handle rect)))
-
-
-(definition package (platform-get-content-rect handle)
-  (with-NSRect #f
-    (lambda (rect)
-      (platformGetWindowContentRect handle rect)
-      (window-cartesian->rect handle rect))))
-
-
-(definition package (platform-set-content-rect handle rect)
-  (with-NSRect (window-rect->cartesian handle rect)
-    (lambda (rect)
-      (platformSetWindowContentRect handle rect))))
-
-
-(definition package (platform-get-bounds handle)
-  (with-NSRect #f
-    (lambda (rect)
-      (platformGetWindowViewRect handle rect)
-      (NSRect->rect rect))))
+    (set-content-rect rect)))
 
 
 (definition package (platform-mouse-position handle)
@@ -621,7 +619,7 @@
   (platformEnableWindow handle))
 
 
-(definition package (platform-get-client-rect handle)
+(definition package (platform-get-content-rect handle)
   (let ((size (platform-get-content-size handle)))
     (new Rect 0 0 (get-width size) (get-height size))))
 

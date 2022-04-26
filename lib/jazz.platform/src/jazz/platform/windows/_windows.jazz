@@ -61,6 +61,7 @@
         (jazz.platform.windows.Shell)
         (jazz.platform.windows.User)
         (jazz.platform.windows.User1)
+        (jazz.platform.windows.GDI)
         (jazz.foreign)
         (jazz.io)
         (jazz.version)
@@ -85,7 +86,29 @@
   (set-platform-log system-log)
   (system-timezone-set! get-timezone-offset)
   (local-timezone-set! get-timezone-offset)
+  ;; only works if done before the next call
+  (setup-windows-scale)
   (SetProcessDPIAware))
+
+
+;;;
+;;;; Scale
+;;;
+
+
+(definition public windows-scale <fl>
+  1.)
+
+
+(definition (setup-windows-scale)
+  (let ((hwnd (GetDesktopWindow)))
+    (let ((hdc (GetDC hwnd)))
+      (let ((physical (GetDeviceCaps hdc DESKTOPVERTRES))
+            (virtual (GetDeviceCaps hdc VERTRES)))
+        (when (/= physical virtual)
+          (let ((scale (/ (cast <fl> physical) (cast <fl> virtual))))
+            (set! windows-scale scale))))
+      (ReleaseDC hwnd hdc))))
 
 
 ;;;

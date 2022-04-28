@@ -356,11 +356,16 @@ void main()
   (slot orthographic-matrix initialize (make-matrix) getter generate)
   
   
+  (method protected virtual (default-render? self)
+    #t)
+  
+  
   (method override (setup-opengl self)
     (nextmethod self)
-    (create-programs self)
-    (initialize-arrays self)
-    (setup-textures self))
+    (when (default-render? self)
+      (create-programs self)
+      (initialize-arrays self)
+      (setup-textures self)))
   
   
   ;;;
@@ -412,13 +417,13 @@ void main()
   
   (method override (resize-scene self width <fl> height <fl>)
     (nextmethod self width height)
-    ;; Orthographic
-    (make-orthographic-matrix! orthographic-matrix 0.0 10.0 0.0 10.0 0.0 10.0)
-    
-    ;; Textures
-    (when interface-texture
-      (close interface-texture)
-      (setup-textures self)))
+    (when (default-render? self)
+      ;; Orthographic
+      (make-orthographic-matrix! orthographic-matrix 0.0 10.0 0.0 10.0 0.0 10.0)
+      ;; Textures
+      (when interface-texture
+        (close interface-texture)
+        (setup-textures self))))
   
   
   ;;;
@@ -458,6 +463,7 @@ void main()
   
   
   (method override (draw-scene self)
-    ;; Interface
-    (draw-interface self)
-    (render-interface self))))
+    (when (default-render? self)
+      ;; Interface
+      (draw-interface self)
+      (render-interface self)))))

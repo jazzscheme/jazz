@@ -115,46 +115,30 @@
     NULL))
 
 
-(definition package (create-opengl-window (class: class #f) (position: position #f) (size: size #f) (fullscreen?: fullscreen? #f))
-  (let ((class (or class OpenGL-Window)))
-    (let ((window (parameterize ((request-fullscreen? fullscreen?)) (new class fullscreen?: fullscreen? visible?: #f)))
-          (pfd (PIXELFORMATDESCRIPTOR-make)))
-      (PIXELFORMATDESCRIPTOR-nSize-set! pfd (PIXELFORMATDESCRIPTOR-sizeof))
-      (PIXELFORMATDESCRIPTOR-nVersion-set! pfd 1)
-      (PIXELFORMATDESCRIPTOR-dwFlags-set! pfd (bitwise-ior PFD_DRAW_TO_WINDOW PFD_SUPPORT_OPENGL PFD_DOUBLEBUFFER))
-      (PIXELFORMATDESCRIPTOR-iPixelType-set! pfd PFD_TYPE_RGBA)
-      (PIXELFORMATDESCRIPTOR-cColorBits-set! pfd 32)
-      (PIXELFORMATDESCRIPTOR-cDepthBits-set! pfd 24)
-      (PIXELFORMATDESCRIPTOR-iLayerType-set! pfd PFD_MAIN_PLANE)
-      (let ((hdc (GetDC (get-handle window))))
-        (unless hdc
-          (error "Could not create an OpenGL device context"))
-        (let ((pixel-format (ChoosePixelFormat hdc pfd)))
-          (unless pixel-format
-            (error "Could not find a suitable pixelformat"))
-          (unless (SetPixelFormat hdc pixel-format pfd)
-            (error "Could not set the pixelformat"))
-          (PIXELFORMATDESCRIPTOR-free pfd)
-          (let ((hrc (wglCreateContext hdc)))
-            (unless hrc
-              (error "Could not create an OpenGL rendering context"))
-            (make-context-current hdc hrc)
-            (set-device window hdc)
-            (set-context window hrc)
-            (set-title window "OpenGL")
-            (if fullscreen?
-                (let ((area (get-display-area (primary-monitor))))
-                  (let ((left (get-left area))
-                        (top (get-top area))
-                        (width (rect-width area))
-                        (height (rect-height area)))
-                    (set-position window (new Point left top))
-                    (set-size window (new Dimension width height))))
-              (when position
-                (set-position window position))
-              (when size
-                (set-size window size)))
-            window))))))
+(definition package (setup-opengl-window window)
+  (let ((pfd (PIXELFORMATDESCRIPTOR-make)))
+    (PIXELFORMATDESCRIPTOR-nSize-set! pfd (PIXELFORMATDESCRIPTOR-sizeof))
+    (PIXELFORMATDESCRIPTOR-nVersion-set! pfd 1)
+    (PIXELFORMATDESCRIPTOR-dwFlags-set! pfd (bitwise-ior PFD_DRAW_TO_WINDOW PFD_SUPPORT_OPENGL PFD_DOUBLEBUFFER))
+    (PIXELFORMATDESCRIPTOR-iPixelType-set! pfd PFD_TYPE_RGBA)
+    (PIXELFORMATDESCRIPTOR-cColorBits-set! pfd 32)
+    (PIXELFORMATDESCRIPTOR-cDepthBits-set! pfd 24)
+    (PIXELFORMATDESCRIPTOR-iLayerType-set! pfd PFD_MAIN_PLANE)
+    (let ((hdc (GetDC (get-handle window))))
+      (unless hdc
+        (error "Could not create an OpenGL device context"))
+      (let ((pixel-format (ChoosePixelFormat hdc pfd)))
+        (unless pixel-format
+          (error "Could not find a suitable pixelformat"))
+        (unless (SetPixelFormat hdc pixel-format pfd)
+          (error "Could not set the pixelformat"))
+        (PIXELFORMATDESCRIPTOR-free pfd)
+        (let ((hrc (wglCreateContext hdc)))
+          (unless hrc
+            (error "Could not create an OpenGL rendering context"))
+          (wglMakeCurrent hdc hrc)
+          (set-device window hdc)
+          (set-context window hrc))))))
 
 
 ;;;
@@ -170,7 +154,7 @@
             (new-context (wglCreateContextAttribsARB* hdc NULL major minor (bitwise-ior (if debug-output? WGL_CONTEXT_DEBUG_BIT_ARB 0) WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB) WGL_CONTEXT_CORE_PROFILE_BIT_ARB)))
         (release-current-context)
         (delete-context old-context)
-        (make-context-current hdc new-context)
+        (wglMakeCurrent hdc new-context)
         (set-context window new-context)
         (when debug-output?
           (setup-debug-callback))))))
@@ -267,9 +251,14 @@
   (SwapBuffers device))
 
 
-(definition package (make-context-current device context)
-  (unless (wglMakeCurrent device context)
+(definition package (make-context-current window)
+  (unless (wglMakeCurrent (get-device window) (get-context window))
     (error "Could not activate the OpenGL rendering context")))
+
+
+(definition package (make-context-current-safe window)
+  (when (get-device window)
+    (make-context-current window)))
 
 
 (definition package (release-current-context)

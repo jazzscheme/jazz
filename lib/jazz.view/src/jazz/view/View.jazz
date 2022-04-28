@@ -1341,34 +1341,6 @@
                       (scroll-view display delta rect)))))))))))
   
   
-  (method public (scroll2 self delta <Point> (redraw?: redraw? #f))
-    (unless (= delta {Point 0 0})
-      (scroll-to2 self (+ (get-scrolled-position self) delta) redraw?: redraw?)))
-  
-  
-  (method public (scroll-to2 self dest <Point> (redraw?: redraw? #f))
-    (when (get-scroller self)
-      (let ((pos (get-scrolled-position self)))
-        (when (/= dest pos)
-          (let* ((size (get-size self))
-                 (display-size (get-display-size self))
-                 (min-dist {Distance 0 0})
-                 (max-dist (dimension->distance (- display-size size)))
-                 (new-dist (distance-min (distance-max (point->distance dest) max-dist) min-dist))
-                 (new-pos (get-display-position self (distance->point new-dist))))
-            (when (/= new-pos position)
-              (set! position new-pos)
-              (let ((delta (- new-dist (point->distance pos))))
-                (set-scroll-pos self (distance->point (- new-dist)) redraw?: redraw?)
-                (update-scrollbars self)
-                (scroll-invalidate self delta)
-                (if (or transformation (not (get-scrollable? self)))
-                    (invalidate-view self)
-                  (let ((display (get-display self)))
-                    (let ((rect (get-bounds display)))
-                      (scroll-view2 display delta rect)))))))))))
-  
-  
   (method protected virtual (redraw-scrollbars self)
     )
   
@@ -1386,49 +1358,6 @@
                   (acquired (logical->device surface rect))
                   (clip-rect (logical->device surface (get-clipper surface))))
               (scroll-window player delta acquired clip-rect)))))))
-  
-  
-  ;; an attempt at a platform-independent scroll-view
-  (method public (scroll-view2 self delta rect)
-    (let ((player (get-player self))
-          (root (get-root self)))
-      (when (and player (view-visible? self))
-        (with-clipped-transformation-surface self
-          (lambda (surface)
-            (let ((delta (device->logical surface delta))
-                  (acquired (logical->device surface rect))
-                  (clip-rect (logical->device surface (get-clipper surface))))
-              (scroll-offscreen2 root delta acquired clip-rect)))))))
-  
-  
-  (method package (scroll-offscreen2 self delta rect clip-rect)
-    (with-view-surface self
-      (lambda (surface)
-        (let* ((dh (get-x delta))
-               (dv (get-y delta))
-               (rect (rect-intersection rect clip-rect))
-               (dst-rect (offset-rect rect dh dv))
-               (modified-rect (rect-intersection (rect-union rect dst-rect) clip-rect))
-               (new-clipper (rect-intersection modified-rect dst-rect))
-               (offscreen (get-offscreen self #f)))
-          (set-source-surface surface offscreen dh dv)
-          (draw-rectangle surface new-clipper)
-          (fill surface)
-          (set-source-surface offscreen offscreen dh dv)
-          (draw-rectangle offscreen new-clipper)
-          (fill offscreen)
-          (let ((ml (get-left modified-rect))
-                (mt (get-top modified-rect))
-                (mr (get-right modified-rect))
-                (mb (get-bottom modified-rect)))
-            (when (< dh 0)
-              (invalidate-rect self (new Rect (+ mr dh) mt mr mb)))
-            (when (< dv 0)
-              (invalidate-rect self (new Rect ml (+ mb dv) mr mb)))
-            (when (> dh 0)
-              (invalidate-rect self (new Rect ml mt (+ ml dh) mb)))
-            (when (> dv 0)
-              (invalidate-rect self (new Rect ml mt mr (+ mt dv)))))))))
  
   
   (method public (get-scrolled-distance self) <Distance>

@@ -40,6 +40,7 @@
 
 (import (jazz.event)
         (jazz.foreign)
+        (jazz.graphic)
         (jazz.platform.callback)
         (jazz.platform.requests)
         (jazz.platform.syntax (phase syntax))
@@ -920,7 +921,7 @@ void call_error(char* msg);
 void call_debug(char* msg);
 void call_terminal(char* msg);
 void call_test(char* msg);
-void paint_callback(PlatformWindow* window, NSRect* dirtyRect);
+void paint_callback(PlatformWindow* window);
 void reshape_callback(PlatformWindow* window, int width, int height);
 void close_callback(PlatformWindow* window);
 int key_press_callback(PlatformWindow* window, int key, int action);
@@ -1755,7 +1756,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
     [[NSColor blackColor] set];
     NSRectFill(dirtyRect);
    
-    paint_callback(window, &dirtyRect);
+    paint_callback(window);
 }
 
 - (void)mouseDown:(NSEvent *)event
@@ -4391,15 +4392,14 @@ ___SCMOBJ platformProcessThreads()
 ;;;
 
 
-(c-callback (paint-callback handle rect) (platformwindow NSRect*) void "paint_callback" "" #f
+(c-callback (paint-callback handle) (platformwindow) void "paint_callback" "" #f
   (when registered-window
-    (let ((window (registered-window handle))
-          (context (platformCurrentGraphics)))
+    (let ((window (registered-window handle)))
       ;; the mac can call this before the window is registered
       (when window
         (when event-callback
           (event-callback 'paint))
-        (paint-cocoa window context rect)))))
+        (paint window)))))
 
 
 (c-callback (reshape-callback handle width height) (platformwindow int int) void "reshape_callback" "" #f

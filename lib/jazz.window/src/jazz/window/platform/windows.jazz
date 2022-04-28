@@ -584,8 +584,7 @@
   
   (ecase msg
     ((WM_ERASEBKGND)      (erase-background window wparam))
-    ((WM_PAINT)           (with ((region (platform-get-update-region (get-handle window))))
-                            (paint window region)))
+    ((WM_PAINT)           (paint window))
     ((WM_SETCURSOR)       (cursor-update window (= (loword lparam) HTCLIENT)))
     ((WM_MOUSEMOVE)       (call-mouse-moved window (cast <fl> (device->user (get-x-lparam lparam))) (cast <fl> (device->user (get-y-lparam lparam)))))
     ((WM_MOUSEWHEEL)      (let ((global (new Point (device->user (get-x-lparam lparam)) (device->user (get-y-lparam lparam)))))
@@ -641,7 +640,7 @@
   (ReleaseCapture))
 
 
-(definition package (with-opengl-painting window platform-data proc)
+(definition package (with-painting window proc)
   (let ((handle (get-handle window)))
     (let ((ps (PAINTSTRUCT-make)))
       (BeginPaint handle ps)
@@ -650,31 +649,6 @@
         (EndPaint handle ps)
         (PAINTSTRUCT-free ps))))
   processed)
- 
-
-(definition package (with-platform-painting window platform-data proc)
-  (let ((handle (get-handle window)))
-    (let ((ps (PAINTSTRUCT-make)))
-      (let ((hdc (BeginPaint handle ps)))
-        (let ((surface (new Surface (cairo_win32_surface_create hdc))))
-          (set-device-scale surface (main-screen-scale-factor))
-          (unwind-protect
-              (proc surface)
-            (close surface)
-            (EndPaint handle ps))))
-      (PAINTSTRUCT-free ps)))
-  processed)
-
-
-(definition public (get-window-dc window)
-  (GetDC (get-handle window)))
-
-
-(definition public (with-window-surface window proc)
-  (let ((handle (get-handle window)))
-    (let ((hdc (GetDC handle)))
-      (prog1 (proc (cairo_win32_surface_create hdc))
-        (ReleaseDC handle hdc)))))
 
 
 (definition (settings-change window wparam)
@@ -941,19 +915,6 @@
         (prog1 (RedrawWindow handle rect (if region (get-handle region) NULL) flags)
           (when rect
             (RECT-free rect)))))))
-
-
-(definition package (platform-get-update-rect handle)
-  (let ((rect (RECT-make)))
-    (GetUpdateRect handle rect #f)
-    (prog1 (RECT->rect rect)
-      (RECT-free rect))))
-
-
-(definition package (platform-get-update-region handle)
-  (let ((region (new Region)))
-    (GetUpdateRgn handle (get-handle region) #f)
-    region))
 
 
 (definition package (platform-update-window handle)

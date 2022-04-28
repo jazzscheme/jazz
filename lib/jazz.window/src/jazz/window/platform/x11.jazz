@@ -516,15 +516,7 @@
 
 
 (definition (process-expose-message window msg)
-  (let ((msg (XEvent-xexpose-ref msg)))
-    (let ((left (XExposeEvent-x-ref msg))
-          (top  (XExposeEvent-y-ref msg)))
-      (let ((right (+ left (XExposeEvent-width-ref msg)))
-            (bottom (+ top (XExposeEvent-height-ref msg))))
-        (let ((rect (new Rect left top right bottom)))
-          (let ((region (new Region rect: rect)))
-            (unless (empty? region)
-              (paint window region)))))))
+  (paint window)
   processed)
 
 
@@ -849,25 +841,9 @@
 ;;;
 
 
-(definition package (with-opengl-painting window platform-data proc)
+(definition package (with-painting window proc)
   (proc)
   processed)
-
-
-(definition package (with-platform-painting window platform-data proc)
-  (let* ((screen-no (XDefaultScreen x11-default-display))
-         (visual    (XDefaultVisual x11-default-display screen-no)))
-    (let ((surface (new Surface (cairo_xlib_surface_create x11-default-display (get-handle window) visual (get-width window) (get-height window)))))
-      (unwind-protect
-          (proc surface)
-        (close surface))))
-  processed)
-
-
-(definition public (with-window-surface window proc)
-  (let* ((screen-no (XDefaultScreen x11-default-display))
-         (visual    (XDefaultVisual x11-default-display screen-no)))
-    (proc (cairo_xlib_surface_create x11-default-display (get-handle window) visual (get-width window) (get-height window)))))
 
 
 (definition (set-alpha-blending handle n)
@@ -1146,17 +1122,7 @@
 (definition package (platform-redraw-window handle rect region)
   (cond (region (invalidate-offscreen-region handle region))
         (rect (invalidate-offscreen-rect handle rect)))
-  (if region
-      (paint (registered-window handle) region)
-    (paint (registered-window handle) (new Region rect: rect))))
-
-
-(definition package (platform-get-update-rect handle)
-  (unimplemented 'platform-get-update-rect))
-
-
-(definition package (platform-get-update-region handle)
-  (unimplemented 'platform-get-update-region))
+  (paint (registered-window handle)))
 
 
 (definition package (platform-redraw-scrollbar view handle)
@@ -1169,10 +1135,7 @@
       (cond-expand (x11 #t)
                    (else (inhibit-updates?)))
       (platform-invalidate-window handle)
-    (let ((region (table-ref invalid-regions handle #f)))
-      (when region
-        (table-clear invalid-regions handle)
-        (paint (registered-window handle) region)))))
+    (paint (registered-window handle))))
 
 
 (definition package (platform-show-noactivate handle)

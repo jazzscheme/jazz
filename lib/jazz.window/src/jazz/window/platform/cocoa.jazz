@@ -374,24 +374,8 @@
   #f)
 
 
-(definition package (with-opengl-painting window platform-data proc)
+(definition package (with-painting window proc)
   (proc))
-
-
-(definition package (with-platform-painting window platform-data proc)
-  (let* ((context (car platform-data))
-         (surface (new Surface (cairo_quartz_surface_create_for_cg_context context (get-width window) (get-height window)))))
-    (unwind-protect
-        (proc surface)
-      (close surface))))
-
-
-(definition public (with-window-surface window proc)
-  (unimplemented 'with-window-surface)
-  @wait
-  (let* ((screen-no (XDefaultScreen x11-default-display))
-         (visual    (XDefaultVisual x11-default-display screen-no)))
-    (cairo_xlib_surface_create x11-default-display (get-handle window) visual (get-width window) (get-height window))))
 
 
 (definition (set-alpha-blending handle n)
@@ -675,23 +659,12 @@
   (platform-update-window handle))
 
 
-(definition package (platform-get-update-rect handle)
-  (unimplemented 'platform-get-update-rect))
-
-
-(definition package (platform-get-update-region handle)
-  (unimplemented 'platform-get-update-region))
-
-
 (definition package (platform-redraw-scrollbar view handle)
   (let ((rct (acquire (get-root view) view (get-bounds view))))
     ;; clear any invalidations
     (platform-update-window handle)
-    ;; going through the offscreen to redraw the
-    ;; scrollbar is extremely costly on retina display
-    (parameterize ((inhibit-offscreen? #t))
-      (platform-invalidate-rect handle rct)
-      (platform-update-window handle))))
+    (platform-invalidate-rect handle rct)
+    (platform-update-window handle)))
 
 
 (definition package (platform-update-window handle)

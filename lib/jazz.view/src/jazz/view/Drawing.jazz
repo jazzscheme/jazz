@@ -340,9 +340,7 @@
   (method (transformation-surface self)
     (unless *transformation-surface*
       (set! *transformation-surface* (new Image-Surface {Dimension 8192 8192})))
-    *transformation-surface*
-    @doesnt-work-as-is
-    (get-offscreen (get-root) #f))
+    *transformation-surface*)
   
   
   (method public (with-transformation-surface self proc)
@@ -411,16 +409,6 @@
   ;;;
   ;;;; Drawing
   ;;;
-
-
-  (method public (paint-root self surface <Surface> update-region <Region>) <void>
-    (let ((handle (get-handle (get-player self))))
-      (with ((dirty-region (copy-region update-region)))
-        @buggy
-        (combine-and! dirty-region (get-offscreen-invalid-region handle))
-        (bind (view draw-self? . nodes) (painting-tree self surface dirty-region)
-          (paint self surface draw-self? nodes '())
-          (validate-offscreen-region handle dirty-region)))))
   
   
   (method public (paint-drawing self surface <Surface> context <list>) <void>
@@ -484,17 +472,6 @@
 
   
   (method public (paint self surface <Surface> draw-self? <bool> nodes <list> context <list>) <void>
-    (if (or (not (get-offscreen? self))
-            (inhibit-offscreen?))
-        (paint-content self surface draw-self? nodes context)
-      (let ((offscreen (get-offscreen self surface)))
-        (set-clipper offscreen (get-clipper surface))
-        (clear offscreen)
-        (paint-content self offscreen draw-self? nodes context)
-        (blit-surface surface offscreen))))
-  
-  
-  (method public (paint-content self surface <Surface> draw-self? <bool> nodes <list> context <list>) <void>
     (with-clipping-self-transformation self surface
       (lambda ()
         (render self surface draw-self? nodes context))))
@@ -527,15 +504,6 @@
                 (bind (drawing draw-self? . nodes) node
                   (paint drawing surface draw-self? nodes context)))
               nodes))
-
-
-  ;;;
-  ;;;; Offscreen
-  ;;;
-  
-  
-  (method protected virtual (get-offscreen self surface <Surface+>)
-    )
 
 
   ;;;
@@ -577,14 +545,6 @@
     (with-clipped-transformation-surface self
       (lambda (surface)
         (get-clipper surface))))
-  
-  
-  (method public virtual (get-offscreen? self)
-    #f)
-  
-  
-  (method public virtual (set-offscreen? self flag <bool>)
-    )
 
 
   ;;;

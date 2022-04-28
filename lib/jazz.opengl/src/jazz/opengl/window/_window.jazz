@@ -57,7 +57,7 @@
   {Version 3 3})
 
 
-(definition public (new-opengl-window (class: class #f) (position: position #f) (size: size #f) (need-version: need-version #f) (fullscreen?: fullscreen? #f) (visible?: visible? #f))
+(definition (prepare-opengl-window window (need-version: need-version #f))
   (let ((needed-version (or need-version minimum-needed-version)))
     (let ((needed-major (get-major needed-version))
           (needed-minor (get-minor needed-version)))
@@ -84,19 +84,15 @@
                             type: 'error)
             (quit))))
 
-      (let ((window (create-opengl-window class: class position: position size: size fullscreen?: fullscreen?)))
-        (initialize-glew)
-        (when (needs-adjust?)
-          (adjust-opengl-context window needed-major needed-minor)
-          (validate-version))
-        ;; at the moment vsync is a really bad thing as it blocks
-        ;; the thread scheduler by having control remain in C...
-        (disable-vsync window)
-        (setup-opengl window)
-        (when visible?
-          (set-visible? window #t)
-          (select-foreground window))
-        window))))
+      (setup-opengl-window window)
+      (initialize-glew)
+      (when (needs-adjust?)
+        (adjust-opengl-context window needed-major needed-minor)
+        (validate-version))
+      ;; at the moment vsync is a really bad thing as it blocks
+      ;; the thread scheduler by having control remain in C...
+      (disable-vsync window)
+      (setup-opengl window))))
 
 
 (cond-expand
@@ -139,7 +135,7 @@
     (disable-vsync window)))
 
 
-(class OpenGL-Window extends Toplevel
+(class OpenGL-Window extends Overlapped
 
 
   (slot device             initialize #f accessors generate)
@@ -154,11 +150,13 @@
 
   (method override (prepare self rest)
     (nextmethod self rest)
-    (set! window-mode (if (request-fullscreen?) 'fullscreen 'windowed)))
+    (set! window-mode (if (request-fullscreen?) 'fullscreen 'windowed))
+    (prepare-opengl-window self))
 
 
   (method override (size-change self state size)
     (nextmethod self state size)
+    (make-context-current-safe self)
     (when (opened? self)
       (let ((width (get-width size))
             (height (get-height size)))
@@ -168,11 +166,13 @@
 
 
   (method package virtual (resize-scene self width <fl> height <fl>)
+    (make-context-current-safe self)
     (let ((scale-factor (main-screen-scale-factor)))
       (glViewport 0 0 (fxround (* scale-factor width)) (fxround (* scale-factor height)))))
 
 
   (method package virtual (setup-opengl self)
+    (make-context-current self)
     (glClearColor 0.0 0.0 0.0 1.0)
     (glClearDepth 1.0)
     (glEnable GL_LINE_SMOOTH)
@@ -232,19 +232,12 @@
   ;;;
   ;;;; Render
   ;;;
-  
-  
-  (method override (use-offscreen? self)
-    #f)
-  
-  
-  (method override (erase-background self surface)
-    processed)
 
 
-  (method override (paint self update-region . platform-data)
-    (with-opengl-painting self platform-data
+  (method override (paint self)
+    (with-painting self
       (lambda ()
+        (make-context-current self)
         (render-scene self))))
 
 
@@ -259,17 +252,15 @@
 
 
   (method protected virtual (draw-scene self)
+    (make-context-current self)
     (glClear (bitwise-ior GL_COLOR_BUFFER_BIT GL_DEPTH_BUFFER_BIT)))
 
 
   (method public (render-sync self)
+    (make-context-current self)
     (swap-buffers handle device))
 
 
   (method override (scroll-window self delta rect clip-rect)
     (assert handle)
-    (invalidate-rect self clip-rect))
-
-
-  (method override (close-window self)
-    (close-requested))))
+    (invalidate-rect self clip-rect))))

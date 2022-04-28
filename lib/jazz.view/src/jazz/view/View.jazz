@@ -80,7 +80,6 @@
   (property enabled?                             initialize #t accessors explicit)
   (property navigable?                           initialize #t accessors generate)
   (property outline-view                         initialize #f accessors generate)
-  (property offscreen?                 <bool>    initialize #f accessors explicit)
   (property scaling                              initialize #f accessors explicit)
   (property rotation                             initialize #f accessors explicit)
   ;; not implemented yet
@@ -118,7 +117,6 @@
 
   
   (slot player                                   initialize #f)
-  (slot offscreen                                initialize #f)
   (slot scroller                                 initialize #f)
   (slot renderer                                 initialize #f accessors generate)
   (slot transformation                           initialize #f)
@@ -179,7 +177,6 @@
         (set-mouse-down? #f)
         (set-mouse-down-view #f)
         (set-mouse-down-point #f))
-      (set-offscreen? self #f)
       (set! player #f)
       (when transformation
         (cairo_matrix_t-free transformation)
@@ -770,22 +767,6 @@
 
 
   ;;;
-  ;;;; Offscreen
-  ;;;
-  
-  
-  (method override (get-offscreen? self)
-    offscreen?)
-  
-  
-  (method override (set-offscreen? self flag <bool>)
-    (when (neq? flag offscreen?)
-      (set! offscreen? flag)
-      (when (not offscreen?)
-        (close-offscreen self))))
-
-
-  ;;;
   ;;;; Layer
   ;;;
   
@@ -1049,38 +1030,6 @@
   
   (method public virtual (get-skin self)
     )
-
-
-  ;;;
-  ;;;; Offscreen
-  ;;;
-  
-  
-  (method override (get-offscreen self surface <Surface+>)
-    (let ((scale-factor (main-screen-scale-factor)))
-      (define (new-offscreen width height)
-        (new Image-Surface (new Dimension width height) scale?: #t))
-      
-      (let ((width (fxround (* scale-factor (get-width size))))
-            (height (fxround (* scale-factor (get-height size)))))
-        (if (and offscreen
-                 (let ((handle (get-handle offscreen)))
-                   (let ((actual-width (cairo_image_surface_get_width handle))
-                         (actual-height (cairo_image_surface_get_height handle)))
-                     (and (<= width actual-width)
-                          (<= height actual-height)))))
-            (begin
-              (renew-context offscreen)
-              offscreen)
-          (close-offscreen self)
-          (set! offscreen (new-offscreen width height))
-          offscreen))))
-  
-  
-  (method package (close-offscreen self)
-    (when offscreen
-      (close offscreen)
-      (set! offscreen #f)))
 
   
   ;;;

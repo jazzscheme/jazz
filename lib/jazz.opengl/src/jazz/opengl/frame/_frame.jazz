@@ -43,14 +43,60 @@
         (jazz.graphic)
         (jazz.opengl)
         (jazz.opengl.glew)
-        (jazz.opengl.sample)
-        (jazz.opengl.sample.syntax (phase syntax))
         (jazz.opengl.texture)
         (jazz.platform)
         (jazz.screen)
         (jazz.settings)
         (jazz.view)
         (jazz.window))
+
+
+;;;
+;;;; Matrix
+;;;
+
+
+(definition (make-matrix) <f64vector>
+  (f64vector 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.))
+
+
+(definition (matrix-set! mat <f64vector> ind <fx> val <object>) <void>
+  (f64vector-set! mat ind val))
+
+
+(definition (make-identity-matrix! res <f64vector>) <f64vector>
+  (matrix-set! res  0 1.)
+  (matrix-set! res  1 0.)
+  (matrix-set! res  2 0.)
+  (matrix-set! res  3 0.)
+  (matrix-set! res  4 0.)
+  (matrix-set! res  5 1.)
+  (matrix-set! res  6 0.)
+  (matrix-set! res  7 0.)
+  (matrix-set! res  8 0.)
+  (matrix-set! res  9 0.)
+  (matrix-set! res 10 1.)
+  (matrix-set! res 11 0.)
+  (matrix-set! res 12 0.)
+  (matrix-set! res 13 0.)
+  (matrix-set! res 14 0.)
+  (matrix-set! res 15 1.)
+  res)
+
+
+(definition (make-orthographic-matrix! res <f64vector> left <fl> right <fl> bottom <fl> top <fl> near <fl> far <fl>) <f64vector>
+  (make-identity-matrix! res)
+  (let ((width (- right left))
+        (height (- top bottom))
+        (depth (- far near)))
+    (matrix-set! res  0 (/ 2. width))
+    (matrix-set! res  5 (/ 2. height))
+    (matrix-set! res 10 (/ -2. depth))
+    (matrix-set! res 12 (- (/ (+ right left) width)))
+    (matrix-set! res 13 (- (/ (+ top bottom) height)))
+    (matrix-set! res 14 (- (/ (+ far near) depth)))
+    (matrix-set! res 15 1.)
+    res))
 
 
 ;;;
@@ -432,15 +478,15 @@ void main()
   
   
   (method (draw-interface self)
-    (when (offscreen-region-invalid? handle)
+    (when (window-region-invalid? handle)
       (let ((surface (get-surface interface-texture))
-            (rect (get-box (get-offscreen-invalid-region handle))))
+            (rect (get-box (get-window-invalid-region handle))))
         (set-clipper surface rect)
         (clear surface)
         (paint-drawing root surface '())
         (flush surface)
         (map-subtexture interface-texture rect)
-        (validate-offscreen handle))))
+        (validate-window handle))))
   
   
   (method public (render-interface self)

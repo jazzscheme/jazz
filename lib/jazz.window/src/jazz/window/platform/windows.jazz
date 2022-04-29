@@ -870,7 +870,7 @@
 
 
 (definition package (platform-scroll-window handle delta rect clip-rect)
-  (invalidate-offscreen-rect handle rect)
+  (invalidate-window-rect handle rect)
   (let ((flags SW_INVALIDATE))
     (let ((rect (rect->RECT rect))
           (clip-rect (rect->RECT clip-rect)))
@@ -882,37 +882,38 @@
 (definition package (platform-invalidate-rect handle rect)
   ;; is this test correct or was it a patch made during the port
   (when handle
-    (invalidate-offscreen-rect handle rect)
+    (invalidate-window-rect handle rect)
     (with-RECT rect
       (lambda (rect)
         (InvalidateRect handle rect #f)))))
 
 
 (definition package (platform-invalidate-region handle region)
-  ;; is this test correct or was it a patch made during the port
-  (when handle
-    (invalidate-offscreen-region handle region)
-    (InvalidateRgn handle (get-handle region) #f)))
+  (iterate-rectangles region
+    (lambda (rect)
+      (platform-invalidate-rect handle rect))))
 
 
 (definition package (platform-invalidate-window handle)
   ;; is this test correct or was it a patch made during the port
   (when handle
     (let ((rect (size-rect (platform-get-content-size handle))))
-      (invalidate-offscreen-rect handle rect))
+      (invalidate-window-rect handle rect))
     (InvalidateRect handle NULL #f)))
 
 
 (definition package (platform-redraw-window handle rect region)
   ;; is this test correct or was it a patch made during the port
   (when handle
-    (cond (region (invalidate-offscreen-region handle region))
-          (rect (invalidate-offscreen-rect handle rect)))
+    (cond (region (invalidate-window-region handle region))
+          (rect (invalidate-window-rect handle rect)))
     ;; Changed RDW_NOCHILDREN to RDW_ALLCHILDREN so that a redraw-window on the
     ;; toplevel would redraw it's children. Hope it doesn't break any code...
     (let ((flags (bitwise-ior RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
-      (let ((rect (if (not rect) NULL (rect->RECT rect))))
-        (prog1 (RedrawWindow handle rect (if region (get-handle region) NULL) flags)
+      (let ((rect (cond (rect (rect->RECT rect))
+                        (region (rect->RECT (get-box rect)))
+                        (else NULL))))
+        (prog1 (RedrawWindow handle rect NULL flags)
           (when rect
             (RECT-free rect)))))))
 

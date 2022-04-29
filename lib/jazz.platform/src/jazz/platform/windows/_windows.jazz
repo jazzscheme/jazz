@@ -63,6 +63,7 @@
         (jazz.platform.windows.User1)
         (jazz.platform.windows.GDI)
         (jazz.foreign)
+        (jazz.geometry)
         (jazz.io)
         (jazz.version)
         (time))
@@ -99,7 +100,8 @@
         (when (/= physical virtual)
           (let ((scale (/ (cast <fl> physical) (cast <fl> virtual))))
             (let ((rounded-scale (/ (cast <fl> (fxround (* scale 100.))) 100.)))
-              (set! windows-scale rounded-scale)))))
+              (set! windows-scale rounded-scale)
+              (set! fix-clipper? #t)))))
       (ReleaseDC hwnd hdc))))
 
 
@@ -136,6 +138,25 @@
      (new Point (->user (get-h shape)) (->user (get-v shape))))
     ((Dimension)
      (new Dimension (->user (get-width shape)) (->user (get-height shape))))))
+
+
+;;;
+;;;; Clipper
+;;;
+
+
+(definition fix-clipper?
+  #f)
+
+
+;; work around what appears to be a cairo bug
+;; testing has shown that adding only 1 pixel seems
+;; to be enough, which makes sense as the clipper
+;; is in user space not device space
+(definition protected (fix-clipper rect)
+  (if fix-clipper?
+      (inflate-rect rect 1 1)
+    rect))
 
 
 ;;;

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Window Autoload
+;;;; Internal Popups
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,57 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.window.autoload jazz
+(module protected jazz.window.Internal-Popup jazz
 
 
-(export
-  (jazz.window.Desktop (autoload Desktop))
-  (jazz.window.External-Frame (autoload External-Frame))
-  (jazz.window.Internal-Popup (autoload Internal-Popup))
-  (jazz.window.Menu-Transient (autoload Menu-Transient))
-  (jazz.window.Overlapped (autoload Overlapped))
-  (jazz.window.Palette (autoload Palette))
-  (jazz.window.Playable (autoload Playable))
-  (jazz.window.Popup (autoload Popup))
-  (jazz.window.Tooltip (autoload Tooltip))
-  (jazz.window.Toplevel (autoload Toplevel))
-  (jazz.window.Transient (autoload Transient Transient))
-  (jazz.window.View-Player (autoload View-Player))
-  (jazz.window.Window (autoload Window))
-  (jazz.window.Windowable (autoload Windowable))
-  (jazz.window.Window-Manager (autoload Window-Manager))))
+(import (jazz.opengl.frame)
+        (jazz.view)
+        (jazz.window))
+
+
+(class Internal-Popup extends Overlapped
+  
+  
+  (slot initiator initialize #f accessors generate)
+  
+
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method override (conclude self rest)
+    (nextmethod self rest)
+    (allocated self))
+
+
+  (method override (show self)
+    (set-visible-flag self #t)
+    (show-noactivate self))
+  
+  
+  ;;;
+  ;;;; Destruction
+  ;;;
+  
+  
+  (method public (close-popup self)
+    (pop-focuses self)
+    (close-popup (get-window-manager) self)
+    (remove-popup self))
+
+
+  (method override (destroy self)
+    (when initiator
+      (popup-destroy initiator self))
+    (freed self)
+    (nextmethod self))
+    
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method override (mouse-activate? self)
+    #f)))

@@ -883,13 +883,19 @@
         (RECT-free clip-rect)))))
 
 
+(definition (platform-invalidate? handle)
+  (let ((window (registered-window handle)))
+    (and window (invalidate? window))))
+
+
 (definition package (platform-invalidate-rect handle rect)
   ;; is this test correct or was it a patch made during the port
   (when handle
     (invalidate-window-rect handle rect)
-    (with-RECT rect
-      (lambda (rect)
-        (InvalidateRect handle rect #f)))))
+    (when (platform-invalidate? handle)
+      (with-RECT rect
+        (lambda (rect)
+          (InvalidateRect handle rect #f))))))
 
 
 (definition package (platform-invalidate-region handle region)
@@ -903,7 +909,8 @@
   (when handle
     (let ((rect (size-rect (platform-get-content-size handle))))
       (invalidate-window-rect handle rect))
-    (InvalidateRect handle NULL #f)))
+    (when (platform-invalidate? handle)
+      (InvalidateRect handle NULL #f))))
 
 
 (definition package (platform-redraw-window handle rect region)

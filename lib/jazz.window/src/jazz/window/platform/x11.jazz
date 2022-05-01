@@ -959,17 +959,19 @@
       (platform-set-frame-size handle (nu+ (platform-get-frame-size handle) delta)))))
 
 
-(definition package (platform-mouse-position)
+(definition package (platform-mouse-position handle)
   (receive (x y) (XMousePosition x11-default-display (XRootWindow x11-default-display (XDefaultScreen x11-default-display)))
-    (new Point x y)))
+    (let ((pt (new Point x y)))
+      (acquire-point handle (platform-get-desktop) pt))))
 
 
-(definition package (platform-set-mouse-position x y)
-  (let* ((win (current-toplevel-hwnd))
-         (pos-win (platform-get-frame-position win)))
-    (XWarpPointer x11-default-display win
-      (- x (get-h pos-win)) (- y (get-v pos-win)))
-    (XFlush x11-default-display)))
+(definition package (platform-set-mouse-position handle point)
+  (let ((pt (acquire-point (platform-get-desktop) handle point)))
+    (let* ((win (current-toplevel-hwnd))
+           (pos-win (platform-get-frame-position win)))
+      (XWarpPointer x11-default-display win
+        (- (get-h pt) (get-h pos-win)) (- (get-v pt) (get-v pos-win)))
+      (XFlush x11-default-display))))
 
 
 (definition package (platform-window-from-point point)

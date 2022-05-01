@@ -833,15 +833,17 @@
     (platform-set-frame-size handle (nu+ (user->device size) frame-border))))
 
 
-(definition package (platform-mouse-position) <Point>
+(definition package (platform-mouse-position handle) <Point>
   (let ((point (POINT-make)))
     (GetCursorPos point)
-    (prog1 (new Point (POINT-x-ref point) (POINT-y-ref point))
+    (prog1 (let ((pt (new Point (POINT-x-ref point) (POINT-y-ref point))))
+             (device->user (acquire-point handle (platform-get-desktop) pt)))
       (POINT-free point))))
 
 
-(definition package (platform-set-mouse-position x y)
-  (SetCursorPos x y))
+(definition package (platform-set-mouse-position handle point)
+  (let ((pt (acquire-point (platform-get-desktop) handle (user->device point))))
+    (SetCursorPos (get-h pt) (get-v pt))))
 
 
 (definition package (platform-window-from-point point)

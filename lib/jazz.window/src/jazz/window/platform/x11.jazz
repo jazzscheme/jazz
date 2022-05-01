@@ -1087,21 +1087,27 @@
                   (XInvalidateRect x11-default-display handle l t w h))))))))))
 
 
+(definition (platform-invalidate? handle)
+  (let ((window (registered-window handle)))
+    (and window (invalidate? window))))
+
+
 (definition package (platform-invalidate-rect handle rect)
   ;; is this test correct or was it a patch made during the port
   (when (and handle rect)
     (invalidate-window-rect handle rect)
-    (let ((validated-rect (validate-inval-rect rect (registered-window handle))))
-      (let ((old-region (table-ref invalid-regions handle #f))
-            (new-region (and validated-rect (new Region rect: rect))))
-        (when (or old-region new-region)
-          (let ((region (cond ((and old-region new-region)
-                               (region-union old-region new-region))
-                              (old-region
-                                old-region)
-                              (new-region
-                                new-region))))
-            (table-set! invalid-regions handle region)))))))
+    (when (platform-invalidate? handle)
+      (let ((validated-rect (validate-inval-rect rect (registered-window handle))))
+        (let ((old-region (table-ref invalid-regions handle #f))
+              (new-region (and validated-rect (new Region rect: rect))))
+          (when (or old-region new-region)
+            (let ((region (cond ((and old-region new-region)
+                                 (region-union old-region new-region))
+                                (old-region
+                                 old-region)
+                                (new-region
+                                 new-region))))
+              (table-set! invalid-regions handle region))))))))
 
 
 (definition package (platform-invalidate-region handle region)

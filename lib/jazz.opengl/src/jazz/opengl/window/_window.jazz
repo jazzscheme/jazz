@@ -93,7 +93,9 @@
       ;; at the moment vsync is a really bad thing as it blocks
       ;; the thread scheduler by having control remain in C...
       (disable-vsync window)
-      (setup-opengl window))))
+      (with-context-current window
+        (lambda ()
+          (setup-opengl window))))))
 
 
 (cond-expand
@@ -141,6 +143,7 @@
 
   (slot device             initialize #f accessors generate)
   (slot context            initialize #f accessors generate)
+  (slot context-mutex      initialize #f getter generate)
   (slot previous-placement initialize #f getter generate)
   (slot window-mode        initialize #f getter generate)
 
@@ -151,23 +154,33 @@
 
   (method override (prepare self rest)
     (nextmethod self rest)
+    (set! context-mutex (make-mutex 'context))
     (set! window-mode (if (request-fullscreen?) 'fullscreen 'windowed))
     (prepare-opengl-window self))
+  
+  
+  (method public (with-context-current self thunk)
+    (unwind-protect
+        (begin
+          (mutex-lock! context-mutex)
+          (make-context-current self)
+          (thunk)) 
+      (mutex-unlock! context-mutex)))
 
 
   (method override (size-change self state size)
     (nextmethod self state size)
-    (make-context-current-safe self)
-    (when (opened? self)
-      (let ((width (get-width size))
-            (height (get-height size)))
-        (resize-scene self (cast <fl> width) (cast <fl> height)))
-      @interesting-but-can-get-called-too-early
-      (render-scene)))
+    (when (and (opened? self) (opengl-setup? self))
+      (with-context-current self
+        (lambda ()
+          (let ((width (get-width size))
+                (height (get-height size)))
+            (resize-scene self (cast <fl> width) (cast <fl> height)))
+          @interesting-but-can-get-called-too-early
+          (render-scene)))))
 
 
   (method package virtual (resize-scene self width <fl> height <fl>)
-    (make-context-current-safe self)
     ;; quick try to solve wiggles on resizing window
     (cond-expand
       (windows
@@ -183,7 +196,6 @@
 
 
   (method package virtual (setup-opengl self)
-    (make-context-current self)
     (glClearColor 0.0 0.0 0.0 1.0)
     (glClearDepth 1.0)
     (glEnable GL_LINE_SMOOTH)
@@ -248,8 +260,9 @@
   (method override (paint self)
     (with-painting self
       (lambda ()
-        (make-context-current self)
-        (render-scene self))))
+        (with-context-current self
+          (lambda ()
+            (render-scene self))))))
 
 
   (method protected virtual (render-ready? self)
@@ -263,12 +276,10 @@
 
 
   (method protected virtual (draw-scene self)
-    (make-context-current self)
     (glClear (bitwise-ior GL_COLOR_BUFFER_BIT GL_DEPTH_BUFFER_BIT)))
 
 
   (method public (render-sync self)
-    (make-context-current self)
     (swap-buffers handle device))
 
 

@@ -168,8 +168,18 @@
 
   (method package virtual (resize-scene self width <fl> height <fl>)
     (make-context-current-safe self)
-    (let ((scale-factor (main-screen-scale-factor)))
-      (glViewport 0 0 (scale->device width scale-factor) (scale->device height scale-factor))))
+    ;; quick try to solve wiggles on resizing window
+    (cond-expand
+      (windows
+       (let ((device-size (platform-get-content-device-size handle)))
+         (let ((device-width (get-width device-size))
+               (device-height (get-height device-size))
+               (surface-height (scale->device height (main-screen-scale-factor))))
+           (let ((delta-heigth (- device-height surface-height)))
+             (glViewport 0 delta-heigth device-width surface-height)))))
+      (else
+       (let ((device-size (get-device-size self)))
+         (glViewport 0 0 (get-width device-size) (get-height device-size))))))
 
 
   (method package virtual (setup-opengl self)

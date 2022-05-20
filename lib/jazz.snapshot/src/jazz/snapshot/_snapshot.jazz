@@ -42,6 +42,7 @@
         (jazz.inspector)
         (jazz.io)
         (jazz.locale)
+        (jazz.moment)
         (jazz.platform)
         (jazz.process)
         (jazz.settings)
@@ -99,16 +100,16 @@
 
 
 ;;;
-;;;; Entries
+;;;; Moments
 ;;;
 
 
-(definition protected snapshot-retrieve-entries
+(definition protected snapshot-retrieve-moments
   #f)
 
 
-(definition public (register-snapshot-retrieve-entries retrieve)
-  (set! snapshot-retrieve-entries retrieve))
+(definition public (register-snapshot-retrieve-moments retrieve)
+  (set! snapshot-retrieve-moments retrieve))
 
 
 ;;;
@@ -255,7 +256,7 @@
       (force-output output)
       (print-properties)
       (force-output output)
-      (print-entries)
+      (print-moments)
       (force-output output)
       (print-threads)
       (force-output output)
@@ -274,23 +275,31 @@
                     (sort string<? properties key: (lambda (pair) (symbol->string (car pair)))))
           (format output ")"))))
     
-    (define (print-entries)
-      (when snapshot-retrieve-entries
+    (define (print-moments)
+      (when snapshot-retrieve-moments
         (format output "{%}")
-        (format output "  (<entries>")
-        (snapshot-retrieve-entries
-          (lambda (time id level category function message stack)
-            (format output "{%}")
-            (format output "    (<entry> time: {r precision: 3} id: {s} level: {s} category: {s} function: {s} message: {s}" time id level category function message)
-            (when stack
+        (format output "  (<moments>")
+        (snapshot-retrieve-moments
+          (lambda (moment)
+            (let ((domain (get-domain moment))
+                  (time (get-time moment))
+                  (id (get-id moment))
+                  (level (get-level moment))
+                  (category (->string (get-category moment)))
+                  (function (->string (get-function moment)))
+                  (message (->string (get-message moment)))
+                  (stack (get-stack moment)))
               (format output "{%}")
-              (format output "      (<stack>")
-              (for-each (lambda (frame)
-                          (format output "{%}")
-                          (format output "        (<frame> location: {s})" frame))
-                        stack)
-              (format output ")"))
-            (format output ")")))
+              (format output "    (<moment> domain: {s} time: {r precision: 3} id: {s} level: {s} category: {s} function: {s} message: {s}" domain time id level category function message)
+              (when stack
+                (format output "{%}")
+                (format output "      (<stack>")
+                (for-each (lambda (frame)
+                            (format output "{%}")
+                            (format output "        (<frame> location: {s})" frame))
+                          stack)
+                (format output ")"))
+              (format output ")"))))
         (format output ")")))
     
     (define (print-threads)

@@ -60,7 +60,7 @@
   (property directory initialize #f accessors generate)
   
   
-  (slot show-entries? initialize #f getter generate)
+  (slot show-moments? initialize #f getter generate)
   (slot snapshots     initialize (make-table test: pathname=? hash: pathname-hash))
   
   
@@ -82,7 +82,7 @@
         (<Separator>                                            size: {Dimension 4 0})
         (<Push-Tool>                    name: filter            size: {Dimension 22 22} tooltip?: #t tooltip-text: "Filter" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-filter})
         (<Separator>                                            size: {Dimension 60 0})
-        (<Toggle-Tool>                  name: show-entries      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Entries" resource: {Image-Resource "Filter"} portfolio: :images action-handler: {Event-Handler :form on-show-entries})
+        (<Toggle-Tool>                  name: show-moments      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Moments" resource: {Image-Resource "Filter"} portfolio: :images action-handler: {Event-Handler :form on-show-moments})
         (<Push-Tool>                    name: delete            location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Delete Snapshots" resource: {Image-Resource "Delete"} portfolio: :images action-handler: {Event-Handler :form on-delete-snapshots})
         (<Separator>                                            size: {Dimension 30 0} location: tail)
         (<Push-Tool>                    name: watch             location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Watch Snapshots" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-watch-snapshots})
@@ -101,12 +101,12 @@
               (<Scroller-View>                                  style: document hscroll?: #t vscroll?: #t
                 (<!>                    name: content           layout-type: fill
                   (<Properties-Text>    name: properties-text))))
-            (<Border-View>              name: entries-border    border-type: edge style: entry visible?: #f
+            (<Border-View>              name: moments-border    border-type: edge style: entry visible?: #f
               (<Scroller-View>                                  style: document hscroll?: #t vscroll?: #t
                 (<!>                    name: content           layout-type: fill
                   (<Tree-Header>                                style: document
                     (<!>                name: content
-                      (<Entries-Tree>   name: entries-tree      selection-handler: {Event-Handler :form on-selected-entry})))))))
+                      (<Moments-Tree>   name: moments-tree      selection-handler: {Event-Handler :form on-selected-moment})))))))
           (<Border-View>                name: frames-border     location: second border-type: edge style: entry
             (<Scroller-View>                                    style: document hscroll?: #t vscroll?: #t
               (<!>                      name: content           layout-type: fill
@@ -180,15 +180,15 @@
     (filter-target (locate self 'filter-text)))
   
   
-  (method (on-show-entries self evt)
-    (set! show-entries? (not show-entries?))
-    (set-visible? (locate self 'properties-border) (not show-entries?))
-    (set-visible? (locate self 'entries-border) show-entries?)
+  (method (on-show-moments self evt)
+    (set! show-moments? (not show-moments?))
+    (set-visible? (locate self 'properties-border) (not show-moments?))
+    (set-visible? (locate self 'moments-border) show-moments?)
     (update-details self)
     (update-frames self))
   
   
-  (method (on-selected-entry self evt)
+  (method (on-selected-moment self evt)
     (update-frames self))
   
   
@@ -305,8 +305,8 @@
   
   
   (method (update-details self)
-    (if show-entries?
-        (update-entries self)
+    (if show-moments?
+        (update-moments self)
       (update-properties self)))
   
   
@@ -331,18 +331,18 @@
           (set-string-content text "")))))
   
   
-  (method (update-entries self)
-    (define log-names
-      #("" "G_ERROR" "G_CRITICAL" "G_WARNING" "GST_ERROR" "GST_WARNING"))
+  (method (update-moments self)
+    (define moment-names
+      #("" "FATAL_ERROR" "FATAL_CRITICAL" "FATAL_WARNING" "ERROR" "WARNING" "DEBUG" "LOG"))
     
-    (let ((tree (locate self 'entries-tree)))
+    (let ((tree (locate self 'moments-tree)))
       (remove-every-row tree)
       (with-update-locked tree
         (lambda ()
           (let ((snapshot (get-single-selected-data (locate self 'snapshots-tree))))
             (when (is? snapshot Markup-Element)
-              (let ((entries (find-node snapshot 'entries)))
-                (when entries
+              (let ((moments (find-node snapshot 'moments)))
+                (when moments
                   (for-each (lambda (node)
                               (let ((time (get-property node 'time))
                                     (level (get-property node 'level))
@@ -351,7 +351,7 @@
                                     (message (get-property node 'message))
                                     (stack (find-node node 'stack)))
                                 (define (present-level)
-                                  (let ((str (vector-ref log-names level)))
+                                  (let ((str (vector-ref moment-names level)))
                                     (if (not stack)
                                         str
                                       (string-append str "+"))))
@@ -362,12 +362,12 @@
                                                               (new Tree-Label title: (or category ""))
                                                               (new Tree-Label title: (or function "")))
                                   user-data: node)))
-                            (get-children entries))))))))))
+                            (get-children moments))))))))))
   
   
   (method (update-frames self)
-    (if show-entries?
-        (update-entries-frames self)
+    (if show-moments?
+        (update-moments-frames self)
       (update-snapshot-frames self)))
   
   
@@ -394,9 +394,9 @@
           (set-string-content text "")))))
   
   
-  (method (update-entries-frames self)
+  (method (update-moments-frames self)
     (let ((text (locate self 'frames-text)))
-      (let ((node (get-single-selected-data (locate self 'entries-tree))))
+      (let ((node (get-single-selected-data (locate self 'moments-tree))))
         (if node
             (let ((stack (find-node node 'stack)))
               (if stack
@@ -497,11 +497,11 @@
 
 
 ;;;
-;;;; Entries-Tree
+;;;; Moments-Tree
 ;;;
 
 
-(class Entries-Tree extends Tree-View
+(class Moments-Tree extends Tree-View
   
   
   (form

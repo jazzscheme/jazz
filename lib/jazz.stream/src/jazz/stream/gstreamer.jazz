@@ -43,6 +43,7 @@
         (jazz.foreign)
         (jazz.io)
         (jazz.listener)
+        (jazz.moment)
         (jazz.platform.types)
         (jazz.settings)
         (jazz.snapshot)
@@ -106,52 +107,20 @@
 ;;;
 
 
-(definition public (setup-gstreamer-log)
-  (add-gstreamer-hook
-    (lambda ()
-      (register-snapshot-retrieve-entries retrieve-log-entries))))
-
-
-(definition (retrieve-log-entries proc)
-  (declare (proper-tail-calls))
-  (let (loop)
-    (let ((entry (log_pop_first_entry)))
-      (when entry
-        (receive (time id level category function message stack) (parse-log-entry entry)
-          (log_unref_entry entry)
-          (proc time
-                id
-                level
-                category
-                function
-                message
-                stack))
-        (loop)))))
-
-
-(definition protected (copy-log-entries)
-  (let ((queue (new-queue)))
-    (retrieve-log-entries
-      (lambda (time id level category function message stack)
-        (enqueue queue (list time id level category function message))))
-    (queue-list queue)))
-
-
 (definition protected (parse-log-entry entry)
-  (let ((time (log_entry_time entry))
-        (id (log_entry_id entry))
-        (level (log_entry_level entry))
+  (let ((level (log_entry_level entry))
         (category (log_entry_category entry))
         (function (log_entry_function entry))
         (message (log_entry_message entry))
         (stack (log_entry_stack entry)))
-    (values (timestamp->flonum (- time (get-gstreamer-start-time)))
-            id
-            level
-            category
-            function
-            message
-            (and stack (remove-empty (split stack "\n"))))))
+    (new Moment
+      'gstreamer
+      (- (current-seconds) kernel-boot)
+      level
+      category
+      function
+      message
+      (and stack (remove-empty (split stack "\n"))))))
 
 
 ;;;

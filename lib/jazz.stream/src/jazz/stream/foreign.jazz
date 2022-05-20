@@ -627,15 +627,10 @@ guint64 sound_power(gint16 * data, gint len)
 
 static GMutex log_mutex;
 
-static int log_id = 0;
-
 static GQueue* log_queue = NULL;
-static GQueue* log_user_queue = NULL;
 
 typedef struct log_entry_struct
 {
-    GstClockTime time;
-    int id;
     int level;
     char* category;
     char* function;
@@ -646,7 +641,7 @@ typedef struct log_entry_struct
 
 static void* log_listener = NULL;
 
-static void* log_pop_first_entry()
+static void* log_pop_entry()
 {
     gpointer data;
 
@@ -658,34 +653,6 @@ static void* log_pop_first_entry()
     g_mutex_unlock(&log_mutex);
     
     return data;
-}
-
-static void* log_pop_user_first_entry()
-{
-    gpointer data;
-
-    g_mutex_lock(&log_mutex);
-    if (log_user_queue)
-        data = g_queue_pop_head(log_user_queue);
-    else
-        data = NULL;
-    g_mutex_unlock(&log_mutex);
-    
-    return data;
-}
-
-static GstClockTime log_entry_time(void* data)
-{
-    log_entry* entry = (log_entry*) data;
-  
-    return entry->time;
-}
-
-static int log_entry_id(void* data)
-{
-    log_entry* entry = (log_entry*) data;
-  
-    return entry->id;
 }
 
 static int log_entry_level(void* data)
@@ -749,11 +716,6 @@ static void log_push_entry(int level, gchar * category, gchar * function, gchar 
     log_entry* entry = (log_entry*) malloc(sizeof(log_entry));
     log_entry* popped_entry;
 
-    GstClock* clock = gst_system_clock_obtain();
-    GstClockTime time = gst_clock_get_time(clock);
-    gst_object_unref(clock);
-
-    entry->time = time;
     entry->level = level;
     entry->category = category;
     entry->function = function;
@@ -763,21 +725,11 @@ static void log_push_entry(int level, gchar * category, gchar * function, gchar 
 
     g_mutex_lock(&log_mutex);
 
-    entry->id = log_id++;
-
     g_queue_push_tail(log_queue, entry);
     log_ref_entry(entry);
     if (g_queue_get_length(log_queue) > MAX_LOG_ENTRIES)
     {
         popped_entry = (log_entry*) g_queue_pop_head(log_queue);
-        log_unref_entry(popped_entry);
-    }
-
-    g_queue_push_tail(log_user_queue, entry);
-    log_ref_entry(entry);
-    if (g_queue_get_length(log_user_queue) > MAX_LOG_ENTRIES)
-    {
-        popped_entry = g_queue_pop_head(log_user_queue);
         log_unref_entry(popped_entry);
     }
 
@@ -853,7 +805,6 @@ static void log_setup()
 
     g_mutex_init(&log_mutex);
     log_queue = g_queue_new();
-    log_user_queue = g_queue_new();
   
     llf = G_LOG_LEVEL_ERROR | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION;
     g_log_set_handler(G_LOG_DOMAIN, llf, g_log_handler, NULL);
@@ -3035,11 +2986,8 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_deinit) void)
 (c-external (log_setup) void)
 (c-external (log_set_listener void* bool) void)
-(c-external (log_pop_first_entry) void*)
-(c-external (log_pop_user_first_entry) void*)
+(c-external (log_pop_entry) void*)
 (c-external (log_unref_entry void*) void)
-(c-external (log_entry_time void*) GstClockTime)
-(c-external (log_entry_id void*) int)
 (c-external (log_entry_level void*) int)
 (c-external (log_entry_category void*) char-string)
 (c-external (log_entry_function void*) char-string)

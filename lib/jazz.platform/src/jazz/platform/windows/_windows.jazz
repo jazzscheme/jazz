@@ -140,15 +140,6 @@
 
 
 ;;;
-;;;; System
-;;;
-
-
-(definition protected (system-memory)
-  (unimplemented))
-
-
-;;;
 ;;;; Sleep
 ;;;
 
@@ -159,6 +150,45 @@
 
 (definition public (allow-computer-sleep)
   (SetThreadExecutionState ES_CONTINUOUS))
+
+
+;;;
+;;;; Memory
+;;;
+
+
+(definition protected (current-process-memory)
+  #f)
+
+
+;;;
+;;;; Threads
+;;;
+
+
+(definition public (current-process-threads)
+  #f)
+
+
+(definition public (collect-threads-info (process-id #f))
+  (let ((process-id (or process-id (GetCurrentProcessId)))
+        (info-table (make-table))
+        (snapshot (CreateToolhelp32Snapshot TH32CS_SNAPTHREAD 0))
+        (thread (THREADENTRY32-make)))
+    (THREADENTRY32-dwSize-set! thread (THREADENTRY32-sizeof))
+    (when (Thread32First snapshot thread)
+      (let (iter)
+        (let ((owner-id (THREADENTRY32-th32OwnerProcessID-ref thread)))
+          (when (= owner-id process-id)
+            (let ((id (THREADENTRY32-th32ThreadID-ref thread))
+                  (base-priority (THREADENTRY32-tpBasePri-ref thread))
+                  (delta-priority (THREADENTRY32-tpDeltaPri-ref thread)))
+              (table-set! info-table id (list id base-priority delta-priority)))))
+        (when (Thread32Next snapshot thread)
+          (iter))))
+    (THREADENTRY32-free thread)
+    (CloseHandle snapshot)
+    info-table))
 
 
 ;;;
@@ -210,36 +240,6 @@
           (when (Process32Next snapshot process)
             (iter)))))
     (PROCESSENTRY32-free process)
-    (CloseHandle snapshot)
-    info-table))
-
-
-;;;
-;;;; Threads
-;;;
-
-
-(definition public (collect-process-threads)
-  #f)
-
-
-(definition public (collect-threads-info (process-id #f))
-  (let ((process-id (or process-id (GetCurrentProcessId)))
-        (info-table (make-table))
-        (snapshot (CreateToolhelp32Snapshot TH32CS_SNAPTHREAD 0))
-        (thread (THREADENTRY32-make)))
-    (THREADENTRY32-dwSize-set! thread (THREADENTRY32-sizeof))
-    (when (Thread32First snapshot thread)
-      (let (iter)
-        (let ((owner-id (THREADENTRY32-th32OwnerProcessID-ref thread)))
-          (when (= owner-id process-id)
-            (let ((id (THREADENTRY32-th32ThreadID-ref thread))
-                  (base-priority (THREADENTRY32-tpBasePri-ref thread))
-                  (delta-priority (THREADENTRY32-tpDeltaPri-ref thread)))
-              (table-set! info-table id (list id base-priority delta-priority)))))
-        (when (Thread32Next snapshot thread)
-          (iter))))
-    (THREADENTRY32-free thread)
     (CloseHandle snapshot)
     info-table))
 

@@ -89,6 +89,34 @@
 
 
 ;;;
+;;;; Lexical
+;;;
+
+
+(class Lexical-Special extends Expression
+  
+  
+  (slot form getter generate)
+  
+  
+  (method override (initialize self form . rest)
+    (apply nextmethod self rest)
+    (set! self.form form))
+  
+  
+  (method override (emit-expression self declaration walker resume environment backend)
+    (new-code
+      (list 'quote form)
+      Any
+      #f)))
+
+
+(special-form (lexicalname walker resume declaration environment form-src)
+  (new Lexical-Special
+    (get-name declaration)))
+
+
+;;;
 ;;;; Time
 ;;;
 
@@ -156,10 +184,6 @@
 ;;;
 
 
-(definition current-site-pathname
-  (make-parameter '()))
-
-
 (class Site-Special extends Expression
   
   
@@ -191,16 +215,13 @@
           (body (cdr form)))
       (let ((name (if (pair? header) (car header) header))
             (properties (if (pair? header) (cdr header) '())))
-        (let ((parent-pathname (current-site-pathname)))
-          (let ((pathname (append parent-pathname (list name))))
-            (new Site-Special
-              (parameterize ((current-site-pathname pathname))
-                (walk walker resume declaration environment
-                  (sourcify-deep-if
-                    (let ((site (generate-symbol "site")))
-                      `(let ((,site <Call-Site> (static (register-site ',pathname ',parent-pathname ',properties))))
-                         ((get-procedure ,site)
-                          ,site
-                           (lambda ()
-                             ,@body))))
-                    form-src)))))))))))
+        (new Site-Special
+          (walk walker resume declaration environment
+            (sourcify-deep-if
+              (let ((site (generate-symbol "site")))
+                `(let ((,site <Call-Site> (static (register-site ',name ',properties))))
+                   ((get-procedure ,site)
+                    ,site
+                     (lambda ()
+                       ,@body))))
+              form-src))))))))

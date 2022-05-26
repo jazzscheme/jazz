@@ -376,9 +376,7 @@
 
 (jazz:define-class-syntax jazz:Call-Site jazz:Object (constructor: jazz:allocate-call-site accessors-type: macro)
   ((name       getter: generate setter: generate)
-   (identifier getter: generate setter: generate)
    (id         getter: generate setter: generate)
-   (parent     getter: generate setter: generate)
    (properties getter: generate setter: generate)
    (procedure  getter: generate setter: generate)
    (monitor    getter: generate setter: generate)))

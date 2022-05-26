@@ -345,9 +345,7 @@
   
   
   (slot name       accessors generate)
-  (slot identifier accessors generate)
   (slot id         accessors generate)
-  (slot parent     accessors generate)
   (slot properties accessors generate)
   (slot procedure  accessors generate)
   (slot monitor    accessors generate)
@@ -356,7 +354,7 @@
   (method override (print self output detail)
     (print-unreadable self output
       (lambda (output)
-        (system-format output "{s}" identifier)))))
+        (system-format output "{s}" name)))))
 
 
 ;;;
@@ -6206,24 +6204,21 @@
 (definition public (registered-sites)
   call-sites)
 
-(definition public (registered-site identifier) <Call-Site>
-  (table-ref call-sites identifier))
+(definition public (registered-site name) <Call-Site>
+  (table-ref call-sites name))
 
-(definition public (find-site identifier) <Call-Site+>
-  (table-ref call-sites identifier #f))
+(definition public (find-site name) <Call-Site+>
+  (table-ref call-sites name #f))
 
-(definition public (register-site pathname parent-pathname properties)
-  (let ((name (last pathname))
-        (identifier (apply compose-identifier pathname)))
-    (or (table-ref call-sites identifier #f)
-        (let ((id (next-site-id!))
-              (parent (and (not-null? parent-pathname) (apply compose-identifier parent-pathname))))
-          (let ((site (new-call-site name identifier id parent properties (lambda (site thunk) (thunk)))))
-            (vector-set! siteids id site)
-            (table-set! call-sites identifier site)
-            (when site-callback
-              (site-callback site))
-            site)))))
+(definition public (register-site name properties)
+  (or (table-ref call-sites name #f)
+      (let ((id (next-site-id!)))
+        (let ((site (new-call-site name id properties (lambda (site thunk) (thunk)))))
+          (vector-set! siteids id site)
+          (table-set! call-sites name site)
+          (when site-callback
+            (site-callback site))
+          site))))
 
 
 (definition site-callback

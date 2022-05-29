@@ -1440,6 +1440,15 @@ static GList* gst_tracer_list_next(GList* list)
     return list->next;
 }
 
+static int gst_leaks_tracer_get_live_count(GstTracer* tracer)
+{
+    gint count;
+
+    g_signal_emit_by_name (tracer, "get-live-count", &count);
+
+    return count;
+}
+
 static void gst_leaks_tracer_get_checkpoint(GstTracer* tracer, ___SCMOBJ info)
 {
     ___U64 *info_ptr = ___CAST(___U64*, ___BODY(info));
@@ -3243,6 +3252,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_tracing_get_active_tracers) GList*)
 (gst-external (gst_tracer_list_data GList*) GstTracer*)
 (gst-external (gst_tracer_list_next GList*) GList*)
+(gst-external (gst_leaks_tracer_get_live_count GstTracer*) int)
 (gst-external (gst_leaks_tracer_get_checkpoint GstTracer* scheme-object) void)
 (gst-external (gst_registry_fork_is_enabled) gboolean)
 (gst-external (gst_registry_fork_set_enabled gboolean) void)
@@ -3414,53 +3424,26 @@ static void gst_print_messages(GstPipeline* pipeline)
 ;;;
 
 
-(definition track-live?
+(definition trace-leaks?
   #f)
 
 
-(definition objects-added
-  0)
-
-(definition objects-removed
-  0)
+(definition (setup-leaks-tracer)
+  (when trace-leaks?
+    (setenv "GST_TRACERS" "leaks")))
 
 
-(definition (leaks-tracer)
+(definition protected (leaks-tracer)
   (let ((tracers (collect-active-tracers)))
     (and (not-null? tracers)
          (car tracers))))
 
 
-(definition (setup-live-tracking)
-  (when track-live?
-    (setenv "GST_TRACERS" "leaks")))
-
-
-(definition public (start-live-tracking)
-  (when track-live?
-    (let ((tracer (leaks-tracer)))
-      (when tracer
-        (g_signal_emit_by_name tracer "activity-start-tracking")))))
-
-
-(definition public (stop-live-tracking)
-  (when track-live?
-    (let ((tracer (leaks-tracer)))
-      (when tracer
-        (g_signal_emit_by_name tracer "activity-stop-tracking")))))
-
-
-(definition public (update-live-tracking)
-  (and track-live?
+(definition public (leaks-tracer-live-count)
+  (and trace-leaks?
        (let ((tracer (leaks-tracer)))
          (and tracer
-              (let ((info (make-u64vector 2)))
-                (gst_leaks_tracer_get_checkpoint tracer info)
-                (let ((added (u64vector-ref info 0))
-                      (removed (u64vector-ref info 1)))
-                  (increase! objects-added added)
-                  (increase! objects-removed removed)
-                  (- objects-added objects-removed)))))))
+              (gst_leaks_tracer_get_live_count tracer)))))
 
 
 ;;;
@@ -3481,10 +3464,9 @@ static void gst_print_messages(GstPipeline* pipeline)
 
 (definition public (startup-gstreamer)
   (unless gstreamer-initialized?
-    (setup-live-tracking)
+    (setup-leaks-tracer)
     (gst_registry_fork_set_enabled 0)
     (gst_init)
-    (start-live-tracking)
     (set! gstreamer-start-time (gst_system_clock_get_time))
     (log_setup)
     (for-each (lambda (hook)
@@ -3495,7 +3477,6 @@ static void gst_print_messages(GstPipeline* pipeline)
 
 (definition public (shutdown-gstreamer)
   (when gstreamer-initialized?
-    (stop-live-tracking)
     (set! gstreamer-initialized? #f)))
 
 

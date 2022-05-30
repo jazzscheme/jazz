@@ -4096,6 +4096,19 @@ ___SCMOBJ double_to_scmobj(double x)
 }
 
 
+uint64 platformProcessMemory()
+{
+    kern_return_t error;
+    struct task_basic_info t_info;
+    mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT;
+    
+    if ((error = task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&t_info, &t_info_count)) != KERN_SUCCESS)
+       return -1;
+
+    return t_info.resident_size;
+}
+
+
 ___SCMOBJ platformProcessThreads()
 {
     kern_return_t error;
@@ -4105,9 +4118,6 @@ ___SCMOBJ platformProcessThreads()
     size_t i;
     double my_user_time = 0, my_system_time = 0, my_percent = 0;
     char name[256];
-    
-    if ((error = task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&t_info, &t_info_count)) != KERN_SUCCESS)
-        return ___FAL;
 
     if ((error = task_threads(mach_task_self(), &th_array, &th_count)) != KERN_SUCCESS)
         return ___FAL;
@@ -4277,6 +4287,7 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformRunningApplicationLocalizedName NSRunningApplication*) NSString*)
 (platform-external (platformRunningApplicationExecutableURL NSRunningApplication*) NSString*)
 (platform-external (platformTerminateApplication int) bool)
+(platform-external (platformProcessMemory) uint64)
 (platform-external (platformProcessThreads) scheme-object)
 
 

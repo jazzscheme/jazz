@@ -1440,6 +1440,33 @@ static GList* gst_tracer_list_next(GList* list)
     return list->next;
 }
 
+static int gst_leaks_tracer_get_live_count(GstTracer* tracer)
+{
+    gint count;
+
+    g_signal_emit_by_name (tracer, "get-live-count", &count);
+
+    return count;
+}
+
+static void gst_leaks_tracer_get_checkpoint(GstTracer* tracer, ___SCMOBJ info)
+{
+    ___U64 *info_ptr = ___CAST(___U64*, ___BODY(info));
+
+    GstStructure *cpoint;
+    const GstStructure *cs, *rs;
+    const GValue *created, *removed;
+
+    g_signal_emit_by_name (tracer, "activity-get-checkpoint", &cpoint);
+    created = gst_structure_get_value (cpoint, "objects-created-list");
+    removed = gst_structure_get_value (cpoint, "objects-removed-list");
+
+    info_ptr[0] = gst_value_list_get_size(created);
+    info_ptr[1] = gst_value_list_get_size(removed);
+
+    gst_structure_free (cpoint);
+}
+
 static GstPlugin* gst_plugin_list_data(GList* list)
 {
     return (GstPlugin *) list->data;
@@ -3221,10 +3248,12 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_app_sink_try_pull_frame GstElement* scheme-object scheme-object) int)
 (gst-external (gst_app_sink_is_eos (call GST_APP_SINK GstElement*)) bool)
 (gst-external (gst_audio_ring_buffer_acquired GstElement*) bool)
-@gstreamer-1.18
+;@gstreamer-1.18
 (gst-external (gst_tracing_get_active_tracers) GList*)
 (gst-external (gst_tracer_list_data GList*) GstTracer*)
 (gst-external (gst_tracer_list_next GList*) GList*)
+(gst-external (gst_leaks_tracer_get_live_count GstTracer*) int)
+(gst-external (gst_leaks_tracer_get_checkpoint GstTracer* scheme-object) void)
 (gst-external (gst_registry_fork_is_enabled) gboolean)
 (gst-external (gst_registry_fork_set_enabled gboolean) void)
 (gst-external (gst_registry_get) GstRegistry*)
@@ -3373,6 +3402,51 @@ static void gst_print_messages(GstPipeline* pipeline)
 
 
 ;;;
+;;;; Tracers
+;;;
+
+
+;@gstreamer-1.18
+(definition public (collect-active-tracers)
+  (let ((queue (new-queue))
+        (list (gst_tracing_get_active_tracers)))
+    (let (loop (tracers list))
+      (if (not tracers)
+          (begin
+            (g_list_free list)
+            (queue-list queue))
+        (enqueue queue (gst_tracer_list_data tracers))
+        (loop (gst_tracer_list_next tracers))))))
+
+
+;;;
+;;;; Live
+;;;
+
+
+(definition trace-leaks?
+  #f)
+
+
+(definition (setup-leaks-tracer)
+  (when trace-leaks?
+    (setenv "GST_TRACERS" "leaks")))
+
+
+(definition protected (leaks-tracer)
+  (let ((tracers (collect-active-tracers)))
+    (and (not-null? tracers)
+         (car tracers))))
+
+
+(definition public (leaks-tracer-live-count)
+  (and trace-leaks?
+       (let ((tracer (leaks-tracer)))
+         (and tracer
+              (gst_leaks_tracer_get_live_count tracer)))))
+
+
+;;;
 ;;;; Startup
 ;;;
 
@@ -3390,6 +3464,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 
 (definition public (startup-gstreamer)
   (unless gstreamer-initialized?
+    (setup-leaks-tracer)
     (gst_registry_fork_set_enabled 0)
     (gst_init)
     (set! gstreamer-start-time (gst_system_clock_get_time))

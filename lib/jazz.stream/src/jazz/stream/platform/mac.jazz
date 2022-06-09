@@ -1,0 +1,446 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Stream Mac
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.stream.platform.mac jazz
+
+
+(import (jazz.foreign)
+        (jazz.platform.types))
+
+
+;;;
+;;;; Decode
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+#include <stdio.h>
+#include <glib.h>
+
+#import "VideoToolbox/VTDecompressionSession.h"
+#import <Cocoa/Cocoa.h>
+
+#include <OpenGL/gl.h>
+
+
+typedef struct HardwareDecoder {
+    int32_t width;
+    int32_t height;
+    CMVideoFormatDescriptionRef format;
+    VTDecompressionSessionRef session;
+    void* listener;
+    GQueue* queue;
+} HardwareDecoder;
+
+  
+typedef struct HardwareFrame {
+    ___U64 dts;
+    ___U64 pts;
+    ___U64 duration;
+    IOSurfaceRef surface;
+} HardwareFrame;
+
+  
+static CFDictionaryRef
+CreateDecoderExtensions(___U8 *codec_data, int codec_data_size)
+{
+    CFDataRef avc_data = CFDataCreate(kCFAllocatorDefault,
+                                      codec_data,
+                                      codec_data_size);
+
+    const void* atomsKey[] = { CFSTR("avcC") };
+    const void* atomsValue[] = { avc_data };
+
+    CFDictionaryRef atoms =
+        CFDictionaryCreate(kCFAllocatorDefault,
+                           atomsKey,
+                           atomsValue,
+                           1,
+                           &kCFTypeDictionaryKeyCallBacks,
+                           &kCFTypeDictionaryValueCallBacks);
+
+    const void* extensionKeys[] =
+        { kCVImageBufferChromaLocationBottomFieldKey,
+          kCVImageBufferChromaLocationTopFieldKey,
+          kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms };
+
+    const void* extensionValues[] =
+        { kCVImageBufferChromaLocation_Left,
+          kCVImageBufferChromaLocation_Left,
+          atoms };
+
+    return CFDictionaryCreate(kCFAllocatorDefault,
+                              extensionKeys,
+                              extensionValues,
+                              3,
+                              &kCFTypeDictionaryKeyCallBacks,
+                              &kCFTypeDictionaryValueCallBacks);
+}
+
+
+static CFDictionaryRef
+CreateDecoderSpecification()
+{
+    const void* specKeys[] = { kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder };
+    const void* specValues[] = { kCFBooleanTrue };
+
+    return CFDictionaryCreate(kCFAllocatorDefault,
+                              specKeys,
+                              specValues,
+                              1,
+                              &kCFTypeDictionaryKeyCallBacks,
+                              &kCFTypeDictionaryValueCallBacks);
+}
+
+
+static CFDictionaryRef
+CreateOutputConfiguration()
+{
+  SInt32 PixelFormatTypeValue = kCVPixelFormatType_422YpCbCr8;
+  CFNumberRef PixelFormatTypeNumber =
+    CFNumberCreate(kCFAllocatorDefault,
+                   kCFNumberSInt32Type,
+                   &PixelFormatTypeValue);
+
+  const void* IOSurfaceKeys[] = { };
+  const void* IOSurfaceValues[] = { };
+
+  CFDictionaryRef IOSurfaceProperties =
+    CFDictionaryCreate(kCFAllocatorDefault,
+                       IOSurfaceKeys,
+                       IOSurfaceValues,
+                       0,
+                       &kCFTypeDictionaryKeyCallBacks,
+                       &kCFTypeDictionaryValueCallBacks);
+
+  const void* outputKeys[] = { kCVPixelBufferIOSurfacePropertiesKey,
+                               kCVPixelBufferPixelFormatTypeKey,
+                               kCVPixelBufferOpenGLCompatibilityKey };
+  const void* outputValues[] = { IOSurfaceProperties,
+                                 PixelFormatTypeNumber,
+                                 kCFBooleanTrue };
+
+  return CFDictionaryCreate(kCFAllocatorDefault,
+                            outputKeys,
+                            outputValues,
+                            3,
+                            &kCFTypeDictionaryKeyCallBacks,
+                            &kCFTypeDictionaryValueCallBacks);
+}
+
+
+void gst_listener_write(void* listener, char* c)
+{
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, c, 1);
+}
+
+
+static void
+DecodeCallback(void* decompressionOutputRefCon,
+               void* sourceFrameRefCon,
+               OSStatus status,
+               VTDecodeInfoFlags flags,
+               CVImageBufferRef image,
+               CMTime presentationTimeStamp,
+               CMTime presentationDuration)
+{
+    HardwareDecoder* decoder = (HardwareDecoder*) decompressionOutputRefCon;
+    HardwareFrame* frame = (HardwareFrame*) sourceFrameRefCon;
+
+    if (status != noErr)
+        printf("decoder error %d\n", status);
+    else if (!image)
+        printf("decoder returned no data\n");
+    else if (flags & kVTDecodeInfo_FrameDropped)
+        printf("frame was dropped\n");
+    else if (CFGetTypeID(image) != CVPixelBufferGetTypeID())
+        printf("unexpected image type\n");
+    else {
+        frame->surface = CVPixelBufferGetIOSurface(image);
+        IOSurfaceIncrementUseCount(frame->surface);
+        g_queue_push_tail(decoder->queue, frame);
+        gst_listener_write(decoder->listener, ".");
+    }
+}
+
+
+static void*
+CreateDecoder(int32_t width, int32_t height, ___U8 *codec_data, int codec_data_size, void* listener)
+{
+    HardwareDecoder* decoder = (HardwareDecoder*) malloc(sizeof(HardwareDecoder));
+
+    decoder->width = width;
+    decoder->height = height;
+    decoder->listener = listener;
+    decoder->queue = g_queue_new();
+
+    OSStatus rv;
+
+    CFDictionaryRef extensions = CreateDecoderExtensions(codec_data, codec_data_size);
+
+    rv = CMVideoFormatDescriptionCreate(kCFAllocatorDefault,
+                                        kCMVideoCodecType_H264,
+                                        width,
+                                        height,
+                                        extensions,
+                                        &decoder->format);
+    if (rv != noErr) {
+        printf("Couldn't create format description!\n");
+        return NULL;
+    }
+
+    CFDictionaryRef spec = CreateDecoderSpecification();
+
+    CFDictionaryRef outputConfiguration =
+        CreateOutputConfiguration();
+
+    VTDecompressionOutputCallbackRecord cb = { DecodeCallback, decoder };
+    rv = VTDecompressionSessionCreate(kCFAllocatorDefault,
+                                      decoder->format,
+                                      spec,
+                                      outputConfiguration,
+                                      &cb,
+                                      &decoder->session);
+
+    if (rv != noErr) {
+        printf("Couldn't create decompression session!\n");
+        return NULL;
+    }
+
+    return decoder;
+}
+
+
+static void StopDecoder(HardwareDecoder* decoder)
+{
+    gst_listener_write(decoder->listener, "@");
+}
+
+
+static void DestroyDecoder(HardwareDecoder* decoder)
+{
+    VTDecompressionSessionInvalidate(decoder->session);
+    CFRelease(decoder->session);
+
+    CFRelease(decoder->format);
+
+    g_queue_free(decoder->queue);
+
+    free(decoder);
+}
+
+
+const int64_t NANOSECS = 1000000000;
+
+static CMSampleTimingInfo
+TimingInfoFromSample(___U64 dts, ___U64 pts, ___U64 duration)
+{
+    CMSampleTimingInfo timestamp;
+
+    timestamp.duration = CMTimeMake(duration, NANOSECS);
+    timestamp.decodeTimeStamp = CMTimeMake(dts, NANOSECS);
+    timestamp.presentationTimeStamp = CMTimeMake(pts, NANOSECS);
+
+    return timestamp;
+}
+
+
+static bool
+DecodeFrame(HardwareDecoder* decoder, ___U8 *data, int size, HardwareFrame* frame)
+{
+    CMBlockBufferRef block = NULL;
+    CMSampleBufferRef sample = NULL;
+    VTDecodeInfoFlags infoFlags;
+    OSStatus rv;
+
+    rv = CMBlockBufferCreateWithMemoryBlock(kCFAllocatorDefault,
+                                            (uint8_t*) data,
+                                            size,
+                                            kCFAllocatorNull,
+                                            NULL,
+                                            0,
+                                            size,
+                                            false,
+                                            &block);
+    if (rv != noErr) {
+        printf("Couldn't create CMBlockBuffer\n");
+        return false;
+    }
+
+    CMSampleTimingInfo timestamp = TimingInfoFromSample(frame->dts, frame->pts, frame->duration);
+    rv = CMSampleBufferCreate(kCFAllocatorDefault, block, true, 0, 0, decoder->format, 1, 1, &timestamp, 0, NULL, &sample);
+    if (rv != noErr) {
+        printf("Couldn't create CMSampleBuffer\n");
+        return false;
+    }
+
+    VTDecodeFrameFlags decodeFlags =
+        kVTDecodeFrame_EnableAsynchronousDecompression;
+
+    rv = VTDecompressionSessionDecodeFrame(decoder->session,
+                                           sample,
+                                           decodeFlags,
+                                           frame,
+                                           &infoFlags);
+    if (rv != noErr) {
+        printf("decode error %d\n", rv);
+        return false;
+    }
+
+    return true;
+}
+
+
+static void*
+RetrieveFrame(HardwareDecoder* decoder)
+{
+    HardwareFrame* frame = (HardwareFrame*) g_queue_pop_head(decoder->queue);
+    return frame;
+}
+
+
+static bool
+BindFrame(HardwareDecoder* decoder, HardwareFrame* frame, void* context)
+{
+    CGLError err = CGLTexImageIOSurface2D([((NSOpenGLContext*) context) CGLContextObj],
+                                          GL_TEXTURE_RECTANGLE_ARB, GL_RGB, decoder->width, decoder->height,
+                                          GL_RGB_422_APPLE, GL_UNSIGNED_SHORT_8_8_APPLE, frame->surface, 0);
+
+    if (err != kCGLNoError) {
+        printf("bind error %d\n", (int)err);
+        return false;
+    }
+    
+    return true;
+}
+
+
+void ReleaseFrame(HardwareFrame* frame)
+{
+    IOSurfaceDecrementUseCount(frame->surface);
+
+    free(frame);
+}
+
+//#)
+
+
+;;;
+;;;; Platform
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+static void*
+createHardwareDecoder(int32_t width, int32_t height, ___SCMOBJ codec_data_vec, int codec_data_size, void* listener)
+{
+    ___U8 *codec_data = ___CAST(___U8*, ___BODY(codec_data_vec));
+    return CreateDecoder(width, height, codec_data, codec_data_size, listener);
+}
+
+
+static void
+stopHardwareDecoder(void* decoder)
+{
+    StopDecoder((HardwareDecoder*) decoder);
+}
+
+
+static void
+destroyHardwareDecoder(void* decoder)
+{
+    DestroyDecoder((HardwareDecoder*) decoder);
+}
+
+
+static bool
+hardwareDecodeFrame(void* decoder, ___SCMOBJ vec, int size, ___U64 dts, ___U64 pts, ___U64 duration)
+{
+    ___U8 *ptr = ___CAST(___U8*, ___BODY(vec));
+    HardwareFrame* frame = (HardwareFrame*) malloc(sizeof(HardwareFrame));
+    frame->dts = dts;
+    frame->pts = pts;
+    frame->duration = duration;
+    return DecodeFrame((HardwareDecoder*) decoder, ptr, size, frame);
+}
+
+
+static void*
+hardwareRetrieveFrame(void* decoder)
+{
+    return RetrieveFrame((HardwareDecoder*) decoder);
+}
+
+
+static uint64
+hardwareFramePTS(void* frame)
+{
+    return ((HardwareFrame*) frame)->pts;
+}
+
+
+static bool
+hardwareBindFrame(void* decoder, void* frame, void* context)
+{
+    return BindFrame((HardwareDecoder*) decoder, (HardwareFrame*) frame, context);
+}
+
+
+static void
+hardwareReleaseFrame(void* frame)
+{
+    ReleaseFrame((HardwareFrame*) frame);
+}
+
+//#)
+
+
+(c-external (createHardwareDecoder int32 int32 scheme-object int void*) void*)
+(c-external (stopHardwareDecoder void*) void)
+(c-external (destroyHardwareDecoder void*) void)
+(c-external (hardwareDecodeFrame void* scheme-object int uint64 uint64 uint64) bool)
+(c-external (hardwareRetrieveFrame void*) void*)
+(c-external (hardwareFramePTS void*) uint64)
+(c-external (hardwareBindFrame void* void* void*) bool)
+(c-external (hardwareReleaseFrame void*) void))

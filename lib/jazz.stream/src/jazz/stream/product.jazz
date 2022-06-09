@@ -42,6 +42,13 @@
 (import (jazz.io))
 
 
+(cond-expand
+  (mac
+   (definition custom-cc
+      'llvm))
+  (else))
+
+
 ;; cflags and libs obtained from the following calls inside the uninstalled shell
 ;; $ pkg-config --cflags gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0
 ;; $ pkg-config --libs gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0
@@ -123,8 +130,16 @@
 
 (define (stream-units)
   (bind (cc-flags ld-flags) (stream-flags)
-    `((jazz.stream.header cc-options: ,cc-flags)
-      (jazz.stream.foreign cc-options: ,cc-flags ld-options: ,ld-flags rpaths: ,(stream-rpaths)))))
+    (append
+      `((jazz.stream.header cc-options: ,cc-flags)
+        (jazz.stream.foreign cc-options: ,cc-flags ld-options: ,ld-flags rpaths: ,(stream-rpaths)))
+      (cond-expand
+        (mac
+         (let ((cc-flags cc-flags)
+               (ld-flags (string-append ld-flags " -framework VideoToolbox")))
+           `((jazz.stream.platform.mac cc-options: ,cc-flags ld-options: ,ld-flags custom-cc: ,custom-cc output-language: objc))))
+        (else
+         '())))))
 
 
 (cond-expand

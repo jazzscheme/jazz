@@ -38,8 +38,7 @@
 (module protected jazz.stream.gstreamer jazz
 
 
-(import (jazz.stream.delayed)
-        (jazz.stream.header)
+(import (jazz.flow)
         (jazz.foreign)
         (jazz.io)
         (jazz.listener)
@@ -47,7 +46,9 @@
         (jazz.platform.types)
         (jazz.settings)
         (jazz.snapshot)
+        (jazz.stream.delayed)
         (jazz.stream.directories)
+        (jazz.stream.header)
         (jazz.stream.syntax (phase syntax))
         (jazz.syntax (phase syntax))
         (jazz.version))
@@ -1090,6 +1091,38 @@
                            (cons (gst_plugin_get_name plugin) filename)
                          #f)))))
                plugins))))
+
+
+;;;
+;;;; Flow
+;;;
+
+
+(class GStreamer-Flow extends Flow
+  
+  
+  (slot pipeline initialize #f getter generate)
+  (slot appsrc   initialize #f getter generate)
+  (slot appsink  initialize #f getter generate)
+  
+  
+  (method override (initialize self pipeline appsrc appsink)
+    (nextmethod self)
+    (set! self.pipeline pipeline)
+    (set! self.appsrc appsrc)
+    (set! self.appsink appsink))
+  
+  
+  (method override (running-time self)
+    (gst_element_get_running_time appsrc))
+  
+  
+  (method override (freeze self)
+    (gst_element_send_freeze appsrc))
+  
+  
+  (method override (thaw self)
+    (gst_element_send_thaw appsrc)))
 
 
 ;;;

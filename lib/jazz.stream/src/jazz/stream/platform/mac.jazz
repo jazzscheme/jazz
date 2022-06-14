@@ -331,7 +331,7 @@ TimingInfoFromSample(___U64 dts, ___U64 pts, ___U64 duration)
 }
 
 
-static bool
+static int
 DecodeFrame(HardwareDecoder* decoder, ___U8 *data, int size, HardwareFrame* frame)
 {
     CMBlockBufferRef block = NULL;
@@ -348,17 +348,13 @@ DecodeFrame(HardwareDecoder* decoder, ___U8 *data, int size, HardwareFrame* fram
                                             size,
                                             false,
                                             &block);
-    if (rv != noErr) {
-        printf("Couldn't create CMBlockBuffer\n");
-        return false;
-    }
+    if (rv != noErr)
+        return 1;
 
     CMSampleTimingInfo timestamp = TimingInfoFromSample(frame->dts, frame->pts, frame->duration);
     rv = CMSampleBufferCreate(kCFAllocatorDefault, block, true, 0, 0, decoder->format, 1, 1, &timestamp, 0, NULL, &sample);
-    if (rv != noErr) {
-        printf("Couldn't create CMSampleBuffer\n");
-        return false;
-    }
+    if (rv != noErr)
+        return 2;
 
     VTDecodeFrameFlags decodeFlags =
         kVTDecodeFrame_EnableAsynchronousDecompression;
@@ -368,12 +364,10 @@ DecodeFrame(HardwareDecoder* decoder, ___U8 *data, int size, HardwareFrame* fram
                                            decodeFlags,
                                            frame,
                                            &infoFlags);
-    if (rv != noErr) {
-        printf("decode error %d\n", rv);
-        return false;
-    }
+    if (rv != noErr)
+        return 3;
 
-    return true;
+    return 0;
 }
 
 
@@ -447,7 +441,7 @@ destroyHardwareDecoder(void* decoder)
 }
 
 
-static bool
+static int
 hardwareDecodeFrame(void* decoder, ___SCMOBJ vec, int size, ___U64 dts, ___U64 pts, ___U64 duration)
 {
     ___U8 *ptr = ___CAST(___U8*, ___BODY(vec));
@@ -493,7 +487,7 @@ hardwareReleaseFrame(void* frame)
 (c-external (setHardwareDecoderListener void* void*) void)
 (c-external (stopHardwareDecoder void*) void)
 (c-external (destroyHardwareDecoder void*) void)
-(c-external (hardwareDecodeFrame void* scheme-object int uint64 uint64 uint64) bool)
+(c-external (hardwareDecodeFrame void* scheme-object int uint64 uint64 uint64) int)
 (c-external (hardwareRetrieveFrame void*) void*)
 (c-external (hardwareFramePTS void*) uint64)
 (c-external (hardwareBindFrame void* void* void*) bool)

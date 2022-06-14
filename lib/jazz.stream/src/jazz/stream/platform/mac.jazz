@@ -164,6 +164,16 @@ CreateOutputConfiguration()
 }
 
 
+static ___SCMOBJ alloc_voidptr(void* ptr)
+{
+    ___SCMOBJ foreign = ___EXT(___alloc_scmobj) (___PSTATE, ___sFOREIGN, ___FOREIGN_SIZE<<___LWS);
+    ___FIELD(foreign,___FOREIGN_TAGS) = ___FAL;
+    ___FIELD(foreign,___FOREIGN_RELEASE_FN) = ___CAST(___SCMOBJ, ___EXT(___release_pointer));
+    ___FIELD(foreign,___FOREIGN_PTR) = ___CAST(___SCMOBJ, ptr);
+    return foreign;
+}
+
+
 static void listener_wakeup(void* listener)
 {
     #pragma GCC diagnostic push
@@ -242,14 +252,13 @@ DecodeCallback(void* decompressionOutputRefCon,
 }
 
 
-static void*
-CreateDecoder(int32_t width, int32_t height, ___U8 *codec_data, int codec_data_size, void* listener)
+static ___SCMOBJ
+CreateDecoder(int32_t width, int32_t height, ___U8 *codec_data, int codec_data_size)
 {
     HardwareDecoder* decoder = (HardwareDecoder*) malloc(sizeof(HardwareDecoder));
 
     decoder->width = width;
     decoder->height = height;
-    decoder->listener = listener;
     decoder->queue = g_queue_new();
 
     OSStatus rv;
@@ -262,10 +271,8 @@ CreateDecoder(int32_t width, int32_t height, ___U8 *codec_data, int codec_data_s
                                         height,
                                         extensions,
                                         &decoder->format);
-    if (rv != noErr) {
-        printf("Couldn't create format description!\n");
-        return NULL;
-    }
+    if (rv != noErr)
+        return ___FIX(1);
 
     CFDictionaryRef spec = CreateDecoderSpecification();
 
@@ -280,12 +287,13 @@ CreateDecoder(int32_t width, int32_t height, ___U8 *codec_data, int codec_data_s
                                       &cb,
                                       &decoder->session);
 
-    if (rv != noErr) {
-        printf("Couldn't create decompression session!\n");
-        return NULL;
-    }
+    if (rv != noErr)
+        return ___FIX(2);
 
-    return decoder;
+    ___SCMOBJ foreign = alloc_voidptr(decoder);
+    ___EXT(___release_scmobj)(foreign);
+    
+    return foreign;
 }
 
 
@@ -410,11 +418,18 @@ void ReleaseFrame(HardwareFrame* frame)
 
 (c-declare cocoa #/Objective-C/
 
-static void*
-createHardwareDecoder(int32_t width, int32_t height, ___SCMOBJ codec_data_vec, int codec_data_size, void* listener)
+static ___SCMOBJ
+createHardwareDecoder(int32_t width, int32_t height, ___SCMOBJ codec_data_vec, int codec_data_size)
 {
     ___U8 *codec_data = ___CAST(___U8*, ___BODY(codec_data_vec));
-    return CreateDecoder(width, height, codec_data, codec_data_size, listener);
+    return CreateDecoder(width, height, codec_data, codec_data_size);
+}
+
+
+static void
+setHardwareDecoderListener(void* decoder, void* listener)
+{
+    ((HardwareDecoder*) decoder)->listener = listener;
 }
 
 
@@ -474,7 +489,8 @@ hardwareReleaseFrame(void* frame)
 //#)
 
 
-(c-external (createHardwareDecoder int32 int32 scheme-object int void*) void*)
+(c-external (createHardwareDecoder int32 int32 scheme-object int) scheme-object)
+(c-external (setHardwareDecoderListener void* void*) void)
 (c-external (stopHardwareDecoder void*) void)
 (c-external (destroyHardwareDecoder void*) void)
 (c-external (hardwareDecodeFrame void* scheme-object int uint64 uint64 uint64) bool)

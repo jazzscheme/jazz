@@ -164,14 +164,52 @@ CreateOutputConfiguration()
 }
 
 
-void gst_listener_write(void* listener, char* c)
+void listener_wakeup(void* listener)
 {
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
     int fd = (int) listener;
     #pragma GCC diagnostic pop
     
-    write(fd, c, 1);
+    write(fd, ".", 1);
+}
+
+
+void listener_done(void* listener)
+{
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "@", 1);
+}
+
+
+void listener_status(void* listener, char* status)
+{
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "#", 1);
+    write(fd, status, 1);
+}
+
+
+void listener_error(void* listener, ___S32 err)
+{
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "$", 1);
+
+    char str[4];
+    * (___S32*) str = err;
+    write(fd, str, 4);
 }
 
 
@@ -188,18 +226,18 @@ DecodeCallback(void* decompressionOutputRefCon,
     HardwareFrame* frame = (HardwareFrame*) sourceFrameRefCon;
 
     if (status != noErr)
-        printf("decoder error %d\n", status);
+        listener_error(decoder->listener, status);
     else if (!image)
-        printf("decoder returned no data\n");
+        listener_status(decoder->listener, "1");
     else if (flags & kVTDecodeInfo_FrameDropped)
-        printf("frame was dropped\n");
+        listener_status(decoder->listener, "2");
     else if (CFGetTypeID(image) != CVPixelBufferGetTypeID())
-        printf("unexpected image type\n");
+        listener_status(decoder->listener, "3");
     else {
         frame->surface = CVPixelBufferGetIOSurface(image);
         IOSurfaceIncrementUseCount(frame->surface);
         g_queue_push_tail(decoder->queue, frame);
-        gst_listener_write(decoder->listener, ".");
+        listener_wakeup(decoder->listener);
     }
 }
 
@@ -253,7 +291,7 @@ CreateDecoder(int32_t width, int32_t height, ___U8 *codec_data, int codec_data_s
 
 static void StopDecoder(HardwareDecoder* decoder)
 {
-    gst_listener_write(decoder->listener, "@");
+    listener_done(decoder->listener);
 }
 
 

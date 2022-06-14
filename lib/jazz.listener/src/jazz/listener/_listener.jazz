@@ -194,4 +194,26 @@
   
   (method public (wait-timeout self timeout)
     (input-port-timeout-set! read-port timeout)
-    (read-char read-port))))
+    (read-char read-port))
+  
+  
+  (method public (wait-status self)
+    (input-port-timeout-set! read-port +inf.0)
+    (read-char read-port))
+  
+  
+  (method public (wait-error self)
+    (input-port-timeout-set! read-port +inf.0)
+    (let ((vec (make-u8vector 4)))
+      ;; because the read port is a character port,  gambit
+      ;; will return the following if we use read-subu8vector
+      ;; input port character buffer is not empty
+      (let* ((b0 (read-char read-port))
+             (b1 (read-char read-port))
+             (b2 (read-char read-port))
+             (b3 (read-char read-port)))
+        (u8vector-set! vec 0 b0)
+        (u8vector-set! vec 1 b1)
+        (u8vector-set! vec 2 b2)
+        (u8vector-set! vec 3 b3)
+        (scan-s32 vec 0))))))

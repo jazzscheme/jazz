@@ -164,14 +164,62 @@ CreateOutputConfiguration()
 }
 
 
-void gst_listener_write(void* listener, char* c)
+static ___SCMOBJ alloc_voidptr(void* ptr)
+{
+    ___SCMOBJ foreign = ___EXT(___alloc_scmobj) (___PSTATE, ___sFOREIGN, ___FOREIGN_SIZE<<___LWS);
+    ___FIELD(foreign,___FOREIGN_TAGS) = ___FAL;
+    ___FIELD(foreign,___FOREIGN_RELEASE_FN) = ___CAST(___SCMOBJ, ___EXT(___release_pointer));
+    ___FIELD(foreign,___FOREIGN_PTR) = ___CAST(___SCMOBJ, ptr);
+    return foreign;
+}
+
+
+static void listener_wakeup(void* listener)
 {
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
     int fd = (int) listener;
     #pragma GCC diagnostic pop
     
-    write(fd, c, 1);
+    write(fd, ".", 1);
+}
+
+
+static void listener_done(void* listener)
+{
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "@", 1);
+}
+
+
+static void listener_status(void* listener, char* status)
+{
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "#", 1);
+    write(fd, status, 1);
+}
+
+
+static void listener_error(void* listener, ___S32 err)
+{
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    int fd = (int) listener;
+    #pragma GCC diagnostic pop
+    
+    write(fd, "$", 1);
+
+    char str[4];
+    * (___S32*) str = err;
+    write(fd, str, 4);
 }
 
 
@@ -188,30 +236,29 @@ DecodeCallback(void* decompressionOutputRefCon,
     HardwareFrame* frame = (HardwareFrame*) sourceFrameRefCon;
 
     if (status != noErr)
-        printf("decoder error %d\n", status);
+        listener_error(decoder->listener, status);
     else if (!image)
-        printf("decoder returned no data\n");
+        listener_status(decoder->listener, "1");
     else if (flags & kVTDecodeInfo_FrameDropped)
-        printf("frame was dropped\n");
+        listener_status(decoder->listener, "2");
     else if (CFGetTypeID(image) != CVPixelBufferGetTypeID())
-        printf("unexpected image type\n");
+        listener_status(decoder->listener, "3");
     else {
         frame->surface = CVPixelBufferGetIOSurface(image);
         IOSurfaceIncrementUseCount(frame->surface);
         g_queue_push_tail(decoder->queue, frame);
-        gst_listener_write(decoder->listener, ".");
+        listener_wakeup(decoder->listener);
     }
 }
 
 
-static void*
-CreateDecoder(int32_t width, int32_t height, ___U8 *codec_data, int codec_data_size, void* listener)
+static ___SCMOBJ
+CreateDecoder(int32_t width, int32_t height, ___U8 *codec_data, int codec_data_size)
 {
     HardwareDecoder* decoder = (HardwareDecoder*) malloc(sizeof(HardwareDecoder));
 
     decoder->width = width;
     decoder->height = height;
-    decoder->listener = listener;
     decoder->queue = g_queue_new();
 
     OSStatus rv;
@@ -224,10 +271,8 @@ CreateDecoder(int32_t width, int32_t height, ___U8 *codec_data, int codec_data_s
                                         height,
                                         extensions,
                                         &decoder->format);
-    if (rv != noErr) {
-        printf("Couldn't create format description!\n");
-        return NULL;
-    }
+    if (rv != noErr)
+        return ___FIX(1);
 
     CFDictionaryRef spec = CreateDecoderSpecification();
 
@@ -242,18 +287,19 @@ CreateDecoder(int32_t width, int32_t height, ___U8 *codec_data, int codec_data_s
                                       &cb,
                                       &decoder->session);
 
-    if (rv != noErr) {
-        printf("Couldn't create decompression session!\n");
-        return NULL;
-    }
+    if (rv != noErr)
+        return ___FIX(2);
 
-    return decoder;
+    ___SCMOBJ foreign = alloc_voidptr(decoder);
+    ___EXT(___release_scmobj)(foreign);
+    
+    return foreign;
 }
 
 
 static void StopDecoder(HardwareDecoder* decoder)
 {
-    gst_listener_write(decoder->listener, "@");
+    listener_done(decoder->listener);
 }
 
 
@@ -285,7 +331,7 @@ TimingInfoFromSample(___U64 dts, ___U64 pts, ___U64 duration)
 }
 
 
-static bool
+static int
 DecodeFrame(HardwareDecoder* decoder, ___U8 *data, int size, HardwareFrame* frame)
 {
     CMBlockBufferRef block = NULL;
@@ -302,17 +348,13 @@ DecodeFrame(HardwareDecoder* decoder, ___U8 *data, int size, HardwareFrame* fram
                                             size,
                                             false,
                                             &block);
-    if (rv != noErr) {
-        printf("Couldn't create CMBlockBuffer\n");
-        return false;
-    }
+    if (rv != noErr)
+        return 1;
 
     CMSampleTimingInfo timestamp = TimingInfoFromSample(frame->dts, frame->pts, frame->duration);
     rv = CMSampleBufferCreate(kCFAllocatorDefault, block, true, 0, 0, decoder->format, 1, 1, &timestamp, 0, NULL, &sample);
-    if (rv != noErr) {
-        printf("Couldn't create CMSampleBuffer\n");
-        return false;
-    }
+    if (rv != noErr)
+        return 2;
 
     VTDecodeFrameFlags decodeFlags =
         kVTDecodeFrame_EnableAsynchronousDecompression;
@@ -322,12 +364,10 @@ DecodeFrame(HardwareDecoder* decoder, ___U8 *data, int size, HardwareFrame* fram
                                            decodeFlags,
                                            frame,
                                            &infoFlags);
-    if (rv != noErr) {
-        printf("decode error %d\n", rv);
-        return false;
-    }
+    if (rv != noErr)
+        return 3;
 
-    return true;
+    return 0;
 }
 
 
@@ -346,10 +386,8 @@ BindFrame(HardwareDecoder* decoder, HardwareFrame* frame, void* context)
                                           GL_TEXTURE_RECTANGLE_ARB, GL_RGB, decoder->width, decoder->height,
                                           GL_RGB_422_APPLE, GL_UNSIGNED_SHORT_8_8_APPLE, frame->surface, 0);
 
-    if (err != kCGLNoError) {
-        printf("bind error %d\n", (int)err);
+    if (err != kCGLNoError)
         return false;
-    }
     
     return true;
 }
@@ -372,11 +410,18 @@ void ReleaseFrame(HardwareFrame* frame)
 
 (c-declare cocoa #/Objective-C/
 
-static void*
-createHardwareDecoder(int32_t width, int32_t height, ___SCMOBJ codec_data_vec, int codec_data_size, void* listener)
+static ___SCMOBJ
+createHardwareDecoder(int32_t width, int32_t height, ___SCMOBJ codec_data_vec, int codec_data_size)
 {
     ___U8 *codec_data = ___CAST(___U8*, ___BODY(codec_data_vec));
-    return CreateDecoder(width, height, codec_data, codec_data_size, listener);
+    return CreateDecoder(width, height, codec_data, codec_data_size);
+}
+
+
+static void
+setHardwareDecoderListener(void* decoder, void* listener)
+{
+    ((HardwareDecoder*) decoder)->listener = listener;
 }
 
 
@@ -394,7 +439,7 @@ destroyHardwareDecoder(void* decoder)
 }
 
 
-static bool
+static int
 hardwareDecodeFrame(void* decoder, ___SCMOBJ vec, int size, ___U64 dts, ___U64 pts, ___U64 duration)
 {
     ___U8 *ptr = ___CAST(___U8*, ___BODY(vec));
@@ -436,10 +481,11 @@ hardwareReleaseFrame(void* frame)
 //#)
 
 
-(c-external (createHardwareDecoder int32 int32 scheme-object int void*) void*)
+(c-external (createHardwareDecoder int32 int32 scheme-object int) scheme-object)
+(c-external (setHardwareDecoderListener void* void*) void)
 (c-external (stopHardwareDecoder void*) void)
 (c-external (destroyHardwareDecoder void*) void)
-(c-external (hardwareDecodeFrame void* scheme-object int uint64 uint64 uint64) bool)
+(c-external (hardwareDecodeFrame void* scheme-object int uint64 uint64 uint64) int)
 (c-external (hardwareRetrieveFrame void*) void*)
 (c-external (hardwareFramePTS void*) uint64)
 (c-external (hardwareBindFrame void* void* void*) bool)

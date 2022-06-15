@@ -653,6 +653,15 @@ static void* log_pop_entry()
     return data;
 }
 
+static void log_unref_entry(log_entry* entry);
+
+static void log_entry_unref(void* data)
+{
+    log_entry* entry = (log_entry*) data;
+  
+    log_unref_entry(entry);
+}
+
 static int log_entry_level(void* data)
 {
     log_entry* entry = (log_entry*) data;
@@ -766,24 +775,25 @@ void gst_log_function (GstDebugCategory * category,
     gint line, GObject * object, GstDebugMessage * message, gpointer unused)
 {
     gchar *category_str, *function_str, *message_str, *stack;
+    int effective_level;
 
     if (level == GST_LEVEL_ERROR || level == GST_LEVEL_WARNING)
     {
         if (level == GST_LEVEL_ERROR)
-            level = LOG_LEVEL_GST_ERROR;
+            effective_level = LOG_LEVEL_GST_ERROR;
         else if (level == GST_LEVEL_WARNING)
-            level = LOG_LEVEL_GST_WARNING;
+            effective_level = LOG_LEVEL_GST_WARNING;
         else
-            level = LOG_LEVEL_NONE;
+            effective_level = LOG_LEVEL_NONE;
         category_str = g_strdup(gst_debug_category_get_name(category));
         function_str = g_strdup(function);
         message_str = g_strdup(gst_debug_message_get(message));
         // too much for relatively high occurence warnings
-        if (level == LOG_LEVEL_GST_WARNING)
+        if (effective_level == LOG_LEVEL_GST_WARNING)
             stack = NULL;
         else
             stack = gst_debug_get_stack_trace(GST_STACK_TRACE_SHOW_FULL);
-        log_push_entry(level, category_str, function_str, message_str, stack);
+        log_push_entry(effective_level, category_str, function_str, message_str, stack);
     }
 }
 
@@ -799,13 +809,13 @@ static void log_set_listener(void* listener, int remove_default_log)
 
 static void log_setup()
 {
-    GLogLevelFlags llf;
+    int llf;
 
     g_mutex_init(&log_mutex);
     log_queue = g_queue_new();
   
     llf = G_LOG_LEVEL_ERROR | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION;
-    g_log_set_handler(G_LOG_DOMAIN, llf, g_log_handler, NULL);
+    g_log_set_handler(G_LOG_DOMAIN, (GLogLevelFlags) llf, g_log_handler, NULL);
 
     gst_debug_add_log_function(gst_log_function, NULL, NULL);
 }
@@ -1509,6 +1519,11 @@ static char* gst_plugin_get_package_aux(GstPlugin* plugin)
 static char* gst_plugin_get_description_aux(GstPlugin* plugin)
 {
     return (char*) gst_plugin_get_description(plugin);
+}
+
+static void gst_debug_bin_to_dot_file_aux(GstBin* bin, int details, char* filename)
+{
+    gst_debug_bin_to_dot_file(bin, (GstDebugGraphDetails) details, filename);
 }
 
 static void gst_print_error(GstMessage *msg)
@@ -2307,7 +2322,7 @@ static void gst_pad_remove_probe_aux(GstPad* pad, void* info)
 
 static void gst_pad_connect_eos(GstPad* pad, void* listener)
 {
-    gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BLOCK | GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, cb_connect_eos, listener, NULL);
+    gst_pad_add_probe(pad, (GstPadProbeType) (GST_PAD_PROBE_TYPE_BLOCK | GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM), cb_connect_eos, listener, NULL);
 }
 
 #define ANY_MONITOR     0
@@ -2576,9 +2591,9 @@ cb_monitor_print(GstPad          *pad,
     gsize size;
 
     data = (print_monitor*) user_data;
-    pipeline = data->pipeline;
+    pipeline = (GstPipeline*) data->pipeline;
     timestamps = data->timestamps;
-    miniobj = GST_PAD_PROBE_INFO_DATA(info);
+    miniobj = (GstMiniObject*) GST_PAD_PROBE_INFO_DATA(info);
 
     if (GST_IS_BUFFER(miniobj))
     {
@@ -2686,7 +2701,7 @@ cb_monitor_analyse(GstPad          *pad,
 
     data = (analyse_monitor*) user_data;
     listener = data->listener;
-    miniobj = GST_PAD_PROBE_INFO_DATA(info);
+    miniobj = (GstMiniObject*) GST_PAD_PROBE_INFO_DATA(info);
     if (GST_IS_BUFFER(miniobj))
     {
         buffer = GST_BUFFER_CAST(miniobj);
@@ -3030,7 +3045,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (c-external (log_setup) void)
 (c-external (log_set_listener void* bool) void)
 (c-external (log_pop_entry) void*)
-(c-external (log_unref_entry void*) void)
+(c-external (log_entry_unref void*) void)
 (c-external (log_entry_level void*) int)
 (c-external (log_entry_category void*) char-string)
 (c-external (log_entry_function void*) char-string)
@@ -3284,7 +3299,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_plugin_get_filename GstPlugin*) char-string "gst_plugin_get_filename_aux")
 (gst-external (gst_plugin_get_package GstPlugin*) char-string "gst_plugin_get_package_aux")
 (gst-external (gst_plugin_get_description GstPlugin*) char-string "gst_plugin_get_description_aux")
-(gst-external (gst_debug_bin_to_dot_file (call GST_BIN GstElement*) int char-string) void)
+(gst-external (gst_debug_bin_to_dot_file (call GST_BIN GstElement*) int char-string) void "gst_debug_bin_to_dot_file_aux")
 (gst-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")
 (gst-external (GST_TYPE_FRACTION_RANGE) GType "___return(GST_TYPE_FRACTION_RANGE);")
 (gst-external (GST_TYPE_LIST) GType "___return(GST_TYPE_LIST);")

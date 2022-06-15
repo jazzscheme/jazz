@@ -423,10 +423,10 @@ static void gst_listener_write(void* listener, char* c)
 #else
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    #pragma GCC diagnostic ignored "-Wunused-result"
     int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
     write(fd, c, 1);
+    #pragma GCC diagnostic pop
 #endif
 }
 
@@ -438,10 +438,10 @@ static void gst_listener_set(void* listener)
 #else
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    #pragma GCC diagnostic ignored "-Wunused-result"
     int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
     write(fd, "!", 1);
+    #pragma GCC diagnostic pop
 #endif
 }
 
@@ -453,10 +453,10 @@ static void gst_listener_wakeup(void* listener)
 #else
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    #pragma GCC diagnostic ignored "-Wunused-result"
     int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
     write(fd, ".", 1);
+    #pragma GCC diagnostic pop
 #endif
 }
 
@@ -468,10 +468,10 @@ static void gst_listener_eos(void* listener)
 #else
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    #pragma GCC diagnostic ignored "-Wunused-result"
     int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
     write(fd, "^", 1);
+    #pragma GCC diagnostic pop
 #endif
 }
 
@@ -483,10 +483,10 @@ static void gst_listener_voice(void* listener)
 #else
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    #pragma GCC diagnostic ignored "-Wunused-result"
     int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
     write(fd, "+", 1);
+    #pragma GCC diagnostic pop
 #endif
 }
 
@@ -498,10 +498,10 @@ static void gst_listener_freeze(void* listener)
 #else
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    #pragma GCC diagnostic ignored "-Wunused-result"
     int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
     write(fd, "<", 1);
+    #pragma GCC diagnostic pop
 #endif
 }
 
@@ -513,10 +513,10 @@ static void gst_listener_thaw(void* listener)
 #else
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    #pragma GCC diagnostic ignored "-Wunused-result"
     int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
     write(fd, ">", 1);
+    #pragma GCC diagnostic pop
 #endif
 }
 
@@ -528,10 +528,10 @@ static void gst_listener_silence(void* listener)
 #else
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+    #pragma GCC diagnostic ignored "-Wunused-result"
     int fd = (int) listener;
-    #pragma GCC diagnostic pop
-    
     write(fd, "-", 1);
+    #pragma GCC diagnostic pop
 #endif
 }
 //#)
@@ -1639,10 +1639,12 @@ static GstFlowReturn gst_app_src_write_pointer_now(GstElement* elem, void* ptr, 
     return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
 }
 
+#ifndef __linux__
 static GstFlowReturn gst_app_src_write_event(GstElement* elem, GstEvent* event)
 {
     return gst_app_src_push_event(GST_APP_SRC(elem), event);
 }
+#endif
 
 static bool gst_audio_ring_buffer_acquired(GstElement* elem)
 {
@@ -3190,7 +3192,6 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_pipeline_set_latency (call GST_PIPELINE GstElement*) GstClockTime) void)
 (gst-external (gst_is_base_sink GstElement*) bool)
 (gst-external (gst_base_sink_get_latency (call GST_BASE_SINK GstElement*)) GstClockTime)
-@gstreamer-1.18
 (gst-external (gst_base_sink_get_stats (call GST_BASE_SINK GstElement*)) GstStructure*)
 (gst-external (gst_audio_decoder_get_latency GstElement* scheme-object) void "gst_audio_decoder_get_latency_aux")
 (gst-external (gst_audio_decoder_set_latency GstElement* GstClockTime GstClockTime) void "gst_audio_decoder_set_latency_aux")
@@ -3257,14 +3258,17 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_app_src_write GstElement* scheme-object int uint64 uint64 uint64) GstFlowReturn)
 (gst-external (gst_app_src_write_now GstElement* scheme-object int uint64) GstFlowReturn)
 (gst-external (gst_app_src_write_pointer_now GstElement* void* int uint64) GstFlowReturn)
-(gst-external (gst_app_src_write_event GstElement* GstEvent*) GstFlowReturn)
+(cond-expand
+  (linux (definition public (gst_app_src_write_event . rest) (unimplemented)))
+  (else (gst-external (gst_app_src_write_event GstElement* GstEvent*) GstFlowReturn)))
 (gst-external (gst_app_sink_connect_listener_signals GstElement* void*) void)
 (gst-external (gst_app_sink_try_pull_buffer GstElement*) GstBuffer*)
 (gst-external (gst_app_sink_try_pull_frame GstElement* scheme-object scheme-object) int)
 (gst-external (gst_app_sink_is_eos (call GST_APP_SINK GstElement*)) bool)
 (gst-external (gst_audio_ring_buffer_acquired GstElement*) bool)
-;@gstreamer-1.18
-(gst-external (gst_tracing_get_active_tracers) GList*)
+(cond-expand
+  (linux (definition public (gst_tracing_get_active_tracers) (unimplemented)))
+  (else (gst-external (gst_tracing_get_active_tracers) GList*)))
 (gst-external (gst_tracer_list_data GList*) GstTracer*)
 (gst-external (gst_tracer_list_next GList*) GList*)
 (gst-external (gst_leaks_tracer_get_live_count GstTracer*) int)
@@ -3421,7 +3425,6 @@ static void gst_print_messages(GstPipeline* pipeline)
 ;;;
 
 
-;@gstreamer-1.18
 (definition public (collect-active-tracers)
   (let ((queue (new-queue))
         (list (gst_tracing_get_active_tracers)))

@@ -838,7 +838,6 @@ struct PlatformFramebufferConfig
     int         accumBlueBits;
     int         accumAlphaBits;
     int         auxBuffers;
-    GLboolean   stereo;
     int         samples;
 };
 
@@ -1248,7 +1247,7 @@ void enterWindowed(PlatformWindow* window, NSRect bounds, bool hidesOnDeactivate
     NSRect newFrame = [mainWindow contentRectForFrameRect:[mainWindow frame]];
     fullscreenWindow = [[JazzFullScreenWindow alloc]
         initWithContentRect:newFrame
-        styleMask:NSBorderlessWindowMask
+        styleMask:NSWindowStyleMaskBorderless
         backing:NSBackingStoreBuffered
         defer:YES
         screen:[mainWindow screen]];
@@ -1869,7 +1868,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
         if (!platformInputKey(window, key, PLATFORM_PRESS))
         {
             int flags = [event modifierFlags];
-            if ((flags & NSCommandKeyMask) || (flags & NSFunctionKeyMask))
+            if ((flags & NSEventModifierFlagCommand) || (flags & NSEventModifierFlagFunction))
             {
                 [super keyDown:event];
             }
@@ -1889,7 +1888,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 {
     int mode, keyCode, key;
     unsigned int newModifierFlags =
-        [event modifierFlags] | NSDeviceIndependentModifierFlagsMask;
+        [event modifierFlags] | NSEventModifierFlagDeviceIndependentFlagsMask;
 
     if (newModifierFlags > platformInput.modifierFlags)
         mode = PLATFORM_PRESS;
@@ -1987,10 +1986,10 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 // down the command key don't get sent to the key window.
 - (void)sendEvent:(NSEvent *)event
 {
-    if ([event type] == NSApplicationDefined)
+    if ([event type] == NSEventTypeApplicationDefined)
         user_callback([event data1], [event data2]);
     
-    if ([event type] == NSKeyUp && ([event modifierFlags] & NSCommandKeyMask))
+    if ([event type] == NSEventTypeKeyUp && ([event modifierFlags] & NSEventModifierFlagCommand))
         [[self keyWindow] sendEvent:event];
     else
         [super sendEvent:event];
@@ -2070,7 +2069,7 @@ static void createMenuBar()
     [[appMenu addItemWithTitle:@"Hide Others"
                        action:@selector(hideOtherApplications:)
                 keyEquivalent:@"h"]
-        setKeyEquivalentModifierMask:NSAlternateKeyMask | NSCommandKeyMask];
+        setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
     [appMenu addItemWithTitle:@"Show All"
                        action:@selector(unhideAllApplications:)
                 keyEquivalent:@""];
@@ -2155,57 +2154,57 @@ static GLboolean createWindow(PlatformWindow* window,
     {
         if (kind == PLATFORM_DIALOG)
         {
-            styleMask = NSTitledWindowMask;
+            styleMask = NSWindowStyleMaskTitled;
             
             if (wndconfig->closable)
-                styleMask |= NSClosableWindowMask;
+                styleMask |= NSWindowStyleMaskClosable;
             
             if (wndconfig->miniaturizable)
-                styleMask |= NSMiniaturizableWindowMask;
+                styleMask |= NSWindowStyleMaskMiniaturizable;
 
             if (wndconfig->resizable)
-                styleMask |= NSResizableWindowMask;
+                styleMask |= NSWindowStyleMaskResizable;
         }
         else if (kind == PLATFORM_POPUP)
         {
-            styleMask = NSBorderlessWindowMask;
+            styleMask = NSWindowStyleMaskBorderless;
 
             if (wndconfig->resizable)
-                styleMask |= NSResizableWindowMask;
+                styleMask |= NSWindowStyleMaskResizable;
         }
         else if (kind == PLATFORM_DESKTOP)
         {
-            styleMask = NSBorderlessWindowMask;
+            styleMask = NSWindowStyleMaskBorderless;
         }
         else if (kind == PLATFORM_BORDERLESS)
         {
-            styleMask = NSBorderlessWindowMask;
+            styleMask = NSWindowStyleMaskBorderless;
 
             if (wndconfig->closable)
-                styleMask |= NSClosableWindowMask;
+                styleMask |= NSWindowStyleMaskClosable;
             
             if (wndconfig->miniaturizable)
-                styleMask |= NSMiniaturizableWindowMask;
+                styleMask |= NSWindowStyleMaskMiniaturizable;
 
             if (wndconfig->resizable)
-                styleMask |= NSResizableWindowMask;
+                styleMask |= NSWindowStyleMaskResizable;
         }
         else
         {
-            styleMask = NSTitledWindowMask;
+            styleMask = NSWindowStyleMaskTitled;
 
             if (wndconfig->closable)
-                styleMask |= NSClosableWindowMask;
+                styleMask |= NSWindowStyleMaskClosable;
             
             if (wndconfig->miniaturizable)
-                styleMask |= NSMiniaturizableWindowMask;
+                styleMask |= NSWindowStyleMaskMiniaturizable;
 
             if (wndconfig->resizable)
-                styleMask |= NSResizableWindowMask;
+                styleMask |= NSWindowStyleMaskResizable;
         }
     }
     else
-        styleMask = NSBorderlessWindowMask;
+        styleMask = NSWindowStyleMaskBorderless;
 
     window->kind = kind;
     window->object = [[JazzWindow alloc]
@@ -2234,7 +2233,7 @@ static GLboolean createWindow(PlatformWindow* window,
     [window->object setContentView:window->view];
     [window->object setDelegate:window->delegate];
     [window->object setAcceptsMouseMovedEvents:YES];
-    [window->object center];
+    [((NSWindow*) window->object) center];
     
     // because modal dialogs can have popups
     if (kind == PLATFORM_POPUP)
@@ -2304,9 +2303,6 @@ static GLboolean createContext(PlatformWindow* window,
 
     if (fbconfig->auxBuffers > 0)
         ADD_ATTR2(NSOpenGLPFAAuxBuffers, fbconfig->auxBuffers);
-
-    if (fbconfig->stereo)
-        ADD_ATTR(NSOpenGLPFAStereo);
 
     if (fbconfig->samples > 0)
     {
@@ -3009,7 +3005,6 @@ PlatformWindow* platformCreateWindow(int width, int height,
     fbconfig.accumBlueBits  = 0;
     fbconfig.accumAlphaBits = 0;
     fbconfig.auxBuffers     = 0;
-    fbconfig.stereo         = GL_FALSE;
     fbconfig.samples        = 0;
 
     // Set up desired window config
@@ -3655,25 +3650,25 @@ bool platformKeyDown(int key)
 
 bool platformShiftDown()
 {
-    return [NSEvent modifierFlags] & NSShiftKeyMask;
+    return [NSEvent modifierFlags] & NSEventModifierFlagShift;
 }
 
 
 bool platformControlDown()
 {
-    return [NSEvent modifierFlags] & NSControlKeyMask;
+    return [NSEvent modifierFlags] & NSEventModifierFlagControl;
 }
 
 
 bool platformAltDown()
 {
-    return [NSEvent modifierFlags] & NSAlternateKeyMask;
+    return [NSEvent modifierFlags] & NSEventModifierFlagOption;
 }
 
 
 bool platformMetaDown()
 {
-    return [NSEvent modifierFlags] & NSCommandKeyMask;
+    return [NSEvent modifierFlags] & NSEventModifierFlagCommand;
 }
 
 //#)
@@ -3786,12 +3781,12 @@ bool platformPollEvent()
 {
     NSEvent* event;
   
-    event = [NSApp nextEventMatchingMask:NSAnyEventMask
+    event = [NSApp nextEventMatchingMask:NSEventMaskAny
                                untilDate:[NSDate distantPast]
                                   inMode:NSDefaultRunLoopMode
                                  dequeue:YES];
 
-    if (event && (! ignoreKeyRepeat || [event type] != NSKeyDown || ! [event isARepeat]))
+    if (event && (! ignoreKeyRepeat || [event type] != NSEventTypeKeyDown || ! [event isARepeat]))
     {
         [NSApp sendEvent:event];
         
@@ -3902,7 +3897,7 @@ void platformUserAttention()
 #import <IOKit/pwr_mgt/IOPMLib.h>
 
 
-static CFStringRef* reasonForActivity= CFSTR("Working");
+static CFStringRef reasonForActivity= CFSTR("Working");
 
 static IOPMAssertionID noDisplaySleepAssertionID = 0;
 
@@ -4039,7 +4034,7 @@ NSArray* platformRunningApplications()
 }
 
 
-NSString* platformRunningApplicationProcessIdentifier(NSRunningApplication* app)
+int platformRunningApplicationProcessIdentifier(NSRunningApplication* app)
 {
     return [app processIdentifier];
 }
@@ -4340,9 +4335,9 @@ ___SCMOBJ platformProcessThreads()
 (c-enumerant PLATFORM_RESIZEUPDOWNCURSOR)
 (c-enumerant PLATFORM_DISAPPEARINGITEMCURSOR)
 
-(c-enumerant NSWarningAlertStyle)
-(c-enumerant NSInformationalAlertStyle)
-(c-enumerant NSCriticalAlertStyle)
+(c-enumerant NSAlertStyleWarning)
+(c-enumerant NSAlertStyleInformational)
+(c-enumerant NSAlertStyleCritical)
 
 (c-enumerant AudioError)
 (c-enumerant AudioUnknownOutput)

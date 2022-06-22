@@ -591,14 +591,29 @@
     (gst_structure_get_name struc)))
 
 
-(definition public (caps->codec-data caps-string)
+(definition public (caps->codec-data caps)
+  (let ((struc (gst_caps_get_structure caps 0)))
+    (let ((value (gst_structure_get_value struc "codec_data")))
+      (and value
+           (gst_value_get_buffer_data value)))))
+
+
+(definition public (caps-codec-data? caps)
+  (let ((struc (gst_caps_get_structure caps 0)))
+    (let ((value (gst_structure_get_value struc "codec_data")))
+      (boolean value))))
+
+
+(definition public (caps-string->codec-data caps-string)
   (let ((caps (gst_caps_from_string caps-string)))
-    (let ((struc (gst_caps_get_structure caps 0)))
-      (let ((value (gst_structure_get_value struc "codec_data")))
-        (and value
-             (let ((codec-data (gst_value_get_buffer_data value)))
-               (gst_caps_unref caps)
-               codec-data))))))
+    (prog1 (caps->codec-data caps)
+      (gst_caps_unref caps))))
+
+
+(definition public (caps-string-codec-data? caps-string)
+  (let ((caps (gst_caps_from_string caps-string)))
+    (prog1 (caps-codec-data? caps)
+      (gst_caps_unref caps))))
 
 
 ;;;
@@ -816,6 +831,7 @@
 (interface Source-Adapter
   
   
+  (method public virtual abstract (reset self))
   (method public virtual abstract (adapt-time self appsrc timestamp)))
 
 
@@ -825,7 +841,7 @@
   (slot timestamp-offset initialize #f getter generate)
   
   
-  (method public (reset self)
+  (method override (reset self)
     (set! timestamp-offset #f))
 
 
@@ -848,6 +864,10 @@
   
   (slot moving-deviation <fl> initialize 0. getter generate)
   (slot timestamp-offset      initialize #f getter generate)
+  
+  
+  (method override (reset self)
+    )
 
 
   (method override (adapt-time self appsrc timestamp)
@@ -1104,17 +1124,23 @@
   (slot pipeline initialize #f getter generate)
   (slot appsrc   initialize #f getter generate)
   (slot appsink  initialize #f getter generate)
+  (slot latency  initialize #f getter generate)
   
   
-  (method override (initialize self pipeline appsrc appsink)
+  (method override (initialize self pipeline appsrc appsink latency)
     (nextmethod self)
     (set! self.pipeline pipeline)
     (set! self.appsrc appsrc)
-    (set! self.appsink appsink))
+    (set! self.appsink appsink)
+    (set! self.latency latency))
   
   
   (method override (running-time self)
     (gst_element_get_running_time appsrc))
+  
+  
+  (method override (base-latency self)
+    latency)
   
   
   (method override (freeze self)

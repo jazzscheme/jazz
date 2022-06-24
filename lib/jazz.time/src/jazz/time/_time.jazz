@@ -52,55 +52,13 @@
 (import (time))
 
 
-(definition package (construct-date . rest)    
-  (apply make-date (collect-date-values rest)))
+;;;
+;;;; Time
+;;;
 
 
-(definition package (construct-time . rest)
-  (apply make-time (collect-time-values rest)))
-
-
-(definition public (make-default-date)
-  (make-date 0 0 0 0 0 0 0 (date-zone-offset (current-date))))
-
-
-(definition public (make-default-time)
-  (make-time (time-type (current-time)) 0 0))
-
-
-(definition (collect-date-values args)
-  (assert (<= (length args) 8))
-  (let* ((default-date (make-default-date))
-         (date-values (collect-date/time-values args default-date (list date-year date-month date-day date-hour date-minute date-second date-nanosecond)))
-         (zone-offset (if (< (length args) 8) 
-                          (date-zone-offset default-date)
-                        (let ((time-zone (last args)))
-                          (cond ((and (symbol? time-zone) (eq? 'Z time-zone)) 0)
-                                ((number? time-zone) time-zone)
-                                ((and (string? time-zone) (= 5 (string-length time-zone))) (* 60 (+ (* 60 (string->number (substring time-zone 0 3))) (string->number (substring time-zone 3 5)))))
-                                (else (error "badly formed time zone")))))))
-    (reverse (cons zone-offset date-values))))
-
-
-(definition (collect-time-values args)
-  (assert (<= (length args) 3))
-  (reverse (collect-date/time-values args (make-default-time) (list time-second time-nanosecond time-type))))
-
-
-(definition (collect-date/time-values args default-date/time default-getters)
-  (cond ((null? default-getters)
-         '())
-        ((null? args)
-         (cons ((car default-getters) default-date/time) (collect-date/time-values '() default-date/time (cdr default-getters))))
-        (else
-         (cons (car args) (collect-date/time-values (cdr args) default-date/time (cdr default-getters))))))
-
-
-(definition (date/time-literal-parameter-list time/date default-time/date printers)
-  (if (and (not-null? printers)
-           (find-if (lambda (printer) (not (string=? (printer time/date) (printer default-time/date)))) printers))
-      (concatenate " " ((car printers) time/date) (date/time-literal-parameter-list time/date default-time/date (cdr printers)))
-    ""))
+(definition package (construct-time second nanosecond (type time-utc))
+  (make-time type nanosecond second))
 
   
 (class Time-Class extends Class)
@@ -110,9 +68,13 @@
    
   
   (method override (print self output readably)
-    (format output "~{{a}{a}}"
-      (category-name (class-of self))
-      (date/time-literal-parameter-list self (make-default-time) (map (lambda (proc) (compose ->string proc)) (list time-second time-nanosecond time-type)))))
+    (let ((name (category-name (class-of self)))
+          (second (time-second self))
+          (nanosecond (time-nanosecond self))
+          (type (time-type self)))
+      (if (eq? type time-utc)
+          (format output "~{{a} {a} {a}}" name second nanosecond)
+        (format output "~{{a} {a} {a} {a}}" name second nanosecond type))))
   
   
   (method override (compare-object self target)
@@ -123,6 +85,22 @@
       :incompatible)))
 
 
+;;;
+;;;; Date
+;;;
+
+
+(definition package (construct-date year month day hour minute second nanosecond (zone-offset #f))
+  ;; backward compatibility
+  (let ((effective-zone-offset
+          (cond ((not zone-offset) (local-timezone))
+                ((number? zone-offset) zone-offset)
+                ((eq? 'Z zone-offset) 0)
+                ((string? zone-offset) (* 60 (+ (* 60 (string->number (substring zone-offset 0 3))) (string->number (substring zone-offset 3 5)))))
+                (else (error "Badly formed zone offset")))))
+    (make-date nanosecond second minute hour day month year effective-zone-offset)))
+
+
 (class Date-Class extends Class)
 
 
@@ -130,11 +108,16 @@
   
   
   (method override (print self output readably)
-    (format output "~{{a}{a}}"
+    (format output "~{{a} {a} {a} {a} {a} {a} {a} {a} {a}}"
       (category-name (class-of self))
-      (date/time-literal-parameter-list self (make-default-date) (map (lambda (format-string) 
-                                                                        (lambda (date) (date->string date format-string))) 
-                                                                      '("~Y" "~m" "~d" "~H" "~M" "~S" "~N" "\"~z\"")))))
+      (date-year self)
+      (date-month self)
+      (date-day self)
+      (date-hour self)
+      (date-minute self)
+      (date-second self)
+      (date-nanosecond self)
+      (date-zone-offset self)))
   
   
   (method override (compare-object self target)
@@ -269,6 +252,17 @@
       ((zone-offset) (increase! zone-offset count))
       (else (unimplemented)))
     (time-utc->date (date->time-utc (make-date nanosecond second minute hour day month year zone-offset)))))
+
+
+(definition public (date-truncate-nanosecond date)
+  (make-date 0
+             (date-second date)
+             (date-minute date)
+             (date-hour date)
+             (date-day date)
+             (date-month date)
+             (date-year date)
+             (date-zone-offset date)))
 
 
 ;;;

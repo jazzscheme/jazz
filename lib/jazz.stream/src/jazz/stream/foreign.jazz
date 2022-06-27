@@ -38,6 +38,8 @@
 (module jazz.stream.foreign jazz
 
 
+(require (jazz.stream.setup))
+
 (import (jazz.foreign)
         (jazz.listener)
         (jazz.platform.types)
@@ -801,6 +803,13 @@ static void log_set_listener(void* listener, int remove_default_log)
 {
     g_mutex_lock(&log_mutex);
     log_listener = listener;
+
+    // the queue might already contain entries
+    int n, len;
+    len = g_queue_get_length(log_queue);
+    for (n = 0; n < len; n++)
+        gst_listener_write(log_listener, ".");
+
     g_mutex_unlock(&log_mutex);
 
     if (remove_default_log)

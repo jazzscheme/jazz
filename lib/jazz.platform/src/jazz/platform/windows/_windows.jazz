@@ -68,6 +68,7 @@
         (jazz.graphic)
         (jazz.io)
         (jazz.math)
+        (jazz.platform.types)
         (jazz.version)
         (time))
 
@@ -353,6 +354,43 @@
           ((IDYES) 'yes)
           ((IDNO) 'no)
           (else #f))))))
+
+
+;;;
+;;;; Mouse
+;;;
+
+
+(c-external (enableRawMouseInput HWND) void
+  #/C/
+    const RAWINPUTDEVICE rid = { 0x01, 0x02, 0, ___arg1 };
+
+    RegisterRawInputDevices(&rid, 1, sizeof(rid));
+//#)
+
+
+(c-external (disableRawMouseInput HWND) void
+  #/C/
+    const RAWINPUTDEVICE rid = { 0x01, 0x02, RIDEV_REMOVE, NULL };
+
+    RegisterRawInputDevices(&rid, 1, sizeof(rid));
+//#)
+
+
+(c-external (fillRawMouseInput LPARAM scheme-object) void
+  #/C/
+    ___U64 *input_ptr = ___CAST(___U64*, ___BODY(___arg2));
+
+    UINT dwSize = sizeof(RAWINPUT);
+    static BYTE lpb[sizeof(RAWINPUT)];
+
+    GetRawInputData((HRAWINPUT)___arg1, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER));
+
+    RAWINPUT* raw = (RAWINPUT*)lpb;
+
+    input_ptr[0] = raw->data.mouse.lLastX;
+    input_ptr[1] = raw->data.mouse.lLastY;
+//#)
 
 
 ;;;

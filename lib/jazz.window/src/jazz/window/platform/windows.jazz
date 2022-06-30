@@ -571,6 +571,10 @@
 ;;;
 
 
+(definition raw-input-vector
+  (make-s64vector 2))
+
+
 (definition (process-window-message window msg <int> wparam <int> lparam <int>)
   (define get-x-lparam signed-loword)
   (define get-y-lparam signed-hiword)
@@ -591,6 +595,10 @@
     ((WM_ERASEBKGND)      (erase-background window wparam))
     ((WM_PAINT)           (paint window))
     ((WM_SETCURSOR)       (cursor-update window (= (loword lparam) HTCLIENT)))
+    ((WM_INPUT)           (fillRawMouseInput lparam raw-input-vector)
+                          (let ((dx (s64vector-ref raw-input-vector 0))
+                                (dy (s64vector-ref raw-input-vector 1)))
+                            (call-mouse-input window dx dy)))
     ((WM_MOUSEMOVE)       (call-mouse-moved window (cast <fl> (device->user (get-x-lparam lparam))) (cast <fl> (device->user (get-y-lparam lparam)))))
     ((WM_MOUSEWHEEL)      (let ((global (new Point (get-x-lparam lparam) (get-y-lparam lparam))))
                             (let ((local (acquire-point (get-handle window) (cache-desktop-window) global)))
@@ -1083,11 +1091,11 @@
 
 
 (definition public (platform-capture-cursor handle)
-  #f)
+  (enableRawMouseInput handle))
 
 
 (definition public (platform-release-cursor handle)
-  )
+  (disableRawMouseInput handle))
 
 
 ;;;

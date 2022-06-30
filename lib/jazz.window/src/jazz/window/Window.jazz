@@ -257,30 +257,20 @@
     )
   
   
+  (method package virtual (call-mouse-input self dx dy)
+    (when cursor-captured?
+      (set! virtual-cursor-position (nu+ virtual-cursor-position (new Point dx dy)))
+      (mouse-moved self (get-h virtual-cursor-position) (get-v virtual-cursor-position))))
+  
+  
   (method package virtual (call-mouse-moved self x y)
     (cond-expand
-    (cocoa
-    ;; Mac only use warp-delta
-    (if (and manage-captured? cursor-positionable?)
-        (mouse-moved self (- x (get-h warp-delta)) (- y (get-v warp-delta)))
-      (mouse-moved self x y)))
-    (else
-    ;; Other platforms
-    (let ((pos (new Point (inexact->exact x) (inexact->exact y))))
-      (if (or (not (= (get-h pos) (get-h warp-cursor-position)))
-              (not (= (get-v pos) (get-v warp-cursor-position))))
-          (if (and manage-captured? cursor-positionable?)
-              (let ((delta (nu- pos last-cursor-position)))
-                (set! virtual-cursor-position
-                      (nu+ virtual-cursor-position delta))
-                (mouse-moved self (get-h virtual-cursor-position)
-                  (get-v virtual-cursor-position)))
-            (begin
-              (set! virtual-cursor-position pos)
-              (mouse-moved self (get-h pos) (get-v pos)))))
-
-      ;; update last cursor position
-      (set! last-cursor-position pos)))))
+      (cocoa
+       (mouse-moved self x y))
+      (else
+       (unless cursor-captured?
+         (mouse-moved self x y)))))
+  
   
   (method package virtual (mouse-moved self x y)
     (mouse-move self (fxround x) (fxround y)))
@@ -343,15 +333,11 @@
   ;;;
 
 
-  (slot cursor-visible?      initialize #t)
-  (slot cursor-captured?     initialize #f getter generate)
-  (slot cursor-positionable? initialize #t getter generate)
-  (slot manage-captured?     initialize #f getter generate)
-  (slot manage-preserved     initialize #f getter generate)
-  (slot warp-delta           initialize #f getter generate)
-  (slot warp-cursor-position initialize {Point 0 0} getter generate)
-  (slot last-cursor-position initialize {Point 0 0} getter generate)
-  (slot virtual-cursor-position initialize {Point 0 0} getter generate)
+  (slot cursor-visible?           initialize #t)
+  (slot cursor-captured?          initialize #f getter generate)
+  (slot preserved-cursor-position initialize #f getter generate)
+  (slot virtual-cursor-position   initialize #f getter generate)
+  
   
   (method override (get-cursor-visible? self)
     cursor-visible?)
@@ -369,47 +355,29 @@
   
   (method public (capture-cursor self)
     (when (and (not cursor-captured?) application-active?)
-      (let ((manage? (not (platform-capture-cursor handle))))
-        (set! cursor-visible? #f)
-        (set! cursor-captured? #t)
-        ;; for instance VMware by letting the host OS handle the mouse
-        ;; makes it impossible to position the cursor programmatically
-        (set! cursor-positionable? (find-setting 'jazz.cursor-positionable? #t))
-        (set! manage-captured? manage?)
-        (when manage?
-          (hide-cursor self)
-          (when cursor-positionable?
-            (let ((pos (mouse-position self))
-                  (center (cursor-center self)))
-              (set! manage-preserved pos)
-              (set! warp-delta (nu- center pos))
-              (set-mouse-position self center)))))))
-  
-  
-  (method public (center-mouse self)
-    (let ((center (cursor-center self))
-          (pos (mouse-position self)))
-      (unless (and (= (get-h pos) (get-h last-cursor-position))
-                   (= (get-v pos) (get-v last-cursor-position)))
-        ;; Event send that cancel delta
-        (set-mouse-position self center))))
-
-  (method (cursor-center self)
-    (new Point (fxround/ (get-width self) 2) (fxround/ (get-height self) 2)))
+      (platform-capture-cursor handle)
+      (set! cursor-visible? #f)
+      (set! cursor-captured? #t)
+      (cond-expand
+        (cocoa)
+        (else
+         (set! preserved-cursor-position (mouse-position self))
+         (set! virtual-cursor-position preserved-cursor-position)
+         (hide-cursor self)))))
   
   
   (method public (release-cursor self)
     (when cursor-captured?
       (platform-release-cursor handle)
-      (when manage-captured?
-        (when cursor-positionable?
-          (set-mouse-position self manage-preserved))
-        (show-cursor self))
       (set! cursor-visible? #t)
       (set! cursor-captured? #f)
-      (set! manage-captured? #f)
-      (set! manage-preserved #f)
-      (set! warp-delta #f)))
+      (cond-expand
+        (cocoa)
+        (else
+         (set-mouse-position self preserved-cursor-position)
+         (set! preserved-cursor-position #f)
+         (set! virtual-cursor-position #f)
+         (show-cursor self)))))
 
   
   (method package virtual (cursor-update self hit)
@@ -790,8 +758,6 @@
        (platform-set-mouse-position handle (get-h pos) (get-v pos))))
     (else
      (method public (set-mouse-position self pos)
-       ;; Save warp position done by jazz.
-       (set! warp-cursor-position pos)
        (platform-set-mouse-position handle pos))))
 
 

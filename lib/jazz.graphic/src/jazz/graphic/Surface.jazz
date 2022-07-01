@@ -55,13 +55,15 @@
   (slot font               <Font> initialize #f getter generate)
   (slot glyph-array               initialize #f)
   (slot glyph-array-length <fx>   initialize 0)
+  (slot handle-shared?            initialize #f)
 
   
   (method override (initialize self handle . rest)
     (nextmethod self)
     (set! self.handle handle)
     (set! self.context (cairo_create handle))
-    (set! self.font (registered-font 'Label)))
+    (set! self.font (registered-font 'Label))
+    (set! self.handle-shared? (getf rest handle-shared?:)))
 
 
   (method override (destroy self)
@@ -78,7 +80,7 @@
   
   
   (method (destroy-surface self)
-    (when handle
+    (when (and handle (not handle-shared?))
       (cairo_surface_destroy handle)
       @wait
       (let ((err (cairo-surface-status)))

@@ -865,6 +865,7 @@ struct PlatformWindow
     // Input state
     double    virtualCursorPosX, virtualCursorPosY;
     int       cursorMode;
+    int       cursorCount;
     char      mouseButton[PLATFORM_MOUSE_BUTTON_LAST + 1];
 
     // OpenGL extensions and context attributes
@@ -2351,18 +2352,38 @@ void platformInternalSetCursorPos(PlatformWindow* window, double x, double y)
 }
 
 
+void platformInternalHideCursor(PlatformWindow* window)
+{
+    while (window->cursorCount >= 0)
+    {
+        [NSCursor hide];
+        window->cursorCount--;
+    }
+}
+
+
+void platformInternalShowCursor(PlatformWindow* window)
+{
+    while (window->cursorCount < 0)
+    {
+        [NSCursor unhide];
+        window->cursorCount++;
+    }
+}
+
+
 void platformInternalApplyCursorMode(PlatformWindow* window)
 {
     switch (window->cursorMode)
     {
         case PLATFORM_CURSOR_NORMAL:
-            [NSCursor unhide];
+            platformInternalShowCursor(window);
             break;
         case PLATFORM_CURSOR_HIDDEN:
-            [NSCursor hide];
+            platformInternalHideCursor(window);
             break;
         case PLATFORM_CURSOR_CAPTURED:
-            [NSCursor hide];
+            platformInternalHideCursor(window);
             break;
     }
     
@@ -3067,10 +3088,11 @@ PlatformWindow* platformCreateWindow(int width, int height,
     platform.windowListHead = window;
 
     // Remember window settings
-    window->width      = width;
-    window->height     = height;
-    window->mode       = mode;
-    window->cursorMode = PLATFORM_CURSOR_NORMAL;
+    window->width       = width;
+    window->height      = height;
+    window->mode        = mode;
+    window->cursorMode  = PLATFORM_CURSOR_NORMAL;
+    window->cursorCount = 0;
     
     window->delegate = [[JazzWindowDelegate alloc] initWithPlatformWindow:window];
 

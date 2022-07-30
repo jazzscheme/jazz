@@ -43,6 +43,7 @@
         (jazz.graphic)
         (jazz.math)
         (jazz.opengl.glew)
+        (jazz.opengl.render)
         (jazz.platform.types)
         (jazz.screen))
 
@@ -50,10 +51,6 @@
 ;;;
 ;;;; Image
 ;;;
-
-
-(definition protected map-mutex
-  (make-mutex 'map))
 
 
 (class Image-Texture extends Object
@@ -107,27 +104,27 @@
   
   
   (method (with-texture self target proc)
-    (mutex-lock! map-mutex)
-    (glBindTexture target id)
-    (glTexParameteri target GL_TEXTURE_MIN_FILTER (or min-filter (if mipmap? GL_LINEAR_MIPMAP_LINEAR GL_LINEAR)))
-    (glTexParameteri target GL_TEXTURE_MAG_FILTER (or mag-filter GL_LINEAR))
-    (glTexParameteri target GL_TEXTURE_WRAP_S (or wrap GL_REPEAT))
-    (glTexParameteri target GL_TEXTURE_WRAP_T (or wrap GL_REPEAT))
-    (proc target)
-    (when mipmap?
-      (glGenerateMipmap target))
-    (glBindTexture target 0)
-    (gl-check-error)
-    (mutex-unlock! map-mutex))
+    (with-reentrant-render-mutex
+      (lambda ()
+        (glBindTexture target id)
+        (glTexParameteri target GL_TEXTURE_MIN_FILTER (or min-filter (if mipmap? GL_LINEAR_MIPMAP_LINEAR GL_LINEAR)))
+        (glTexParameteri target GL_TEXTURE_MAG_FILTER (or mag-filter GL_LINEAR))
+        (glTexParameteri target GL_TEXTURE_WRAP_S (or wrap GL_REPEAT))
+        (glTexParameteri target GL_TEXTURE_WRAP_T (or wrap GL_REPEAT))
+        (proc target)
+        (when mipmap?
+          (glGenerateMipmap target))
+        (glBindTexture target 0)
+        (gl-check-error))))
   
   
   (method (with-subtexture self target proc)
-    (mutex-lock! map-mutex)
-    (glBindTexture target id)
-    (proc target)
-    (glBindTexture target 0)
-    (gl-check-error)
-    (mutex-unlock! map-mutex))
+    (with-reentrant-render-mutex
+      (lambda ()
+        (glBindTexture target id)
+        (proc target)
+        (glBindTexture target 0)
+        (gl-check-error))))
   
   
   (method public (map-texture self (repeat?: repeat? #t))

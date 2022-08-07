@@ -501,11 +501,14 @@ end-of-code
 )
 
 
-(c-external (scan-utf-8-string scheme-object int) UTF-8-string
+(c-external (scan-utf-8-string scheme-object int int) UTF-8-string
   #<<end-of-code
+    char nullterminated[___arg3+1];
     char *ptr = ___CAST(char*,___BODY(___arg1));
     int index = ___arg2;
-    ___return(ptr + index);
+    memmove(nullterminated, ptr + index, ___arg3);
+    nullterminated[___arg3] = 0;
+    ___return(nullterminated);
 end-of-code
 )
 

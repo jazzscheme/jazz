@@ -1020,7 +1020,7 @@
                                                         (find-src package path)))
                     (continuation-return return src)))))))
       (if error?
-          (jazz:error "Unable to find unit: {s}" unit-name)
+          (jazz:error "Unable to find unit source: {s}" unit-name)
         #f))))
 
 

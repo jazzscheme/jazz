@@ -105,6 +105,7 @@
 (native jazz:sourcify-deep-if)
 (native jazz:extract-location)
 (native jazz:present-source)
+(native jazz:save-emit-to)
 (native jazz:locat-container)
 (native jazz:locat-position)
 (native jazz:locat-start)

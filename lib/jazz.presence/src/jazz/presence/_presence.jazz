@@ -132,6 +132,30 @@
 ;;;
 
 
+(definition default-presence-priority
+  0.)
+
+
+(definition protected presence-priorities
+  (make-table test: eq?))
+
+(definition protected (set-presence-priority purpose priority)
+  (table-set! presence-priorities purpose priority))
+
+(definition protected (get-presence-priority purpose)
+  (table-ref presence-priorities purpose default-presence-priority))
+
+
+;; quick hack until priorities in package metadata
+(definition public debugging-priority 500.)
+(definition public working-priority   400.)
+(definition public presence-priority  200.)
+
+(set-presence-priority 'debugging debugging-priority)
+(set-presence-priority 'working working-priority)
+(set-presence-priority #f presence-priority)
+
+
 (definition protected presences
   (make-table test: eq?))
 
@@ -199,6 +223,7 @@
   
   (slot purpose            getter generate)
   (slot uuid               getter generate)
+  (slot priority           getter generate)
   (slot register           getter generate)
   (slot listener           getter generate)
   (slot connections        getter generate)
@@ -218,6 +243,7 @@
     (nextmethod self)
     (set! self.purpose purpose)
     (set! self.uuid (make-uuid))
+    (set! self.priority (get-presence-priority purpose))
     (set! self.register (new-register-proxy Register self))
     (set! self.listener #f)
     (set! self.connections (make-table))
@@ -349,6 +375,7 @@
                                              (process connection))
                                            'presence-connected)))
                              (set-thread connection thread)
+                             (thread-base-priority-set! thread priority)
                              (thread-start! thread)
                              remote-uuid))))))))))
       self))
@@ -604,20 +631,22 @@
       (when (and debug-remote? (debug-remote-presence? presence) (debug-remote-method? method-name))
         (callee-garble-hack)
         (debug-remote presence '<<< remote-title remote-uuid 'execute method-name))
-      (thread-start!
-        (new-thread
-          (lambda ()
-            (let ((local-proxy (ior->proxy ior)))
-              (let ((result (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments)))
-                (execute-handler
-                  (lambda (connection)
-                    (case kind
-                      ((send)
-                       (write-message self `(result ,kind ,method-name ,cookie ,(unspecified))))
-                      ((call)
-                       (write-message self `(result ,kind ,method-name ,cookie ,result)))))
-                  self))))
-          (list 'execute method-name)))))
+      (let ((thread
+              (new-thread
+                (lambda ()
+                  (let ((local-proxy (ior->proxy ior)))
+                    (let ((result (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments)))
+                      (execute-handler
+                        (lambda (connection)
+                          (case kind
+                            ((send)
+                             (write-message self `(result ,kind ,method-name ,cookie ,(unspecified))))
+                            ((call)
+                             (write-message self `(result ,kind ,method-name ,cookie ,result)))))
+                        self))))
+                (list 'execute method-name))))
+        (thread-base-priority-set! thread (get-priority presence))
+        (thread-start! thread))))
   
   
   ;;;

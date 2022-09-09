@@ -73,28 +73,32 @@
   
   
   (method override (initialize self width height (scale?: scale? #f) (data: data #f) (min-filter: min-filter #f) (mag-filter: mag-filter #f) (wrap: wrap #f) (mipmap?: mipmap? #f) (metadata: metadata #f) (file: file #f))
-    (set! self.scale (if scale? (main-screen-scale-factor) 1))
-    (set! self.width (scale->device width self.scale))
-    (set! self.height (scale->device height self.scale))
-    (set! self.depth #f)
-    (set! self.data data)
-    (set! self.id (gl-generate-texture))
-    (set! self.min-filter min-filter)
-    (set! self.mag-filter mag-filter)
-    (set! self.wrap wrap)
-    (set! self.mipmap? mipmap?)
-    (set! self.created? #f)
-    (set! self.stride #f)
-    (set! self.metadata metadata)
-    (set! self.file file))
+    (with-reentrant-render-mutex
+      (lambda ()
+        (set! self.scale (if scale? (main-screen-scale-factor) 1))
+        (set! self.width (scale->device width self.scale))
+        (set! self.height (scale->device height self.scale))
+        (set! self.depth #f)
+        (set! self.data data)
+        (set! self.id (gl-generate-texture))
+        (set! self.min-filter min-filter)
+        (set! self.mag-filter mag-filter)
+        (set! self.wrap wrap)
+        (set! self.mipmap? mipmap?)
+        (set! self.created? #f)
+        (set! self.stride #f)
+        (set! self.metadata metadata)
+        (set! self.file file))))
   
   
   (method override (destroy self)
-    ;; to support shared textures
-    (when id
-      (gl-delete-texture id)
-      (set! id #f))
-    (nextmethod self))
+    (with-reentrant-render-mutex
+      (lambda ()
+        ;; to support shared textures
+        (when id
+          (gl-delete-texture id)
+          (set! id #f))
+        (nextmethod self))))
   
   
   (method override (print self output readably)

@@ -41,13 +41,15 @@
 (definition tracable?
   #f)
 
+(definition checkable-errors?
+  #f)
 
-(definition checkable?
+(definition assertable-mutex?
   #f)
 
 
 (macro public (opengl-external signature . rest)
-  (if (and (not tracable?) (not checkable?))
+  (if (and (not tracable?) (not checkable-errors?) (not assertable-mutex?))
       `(c-external ,signature ,@rest)
     (let ((s-name (car signature))
           (params (cdr signature)))
@@ -59,8 +61,17 @@
            (c-external (,s-name ,@params) ,@rest)
            (definition ,unchecked-name ,s-name)
            (set! ,s-name (lambda ,args
+                           ,@(if assertable-mutex?
+                                 `((when (assert-render-mutex?)
+                                     (assert-render-mutex ',s-name)))
+                               '())
                            (let ((result (,unchecked-name ,@args)))
-                             (when (trace-opengl?)
-                               ((trace-opengl) ',s-name (list ,@args) result))
-                             (check-opengl-error ',s-name)
+                             ,@(if tracable?
+                                   `((when (trace-opengl?)
+                                       ((trace-opengl) ',s-name (list ,@args) result)))
+                                 '())
+                             ,@(if checkable-errors?
+                                   `((when (check-opengl-errors?)
+                                       (check-opengl-error ',s-name)))
+                                 '())
                              result)))))))))

@@ -45,6 +45,7 @@
 (import (jazz.component)
         (jazz.math)
         (jazz.opengl.glew)
+        (jazz.opengl.render)
         (jazz.opengl.window.cocoa   (cond cocoa))
         (jazz.opengl.window.windows (cond windows))
         (jazz.opengl.window.x11     (cond x11))
@@ -85,17 +86,19 @@
                             type: 'error)
             (quit))))
 
-      (setup-opengl-window window)
-      (initialize-glew)
-      (when (needs-adjust?)
-        (adjust-opengl-context window needed-major needed-minor)
-        (validate-version))
-      ;; at the moment vsync is a really bad thing as it blocks
-      ;; the thread scheduler by having control remain in C...
-      (disable-vsync window)
-      (with-context-current window
+      (with-render-mutex
         (lambda ()
-          (setup-opengl window))))))
+          (setup-opengl-window window)
+          (initialize-glew)
+          (when (needs-adjust?)
+            (adjust-opengl-context window needed-major needed-minor)
+            (validate-version))
+          ;; at the moment vsync is a really bad thing as it blocks
+          ;; the thread scheduler by having control remain in C...
+          (disable-vsync window)
+          (with-context-current window
+            (lambda ()
+              (setup-opengl window))))))))
 
 
 ;;;
@@ -175,12 +178,14 @@
   
   
   (method public (with-context-current self thunk)
-    (unwind-protect
-        (begin
-          (mutex-lock! context-mutex)
-          (make-context-current self)
-          (thunk)) 
-      (mutex-unlock! context-mutex)))
+    (with-reentrant-render-mutex
+      (lambda ()
+        (unwind-protect
+            (begin
+              (mutex-lock! context-mutex)
+              (make-context-current self)
+              (thunk)) 
+          (mutex-unlock! context-mutex)))))
 
 
   (method override (size-change self state size)
@@ -295,7 +300,9 @@
 
 
   (method public (render-sync self)
-    (swap-buffers handle device))
+    (with-reentrant-render-mutex
+      (lambda ()
+        (swap-buffers handle device))))
 
 
   (method override (scroll-window self delta rect clip-rect)

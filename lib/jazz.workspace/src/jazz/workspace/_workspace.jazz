@@ -113,7 +113,10 @@
   (get-workspace-preferences (current-toplevel)))
 
 (definition public (set-current-workspace-preferences preferences)
-  (set-workspace-preferences (current-toplevel) preferences))
+  (let ((window (current-toplevel)))
+    ;; quick patch
+    (when (is? window Toplevel)
+      (set-workspace-preferences window preferences))))
 
 
 (definition public (get-workspaces-preferences (error?: error? #t))
@@ -912,11 +915,15 @@
       (set-current-workspace-preferences self)
       (set-selected-workspace self)
       (update-status self)
-      (full-screen-stage appl fullscreen?)
+      ;; quick patch
+      (when (is? toplevel Toplevel)
+        (full-screen-stage appl fullscreen?))
       (if (and position size)
           (set-placement toplevel (list 'restored position size))
         (when (get-visible? toplevel)
-          (restore-state toplevel)))
+          ;; quick patch
+          (when (is? toplevel Toplevel)
+            (restore-state toplevel))))
       (let ((current-frame (show-frames visibilities)))
         (update-windowing-actions appl)
         (update-menubar-buttons appl)

@@ -1218,10 +1218,10 @@
 (define (jazz:thread-mutexes thread)
   (declare (not interrupts-enabled))
   (let ((mutexes '()))
-    (let iter ((mutex (%%vector-ref thread 2)) (mutexes '()))
+    (let iter ((mutex (^#vector-ref thread 2)) (mutexes '()))
          (if (%%eq? mutex thread)
              mutexes
-           (iter (%%vector-ref mutex 2) (cons mutex mutexes))))))
+           (iter (^#vector-ref mutex 2) (cons mutex mutexes))))))
 
 
 ;;;

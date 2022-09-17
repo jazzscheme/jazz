@@ -1098,7 +1098,6 @@
 
 
 (native jazz:table-clear)
-(native jazz:iterate-table-safe)
 (native jazz:map-table)
 (native jazz:table-entries)
 

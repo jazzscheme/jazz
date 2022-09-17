@@ -552,7 +552,7 @@
       (begin
         (jazz:feedback "; sweeping binaries...")
         (let ((table (jazz:repository-packages-table jazz:Build-Repository)))
-          (jazz:iterate-table-safe table
+          (jazz:iterate-table table
             (lambda (name package)
               ;; when each repository has its own build repository we can then safely remove the dangling binary package
               (cond ((jazz:find-package name)
@@ -629,7 +629,7 @@
 
 (define (jazz:setup-repository repository)
   (let ((table (jazz:repository-packages-table repository)))
-    (jazz:iterate-table-safe table
+    (jazz:iterate-table table
       (lambda (name package)
         (jazz:setup-package package)))
     #; ;; this removes the randomness of scanning an eq? table

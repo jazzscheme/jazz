@@ -1610,7 +1610,7 @@
           (jazz:sort-list (lambda (x y) (%%string<? (%%symbol->string x) (%%symbol->string y))) (jazz:queue-list queue)))
       ',(let ((walker (jazz:get-module-declaration-walker declaration))
               (queue (jazz:new-queue)))
-          (jazz:iterate-table-safe (jazz:get-public-lookup declaration)
+          (jazz:iterate-table (jazz:get-public-lookup declaration)
             (lambda (name decl)
               (%%when (or (%%eq? (jazz:get-declaration-toplevel decl) declaration)
                           ;; quick hack

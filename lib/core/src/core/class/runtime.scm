@@ -2521,7 +2521,7 @@
     (let iter ((ancestor ascendant))
          (if ancestor
              (begin
-               (jazz:iterate-table-safe (%%get-category-fields ancestor)
+               (jazz:iterate-table (%%get-category-fields ancestor)
                  (lambda (name field)
                    (if (and (%%is? field jazz:Method)
                             (let ((dispatch-type (%%get-method-dispatch-type field)))

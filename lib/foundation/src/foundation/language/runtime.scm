@@ -123,4 +123,5 @@
 ;;;
 
 
-(native jazz:iterate-table))
+(native jazz:iterate-table)
+(native jazz:search-table))

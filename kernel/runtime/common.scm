@@ -359,6 +359,14 @@
 ;;;
 
 
+(define (jazz:iterate-table-unsafe table proc)
+  (%%table-for-each proc table))
+
+
+(define (jazz:search-table-unsafe table proc)
+  (table-search proc table))
+
+
 ;; safe versions of table-for-each and table-search
 
 

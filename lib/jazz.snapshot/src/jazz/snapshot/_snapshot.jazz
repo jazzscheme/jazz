@@ -185,9 +185,13 @@
 (definition snapshot-mutex
   (make-mutex 'snapshot))
 
-(definition protected (with-snapshot-mutex thunk)
+
+(definition snapshot-count
+  0)
+
+(definition protected (get-snapshot-count)
   (mutex-lock! snapshot-mutex)
-  (prog1 (thunk)
+  (prog1 snapshot-count
     (mutex-unlock! snapshot-mutex)))
 
 
@@ -223,6 +227,7 @@
                       (call-with-snapshot-output-file rest
                         (lambda (output . rest)
                           (apply print-process-snapshot continuation output rest)))))
+    (increase! snapshot-count)
     (enable-interrupts!)
     (mutex-unlock! snapshot-mutex)))
 

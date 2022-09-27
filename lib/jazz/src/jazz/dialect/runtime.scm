@@ -1293,7 +1293,7 @@
         (message (jazz:get-allege-message expression)))
     (jazz:bind (yes-environment . no-environment) (jazz:branch-types test environment)
       (let ((expr (jazz:emit-expression expr declaration walker resume yes-environment backend)))
-        (if jazz:debug-user?
+        (if (jazz:get-check? 'types)
             (let ((test (jazz:emit-expression test declaration walker resume environment backend)))
               (jazz:new-code
                 `(if ,(jazz:sourcified-form test)

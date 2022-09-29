@@ -1001,6 +1001,7 @@
 
 (native open-tcp-client)
 (native open-tcp-server)
+(native tcp-client-local-socket-info)
 (native tcp-client-peer-socket-info)
 (native tcp-client-self-socket-info)
 (native tcp-server-socket-info)

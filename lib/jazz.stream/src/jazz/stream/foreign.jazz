@@ -1107,19 +1107,26 @@ typedef struct element_state_struct
     GstElement* element;
     GstState state;
     void* listener;
+    // debugging listener bug
+    int step;
+    int result;
     GThread* thread;
 } element_state;
 
 static void* set_state(void* data)
 {
     element_state* es = (element_state*) data;
+    es->step = 1;
     GstElement* elem = es->element;
     GstState state = es->state;
     void* listener = es->listener;
   
-    gst_element_set_state(elem, state);
+    es->step = 2;
+    es->result = gst_element_set_state(elem, state);
     
+    es->step = 3;
     gst_listener_set(listener);
+    es->step = 4;
   
     return NULL;
 }
@@ -1130,9 +1137,23 @@ static void* gst_element_set_state_threaded(GstElement* elem, GstState state, vo
     es->element = elem;
     es->state = state;
     es->listener = listener;
+    es->step = 0;
+    es->result = -1;
     es->thread = g_thread_new("set_state", set_state, (void*) es);
     
     return (void*) es;
+}
+
+static int gst_element_set_state_step(void* data)
+{
+    element_state* es = (element_state*) data;
+    return es->step;
+}
+
+static int gst_element_set_state_result(void* data)
+{
+    element_state* es = (element_state*) data;
+    return es->result;
 }
 
 static void gst_element_set_state_free(void* data)
@@ -3160,6 +3181,8 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_adapter_prev_pts GstAdapter* scheme-object) GstClockTime "gst_adapter_prev_pts_aux")
 (gst-external (gst_adapter_take_buffer GstAdapter* gsize) GstBuffer*)
 (gst-external (gst_element_set_state_threaded GstElement* GstState void*) :alloc void*)
+(gst-external (gst_element_set_state_step void*) int)
+(gst-external (gst_element_set_state_result void*) int)
 (gst-external (gst_element_set_state_free void*) :free void)
 (gst-external (gst_element_set_state_blocking GstElement* GstState) GstStateChangeReturn)
 (gst-external (gst_element_sync_state_with_parent GstElement*) :gboolean)
@@ -3356,6 +3379,12 @@ static void gst_print_messages(GstPipeline* pipeline)
                   #f
                 (proc c)
                 #t))
+          ;; debugging listener bug
+          (let ((c (wait-timeout listener 10)))
+            (if (eof-object? c)
+                (error "Timeout calling set-state at step {a} ({a})" (gst_element_set_state_step data) (gst_element_set_state_result data))
+              (proc c)))
+          @w
           (proc (wait listener))))
       
       (waiting

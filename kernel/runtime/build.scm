@@ -567,12 +567,21 @@
       (define (prepare-bundle rebuild?)
         (if (and bundle (eq? windowing 'cocoa) (not library-image?))
             (let ((bundle-default-src (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "/")))
+                  (bundle-prod-src (and (%%memq 'prod features) (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "_prod" "/"))))
+                  (bundle-test-src (and (%%memq 'test features) (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "_test" "/"))))
                   (bundle-triage-src (and (%%memq 'triage features) (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "_triage" "/"))))
                   (bundle-dst (build-file (%%string-append bundle ".app" "/"))))
-              (let ((bundle-src (if (and bundle-triage-src
-                                         (file-exists? bundle-triage-src))
-                                    bundle-triage-src
-                                  bundle-default-src)))
+              (let ((bundle-src (cond ((and bundle-prod-src
+                                            (file-exists? bundle-prod-src))
+                                       bundle-prod-src)
+                                      ((and bundle-test-src
+                                            (file-exists? bundle-test-src))
+                                       bundle-test-src)
+                                      ((and bundle-triage-src
+                                            (file-exists? bundle-triage-src))
+                                       bundle-triage-src)
+                                      (else
+                                       bundle-default-src))))
                 (if (or rebuild?
                         (not (file-exists? bundle-dst)))
                     (begin

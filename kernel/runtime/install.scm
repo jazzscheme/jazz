@@ -53,6 +53,7 @@
    
    (define CSIDL_PERSONAL          5)
    (define CSIDL_DESKTOPDIRECTORY 16)
+   (define CSIDL_APPDATA          26)
    (define CSIDL_LOCAL_APPDATA    28)
    (define CSIDL_PROGRAM_FILES    38)
    

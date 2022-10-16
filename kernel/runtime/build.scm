@@ -804,9 +804,23 @@
           ((windows)
            (let ()
              (define (split resources rcname)
-               (let ((rc (%%string-append rcname ".rc"))
-                     (res (%%string-append (jazz:pathname-normalize (product-file "")) product-name "res.o")))
-                 (proc resources rc res)))
+               (let ((resources-prod (and (%%memq 'prod features) (%%string-append resources "_prod")))
+                     (resources-test (and (%%memq 'test features) (%%string-append resources "_test")))
+                     (resources-triage (and (%%memq 'triage features) (%%string-append resources "_triage"))))
+                 (let ((resources (cond ((and resources-prod
+                                              (file-exists? resources-prod))
+                                         resources-prod)
+                                        ((and resources-test
+                                              (file-exists? resources-test))
+                                         resources-test)
+                                        ((and resources-triage
+                                              (file-exists? resources-triage))
+                                         resources-triage)
+                                        (else
+                                         resources))))
+                   (let ((rc (%%string-append rcname ".rc"))
+                         (res (%%string-append (jazz:pathname-normalize (product-file "")) product-name "res.o")))
+                     (proc resources rc res)))))
              
              (if resources
                  (split (jazz:package-pathname (%%get-product-package (jazz:get-product product)) resources) product-name)

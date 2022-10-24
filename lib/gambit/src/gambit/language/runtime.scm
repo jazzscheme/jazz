@@ -1014,6 +1014,14 @@
 
 
 ;;;
+;;;; TLS
+;;;
+
+
+(native make-tls-context)
+
+
+;;;
 ;;;; Thread
 ;;;
 

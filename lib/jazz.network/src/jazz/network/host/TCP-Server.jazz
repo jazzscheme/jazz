@@ -49,6 +49,7 @@
   (slot host                                   getter generate)
   (slot service                                getter generate)
   (slot alternate-service                      getter generate)
+  (slot eol-encoding                           getter generate)
   (slot socket-info                            getter generate)
   (slot server-port        initialize #f       accessors generate)
   (slot server-thread)
@@ -62,12 +63,13 @@
   
   
   (method override (initialize self . rest)
-    (bind-keywords ((name #f) (host #f) (service #f) (alternate-service #f) (debug? #f) (reuse-address? #t) (connection-handler #f)) rest
+    (bind-keywords ((name #f) (host #f) (service #f) (alternate-service #f) (eol-encoding 'cr-lf) (debug? #f) (reuse-address? #t) (connection-handler #f)) rest
       (nextmethod self)
       (set! self.name name)
       (set! self.host host)
       (set! self.service service)
       (set! self.alternate-service alternate-service)
+      (set! self.eol-encoding eol-encoding)
       (set! self.socket-info #f)
       (set! self.server-thread #f)
       (set! self.started-mutex (make-mutex 'started))
@@ -208,10 +210,10 @@
                   (lambda (exc)
                     (values #f exc))
                   (lambda ()
-                    (values (open-tcp-server (list server-address: address port-number: (resolve-service alternate-service) eol-encoding: 'cr-lf reuse-address: reuse-address? readtable: (connection-readtable self) keep-alive: #t)) #f)))
+                    (values (open-tcp-server (list server-address: address port-number: (resolve-service alternate-service) eol-encoding: eol-encoding reuse-address: reuse-address? readtable: (connection-readtable self) keep-alive: #t)) #f)))
               (values #f exc)))
           (lambda ()
-            (values (open-tcp-server (list server-address: address port-number: (resolve-service service) eol-encoding: 'cr-lf reuse-address: reuse-address? readtable: (connection-readtable self) keep-alive: #t)) #f))))
+            (values (open-tcp-server (list server-address: address port-number: (resolve-service service) eol-encoding: eol-encoding reuse-address: reuse-address? readtable: (connection-readtable self) keep-alive: #t)) #f))))
       
       (define (robust-close-connection port)
         (catch-exception-filter

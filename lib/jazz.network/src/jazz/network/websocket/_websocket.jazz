@@ -114,9 +114,21 @@
 
   
   (method override (accept-connection self port)
-    (let ((key (read-handshake self port)))
-      (write-handshake self key port)
-      (process-connection self port)))
+    (continuation-capture
+      (lambda (exit)
+        (let ((key (with-exception-catcher
+                     (lambda (exc)
+                       (terminal 'read-handshake 'exception exc (exception-reason exc))
+                       (continuation-return exit #f))
+                     (lambda ()
+                       (read-handshake self port)))))
+          (with-exception-catcher
+            (lambda (exc)
+              (terminal 'write-handshake 'exception exc (exception-reason exc))
+              (continuation-return exit #f))
+            (lambda ()
+              (write-handshake self key port)))
+          (process-connection self port)))))
   
   
   (method (accept self key)
@@ -186,7 +198,7 @@
       data))
 
 
-  (method public (read-frame self total-size port)
+  (method (read-frame-unsafe self total-size port)
     (let ((b0 (read-u8 port)))
       (if (eof-object? b0)
           b0
@@ -239,9 +251,18 @@
                      frame-fin frame-optype))
                   (else
                    (signal 'unhandled-optype))))))))))
+  
+  
+  (method public (read-frame self total-size port)
+    (with-exception-catcher
+      (lambda (exc)
+        (terminal 'read-frame 'exception exc (exception-reason exc))
+        (eof-object))
+      (lambda ()
+        (read-frame-unsafe self total-size port))))
 
 
-  (method public (write-frame self optype data last-frame port)
+  (method (write-frame-unsafe self optype data last-frame port)
     (define (write-u8vector vec port)
       (write-subu8vector vec 0 (u8vector-length vec) port))
     
@@ -288,4 +309,12 @@
           (write-substring data 0 len port)
         (write-subu8vector data 0 len port))
       
-      (force-output port)))))
+      (force-output port)))
+
+
+  (method public (write-frame self optype data last-frame port)
+    (with-exception-catcher
+      (lambda (exc)
+        (terminal 'write-frame 'exception exc (exception-reason exc)))
+      (lambda ()
+        (write-frame-unsafe self optype data last-frame port))))))

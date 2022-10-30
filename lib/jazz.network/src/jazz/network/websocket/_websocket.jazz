@@ -40,7 +40,8 @@
 
 (import (base64)
         (jazz.network)
-        (jazz.network.websocket.foreign))
+        (jazz.network.websocket.foreign)
+        (jazz.settings))
 
 
 (definition max-frame-size (make-parameter 1048576)) ; 1MiB
@@ -60,13 +61,33 @@
 
 (definition (optype->opcode t)
   (case t
-    ('continuation 0)
-    ('text 1)
-    ('binary 2)
-    ('connection-close 8)
-    ('ping 9)
-    ('pong 10)
+    ((continuation) 0)
+    ((text) 1)
+    ((binary) 2)
+    ((connection-close) 8)
+    ((ping) 9)
+    ((pong) 10)
     (else (signal 'invalid-optype))))
+
+
+(definition protected websocket-debug?
+  (find-setting 'jazz.websocket.debug? #f))
+
+(definition protected websocket-trace?
+  (find-setting 'jazz.websocket.trace? #f))
+
+
+(definition (websocket-exception? exc)
+  #t)
+
+
+(definition (with-safe-websocket catcher thunk)
+  (if websocket-debug?
+      (thunk)
+    (handle-exception-filter
+      websocket-exception?
+      catcher
+      thunk)))
 
 
 ;;;
@@ -107,24 +128,28 @@
 
 
 (class WebSocket-Server extends TCP-Server
+  
+  
+  (slot problem getter generate)
     
   
-  (method override (initialize self . rest)
-    (apply nextmethod self eol-encoding: 'lf rest))
+  (method override (initialize self problem . rest)
+    (apply nextmethod self eol-encoding: 'cr-lf rest)
+    (set! self.problem problem))
 
   
   (method override (accept-connection self port)
     (continuation-capture
       (lambda (exit)
-        (let ((key (with-exception-catcher
+        (let ((key (with-safe-websocket
                      (lambda (exc)
-                       (terminal 'read-handshake 'exception exc (exception-reason exc))
+                       (problem "read-handshake exception: {a}" (exception-reason exc))
                        (continuation-return exit #f))
                      (lambda ()
                        (read-handshake self port)))))
-          (with-exception-catcher
+          (with-safe-websocket
             (lambda (exc)
-              (terminal 'write-handshake 'exception exc (exception-reason exc))
+              (problem "write-handshake exception: {a}" (exception-reason exc))
               (continuation-return exit #f))
             (lambda ()
               (write-handshake self key port)))
@@ -145,10 +170,12 @@
         (let ((header (read-line port)))
           (define (extract name)
             (if (starts-with? header name)
-                (substring header (string-length name) (- (string-length header) 1))
+                (substring header (string-length name) (string-length header))
               #f))
           
-          (if (equal? header "\r")
+          (when websocket-trace?
+            (terminal header))
+          (if (equal? header "")
               key
             (cond ((extract "Sec-WebSocket-Key: ")
                    => (lambda (value)
@@ -158,6 +185,8 @@
 
   (method (write-handshake self key port)
     (define (write header)
+      (when websocket-trace?
+        (terminal header))
       (format port "{a}{%}" header))
     
     (let ((accept (accept self key)))
@@ -254,9 +283,9 @@
   
   
   (method public (read-frame self total-size port)
-    (with-exception-catcher
+    (with-safe-websocket
       (lambda (exc)
-        (terminal 'read-frame 'exception exc (exception-reason exc))
+        (problem "read-frame exception: {a}" (exception-reason exc))
         (eof-object))
       (lambda ()
         (read-frame-unsafe self total-size port))))
@@ -313,8 +342,8 @@
 
 
   (method public (write-frame self optype data last-frame port)
-    (with-exception-catcher
+    (with-safe-websocket
       (lambda (exc)
-        (terminal 'write-frame 'exception exc (exception-reason exc)))
+        (problem "write-frame exception: {a}" (exception-reason exc)))
       (lambda ()
         (write-frame-unsafe self optype data last-frame port))))))

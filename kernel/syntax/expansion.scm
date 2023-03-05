@@ -38,10 +38,36 @@
 (block kernel.expansion
 
 
+;; bongo
+(define ##gensym-interned-counter
+  -1)
+
+(define (##gensym-interned #!optional (p #f))
+  (let ((prefix
+         (if (##eq? p #f)
+             'g
+             p)))
+    (let ((new-count
+            (##fxmodulo
+              (##fx+ ##gensym-interned-counter 1)
+              1000000)))
+      ;; Note: it is unimportant if the increment of ##gensym-interned-counter
+      ;; is not atomic; it simply means a possible close repetition
+      ;; of the same name
+      (set! ##gensym-interned-counter new-count)
+      (##string->symbol
+        (if (##eq? prefix 'g)
+            new-count ;; ##symbol->string will create the string
+          (##string-append (##symbol->string prefix)
+            (##number->string new-count 10)))))))
+
+
+
 (define (jazz:generate-symbol #!optional (prefix "sym"))
   (let ((for (jazz:generate-symbol-for)))
     (let ((name (string-append prefix (or for "^"))))
-      (##gensym (##string->uninterned-symbol name)))))
+      ;; bongo was ##gensym and ##string->uninterned-symbol
+      (##gensym-interned (##string->symbol name)))))
 
 
 (define (jazz:generate-global-symbol #!optional (prefix "sym"))
@@ -53,8 +79,9 @@
            (error "Invalid call to generate-global-symbol without a context"))
           (else
            (let ((module (jazz:string-replace (symbol->string context) #\. #\/)))
-             (let ((name (%%string-append module "_" prefix for)))
-               (##gensym (##string->uninterned-symbol name))))))))
+             (let ((name (##string-append module "_" prefix for)))
+               ;; bongo was ##gensym and ##string->uninterned-symbol
+               (##gensym-interned (##string->symbol name))))))))
 
 
 (define (jazz:with-uniqueness expr proc)

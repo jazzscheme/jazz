@@ -943,7 +943,8 @@
 (jazz:define-synto (%%remove elem lst)
   (%%force-uniqueness (elem lst)
     `(%%check-list ,lst 2 (%%remove ,elem ,lst)
-       (^#remove ,elem ,lst))))
+       ;; bongo
+       (^#remq ,elem ,lst))))
 
 (jazz:define-synto (%%reverse lst)
   (if jazz:debug-core?

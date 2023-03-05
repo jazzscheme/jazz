@@ -8,6 +8,9 @@
 
 (unit protected gambit.walk.implementation
 
+;; bongo
+#; (
+
 (declare (standard-bindings)
          (extended-bindings)
          (not safe)
@@ -92,7 +95,7 @@ end-of-code
 ;;;
 
 (define (##new-register)
-  (##make-table 0 #f #f #f ##eq?))
+  (##make-table test: ##eq?))
 
 (define (##register-ref table key default)
   (##table-ref table key default))
@@ -368,7 +371,7 @@ end-of-code
             (walk container i obj)
           (macro-walk-continue)))))
   
-  ;(define seen (##make-table 0 #f #f #f ##eq?))
+  ;(define seen (##make-table test: ##eq?))
   ;
   ;(define (visit container i obj)
   ;  (if (##table-ref seen obj #f)
@@ -434,7 +437,7 @@ end-of-code
 
 (define (##make-domain)
   (make-initialized-domain
-   ;(##make-table 0 #f #f #f ##eq?)
+   ;(##make-table test: ##eq?)
    (##new-register)
    0))
 
@@ -703,4 +706,5 @@ end-of-code
 ))
 
 ;(test-walk)
+)
 )

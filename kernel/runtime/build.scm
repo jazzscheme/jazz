@@ -51,6 +51,26 @@
                          ld-options-prelude
                          ld-options
                          options)
+  ;; bongo
+  (##gambuild 'C
+              op
+              output-dir
+              (%%memq 'verbose options)
+              (##gambuild-params
+                #f ;; bongo ;; base-library
+                (##map (lambda (path) (##path-relative-to-dir path output-dir))
+                       input-filenames)
+                ;; input-filenames
+                output-filename
+                #f ;; bongo ;; cc
+                cc-options
+                ld-options-prelude
+                ld-options
+                #f ;; bongo ;; pkg-config
+                #f ;; bongo ;; pkg-config-path
+                #f ;; bongo ;; meta-info-file
+                ))
+  #; ;; bongo
   (if (jazz:gambitjazz?)
       (##gambcomp 'C
                   op
@@ -1358,7 +1378,8 @@
           (define (build-library)
             (jazz:load/create-build-package package)
             (jazz:make-static-loader loader-s product-name sub-units)
-            (compile-file-to-target loader-s output: loader-c module-name: loader-name)
+            ;; bongo
+            (compile-file-to-target loader-s output: loader-c options: (list (list 'module-ref loader-name)))
             (compile-file loader-c options: '(obj) cc-options: "-D___DYNAMIC ")
             
             (jazz:call-process

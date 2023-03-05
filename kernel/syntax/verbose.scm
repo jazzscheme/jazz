@@ -38,6 +38,16 @@
 (##actlog-stop)
 
 
+;; bongo
+(define ##get-current-monotonic-time!
+  (let ((u64vec (^#u64vector 0))
+        (nanosecond (exact->inexact (expt 10 9))))
+    (lambda (floats i)
+      (##get-monotonic-time! u64vec 0)
+      (let ((time (exact->inexact (^#u64vector-ref u64vec 0))))
+        (^#f64vector-set! floats i (/ time nanosecond))))))
+
+
 ;;;
 ;;;; Time
 ;;;

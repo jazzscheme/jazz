@@ -1383,13 +1383,22 @@
   (##udp-socket-receive-buffer-size port))
 
 (define (jazz:udp-socket-receive-buffer-size-set! port size)
+  #f
+  ;; bongo
+  #;
   (##udp-socket-receive-buffer-size-set! port size))
 
 (define (jazz:udp-socket-send-buffer-size port)
   (##udp-socket-send-buffer-size port))
 
 (define (jazz:udp-socket-send-buffer-size-set! port size)
+  #f
+  ;; bongo
+  #;
   (##udp-socket-send-buffer-size-set! port size))
 
 (define (jazz:udp-socket-send-again-count port)
+  0
+  ;; bongo
+  #;
   (##udp-socket-send-again-count port)))

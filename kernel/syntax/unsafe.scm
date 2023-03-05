@@ -300,7 +300,8 @@
 (jazz:define-unsafe ^#readtable-copy)
 (jazz:define-unsafe ^#readtable?)
 (jazz:define-unsafe ^#real?)
-(jazz:define-unsafe ^#remove)
+;; bongo
+(jazz:define-unsafe ^#remq)
 (jazz:define-unsafe ^#repl)
 (jazz:define-unsafe ^#repl-channel-result-history-add)
 (jazz:define-unsafe ^#repl-debug)

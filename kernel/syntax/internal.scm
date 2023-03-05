@@ -86,7 +86,8 @@
 
 
 (define (jazz:compiler-present?)
-  (jazz:global-bound? '##gambcomp))
+  ;; bongo
+  (jazz:global-bound? '##gambuild))
 
 
 ;;;
@@ -257,7 +258,8 @@
 
 
 (define (jazz:load-required-module module-ref)
-  (##load-required-module module-ref))
+  ;; bongo was ##load-required-module
+  (##load-module module-ref))
 
 (define (jazz:load-object-file pathname quiet?)
   (jazz:check-string pathname 1 (jazz:load-object-file pathname quiet?)
@@ -268,6 +270,9 @@
     (##vector-ref result 0)))
 
 (define (jazz:register-module-descrs-and-load! module-descrs)
+  ;; bongo
+  (jazz:error "unimplemented")
+  #;
   (##register-module-descrs-and-load! module-descrs))
 
 

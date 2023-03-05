@@ -2850,7 +2850,9 @@
 
 (%%wr-set!
   (lambda (we obj)
-    (cond ((and (%%not (%%jazz? obj)) (%%record? obj))
+    (cond ((%%eq? (jazz:writeenv-style we) 'mark)
+           (%%default-wr we obj))
+          ((and (%%not (%%jazz? obj)) (%%record? obj))
            (%%default-wr we (jazz:record->vector obj)))
           ((and (%%jazz? obj) jazz:print-hook)
            (jazz:print-hook obj (jazz:writeenv-port we) (jazz:writeenv-style we)))

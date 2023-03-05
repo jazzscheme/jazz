@@ -236,7 +236,8 @@
   (let ((cache (make-table test: eq?)))
     (lambda (custom-cc)
       (or (%%table-ref cache custom-cc #f)
-          (let ((path (%%string-append (%%path-expand "~~bin") "gambcomp-C" jazz:os-bat-extension-string-saved)))
+          ;; bongo
+          (let ((path (%%string-append (%%path-expand "~~bin") "gambuild-C" jazz:os-bat-extension-string-saved)))
             (define (read-info argument)
               (let ((port (open-process (list path: path arguments: (list argument)))))
                 (let ((info (jazz:remove "" (jazz:split-string (read-line port) #\space) test: equal?)))
@@ -338,16 +339,22 @@
     (path-expand "~~ios/include"))
   
   (define (compile)
-    (let ((unique-module-name (%%string-append jazz:bin-uniqueness-prefix (%%symbol->string unit-name)))
+    ;; bongo
+    (let ((unique-module-name (%%string->symbol (%%string-append jazz:bin-uniqueness-prefix (%%symbol->string unit-name))))
           (src-pathname (jazz:resource-pathname src))
           (bin-output (string-append bin-pathname-base bin-extension))
           (link-file-output (string-append bin-pathname-base "_" bin-extension)))
       (parameterize ((jazz:generate-symbol-for "^")
                      (jazz:generate-symbol-context unit-name)
                      (jazz:compiled-source src))
+        ;; bongo
+        (define (add-module-ref options)
+          (cons (list 'module-ref unique-module-name) options))
+        
         ;; temporary until a cleaner solution
         (jazz:set-gensym-counter! -1)
-        (if (not (and (compile-file-to-target src-pathname output: bin-output options: options module-name: unique-module-name)
+        ;; bongo
+        (if (not (and (compile-file-to-target src-pathname output: bin-output options: (add-module-ref options))
                       (if ios?
                           (let ((custom-cc-options ios-custom-cc-options))
                             (jazz:call-process

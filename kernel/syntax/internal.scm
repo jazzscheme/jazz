@@ -76,6 +76,9 @@
 (cond-expand
   (mac
    (define (jazz:use-dlclose)
+     #f
+     ;; bongo
+     #;
      (##use-dlclose)))
   (else))
 

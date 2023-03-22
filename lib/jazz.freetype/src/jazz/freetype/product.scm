@@ -44,7 +44,15 @@
 
 
 (cond-expand
-  (cocoa
+  (silicon
+    (define jazz:freetype-flags
+      (let ((freetype-include-path (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/silicon/freetype/include"))
+            (freetype-lib-path     (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/silicon/freetype/lib"))
+            (png-lib-path          (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/silicon/png/lib")))
+        (let ((cc-flags (string-append "-I" freetype-include-path))
+              (ld-flags (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype.6")))
+          (list cc-flags ld-flags)))))
+  (mac
     (define jazz:freetype-flags
       (let ((freetype-include-path (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/include"))
             (freetype-lib-path     (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
@@ -75,7 +83,10 @@
 
 
 (cond-expand
-  (cocoa
+  (silicon
+   (define jazz:platform-files
+     (list (cons "lib/jazz.freetype/foreign/silicon/freetype/lib/libfreetype.6.dylib" "Libraries/libfreetype.6.dylib"))))
+  (mac
    (define jazz:platform-files
      (list (cons "lib/jazz.freetype/foreign/mac/freetype/lib/libfreetype.6.dylib" "Libraries/libfreetype.6.dylib"))))
   (windows
@@ -112,7 +123,11 @@
 
 (define (jazz:freetype-library-options descriptor add-language)
   (cond-expand
-    (cocoa
+    (silicon
+      (let ((freetype-lib-path (jazz:jazz-pathname "lib/jazz.freetype/foreign/silicon/freetype/lib"))
+            (png-lib-path (jazz:jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
+        (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype.6")))
+    (mac
       (let ((freetype-lib-path (jazz:jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
             (png-lib-path (jazz:jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
         (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype.6")))

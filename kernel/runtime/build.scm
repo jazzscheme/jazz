@@ -942,16 +942,31 @@
                  (list
                    path: "install_name_tool"
                    arguments: `("-add_rpath" "@executable_path/Libraries" ,(image-file))))
+               ;; add gstreamer quick hack around install_name_tool to many open files
+               (jazz:call-process
+                 (list
+                   path: "install_name_tool"
+                   arguments: `("-add_rpath" "@executable_path/Libraries/gstreamer" ,(image-file))))
                (if (and bundle (not library-image?))
                    (begin
                      (jazz:call-process
                        (list
                          path: "install_name_tool"
                          arguments: `("-add_rpath" "@executable_path/../Libraries" ,(image-file))))
+                     ;; add gstreamer quick hack around install_name_tool to many open files
                      (jazz:call-process
                        (list
                          path: "install_name_tool"
-                         arguments: `("-add_rpath" "@executable_path/../../../Libraries" ,(image-file))))))))
+                         arguments: `("-add_rpath" "@executable_path/../Libraries/gstreamer" ,(image-file))))
+                     (jazz:call-process
+                       (list
+                         path: "install_name_tool"
+                         arguments: `("-add_rpath" "@executable_path/../../../Libraries" ,(image-file))))
+                     ;; add gstreamer quick hack around install_name_tool to many open files
+                     (jazz:call-process
+                       (list
+                         path: "install_name_tool"
+                         arguments: `("-add_rpath" "@executable_path/../../../Libraries/gstreamer" ,(image-file))))))))
             (let ((id (getenv "JAZZ_APPLE_DEVELOPER_ID" #f)))
               (if id
                   (cond (mac?

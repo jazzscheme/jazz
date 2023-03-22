@@ -55,6 +55,11 @@
                (bind (dirname old-prefix new-prefix) rest
                  (let ((dir (new-directory (current-directory-get) (tokenise-filename dirname))))
                    (relocate-directory dir old-prefix new-prefix))))
+              ;; quick hack around install_name_tool to many open files
+              ((equal? action "directorynameonly")
+               (bind (dirname old-prefix new-prefix) rest
+                 (let ((dir (new-directory (current-directory-get) (tokenise-filename dirname))))
+                   (relocate-directory dir old-prefix new-prefix nameonly?: #t))))
               ((equal? action "file")
                (bind (dirname filename old-prefix new-prefix) rest
                  (let ((dir (new-directory (current-directory-get) (tokenise-filename dirname))))
@@ -77,12 +82,12 @@
                             (error "Unknown relocate action: {a}" action))))))))))))
 
 
-(definition (relocate-directory dir old-prefix new-prefix)
+(definition (relocate-directory dir old-prefix new-prefix (nameonly?: nameonly? #f))
   (let ((executables 0)
         (libraries 0))
     (iterate-directory dir
       (lambda (file)
-        (receive (exe lib) (relocate-file dir file old-prefix new-prefix)
+        (receive (exe lib) (relocate-file dir file old-prefix new-prefix nameonly?: nameonly?)
           (increase! executables exe)
           (increase! libraries lib)))
       files?: #t
@@ -91,7 +96,7 @@
     (format :terminal "relocated {a} executables and {a} libraries{%}" executables libraries)))
 
 
-(definition (relocate-file dir file old-prefix new-prefix)
+(definition (relocate-file dir file old-prefix new-prefix (nameonly?: nameonly? #f))
   (let ((executables 0)
         (libraries 0))
     (define (executable? file)
@@ -111,7 +116,7 @@
                         ((shared? file) (increase! libraries) 'shared)
                         (else #f))))
         (when kind
-          (relocate-subfile dir file kind old-prefix new-prefix))))
+          (relocate-subfile dir file kind old-prefix new-prefix nameonly?: nameonly?))))
     (values executables libraries)))
 
 

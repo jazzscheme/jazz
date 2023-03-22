@@ -47,6 +47,9 @@
   (windows
     (define jazz:opengl-files
       (list (cons "lib/jazz.opengl/foreign/windows/opengl/glew/bin/glew32.dll" "glew32.dll"))))
+  (silicon
+    (define jazz:opengl-files
+      (list (cons "lib/jazz.opengl/foreign/silicon/opengl/glew/lib/libGLEW.dylib" "Libraries/libGLEW.dylib"))))
   (cocoa
     (define jazz:opengl-files
       (list (cons "lib/jazz.opengl/foreign/mac/opengl/glew/lib/libGLEW.dylib" "Libraries/libGLEW.dylib"))))
@@ -80,6 +83,12 @@
           (jazz.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglew32"))
           (jazz.opengl.glew.windows cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglew32"))
           (jazz.opengl.platform.windows cc-options: "-DUNICODE" ld-options: "-mwindows -lopengl32")))))
+  (silicon
+    (define jazz:opengl-units
+      (let ((glew-include-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/silicon/opengl/glew/include"))
+            (glew-lib-path     (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/silicon/opengl/glew/lib")))
+        `((jazz.opengl.glew.foreign cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" glew-include-path)) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))
+          (jazz.opengl.glew.header cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" glew-include-path)) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))))))
   (cocoa
     (define jazz:opengl-units
       (let ((glew-include-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/include"))
@@ -112,6 +121,9 @@
     (windows
       (let ((glew-lib-path (jazz:jazz-pathname "lib/jazz.opengl/foreign/windows/opengl/glew/lib")))
         (list (string-append "-L" glew-lib-path) "-lopengl32" "-lglew32" "-mwindows")))
+    (silicon
+      (let ((glew-lib-path (jazz:jazz-pathname "lib/jazz.opengl/foreign/silicon/opengl/glew/lib")))
+        (list (string-append "-L" glew-lib-path) "-framework" "OpenGL" "-lGLEW")))
     (cocoa
       (let ((glew-lib-path (jazz:jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/lib")))
         (list (string-append "-L" glew-lib-path) "-framework" "OpenGL" "-lGLEW")))

@@ -417,8 +417,10 @@
                                     path: ios-custom-cc
                                     arguments: `(,@custom-cc-options ,(%%string-append "-I" ios-gambit-include-dir) "-D___DYNAMIC" "-c" "-o" ,(string-append output name ".o") ,dst))))
                             (let ((cc-options (case platform
-                                                  ((mac) "-D___DYNAMIC -mmacosx-version-min=10.12")
-                                                  (else "-D___DYNAMIC"))))
+                                                ((mac) (case processor
+                                                         ((silicon) "-D___DYNAMIC -mmacosx-version-min=11")
+                                                         (else "-D___DYNAMIC -mmacosx-version-min=10.12")))
+                                                (else "-D___DYNAMIC"))))
                               ;; reduce long compilation time for purely syntactic files
                               (let ((cc-options (if (or (equal? name "primitives")
                                                         (equal? name "unsafe"))
@@ -855,7 +857,9 @@
                  '("-mconsole")
                '("-mwindows")))
             ((mac)
-             '("-headerpad_max_install_names" "-mmacosx-version-min=10.12"))
+             (case processor
+               ((silicon) '("-headerpad_max_install_names" "-mmacosx-version-min=11"))
+               (else '("-headerpad_max_install_names" "-mmacosx-version-min=10.12"))))
             (else
              '()))))
       

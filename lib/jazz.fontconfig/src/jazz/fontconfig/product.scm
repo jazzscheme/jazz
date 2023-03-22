@@ -44,7 +44,18 @@
 
 
 (cond-expand
-  (cocoa
+  (silicon
+    (define jazz:fontconfig-flags
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/silicon/fontconfig/include"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/silicon/fontconfig/lib"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/silicon/freetype/include"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/silicon/freetype/lib"))
+            (png-include-path        (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/silicon/png/include"))
+            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/silicon/png/lib")))
+        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
+              (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
+          (list cc-flags ld-flags)))))
+  (mac
     (define jazz:fontconfig-flags
       (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/include"))
             (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/lib"))
@@ -86,7 +97,10 @@
 
 
 (cond-expand
-  (cocoa
+  (silicon
+   (define jazz:platform-files
+     (list (cons "lib/jazz.fontconfig/foreign/silicon/fontconfig/lib/libfontconfig.1.dylib" "Libraries/libfontconfig.1.dylib"))))
+  (mac
    (define jazz:platform-files
      (list (cons "lib/jazz.fontconfig/foreign/mac/fontconfig/lib/libfontconfig.1.dylib" "Libraries/libfontconfig.1.dylib"))))
   (windows
@@ -122,7 +136,12 @@
 
 (define (jazz:fontconfig-library-options descriptor add-language)
   (cond-expand
-    (cocoa
+    (silicon
+      (let ((fontconfig-lib-path     (jazz:jazz-pathname "lib/jazz.fontconfig/foreign/silicon/fontconfig/lib"))
+            (freetype-lib-path       (jazz:jazz-pathname "lib/jazz.freetype/foreign/silicon/freetype/lib"))
+            (png-lib-path            (jazz:jazz-pathname "lib/jazz.cairo/foreign/silicon/png/lib")))
+        (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
+    (mac
       (let ((fontconfig-lib-path     (jazz:jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/lib"))
             (freetype-lib-path       (jazz:jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
             (png-lib-path            (jazz:jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))

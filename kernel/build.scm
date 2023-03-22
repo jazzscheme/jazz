@@ -270,7 +270,7 @@
          (system (jazz:validate-system (jazz:require-system system template)))
          (platform (jazz:validate-platform (jazz:require-platform platform template)))
          (compiler (jazz:validate-compiler (jazz:require-compiler platform compiler template)))
-         (processor (jazz:validate-processor (jazz:require-processor processor template)))
+         (processor (jazz:validate-processor (jazz:require-processor platform processor template)))
          (windowing (jazz:validate-windowing (jazz:require-windowing platform windowing template)))
          (safety (jazz:validate-safety (jazz:require-safety safety template)))
          (optimize? (jazz:validate-optimize? (jazz:require-optimize? optimize? template)))
@@ -703,15 +703,21 @@
 (define jazz:valid-processors
   '(#f
     x86
-    arm))
+    arm
+    silicon))
 
 
-(define (jazz:guess-processor)
-  #f)
+(define (jazz:guess-processor platform)
+  (if (eq? platform 'mac)
+      (let ((processor (car (system-type))))
+        (if (eq? processor 'arm)
+            'silicon
+          #f))
+    #f))
 
 
-(define (jazz:require-processor processor template)
-  (jazz:or-option processor (jazz:get-configuration-processor template) (jazz:default-processor) (jazz:guess-processor)))
+(define (jazz:require-processor platform processor template)
+  (jazz:or-option processor (jazz:get-configuration-processor template) (jazz:default-processor) (jazz:guess-processor platform)))
 
 
 (define (jazz:validate-processor processor)

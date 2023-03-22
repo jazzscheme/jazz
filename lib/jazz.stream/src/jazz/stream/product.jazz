@@ -95,6 +95,19 @@
 ;; $ pkg-config --libs gstreamer-1.0 gstreamer-app-1.0 gstreamer-pbutils-1.0
 
 (cond-expand
+  (silicon
+   (define (stream-flags)
+     (if gstreamer-source
+         (let ((cc-flags (string-append "-DG_LOG_DOMAIN=\"GStreamer\" " gstreamer-cflags))
+               (ld-flags gstreamer-libs))
+           (list (add-no-omit-frame-pointer (patch-mac-ld-warnings cc-flags)) ld-flags))
+       (let ((gstreamer-include-path (quote-jazz-pathname "lib/jazz.stream/foreign/silicon/gstreamer/gstreamer/include/gstreamer-1.0"))
+             (glib-include-path      (quote-jazz-pathname "lib/jazz.stream/foreign/silicon/gstreamer/gstreamer/include/glib-2.0"))
+             (glib-lib-include-path  (quote-jazz-pathname "lib/jazz.stream/foreign/silicon/gstreamer/gstreamer/lib/glib-2.0/include"))
+             (gstreamer-lib-path     (quote-jazz-pathname "lib/jazz.stream/foreign/silicon/gstreamer/gstreamer/lib")))
+         (let ((cc-flags (string-append "-D_REENTRANT -DG_LOG_DOMAIN=\"GStreamer\" -fno-omit-frame-pointer -I" gstreamer-include-path " -I" glib-include-path " -I" glib-lib-include-path))
+               (ld-flags (string-append "-L" gstreamer-lib-path " -lgstapp-1.0.0 -lgstaudio-1.0.0 -lgstbase-1.0.0 -lgstpbutils-1.0.0 -lgstreamer-1.0.0 -lgobject-2.0.0 -lglib-2.0.0 -lintl.8 -Wl,-framework -Wl,CoreFoundation")))
+           (list (add-no-omit-frame-pointer (patch-mac-ld-warnings cc-flags)) ld-flags))))))
   (cocoa
    (define (stream-flags)
      (if gstreamer-source
@@ -143,6 +156,20 @@
 
 
 (cond-expand
+  (silicon
+   (define (copy-platform-files)
+     (let ((src-dir {Directory Jazz "lib" "jazz.stream" "foreign" "silicon" "gstreamer" "gstreamer"})
+           (dst-dir {Directory Libraries "gstreamer"}))
+       (define (install-dirname path (src #f) (dst #f))
+         (let ((src (new-directory src-dir (or src path)))
+               (dst (new-directory dst-dir (or dst path))))
+           (install-directory src dst
+             feedback: (lambda (action pathname)
+                         (build-feedback "; {a} {a}..." action (get-name pathname))))))
+       
+       (initialize-aliases)
+       (install-dirname "bin")
+       (install-dirname "lib"))))
   (cocoa
    (define (copy-platform-files)
      (let ((src-dir {Directory Jazz "lib" "jazz.stream" "foreign" "mac" "gstreamer" "gstreamer"})
@@ -208,6 +235,9 @@
 
 (define (stream-library-options descriptor add-language)
   (cond-expand
+    (silicon
+     (let ((gstreamer-lib-path (quote-jazz-pathname "lib/jazz.stream/foreign/silicon/gstreamer/gstreamer/lib")))
+       (string-append "-L" gstreamer-lib-path " -lgstapp-1.0.0 -lgstaudio-1.0.0 -lgstbase-1.0.0 -lgstpbutils-1.0.0 -lgstreamer-1.0.0 -lgobject-2.0.0 -lglib-2.0.0 -lintl.8 -Wl,-framework -Wl,CoreFoundation")))
     (cocoa
      (let ((gstreamer-lib-path (quote-jazz-pathname "lib/jazz.stream/foreign/mac/gstreamer/gstreamer/lib")))
        (string-append "-L" gstreamer-lib-path " -lgstapp-1.0.0 -lgstaudio-1.0.0 -lgstbase-1.0.0 -lgstpbutils-1.0.0 -lgstreamer-1.0.0 -lgobject-2.0.0 -lglib-2.0.0 -lintl.8 -Wl,-framework -Wl,CoreFoundation")))

@@ -2709,6 +2709,59 @@ int platformGetSwapInterval()
 
 
 ;;;
+;;;; Platform Metal
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+#import <Metal/Metal.h>
+#import <QuartzCore/CAMetalLayer.h>
+
+id<MTLCommandQueue> queue;
+CAMetalLayer *layer;
+MTLClearColor color;
+
+void platformMakeWindowMetal(PlatformWindow* window)
+{
+    NSWindow* nswindow = window->object;
+    NSView* view = window->view;
+  
+    const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    queue = [device newCommandQueue];
+    layer = [CAMetalLayer layer];
+    layer.device = device;
+    layer.opaque = YES;
+
+    view.layer = layer;
+    view.wantsLayer = YES;
+    
+    color = MTLClearColorMake(0, 0, 1, 1);
+}
+
+void platformRenderMetal(PlatformWindow* window)
+{
+    @autoreleasepool {
+        id<CAMetalDrawable> surface = [layer nextDrawable];
+
+        MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+        pass.colorAttachments[0].clearColor = color;
+        pass.colorAttachments[0].loadAction  = MTLLoadActionClear;
+        pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+        pass.colorAttachments[0].texture = surface.texture;
+
+        id<MTLCommandBuffer> buffer = [queue commandBuffer];
+        id<MTLRenderCommandEncoder> encoder = [buffer renderCommandEncoderWithDescriptor:pass];
+        [encoder endEncoding];
+        [buffer presentDrawable:surface];
+        [buffer commit];
+    }
+}
+
+//#)
+
+
+;;;
 ;;;; Platform Input
 ;;;
 
@@ -4221,6 +4274,8 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformGetScreenFrameRect NSScreen* NSRect*) void)
 (platform-external (platformGetScreenContentRect NSScreen* NSRect*) void)
 (c-callable (platformCreateWindow int int int int char-string bool bool bool bool bool) platformwindow)
+(platform-external (platformMakeWindowMetal platformwindow) void)
+(platform-external (platformRenderMetal platformwindow) void)
 (platform-external (platformMakeContextCurrent platformwindow) void)
 (platform-external (platformGetWindowTitle platformwindow) NSString*)
 (platform-external (platformSetWindowTitle platformwindow char-string) void)

@@ -46,55 +46,9 @@
         (jazz.platform.syntax (phase syntax))
         (jazz.platform.trace)
         (jazz.platform.types)
+        (jazz.platform.cocoa.types)
         (jazz.version)
         (jazz.window.hubs))
-
-
-;;;
-;;;; Objective C
-;;;
-
-
-(c-declare cocoa #/Objective-C/
-
-#include <objc/objc.h>
-#include <Foundation/NSString.h>
-
-const char *class_getName(Class cls);
-id objc_getClass(const char *name);
-id objc_msgSend(id self, SEL op, ...);
-
-id retain_id(id x)
-{
-  if (x != nil)
-    [x retain];
-  return x;
-}
-
-___SCMOBJ release_id(void *ptr)
-{
-  id x = ___CAST(id,ptr);
-  if (x != nil)
-    [x release];
-  return ___FIX(___NO_ERR);
-}
-
-Class retain_Class(Class x)
-{
-  if (x != nil)
-    [x retain];
-  return x;
-}
-
-___SCMOBJ release_Class(void *ptr)
-{
-  Class x = ___CAST(Class,ptr);
-  if (x != nil)
-    [x release];
-  return ___FIX(___NO_ERR);
-}
-
-//#)
 
 
 ;;;
@@ -172,105 +126,6 @@ ___SCMOBJ release_Class(void *ptr)
 
 (platform-external (double->id double) id
     "___return(retain_id([NSNumber numberWithDouble:___arg1]));"))
-
-
-;;;
-;;;; Cocoa NSString
-;;;
-
-
-(c-declare cocoa #/Objective-C/
-
-___SCMOBJ SCMOBJ_to_NSStringSTAR(___SCMOBJ src, NSString **dst, int arg_num)
-{
-  /*
-   * Convert a Scheme string to NSString* .
-   */
-
-  NSString *result;
-  ___SCMOBJ ___temp;
-
-  if (src == ___FAL)
-    result = nil;
-  else if (!___STRINGP(src))
-    return ___FIX(___STOC_WCHARSTRING_ERR+arg_num);
-  else
-    {
-      int i;
-      int len = ___INT(___STRINGLENGTH(src));
-      unichar *buf = (unichar *)___EXT(___alloc_mem)(sizeof(unichar)*len);
-
-      if (buf == 0)
-        return ___FIX(___STOC_HEAP_OVERFLOW_ERR+arg_num);
-
-      for (i=0; i<len; i++)
-        {
-          ___UCS_4 c = ___INT(___STRINGREF(src,___FIX(i)));
-          buf[i] = c;
-        }
-
-      result = retain_id([NSString stringWithCharacters:buf length:len]);
-
-      ___EXT(___free_mem)(buf);
-    }
-
-  *dst = result;
-
-  return ___FIX(___NO_ERR);
-}
-
-___SCMOBJ NSStringSTAR_to_SCMOBJ(NSString *src, ___SCMOBJ *dst, int arg_num)
-{
-  ___SCMOBJ result;
-
-  if (src == nil)
-    result = ___FAL;
-  else
-    {
-      int i;
-      int len = [src length];
-
-      result = ___EXT(___alloc_scmobj)(___PSTATE, ___sSTRING, len<<___LCS);
-
-      if (___FIXNUMP(result))
-        return ___FIX(___CTOS_HEAP_OVERFLOW_ERR+arg_num);
-
-      for (i=0; i<len; i++)
-        {
-          ___UCS_4 c = [src characterAtIndex:i];
-          ___STRINGSET(result,___FIX(i),___CHR(c))
-        }
-    }
-
-  *dst = result;
-
-  return ___FIX(___NO_ERR);
-}
-
-#define ___BEGIN_CFUN_SCMOBJ_to_NSStringSTAR(src,dst,i) \
-if ((___err = SCMOBJ_to_NSStringSTAR(src, &dst, i)) == ___FIX(___NO_ERR)) {
-#define ___END_CFUN_SCMOBJ_to_NSStringSTAR(src,dst,i) }
-
-#define ___BEGIN_CFUN_NSStringSTAR_to_SCMOBJ(src,dst) \
-if ((___err = NSStringSTAR_to_SCMOBJ(src, &dst, ___RETURN_POS)) == ___FIX(___NO_ERR)) {
-#define ___END_CFUN_NSStringSTAR_to_SCMOBJ(src,dst) \
-___EXT(___release_scmobj)(dst); }
-
-#define ___BEGIN_SFUN_NSStringSTAR_to_SCMOBJ(src,dst,i) \
-if ((___err = NSStringSTAR_to_SCMOBJ(src, &dst, i)) == ___FIX(___NO_ERR)) {
-#define ___END_SFUN_NSStringSTAR_to_SCMOBJ(src,dst,i) \
-___EXT(___release_scmobj)(dst); }
-
-#define ___BEGIN_SFUN_SCMOBJ_to_NSStringSTAR(src,dst) \
-{ ___err = SCMOBJ_to_NSStringSTAR(src, &dst, ___RETURN_POS);
-#define ___END_SFUN_SCMOBJ_to_NSStringSTAR(src,dst) }
-
-//#)
-
-(c-type NSString* "NSString*"
-  "NSStringSTAR_to_SCMOBJ"
-  "SCMOBJ_to_NSStringSTAR"
-  #t)
 
 
 ;;;
@@ -518,6 +373,9 @@ ___EXT(___release_scmobj)(dst); }
 #include <OpenGL/gl3.h>
 
 #import <Cocoa/Cocoa.h>
+
+#import <Metal/Metal.h>
+#import <QuartzCore/CAMetalLayer.h>
 
 
 typedef struct PlatformWindowConfig      PlatformWindowConfig;
@@ -884,6 +742,9 @@ struct PlatformWindow
     // OpenGL Context
     id        pixelFormat;
     id        context;
+
+    // Metal Layer
+    CAMetalLayer* layer;
 };
 
 
@@ -2715,47 +2576,19 @@ int platformGetSwapInterval()
 
 (c-declare cocoa #/Objective-C/
 
-#import <Metal/Metal.h>
-#import <QuartzCore/CAMetalLayer.h>
-
-id<MTLCommandQueue> queue;
-CAMetalLayer *layer;
-MTLClearColor color;
-
-void platformMakeWindowMetal(PlatformWindow* window)
+void platformMakeWindowMetal(PlatformWindow* window, id<MTLDevice> device)
 {
-    NSWindow* nswindow = window->object;
     NSView* view = window->view;
   
-    const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-    queue = [device newCommandQueue];
-    layer = [CAMetalLayer layer];
+    CAMetalLayer* layer = [CAMetalLayer layer];
     layer.device = device;
     layer.opaque = YES;
+    layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
 
     view.layer = layer;
     view.wantsLayer = YES;
-    
-    color = MTLClearColorMake(0, 0, 1, 1);
-}
 
-void platformRenderMetal(PlatformWindow* window)
-{
-    @autoreleasepool {
-        id<CAMetalDrawable> surface = [layer nextDrawable];
-
-        MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
-        pass.colorAttachments[0].clearColor = color;
-        pass.colorAttachments[0].loadAction  = MTLLoadActionClear;
-        pass.colorAttachments[0].storeAction = MTLStoreActionStore;
-        pass.colorAttachments[0].texture = surface.texture;
-
-        id<MTLCommandBuffer> buffer = [queue commandBuffer];
-        id<MTLRenderCommandEncoder> encoder = [buffer renderCommandEncoderWithDescriptor:pass];
-        [encoder endEncoding];
-        [buffer presentDrawable:surface];
-        [buffer commit];
-    }
+    window->layer = layer;
 }
 
 //#)
@@ -3278,6 +3111,12 @@ void platformDestroyWindow(PlatformWindow* window)
     }
 
     free(window);
+}
+
+
+CAMetalLayer* platformGetWindowLayer(PlatformWindow* window)
+{
+    return window->layer;
 }
 
 
@@ -4261,7 +4100,7 @@ ___SCMOBJ platformProcessThreads()
 ;;;
 
 
-(c-type platformwindow (pointer (struct "PlatformWindow")))
+(c-type PlatformWindow* (pointer (struct "PlatformWindow")))
 
 
 (platform-external (platformInit) void)
@@ -4270,62 +4109,62 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformGetScreens) NSArray*)
 (platform-external (platformGetMainScreenScaleFactor) int)
 (platform-external (platformGetPrimaryScreenFrameHeight) double)
-(platform-external (platformGetWindowScreenFrameHeight platformwindow) double)
+(platform-external (platformGetWindowScreenFrameHeight PlatformWindow*) double)
 (platform-external (platformGetScreenFrameRect NSScreen* NSRect*) void)
 (platform-external (platformGetScreenContentRect NSScreen* NSRect*) void)
-(c-callable (platformCreateWindow int int int int char-string bool bool bool bool bool) platformwindow)
-(platform-external (platformMakeWindowMetal platformwindow) void)
-(platform-external (platformRenderMetal platformwindow) void)
-(platform-external (platformMakeContextCurrent platformwindow) void)
-(platform-external (platformGetWindowTitle platformwindow) NSString*)
-(platform-external (platformSetWindowTitle platformwindow char-string) void)
-(platform-external (platformGetWindowFramePos platformwindow NSPoint*) void)
-(platform-external (platformSetWindowFramePos platformwindow NSPoint*) void)
-(platform-external (platformGetWindowFrameHeight platformwindow) double)
-(platform-external (platformGetWindowFrameSize platformwindow NSSize*) void)
-(platform-external (platformSetWindowFrameSize platformwindow NSSize*) void)
-(platform-external (platformGetWindowFrameRect platformwindow NSRect*) void)
-(c-callable (platformSetWindowFrameRect platformwindow NSRect*) void)
-(platform-external (platformGetWindowContentPos platformwindow NSPoint*) void)
-(platform-external (platformGetWindowContentHeight platformwindow) double)
-(platform-external (platformGetWindowContentSize platformwindow NSSize*) void)
-(platform-external (platformGetWindowContentRect platformwindow NSRect*) void)
-(c-callable (platformSetWindowContentRect platformwindow NSRect*) void)
-(platform-external (platformGetWindowViewRect platformwindow NSRect*) void)
-(platform-external (platformBringWindowToFront platformwindow) void)
-(platform-external (platformSendWindowToBack platformwindow) void)
-(platform-external (platformInvalidateRect platformwindow NSRect*) void)
-(platform-external (platformScrollRect platformwindow NSRect* NSSize*) void)
-(platform-external (platformDisplayIfNeeded platformwindow) void)
-(c-callable (platformEnterModal platformwindow) void)
-(c-callable (platformRunModal platformwindow) bool)
-(platform-external (platformExitModal platformwindow) void)
-(platform-external (platformDisableWindow platformwindow) void)
-(platform-external (platformEnableWindow platformwindow) void)
-(platform-external (platformEnterWindowed platformwindow NSRect* bool) void)
-(platform-external (platformExitWindowed platformwindow) void)
+(c-callable (platformCreateWindow int int int int char-string bool bool bool bool bool) PlatformWindow*)
+(platform-external (platformMakeContextCurrent PlatformWindow*) void)
+(platform-external (platformMakeWindowMetal PlatformWindow* id<MTLDevice>) void)
+(platform-external (platformGetWindowLayer PlatformWindow*) CAMetalLayer*)
+(platform-external (platformGetWindowTitle PlatformWindow*) NSString*)
+(platform-external (platformSetWindowTitle PlatformWindow* char-string) void)
+(platform-external (platformGetWindowFramePos PlatformWindow* NSPoint*) void)
+(platform-external (platformSetWindowFramePos PlatformWindow* NSPoint*) void)
+(platform-external (platformGetWindowFrameHeight PlatformWindow*) double)
+(platform-external (platformGetWindowFrameSize PlatformWindow* NSSize*) void)
+(platform-external (platformSetWindowFrameSize PlatformWindow* NSSize*) void)
+(platform-external (platformGetWindowFrameRect PlatformWindow* NSRect*) void)
+(c-callable (platformSetWindowFrameRect PlatformWindow* NSRect*) void)
+(platform-external (platformGetWindowContentPos PlatformWindow* NSPoint*) void)
+(platform-external (platformGetWindowContentHeight PlatformWindow*) double)
+(platform-external (platformGetWindowContentSize PlatformWindow* NSSize*) void)
+(platform-external (platformGetWindowContentRect PlatformWindow* NSRect*) void)
+(c-callable (platformSetWindowContentRect PlatformWindow* NSRect*) void)
+(platform-external (platformGetWindowViewRect PlatformWindow* NSRect*) void)
+(platform-external (platformBringWindowToFront PlatformWindow*) void)
+(platform-external (platformSendWindowToBack PlatformWindow*) void)
+(platform-external (platformInvalidateRect PlatformWindow* NSRect*) void)
+(platform-external (platformScrollRect PlatformWindow* NSRect* NSSize*) void)
+(platform-external (platformDisplayIfNeeded PlatformWindow*) void)
+(c-callable (platformEnterModal PlatformWindow*) void)
+(c-callable (platformRunModal PlatformWindow*) bool)
+(platform-external (platformExitModal PlatformWindow*) void)
+(platform-external (platformDisableWindow PlatformWindow*) void)
+(platform-external (platformEnableWindow PlatformWindow*) void)
+(platform-external (platformEnterWindowed PlatformWindow* NSRect* bool) void)
+(platform-external (platformExitWindowed PlatformWindow*) void)
 #; ( ;; WINDOWED FULLSCREEN TOO BRITTLE
-(platform-external (platformEnterFullscreenWindowed platformwindow) void)
-(platform-external (platformExitFullscreenWindowed platformwindow) void)
+(platform-external (platformEnterFullscreenWindowed PlatformWindow*) void)
+(platform-external (platformExitFullscreenWindowed PlatformWindow*) void)
 )
-(platform-external (platformEnterFullscreen platformwindow) void)
-(platform-external (platformExitFullscreen platformwindow) void)
-(platform-external (platformIconifyWindow platformwindow) void)
-(platform-external (platformRestoreWindow platformwindow) void)
-(platform-external (platformShowWindow platformwindow) void)
-(c-callable (platformHideWindow platformwindow) void)
-(platform-external (platformSwapBuffers platformwindow) void)
+(platform-external (platformEnterFullscreen PlatformWindow*) void)
+(platform-external (platformExitFullscreen PlatformWindow*) void)
+(platform-external (platformIconifyWindow PlatformWindow*) void)
+(platform-external (platformRestoreWindow PlatformWindow*) void)
+(platform-external (platformShowWindow PlatformWindow*) void)
+(c-callable (platformHideWindow PlatformWindow*) void)
+(platform-external (platformSwapBuffers PlatformWindow*) void)
 (platform-external (platformSwapInterval int) void)
 (platform-external (platformGetSwapInterval) int)
-(platform-external (platformGetMousePosition platformwindow NSPoint*) void)
-(platform-external (platformSetMousePosition platformwindow NSPoint*) void)
+(platform-external (platformGetMousePosition PlatformWindow* NSPoint*) void)
+(platform-external (platformSetMousePosition PlatformWindow* NSPoint*) void)
 (platform-external (platformGetSystemCursor int) NSCursor*)
 (platform-external (platformMakeCursor char-string NSPoint*) :alloc NSCursor*)
 (platform-external (platformSetCursor NSCursor*) void)
-(platform-external (platformShowCursor platformwindow) void)
-(platform-external (platformHideCursor platformwindow) void)
-(platform-external (platformCaptureCursor platformwindow) void)
-(platform-external (platformReleaseCursor platformwindow) void)
+(platform-external (platformShowCursor PlatformWindow*) void)
+(platform-external (platformHideCursor PlatformWindow*) void)
+(platform-external (platformCaptureCursor PlatformWindow*) void)
+(platform-external (platformReleaseCursor PlatformWindow*) void)
 (platform-external (platformKeyDown int) bool)
 (platform-external (platformShiftDown) bool)
 (platform-external (platformControlDown) bool)
@@ -4333,13 +4172,13 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformMetaDown) bool)
 (platform-external (platformGetClipboardString char-string) UTF-8-string)
 (platform-external (platformSetClipboardString UTF-8-string char-string) void)
-(platform-external (platformGetFocus) platformwindow)
-(c-callable (platformSetFocus platformwindow) void)
+(platform-external (platformGetFocus) PlatformWindow*)
+(c-callable (platformSetFocus PlatformWindow*) void)
 (platform-external (platformGetIgnoreKeyRepeat) bool)
 (platform-external (platformSetIgnoreKeyRepeat bool) void)
 (c-callable (platformPollEvent) bool)
-(platform-external (platformGetContext platformwindow) void*)
-(c-callable (platformCloseWindow platformwindow) void)
+(platform-external (platformGetContext PlatformWindow*) void*)
+(c-callable (platformCloseWindow PlatformWindow*) void)
 (platform-external (platformLocalTimezoneOffset) int)
 (platform-external (platformIsDirectoryWritable char-string) bool)
 (platform-external (platformTemporaryDirectory) char-string)
@@ -4472,7 +4311,7 @@ ___SCMOBJ platformProcessThreads()
 ;;;
 
 
-(c-callback (paint-callback handle) (platformwindow) void "paint_callback" "" #f
+(c-callback (paint-callback handle) (PlatformWindow*) void "paint_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       ;; the mac can call this before the window is registered
@@ -4482,7 +4321,7 @@ ___SCMOBJ platformProcessThreads()
         (paint window)))))
 
 
-(c-callback (reshape-callback handle width height) (platformwindow int int) void "reshape_callback" "" #f
+(c-callback (reshape-callback handle width height) (PlatformWindow* int int) void "reshape_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when event-callback
@@ -4490,7 +4329,7 @@ ___SCMOBJ platformProcessThreads()
       (call-size-change window 'restored width height))))
 
 
-(c-callback (close-callback handle) (platformwindow) void "close_callback" "" #f
+(c-callback (close-callback handle) (PlatformWindow*) void "close_callback" "" #f
   (delay-event
     (lambda ()
       (when registered-window
@@ -4511,7 +4350,7 @@ ___SCMOBJ platformProcessThreads()
         PLATFORM_KEY_RIGHT_SUPER))
 
 
-(c-callback (key-press-callback handle key action) (platformwindow int int) int "key_press_callback" "" 1
+(c-callback (key-press-callback handle key action) (PlatformWindow* int int) int "key_press_callback" "" 1
   (if (and registered-window
            (catch (Cancel-Signal exc
                     #t)
@@ -4530,7 +4369,7 @@ ___SCMOBJ platformProcessThreads()
     0))
 
 
-(c-callback (char-callback handle c) (platformwindow int) void "char_callback" "" #f
+(c-callback (char-callback handle c) (PlatformWindow* int) void "char_callback" "" #f
   (when registered-window
     (catch (Cancel-Signal exc)
       (let ((window (registered-window handle))
@@ -4540,7 +4379,7 @@ ___SCMOBJ platformProcessThreads()
         (call-key-press window c)))))
 
 
-(c-callback (button-callback handle x y button click-count action) (platformwindow int int int int int) void "button_callback" "" #f
+(c-callback (button-callback handle x y button click-count action) (PlatformWindow* int int int int int) void "button_callback" "" #f
   (when registered-window
     (catch (Cancel-Signal exc)
       (let ((window (registered-window handle)))
@@ -4560,7 +4399,7 @@ ___SCMOBJ platformProcessThreads()
              ((PLATFORM_RELEASE) (right-mouse-up window x y)))))))))
 
 
-(c-callback (moved-callback handle x y) (platformwindow double double) void "moved_callback" "" #f
+(c-callback (moved-callback handle x y) (PlatformWindow* double double) void "moved_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when event-callback
@@ -4568,7 +4407,7 @@ ___SCMOBJ platformProcessThreads()
       (call-mouse-moved window x y))))
 
 
-(c-callback (wheel-callback handle x y dx dy) (platformwindow double double double double) void "wheel_callback" "" #f
+(c-callback (wheel-callback handle x y dx dy) (PlatformWindow* double double double double) void "wheel_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when event-callback
@@ -4587,7 +4426,7 @@ ___SCMOBJ platformProcessThreads()
     (drop-file-callback filename)))
 
 
-(c-callback (drop-callback handle filenames) (platformwindow NSArray*) void "drop_callback" "" #f
+(c-callback (drop-callback handle filenames) (PlatformWindow* NSArray*) void "drop_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when event-callback
@@ -4595,7 +4434,7 @@ ___SCMOBJ platformProcessThreads()
       (drop-files window filenames))))
 
 
-(c-callback (entered-callback handle) (platformwindow) void "entered_callback" "" #f
+(c-callback (entered-callback handle) (PlatformWindow*) void "entered_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when event-callback
@@ -4603,7 +4442,7 @@ ___SCMOBJ platformProcessThreads()
       (mouse-enter window))))
 
 
-(c-callback (exited-callback handle) (platformwindow) void "exited_callback" "" #f
+(c-callback (exited-callback handle) (PlatformWindow*) void "exited_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when event-callback
@@ -4611,7 +4450,7 @@ ___SCMOBJ platformProcessThreads()
       (mouse-leave window))))
 
 
-(c-callback (activate-callback handle) (platformwindow) void "activate_callback" "" #f
+(c-callback (activate-callback handle) (PlatformWindow*) void "activate_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when window
@@ -4621,7 +4460,7 @@ ___SCMOBJ platformProcessThreads()
         (activate-application window)))))
 
 
-(c-callback (deactivate-callback handle) (platformwindow) void "deactivate_callback" "" #f
+(c-callback (deactivate-callback handle) (PlatformWindow*) void "deactivate_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when window

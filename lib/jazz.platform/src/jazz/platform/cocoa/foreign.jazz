@@ -3691,6 +3691,9 @@ void platformSetIgnoreKeyRepeat(bool ignore)
 }
 
 
+static bool inhibitAutoReleasePool = false;
+
+
 bool platformPollEvent()
 {
     NSEvent* event;
@@ -3708,14 +3711,25 @@ bool platformPollEvent()
     }
     else
     {
-        [platform.autoreleasePool drain];
-        platform.autoreleasePool = [[NSAutoreleasePool alloc] init];
+        if (! inhibitAutoReleasePool)
+        {
+            [platform.autoreleasePool drain];
+            platform.autoreleasePool = [[NSAutoreleasePool alloc] init];
+        }
     
         return false;
     }
 }
 
 
+// quicky until metal crashes fixed
+void platformInhibitAutoReleasePool()
+{
+    inhibitAutoReleasePool = !inhibitAutoReleasePool;
+}
+
+
+// quicky for test
 void platformDrainAutoReleasePool()
 {
 printf("platform.autoreleasePool %p\n", platform.autoreleasePool);
@@ -4185,6 +4199,7 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformGetIgnoreKeyRepeat) bool)
 (platform-external (platformSetIgnoreKeyRepeat bool) void)
 (c-callable (platformPollEvent) bool)
+(platform-external (platformInhibitAutoReleasePool) void)
 (platform-external (platformDrainAutoReleasePool) void)
 (platform-external (platformGetContext PlatformWindow*) void*)
 (c-callable (platformCloseWindow PlatformWindow*) void)

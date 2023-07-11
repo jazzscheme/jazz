@@ -107,13 +107,20 @@
                   (values width height buffer))))))))))
 
 
-(definition public (create-cairo-surface-from-jpeg file)
+(definition public (cairo-surface-from-jpeg file)
   (receive (width height content) (read-jpeg file)
     (let ((handle (cairo_image_surface_create CAIRO_FORMAT_ARGB32 width height)))
       (cairo_surface_flush handle)
       (move-u8vector->pointer! content (cairo_image_surface_get_data handle))
       (cairo_surface_mark_dirty handle)
-      handle)))
+      (let ((width (cairo_image_surface_get_width handle))
+            (height (cairo_image_surface_get_height handle)))
+        (values width height handle)))))
+
+
+(definition public (create-cairo-surface-from-jpeg file)
+  (receive (width height handle) (cairo-surface-from-jpeg file)
+    handle))
 
 
 (register-image-loader '("jpg" "jpeg")

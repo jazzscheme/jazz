@@ -53,6 +53,9 @@
 
 
 (definition public (determine-jpeg-size file)
+  (define (invalid-jpeg)
+    (image-import-error (format "Invalid jpeg: {a}" (get-name file))))
+  
   (declare (proper-tail-calls))
   (assert (exists? file))
   (startup-gstreamer)
@@ -67,20 +70,18 @@
       (gst_element_wait_state pipeline)
       (with-unref ((typefind (gst_bin_get_by_name pipeline "typefind")))
         (with-unref ((pad (gst_element_get_static_pad typefind "src")))
-          (let ((caps (let (loop)
-                        (or (gst_pad_get_current_caps pad)
-                            (begin
-                              (sleep .001)
-                              (loop))))))
-            (if (= (gst_caps_is_fixed caps) 1)
-                (let ((struc (gst_caps_get_structure caps 0)))
-                  (prog1 (values (gst_structure_get_int struc "width")
-                                 (gst_structure_get_int struc "height"))
-                    (gst_caps_unref caps)
-                    (gst_element_release pipeline)))
-              (gst_caps_unref caps)
-              (gst_element_release pipeline)
-              (error "Internal error"))))))))
+          (let ((caps (wait-caps-for pad 1.)))
+            (if (not caps)
+                (invalid-jpeg)
+              (if (= (gst_caps_is_fixed caps) 1)
+                  (let ((struc (gst_caps_get_structure caps 0)))
+                    (prog1 (values (gst_structure_get_int struc "width")
+                                   (gst_structure_get_int struc "height"))
+                      (gst_caps_unref caps)
+                      (gst_element_release pipeline)))
+                (gst_caps_unref caps)
+                (gst_element_release pipeline)
+                (invalid-jpeg)))))))))
 
 
 (definition public (read-jpeg file)

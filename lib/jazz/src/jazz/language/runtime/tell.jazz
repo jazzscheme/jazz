@@ -58,25 +58,44 @@
 
 
 (definition public (tell . rest)
+  (define (tell-flonum obj)
+    (if (not tell-precision)
+        (format :terminal "{a}" obj)
+      (format :terminal "{r precision: :v}" obj tell-precision)))
+  
+  (define (tell-sequence prefix seq)
+    (format :terminal "{a}" prefix)
+    (format :terminal "(")
+    (let ((first? #t))
+      (iterate seq
+        (lambda (obj)
+          (if first?
+              (set! first? #f)
+            (format :terminal " "))
+          (tell-object obj))))
+    (format :terminal ")"))
+  
+  (define (tell-object obj)
+    (cond ((flonum? obj)    (tell-flonum obj))
+          ((pair? obj)      (tell-sequence "" obj))
+          ((vector? obj)    (tell-sequence "#" obj))
+          ((u8vector? obj)  (tell-sequence "u8" obj))
+          ((s8vector? obj)  (tell-sequence "s8" obj))
+          ((u16vector? obj) (tell-sequence "u16" obj))
+          ((s16vector? obj) (tell-sequence "s16" obj))
+          ((u32vector? obj) (tell-sequence "u32" obj))
+          ((s32vector? obj) (tell-sequence "s32" obj))
+          ((u64vector? obj) (tell-sequence "u64" obj))
+          ((s64vector? obj) (tell-sequence "s64" obj))
+          ((f32vector? obj) (tell-sequence "f32" obj))
+          ((f64vector? obj) (tell-sequence "f64" obj))
+          (else (format :terminal "{a}" obj))))
+  
   (let ((first? #t))
     (for-each (lambda (obj)
                 (if first?
                     (set! first? #f)
                   (format :terminal " "))
-                (cond ((flonum? obj)
-                       (tell-flonum obj))
-                      (else
-                       (format :terminal "{a}" obj))))
+                (tell-object obj))
               rest))
-  (format :terminal "{%}"))
-
-
-;;;
-;;;; Flonum
-;;;
-
-
-(definition protected (tell-flonum obj)
-  (if (not tell-precision)
-      (format :terminal "{a}" obj)
-    (format :terminal "{r precision: :v}" obj tell-precision))))
+  (format :terminal "{%}")))

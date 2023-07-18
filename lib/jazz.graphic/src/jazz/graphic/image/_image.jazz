@@ -131,10 +131,27 @@
 
 
 (definition public (create-cairo-surface-from-png file)
-  (let ((handle (cairo_image_surface_create_from_png (parse file))))
-    (if (/= (cairo_surface_status handle) 0)
-        (error "Error loading image file: {a}" (parse file))
-      handle)))
+  (define (header-valid?)
+    (call-with-input-file (path-settings file)
+      (lambda (port)
+        (let* ((b1 (read-u8 port))
+               (b2 (read-u8 port))
+               (b3 (read-u8 port))
+               (b4 (read-u8 port)))
+          (and (eqv? b1 #x89)
+               (eqv? b2 #x50)
+               (eqv? b3 #x4E)
+               (eqv? b4 #x47))))))
+  
+  (define (invalid-png)
+    (image-import-error (format "Invalid png: {a}" (get-name file))))
+  
+  (if (not (header-valid?))
+      (invalid-png)
+    (let ((handle (cairo_image_surface_create_from_png (parse file))))
+      (if (/= (cairo_surface_status handle) 0)
+          (invalid-png)
+        handle))))
 
 
 (register-image-loader "png"

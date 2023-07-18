@@ -249,44 +249,49 @@
   
   
   (method override (initialize self root (init?: init? #f) (bare?: bare? #f) (open?: open? #f) (directory: directory #f))
-    (define (jas-bare?)
-      (if init?
-          bare?
-        (exists? (new-file root ".jasbare"))))
+    (define (already-inited?)
+      (or (exists? (new-directory root ".jas"))
+          (exists? (new-file root ".jasbare"))))
     
-    (define (jas-directory)
-      (let ((dir (or directory (new-directory root ".jas"))))
-        (cond ((exists? dir)
-               dir)
-              (init?
-               (create-directories dir)
-               dir)
-              (else
-               (jas-exception "Not a jas repository")))))
-    
-    (define (jas-open? directory)
-      (if init?
-          open?
-        (not (exists? (new-directory directory "objects")))))
-    
-    (initialize-aliases)
-    (let ((bare? (jas-bare?)))
-      (let ((working (and (not bare?) root))
-            (directory (if bare? root (jas-directory))))
-        (set! self.working working)
-        (set! self.directory directory)
-        (let ((open? (jas-open? directory)))
-          (set! self.head (new-file directory "HEAD"))
-          (set! self.index (new Associative-Index self working file: (new-file directory "index")))
-          (set! self.objects (and (not open?) (new-directory directory "objects")))
-          (set! self.heads (new-directory directory '("refs" "heads")))
-          (set! self.sets (new-directory directory '("sets")))
-          (set! self.filters (load-filters self))
-          (set! self.disregard '(".DS_Store" ".gitignore"))
-          (set! self.ignore '())
-          (when init?
-            (init self bare? open?))
-          (register-configs self)))))
+    (let ((init? (and init? (not (already-inited?)))))
+      (define (jas-bare?)
+        (if init?
+            bare?
+          (exists? (new-file root ".jasbare"))))
+      
+      (define (jas-directory)
+        (let ((dir (or directory (new-directory root ".jas"))))
+          (cond ((exists? dir)
+                 dir)
+                (init?
+                 (create-directories dir)
+                 dir)
+                (else
+                 (jas-exception "Not a jas repository")))))
+      
+      (define (jas-open? directory)
+        (if init?
+            open?
+          (not (exists? (new-directory directory "objects")))))
+      
+      (initialize-aliases)
+      (let ((bare? (jas-bare?)))
+        (let ((working (and (not bare?) root))
+              (directory (if bare? root (jas-directory))))
+          (set! self.working working)
+          (set! self.directory directory)
+          (let ((open? (jas-open? directory)))
+            (set! self.head (new-file directory "HEAD"))
+            (set! self.index (new Associative-Index self working file: (new-file directory "index")))
+            (set! self.objects (and (not open?) (new-directory directory "objects")))
+            (set! self.heads (new-directory directory '("refs" "heads")))
+            (set! self.sets (new-directory directory '("sets")))
+            (set! self.filters (load-filters self))
+            (set! self.disregard '(".DS_Store" ".gitignore"))
+            (set! self.ignore '())
+            (when init?
+              (init self bare? open?))
+            (register-configs self))))))
   
   
   (method package (bare? self)

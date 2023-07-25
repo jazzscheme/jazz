@@ -211,7 +211,7 @@
     (let ((file (create-timestamped-file directory prefix extension)))
       (call-with-output-file (path-settings file)
         (lambda (output)
-          (apply proc output others)))
+          (proc file output others)))
       file)))
 
 
@@ -222,21 +222,26 @@
   (disable-interrupts!)
   ;; note that if we are not exiting these won't get restored
   (clear-gc-interrupt-jobs!)
-  (unwind-protect (continuation-capture
-                    (lambda (continuation)
-                      (call-with-snapshot-output-file rest
-                        (lambda (output . rest)
-                          (apply print-process-snapshot continuation output rest)))))
-    (increase! snapshot-count)
-    (enable-interrupts!)
-    (mutex-unlock! snapshot-mutex)))
+  (bind-keywords ((exception #f) (feedback #f) (exit #f) . others) rest
+    (unwind-protect (continuation-capture
+                      (lambda (continuation)
+                        (call-with-snapshot-output-file others
+                          (lambda (file output rest)
+                            (when feedback
+                              (feedback exception file))
+                            (apply print-process-snapshot continuation output exception: exception rest)
+                            (when exit
+                              (exit-no-jobs exit))))))
+      (increase! snapshot-count)
+      (enable-interrupts!)
+      (mutex-unlock! snapshot-mutex))))
 
 
 (definition public (snapshot-current-thread . rest)
   (continuation-capture
     (lambda (continuation)
       (call-with-snapshot-output-file rest
-        (lambda (output . rest)
+        (lambda (file output rest)
           (apply print-process-snapshot continuation output current-thread-only?: #t rest))))))
 
 
@@ -466,10 +471,7 @@
   (lambda (exception)
     (with-system-exception-debugger
       (lambda ()
-        (let ((snapshot (snapshot-process exception: exception)))
-          (when feedback
-            (feedback exception snapshot)))
-        (exit-no-jobs 1)))))
+        (snapshot-process exception: exception feedback: feedback exit: 1)))))
 
 
 (definition public (application-exception-debugger)
@@ -483,8 +485,8 @@
       (system-message (format "{a} {a}{%}{%}{a}.{%}{%}{a}{%}    {a}{a}"
                               (localize {Locales english: "An unexpected problem occurred while executing" french: "Une erreur imprévue s'est produite lors de l'exécution de"})
                               (current-process-present)
-                              (localize {Locales english: "This will terminate the application immediately" french: "Ceci entraine la terminaision immédiate de l'application"})
-                              (localize {Locales english: "A log file has been generated at" french: "Un fichier de log a été généré à"})
+                              (localize {Locales english: "This will terminate the application immediately" french: "Ceci entraine la terminaison immédiate de l'application"})
+                              (localize {Locales english: "A log file will be generated at" french: "Un fichier de log sera généré à"})
                               (parse snapshot)
                               (if process
                                   (let ((email (process-email process)))

@@ -1486,6 +1486,8 @@ void platformInternalPostEmptyEvent()
 
 (c-declare cocoa #/Objective-C/
 
+static const char* launchURL = NULL;
+
 @interface JazzApplicationDelegate : NSObject
 @end
 
@@ -1500,6 +1502,7 @@ void platformInternalPostEmptyEvent()
 
 - (void)applicationWillFinishLaunching:(nonnull NSNotification *)notification
 {
+    [[NSAppleEventManager sharedAppleEventManager] setEventHandler:self andSelector:@selector(getURL:withReplyEvent:) forEventClass:kInternetEventClass andEventID:kAEGetURL];
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"NSFullScreenMenuItemEverywhere"];
 }
 
@@ -1533,6 +1536,11 @@ void platformInternalPostEmptyEvent()
 {
     file_callback(filename);
     return YES;
+}
+
+- (void)getURL:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)reply
+{
+    launchURL = strdup([[[event paramDescriptorForKeyword:keyDirectObject] stringValue] UTF8String]);
 }
 
 
@@ -3845,8 +3853,13 @@ bool platformIsDirectoryWritable(char* dir)
 
 char* platformTemporaryDirectory()
 {
-    
     return strdup([[NSTemporaryDirectory() stringByAppendingPathComponent:@"jazz_temporary"] UTF8String]);
+}
+
+
+char* platformLaunchURL()
+{
+    return (char*) launchURL;
 }
 
 
@@ -4288,6 +4301,7 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformLocalTimezoneOffset) int)
 (platform-external (platformIsDirectoryWritable char-string) bool)
 (platform-external (platformTemporaryDirectory) char-string)
+(platform-external (platformLaunchURL) char-string)
 (platform-external (platformLog char-string) void)
 (platform-external (platformAlert char-string char-string char-string int) void)
 (platform-external (platformBell) void)

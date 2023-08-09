@@ -2160,4 +2160,63 @@
         ((member? ext Scheme-Extensions test: extension=?) scheme-constituent?)
         ((member? ext C-Extensions test: extension=?) c-constituent?)
         ((member? ext SQL-Extensions test: extension=?) sql-constituent?)
-        (else word-constituent?))))
+        (else word-constituent?)))
+
+
+;;;
+;;;; URL
+;;;
+
+
+(definition public (parse-url url)
+  (define (parse decoded)
+    (let ((pos (find decoded #\question-mark)))
+      (if (not pos)
+          (values decoded
+                  #f)
+        (values (subseq decoded 0 pos)
+                (parse-parameters (subseq decoded (+ pos 1)))))))
+  
+  (define (parse-parameters parameters)
+    (map parse-parameter (split-string parameters #\&)))
+  
+  (define (parse-parameter parameter)
+    (let ((pos (find parameter #\=)))
+      (if (not pos)
+          (cons parameter #f)
+        (cons (subseq parameter 0 pos)
+              (subseq parameter (+ pos 1))))))
+  
+  (parse (url-decode url)))
+
+
+(definition public (url-decode string)
+  (let ((output (open-output-string))
+        (len (cardinality string))
+        (n 0))
+    (while (< n len)
+      (let ((c (element string n)))
+        (cond ((eqv? c #\+)
+               (write-char #\space output)
+               (increase! n))
+              ((eqv? c #\%)
+               (let ((value (parse-hexadecimal (subseq string (+ n 1) (+ n 3)))))
+                 (write-char (integer->char value) output)
+                 (increase! n 3)))
+              (else
+               (write-char c output)
+               (increase! n)))))
+    (get-output-string output)))
+
+
+(definition public (url-encode string)
+  (let ((output (open-output-string)))
+    (for-each (lambda (c)
+                (cond ((eqv? c #\space)
+                       (format output "+"))
+                      ((memv? c '(#\question-mark #\ampersand #\=))
+                       (format output "%{x}" (char->integer c)))
+                      (else
+                       (write-char c output))))
+              (string->list string))
+    (get-output-string output))))

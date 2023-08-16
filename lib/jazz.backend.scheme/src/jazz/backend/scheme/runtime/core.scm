@@ -209,6 +209,16 @@
 (jazz:define-global ?x)
 (jazz:define-global ?y)
 (jazz:define-global ?z)
+(jazz:define-global ?0)
+(jazz:define-global ?1)
+(jazz:define-global ?2)
+(jazz:define-global ?3)
+(jazz:define-global ?4)
+(jazz:define-global ?5)
+(jazz:define-global ?6)
+(jazz:define-global ?7)
+(jazz:define-global ?8)
+(jazz:define-global ?9)
 
 
 (jazz:define-global %)
@@ -238,6 +248,16 @@
 (jazz:define-global %x)
 (jazz:define-global %y)
 (jazz:define-global %z)
+(jazz:define-global %0)
+(jazz:define-global %1)
+(jazz:define-global %2)
+(jazz:define-global %3)
+(jazz:define-global %4)
+(jazz:define-global %5)
+(jazz:define-global %6)
+(jazz:define-global %7)
+(jazz:define-global %8)
+(jazz:define-global %9)
 
 
 (jazz:define-global $)
@@ -267,6 +287,16 @@
 (jazz:define-global $x)
 (jazz:define-global $y)
 (jazz:define-global $z)
+(jazz:define-global $0)
+(jazz:define-global $1)
+(jazz:define-global $2)
+(jazz:define-global $3)
+(jazz:define-global $4)
+(jazz:define-global $5)
+(jazz:define-global $6)
+(jazz:define-global $7)
+(jazz:define-global $8)
+(jazz:define-global $9)
 
 
 ;;;

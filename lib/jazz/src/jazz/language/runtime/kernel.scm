@@ -252,6 +252,16 @@
 (native ?x) (native get-?x) (native set-?x)
 (native ?y) (native get-?y) (native set-?y)
 (native ?z) (native get-?z) (native set-?z)
+(native ?0) (native get-?0) (native set-?0)
+(native ?1) (native get-?1) (native set-?1)
+(native ?2) (native get-?2) (native set-?2)
+(native ?3) (native get-?3) (native set-?3)
+(native ?4) (native get-?4) (native set-?4)
+(native ?5) (native get-?5) (native set-?5)
+(native ?6) (native get-?6) (native set-?6)
+(native ?7) (native get-?7) (native set-?7)
+(native ?8) (native get-?8) (native set-?8)
+(native ?9) (native get-?9) (native set-?9)
 
 
 (native %)  (native get-%)  (native set-%)
@@ -281,6 +291,16 @@
 (native %x) (native get-%x) (native set-%x)
 (native %y) (native get-%y) (native set-%y)
 (native %z) (native get-%z) (native set-%z)
+(native %0) (native get-%0) (native set-%0)
+(native %1) (native get-%1) (native set-%1)
+(native %2) (native get-%2) (native set-%2)
+(native %3) (native get-%3) (native set-%3)
+(native %4) (native get-%4) (native set-%4)
+(native %5) (native get-%5) (native set-%5)
+(native %6) (native get-%6) (native set-%6)
+(native %7) (native get-%7) (native set-%7)
+(native %8) (native get-%8) (native set-%8)
+(native %9) (native get-%9) (native set-%9)
 
 
 (native $)  (native get-$)  (native set-$)
@@ -310,6 +330,16 @@
 (native $x) (native get-$x) (native set-$x)
 (native $y) (native get-$y) (native set-$y)
 (native $z) (native get-$z) (native set-$z)
+(native $0) (native get-$0) (native set-$0)
+(native $1) (native get-$1) (native set-$1)
+(native $2) (native get-$2) (native set-$2)
+(native $3) (native get-$3) (native set-$3)
+(native $4) (native get-$4) (native set-$4)
+(native $5) (native get-$5) (native set-$5)
+(native $6) (native get-$6) (native set-$6)
+(native $7) (native get-$7) (native set-$7)
+(native $8) (native get-$8) (native set-$8)
+(native $9) (native get-$9) (native set-$9)
 
 
 ;;;

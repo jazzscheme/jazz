@@ -180,11 +180,13 @@
 
 
 (define (jazz:find-unit-options unit-name)
-  (let ((options (%%get-product-options (jazz:find-unit-product unit-name))))
-    (and options
-         (let ((pair (%%assq unit-name options)))
-           (and pair
-                (%%cdr pair))))))
+  (let ((product (jazz:find-unit-product unit-name)))
+    (and product
+         (let ((options (%%get-product-options product)))
+           (and options
+                (let ((pair (%%assq unit-name options)))
+                  (and pair
+                       (%%cdr pair))))))))
 
 
 ;; at the moment building large files like functional in develop is much too

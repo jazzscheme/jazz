@@ -46,8 +46,8 @@
 (cond-expand
   (windows
    (define jazz:sqlite-units
-     (let ((sqlite-include-path  (jazz:quote-jazz-pathname "lib/contrib.sqlite/foreign/windows/sqlite3/include"))
-           (sqlite-lib-path      (jazz:quote-jazz-pathname "lib/contrib.sqlite/foreign/windows/sqlite3/lib")))
+     (let ((sqlite-include-path  (jazz:quote-jazz-pathname "foreign/contrib.sqlite/windows/include"))
+           (sqlite-lib-path      (jazz:quote-jazz-pathname "foreign/contrib.sqlite/windows/lib")))
        `((sqlite.implementation.resqlite3 cc-options: ,(string-append "-I" sqlite-include-path) 
            ld-options: ,(string-append "-L" sqlite-lib-path " -lsqlite3"))))))
   (else
@@ -58,7 +58,7 @@
 (cond-expand
   (windows
    (define jazz:platform-files
-     (list (cons "lib/contrib.sqlite/foreign/windows/sqlite3/lib/sqlite3.dll" "sqlite3.dll"))))
+     (list (cons "foreign/contrib.sqlite/windows/lib/sqlite3.dll" "sqlite3.dll"))))
   (else
    (define jazz:platform-files
      '())))

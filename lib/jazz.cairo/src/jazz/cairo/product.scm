@@ -97,16 +97,16 @@
           (list (jazz:patch-mac-ld-warnings cc-flags) ld-flags)))))
   (mac
     (define (jazz:cairo-flags quoter)
-      (let ((cairo-include-path      (quoter "lib/jazz.cairo/foreign/mac/cairo/include/cairo"))
-            (pixman-include-path     (quoter "lib/jazz.cairo/foreign/mac/pixman/include"))
+      (let ((cairo-include-path      (quoter "foreign/jazz.cairo/mac/include/cairo"))
+            (pixman-include-path     (quoter "foreign/jazz.pixman/mac/include"))
             (fontconfig-include-path (quoter "lib/jazz.fontconfig/foreign/mac/fontconfig/include"))
             (freetype-include-path   (quoter "lib/jazz.freetype/foreign/mac/freetype/include"))
-            (png-include-path        (quoter "lib/jazz.cairo/foreign/mac/png/include"))
-            (cairo-lib-path          (quoter "lib/jazz.cairo/foreign/mac/cairo/lib"))
-            (pixman-lib-path         (quoter "lib/jazz.cairo/foreign/mac/pixman/lib"))
+            (png-include-path        (quoter "foreign/jazz.png/mac/include"))
+            (cairo-lib-path          (quoter "foreign/jazz.cairo/mac/lib"))
+            (pixman-lib-path         (quoter "foreign/jazz.pixman/mac/lib"))
             (fontconfig-lib-path     (quoter "lib/jazz.fontconfig/foreign/mac/fontconfig/lib"))
             (freetype-lib-path       (quoter "lib/jazz.freetype/foreign/mac/freetype/lib"))
-            (png-lib-path            (quoter "lib/jazz.cairo/foreign/mac/png/lib")))
+            (png-lib-path            (quoter "foreign/jazz.png/mac/lib")))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfreetype.6" " -lcairo.2")))
           (list (jazz:patch-mac-ld-warnings cc-flags) ld-flags)))))
@@ -180,9 +180,9 @@
            (cons "lib/jazz.cairo/foreign/silicon/png/lib/libpng16.16.dylib" "Libraries/libpng16.16.dylib"))))
   (mac
    (define jazz:platform-files
-     (list (cons "lib/jazz.cairo/foreign/mac/cairo/lib/libcairo.2.dylib" "Libraries/libcairo.2.dylib")
-           (cons "lib/jazz.cairo/foreign/mac/pixman/lib/libpixman-1.0.dylib" "Libraries/libpixman-1.0.dylib")
-           (cons "lib/jazz.cairo/foreign/mac/png/lib/libpng16.16.dylib" "Libraries/libpng16.16.dylib"))))
+     (list (cons "foreign/jazz.cairo/mac/lib/libcairo.2.dylib" "Libraries/libcairo.2.dylib")
+           (cons "foreign/jazz.pixman/mac/lib/libpixman-1.0.dylib" "Libraries/libpixman-1.0.dylib")
+           (cons "foreign/jazz.png/mac/lib/libpng16.16.dylib" "Libraries/libpng16.16.dylib"))))
   (windows
    (define jazz:platform-files
      (list (cons "lib/jazz.cairo/foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")

@@ -652,6 +652,7 @@
 (native jazz:quote-jazz-pathname)
 (native jazz:jazz-pathname)
 (native jazz:patch-mac-ld-warnings)
+(native jazz:set-product-download)
 (native jazz:run-product)
 (native jazz:update-product)
 (native jazz:build-product)

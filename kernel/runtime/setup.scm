@@ -515,7 +515,7 @@ end-of-code
     (lambda ()
       (jazz:split-command-line (jazz:command-arguments)
                                '("v" "version" "nosource" "debug" "f" "force" "force-outlines" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit")
-                               '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "m" "module" "dialect" "listen")
+                               '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "download" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "m" "module" "dialect" "listen")
                                missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:find-option "v" options) (jazz:find-option "version" options)))
@@ -545,6 +545,7 @@ end-of-code
                 (update (jazz:find-option "update" options))
                 (make (jazz:find-option "make" options))
                 (build (jazz:find-option "build" options))
+                (download (jazz:find-option "download" options))
                 (install (jazz:find-option "install" options))
                 (deploy (jazz:find-option "deploy" options))
                 (parse (or (jazz:find-option "p" options) (jazz:find-option "parse" options)))
@@ -682,6 +683,9 @@ end-of-code
                           (set! jazz:Repositories (%%append (jazz:remove old jazz:Repositories) (%%list jazz:Build-Repository))))
                         (set! jazz:*binary-packages-cache* (%%make-table test: eq?)))))))
             
+            (define (setup-dowload)
+              (setup-build))
+            
             (define (setup-install)
               (setup-build))
             
@@ -818,6 +822,9 @@ end-of-code
                         (jazz:build-kernel image: 'library))
                        (else
                         (jazz:build-product name)))))
+                  (download
+                   (setup-dowload)
+                   (jazz:download-product (%%string->symbol download)))
                   (install
                    (setup-install)
                    (jazz:install-product (%%string->symbol install)))

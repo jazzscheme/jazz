@@ -419,6 +419,41 @@
 
 
 ;;;
+;;;; Product
+;;;
+
+
+(definition foreign-dir
+  {Directory Jazz "foreign"})
+
+
+(definition package (product$download descriptor feature remote)
+  (initialize-aliases)
+  (with-jas
+    (lambda (output)
+      (let ((name (product-descriptor-name descriptor)))
+        (bind (host path) (split remote "/")
+          (let ((root (new-directory foreign-dir (if (not feature)
+                                                     (symbol->string name)
+                                                   (list (symbol->string name) (symbol->string feature))))))
+            (cond ((not (exists? root))
+                   (let ((repo (jas-init root)))
+                     (jas-config-set repo 'remote remote)
+                     (jas-download repo host path 'all)))
+                  (else
+                   (let ((repo (jas-open root)))
+                     (let ((existing-remote (jas-config-get repo 'remote)))
+                       (if (not existing-remote)
+                           (format output "Remote not set{%}")
+                         (if (not (equal? existing-remote remote))
+                             (format output "Remote was changed{%}")
+                           (jas-download repo host path 'all)))))))))))))
+
+
+(set-product-download product$download)
+
+
+;;;
 ;;;; Client
 ;;;
 

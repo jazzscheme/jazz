@@ -1336,6 +1336,12 @@
         (%%cadr pair)
       #f)))
 
+(define (jazz:product-descriptor-remote descriptor)
+  (let ((pair (%%assq 'remote (%%cdr descriptor))))
+    (if pair
+        (%%cdr pair)
+      #f)))
+
 (define (jazz:product-descriptor-title descriptor)
   (let ((pair (%%assq 'title (%%cdr descriptor))))
     (if pair
@@ -1643,7 +1649,7 @@
 
 (define (jazz:ill-formed-field-error field-name product-name)
   (lambda ()
-    (jazz:error "ill-formed {a} field in product descriptor for product {a}" field-name product-name)))
+    (jazz:error "Ill-formed {a} field in product descriptor for product {a}" field-name product-name)))
 
 
 (define (jazz:cond-expand-map error-proc updates)
@@ -1726,6 +1732,67 @@
   (let ((library (jazz:product-descriptor-library descriptor)))
     (let ((options (or library '())))
       (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: library))))
+
+
+(define jazz:product-download
+  #f)
+
+(define (jazz:set-product-download download)
+  (set! jazz:product-download download))
+
+
+(define (jazz:cond-expand-remote remote)
+  (declare (proper-tail-calls))
+  (define (ill-formed)
+    (jazz:error "Ill-formed remote: {s}" remote))
+  
+  (define (unfulfilled)
+    #f)
+  
+  (let loop ((scan remote))
+       (if (%%null? scan)
+           (unfulfilled)
+         (let ((clause (%%car scan)))
+           (cond ((%%string? clause)
+                  (values #f clause))
+                 ((%%pair? clause)
+                  (if (or (%%null? (%%cdr clause))
+                          (%%not (%%null? (%%cddr clause))))
+                      (ill-formed)
+                    (let ((feature (%%car clause))
+                          (remote (%%cadr clause)))
+                      (if (or (%%not (%%symbol? feature))
+                              (%%not (%%string? remote)))
+                          (ill-formed)
+                        (if (jazz:feature-satisfied? feature)
+                            (values feature remote)
+                          (loop (%%cdr scan)))))))
+                 (else
+                  (ill-formed)))))))
+
+
+(define (jazz:download-product name)
+  (declare (proper-tail-calls))
+  (let ((subproduct-table (%%make-table test: eq?)))
+    (define (download name)
+      (let ((product (jazz:setup-product name)))
+        (let ((descriptor (%%get-product-descriptor product)))
+          (let ((remote (jazz:product-descriptor-remote descriptor)))
+            (if remote
+                (let ((info (jazz:cond-expand-remote remote)))
+                  (if info
+                      (receive (feature remote) info
+                        (jazz:load-download)
+                        (jazz:product-download descriptor feature remote))))))
+          (for-each (lambda (subname)
+                      (if (%%not (%%table-ref subproduct-table subname #f))
+                          (begin
+                            (%%table-set! subproduct-table subname #t)
+                            (download subname))))
+                    (receive (package descriptor) (jazz:get-product-descriptor name)
+                      (jazz:cond-expanded-product-descriptor-dependencies name descriptor))))))
+    
+    (download name)))
 
 
 (define (jazz:install-product name)
@@ -2298,6 +2365,11 @@
   (jazz:load-foundation)
   (jazz:load-unit 'core.unit.runtime)
   (jazz:load-unit 'core.unit.build))
+
+
+(define (jazz:load-download)
+  (jazz:load-build)
+  (jazz:load-unit 'jas))
 
 
 (define (jazz:load-install)

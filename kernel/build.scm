@@ -1081,6 +1081,34 @@
 
 
 ;;;
+;;;; Download
+;;;
+
+
+(define (jazz:download-symbols symbols local?)
+  (define (download-symbol symbol)
+    (jazz:parse-symbol symbol
+      (lambda (target configuration image)
+        (download-target target configuration image '() local?))))
+  
+  (define (download-target target configuration image arguments local?)
+    (jazz:download-product target configuration arguments))
+  
+  (jazz:parse-symbols symbols
+    (lambda (symbols arguments)
+      (let iter ((scan (if (null? symbols)
+                           (list (jazz:default-target))
+                         symbols)))
+           (if (not (null? scan))
+               (let ((symbol (car scan)))
+                 (download-symbol symbol)
+                 (let ((tail (cdr scan)))
+                   (if (not (null? tail))
+                       (newline (console-port)))
+                   (iter tail))))))))
+
+
+;;;
 ;;;; Install
 ;;;
 
@@ -1478,6 +1506,15 @@
                         ,@arguments)))))
 
 
+(define (jazz:download-product product configuration arguments)
+  (jazz:call-process
+     (list
+       path: (string-append (jazz:configuration-directory configuration) "jazz")
+       arguments: `("-download"
+                    ,(symbol->string product)
+                    ,@arguments))))
+
+
 (define (jazz:install-product product configuration arguments)
   (jazz:call-process
      (list
@@ -1723,6 +1760,7 @@
                     ((delete) (delete-command arguments output))
                     ((configure) (configure-command arguments output))
                     ((make) (make-command arguments output))
+                    ((download) (download-command arguments output))
                     ((install) (install-command arguments output))
                     ((deploy) (deploy-command arguments output))
                     ((run) (run-command arguments output))
@@ -1751,6 +1789,9 @@
     (jazz:setup-kernel-build)
     (jazz:make-symbols arguments #f))
   
+  (define (download-command arguments output)
+    (jazz:download-symbols arguments #f))
+  
   (define (install-command arguments output)
     (jazz:setup-kernel-install)
     (jazz:install-symbols arguments #f))
@@ -1771,6 +1812,7 @@
     (jazz:print "Commands:" output)
     (jazz:print "  configure [name:] [system:] [platform:] [compiler:] [processor:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [debug-foreign?:] [track-memory?:] [mutable-bindings?:] [kernel-interpret?:] [destination:] [features:] [properties:]" output)
     (jazz:print "  make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" output)
+    (jazz:print "  download [target]" output)
     (jazz:print "  install [target]" output)
     (jazz:print "  deploy [target]" output)
     (jazz:print "  run [target]" output)
@@ -1923,6 +1965,10 @@
                (if (jazz:make-symbols (map read-argument arguments) #t)
                    (exit 0)
                  (exit 1)))
+              ((equal? action "download")
+               (jazz:setup-kernel-install)
+               (jazz:download-symbols (map read-argument arguments) #t)
+               (exit))
               ((equal? action "install")
                (jazz:setup-kernel-install)
                (jazz:install-symbols (map read-argument arguments) #t)
@@ -1945,6 +1991,7 @@
                  (jazz:print "Usage:" console)
                  (jazz:print "  jaz configure [-name] [-system] [-platform] [-compiler] [-processor] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-kernel-interpret] [-destination] [-features] [-properties]" console)
                  (jazz:print "  jaz make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" console)
+                 (jazz:print "  jaz download" console)
                  (jazz:print "  jaz install" console)
                  (jazz:print "  jaz deploy" console)
                  (jazz:print "  jaz run" console)

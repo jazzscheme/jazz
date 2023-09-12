@@ -44,7 +44,7 @@
 
 
 (define jazz:minilzo-units
-  (let ((minilzo-include-path (jazz:quote-jazz-pathname "lib/jazz.minilzo/foreign/minilzo/include")))
+  (let ((minilzo-include-path (jazz:quote-jazz-pathname "foreign/jazz.minilzo/include")))
     `((jazz.minilzo cc-options: ,(string-append "-I" minilzo-include-path)))))
 
 

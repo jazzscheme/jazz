@@ -50,17 +50,6 @@
   (else))
 
 
-(cond-expand
-  (mac
-    (define jazz:types-units
-      `((jazz.platform.types-syntax)
-        (jazz.platform.types custom-cc: ,jazz:custom-cc))))
-  (else
-   (define jazz:types-units
-     '((jazz.platform.types-syntax)
-       (jazz.platform.types)))))
-
-
 (define jazz:windows-units
   (let ((pdh-include-path   (jazz:quote-jazz-pathname "foreign/jazz.platform/windows/pdh/include"))
         (pdh-lib-path       (jazz:quote-jazz-pathname "foreign/jazz.platform/windows/pdh/lib"))
@@ -142,7 +131,6 @@
   (ios
     (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
-                          ,@jazz:types-units
                           ,@jazz:ios-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
@@ -150,7 +138,6 @@
   (cocoa
     (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
-                          ,@jazz:types-units
                           ,@jazz:cocoa-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
@@ -158,7 +145,6 @@
   (windows
     (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
-                          ,@jazz:types-units
                           ,@jazz:windows-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
@@ -166,7 +152,6 @@
   (x11
     (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
-                          ,@jazz:types-units
                           ,@jazz:x11-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))

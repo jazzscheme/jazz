@@ -662,7 +662,6 @@ end-of-code
                         (jazz:load-unit 'jazz.core)
                         (jazz:load-unit 'jazz.foreign)
                         (jazz:load-unit 'jazz.foreign.syntax)
-                        (jazz:load-unit 'jazz.platform.types-syntax)
                         (let ((target-platform (jazz:get-configuration-platform configuration))
                               (target-processor (jazz:get-configuration-processor configuration)))
                           (if (%%eq? target-platform 'ios)

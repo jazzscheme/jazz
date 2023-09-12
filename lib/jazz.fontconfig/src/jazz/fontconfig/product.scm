@@ -46,46 +46,46 @@
 (cond-expand
   (silicon
     (define jazz:fontconfig-flags
-      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/silicon/fontconfig/include"))
-            (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/silicon/fontconfig/lib"))
-            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/silicon/freetype/include"))
-            (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/silicon/freetype/lib"))
-            (png-include-path        (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/silicon/png/include"))
-            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/silicon/png/lib")))
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/jazz.fontconfig/silicon/include"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/jazz.fontconfig/silicon/lib"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/jazz.freetype/silicon/include"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/jazz.freetype/silicon/lib"))
+            (png-include-path        (jazz:quote-jazz-pathname "foreign/jazz.png/silicon/include"))
+            (png-lib-path            (jazz:quote-jazz-pathname "foreign/jazz.png/silicon/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
           (list cc-flags ld-flags)))))
   (mac
     (define jazz:fontconfig-flags
-      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/include"))
-            (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/lib"))
-            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/include"))
-            (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
-            (png-include-path        (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/png/include"))
-            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/jazz.fontconfig/mac/include"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/jazz.fontconfig/mac/lib"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/jazz.freetype/mac/include"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/jazz.freetype/mac/lib"))
+            (png-include-path        (jazz:quote-jazz-pathname "foreign/jazz.png/mac/include"))
+            (png-lib-path            (jazz:quote-jazz-pathname "foreign/jazz.png/mac/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
           (list cc-flags ld-flags)))))
   (windows
     (define jazz:fontconfig-flags
-      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/include"))
-            (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/lib"))
-            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/include"))
-            (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/lib"))
-            (expat-lib-path          (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/windows/expat/lib"))
-            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/windows/png/lib"))
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/jazz.fontconfig/windows/include"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/jazz.fontconfig/windows/lib"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/jazz.freetype/windows/include"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/jazz.freetype/windows/lib"))
+            (expat-lib-path          (jazz:quote-jazz-pathname "foreign/jazz.expat/windows/lib"))
+            (png-lib-path            (jazz:quote-jazz-pathname "foreign/jazz.png/windows/lib"))
             (zlib-lib-path           (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path))
               (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
           (list cc-flags ld-flags)))))
   (else
     (define jazz:fontconfig-flags
-      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/linux/fontconfig/include"))
-            (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/linux/fontconfig/lib"))
-            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/linux/freetype/include"))
-            (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/linux/freetype/lib"))
-            (png-include-path        (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/linux/png/include"))
-            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/linux/png/lib")))
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/jazz.fontconfig/linux/include"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/jazz.fontconfig/linux/lib"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/jazz.freetype/linux/include"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/jazz.freetype/linux/lib"))
+            (png-include-path        (jazz:quote-jazz-pathname "foreign/jazz.png/linux/include"))
+            (png-lib-path            (jazz:quote-jazz-pathname "foreign/jazz.png/linux/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig")))
           (list cc-flags ld-flags))))))
@@ -99,16 +99,16 @@
 (cond-expand
   (silicon
    (define jazz:platform-files
-     (list (cons "lib/jazz.fontconfig/foreign/silicon/fontconfig/lib/libfontconfig.1.dylib" "Libraries/libfontconfig.1.dylib"))))
+     (list (cons "foreign/jazz.fontconfig/silicon/lib/libfontconfig.1.dylib" "Libraries/libfontconfig.1.dylib"))))
   (mac
    (define jazz:platform-files
-     (list (cons "lib/jazz.fontconfig/foreign/mac/fontconfig/lib/libfontconfig.1.dylib" "Libraries/libfontconfig.1.dylib"))))
+     (list (cons "foreign/jazz.fontconfig/mac/lib/libfontconfig.1.dylib" "Libraries/libfontconfig.1.dylib"))))
   (windows
    (define jazz:platform-files
-     (list (cons "lib/jazz.fontconfig/foreign/windows/fontconfig/lib/libfontconfig-1.dll" "libfontconfig-1.dll"))))
+     (list (cons "foreign/jazz.fontconfig/windows/lib/libfontconfig-1.dll" "libfontconfig-1.dll"))))
   (else
    (define jazz:platform-files
-     (list (cons "lib/jazz.fontconfig/foreign/linux/fontconfig/lib/libfontconfig.so.1" "libfontconfig.so.1")))))
+     (list (cons "foreign/jazz.fontconfig/linux/lib/libfontconfig.so.1" "libfontconfig.so.1")))))
 
 
 (define (jazz:copy-platform-files)
@@ -137,20 +137,20 @@
 (define (jazz:fontconfig-library-options descriptor add-language)
   (cond-expand
     (silicon
-      (let ((fontconfig-lib-path     (jazz:jazz-pathname "lib/jazz.fontconfig/foreign/silicon/fontconfig/lib"))
-            (freetype-lib-path       (jazz:jazz-pathname "lib/jazz.freetype/foreign/silicon/freetype/lib"))
-            (png-lib-path            (jazz:jazz-pathname "lib/jazz.cairo/foreign/silicon/png/lib")))
+      (let ((fontconfig-lib-path     (jazz:jazz-pathname "foreign/jazz.fontconfig/silicon/lib"))
+            (freetype-lib-path       (jazz:jazz-pathname "foreign/jazz.freetype/silicon/lib"))
+            (png-lib-path            (jazz:jazz-pathname "foreign/jazz.png/silicon/lib")))
         (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
     (mac
-      (let ((fontconfig-lib-path     (jazz:jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/lib"))
-            (freetype-lib-path       (jazz:jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
-            (png-lib-path            (jazz:jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
+      (let ((fontconfig-lib-path     (jazz:jazz-pathname "foreign/jazz.fontconfig/mac/lib"))
+            (freetype-lib-path       (jazz:jazz-pathname "foreign/jazz.freetype/mac/lib"))
+            (png-lib-path            (jazz:jazz-pathname "foreign/jazz.png/mac/lib")))
         (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
     (windows
-      (let ((fontconfig-lib-path     (jazz:jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/lib"))
-            (freetype-lib-path       (jazz:jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/lib"))
-            (expat-lib-path          (jazz:jazz-pathname "lib/jazz.cairo/foreign/windows/expat/lib"))
-            (png-lib-path            (jazz:jazz-pathname "lib/jazz.cairo/foreign/windows/png/lib"))
+      (let ((fontconfig-lib-path     (jazz:jazz-pathname "foreign/jazz.fontconfig/windows/lib"))
+            (freetype-lib-path       (jazz:jazz-pathname "foreign/jazz.freetype/windows/lib"))
+            (expat-lib-path          (jazz:jazz-pathname "foreign/jazz.expat/windows/lib"))
+            (png-lib-path            (jazz:jazz-pathname "foreign/jazz.png/windows/lib"))
             (zlib-lib-path           (jazz:jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
         (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
     (else

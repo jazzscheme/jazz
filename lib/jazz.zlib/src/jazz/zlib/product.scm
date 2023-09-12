@@ -56,15 +56,15 @@
      `((jazz.zlib.foreign ld-options: "-lz.1" custom-cc: ,jazz:custom-cc))))
   (windows
    (define jazz:zlib-units
-     (let ((zlib-include-path  (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/include"))
-           (zlib-lib-path      (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
+     (let ((zlib-include-path  (jazz:quote-jazz-pathname "foreign/jazz.zlib/windows/include"))
+           (zlib-lib-path      (jazz:quote-jazz-pathname "foreign/jazz.zlib/windows/lib")))
        `((jazz.zlib.foreign
            cc-options: ,(string-append "-I" zlib-include-path)
            ld-options: ,(string-append "-L" zlib-lib-path " -lz"))))))
   (else
    (define jazz:zlib-units
-     (let ((zlib-include-path  (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/linux/zlib/include"))
-           (zlib-lib-path      (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/linux/zlib/lib")))
+     (let ((zlib-include-path  (jazz:quote-jazz-pathname "foreign/jazz.zlib/linux/include"))
+           (zlib-lib-path      (jazz:quote-jazz-pathname "foreign/jazz.zlib/linux/lib")))
        `((jazz.zlib.foreign
            cc-options: ,(string-append "-I" zlib-include-path)
            ld-options: ,(string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" zlib-lib-path " -lz")))))))
@@ -76,10 +76,10 @@
      '()))
   (windows
    (define jazz:platform-files
-     (list (cons "lib/jazz.zlib/foreign/windows/zlib/lib/z-1.dll" "z-1.dll"))))
+     (list (cons "foreign/jazz.zlib/windows/lib/z-1.dll" "z-1.dll"))))
   (else
    (define jazz:platform-files
-     (list (cons "lib/jazz.zlib/foreign/linux/zlib/lib/libz.so.1" "libz.so.1")))))
+     (list (cons "foreign/jazz.zlib/linux/lib/libz.so.1" "libz.so.1")))))
 
 
 (define (jazz:copy-platform-files)
@@ -110,7 +110,7 @@
     (cocoa
       (list "-lz.1"))
     (windows
-      (let ((zlib-lib-path (jazz:jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
+      (let ((zlib-lib-path (jazz:jazz-pathname "foreign/jazz.zlib/windows/lib")))
         (list (string-append "-L" zlib-lib-path) "-lz")))
     (else
      '())))

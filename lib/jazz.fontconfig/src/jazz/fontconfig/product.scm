@@ -74,7 +74,7 @@
             (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/jazz.freetype/windows/lib"))
             (expat-lib-path          (jazz:quote-jazz-pathname "foreign/jazz.expat/windows/lib"))
             (png-lib-path            (jazz:quote-jazz-pathname "foreign/jazz.png/windows/lib"))
-            (zlib-lib-path           (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
+            (zlib-lib-path           (jazz:quote-jazz-pathname "foreign/jazz.zlib/windows/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path))
               (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
           (list cc-flags ld-flags)))))
@@ -151,7 +151,7 @@
             (freetype-lib-path       (jazz:jazz-pathname "foreign/jazz.freetype/windows/lib"))
             (expat-lib-path          (jazz:jazz-pathname "foreign/jazz.expat/windows/lib"))
             (png-lib-path            (jazz:jazz-pathname "foreign/jazz.png/windows/lib"))
-            (zlib-lib-path           (jazz:jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
+            (zlib-lib-path           (jazz:jazz-pathname "foreign/jazz.zlib/windows/lib")))
         (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
     (else
      (jazz:pkg-config-libs "fontconfig"))))

@@ -62,8 +62,8 @@
 
 
 (define jazz:windows-units
-  (let ((pdh-include-path   (jazz:quote-jazz-pathname "lib/jazz.platform/foreign/windows/pdh/include"))
-        (pdh-lib-path       (jazz:quote-jazz-pathname "lib/jazz.platform/foreign/windows/pdh/lib"))
+  (let ((pdh-include-path   (jazz:quote-jazz-pathname "foreign/jazz.platform/windows/pdh/include"))
+        (pdh-lib-path       (jazz:quote-jazz-pathname "foreign/jazz.platform/windows/pdh/lib"))
         (base-windows-cc-options "-DUNICODE"))
     `((jazz.platform.windows)
       (jazz.platform.windows.Def      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
@@ -111,12 +111,12 @@
 (cond-expand
   (cocoa
    (define jazz:platform-files
-     (list (cons "lib/jazz.platform/foreign/mac/gcc/lib/libgcc_s.1.dylib" "Libraries/libgcc_s.1.dylib"))))
+     (list (cons "foreign/jazz.platform/mac/gcc/lib/libgcc_s.1.dylib" "Libraries/libgcc_s.1.dylib"))))
   (windows
    (define jazz:platform-files
-     (list (cons "lib/jazz.platform/foreign/windows/gcc/lib/libgcc_s_seh-1.dll" "libgcc_s_seh-1.dll")
-           (cons "lib/jazz.platform/foreign/windows/gcc/lib/libstdc++-6.dll" "libstdc++-6.dll")
-           (cons "lib/jazz.platform/foreign/windows/gcc/lib/libwinpthread-1.dll" "libwinpthread-1.dll"))))
+     (list (cons "foreign/jazz.platform/windows/gcc/lib/libgcc_s_seh-1.dll" "libgcc_s_seh-1.dll")
+           (cons "foreign/jazz.platform/windows/gcc/lib/libstdc++-6.dll" "libstdc++-6.dll")
+           (cons "foreign/jazz.platform/windows/gcc/lib/libwinpthread-1.dll" "libwinpthread-1.dll"))))
   (else
    (define jazz:platform-files
      '())))
@@ -180,7 +180,7 @@
     (else))
   (cond-expand
     (windows
-      (let ((pdh-lib-path (jazz:jazz-pathname "lib/jazz.platform/foreign/windows/pdh/lib")))
+      (let ((pdh-lib-path (jazz:jazz-pathname "foreign/jazz.platform/windows/pdh/lib")))
         (list (string-append "-L" pdh-lib-path) "-mwindows" "-lwinmm" "-lpdh" "-lpsapi")))
     (x11
       (let ((ld-flags (jazz:pkg-config-libs "x11")))

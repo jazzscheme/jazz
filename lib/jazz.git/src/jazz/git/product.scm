@@ -46,23 +46,23 @@
 (cond-expand
   (cocoa
    (define jazz:git-units
-     (let ((git-include-path  (jazz:quote-jazz-pathname "lib/jazz.git/foreign/mac/libgit2/include"))
-           (git-lib-path      (jazz:quote-jazz-pathname "lib/jazz.git/foreign/mac/libgit2/lib")))
+     (let ((git-include-path  (jazz:quote-jazz-pathname "foreign/jazz.git/mac/include"))
+           (git-lib-path      (jazz:quote-jazz-pathname "foreign/jazz.git/mac/lib")))
        `((jazz.git.foreign
            cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" git-include-path))
            ld-options: ,(string-append "-L" git-lib-path " -lgit2.1.1.0"))))))
   (windows
    (define jazz:git-units
-     (let ((git-include-path  (jazz:quote-jazz-pathname "lib/jazz.git/foreign/windows/libgit2/include"))
-           (git-lib-path      (jazz:quote-jazz-pathname "lib/jazz.git/foreign/windows/libgit2/lib"))
-           (zlib-include-path (jazz:quote-jazz-pathname "lib/jazz.git/foreign/windows/include")))
+     (let ((git-include-path  (jazz:quote-jazz-pathname "foreign/jazz.git/windows/include"))
+           (git-lib-path      (jazz:quote-jazz-pathname "foreign/jazz.git/windows/lib"))
+           (zlib-include-path (jazz:quote-jazz-pathname "foreign/jazz.zlib/windows/include")))
        `((jazz.git.foreign
            cc-options: ,(string-append "-I" git-include-path " -I" zlib-include-path)
            ld-options: ,(string-append "-L" git-lib-path " -lgit2 -lws2_32"))))))
   (else
    (define jazz:git-units
-     (let ((git-include-path  (jazz:quote-jazz-pathname "lib/jazz.git/foreign/linux/libgit2/include"))
-           (git-lib-path      (jazz:quote-jazz-pathname "lib/jazz.git/foreign/linux/libgit2/lib")))
+     (let ((git-include-path  (jazz:quote-jazz-pathname "foreign/jazz.git/linux/include"))
+           (git-lib-path      (jazz:quote-jazz-pathname "foreign/jazz.git/linux/lib")))
        `((jazz.git.foreign
            cc-options: ,(string-append "-I" git-include-path)
            ld-options: ,(string-append "-Wl,-rpath,$ORIGIN/../../../../.." " -L" git-lib-path " -lgit2")))))))
@@ -71,13 +71,13 @@
 (cond-expand
   (cocoa
    (define jazz:platform-files
-     (list (cons "lib/jazz.git/foreign/mac/libgit2/lib/libgit2.1.1.0.dylib" "Libraries/libgit2.1.1.0.dylib"))))
+     (list (cons "foreign/jazz.git/mac/lib/libgit2.1.1.0.dylib" "Libraries/libgit2.1.1.0.dylib"))))
   (windows
    (define jazz:platform-files
-     (list (cons "lib/jazz.git/foreign/windows/libgit2/lib/git2.dll" "git2.dll"))))
+     (list (cons "foreign/jazz.git/windows/lib/git2.dll" "git2.dll"))))
   (else
    (define jazz:platform-files
-     (list (cons "lib/jazz.git/foreign/linux/libgit2/lib/libgit2.so.1.3" "libgit2.so.1.3")))))
+     (list (cons "foreign/jazz.git/linux/lib/libgit2.so.1.3" "libgit2.so.1.3")))))
 
 
 (define (jazz:copy-platform-files)
@@ -106,10 +106,10 @@
 (define (jazz:git-library-options descriptor add-language)
   (cond-expand
     (cocoa
-      (let ((git-lib-path (jazz:jazz-pathname "lib/jazz.git/foreign/mac/libgit2/lib")))
+      (let ((git-lib-path (jazz:jazz-pathname "foreign/jazz.git/mac/lib")))
         (list (string-append "-L" git-lib-path) "-lgit2.1.1.0" "-lgambit")))
     (windows
-      (let ((git-lib-path (jazz:jazz-pathname "lib/jazz.git/foreign/windows/libgit2/lib")))
+      (let ((git-lib-path (jazz:jazz-pathname "foreign/jazz.git/windows/lib")))
         (list (string-append "-L" git-lib-path) "-lgit2")))
     (else
      '())))

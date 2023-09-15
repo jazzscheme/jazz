@@ -562,31 +562,33 @@
   
   
   (method package (discarding-directories self proc)
-    (let ((queue (new-queue)))
-      (define (discard-directory dir)
-        (unless (member? dir (queue-list queue) test: pathname=?)
-          (enqueue queue dir)))
-      
-      (define (directory-empty? dir)
-        (continuation-capture
-          (lambda (return)
-            (iterate-directory dir
-              (lambda (path)
-                (unless (member? (get-name path) disregard)
-                  (continuation-return return #f)))
-              files?: #t
-              directories?: #t
-              recursive?: #f
-              ignored-toplevel-dirnames: ignored-toplevel-dirnames
-              ignored-dirnames: ignored-dirnames)
-            #t)))
-      
-      (prog1 (proc discard-directory)
-        (for-each (lambda (dir)
-                    (when (directory-empty? dir)
-                      (unless (pathname=? dir working)
-                        (delete dir))))
-                  (queue-list queue)))))
+    (if (bare? self)
+        (proc (lambda (dir)))
+      (let ((queue (new-queue)))
+        (define (discard-directory dir)
+          (unless (member? dir (queue-list queue) test: pathname=?)
+            (enqueue queue dir)))
+        
+        (define (directory-empty? dir)
+          (continuation-capture
+            (lambda (return)
+              (iterate-directory dir
+                (lambda (path)
+                  (unless (member? (get-name path) disregard)
+                    (continuation-return return #f)))
+                files?: #t
+                directories?: #t
+                recursive?: #f
+                ignored-toplevel-dirnames: ignored-toplevel-dirnames
+                ignored-dirnames: ignored-dirnames)
+              #t)))
+        
+        (prog1 (proc discard-directory)
+          (for-each (lambda (dir)
+                      (when (directory-empty? dir)
+                        (unless (pathname=? dir working)
+                          (delete dir))))
+                    (queue-list queue))))))
   
   
   ;;;

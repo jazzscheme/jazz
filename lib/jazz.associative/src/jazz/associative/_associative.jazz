@@ -158,6 +158,10 @@
   (remove-path repo path))
 
 
+(definition public (jas-sync repo output)
+  (sync repo output))
+
+
 (definition public (jas-head-index repo)
   (head-index repo))
 
@@ -614,6 +618,33 @@
             (else
              (let ((name (branch-name self head)))
                (write-branch self name commit))))))
+  
+  
+  ;;;
+  ;;;; Sync
+  ;;;
+  
+  
+  (method package (sync self output)
+    (let ((working-index (working-index self))
+          (staging-index (staging-index self)))
+      (let ((diff (diff self working-index staging-index)))
+        (discarding-directories self
+          (lambda (discard-directory)
+            (for-each (lambda (change)
+                        (bind (what path . rest) change
+                          (let ((file (new-file working (tokenise-filename path))))
+                            (case what
+                              ((added)
+                               (add-file staging-index path file))
+                              ((removed)
+                               (discard-directory (get-parent file))
+                               (remove-file staging-index path))
+                              ((modified)
+                               (add-file staging-index path file))))))
+                      (get-changes diff))))
+        (save-to-file staging-index)
+        (jas-describe diff output))))
   
   
   ;;;

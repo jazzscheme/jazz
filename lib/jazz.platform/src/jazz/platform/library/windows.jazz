@@ -1,0 +1,106 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Library
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.platform.library.windows jazz
+
+
+(import (jazz.io)
+        (jazz.platform))
+
+
+;;;
+;;;; Dependencies
+;;;
+
+
+(definition dumpbin
+  "c:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.29.30133/bin/Hostx64/x64/dumpbin.exe")
+
+
+(definition public (library-dependencies file)
+  (define (included-windows? path)
+    (or (equal? path "WS2_32.dll")
+        (equal? path "KERNEL32.dll")
+        (equal? path "VCRUNTIME140.dll")
+        (starts-with? path "api-ms-win-crt-")))
+  
+  (let ((port (open-process (list path: dumpbin arguments: `("-dependents" ,(parse file))))))
+    (let ((status (process-status port)))
+      (if (= status 0)
+          (let ((lines (read-all port read-line)))
+            (close-port port)
+            (let ((all (collect (lambda (path)
+                                  (let ((path (trim-whitespace path)))
+                                    (and (ends-with? path ".dll")
+                                         (not (starts-with? path "Dump of file"))
+                                         (not (included-windows? path))
+                                         path)))
+                            (cdr lines))))
+              all))
+        (error "System call dumpbin -dependents failed")))))
+
+
+(definition public (validate-dependencies exe-dir dir)
+  (let ((libraries (make-table test: equal?)))
+    (define (validate file)
+      (let ((direct (library-dependencies file)))
+        (for-each (lambda (path)
+                    (unless (table-ref libraries path #f)
+                      (let ((file (new-file exe-dir path)))
+                        (if (exists? file)
+                            (table-set! libraries path (parse file))
+                          (table-set! libraries path 'not-found)))))
+                  direct)))
+    
+    (let ((count 0))
+      (iterate-directory dir
+        (lambda (file)
+          (when (extension=? (get-extension file) "dll")
+            (terminal-string ".")
+            (increase! count)
+            (validate file)))
+        recursive?: #t)
+      (let ((missing '()))
+        (iterate-table libraries
+          (lambda (path filename)
+            (when (eq? filename 'not-found)
+              (set! missing (cons path missing)))))
+        (tell)
+        (tell 'found count 'missing (length missing))
+        (for-each (lambda (path)
+                    (tell path 'not-found))
+                  missing))))))

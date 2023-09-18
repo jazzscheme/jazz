@@ -114,6 +114,7 @@
 
 (define (jazz:exception-reason exc)
   (let ((output (open-output-string)))
+    (jazz:debug-port-setup-width output)
     (display-exception exc output)
     (let ((str (get-output-string output)))
       (let ((len (string-length str)))

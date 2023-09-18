@@ -382,6 +382,7 @@ end-of-code
               (write exc port)
               (newline port)
               (newline port)
+              (jazz:debug-port-setup-width port)
               (display-exception exc port)
               (newline port)
               (newline port)

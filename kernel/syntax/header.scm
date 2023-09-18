@@ -311,8 +311,15 @@
 ;;;
 
 
-(define (jazz:character-port-output-width-set! port proc)
-  (macro-character-port-output-width-set! port proc))
+(define (jazz:output-port-width-set! port width)
+  (macro-character-port-output-width-set! port (lambda (port) width)))
+
+
+(define (jazz:debug-port-setup-width port)
+  (jazz:output-port-width-set! port 512))
+
+
+(jazz:debug-port-setup-width (repl-output-port))
 
 
 ;;;

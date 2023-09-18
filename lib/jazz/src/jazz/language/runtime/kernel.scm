@@ -904,7 +904,8 @@
 (native jazz:read-source-all)
 (native jazz:read-source-first)
 (native jazz:read-literal-hook)
-(native jazz:character-port-output-width-set!)
+(native jazz:output-port-width-set!)
+(native jazz:debug-port-setup-width)
 
 
 ;;;

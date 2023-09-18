@@ -242,16 +242,6 @@
 
 
 ;;;
-;;;; Writer
-;;;
-
-
-(define (jazz:output-port-width-set! port width)
-  (jazz:character-port-output-width-set! port (lambda (port) width))
-  (void))
-
-
-;;;
 ;;;; Serial
 ;;;
 

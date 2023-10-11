@@ -52,6 +52,7 @@
 
 (import (jazz.application)
         (jazz.cairo)
+        (jazz.foreign)
         (jazz.geometry)
         (jazz.graphic)
         (jazz.io)
@@ -72,8 +73,6 @@
 
 
 (startup-gstreamer)
-
-(setup-gstreamer-log)
 
 (set-application-retina? #f)
 
@@ -511,7 +510,8 @@
         (lambda ()
           (gst_object_set_name audio "audio")
           (gst_element_set_state audio GST_STATE_PLAYING)
-          (report-info audio "gc0"))))
+          (report-info audio "gc0"))
+        'audio))
     ;; application
     (boot-environment (new Test-Application keyer: keyer closer: closer))))
 
@@ -587,7 +587,8 @@
                                 (g_object_get_uint64 queue "current-level-buffers")
                                 (g_object_get_uint64 queue "current-level-bytes"))
                       (sleep .1)
-                      (loop)))))))
+                      (loop))))
+                'debug)))
           (thread-start!
             (new-thread
               (lambda ()
@@ -598,7 +599,8 @@
                 (gst_monitor input "sink.sink" 'data audio)
                 (thread-start! input-thread)
                 (report-info input "input")
-                (report-info audio "gc1")))))))
+                (report-info audio "gc1"))
+              'audio)))))
     ;; application
     (boot-environment (new Test-Application keyer: keyer closer: closer))))
 
@@ -669,7 +671,8 @@
                                 (g_object_get_uint64 queue "current-level-buffers")
                                 (g_object_get_uint64 queue "current-level-bytes"))
                       (sleep .1)
-                      (loop)))))))
+                      (loop))))
+                'debug)))
           (thread-start!
             (new-thread
               (lambda ()
@@ -679,7 +682,8 @@
                 (gst_element_set_state audio GST_STATE_PLAYING)
                 (thread-start! input-thread)
                 (report-info input "input")
-                (report-info audio "amazing")))))))
+                (report-info audio "amazing"))
+              'audio)))))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -714,7 +718,8 @@ description-end
       (new-thread
         (lambda ()
           (gst_element_set_state pipeline GST_STATE_PLAYING)
-          (report-info pipeline "audio0"))))
+          (report-info pipeline "audio0"))
+        'audio))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -756,7 +761,8 @@ description-end
       (new-thread
         (lambda ()
           (gst_element_set_state pipeline GST_STATE_PLAYING)
-          (report-info pipeline "audio1"))))
+          (report-info pipeline "audio1"))
+        'audio))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -791,7 +797,8 @@ description-end
         (lambda ()
           (gst_bin_add speaker microphone)
           (gst_element_set_state speaker GST_STATE_PLAYING)
-          (report-info speaker "audio2"))))
+          (report-info speaker "audio2"))
+        'audio))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -2363,7 +2370,8 @@ description-end
                               (let ((dts (u64vector-ref input-info 0))
                                     (pts (u64vector-ref input-info 1))
                                     (duration (u64vector-ref input-info 2)))
-                                (if (= pts GST_CLOCK_TIME_NONE)
+                                (if (or (= dts GST_CLOCK_TIME_NONE)
+                                        (= pts GST_CLOCK_TIME_NONE))
                                     (gst_app_src_write bin-src input-buffer size dts pts duration)
                                   (let ((timestamp-offset (adapt-time adapter bin-src pts)))
                                     (let ((dts (+ dts timestamp-offset))
@@ -2634,7 +2642,8 @@ description-end
         (lambda ()
           (gst_element_set_state a GST_STATE_PLAYING)
           (sleep (/ delay 1000.))
-          (gst_element_set_state b GST_STATE_PLAYING))))
+          (gst_element_set_state b GST_STATE_PLAYING))
+        'test))
     ;; application
     (boot-environment (new Test-Application closer: closer))))
 
@@ -3580,7 +3589,8 @@ description-end
                       (set! vol (min (* vol 1.025) 1.))
                       (g_object_set_double volume "volume" vol)
                       (sleep .1)
-                      (loop))))))
+                      (loop)))
+                  'volume)))
             ;; pan left to right
             (let ((pan -1.))
               (thread-start!
@@ -3590,7 +3600,8 @@ description-end
                       (set! pan (min (+ pan .01) 1.))
                       (g_object_set_double panorama "panorama" pan)
                       (sleep .1)
-                      (loop)))))))))
+                      (loop)))
+                  'panorama))))))
       'ogg))
   ;; application
   (boot-environment (new Test-Application)))

@@ -55,11 +55,27 @@
 (cond-expand
   (cocoa
     (definition public (install-application descriptor destination (name: name #f) (bundle: bundle #f) (info-plist: info-plist #f) (application?: application? #t) (executable?: executable? #t) (jazz?: jazz? #f) (source-access?: source-access? #f) (scriptable?: scriptable? #f) (platform?: platform? #f) (opengl?: opengl? #f) (git?: git? #f) (gstreamer?: gstreamer? #f) (files: files '()) (directories: directories '()) (metadata: metadata '()) (ignored-contents: ignored-contents #f) (ignored-macosx: ignored-macosx #f))
-      (let ((bundle (or bundle (product-descriptor-build-bundle descriptor))))
-        (when bundle
-          (let ((src-root {Directory Build})
-                (dst-root destination)
-                (bundle-app (format "{a}.app" bundle)))
+      (let ((src-root {Directory Build})
+            (dst-root destination)
+            (bundle (or bundle (product-descriptor-build-bundle descriptor))))
+        (if (not bundle)
+            (let ((src src-root)
+                  (dst (new-directory dst-root name)))
+              ;; lib
+              (install-directory (new-directory src '("Libraries" "lib")) (new-directory dst '("Libraries" "lib"))
+                filter: (let ((ignored-extensions (ignored-extensions source-access? scriptable?)))
+                          (lambda (action pathname)
+                            (not (and (file? pathname)
+                                      (member? (get-extension pathname) ignored-extensions test: extension=?)))))
+                feedback: (lambda (action pathname)
+                            (build-feedback "; {a} {a}..." action (get-name pathname))))
+              ;; files
+              (for-each (lambda (file)
+                          (install-file (new-file src file) (new-file dst file)
+                            feedback: (lambda (action pathname)
+                                        (build-feedback "; {a} {a}..." action (get-name pathname)))))
+                        files))
+          (let ((bundle-app (format "{a}.app" bundle)))
             (let ((src-app (new-directory src-root bundle-app))
                   (dst-app (new-directory dst-root (or name bundle-app)))
                   (platform-libraries '("libcairo.2.dylib"

@@ -341,7 +341,7 @@
   
   
   (method (connect-remote self host service)
-    (when (and debug-remote? (debug-remote-presence? self))
+    (when (and (or debug-remote? debug-remote-blocking?) (debug-remote-presence? self))
       (debug-remote self '>>> #f #f 'open host service)
       (caller-garble-hack))
     (when (not listener)
@@ -573,7 +573,7 @@
   
   
   (method (invoke self kind method-name remote-proxy arguments)
-    (when (and debug-remote? (debug-remote-presence? presence) (debug-remote-method? method-name))
+    (when (and (or debug-remote? (and debug-remote-blocking? (neq? kind 'post))) (debug-remote-presence? presence) (debug-remote-method? method-name))
       (debug-remote presence '>>> remote-title remote-uuid kind method-name)
       (caller-garble-hack))
     (let ((ior (get-ior remote-proxy)))
@@ -1134,6 +1134,9 @@
 
 (definition protected debug-remote?
   (global-setting 'debug-remote? #f))
+
+(definition protected debug-remote-blocking?
+  (global-setting 'debug-remote-blocking? #f))
 
 (definition protected debug-remote-io?
   (global-setting 'debug-remote-io? #f))

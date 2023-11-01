@@ -180,15 +180,14 @@
   (method (attach-process-at self address)
     (start-remote-server (current-process))
     (receive (host service alternate-service) (parse-host/service address)
-      (let ((remote-register (connect-remote-register host service purpose: 'debugging)))
-        (let ((remote-debuggee (find-object remote-register 'debuggee))
-              (cookie (register-debugger-cookie)))
-          (register-debugger-cookie-procedure cookie
-            (lambda (process cookie)
-              (clear-user-message)
-              (transmit-runtime-information (get-debugger process) (get-reference process) 'all)))
-          (user-message "Attaching {a}..." address)
-          (attach-to-debugger remote-debuggee (get-local-register 'debugging) cookie)))))
+      (let ((remote-debuggee (connect-remote-reference host service 'debuggee purpose: 'debugging))
+            (cookie (register-debugger-cookie)))
+        (register-debugger-cookie-procedure cookie
+          (lambda (process cookie)
+            (clear-user-message)
+            (transmit-runtime-information (get-debugger process) (get-reference process) 'all)))
+        (user-message "Attaching {a}..." address)
+        (attach-to-debugger remote-debuggee (require-object (get-local-register 'debugging) 'debugger) cookie))))
   
   
   (definition Snapshot-Extensions

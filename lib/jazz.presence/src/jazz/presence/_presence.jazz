@@ -100,6 +100,7 @@
 (hub invoke-live?)
 (hub live?)
 (hub load-object)
+(hub load-reference)
 (hub local-class)
 (hub new-register-proxy)
 (hub process)
@@ -308,14 +309,15 @@
                            (write-port port code version #f)
                            (signal exc))
                     (read-port port code version)))))
-          (bind (remote-kind remote-uuid remote-title remote-service remote-address) message
+          (bind (remote-kind remote-uuid remote-title remote-service remote-address reference) message
             (define (accept)
               (let ((local-uuid uuid)
                     (local-title presence-title)
                     (local-service (listening-port listener))
                     (local-address (socket-info-address (tcp-client-peer-socket-info port)))
-                    (start (current-monotonic)))
-                (write-port port code version (list local-uuid local-title local-service local-address))
+                    (start (current-monotonic))
+                    (reference-proxy (and reference (load-reference register reference))))
+                (write-port port code version (list local-uuid local-title local-service local-address reference-proxy))
                 (assert (eq? (read-port port code version) 'handshake)
                   (let ((lag (- (current-monotonic) start)))
                     (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag invoke-handler process-handler processing-handler execute-handler)))
@@ -340,7 +342,7 @@
   ;;;
   
   
-  (method (connect-remote self host service)
+  (method (connect-remote self host service reference)
     (when (and (or debug-remote? debug-remote-blocking?) (debug-remote-presence? self))
       (debug-remote self '>>> #f #f 'open host service)
       (caller-garble-hack))
@@ -354,14 +356,14 @@
                 (local-service (listening-port listener))
                 (local-address (socket-info-address (tcp-client-peer-socket-info port)))
                 (start (current-monotonic)))
-            (write-port port code version (list 'connect local-uuid local-title local-service local-address))
+            (write-port port code version (list 'connect local-uuid local-title local-service local-address reference))
             (let ((reply (read-port port code version)))
               (cond ((eof-object? reply)
                      (throw-connection-broke (format "Connecting to {a} {a} received eof" host service)))
                     ((eq? reply 'already-connected)
                      (error "Already connected to {a} {a}" host service))
                     (else
-                     (bind (remote-uuid remote-title remote-service remote-address) reply
+                     (bind (remote-uuid remote-title remote-service remote-address reference-proxy) reply
                        (let ((lag (- (current-monotonic) start)))
                          (write-port port code version 'handshake)
                          (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address lag invoke-handler process-handler processing-handler execute-handler)))
@@ -377,7 +379,7 @@
                              (set-thread connection thread)
                              (thread-base-priority-set! thread priority)
                              (thread-start! thread)
-                             remote-uuid))))))))))
+                             (or reference-proxy remote-uuid)))))))))))
       self))
   
   
@@ -825,8 +827,13 @@
 
 (definition public (connect-remote-register host port (purpose: purpose #f))
   (let ((presence (require-presence purpose)))
-    (let ((uuid (connect-remote presence host port)))
+    (let ((uuid (connect-remote presence host port #f)))
       (new-remote-register purpose uuid))))
+
+
+(definition public (connect-remote-reference host port reference (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (connect-remote presence host port reference)))
 
 
 (definition public (get-remote-register remote-proxy)
@@ -870,7 +877,7 @@
       (let ((uuid (get-uuid ior)))
         ;; already connected
         (unless (find-connection presence uuid)
-          (assert (uuid=? (connect-remote presence host port)
+          (assert (uuid=? (connect-remote presence host port #f)
                           uuid)))
         proxy))))
 

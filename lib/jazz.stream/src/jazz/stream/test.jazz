@@ -264,6 +264,7 @@
 (definition public (test-gstreamer)
   (case script
     ((none))
+    ((rate) (test-rate))
     ((mic) (test-microphone))
     ((gc0) (test-gc0))
     ((gc1) (test-gc1))
@@ -304,6 +305,41 @@
     ((discover) (test-discover))
     ((fonts) (test-fonts))
     (else (error "Unknown script: {a}" script))))
+
+
+;;;
+;;;; Rate
+;;;
+
+
+(definition public (test-rate)
+  (let ((count 12))
+    (let ((pipeline (gst-pipeline "avfvideosrc name=src"
+                                  "video/x-raw,width=1280,height=720,framerate=30/1"
+                                  "queue name=queue"
+                                  "tee name=tee"
+                                  (map (lambda (n)
+                                         (let ((name (tie "queue{n}")))
+                                           (list
+                                             "tee^."
+                                             (tie "queue name={name}")
+                                             "x264enc tune=zerolatency speed-preset=superfast bitrate=2048"
+                                             "appsink sync=false async=false")))
+                                       (naturals 0 count))))
+          (probe #f))
+      (gst_object_set_name pipeline "rate")
+      (with-unref ((src (gst_bin_get_by_name pipeline "src")))
+        (with-unref ((pad (gst_element_get_static_pad src "src")))
+          (set! probe (gst_pad_add_rate_probe pad 30 #t))))
+      (for-each (lambda (n)
+                  (with-unref ((queue (gst_bin_get_by_name pipeline (tie "queue{n}"))))
+                    (with-unref ((pad (gst_element_get_static_pad queue "sink")))
+                      (let ((rate 0))
+                        (gst_pad_add_rate_probe pad rate #f)))))
+                (naturals 0 count))
+      (gst_element_set_state pipeline GST_STATE_PLAYING)))
+  ;; application
+  (boot-environment (new Test-Application)))
 
 
 ;;;

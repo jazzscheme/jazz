@@ -104,10 +104,12 @@
       ((:import)           (~ walk-import self))
       ((:export)           (~ walk-export self))
       ((:include)          (~ walk-c-declare self))
+      ((:remotable-stub)   (~ walk-remotable-stub self))
       ((:data)             (~ walk-data self))
       ((:keyword)          (~ walk-keyword self))
       ((:declare)          (~ walk-declare self))
       ((:define)           (~ walk-define self))
+      ((:method)           (~ walk-method self))
       ((:generic/specific) (~ walk-generic/specific self))
       ((:hub)              (~ walk-hub self))
       ((:node)             (~ walk-node self))
@@ -209,6 +211,9 @@
   
   (method (walk-unit self context symbol form declaration keyword expression doc)
     (walk-namespace self context 'unit symbol form declaration keyword expression doc))
+
+  (method (walk-remotable-stub self context symbol form declaration keyword expression doc)
+    (walk-namespace self context 'remotable-stub symbol form declaration keyword expression doc))
   
   
   (method (walk-module self context symbol form declaration keyword expression doc)
@@ -331,7 +336,22 @@
           (exit-list self)))
       (walk-expressions self entry expression 'code #f)
       entry))
+    
   
+  (method (walk-method self context symbol form <Expression-Syntax> declaration keyword expression doc)
+    (let ((entry context))
+      (keyword context start end)
+      (let ((modifiers (walk-modifiers self context declaration keyword (get-modifiers form))))
+        (enter-list self)
+        (when (and (forward-expr self) (eq? kind 'symbol))
+          (set! entry (declaration context 'method modifiers symbol '() #f start end (get-marked self) (symbol-documented? self (find-marked-symbol self) doc)))
+          (forward-whites self)
+          (walk-parameters self entry declaration keyword expression doc)
+          (exit-list self)
+          (walk-specifier self entry expression 'code)
+          (walk-expressions self entry expression 'code #f))
+        entry)))
+
   
   (method (walk-generic/specific self context symbol form declaration keyword expression doc)
     (let ((entry context))

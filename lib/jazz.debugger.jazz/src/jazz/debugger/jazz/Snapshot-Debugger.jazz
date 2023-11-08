@@ -141,9 +141,10 @@
     (let ((mutable? #f)
           (value (serial->value self process serial)))
       (if (not value)
-          (begin
-            (debug 'found 'unbound 'value serial)
-            '())
+          (let ((class 'not-found)
+                (presentation "<not-found>")
+                (content '()))
+            (cons (list #f name rank) (list serial class presentation (not-null? content) mutable? :raw)))
         (let ((class (get-property value 'class))
               (presentation (get-property value 'presentation))
               (content (get-property value 'content '())))
@@ -316,7 +317,8 @@
             (sourced (and (symbol? name) (locator->location name))))
         (if location
             (bind (container line col) location
-              (if (file-exists? container)
+              (if (or (not (string? container)) ;; quick regression hack
+                      (file-exists? container))
                   location
                 (if (and sourced
                          (filename=? (filename-name container)

@@ -64,19 +64,20 @@
     (define (parse-definitions)
       (let ((lines (list->vector (load-lines file char-encoding: char-encoding char-encoding-errors: #f)))
             (fact (new List-Factory))
-            (find-function (if (eq? (get-heuristic self 'c-function) 'gambit)
-                               find-gambit-function
-                             find-open-brace-function)))
-      (when (member? (get-extension file) '("c" "cpp" "m"))
-        (put fact (new C-Category-Entry (get-base file))))
-      (loop (for n from 0 below (cardinality lines))
-            (do
-              (let* ((line (vector-ref lines n))
-                     (item (or (find-sharp-define line n)
-                               (find-sharp-include line n)
-                               (find-function lines line n))))
-                (when item (put fact item)))))
-      (get-output fact)))
+            (find-function (case (get-heuristic self 'c-function)
+                             ((gambit) find-gambit-function)
+                             ((gstreamer) find-gstreamer-function)
+                             (else find-brace-function))))
+        (when (member? (get-extension file) '("c" "cpp" "m" "mm"))
+          (put fact (new C-Category-Entry (get-base file))))
+        (loop (for n from 0 below (cardinality lines))
+              (do
+                    (let* ((line (vector-ref lines n))
+                           (item (or (find-sharp-define line n)
+                                     (find-sharp-include line n)
+                                     (find-function lines line n))))
+                      (when item (put fact item)))))
+        (get-output fact)))
     
     ;;;
     ;;;; Sharp Define
@@ -119,24 +120,6 @@
                            (new C-Include-Entry (subseq line start col) n start n col))))))))
     
     ;;;
-    ;;;; Open-Brace Heuristic
-    ;;;
-    
-    (define (find-open-brace-function lines line n)
-      (let ((len (string-length line)))
-        (and (and (> len 0)
-                  (eqv? (string-ref line 0) #\{))
-             (continuation-capture
-               (lambda (return)
-                 (loop (for i from (- n 1) downto (max 0 (- n 5)))
-                       (do (let ((line (vector-ref lines i)))
-                             (let ((end (skip c-constituent? line)))
-                               (when (> end 0)
-                                 (continuation-return return
-                                                      (new C-Export-Entry (subseq line 0 end) i 0 i end)))))))
-                 #f)))))
-    
-    ;;;
     ;;;; Gambit Heuristic
     ;;;
     
@@ -155,5 +138,58 @@
                            (end (skip c-constituent? line start: start)))
                       (and (> end start)
                            (new C-Export-Entry (subseq line start end) n start n end))))))))
+    
+    ;;;
+    ;;;; GStreamer Heuristic
+    ;;;
+    
+    (define (find-gstreamer-function lines line n)
+      (let ((len (string-length line)))
+        (and (and (> len 0)
+                  (eqv? (string-ref line 0) #\{))
+             (continuation-capture
+               (lambda (return)
+                 (loop (for i from (- n 1) downto (max 0 (- n 5)))
+                       (do (let ((line (vector-ref lines i)))
+                             (let ((end (skip c-constituent? line)))
+                               (when (> end 0)
+                                 (continuation-return return
+                                                      (new C-Export-Entry (subseq line 0 end) i 0 i end)))))))
+                 #f)))))
+    
+    ;;;
+    ;;;; Brace Heuristic
+    ;;;
+    
+    (define (find-brace-function lines line n)
+      (define (skip-to line target (start: start #f))
+        (skip (lambda (c) (not (eqv? c target))) line start: start))
+      
+      (let ((len (string-length line)))
+        (and (and (> len 0)
+                  (eqv? (string-ref line 0) #\{))
+             (let ((i (- n 1)))
+               (let ((line (vector-ref lines i)))
+                 ;; objective-c instance method
+                 (if (starts-with? line "-")
+                     (let ((open (skip-to line #\( start: 1)))
+                       (and open
+                            (let ((close (skip-to line #\) start: open)))
+                              (and close
+                                   (let ((start (skip-whitespace line start: (+ close 1))))
+                                     (let ((end (skip c-constituent? line start: start)))
+                                       (and (> end start)
+                                            (new C-Export-Entry (subseq line start end) i start i end))))))))
+                   ;; return type followed by name
+                   (let ((start (skip-whitespace line)))
+                     (let ((end (skip c-constituent? line start: start)))
+                       (and (> end start)
+                            (let ((start (skip-whitespace line start: end)))
+                              ;; skip star character
+                              (when (and (< start (string-length line)) (eqv? (string-ref line start) #\*))
+                                (set! start (+ start 1)))
+                              (let ((end (skip c-constituent? line start: start)))
+                                (and (> end start)
+                                     (new C-Export-Entry (subseq line start end) i start i end)))))))))))))
     
     (new C-File-Entry catalog file digest dialect (parse-definitions)))))

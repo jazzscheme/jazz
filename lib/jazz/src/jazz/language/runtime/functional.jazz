@@ -4041,9 +4041,14 @@
 
 (definition public (serialize-class class)
   (or (table-ref *serialized-classes* class #f)
-      (let ((serialize (serialize-reference (get-name class))))
-        (table-set! *serialized-classes* class serialize)
-        serialize)))
+      (let ((name (get-name class)))
+        (let ((serialize
+                ;; special case for presence interoperability
+                (if (eq? name 'jazz.presence.remotable.IOR:IOR)
+                    'ior
+                  (serialize-reference name))))
+          (table-set! *serialized-classes* class serialize)
+          serialize))))
 
 
 (definition public (serialize-object class content)
@@ -4056,9 +4061,11 @@
 
 (definition public (deserialize-class reference)
   (or (table-ref *deserialized-classes* reference #f)
-      (let ((class (resolve-runtime-reference (deserialize-runtime-reference reference))))
-        (table-set! *deserialized-classes* reference class)
-        class)))
+      ;; special case for presence interoperability
+      (let ((effective-reference (if (eq? reference 'ior) '(module-public jazz.presence IOR) reference)))
+        (let ((class (resolve-runtime-reference (deserialize-runtime-reference effective-reference))))
+          (table-set! *deserialized-classes* reference class)
+          class))))
 
 
 (definition public (serialize obj)

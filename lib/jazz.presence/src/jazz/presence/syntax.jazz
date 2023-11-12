@@ -53,12 +53,20 @@
   '(extends))
 
 
+(define (parse-remotable-locator rest)
+  (if (and (pair? rest)
+           (symbol? (car rest)))
+      (values (car rest) (cdr rest))
+    (values #f rest)))
+
+
 (define (parse-remotable-stub walker resume declaration rest)
   (receive (access modifiers rest) (parse-modifiers walker resume declaration remotable-stub-modifiers rest)
     (let ((name (car rest))
           (rest (cdr rest)))
-      (receive (ascendant-name body) (parse-keywords remotable-stub-keywords rest)
-        (values name #f access modifiers ascendant-name body)))))
+      (receive (ascendant-name rest) (parse-keywords remotable-stub-keywords rest)
+        (receive (locator body) (parse-remotable-locator rest)
+          (values name #f access modifiers ascendant-name locator body))))))
 
 
 (define method-stub-modifiers
@@ -81,7 +89,7 @@
 
 
 (define (expand-remotable-stub walker resume declaration environment rest)
-  (receive (name type stub-access stub-modifiers ascendant-name body) (parse-remotable-stub walker resume declaration rest)
+  (receive (name type stub-access stub-modifiers ascendant-name locator body) (parse-remotable-stub walker resume declaration rest)
     (define (add name suffix)
       (string->symbol (string-append (symbol->string name) suffix)))
     
@@ -164,10 +172,12 @@
                (reify-reference ,stub-interface))
              ,@values-method
              ,@(queue-list locals))
+           ,@(if locator `((register-local-proxy-class ',locator ,local-class)) '())
            (class package ,remote-class extends ,(if (specified? ascendant-name) (add ascendant-name "-Remote-Proxy") 'Remote-Proxy) implements ,stub-interface
              (method override (stub-reference self)
                (reify-reference ,stub-interface))
-             ,@(queue-list remotes)))))))
+             ,@(queue-list remotes))
+           ,@(if locator `((register-remote-proxy-class ',locator ,remote-class)) '()))))))
 
 
 (syntax public remotable-stub

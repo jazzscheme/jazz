@@ -628,23 +628,22 @@
   
   
   (method (execute self kind rest)
-    (bind (method-name cookie ior arguments) rest
+    (bind (method-name cookie local-proxy arguments) rest
       (when (and debug-remote? (debug-remote-presence? presence) (debug-remote-method? method-name))
         (callee-garble-hack)
         (debug-remote presence '<<< remote-title remote-uuid 'execute method-name))
       (let ((thread
               (new-thread
                 (lambda ()
-                  (let ((local-proxy (ior->proxy ior)))
-                    (let ((result (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments)))
-                      (execute-handler
-                        (lambda (connection)
-                          (case kind
-                            ((send)
-                             (write-message self `(result ,kind ,method-name ,cookie ,(unspecified))))
-                            ((call)
-                             (write-message self `(result ,kind ,method-name ,cookie ,result)))))
-                        self))))
+                  (let ((result (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments)))
+                    (execute-handler
+                      (lambda (connection)
+                        (case kind
+                          ((send)
+                           (write-message self `(result ,kind ,method-name ,cookie ,(unspecified))))
+                          ((call)
+                           (write-message self `(result ,kind ,method-name ,cookie ,result)))))
+                      self)))
                 (list 'execute method-name))))
         (thread-base-priority-set! thread (get-priority presence))
         (thread-start! thread))))
@@ -924,6 +923,42 @@
 
 
 ;;;
+;;;; Local
+;;;
+
+
+(definition local-proxy-classes
+  (make-table))
+
+
+(definition protected (register-local-proxy-class locator class)
+  (table-set! local-proxy-classes locator class))
+
+
+(definition (registered-local-proxy-class locator)
+  (or (table-ref local-proxy-classes locator #f)
+      (error "Unknow local proxy class {a}" locator)))
+
+
+;;;
+;;;; Remote
+;;;
+
+
+(definition remote-proxy-classes
+  (make-table))
+
+
+(definition protected (register-remote-proxy-class locator class)
+  (table-set! remote-proxy-classes locator class))
+
+
+(definition (registered-remote-proxy-class locator)
+  (or (table-ref remote-proxy-classes locator #f)
+      (error "Unknow remote proxy class {a}" locator)))
+
+
+;;;
 ;;;; IOR
 ;;;
 
@@ -956,6 +991,22 @@
 (definition public (ior->proxy ior)
   (let ((purpose (get-purpose ior)))
     (let ((presence (require-presence purpose)))
+      (define (ior-stub-interface ior)
+        (let ((stub-interface (get-stub-interface ior)))
+          (if (symbol? stub-interface)
+              stub-interface
+            (resolve-runtime-reference (deserialize-runtime-reference stub-interface)))))
+      
+      (define (stub-local-class stub-interface)
+        (if (symbol? stub-interface)
+            (registered-local-proxy-class stub-interface)
+          (local-class stub-interface)))
+      
+      (define (stub-remote-class stub-interface)
+        (if (symbol? stub-interface)
+            (registered-remote-proxy-class stub-interface)
+          (remote-class stub-interface)))
+      
       (define (local-ior? ior)
         (find-presence-by-uuid (get-uuid ior)))
       
@@ -963,15 +1014,14 @@
         (define (reference->local-proxy stub-interface reference)
           (if (not reference)
               (get-local-register purpose)
-            (new (local-class stub-interface) presence (serial->object reference))))
+            (new (stub-local-class stub-interface) presence (serial->object reference))))
         
         (reference->local-proxy stub-interface (get-reference ior)))
       
       (define (remote->proxy stub-interface ior)
-        (let ((remote-class (remote-class stub-interface)))
-          (new remote-class presence ior (get-values ior))))
+        (new (stub-remote-class stub-interface) presence ior (get-values ior)))
       
-      (let ((stub-interface (resolve-runtime-reference (deserialize-runtime-reference (get-stub-interface ior)))))
+      (let ((stub-interface (ior-stub-interface ior)))
         (if (local-ior? ior)
             (local->proxy stub-interface ior)
           (remote->proxy stub-interface ior))))))
@@ -1081,11 +1131,12 @@
               (serialize-runtime-reference (stub-reference proxy))
               (local-proxy->reference)
               (proxy-values proxy))))
-      (serialize-object (class-of proxy) (encode-ior ior)))))
+      (serialize-object (class-of ior) (encode-ior ior)))))
 
 
 (definition protected (marshall-remote-proxy proxy)
-  (serialize-object (class-of proxy) (encode-ior (get-ior proxy))))
+  (let ((ior (get-ior proxy)))
+    (serialize-object (class-of ior) (encode-ior ior))))
 
 
 (definition (encode-ior ior)

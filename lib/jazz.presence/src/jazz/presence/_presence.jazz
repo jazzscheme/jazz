@@ -820,7 +820,7 @@
 
 
 (definition public (new-remote-register purpose uuid)
-  (ior->proxy (new IOR purpose uuid (serialize-runtime-reference (reify-reference Register-Stub)) #f '())))
+  (ior->proxy (new IOR purpose uuid 'register #f '())))
 
 
 (definition public (connect-remote-register host port (purpose: purpose #f))
@@ -935,9 +935,17 @@
   (table-set! local-proxy-classes locator class))
 
 
-(definition (registered-local-proxy-class locator)
+(definition protected (registered-local-proxy-class locator)
   (or (table-ref local-proxy-classes locator #f)
       (error "Unknow local proxy class {a}" locator)))
+
+
+(definition (local-proxy->locator proxy)
+  (let ((proxy-class (class-of proxy)))
+    (table-search (lambda (locator class)
+                    (and (eq? proxy-class class)
+                         locator))
+                  local-proxy-classes)))
 
 
 ;;;
@@ -953,7 +961,7 @@
   (table-set! remote-proxy-classes locator class))
 
 
-(definition (registered-remote-proxy-class locator)
+(definition protected (registered-remote-proxy-class locator)
   (or (table-ref remote-proxy-classes locator #f)
       (error "Unknow remote proxy class {a}" locator)))
 
@@ -1124,11 +1132,15 @@
           (gc-protect object)
           (object->serial object))))
     
+    (define (local-proxy->stub-interface)
+      (or (local-proxy->locator proxy)
+          (serialize-runtime-reference (stub-reference proxy))))
+    
     (let ((ior
             (new IOR
               (get-purpose presence)
               (get-uuid presence)
-              (serialize-runtime-reference (stub-reference proxy))
+              (local-proxy->stub-interface)
               (local-proxy->reference)
               (proxy-values proxy))))
       (serialize-object (class-of ior) (encode-ior ior)))))

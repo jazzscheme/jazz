@@ -2635,8 +2635,28 @@
   
   
   (method public virtual (insert-formatted-line self line)
-    (call-with-input-string line
+    (call-with-input-string (standardize-string-representation self line)
       (~ process-formatted self)))
+  
+  
+  ;; quick hack around string representation changed
+  (method (standardize-string-representation self line)
+    (declare (proper-tail-calls))
+    (let ((output (open-output-string))
+          (len (string-length line)))
+      (let (loop (n 0))
+        (if (>= n len)
+            (get-output-string output)
+          (let ((c (string-ref line n)))
+            (if (or (eqv? c formatted-start-delimiter)
+                    (eqv? c formatted-end-delimiter))
+                (let ((next (and (< (+ n 1) len) (string-ref line (+ n 1)))))
+                  (write-char c output)
+                  (if (eqv? next #\;)
+                      (loop (+ n 2))
+                    (loop (+ n 1))))
+              (write-char c output)
+              (loop (+ n 1))))))))
   
   
   (method protected (process-formatted self input)

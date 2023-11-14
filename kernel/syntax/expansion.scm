@@ -395,7 +395,7 @@ end-of-code
   (define (identify-location locat)
     (let ((container (and locat (^#locat-container locat))))
       (if container
-          (let ((filepos (^#position->filepos (^#locat-position locat))))
+          (let ((filepos (^#position->filepos (^#locat-start-position locat))))
             (let ((line (^#filepos-line filepos))
                   (col (^#filepos-col filepos)))
               (^#list container line col)))

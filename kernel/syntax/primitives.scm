@@ -1530,7 +1530,7 @@
 (jazz:define-synto (%%locat-position locat)
   (%%force-uniqueness (locat)
     `(%%check-locat ,locat 1 (%%locat-position ,locat)
-       (^#locat-position ,locat))))
+       (^#locat-start-position ,locat))))
 
 (jazz:define-synto (%%container->path container)
   `(^#container->path ,container))

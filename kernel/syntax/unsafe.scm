@@ -248,7 +248,7 @@
 (jazz:define-unsafe ^#list->vector)
 (jazz:define-unsafe ^#load)
 (jazz:define-unsafe ^#locat-container)
-(jazz:define-unsafe ^#locat-position)
+(jazz:define-unsafe ^#locat-start-position)
 (jazz:define-unsafe ^#locat?)
 (jazz:define-unsafe ^#make-f32vector)
 (jazz:define-unsafe ^#make-f64vector)

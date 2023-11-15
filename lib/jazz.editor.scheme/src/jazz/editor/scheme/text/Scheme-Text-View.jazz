@@ -39,6 +39,7 @@
 
 
 (import (jazz.action)
+        (jazz.editor)
         (jazz.editor.lisp)
         (jazz.editor.scheme)
         (jazz.locale)
@@ -93,11 +94,57 @@
   
   
   (method override (prepare-expressions self range)
+    (define (extract-library)
+      (let ((first-line (paragraph-string self 0)))
+        (let ((start (if (or (starts-with? first-line "#!")
+                             (starts-with? first-line "@;"))
+                         (new Cell 1 0)
+                       (new Cell 0 0))))
+          (let ((expl (new Scheme-Explorer model start: start)))
+            (if (and (forward-expr expl)
+                     (namespace-expr? expl))
+                (let ((range (get-range expl)))
+                  (let ((form (read-text-form syntax range)))
+                    (if (and (pair? form)
+                             (eq? (car form) 'library))
+                        range
+                      #f)))
+              #f)))))
+    
+    (define (package-library library string)
+      (let ((first-line (get-line (get-start library)))
+            (first-col (get-col (get-start library))))
+        (let ((line first-line)
+              (col first-col)
+              (output (open-output-string)))
+          (define (fill rng)
+            (let ((l (get-line (get-start rng)))
+                  (c (get-col (get-start rng))))
+              (when (>= l line)
+                (let (iterate)
+                  (if (= l line)
+                      (when (>= c col)
+                        (display (make-string (- c col) #\space) output)
+                        (set! col c))
+                    (display #\newline output)
+                    (set! line (+ line 1))
+                    (set! col 0)
+                    (iterate))))))
+          
+          (display (get-string self library) output)
+          (fill range)
+          (display string output)
+          (values (get-output-string output) first-line first-col))))
+    
     (let ((container (get-locat-container self))
-          (str (get-string self range))
+          (library (extract-library))
+          (string (get-string self range))
           (line (get-line (get-start range)))
           (col (get-col (get-start range))))
-      (list 'scheme str container line col))))
+      (if (not library)
+          (list 'scheme string container line col)
+        (receive (str line col) (package-library library string)
+          (list 'scheme str container line col))))))
 
 
 ;;;

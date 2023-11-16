@@ -126,22 +126,29 @@
   {Version 1 0 0})
 
 
-(definition public (write-port port code version info)
-  (write-header code version port)
-  (write-data info port)
+(definition public (write-port port binary? code version info)
+  (cond (binary?
+         (write-header code version port)
+         (write-data info port))
+        (else
+         (write-text-header code version port)
+         (write-text-data info port)))
   (force-output port))
 
 
-(definition public (read-port port expected-code expected-version)
-  (receive (code version) (read-header port)
+(definition public (read-port port binary? expected-code expected-version)
+  (receive (code version) (if binary? (read-header port) (read-text-header port))
     (validate-code expected-code code)
     (validate-version expected-version version)
-    (read-data port)))
+    (if binary? (read-data port) (read-text-data port))))
+
+
+;;;
+;;;; Binary
+;;;
 
 
 (definition (write-header code version port)
-  (write-text-header code version port)
-  @w
   (32-bit-integer->bytes code
     (lambda (b1 b2 b3 b4)
       (version->bytes version
@@ -158,8 +165,6 @@
 
 
 (definition (read-header port)
-  (read-text-header port)
-  @w
   (let* ((b1 (read-u8 port))
          (b2 (read-u8 port))
          (b3 (read-u8 port))
@@ -176,14 +181,11 @@
 
 
 (definition (write-data data port)
-  @binary
-  (write-binary data port)
-  (write-text data port))
+  (write-binary data port))
 
 
 (definition (read-data port)
-  (let ((data @binary (read-binary port)
-                      (read-text port)))
+  (let ((data (read-binary port)))
     (if (eof-object? data)
         (throw-connection-broke "Read data received eof")
       data)))
@@ -213,7 +215,18 @@
           (values code version))))))
 
 
-(definition public (write-text data port)
+(definition (write-text-data data port)
+  (write-text data port))
+
+
+(definition (read-text-data port)
+  (let ((data (read-text port)))
+    (if (eof-object? data)
+        (throw-connection-broke "Read data received eof")
+      data)))
+
+
+(definition (write-text data port)
   (define (encode obj)
     (cond ((null? obj)
            obj)
@@ -232,7 +245,7 @@
   (force-output port))
 
 
-(definition public (read-text port)
+(definition (read-text port)
   (define (decode obj)
     (cond ((null? obj)
            obj)

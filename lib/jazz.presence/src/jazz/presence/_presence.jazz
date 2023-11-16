@@ -127,6 +127,10 @@
         (jazz.version))
 
 
+(definition supports-binary?
+  #t)
+
+
 ;;;
 ;;;; Presences
 ;;;
@@ -302,33 +306,35 @@
                 ;; that by simply replying, the client will report the
                 ;; right invalid code/version error
                 (catch (Invalid-Code exc
-                         (write-port port code version #f)
+                         (write-port port #f code version #f)
                          (signal exc))
                   (catch (Invalid-Version exc
-                           (write-port port code version #f)
+                           (write-port port #f code version #f)
                            (signal exc))
-                    (read-port port code version)))))
-          (bind (remote-kind remote-uuid remote-title remote-service remote-address reference) message
+                    (read-port port #f code version)))))
+          (bind (remote-kind remote-binary? remote-uuid remote-title remote-service remote-address reference) message
             (define (accept)
-              (let ((local-uuid uuid)
+              (let ((local-binary? supports-binary?)
+                    (local-uuid uuid)
                     (local-title presence-title)
                     (local-service (listening-port listener))
                     (local-address (socket-info-address (tcp-client-peer-socket-info port)))
                     (reference-proxy (and reference (load-reference register reference))))
-                (write-port port code version (list local-uuid local-title local-service local-address reference-proxy))
-                (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-handler)))
-                  (when (and debug-remote? (debug-remote-presence? self))
-                    (callee-garble-hack)
-                    (debug-remote self '<<< remote-title remote-uuid 'accept connection))
-                  (register-connection self remote-uuid connection)
-                  (set-thread connection (current-thread))
-                  (process connection))))
+                (write-port port #f code version (list local-binary? local-uuid local-title local-service local-address reference-proxy))
+                (let ((binary? (and local-binary? remote-binary?)))
+                  (let ((connection (new Remote-Connection self port binary? remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-handler)))
+                    (when (and debug-remote? (debug-remote-presence? self))
+                      (callee-garble-hack)
+                      (debug-remote self '<<< remote-title remote-uuid 'accept connection))
+                    (register-connection self remote-uuid connection)
+                    (set-thread connection (current-thread))
+                    (process connection)))))
             
             (let ((existing-connection (find-connection self remote-uuid)))
               (if existing-connection
                   (if already-connected
                       (already-connected self remote-uuid existing-connection accept)
-                    (write-port port code version 'already-connected))
+                    (write-port port #f code version 'already-connected))
                 (accept))))))
       self))
   
@@ -347,32 +353,34 @@
     (connect-handler
       (lambda (presence)
         (let ((port (open-tcp-client (list server-address: host port-number: service readtable: jazz-readtable))))
-          (let ((local-uuid uuid)
+          (let ((local-binary? supports-binary?)
+                (local-uuid uuid)
                 (local-title presence-title)
                 (local-service (listening-port listener))
                 (local-address (socket-info-address (tcp-client-peer-socket-info port))))
-            (write-port port code version (list 'connect local-uuid local-title local-service local-address reference))
-            (let ((reply (read-port port code version)))
+            (write-port port #f code version (list 'connect local-binary? local-uuid local-title local-service local-address reference))
+            (let ((reply (read-port port #f code version)))
               (cond ((eof-object? reply)
                      (throw-connection-broke (format "Connecting to {a} {a} received eof" host service)))
                     ((eq? reply 'already-connected)
                      (error "Already connected to {a} {a}" host service))
                     (else
-                     (bind (remote-uuid remote-title remote-service remote-address reference-proxy) reply
-                       (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-handler)))
-                         (when (and debug-remote? (debug-remote-presence? self))
-                           (callee-garble-hack)
-                           (callee-garble-hack)
-                           (debug-remote self '<<< remote-title remote-uuid 'connect connection))
-                         (register-connection self remote-uuid connection)
-                         (let ((thread (new-thread
-                                         (lambda ()
-                                           (process connection))
-                                         'presence-connected)))
-                           (set-thread connection thread)
-                           (thread-base-priority-set! thread priority)
-                           (thread-start! thread)
-                           (or reference-proxy remote-uuid))))))))))
+                     (bind (remote-binary? remote-uuid remote-title remote-service remote-address reference-proxy) reply
+                       (let ((binary? (and local-binary? remote-binary?)))
+                         (let ((connection (new Remote-Connection self port binary? remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-handler)))
+                           (when (and debug-remote? (debug-remote-presence? self))
+                             (callee-garble-hack)
+                             (callee-garble-hack)
+                             (debug-remote self '<<< remote-title remote-uuid 'connect connection))
+                           (register-connection self remote-uuid connection)
+                           (let ((thread (new-thread
+                                           (lambda ()
+                                             (process connection))
+                                           'presence-connected)))
+                             (set-thread connection thread)
+                             (thread-base-priority-set! thread priority)
+                             (thread-start! thread)
+                             (or reference-proxy remote-uuid)))))))))))
       self))
   
   
@@ -453,6 +461,7 @@
   
   (slot presence           getter generate)
   (slot port               getter generate)
+  (slot binary?            getter generate)
   (slot thread             accessors generate)
   (slot write-mutex        getter generate)
   (slot remote-uuid        getter generate)
@@ -468,9 +477,10 @@
   (slot execute-handler    getter generate)
   
   
-  (method override (initialize self presence port remote-uuid remote-title service address invoke-handler process-handler processing-handler execute-handler)
+  (method override (initialize self presence port binary? remote-uuid remote-title service address invoke-handler process-handler processing-handler execute-handler)
     (set! self.presence presence)
     (set! self.port port)
+    (set! self.binary? binary?)
     (set! self.write-mutex (make-mutex 'write))
     (set! self.remote-uuid remote-uuid)
     (set! self.remote-title remote-title)
@@ -653,12 +663,12 @@
           (when (and debug-remote-io? (debug-remote-presence? presence))
             (debug-remote presence '>>> remote-title remote-uuid 'write (car message) (cadr message) (caddr message))
             (caller-garble-hack))
-          (write-port port (get-code presence) (get-version presence) message))
+          (write-port port binary? (get-code presence) (get-version presence) message))
       (mutex-unlock! write-mutex)))
   
   
   (method (read-message self)
-    (let ((message (read-port port (get-code presence) (get-version presence))))
+    (let ((message (read-port port binary? (get-code presence) (get-version presence))))
       (when (and debug-remote-io? (debug-remote-presence? presence))
         (callee-garble-hack)
         (debug-remote presence '<<< remote-title remote-uuid 'read (car message) (cadr message) (caddr message)))

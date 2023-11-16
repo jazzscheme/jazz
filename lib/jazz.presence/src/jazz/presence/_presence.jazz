@@ -316,14 +316,13 @@
                     (local-address (socket-info-address (tcp-client-peer-socket-info port)))
                     (reference-proxy (and reference (load-reference register reference))))
                 (write-port port code version (list local-uuid local-title local-service local-address reference-proxy))
-                (assert (equal? (read-port port code version) '(handshake))
-                  (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-handler)))
-                    (when (and debug-remote? (debug-remote-presence? self))
-                      (callee-garble-hack)
-                      (debug-remote self '<<< remote-title remote-uuid 'accept connection))
-                    (register-connection self remote-uuid connection)
-                    (set-thread connection (current-thread))
-                    (process connection)))))
+                (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-handler)))
+                  (when (and debug-remote? (debug-remote-presence? self))
+                    (callee-garble-hack)
+                    (debug-remote self '<<< remote-title remote-uuid 'accept connection))
+                  (register-connection self remote-uuid connection)
+                  (set-thread connection (current-thread))
+                  (process connection))))
             
             (let ((existing-connection (find-connection self remote-uuid)))
               (if existing-connection
@@ -360,7 +359,6 @@
                      (error "Already connected to {a} {a}" host service))
                     (else
                      (bind (remote-uuid remote-title remote-service remote-address reference-proxy) reply
-                       (write-port port code version '(handshake))
                        (let ((connection (new Remote-Connection self port remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-handler)))
                          (when (and debug-remote? (debug-remote-presence? self))
                            (callee-garble-hack)

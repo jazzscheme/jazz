@@ -222,6 +222,10 @@
 ;;;
 
 
+(definition invoke-timeout
+  45)
+
+
 (definition (default-accept-handler proc presence)
   (proc presence))
 
@@ -605,13 +609,15 @@
                 (mutex-lock! mutex)
                 (write-message self `(,kind ,method-name ,cookie ,ior ,arguments))
                 (register-invocation self mutex)
-                (mutex-lock! mutex)
-                (mutex-unlock! mutex)
-                (unregister-invocation self mutex)
-                (let ((result (mutex-specific mutex)))
-                  (if (is? result Connection-Broke)
-                      (signal result)
-                    result))))))
+                (let ((timed-out (not (mutex-lock! mutex invoke-timeout))))
+                  (mutex-unlock! mutex)
+                  (unregister-invocation self mutex)
+                  (if timed-out
+                      (throw-connection-broke "Invoke timed out")
+                    (let ((result (mutex-specific mutex)))
+                      (if (is? result Connection-Broke)
+                          (signal result)
+                        result))))))))
         self)))
   
   

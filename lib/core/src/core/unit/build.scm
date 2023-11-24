@@ -362,7 +362,7 @@
                                  (jazz:call-process
                                    (list
                                      path: (jazz:custom-cc-path custom-cc)
-                                     arguments: `(,@(jazz:custom-cc-arguments custom-cc) ,(%%string-append "-I" gambit-include-dir) ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output)
+                                     arguments: `("-D___SUPPORT_MULTIPLE_C_COMPILERS" "-D___DONT_USE_builtin_setjmp" ,@(jazz:custom-cc-arguments custom-cc) ,(%%string-append "-I" gambit-include-dir) ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output)
                                      show-console: #f)))))
                           (compile-file bin-output options: (%%cons 'obj options) cc-options: (string-append "-D___DYNAMIC " cc-options))))))
             (jazz:error "Compilation failed")))))

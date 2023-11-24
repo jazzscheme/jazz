@@ -50,7 +50,7 @@
            (git-lib-path      (jazz:quote-jazz-pathname "foreign/jazz.git/mac/lib")))
        `((jazz.git.foreign
            cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" git-include-path))
-           ld-options: ,(string-append "-L" git-lib-path " -lgit2.1.1.0"))))))
+           ld-options: ,(string-append "-flat_namespace -undefined suppress " "-L" git-lib-path " -lgit2.1.1.0"))))))
   (windows
    (define jazz:git-units
      (let ((git-include-path  (jazz:quote-jazz-pathname "foreign/jazz.git/windows/include"))

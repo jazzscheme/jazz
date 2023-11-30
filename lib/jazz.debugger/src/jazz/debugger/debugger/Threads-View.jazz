@@ -56,13 +56,6 @@
         (jazz.view))
 
 
-(definition priority-base
-  (find-setting 'jazz.debugger.priority-base 0))
-
-(definition priority-sort?
-  (find-setting 'jazz.debugger.priority-sort? #f))
-
-
 (class Threads-View extends Layout-View
 
 
@@ -390,10 +383,9 @@
             default)))
       
       (define (normalize-priority priority)
-        (let ((priority (+ priority priority-base)))
-          (if (integer? priority)
-              (inexact->exact priority)
-            priority)))
+        (if (integer? priority)
+            (inexact->exact priority)
+          priority))
       
       (let ((name (present-thread-name (get-name thread)))
             (priority (normalize-priority (get-priority thread)))
@@ -414,7 +406,8 @@
     (let ((manager (get-debugger-manager)))
       (with-system-exception-debugger
         (lambda ()
-          (let ((tree (locate self 'threads)))
+          (let ((tree (locate self 'threads))
+                (detailed? (show-detailed? self)))
             (with-preserved-selection tree
               (lambda ()
                 (remove-every-row tree)
@@ -427,8 +420,8 @@
                               (frame-color (get-stopped-frame-color manager thread))
                               (background (get-visited-highlight-color manager thread)))
                           (add-row tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))
-                      detailed?: (show-detailed? self)
-                      sort-priority?: priority-sort?))))
+                      detailed?: detailed?
+                      sort-priority?: detailed?))))
               use: 'data
               test: debugged=?
               generate-event?: user-origin)

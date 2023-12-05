@@ -1112,14 +1112,17 @@
     (let ((plugins (collect-registry-plugins registry))
           (dir (gstreamer-dir)))
       (collect (lambda (plugin)
-                 (if (/= (gst_object_flag_is_set plugin GST_PLUGIN_FLAG_BLACKLISTED) 0)
-                     (cons (gst_plugin_get_name plugin) 'blacklisted)
-                   (let ((filename (gst_plugin_get_filename plugin)))
-                     (if (not filename)
-                         #f
-                       (if (not (starts-with? filename dir))
-                           (cons (gst_plugin_get_name plugin) filename)
-                         #f)))))
+                 (let ((error (gst_plugin_load_error plugin)))
+                   (if error
+                       (cons (gst_plugin_get_name plugin) error)
+                     (if (/= (gst_object_flag_is_set plugin GST_PLUGIN_FLAG_BLACKLISTED) 0)
+                         (cons (gst_plugin_get_name plugin) 'blacklisted)
+                       (let ((filename (gst_plugin_get_filename plugin)))
+                         (if (not filename)
+                             #f
+                           (if (not (starts-with? filename dir))
+                               (cons (gst_plugin_get_name plugin) filename)
+                             #f)))))))
                plugins))))
 
 

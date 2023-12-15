@@ -419,7 +419,7 @@
                             (let ((cc-options (case platform
                                                 ((mac) (case processor
                                                          ((silicon) "-D___DYNAMIC -mmacosx-version-min=11")
-                                                         (else "-D___DYNAMIC -mmacosx-version-min=10.12")))
+                                                         (else "-D___DYNAMIC -mmacosx-version-min=10.13")))
                                                 (else "-D___DYNAMIC"))))
                               ;; reduce long compilation time for purely syntactic files
                               (let ((cc-options (if (or (equal? name "primitives")
@@ -859,7 +859,7 @@
             ((mac)
              (case processor
                ((silicon) '("-headerpad_max_install_names" "-mmacosx-version-min=11"))
-               (else '("-headerpad_max_install_names" "-mmacosx-version-min=10.12"))))
+               (else '("-headerpad_max_install_names" "-mmacosx-version-min=10.13"))))
             (else
              '()))))
       

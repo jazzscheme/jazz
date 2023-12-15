@@ -55,11 +55,11 @@
       (^#f64vector-ref f64vec 0))))
 
 
-(define jazz:current-monotonic-nanoseconds
+(define jazz:current-monotonic-jiffies
   (let ((u64vec (^#u64vector 0)))
     (lambda ()
       (declare (not interrupts-enabled))
-      (^#get-monotonic-time! u64vec 0)
+      (^#get-monotonic-jiffies! u64vec 0)
       (^#u64vector-ref u64vec 0))))
 
 
@@ -67,7 +67,15 @@
   (let ((u64vec (^#u64vector 0)))
     (lambda ()
       (declare (not interrupts-enabled))
-      (^#get-monotonic-time-frequency! u64vec 0)
+      (^#get-monotonic-frequency! u64vec 0)
+      (^#u64vector-ref u64vec 0))))
+
+
+(define jazz:current-monotonic-nanoseconds
+  (let ((u64vec (^#u64vector 0)))
+    (lambda ()
+      (declare (not interrupts-enabled))
+      (^#get-monotonic-nanoseconds! u64vec 0)
       (^#u64vector-ref u64vec 0))))
 
 

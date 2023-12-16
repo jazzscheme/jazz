@@ -1161,7 +1161,6 @@
 (native jazz:enable-interrupts!)
 (native jazz:get-heartbeat-interval)
 (native jazz:set-heartbeat-interval!)
-(native jazz:get-heartbeat-thread)
 (native jazz:thread-int!)
 (native jazz:thread-cont)
 (native jazz:thread-continuation)

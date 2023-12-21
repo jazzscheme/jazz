@@ -74,7 +74,7 @@
         (error "System call dumpbin -dependents failed")))))
 
 
-(definition public (validate-dependencies exe-dir dir)
+(definition public (validate-dependencies exe-dir pathname)
   (let ((libraries (make-table test: equal?)))
     (define (validate file)
       (let ((direct (library-dependencies file)))
@@ -87,13 +87,17 @@
                   direct)))
     
     (let ((count 0))
-      (iterate-directory dir
-        (lambda (file)
-          (when (extension=? (get-extension file) "dll")
-            (terminal-string ".")
+      (if (file? pathname)
+          (begin
             (increase! count)
-            (validate file)))
-        recursive?: #t)
+            (validate pathname))
+        (iterate-directory pathname
+          (lambda (file)
+            (when (extension=? (get-extension file) "dll")
+              (terminal-string ".")
+              (increase! count)
+              (validate file)))
+          recursive?: #t))
       (let ((missing '()))
         (iterate-table libraries
           (lambda (path filename)

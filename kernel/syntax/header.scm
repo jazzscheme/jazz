@@ -319,6 +319,8 @@
   (jazz:output-port-width-set! port 512))
 
 
+#;
+;; wait as it makes repl commands display really bad
 (jazz:debug-port-setup-width (repl-output-port))
 
 

@@ -65,6 +65,14 @@
 
 
 ;;;
+;;;; Enumerations
+;;;
+
+
+(c-enumerant THREAD_ALL_ACCESS)
+
+
+;;;
 ;;;; Structures
 ;;;
 
@@ -128,6 +136,7 @@
 (c-external (GetExitCodeProcess                      HANDLE PDWORD) BOOL)
 (c-external (SetThreadPriority                       HANDLE int) BOOL)
 (c-external (SetThreadPriorityAux                    VOID* int) BOOL "SetThreadPriority")
+(c-external (OpenThread                              DWORD BOOL DWORD) HANDLE)
 (c-external (SuspendThread                           HANDLE) DWORD)
 (c-external (ResumeThread                            HANDLE) DWORD)
 (c-external (CreatePipe                              HANDLE* HANDLE* SECURITY_ATTRIBUTES* DWORD) BOOL)
@@ -273,4 +282,51 @@
     DWORD ret;
     GetProcessHandleCount(___arg1, &ret);
     ___return(ret);
-//#))
+//#)
+
+
+;;;
+;;;; Thread
+;;;
+
+
+(c-declare cocoa #/Kernel/
+typedef HRESULT (WINAPI * pGetThreadDescription) (HANDLE hThread, PWSTR lpThreadDescription);
+static pGetThreadDescription GetThreadDescriptionFunc = NULL;
+static HMODULE kernel32_module = NULL;
+static bool ThreadDescriptionLoaded = false;
+
+static void LoadThreadDescription()
+{
+    kernel32_module = LoadLibraryW(L"kernel32.dll");
+    if (kernel32_module) {
+      GetThreadDescriptionFunc =
+          (pGetThreadDescription) GetProcAddress(kernel32_module,
+          "GetThreadDescription");
+      if (!GetThreadDescriptionFunc)
+        FreeLibrary(kernel32_module);
+    }
+}
+
+static wchar_t* GetThreadDescriptionAux(HANDLE handle)
+{
+    if (!ThreadDescriptionLoaded) {
+      LoadThreadDescription();
+      ThreadDescriptionLoaded = true;
+    }
+    
+    if (!GetThreadDescriptionFunc)
+      return NULL;
+    else {
+      wchar_t desc[512];
+      
+      GetThreadDescriptionFunc(handle, desc);
+      
+      return desc;
+    }
+}
+
+//#)
+
+
+(c-external (GetThreadDescription HANDLE) wchar_t-string "GetThreadDescriptionAux"))

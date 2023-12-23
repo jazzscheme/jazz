@@ -176,8 +176,40 @@
 ;;;
 
 
-(definition public (current-process-threads)
+(definition thread-previous
   #f)
+
+(definition thread-times
+  (make-table))
+
+
+(definition public (current-process-threads)
+  (define (thread-time id)
+    (let ((handle (OpenThread THREAD_ALL_ACCESS #f id)))
+      (prog1 (GetThreadTime handle)
+        (CloseHandle handle))))
+  
+  (define (thread-spent id)
+    (let ((previous-time (table-ref thread-times id #f))
+          (time (thread-time id)))
+      (table-set! thread-times id time)
+      (and previous-time (- time previous-time))))
+  
+  (let ((previous thread-previous)
+        (now (current-monotonic))
+        (main (GetCurrentThreadId))
+        (all (table-keys (collect-threads-info))))
+    (let ((others (remove main all)))
+      (let ((main-spent (or (thread-spent main) 0.))
+            (others-spent (apply + (remove-false (map thread-spent others)))))
+        (set! thread-previous now)
+        (and previous
+             (let ((elapse (- now previous)))
+               (and (> elapse 0.)
+                    (let ((main (/ main-spent elapse))
+                          (others (/ others-spent elapse)))
+                      (list (list #f main)
+                            (list #f others))))))))))
 
 
 (definition public (collect-threads-info (process-id #f))

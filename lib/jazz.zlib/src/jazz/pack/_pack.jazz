@@ -1,0 +1,155 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Pack
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.pack jazz
+
+
+(import (jazz.io)
+        (jazz.zlib)
+        (jazz.version))
+
+
+;;;
+;;;; Exception
+;;;
+
+
+(class Invalid-Pack extends Exception
+  
+  
+  (method override (present-exception self)
+    "Invalid pack"))
+
+
+(definition public (throw-invalid-pack)
+  (throw (new Invalid-Pack)))
+
+
+;;;
+;;;; Header
+;;;
+
+
+(definition pack-code
+  (code-string->32-bit-integer "PACK"))
+
+(definition pack-version
+  {Version 1 0 0 0})
+
+
+(definition (write-pack-header port count)
+  (32-bit-integer->bytes pack-code
+    (lambda (b1 b2 b3 b4)
+      (version->bytes pack-version
+        (lambda (b5 b6 b7 b8)
+          (write-u8 b1 port)
+          (write-u8 b2 port)
+          (write-u8 b3 port)
+          (write-u8 b4 port)
+          (write-u8 b5 port)
+          (write-u8 b6 port)
+          (write-u8 b7 port)
+          (write-u8 b8 port)
+          (write-32-bit-integer count port)
+          (force-output port))))))
+
+
+(definition (read-pack-header port)
+  (let* ((b1 (read-u8 port))
+         (b2 (read-u8 port))
+         (b3 (read-u8 port))
+         (b4 (read-u8 port))
+         (b5 (read-u8 port))
+         (b6 (read-u8 port))
+         (b7 (read-u8 port))
+         (b8 (read-u8 port)))
+    (if (eof-object? b8)
+        (throw-invalid-pack)
+      (let ((code (bytes->32-bit-integer b1 b2 b3 b4))
+            (version (bytes->version b5 b6 b7 b8)))
+        (if (and (= code pack-code)
+                 (nu=? version pack-version))
+            (let ((count (read-32-bit-integer port)))
+              (if (eof-object? count)
+                  (throw-invalid-pack)
+                count))
+          (throw-invalid-pack))))))
+
+
+;;;
+;;;; Pack
+;;;
+
+
+(definition public (pack-directory dir pack)
+  (call-with-output-file (path-settings pack)
+    (lambda (port)
+      (let ((queue (new-queue)))
+        (iterate-directory dir
+          (lambda (path kind)
+            (enqueue queue path))
+          full?: #f
+          files?: #t
+          directories?: #f
+          recursive?: #t)
+        (let ((paths (queue-list queue)))
+          (let ((count (length paths)))
+            (write-pack-header port count)
+            (for-each (lambda (path)
+                        (let ((file (new-file dir path)))
+                          (let ((content (zlib-deflate (load-binary file))))
+                            (write-binary-content (object->u8vector path) port)
+                            (write-binary-content content port))))
+                      paths)))))))
+
+
+(definition public (unpack-directory pack dir)
+  (call-with-input-file (path-settings pack)
+    (lambda (port)
+      (let ((count (read-pack-header port)))
+        (loop (repeat count)
+              (let ((path (read-binary-content port)))
+                (if (eof-object? path)
+                    (throw-invalid-pack)
+                  (let ((deflated (read-binary-content port)))
+                    (if (eof-object? deflated)
+                        (throw-invalid-pack)
+                      (let ((path (u8vector->object path))
+                            (content (zlib-inflate deflated)))
+                        (let ((file (new-file dir path)))
+                          (create-directories file)
+                          (save-binary file content)))))))))))))

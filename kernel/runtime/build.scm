@@ -974,11 +974,13 @@
                          (let ((entitlements (getenv "JAZZ_APPLE_ENTITLEMENTS" #f)))
                            (let ((entitlements-arguments (if (not entitlements)
                                                              '()
-                                                           (list "--entitlements" entitlements))))
+                                                           (list "--entitlements" entitlements)))
+                                 (executable (string-append kernel-dir "/" kernel-name)))
+                             (copy-file executable (string-append executable "_unsigned"))
                              (jazz:call-process
                                (list
                                  path: "/usr/bin/codesign"
-                                 arguments: `("--options" "runtime" ,@entitlements-arguments "--timestamp" "--sign" ,id ,(string-append kernel-dir "/" kernel-name)))))))
+                                 arguments: `("--options" "runtime" ,@entitlements-arguments "--timestamp" "--sign" ,id ,executable))))))
                         (ios?
                          (feedback-message "; signing {a}..." (if library-image? "library" "executable"))
                          (jazz:call-process

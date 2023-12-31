@@ -38,7 +38,8 @@
 (module jazz.pack jazz
 
 
-(import (jazz.io)
+(import (jazz.associative)
+        (jazz.io)
         (jazz.zlib)
         (jazz.version))
 
@@ -131,9 +132,10 @@
             (write-pack-header port count)
             (for-each (lambda (path)
                         (let ((file (new-file dir path)))
-                          (let ((content (zlib-deflate (load-binary file))))
-                            (write-binary-content (object->u8vector path) port)
-                            (write-binary-content content port))))
+                          (let ((inflated (load-binary file)))
+                            (let ((content (if (already-compressed? (get-extension file)) inflated (zlib-deflate inflated))))
+                              (write-binary-content (object->u8vector path) port)
+                              (write-binary-content content port)))))
                       paths)))))))
 
 
@@ -148,8 +150,8 @@
                   (let ((deflated (read-binary-content port)))
                     (if (eof-object? deflated)
                         (throw-invalid-pack)
-                      (let ((path (u8vector->object path))
-                            (content (zlib-inflate deflated)))
+                      (let ((path (u8vector->object path)))
                         (let ((file (new-file dir path)))
-                          (create-directories file)
-                          (save-binary file content)))))))))))))
+                          (let ((content (if (already-compressed? (get-extension file)) deflated (zlib-inflate deflated))))
+                            (create-directories file)
+                            (save-binary file content))))))))))))))

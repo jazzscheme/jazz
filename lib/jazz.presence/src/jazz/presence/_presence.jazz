@@ -472,6 +472,24 @@
 
 
 ;;;
+;;;; Forwarding
+;;;
+
+
+(definition protected forwarding
+  (make-table))
+
+(definition protected (register-forwarding proxy origin-proxy)
+  (let ((uuid (get-uuid (get-ior proxy)))
+        (origin-presence (get-presence origin-proxy))
+        (origin-uuid (get-uuid (get-ior origin-proxy))))
+    (table-set! forwarding uuid (cons origin-presence origin-uuid))))
+
+(definition protected (registered-forwarding uuid)
+  (table-ref forwarding uuid #f))
+
+
+;;;
 ;;;; Connection
 ;;;
 
@@ -652,14 +670,14 @@
   
   
   (method (execute self kind rest)
-    (bind (method-name cookie local-proxy arguments) rest
+    (bind (method-name cookie proxy arguments) rest
       (when (and debug-remote? (debug-remote-presence? presence) (debug-remote-method? method-name))
         (callee-garble-hack)
         (debug-remote presence '<<< remote-title remote-uuid 'execute method-name))
       (let ((thread
               (new-thread
                 (lambda ()
-                  (let ((result (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments)))
+                  (let ((result (apply (dispatch (class-of proxy) method-name) proxy arguments)))
                     (execute-handler
                       (lambda (connection)
                         (case kind
@@ -1040,7 +1058,7 @@
           (remote-class stub-interface)))
       
       (define (local-ior? ior)
-        (find-presence-by-uuid (get-uuid ior)))
+        (equal? (get-uuid ior) (get-uuid presence)))
       
       (define (local->proxy stub-interface ior)
         (define (reference->local-proxy stub-interface reference)
@@ -1116,8 +1134,14 @@
 
 
 (definition protected (remote-proxy->connection proxy)
-  (let ((presence (get-presence proxy)))
-    (require-connection presence (get-uuid (get-ior proxy)))))
+  (let ((presence (get-presence proxy))
+        (uuid (get-uuid (get-ior proxy))))
+    (or (find-connection presence uuid)
+        (let ((origin (registered-forwarding uuid)))
+          (and origin
+               (bind (presence . uuid) origin
+                 (find-connection presence uuid))))
+        (throw-connection-broke (format "Unable to find connection: {a}" uuid)))))
 
 
 (definition protected (remote-proxy-connected? proxy)

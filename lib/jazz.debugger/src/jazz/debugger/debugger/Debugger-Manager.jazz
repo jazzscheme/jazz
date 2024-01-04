@@ -258,11 +258,10 @@
     (define (add-unzoomed-stops debugged)
       (table-set! unzoomed-stops debugged #t))
     
-    (for-each (lambda (thread)
-                (when (not-null? (with-remote-exception-handler process
-                                   (lambda ()
-                                     (get-stops thread))))
-                  (add-unzoomed-stops thread)))
+    (for-each (lambda (thread/stops)
+                (bind (thread . stops) thread/stops
+                  (when (not-null? stops)
+                    (add-unzoomed-stops thread))))
               (with-remote-exception-handler process
                 (lambda ()
                   (get-threads process))))
@@ -413,20 +412,24 @@
                  (starts-with? (symbol->string name) "repl")))))
     
     (when process
-      (let ((threads (with-remote-exception-handler process
-                       (lambda ()
-                         (get-threads process)))))
-        (for-each (lambda (thread)
-                    (when (or detailed? (not (system-thread? thread)))
-                      (let ((stop (get-active-stop thread)))
-                        (proc thread stop detailed?))))
-                  (sort nu<? threads key: (lambda (thread)
-                                            (let ((name (get-name thread))
-                                                  (system? (system-thread? thread)))
-                                              (list (if sort-priority?
-                                                        (- (get-priority thread))
-                                                      0)
-                                                    (present-thread-name name)))))))))
+      (let ((threads/stops (with-remote-exception-handler process
+                             (lambda ()
+                               (get-threads process)))))
+        (for-each (lambda (thread/stops)
+                    (bind (thread . stops) thread/stops
+                      (when (or detailed? (not (system-thread? thread)))
+                        (let ((stop (if (null? stops)
+                                        #f
+                                      (last stops))))
+                          (proc thread stop detailed?)))))
+                  (sort nu<? threads/stops key: (lambda (thread/stops)
+                                                  (let ((thread (car thread/stops)))
+                                                    (let ((name (get-name thread))
+                                                          (system? (system-thread? thread)))
+                                                      (list (if sort-priority?
+                                                                (- (get-priority thread))
+                                                              0)
+                                                            (present-thread-name name))))))))))
   
   
   (method public (thread-changed self new-thread (user-origin: user-origin #f))

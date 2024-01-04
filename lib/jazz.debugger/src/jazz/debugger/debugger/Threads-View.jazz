@@ -406,22 +406,31 @@
     (let ((manager (get-debugger-manager)))
       (with-system-exception-debugger
         (lambda ()
+          (define (collect-thread-infos)
+            (let ((queue (new-queue)))
+              (for-each-thread manager
+                (lambda (thread stop detailed?)
+                  (enqueue queue (list thread stop detailed?)))
+                detailed?: show-detailed?
+                sort-priority?: show-detailed?)
+              (queue-list queue)))
+          
           (let ((tree (locate self 'threads))
-                (detailed? (show-detailed? self)))
+                (show-detailed? (show-detailed? self))
+                (thread-infos (collect-thread-infos)))
             (with-preserved-selection tree
               (lambda ()
                 (remove-every-row tree)
                 (with-update-locked tree
                   (lambda ()
-                    (for-each-thread manager
-                      (lambda (thread stop detailed?)
-                        (let ((title (thread-title thread stop detailed?))
-                              (image (thread-image thread stop))
-                              (frame-color (get-stopped-frame-color manager thread))
-                              (background (get-visited-highlight-color manager thread)))
-                          (add-row tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))
-                      detailed?: detailed?
-                      sort-priority?: detailed?))))
+                    (for-each (lambda (thread-info)
+                                (bind (thread stop detailed?) thread-info
+                                  (let ((title (thread-title thread stop detailed?))
+                                        (image (thread-image thread stop))
+                                        (frame-color (get-stopped-frame-color manager thread))
+                                        (background (get-visited-highlight-color manager thread)))
+                                    (add-row tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread))))
+                              thread-infos))))
               use: 'data
               test: debugged=?
               generate-event?: user-origin)
@@ -429,13 +438,14 @@
               (when (get-installed? self)
                 (continuation-capture
                   (lambda (return)
-                    (for-each-thread manager
-                      (lambda (thread stop detailed?)
-                        (unless (debugged-visited? manager thread)
-                          ;; this will recursively call (get-threads-view) when called from (install)
-                          (set-selected-thread self thread)
-                          (thread-changed (get-debugger-manager) (selected-thread self)))
-                        (continuation-return return))))))))))))
+                    (for-each (lambda (thread-info)
+                                (bind (thread stop detailed?) thread-info
+                                  (unless (debugged-visited? manager thread)
+                                    ;; this will recursively call (get-threads-view) when called from (install)
+                                    (set-selected-thread self thread)
+                                    (thread-changed (get-debugger-manager) (selected-thread self)))
+                                  (continuation-return return)))
+                              thread-infos))))))))))
   
   
   (method public (update-highlight self thread)

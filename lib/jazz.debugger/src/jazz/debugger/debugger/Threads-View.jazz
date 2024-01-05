@@ -146,9 +146,10 @@
     (get-selected? (locate self 'detailed)))
   
   
-  (method public (process-changed self new-process)
-    (set! process new-process)
-    (update self))
+  (method public (process-changed self new-process (force?: force? #f))
+    (unless (and (debugged=? new-process process) (not force?))
+      (set! process new-process)
+      (update self)))
 
   
   ;;;
@@ -187,7 +188,7 @@
   
   
   (method package (on-restart self evt)
-    (let ((restart (car (get-restarts (get-active-stop (selected-thread self))))))
+    (let ((restart (car (get-restarts (get-active-stop (get-debugger-manager) (selected-thread self))))))
       (restart-stop self restart)))
   
   
@@ -211,7 +212,7 @@
   (method package (on-restart-safe self evt)
     (let ((thread (selected-thread self)))
       (when thread
-        (let ((stop (get-active-stop thread)))
+        (let ((stop (get-active-stop (get-debugger-manager) thread)))
           (when stop
             (let ((restarts (get-restarts stop)))
               (when (not-null? restarts)
@@ -230,7 +231,7 @@
   (method package (on-continue-safe self evt)
     (let ((thread (selected-thread self)))
       (when thread
-        (let ((stop (get-active-stop thread)))
+        (let ((stop (get-active-stop (get-debugger-manager) thread)))
           (when stop
             (continue-stop self))))))
   
@@ -239,7 +240,7 @@
   (method package (on-step-safe self evt)
     (let ((thread (selected-thread self)))
       (when thread
-        (let ((stop (get-active-stop thread)))
+        (let ((stop (get-active-stop (get-debugger-manager) thread)))
           (when stop
             (step-stop self 'step))))))
   
@@ -248,7 +249,7 @@
   (method package (on-step-over-safe self evt)
     (let ((thread (selected-thread self)))
       (when thread
-        (let ((stop (get-active-stop thread)))
+        (let ((stop (get-active-stop (get-debugger-manager) thread)))
           (when stop
             (step-stop self 'leap))))))
 
@@ -265,7 +266,7 @@
     (thread-start!
       (new-thread
         (lambda ()
-          (sleep .1)
+          (sleep .5)
           (synchronize-event
             (lambda ()
               (update self))))
@@ -283,35 +284,29 @@
   
   (method package (restart-stop self restart)
     (let ((thread (selected-thread self)))
-      (with-thread-refresh self thread
+      (with-remote-exception-handler process
         (lambda ()
-          (with-remote-exception-handler process
-            (lambda ()
-              (restart-stop process restart)))))))
+          (restart-stop process restart)))))
   
   
   (method package (break-thread self)
     (let ((thread (selected-thread self)))
-      (with-thread-refresh self thread
+      (with-remote-exception-handler process
         (lambda ()
-          (with-remote-exception-handler process
-            (lambda ()
-              (break-thread process thread)))))))
+          (break-thread process thread)))))
   
   
   (method package (continue-stop self)
     (let ((thread (selected-thread self)))
-      (let ((stop (get-active-stop thread)))
-        (with-thread-refresh self thread
+      (let ((stop (get-active-stop (get-debugger-manager) thread)))
+        (with-remote-exception-handler process
           (lambda ()
-            (with-remote-exception-handler process
-              (lambda ()
-                (continue-stop process stop))))))))
+            (continue-stop process stop))))))
   
   
   (method package (step-stop self command)
     (let ((thread (selected-thread self)))
-      (let ((stop (get-active-stop thread)))
+      (let ((stop (get-active-stop (get-debugger-manager) thread)))
         (with-remote-exception-handler process
           (lambda ()
             (step-stop process stop command))))))
@@ -319,11 +314,9 @@
   
   (method package (repl-thread self)
     (let ((thread (selected-thread self)))
-      (with-thread-refresh self thread
+      (with-remote-exception-handler process
         (lambda ()
-          (with-remote-exception-handler process
-            (lambda ()
-              (repl-thread process thread)))))))
+          (repl-thread process thread)))))
   
   
   (method package (terminate-thread self)
@@ -358,7 +351,7 @@
     (let ((thread (selected-thread self)))
       (if (not thread)
           (values '() #f #f)
-        (let ((stop (get-active-stop thread)))
+        (let ((stop (get-active-stop (get-debugger-manager) thread)))
           (if (not stop)
               (values '() #t #f)
             (values (get-restarts stop) #f (and (eq? (get-kind stop) 'break)
@@ -407,7 +400,8 @@
       (with-system-exception-debugger
         (lambda ()
           (define (collect-thread-infos)
-            (let ((queue (new-queue)))
+            (let ((queue (new-queue))
+                  (show-detailed? (show-detailed? self)))
               (for-each-thread manager
                 (lambda (thread stop detailed?)
                   (enqueue queue (list thread stop detailed?)))
@@ -416,7 +410,6 @@
               (queue-list queue)))
           
           (let ((tree (locate self 'threads))
-                (show-detailed? (show-detailed? self))
                 (thread-infos (collect-thread-infos)))
             (with-preserved-selection tree
               (lambda ()
@@ -511,7 +504,7 @@
     (define (new-thread-menu thread)
       (receive (restarts break? continue?) (selected-state self)
         (let ((menu (new Thread-Menu))
-              (stop (get-active-stop thread)))
+              (stop (get-active-stop (get-debugger-manager) thread)))
           (if break?
               (new Label-Item parent: menu title: "Break" icon: {Image-Resource "Break"} action-handler: (make-handler (lambda () (break-thread self))))
             (for-each (lambda (restart)

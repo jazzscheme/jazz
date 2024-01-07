@@ -122,8 +122,8 @@
   (commit repo author email message tree parent))
 
 
-(definition public (jas-discard repo)
-  (discard repo))
+(definition public (jas-discard repo (dirpath #f))
+  (discard repo dirpath))
 
 
 (definition public (jas-restore repo commit)
@@ -182,8 +182,8 @@
   (staging-status repo))
 
 
-(definition public (jas-working-status repo)
-  (working-status repo))
+(definition public (jas-working-status repo (dirpath #f))
+  (working-status repo dirpath))
 
 
 (definition public (jas-diff repo from to)
@@ -537,8 +537,8 @@
   ;;;
   
   
-  (method package (discard self)
-    (let ((diff (diff self (working-index self) (staging-index self))))
+  (method package (discard self (dirpath #f))
+    (let ((diff (diff self (working-index self dirpath) (staging-index self dirpath))))
       (discarding-directories self
         (lambda (discard-directory)
           (for-each (lambda (change)
@@ -558,7 +558,8 @@
                                (let ((digest (get-digest entry))
                                      (flags (get-flags entry)))
                                  (retrieve-file self digest file flags))))))))
-                    (get-changes diff))))))
+                    (get-changes diff))))
+      diff))
   
   
   (method package (discarding-directories self proc)
@@ -769,13 +770,19 @@
         (commit-index self (resolve self head)))))
   
   
-  (method package (working-index self)
-    (prog1 (new Associative-Index self working entries: (scan-directory self "" working base: index))
-      (save-to-file index)))
+  (method package (working-index self (dirpath #f))
+    (let ((working-index (if (not dirpath)
+                             (new Associative-Index self working entries: (scan-directory self "" working base: index))
+                           (let ((dir (new-directory working (tokenise-filename dirpath))))
+                             (new Associative-Index self dir entries: (scan-directory self dirpath dir base: index))))))
+      (save-to-file index)
+      working-index))
   
   
-  (method package (staging-index self)
-    index)
+  (method package (staging-index self (dirpath #f))
+    (if (not dirpath)
+        index
+      (directory-index index dirpath)))
   
   
   (method package (commit-index self commit)
@@ -991,8 +998,8 @@
     (diff self (staging-index self) (head-index self)))
   
   
-  (method package (working-status self)
-    (diff self (working-index self) (staging-index self)))
+  (method package (working-status self (dirpath #f))
+    (diff self (working-index self dirpath) (staging-index self dirpath)))
   
   
   ;;;
@@ -1320,7 +1327,15 @@
     (iterate-table paths
       (lambda (entry-path entry)
         (when (starts-with? entry-path path ignore-case?: #t)
-          (proc entry-path))))))
+          (proc entry-path)))))
+  
+  
+  (method package (directory-index self dirpath)
+    (let ((dir (new-directory directory (tokenise-filename dirpath)))
+          (entries (collect-if (lambda (entry)
+                                 (starts-with? (get-path entry) dirpath ignore-case?: #t))
+                               entries)))
+      (new Associative-Index repository dir entries: entries))))
 
 
 ;;;
@@ -1607,7 +1622,7 @@
 ;;;
 
 
-(definition public (jas-describe obj output)
+(definition public (jas-describe obj output (reverse? #f))
   (define (describe-index index)
     (for-each (lambda (entry)
                 (let ((path (get-path entry))
@@ -1621,10 +1636,11 @@
   (define (describe-diff diff)
     (for-each (lambda (change)
                 (bind (what path) change
-                  (case what
-                    ((added)    (format output "    \033[32madded:    {a}\033[39;49m{%}" path))
-                    ((removed)  (format output "    \033[31mremoved:  {a}\033[39;49m{%}" path))
-                    ((modified) (format output "    \033[36mmodified: {a}\033[39;49m{%}" path)))))
+                  (let ((what (if (not reverse?) what (case what ((added) 'removed) ((removed) 'added) (else what)))))
+                    (case what
+                      ((added)    (format output "    \033[32madded:    {a}\033[39;49m{%}" path))
+                      ((removed)  (format output "    \033[31mremoved:  {a}\033[39;49m{%}" path))
+                      ((modified) (format output "    \033[36mmodified: {a}\033[39;49m{%}" path))))))
               (get-changes diff)))
   
   (typecase obj

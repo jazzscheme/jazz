@@ -184,10 +184,16 @@
 (definition package (jas$discard arguments)
   (with-jas
     (lambda (output)
-      (if (not-null? arguments)
-          (format output "Too many arguments for jas discard{%}")
+      (define (discard dirpath)
         (let ((repo (jas-open (jas-directory "."))))
-          (jas-discard repo))))))
+          (let ((diff (jas-discard repo dirpath)))
+            (jas-describe diff output #t))))
+      
+      (if (null? arguments)
+          (discard #f)
+        (if (null? (cdr arguments))
+            (discard (car arguments))
+          (format output "Too many arguments for jas discard{%}"))))))
 
 
 (definition package (jas$restore arguments)
@@ -246,8 +252,7 @@
 (definition package (jas$status arguments)
   (with-jas
     (lambda (output)
-      (if (not-null? arguments)
-          (format output "Too many arguments for jas status{%}")
+      (define (status dirpath)
         (let ((repo (jas-open (jas-directory "."))))
           (define (describe title diff)
             (when (not-null? (get-changes diff))
@@ -264,10 +269,16 @@
                    (format output "On branch {a}{%}" (jas-branch-name repo head))))
             (describe "Changes to be committed:" (jas-staging-status repo))
             (unless (bare? repo)
-              (describe "Changes not staged for commit:" (jas-working-status repo)))
+              (describe "Changes not staged for commit:" (jas-working-status repo dirpath)))
             ;; TODO
             ;; "Untracked files:"
-            ))))))
+            )))
+      
+      (if (null? arguments)
+          (status #f)
+        (if (null? (cdr arguments))
+            (status (car arguments))
+          (format output "Too many arguments for jas status{%}"))))))
 
 
 (definition package (jas$diff arguments)

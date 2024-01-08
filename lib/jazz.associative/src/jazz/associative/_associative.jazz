@@ -122,8 +122,8 @@
   (commit repo author email message tree parent))
 
 
-(definition public (jas-discard repo (dirpath #f))
-  (discard repo dirpath))
+(definition public (jas-discard repo (dirpath: dirpath #f))
+  (discard repo dirpath: dirpath))
 
 
 (definition public (jas-restore repo commit)
@@ -182,8 +182,8 @@
   (staging-status repo))
 
 
-(definition public (jas-working-status repo (dirpath #f))
-  (working-status repo dirpath))
+(definition public (jas-working-status repo (dirpath: dirpath #f))
+  (working-status repo dirpath: dirpath))
 
 
 (definition public (jas-diff repo from to)
@@ -537,8 +537,8 @@
   ;;;
   
   
-  (method package (discard self (dirpath #f))
-    (let ((diff (diff self (working-index self dirpath) (staging-index self dirpath))))
+  (method package (discard self (dirpath: dirpath #f) (ignore-set?: ignore-set? #f))
+    (let ((diff (diff self (working-index self dirpath: dirpath) (staging-index self dirpath: dirpath) ignore-set?: ignore-set?)))
       (discarding-directories self
         (lambda (discard-directory)
           (for-each (lambda (change)
@@ -770,7 +770,7 @@
         (commit-index self (resolve self head)))))
   
   
-  (method package (working-index self (dirpath #f))
+  (method package (working-index self (dirpath: dirpath #f))
     (let ((working-index (if (not dirpath)
                              (new Associative-Index self working entries: (scan-directory self "" working base: index))
                            (let ((dir (new-directory working (tokenise-filename dirpath))))
@@ -779,7 +779,7 @@
       working-index))
   
   
-  (method package (staging-index self (dirpath #f))
+  (method package (staging-index self (dirpath: dirpath #f))
     (if (not dirpath)
         index
       (directory-index index dirpath)))
@@ -918,10 +918,11 @@
   ;;;
   
   
-  (method package (diff self left-index right-index)
+  (method package (diff self left-index right-index (ignore-set?: ignore-set? #f))
     (diff-entries self
                   (get-entries left-index)
-                  (get-entries right-index)))
+                  (get-entries right-index)
+                  ignore-set?: ignore-set?))
   
   
   (method package (diff-sets self remote-index local-index sets update-sets)
@@ -963,7 +964,7 @@
                       (filter 'local local-entries)))))
   
   
-  (method package (diff-entries self left-entries right-entries)
+  (method package (diff-entries self left-entries right-entries (ignore-set?: ignore-set? #f))
     (let ((queue (new-queue))
           (added 0)
           (modified 0)
@@ -979,7 +980,8 @@
                          ((:same)
                           (unless (and (equal? (get-digest left) (get-digest right))
                                        (= (get-flags left) (get-flags right))
-                                       (eq? (get-set left) (get-set right)))
+                                       (or ignore-set?
+                                           (eq? (get-set left) (get-set right))))
                             (enqueue queue (list 'modified key left right))
                             (increase! modified)))))
                      left-entries
@@ -998,8 +1000,8 @@
     (diff self (staging-index self) (head-index self)))
   
   
-  (method package (working-status self (dirpath #f))
-    (diff self (working-index self dirpath) (staging-index self dirpath)))
+  (method package (working-status self (dirpath: dirpath #f) (ignore-set?: ignore-set? #f))
+    (diff self (working-index self dirpath: dirpath) (staging-index self dirpath: dirpath) ignore-set?: ignore-set?))
   
   
   ;;;

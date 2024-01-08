@@ -40,7 +40,8 @@
 
 (import (jazz.associative)
         (jazz.associative.remote)
-        (jazz.io))
+        (jazz.io)
+        (jazz.network))
 
 
 (class Not-Found-Error extends Error)
@@ -77,8 +78,11 @@
       (feedback 'connect))
     (catch (connect-exception? exc
              (throw (new Jas-Unable-To-Connect)))
-      (jas-write-code port)
-      (jas-write-version port)
+      (retry-exception-handler
+        (lambda ()
+          (jas-write-code port)
+          (jas-write-version port)
+          (force-output port)))
       (jas-write-object path port)
       (jas-write-object access port)
       (jas-force-output port))

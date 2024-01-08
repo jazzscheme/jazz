@@ -532,23 +532,6 @@
 
 
 ;;;
-;;;; Network
-;;;
-
-
-(define (jazz:call-with-tcp-client settings proc)
-  (let ((port #f))
-    (dynamic-wind
-      (lambda ()
-        (set! port (open-tcp-client settings)))
-      (lambda ()
-        (proc port))
-      (lambda ()
-        (if port
-            (close-port port))))))
-
-
-;;;
 ;;;; Features
 ;;;
 

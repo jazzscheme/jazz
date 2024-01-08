@@ -834,14 +834,6 @@
 
 
 ;;;
-;;;; Network
-;;;
-
-
-(native jazz:call-with-tcp-client)
-
-
-;;;
 ;;;; Object
 ;;;
 

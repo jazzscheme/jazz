@@ -818,4 +818,4 @@
 
 
 (define jazz:Library-Extension "l")
-(define jazz:Library-Manifest-Name "_lmf"))
+(define jazz:Library-Manifest-Extension "lmf"))

@@ -261,11 +261,12 @@
 
 (define (jazz:load-object-file pathname quiet?)
   (jazz:check-string pathname 1 (jazz:load-object-file pathname quiet?)
-    (##load-object-file pathname quiet?)))
+    (let ((linker-name (##path-strip-directory pathname)))
+      (##load-object-file pathname linker-name quiet?))))
 
-(define (jazz:object-file-module-descrs result)
+(define (jazz:object-file-module-descrs result rank)
   (%%danger jazz:object-file-module-descrs
-    (##vector-ref result 0)))
+    (##vector-ref result rank)))
 
 (define (jazz:register-module-descrs-and-load! module-descrs)
   (##register-module-descrs-and-load! module-descrs))

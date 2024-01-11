@@ -976,10 +976,6 @@
                                                              '()
                                                            (list "--entitlements" entitlements)))
                                  (executable (string-append kernel-dir "/" kernel-name)))
-                             (let ((unsigned-executable (string-append executable "_unsigned")))
-                               (if (file-exists? unsigned-executable)
-                                   (delete-file unsigned-executable))
-                               (copy-file executable unsigned-executable))
                              (jazz:call-process
                                (list
                                  path: "/usr/bin/codesign"

@@ -570,8 +570,10 @@
   (define link-options
     '(("obj" objects)
       ("objects" objects)
-      ("lib" objects libraries)
-      ("libraries" objects libraries)
+      ("lib" libraries)
+      ("libraries" libraries)
+      ("obj/lib" objects libraries)
+      ("objects/libraries" objects libraries)
       ("static" objects static)
       ("all" objects libraries static)))
   

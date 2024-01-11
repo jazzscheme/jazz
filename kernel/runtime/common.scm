@@ -64,9 +64,14 @@
   
   (let ((quiet? (if (%%null? rest) #f (%%car rest))))
     (let ((result (jazz:load-object-file pathname quiet?)))
-      (let ((module-descrs (jazz:object-file-module-descrs result 0)))
-        (hack-module-descrs module-descrs)
-        (jazz:register-module-descrs-and-load! module-descrs))))
+      (if (%%not (%%vector? result))
+          (jazz:error "Unable to load {a}" pathname)
+        (let ((module-descrs (jazz:object-file-module-descrs result 0)))
+          (if (%%not (%%vector? module-descrs))
+              (jazz:error "Unable to load {a}: {a}" pathname module-descrs)
+            (begin
+              (hack-module-descrs module-descrs)
+              (jazz:register-module-descrs-and-load! module-descrs)))))))
   (void))
 
 

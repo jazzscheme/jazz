@@ -1731,7 +1731,7 @@
 (define (jazz:build-library-descriptor descriptor)
   (let ((library (jazz:product-descriptor-library descriptor)))
     (let ((options (or library '())))
-      (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: library))))
+      (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: options))))
 
 
 (define jazz:product-download

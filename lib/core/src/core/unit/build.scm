@@ -436,18 +436,7 @@
                                  arguments: `("-add_rpath" ,rpath ,bin-o1))))
                            rpaths))))
           (if apple-id
-              (cond (mac?
-                     (jazz:call-process
-                       (list
-                         path: "/usr/bin/codesign"
-                         arguments: `("--options" "runtime" "--timestamp" "--sign" ,apple-id ,bin-o1)
-                         show-console: #f)))
-                    (ios?
-                     (jazz:call-process
-                       (list
-                         path: "/usr/bin/codesign"
-                         arguments: `("--force" "--sign" ,apple-id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,bin-o1)
-                         show-console: #f)))))
+              (jazz:codesign mac? ios? apple-id bin-o1))
           (delete-file linkfile)))))
   
   (let ((will-link? (and update-bin? (or (jazz:link-objects?) (and bin (not jazz:single-objects?))))))
@@ -457,7 +446,7 @@
       (if (or will-compile? will-link?)
           (let ((path (%%get-resource-path src)))
             (jazz:push-changed-units path)
-            (display (if apple-id "; compiling & signing " "; compiling "))
+            (display (if (and apple-id (jazz:link-objects?)) "; compiling & signing " "; compiling "))
             (display path)
             (display "...")
             (newline)

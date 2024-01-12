@@ -211,6 +211,27 @@
 
 
 ;;;
+;;;; Codesign
+;;;
+
+
+(define (jazz:codesign mac? ios? apple-id bin #!key (entitlements #f))
+  (cond (mac?
+         (let ((entitlements-arguments (if (not entitlements)
+                                           '()
+                                         (list "--entitlements" entitlements))))
+           (jazz:call-process
+             (list
+               path: "/usr/bin/codesign"
+               arguments: `("--options" "runtime" ,@entitlements-arguments "--timestamp" "--sign" ,apple-id ,bin)))))
+        (ios?
+         (jazz:call-process
+           (list
+             path: "/usr/bin/codesign"
+             arguments: `("--force" "--sign" ,apple-id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,bin))))))
+
+
+;;;
 ;;;; Kernel
 ;;;
 
@@ -967,25 +988,13 @@
                        (list
                          path: "install_name_tool"
                          arguments: `("-add_rpath" "@executable_path/../../../Libraries/gstreamer" ,(image-file))))))))
-            (let ((id (getenv "JAZZ_APPLE_DEVELOPER_ID" #f)))
-              (if id
-                  (cond (mac?
-                         (feedback-message "; signing {a}..." (if library-image? "library" "executable"))
-                         (let ((entitlements (getenv "JAZZ_APPLE_ENTITLEMENTS" #f)))
-                           (let ((entitlements-arguments (if (not entitlements)
-                                                             '()
-                                                           (list "--entitlements" entitlements)))
-                                 (executable (string-append kernel-dir "/" kernel-name)))
-                             (jazz:call-process
-                               (list
-                                 path: "/usr/bin/codesign"
-                                 arguments: `("--options" "runtime" ,@entitlements-arguments "--timestamp" "--sign" ,id ,executable))))))
-                        (ios?
-                         (feedback-message "; signing {a}..." (if library-image? "library" "executable"))
-                         (jazz:call-process
-                           (list
-                             path: "/usr/bin/codesign"
-                             arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,(string-append kernel-dir "/" kernel-name)))))))))))
+            (if (or mac? ios?)
+                (let ((apple-id (getenv "JAZZ_APPLE_DEVELOPER_ID" #f))
+                      (entitlements (getenv "JAZZ_APPLE_ENTITLEMENTS" #f)))
+                  (if apple-id
+                      (let ((executable (string-append kernel-dir "/" kernel-name)))
+                        (feedback-message "; signing {a}..." (if library-image? "library" "executable"))
+                        (jazz:codesign mac? ios? apple-id executable entitlements: entitlements))))))))
       
       (define (image-file)
         (cond ((and bundle (eq? windowing 'cocoa) (not library-image?))
@@ -1249,6 +1258,9 @@
           (platform jazz:kernel-platform)
           (destination-directory jazz:kernel-install)
           (feedback jazz:feedback))
+  (define mac?
+    (eq? platform 'mac))
+  
   (define (feedback-message fmt-string . rest)
     (if feedback
         (apply feedback fmt-string rest)))
@@ -1416,6 +1428,12 @@
                                    ,(string-append "-L" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~lib"))))
                                    ,@ld-options
                                    ,@(link-options))))
+                  (if mac?
+                      (let ((apple-id (getenv "JAZZ_APPLE_DEVELOPER_ID" #f)))
+                        (if apple-id
+                            (begin
+                              (feedback-message "; signing library...")
+                              (jazz:codesign mac? #f apple-id static-o1)))))
                   ;; cleanup
                   (for-each delete-file (%%list loader-c loader-o linkfile))
                   (rename-file static-o1 library-o1)))

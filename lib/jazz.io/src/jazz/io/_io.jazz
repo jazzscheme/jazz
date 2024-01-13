@@ -1189,13 +1189,17 @@
       (file-last-access-and-modification-times-set! dst (file-last-access-time src) (file-last-modification-time src))))
 
 
-  (method override (duplicate self dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (preserve-times?: preserve-times? #f) (feedback: feedback #f))
+  (method override (duplicate self dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (sign?: sign? #f) (preserve-times?: preserve-times? #f) (feedback: feedback #f))
     (when feedback
       (feedback self))
     (overwrite-read-only dst overwrite-read-only?)
     (when (and overwrite? (exists? dst))
       (delete dst))
     (copy-file (parse self) (parse dst))
+    (when (and sign? (or (eq? sign? 'all)
+                         (and (eq? sign? 'libraries)
+                              (extension=? (get-extension dst) "dylib")))) ;; only mac for now
+      (codesign-if (parse dst)))
     (when preserve-times?
       (copy-times self dst)))
   
@@ -1548,7 +1552,7 @@
         recursive?: #f)))
   
   
-  (method public (install-directory self dst (filter: filter #f) (feedback: feedback #f) (force-feedback?: force-feedback? #f) (progress-feedback: progress-feedback #f))
+  (method public (install-directory self dst (filter: filter #f) (sign?: sign? #f) (feedback: feedback #f) (force-feedback?: force-feedback? #f) (progress-feedback: progress-feedback #f))
     (define (merge-into src-dir dst-dir feedback)
       (merge-ordered (lambda (what key left right)
                        (case what

@@ -541,6 +541,59 @@
             (directory-files src)))
 
 
+(define (jazz:copy&sign-if-needed src dst #!key (feedback #f))
+  (if (jazz:file-needs-update? src dst)
+      (begin
+        (cond-expand
+          (mac
+           (let ((apple-id (getenv "JAZZ_APPLE_DEVELOPER_ID" #f))
+                 (entitlements (getenv "JAZZ_APPLE_ENTITLEMENTS" #f)))
+             (if apple-id
+                 (begin
+                   (if feedback
+                       (feedback "; copying & signing {a}..." src))
+                   (if (file-exists? dst)
+                       (delete-file dst))
+                   (jazz:copy-file src dst)
+                   (jazz:codesign #t #f apple-id dst))
+               (jazz:copy-file-if-needed src dst feedback: feedback))))
+          (else
+           (jazz:copy-file-if-needed src dst feedback: feedback))))))
+
+
+(define (jazz:codesign-required?)
+  (cond-expand
+    (mac (getenv "JAZZ_APPLE_DEVELOPER_ID" #f))
+    (else #f)))
+
+
+(define (jazz:codesign-if bin)
+  (cond-expand
+    (mac
+     (let ((apple-id (getenv "JAZZ_APPLE_DEVELOPER_ID" #f))
+           (entitlements (getenv "JAZZ_APPLE_ENTITLEMENTS" #f)))
+       (if apple-id
+           (jazz:codesign #t #f apple-id bin))))
+    (else
+     #f)))
+
+
+(define (jazz:codesign mac? ios? apple-id bin #!key (entitlements #f))
+  (cond (mac?
+         (let ((entitlements-arguments (if (not entitlements)
+                                           '()
+                                         (list "--entitlements" entitlements))))
+           (jazz:call-process
+             (list
+               path: "/usr/bin/codesign"
+               arguments: `("--options" "runtime" ,@entitlements-arguments "--timestamp" "--sign" ,apple-id ,bin)))))
+        (ios?
+         (jazz:call-process
+           (list
+             path: "/usr/bin/codesign"
+             arguments: `("--force" "--sign" ,apple-id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,bin))))))
+
+
 (define (jazz:file-needs-update? src dst)
   (or (%%not (file-exists? dst))
       (> (jazz:file-last-modification-seconds src)

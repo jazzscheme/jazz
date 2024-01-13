@@ -734,6 +734,8 @@
 (native jazz:compiler-name)
 (native jazz:compiler-extension)
 (native jazz:language-extension)
+(native jazz:codesign-required?)
+(native jazz:codesign-if)
 (native jazz:codesign)
 (native jazz:add-exit-job!)
 (native jazz:enable-crash-handler)

@@ -211,27 +211,6 @@
 
 
 ;;;
-;;;; Codesign
-;;;
-
-
-(define (jazz:codesign mac? ios? apple-id bin #!key (entitlements #f))
-  (cond (mac?
-         (let ((entitlements-arguments (if (not entitlements)
-                                           '()
-                                         (list "--entitlements" entitlements))))
-           (jazz:call-process
-             (list
-               path: "/usr/bin/codesign"
-               arguments: `("--options" "runtime" ,@entitlements-arguments "--timestamp" "--sign" ,apple-id ,bin)))))
-        (ios?
-         (jazz:call-process
-           (list
-             path: "/usr/bin/codesign"
-             arguments: `("--force" "--sign" ,apple-id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,bin))))))
-
-
-;;;
 ;;;; Kernel
 ;;;
 

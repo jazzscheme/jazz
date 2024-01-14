@@ -2586,6 +2586,9 @@
 (define jazz:load-feedback-port
   #f)
 
+(define (jazz:load-feedback-setup port)
+  (set! jazz:load-feedback-port port))
+
 
 (define jazz:load-feedback-mutex
   (make-mutex 'load-feedback))

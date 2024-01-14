@@ -573,7 +573,8 @@ end-of-code
                         (jazz:set-gambitdir! gambitdir))))
               (jazz:allow-inner-global-define?-set! #t)
               (set! jazz:debugger debugger)
-              (set! jazz:load-feedback-port (and load-feedback (open-tcp-client load-feedback)))
+              (if load-feedback
+                  (jazz:load-feedback-setup (open-tcp-client load-feedback)))
               (if nosource?
                   (set! jazz:kernel-source-access? #f))
               (jazz:process-settings)

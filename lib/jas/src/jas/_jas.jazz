@@ -64,6 +64,7 @@
       (format output "  jas diff{%}")
       (format output "  jas log{%}")
       (format output "  jas clone{%}")
+      (format output "  jas lookup{%}")
       (format output "  jas download{%}")
       (format output "  jas upload{%}")
       (format output "  jas mirror{%}")
@@ -342,6 +343,18 @@
                     (jas-download repo host path (or sets 'all))))))))))))
 
 
+(definition package (jas$lookup arguments)
+  (with-jas
+    (lambda (output)
+      (let ((what 'all))
+        (let ((repo (jas-open (jas-directory "."))))
+          (let ((remote (jas-config-get repo 'remote)))
+            (if (not remote)
+                (format output "Remote not set{%}")
+              (bind (host path) (split remote "/")
+                (jas-lookup repo host path)))))))))
+
+
 (definition package (jas$download arguments)
   (with-jas
     (lambda (output)
@@ -504,6 +517,22 @@
               (connect client)
               (proc client)
               (deconnect client))))))))
+
+
+(definition package (jas-lookup repo host path)
+  (define (feedback stage . rest)
+    (case stage
+      ((connect)
+       (format :terminal "Connecting to {a}{%}" path))))
+  
+  (let ((before (current-seconds)))
+    (with-jas-client repo host path 'read feedback 'all
+      (lambda (client)
+        (let ((uptodate? (uptodate? client)))
+          (let ((elapse #f @elapse (- (current-seconds) before)))
+            (if uptodate?
+                (format :terminal "Everything is up to date{? ({r precision: 3}s)~}{%}" elapse)
+              (format :terminal "Changes are available for download{? ({r precision: 3}s)~}{%}" elapse))))))))
 
 
 (definition package (jas-download repo host path what (cache: cache #f))

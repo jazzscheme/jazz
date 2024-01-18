@@ -22,7 +22,7 @@
 
 
 (definition monitor-directory
-  {Directory Home ".jas" "crashes"})
+  {Directory Home ".jas" "snapshots"})
 
 (definition monitor-remote
   "http://jas.togethersphere.com")
@@ -30,16 +30,16 @@
 
 (cond-expand
   (windows
-   (definition public (send-crash-reports)
+   (definition public (send-snapshot-reports)
      ))
   (else
-   (definition public (send-crash-reports)
-     (define (send-crash crash)
-       (bind (file remote) crash
+   (definition public (send-snapshot-reports)
+     (define (send-snapshot snapshot)
+       (bind (file remote) snapshot
          (let ((port (open-process
                        (list
                          path: curl-path
-                         arguments: (list "--silent" "-T" (parse file) "-H" "Content-Type: text/plain" (string-append remote "/crashes/" (get-name file)))
+                         arguments: (list "--silent" "-T" (parse file) "-H" "Content-Type: text/plain" (string-append remote "/snapshots/" (get-name file)))
                          show-console: #f))))
            (let ((status (process-status port)))
              (when (= status 0)
@@ -47,10 +47,10 @@
                (catch (os-exception? exc)
                  (delete file)))))))
      
-     (define (send-crashes crashes)
-       (for-each send-crash crashes))
+     (define (send-snapshots snapshots)
+       (for-each send-snapshot snapshots))
      
-     (define (collect-crashes)
+     (define (collect-snapshots)
        (let ((queue (new-queue)))
          (when (exists? monitor-directory)
            (iterate-directory monitor-directory
@@ -62,12 +62,12 @@
              recursive?: #f))
          (queue-list queue)))
      
-     (let ((crashes (collect-crashes)))
-       (let ((count (length crashes)))
+     (let ((snapshots (collect-snapshots)))
+       (let ((count (length snapshots)))
          (when (> count 0)
            (thread-start!
              (new-thread
                (lambda ()
-                 (send-crashes crashes))
-               'send-crash-reports)))
+                 (send-snapshots snapshots))
+               'send-snapshot-reports)))
          count))))))

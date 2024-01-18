@@ -2617,7 +2617,10 @@
   (jazz:with-load-feedback-mutex
     (lambda ()
       (set! jazz:load-feedback-setup-count jazz:Load-Count)
-      (set! jazz:load-feedback-port port))))
+      (set! jazz:load-feedback-port port)
+      (write expected-count port)
+      (newline port)
+      (force-output port))))
 
 
 (define (jazz:load-feedback unit-name)

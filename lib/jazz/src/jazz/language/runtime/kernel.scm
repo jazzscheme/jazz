@@ -675,6 +675,7 @@
 (native jazz:verbose-port)
 (native jazz:set-verbose-port)
 (native jazz:load-unit)
+(native jazz:load-count)
 (native jazz:load-hook)
 (native jazz:load-feedback-setup)
 (native jazz:load-feedback-done)

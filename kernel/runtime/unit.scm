@@ -2526,6 +2526,10 @@
   #f)
 
 
+(define jazz:Load-Count
+  0)
+
+
 (define jazz:current-load-stack
   (%%make-parameter '()))
 
@@ -2663,7 +2667,8 @@
                                (jazz:set-environment-unit unit-name jazz:Loaded-State))
                              (lambda ()
                                (if (%%eq? (jazz:get-environment-unit unit-name) jazz:Loading-State)
-                                   (jazz:set-environment-unit unit-name jazz:Error-State))))))))))))
+                                   (jazz:set-environment-unit unit-name jazz:Error-State)
+                                 (set! jazz:Load-Count (%%fx+ jazz:Load-Count 1)))))))))))))
     (jazz:error "Unit name expected: {a}" unit-name)))
 
 
@@ -2674,6 +2679,10 @@
         (if (%%eq? unit-state jazz:Loaded-State)
             (jazz:error "Unit already loaded: {a}" unit-name)
           (jazz:set-environment-unit unit-name hook))))))
+
+
+(define (jazz:load-count)
+  jazz:Load-Count)
 
 
 (define jazz:current-script-arguments

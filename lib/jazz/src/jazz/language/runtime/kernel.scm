@@ -549,6 +549,7 @@
 (native jazz:load-debuggee-units)
 (native jazz:jazz-product)
 (native jazz:jazz-profile)
+(native jazz:unit-verbose?)
 (native jazz:load-verbose?)
 (native jazz:outline-verbose?)
 (native jazz:done-verbose?)

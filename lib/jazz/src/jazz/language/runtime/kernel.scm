@@ -752,6 +752,7 @@
 (native jazz:report)
 (native jazz:unit-loadable?)
 (native jazz:unit-obj-uptodate?)
+(native jazz:unit-source)
 (native jazz:load-foundation)
 (native jazz:load-runtime)
 (native jazz:load-build)

@@ -2352,6 +2352,12 @@
       obj-uptodate?)))
 
 
+(define (jazz:unit-source unit-name)
+  (jazz:with-unit-resources unit-name #f
+    (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+      (and src (jazz:resource-pathname src)))))
+
+
 (define (jazz:load-foundation)
   (jazz:load-unit 'foundation.dialect))
 

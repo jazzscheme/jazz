@@ -677,6 +677,8 @@
 (native jazz:load-unit)
 (native jazz:load-count)
 (native jazz:load-hook)
+(native jazz:load-feedback-setup-count)
+(native jazz:load-feedback-done-count)
 (native jazz:load-feedback-setup)
 (native jazz:load-feedback-done)
 (native jazz:unload-unit)

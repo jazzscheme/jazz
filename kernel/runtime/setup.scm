@@ -516,7 +516,7 @@ end-of-code
     (lambda ()
       (jazz:split-command-line (jazz:command-arguments)
                                '("v" "version" "nosource" "debug" "f" "force" "force-outlines" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit")
-                               '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "download" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "m" "module" "dialect" "listen")
+                               '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "download" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "load-expected" "m" "module" "dialect" "listen")
                                missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:find-option "v" options) (jazz:find-option "version" options)))
@@ -564,6 +564,7 @@ end-of-code
                 (jobs (number-argument (or (jazz:find-option "j" options) (jazz:find-option "jobs" options))))
                 (port (number-argument (jazz:find-option "port" options)))
                 (load-feedback (number-argument (jazz:find-option "load-feedback" options)))
+                (load-expected (number-argument (jazz:find-option "load-expected" options)))
                 (module (symbol-argument (or (jazz:find-option "m" options) (jazz:find-option "module" options))))
                 (dialect (symbol-argument (jazz:find-option "dialect" options))))
             (define (setup-kernel)
@@ -574,7 +575,7 @@ end-of-code
               (jazz:allow-inner-global-define?-set! #t)
               (set! jazz:debugger debugger)
               (if load-feedback
-                  (jazz:load-feedback-setup (open-tcp-client load-feedback)))
+                  (jazz:load-feedback-setup (open-tcp-client load-feedback) load-expected))
               (if nosource?
                   (set! jazz:kernel-source-access? #f))
               (jazz:process-settings)

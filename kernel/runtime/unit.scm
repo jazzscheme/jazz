@@ -2593,11 +2593,15 @@
                                    " -> "))))
 
 
+(define jazz:load-feedback-setup-count
+  0)
+
+(define jazz:load-feedback-done-count
+  0)
+
+
 (define jazz:load-feedback-port
   #f)
-
-(define (jazz:load-feedback-setup port)
-  (set! jazz:load-feedback-port port))
 
 
 (define jazz:load-feedback-mutex
@@ -2607,6 +2611,13 @@
   (mutex-lock! jazz:load-feedback-mutex)
   (thunk)
   (mutex-unlock! jazz:load-feedback-mutex))
+
+
+(define (jazz:load-feedback-setup port expected-count)
+  (jazz:with-load-feedback-mutex
+    (lambda ()
+      (set! jazz:load-feedback-setup-count jazz:Load-Count)
+      (set! jazz:load-feedback-port port))))
 
 
 (define (jazz:load-feedback unit-name)
@@ -2627,6 +2638,7 @@
     (lambda ()
       (if jazz:load-feedback-port
           (begin
+            (set! jazz:load-feedback-done-count jazz:Load-Count)
             (write '(done) jazz:load-feedback-port)
             (newline jazz:load-feedback-port)
             (force-output jazz:load-feedback-port)

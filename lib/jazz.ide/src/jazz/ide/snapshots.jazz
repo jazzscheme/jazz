@@ -46,6 +46,7 @@
         (jazz.layout)
         (jazz.markup)
         (jazz.outline)
+        (jazz.pack)
         (jazz.platform)
         (jazz.resource)
         (jazz.text)
@@ -260,11 +261,29 @@
           (lambda (dir)
             (iterate-directory dir
               (lambda (file)
-                (when (extension=? (get-extension file) "snapshot")
-                  (receive (name date) (split-name file)
-                    (enqueue queue (list (get-name dir) name date file)))))
+                (let ((extension (get-extension file)))
+                  (cond ((extension=? extension "snapshot")
+                         (receive (name date) (split-name file)
+                           (enqueue queue (list (get-name dir) name date file file))))
+                        ((extension=? extension "report")
+                         (let ((dir (new-directory dir (get-base file))))
+                           (unpack-directory file dir)
+                           (delete file))))))
               files?: #t
               directories?: #f
+              recursive?: #f)
+            (iterate-directory dir
+              (lambda (subdir)
+                (let ((dirname (get-name subdir)))
+                  (when (starts-with? dirname "snapshot_")
+                    (let ((snapshots (collect-files subdir (lambda (file) (extension=? (get-extension file) "snapshot")))))
+                      (when (= (length snapshots) 1)
+                        (let ((snapshot (car snapshots)))
+                          (receive (name date) (split-name snapshot)
+                            (let ((date (substring dirname (string-length "snapshot_") (string-length dirname))))
+                              (enqueue queue (list (get-name dir) name date subdir snapshot))))))))))
+              files?: #f
+              directories?: #t
               recursive?: #f))
           files?: #f
           directories?: #t
@@ -278,7 +297,7 @@
           (with-update-locked tree
             (lambda ()
               (for-each (lambda (info)
-                          (bind (dirname name date file) info
+                          (bind (dirname name date root file) info
                             (bind (snapshot . corrupted?) (extract-snapshot file)
                               (if (is? snapshot Markup-Element)
                                   (add-row tree children: (list (new Tree-Node title: dirname)
@@ -291,7 +310,7 @@
                                                                 (new Tree-Label title: (if corrupted? "Corrupted" ""))
                                                                 (new Tree-Label title: (or (get-property snapshot 'exception) (get-property snapshot 'reason) ""))
                                                                 (new Tree-Label title: (or (get-property snapshot 'user) "")))
-                                    user-data: (if corrupted? file snapshot))
+                                    user-data: (cons root (if corrupted? file snapshot)))
                                 (add-row tree children: (list (new Tree-Node title: dirname)
                                                               (new Tree-Label title: name)
                                                               (new Tree-Label title: date)
@@ -299,7 +318,7 @@
                                                               (new Tree-Label title: "")
                                                               (new Tree-Label title: (exception-reason snapshot))
                                                               (new Tree-Label title: ""))
-                                  user-data: file)))))
+                                  user-data: (cons root file))))))
                         (sort nu>? (collect-snapshots) key: third)))))
         (set-string-content (locate self 'properties-text) ""))))
   
@@ -312,7 +331,7 @@
   
   (method (update-properties self)
     (let ((text (locate self 'properties-text)))
-      (let ((snapshot (get-single-selected-data (locate self 'snapshots-tree))))
+      (bind (root . snapshot) (single-selected-data self)
         (if (is? snapshot Markup-Element)
             (let ((properties (find-node snapshot 'properties)))
               (if properties
@@ -339,7 +358,7 @@
       (remove-every-row tree)
       (with-update-locked tree
         (lambda ()
-          (let ((snapshot (get-single-selected-data (locate self 'snapshots-tree))))
+          (bind (root . snapshot) (single-selected-data self)
             (when (is? snapshot Markup-Element)
               (let ((moments (find-node snapshot 'moments)))
                 (when moments
@@ -373,7 +392,7 @@
   
   (method (update-snapshot-frames self)
     (let ((text (locate self 'frames-text)))
-      (let ((snapshot (get-single-selected-data (locate self 'snapshots-tree))))
+      (bind (root . snapshot) (single-selected-data self)
         (if (is? snapshot Markup-Element)
             (let ((threads (find-node snapshot 'threads)))
               (if threads
@@ -414,6 +433,11 @@
           (set-string-content text "")))))
   
   
+  (method (single-selected-data self)
+    (or (get-single-selected-data (locate self 'snapshots-tree))
+        (cons #f #f)))
+  
+  
   ;;;
   ;;;; Manage
   ;;;
@@ -423,12 +447,13 @@
     (let ((tree (locate self 'snapshots-tree)))
       (let ((selected (get-selected-data tree)))
         (when (not-null? selected)
-          (for-each (lambda (snapshot)
-                      (let ((file (if (is? snapshot Markup-Element)
-                                      (get-property snapshot 'file)
-                                    snapshot)))
-                        (delete file)
-                        (table-clear snapshots file)))
+          (for-each (lambda (info)
+                      (bind (root . snapshot) info
+                        (let ((file (if (is? snapshot Markup-Element)
+                                        (get-property snapshot 'file)
+                                      snapshot)))
+                          (delete file)
+                          (table-clear snapshots file))))
                     selected)
           (update-snapshots self)))))
   
@@ -437,14 +462,15 @@
     (let ((tree (locate self 'snapshots-tree)))
       (let ((selected (get-selected-data tree)))
         (when (not-null? selected)
-          (for-each (lambda (snapshot)
-                      (let ((file (if (is? snapshot Markup-Element)
-                                      (get-property snapshot 'file)
-                                    snapshot)))
-                        (let ((dest-file (new-file directory (list "watched" (get-name file)))))
-                          (create-directories dest-file)
-                          (rename file dest-file)
-                          (table-clear snapshots file))))
+          (for-each (lambda (info)
+                      (bind (root . snapshot) info
+                        (let ((file (if (is? snapshot Markup-Element)
+                                        (get-property snapshot 'file)
+                                      snapshot)))
+                          (let ((dest-file (new-file directory (list "watched" (get-name file)))))
+                            (create-directories dest-file)
+                            (rename file dest-file)
+                            (table-clear snapshots file)))))
                     selected)
           (update-snapshots self)
           (update-details self)
@@ -456,12 +482,13 @@
           (tree (locate self 'snapshots-tree))
           (text (locate self 'properties-text)))
       (let ((selected (get-selected-data tree)))
-        (for-each (lambda (snapshot)
-                    (if (is? snapshot Markup-Element)
-                        (if (shift-down?)
-                            (edit-document appl (get-property snapshot 'file))
-                          (edit-snapshot appl snapshot))
-                      (edit-document appl snapshot)))
+        (for-each (lambda (info)
+                    (bind (root . snapshot) info
+                      (if (is? snapshot Markup-Element)
+                          (if (shift-down?)
+                              (edit-document appl (get-property snapshot 'file))
+                            (edit-snapshot appl snapshot))
+                        (edit-document appl snapshot))))
                   selected)))))
 
 

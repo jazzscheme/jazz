@@ -218,7 +218,8 @@
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Define-Special-Form-Declaration declaration) meta)
-  #f)
+  (let ((signature (jazz:get-define-special-form-declaration-signature declaration)))
+    `(special-form (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature signature)))))
 
 
 (define jazz:Special-Forms

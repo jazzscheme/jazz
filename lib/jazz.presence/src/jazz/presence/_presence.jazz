@@ -319,43 +319,43 @@
   (method (accept-remote self port)
     (accept-handler
       (lambda (presence)
-        (let ((message
-                ;; only reply to an invalid code/version here in accept
-                ;; as always replying could be used maliciously to try
-                ;; and figure out the communication protocol. also note
-                ;; that by simply replying, the client will report the
-                ;; right invalid code/version error
-                (catch (Invalid-Code exc
-                         (write-port port #f code version #f)
-                         (signal exc))
-                  (catch (Invalid-Version exc
+        (let ((peer-address (socket-info-address (tcp-client-peer-socket-info port))))
+          (let ((message
+                  ;; only reply to an invalid code/version here in accept
+                  ;; as always replying could be used maliciously to try
+                  ;; and figure out the communication protocol. also note
+                  ;; that by simply replying, the client will report the
+                  ;; right invalid code/version error
+                  (catch (Invalid-Code exc
                            (write-port port #f code version #f)
                            (signal exc))
-                    (read-port port #f code version)))))
-          (bind (remote-kind remote-binary? remote-uuid remote-title remote-service remote-address reference) message
-            (define (accept)
-              (let ((local-binary? supports-binary?)
-                    (local-uuid uuid)
-                    (local-title presence-title)
-                    (local-service (listening-port listener))
-                    (peer-address (socket-info-address (tcp-client-peer-socket-info port)))
-                    (reference-proxy (and reference (load-reference register reference))))
-                (write-port port #f code version (list local-binary? local-uuid local-title local-service peer-address reference-proxy))
-                (let ((binary? (and local-binary? remote-binary?)))
-                  (let ((connection (new Remote-Connection self port binary? remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-handler)))
-                    (when (and debug-remote? (debug-remote-presence? self))
-                      (callee-garble-hack)
-                      (debug-remote self '<<< remote-title remote-uuid 'accept connection))
-                    (register-connection self remote-uuid connection)
-                    (set-thread connection (current-thread))
-                    (process connection)))))
-            
-            (let ((existing-connection (find-connection self remote-uuid)))
-              (if existing-connection
-                  (if already-connected
-                      (already-connected self remote-uuid existing-connection accept)
-                    (write-port port #f code version 'already-connected))
-                (accept))))))
+                    (catch (Invalid-Version exc
+                             (write-port port #f code version #f)
+                             (signal exc))
+                      (read-port port #f code version)))))
+            (bind (remote-kind remote-binary? remote-uuid remote-title remote-service remote-address reference) message
+              (define (accept)
+                (let ((local-binary? supports-binary?)
+                      (local-uuid uuid)
+                      (local-title presence-title)
+                      (local-service (listening-port listener))
+                      (reference-proxy (and reference (load-reference register reference))))
+                  (write-port port #f code version (list local-binary? local-uuid local-title local-service peer-address reference-proxy))
+                  (let ((binary? (and local-binary? remote-binary?)))
+                    (let ((connection (new Remote-Connection self port binary? remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-handler)))
+                      (when (and debug-remote? (debug-remote-presence? self))
+                        (callee-garble-hack)
+                        (debug-remote self '<<< remote-title remote-uuid 'accept connection))
+                      (register-connection self remote-uuid connection)
+                      (set-thread connection (current-thread))
+                      (process connection)))))
+              
+              (let ((existing-connection (find-connection self remote-uuid)))
+                (if existing-connection
+                    (if already-connected
+                        (already-connected self remote-uuid existing-connection accept)
+                      (write-port port #f code version 'already-connected))
+                  (accept)))))))
       self))
   
   

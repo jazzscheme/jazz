@@ -14,7 +14,8 @@
 (module jas.server.report jazz
 
 
-(import (jazz.io))
+(import (jazz.io)
+        (jazz.pack))
 
 
 (definition curl-path
@@ -35,17 +36,20 @@
   (else
    (definition public (send-snapshot-reports)
      (define (send-snapshot snapshot)
-       (bind (file remote) snapshot
-         (let ((port (open-process
-                       (list
-                         path: curl-path
-                         arguments: (list "--silent" "-T" (parse file) "-H" "Content-Type: text/plain" (string-append remote "/snapshots/" (get-name file)))
-                         show-console: #f))))
-           (let ((status (process-status port)))
-             (when (= status 0)
-               ;; robust to file still in use
-               (catch (os-exception? exc)
-                 (delete file)))))))
+       (bind (dir remote) snapshot
+         (let ((report (new-file (get-parent dir) (add-extension (get-name dir) "report"))))
+           (pack-directory dir report)
+           (delete dir)
+           (let ((port (open-process
+                         (list
+                           path: curl-path
+                           arguments: (list "--silent" "-T" (parse report) "-H" "Content-Type: text/plain" (string-append remote "/snapshots/" (get-name report)))
+                           show-console: #f))))
+             (let ((status (process-status port)))
+               (when (= status 0)
+                 ;; robust to report still in use
+                 (catch (os-exception? exc)
+                   (delete report))))))))
      
      (define (send-snapshots snapshots)
        (for-each send-snapshot snapshots))
@@ -54,11 +58,11 @@
        (let ((queue (new-queue)))
          (when (exists? monitor-directory)
            (iterate-directory monitor-directory
-             (lambda (file)
-               (when (extension=? (get-extension file) "report")
-                 (enqueue queue (list file monitor-remote))))
-             files?: #t
-             directories?: #f
+             (lambda (dir)
+               (when (starts-with? (get-name dir) "snapshot_")
+                 (enqueue queue (list dir monitor-remote))))
+             files?: #f
+             directories?: #t
              recursive?: #f))
          (queue-list queue)))
      

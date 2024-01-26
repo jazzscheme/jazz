@@ -680,6 +680,57 @@
 
 
 ;;;
+;;;; Restricted
+;;;
+
+
+(define-macro (jazz:check-restricted name)
+  (let ((unrestricted (%%string->symbol (%%string-append (%%symbol->string name) "-unrestricted"))))
+    `(let ((,unrestricted ,name))
+       (jazz:filesystem-restrict)
+       (let ((eq-restricted (if (eq? ,unrestricted ,name) '*** '---)))
+         (jazz:filesystem-unrestrict)
+         (let ((eq-unrestricted (if (eq? ,unrestricted ,name) '--- '$$$)))
+           (pp (list eq-restricted eq-unrestricted ',name)))))))
+
+
+(define (jazz:validate-restricted)
+  (jazz:check-restricted create-directory)
+  (jazz:check-restricted create-fifo)
+  (jazz:check-restricted create-link)
+  (jazz:check-restricted create-symbolic-link)
+  (jazz:check-restricted rename-file)
+  (jazz:check-restricted copy-file)
+  (jazz:check-restricted delete-file)
+  (jazz:check-restricted delete-directory)
+  (jazz:check-restricted directory-files)
+  (jazz:check-restricted file-exists?)
+  (jazz:check-restricted file-info)
+  (jazz:check-restricted file-type)
+  (jazz:check-restricted file-device)
+  (jazz:check-restricted file-inode)
+  (jazz:check-restricted file-mode)
+  (jazz:check-restricted file-number-of-links)
+  (jazz:check-restricted file-owner)
+  (jazz:check-restricted file-group)
+  (jazz:check-restricted file-size)
+  (jazz:check-restricted file-last-access-time)
+  (jazz:check-restricted file-last-modification-time)
+  (jazz:check-restricted file-last-change-time)
+  (jazz:check-restricted file-attributes)
+  (jazz:check-restricted file-creation-time)
+  (jazz:check-restricted file-last-access-and-modification-times-set!)
+  (jazz:check-restricted open-file)
+  (jazz:check-restricted open-input-file)
+  (jazz:check-restricted open-output-file)
+  (jazz:check-restricted call-with-input-file)
+  (jazz:check-restricted call-with-output-file)
+  (jazz:check-restricted with-input-from-file)
+  (jazz:check-restricted with-output-to-file)
+  (jazz:check-restricted open-directory))
+
+
+;;;
 ;;;; Digest
 ;;;
 

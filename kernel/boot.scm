@@ -51,6 +51,7 @@
     "kernel/syntax/syntax"
     "kernel/syntax/runtime"
     "kernel/runtime/settings"
+    "kernel/runtime/restricted"
     "kernel/runtime/base"
     "kernel/runtime/record"
     "kernel/syntax/repository"

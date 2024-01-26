@@ -1024,6 +1024,17 @@
 
 
 ;;;
+;;;; Restricted
+;;;
+
+
+(native jazz:validate-restricted)
+(native jazz:filesystem-restrict)
+(native jazz:filesystem-unrestrict)
+(native jazz:filesystem-authorize)
+
+
+;;;
 ;;;; Runtime
 ;;;
 

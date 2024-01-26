@@ -536,6 +536,7 @@
           (compile-source-file "runtime/" "binary")
           (compile-source-file "runtime/" "common")
           (compile-source-file "runtime/" "settings")
+          (compile-source-file "runtime/" "restricted")
           (compile-source-file "runtime/" "advise")
           (if include-compiler?
               (compile-source-file "runtime/" "build"))
@@ -649,6 +650,7 @@
                                     ,(kernel-file "runtime/binary")
                                     ,(kernel-file "runtime/common")
                                     ,(kernel-file "runtime/settings")
+                                    ,(kernel-file "runtime/restricted")
                                     ,(kernel-file "runtime/advise")
                                     ,@(if include-compiler?
                                           `(,(kernel-file "runtime/build"))
@@ -894,6 +896,7 @@
                             ,(kernel-file "runtime/binary.o")
                             ,(kernel-file "runtime/common.o")
                             ,(kernel-file "runtime/settings.o")
+                            ,(kernel-file "runtime/restricted.o")
                             ,(kernel-file "runtime/advise.o")
                             ,@(if include-compiler?
                                   `(,(kernel-file "runtime/build.o"))

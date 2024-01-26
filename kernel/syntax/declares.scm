@@ -38,6 +38,16 @@
 (jazz:verbose-kernel 'kernel.declares)
 
 
+(define jazz:not-standard-bindings
+  '(not standard-bindings
+        open-input-file
+        open-output-file
+        call-with-input-file
+        call-with-output-file
+        with-input-from-file
+        with-output-to-file))
+
+
 (jazz:define-macro (jazz:kernel-declares)
   `(declare
      ,@(if (or jazz:debug-core? jazz:kernel-mutable-bindings?)
@@ -46,7 +56,8 @@
      
      ,@(if jazz:kernel-mutable-bindings?
            '()
-         '((standard-bindings)
+         `((standard-bindings)
+           ,jazz:not-standard-bindings
            (extended-bindings)))
      
      ,@(if #f
@@ -84,7 +95,8 @@
       
       ,@(if jazz:kernel-mutable-bindings?
             '()
-          '((standard-bindings)
+          `((standard-bindings)
+            ,jazz:not-standard-bindings
             (extended-bindings)))
       
       ;; inlining can have a huge impact on compilation time

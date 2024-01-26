@@ -773,13 +773,13 @@
         (newline output)))))
 
 
-(define (filter proc lst)
+(define (jazz:filter proc lst)
   (if (%%null? lst)
       '()
     (let ((head (%%car lst)))
       (if (proc head)
-          (%%cons head (filter proc (%%cdr lst)))
-        (filter proc (%%cdr lst))))))
+          (%%cons head (jazz:filter proc (%%cdr lst)))
+        (jazz:filter proc (%%cdr lst))))))
 
 
 (define (jazz:save-digest filepath manifest)
@@ -802,9 +802,9 @@
         (display ")" output)
         (newline output))))
   
-  (let ((existing-files-digests (filter (lambda (digest)
-                                          (file-exists? (%%get-digest-pathname digest)))
-                                        (%%get-manifest-source-digests manifest))))
+  (let ((existing-files-digests (jazz:filter (lambda (digest)
+                                               (file-exists? (%%get-digest-pathname digest)))
+                                             (%%get-manifest-source-digests manifest))))
     ;; not deleting the digest when there is no existing files makes
     ;; it more robust when multiple processes access the same digest
     (save-digest existing-files-digests)))

@@ -232,7 +232,10 @@
 
 
 (define (jazz:filesystem-unrestrict)
-  (if (and jazz:filesystem-restrictable? jazz:filesystem-restricted?)
+  (define (under-debugger?)
+    (jazz:global-ref 'jazz.debuggee:controller-debugger))
+  
+  (if (and jazz:filesystem-restrictable? jazz:filesystem-restricted? (not (under-debugger?)))
       (begin
         (jazz:unrestrict create-directory)
         (jazz:unrestrict create-fifo)

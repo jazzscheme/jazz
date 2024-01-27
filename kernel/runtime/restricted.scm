@@ -48,7 +48,9 @@
 
 
 (define (jazz:filesystem-authorize root)
-  (set! jazz:filesystem-authorized-roots (append jazz:filesystem-authorized-roots (list root))))
+  (if jazz:filesystem-restricted?
+      (jazz:error "Restricted access to authorize")
+    (set! jazz:filesystem-authorized-roots (append jazz:filesystem-authorized-roots (list root)))))
 
 
 (define (jazz:filesystem-authorized? path)

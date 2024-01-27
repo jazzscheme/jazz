@@ -176,12 +176,19 @@
 ;;;
 
 
+(define jazz:filesystem-restrictable?
+  #f)
+
+(define (jazz:filesystem-restrictable)
+  (set! jazz:filesystem-restrictable? #t))
+
+
 (define jazz:filesystem-restricted?
   #f)
 
 
 (define (jazz:filesystem-restrict)
-  (if (not jazz:filesystem-restricted?)
+  (if (and jazz:filesystem-restrictable? (not jazz:filesystem-restricted?))
       (begin
         (jazz:restrict create-directory)
         (jazz:restrict create-fifo)
@@ -220,7 +227,7 @@
 
 
 (define (jazz:filesystem-unrestrict)
-  (if jazz:filesystem-restricted?
+  (if (and jazz:filesystem-restrictable? jazz:filesystem-restricted?)
       (begin
         (jazz:unrestrict create-directory)
         (jazz:unrestrict create-fifo)

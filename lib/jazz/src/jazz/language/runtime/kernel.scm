@@ -1028,10 +1028,12 @@
 ;;;
 
 
-(native jazz:validate-restricted)
+(native jazz:filesystem-restrictable)
+(native jazz:filesystem-restricted?)
 (native jazz:filesystem-restrict)
 (native jazz:filesystem-unrestrict)
 (native jazz:filesystem-authorize)
+(native jazz:validate-restricted)
 
 
 ;;;

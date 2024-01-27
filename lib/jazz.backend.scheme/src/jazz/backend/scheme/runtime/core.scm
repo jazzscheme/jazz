@@ -665,7 +665,10 @@
   (windows
    (define (jazz:terminal-available?)
      ;; terminal is always available on windows
-     #t))
+     #t)
+   
+   (define (jazz:filesystem-authorize-terminal)
+     #f))
   (else
    (define jazz:cached-unix-controlling-terminal?
      (jazz:unspecified))
@@ -683,7 +686,10 @@
      jazz:cached-unix-controlling-terminal?)
    
    (define (jazz:terminal-available?)
-     (jazz:unix-controlling-terminal?))))
+     (jazz:unix-controlling-terminal?))
+   
+   (define (jazz:filesystem-authorize-terminal)
+     (jazz:filesystem-authorize "/dev/tty"))))
 
 
 ;;;

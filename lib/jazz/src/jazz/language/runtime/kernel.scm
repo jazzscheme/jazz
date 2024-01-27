@@ -899,6 +899,7 @@
 (native jazz:standard-error-port)
 (native jazz:unix-controlling-terminal?)
 (native jazz:terminal-available?)
+(native jazz:filesystem-authorize-terminal)
 (native jazz:eof-object)
 (native jazz:write-string)
 (native jazz:read-proper-line)

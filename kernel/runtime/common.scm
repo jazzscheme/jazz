@@ -38,6 +38,39 @@
 (block kernel.common
 
 
+(define-macro (jazz:check-advised name)
+  (let ((unadvised (%%string->symbol (%%string-append (%%symbol->string name) "-unadvised"))))
+    `(let ((,unadvised ,name))
+       (jazz:debug-table-scan)
+       (let ((eq-advised (if (eq? ,unadvised ,name) '*** '---)))
+         (jazz:undebug-table-scan)
+         (let ((eq-unadvised (if (eq? ,unadvised ,name) '--- '$$$)))
+           (pp (list eq-advised eq-unadvised ',name)))))))
+
+;;;
+(define (jazz:validate-advised)
+  (jazz:check-advised table-for-each)
+  (jazz:check-advised ##table-for-each)
+  (jazz:check-advised table-search)
+  (jazz:check-advised ##table-search)
+  (jazz:check-advised table-ref)
+  (jazz:check-advised ##table-ref)
+  (jazz:check-advised table-set!)
+  (jazz:check-advised ##table-set!)
+  (jazz:check-advised table-for-each)
+  (jazz:check-advised ##table-for-each)
+  (jazz:check-advised table-search)
+  (jazz:check-advised ##table-search)
+  (jazz:check-advised table-copy)
+  (jazz:check-advised ##table-copy)
+  (jazz:check-advised table-merge)
+  (jazz:check-advised ##table-merge)
+  (jazz:check-advised table-merge!)
+  (jazz:check-advised ##table-merge!)
+  (jazz:check-advised table->list)
+  (jazz:check-advised ##table->list))
+
+
 ;;;
 ;;;; Load
 ;;;

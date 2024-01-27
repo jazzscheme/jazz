@@ -43,12 +43,20 @@
 ;;;
 
 
+(define jazz:originals
+  (make-table test: eq?))
+
+
 (define (jazz:advise symbol advice)
   (advice symbol
           (lambda ()
             (%%global-var-ref symbol))
           (lambda (value)
             (%%global-var-set! symbol value))))
+
+
+(define (jazz:unadvise symbol)
+  (%%global-var-set! symbol (%%table-ref jazz:originals symbol)))
 
 
 ;;;
@@ -77,6 +85,7 @@
 
 (define (jazz:debugging-table-advice symbol ref set)
   (let ((original (ref)))
+    (%%table-set! jazz:originals symbol original)
     (set (lambda rest
            (let ((table (jazz:debug-table-find rest)))
              (jazz:debug-table-assert symbol table)
@@ -86,17 +95,18 @@
 
 (define (jazz:debug-table-advice symbol ref set)
   (let ((original (ref)))
+    (%%table-set! jazz:originals symbol original)
     (set (lambda rest
            (let ((table (jazz:debug-table-find rest)))
              (jazz:debug-table-assert symbol table)
              (apply original rest))))))
 
-
+;;;
 (define (jazz:debug-table-scan)
-  (jazz:advise 'table-for-each   jazz:debugging-table-advice)
-  (jazz:advise '##table-for-each jazz:debugging-table-advice)
-  (jazz:advise 'table-search     jazz:debugging-table-advice)
-  (jazz:advise '##table-search   jazz:debugging-table-advice)
+  ;(jazz:advise 'table-for-each   jazz:debugging-table-advice)
+  ;(jazz:advise '##table-for-each jazz:debugging-table-advice)
+  ;(jazz:advise 'table-search     jazz:debugging-table-advice)
+  ;(jazz:advise '##table-search   jazz:debugging-table-advice)
   (jazz:advise 'table-ref        jazz:debug-table-advice)
   (jazz:advise '##table-ref      jazz:debug-table-advice)
   (jazz:advise 'table-set!       jazz:debug-table-advice)
@@ -115,6 +125,31 @@
   (jazz:advise '##table->list    jazz:debug-table-advice))
 
 
+(define (jazz:undebug-table-scan)
+  (jazz:unadvise 'table-for-each)
+  (jazz:unadvise '##table-for-each)
+  (jazz:unadvise 'table-search)
+  (jazz:unadvise '##table-search)
+  (jazz:unadvise 'table-ref)
+  (jazz:unadvise '##table-ref)
+  (jazz:unadvise 'table-set!)
+  (jazz:unadvise '##table-set!)
+  (jazz:unadvise 'table-for-each)
+  (jazz:unadvise '##table-for-each )
+  (jazz:unadvise 'table-search)
+  (jazz:unadvise '##table-search)
+  (jazz:unadvise 'table-copy)
+  (jazz:unadvise '##table-copy)
+  (jazz:unadvise 'table-merge)
+  (jazz:unadvise '##table-merge)
+  (jazz:unadvise 'table-merge!)
+  (jazz:unadvise '##table-merge!)
+  (jazz:unadvise 'table->list)
+  (jazz:unadvise '##table->list))
+
+
+(jazz:debug-table-scan)
+#;
 (cond-expand
   (core
    (if jazz:kernel-mutable-bindings?

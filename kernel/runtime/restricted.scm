@@ -187,6 +187,11 @@
   #f)
 
 
+(define (jazz:filesystem-allowed? path)
+  (or (not jazz:filesystem-restricted?)
+      (jazz:filesystem-authorized? path)))
+
+
 (define (jazz:filesystem-restrict)
   (if (and jazz:filesystem-restrictable? (not jazz:filesystem-restricted?))
       (begin

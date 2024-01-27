@@ -625,9 +625,10 @@
   (if (%%null? rest)
       (let ((dir (current-directory)))
         (jazz:pathname-normalize
-          (if (jazz:pathname-exists? dir)
+          (if (and (jazz:filesystem-allowed? dir)
+                   (jazz:pathname-exists? dir))
               dir
-            (jazz:home-directory))))
+            jazz:kernel-root)))
     (let ((dir (%%car rest)))
       (current-directory dir))))
 

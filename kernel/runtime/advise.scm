@@ -117,6 +117,5 @@
 
 (cond-expand
   (core
-   (if jazz:kernel-mutable-bindings?
-       (jazz:debug-table-scan)))
+   (jazz:debug-table-scan))
   (else)))

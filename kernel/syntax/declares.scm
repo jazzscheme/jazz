@@ -50,15 +50,13 @@
 
 (jazz:define-macro (jazz:kernel-declares)
   `(declare
-     ,@(if (or jazz:debug-core? jazz:kernel-mutable-bindings?)
+     ,@(if jazz:debug-core?
            '()
          '((block)))
      
-     ,@(if jazz:kernel-mutable-bindings?
-           '()
-         `((standard-bindings)
-           ,jazz:not-standard-bindings
-           (extended-bindings)))
+     ,@`((standard-bindings)
+         ,jazz:not-standard-bindings
+         (extended-bindings))
      
      ,@(if #f
            #; ;; this inline declaration or the one below breaks
@@ -84,20 +82,17 @@
       ;; style where control remains mostly inside the unit
       ;; using block can give an noticable performance gain
       ;; in certain cases but breaks dynamic code reevaluation
-      ,@(if (and (not jazz:kernel-mutable-bindings?)
-                 (or (and (eq? kind 'unit)
-                          (or (eq? jazz:kernel-safety 'release)
-                              (eq? jazz:kernel-safety 'sealed)))
-                     (and (eq? kind 'module)
-                          (eq? jazz:kernel-safety 'sealed))))
+      ,@(if (or (and (eq? kind 'unit)
+                     (or (eq? jazz:kernel-safety 'release)
+                         (eq? jazz:kernel-safety 'sealed)))
+                (and (eq? kind 'module)
+                     (eq? jazz:kernel-safety 'sealed)))
             '((block))
           '())
       
-      ,@(if jazz:kernel-mutable-bindings?
-            '()
-          `((standard-bindings)
-            ,jazz:not-standard-bindings
-            (extended-bindings)))
+      ,@`((standard-bindings)
+          ,jazz:not-standard-bindings
+          (extended-bindings))
       
       ;; inlining can have a huge impact on compilation time
       ;; and really bloat the size of the generated .o1 files

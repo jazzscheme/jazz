@@ -1033,6 +1033,7 @@
 (native jazz:filesystem-restricted?)
 (native jazz:filesystem-restrict)
 (native jazz:filesystem-unrestrict)
+(native jazz:filesystem-authorized)
 (native jazz:filesystem-authorize)
 (native jazz:filesystem-allowed?)
 (native jazz:validate-restricted)

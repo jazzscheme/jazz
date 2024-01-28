@@ -1036,6 +1036,7 @@
 (native jazz:filesystem-authorize)
 (native jazz:filesystem-allowed?)
 (native jazz:validate-restricted)
+(native jazz:validate-advised)
 
 
 ;;;

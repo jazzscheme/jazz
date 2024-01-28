@@ -101,12 +101,20 @@
              (jazz:debug-table-assert symbol table)
              (apply original rest))))))
 
-;;;
+
+(define (jazz:debug-yo symbol ref set)
+  (let ((original (ref)))
+    (%%table-set! jazz:originals symbol original)
+    (set (lambda rest
+           (apply original rest)))))
+
+
 (define (jazz:debug-table-scan)
   ;(jazz:advise 'table-for-each   jazz:debugging-table-advice)
   ;(jazz:advise '##table-for-each jazz:debugging-table-advice)
   ;(jazz:advise 'table-search     jazz:debugging-table-advice)
   ;(jazz:advise '##table-search   jazz:debugging-table-advice)
+  (jazz:advise '##fx+            jazz:debug-yo)
   (jazz:advise 'table-ref        jazz:debug-table-advice)
   (jazz:advise '##table-ref      jazz:debug-table-advice)
   (jazz:advise 'table-set!       jazz:debug-table-advice)
@@ -126,6 +134,7 @@
 
 
 (define (jazz:undebug-table-scan)
+  (jazz:unadvise '##fx+)
   (jazz:unadvise 'table-for-each)
   (jazz:unadvise '##table-for-each)
   (jazz:unadvise 'table-search)

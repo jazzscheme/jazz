@@ -47,8 +47,9 @@
          (let ((eq-unadvised (if (eq? ,unadvised ,name) '--- '$$$)))
            (pp (list eq-advised eq-unadvised ',name)))))))
 
-;;;
+
 (define (jazz:validate-advised)
+  (jazz:check-advised ##fx+)
   (jazz:check-advised table-for-each)
   (jazz:check-advised ##table-for-each)
   (jazz:check-advised table-search)

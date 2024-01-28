@@ -115,7 +115,5 @@
   (jazz:advise '##table->list    jazz:debug-table-advice))
 
 
-(cond-expand
-  (core
-   (jazz:debug-table-scan))
-  (else)))
+(if jazz:kernel-mutable-bindings?
+    (jazz:debug-table-scan)))

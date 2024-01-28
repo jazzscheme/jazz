@@ -338,12 +338,19 @@
 
 
 (define (jazz:create-directories dir #!key (feedback #f))
+  (define (scan->directory scan)
+    (%%string-append (jazz:join-strings (%%reverse scan) "/") "/"))
+  
   (let ((path (%%reverse (jazz:split-string dir #\/))))
     (let iter ((scan (if (%%equal? (%%car path) "") (%%cdr path) path)))
       (if (%%not (%%null? scan))
           (begin
-            (iter (%%cdr scan))
-            (let ((subdir (jazz:join-strings (%%reverse scan) "/")))
+            (let ((parent (%%cdr scan)))
+              (if (%%not (%%null? parent))
+                  (let ((parent-dir (scan->directory parent)))
+                    (if (jazz:filesystem-allowed? parent-dir)
+                        (iter parent)))))
+            (let ((subdir (scan->directory scan)))
               (if (%%not (file-exists? subdir))
                   (jazz:create-directory subdir feedback: feedback))))))))
 

@@ -123,7 +123,6 @@
 ;;;
 
 
-(native jazz:iterate-table-unsafe)
-(native jazz:search-table-unsafe)
+(native jazz:table-iterate)
 (native jazz:iterate-table)
 (native jazz:search-table))

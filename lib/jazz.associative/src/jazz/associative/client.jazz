@@ -76,13 +76,25 @@
     
     (when feedback
       (feedback 'connect))
-    (catch (connect-exception? exc
-             (throw (new Jas-Unable-To-Connect (exception-reason exc))))
-      (retry-exception-handler
-        (lambda ()
-          (jas-write-code port)
-          (jas-write-version port)
-          (force-output port)))
+    (let ((retries '())
+          (retries-count 0))
+      (catch (connect-exception? exc
+               (throw (new Jas-Unable-To-Connect (exception-reason exc))))
+        (retry-exception-handler
+          (lambda ()
+            (jas-write-code port)
+            (jas-write-version port)
+            (force-output port))
+          feedback: (lambda (exc)
+                      (set! retries (cons (exception-reason exc) retries))
+                      (increase! retries-count)))
+        (when (> retries-count 0)
+          (jazz.snapshot:snapshot-process
+            reason: (format "Successful connection after {a} retries" retries-count)
+            max-depth: 0
+            max-width: 256
+            max-content: 64
+            current-thread-only?: #t)))
       (jas-write-object path port)
       (jas-write-object access port)
       (jas-force-output port))

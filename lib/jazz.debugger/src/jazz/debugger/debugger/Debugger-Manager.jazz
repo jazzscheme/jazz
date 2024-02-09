@@ -187,8 +187,15 @@
   
   (method public (get-active-stop self debugged)
     (let ((stops (table-ref active-stops debugged #f)))
-      (and stops
-           (car stops))))
+      (if stops
+          (car stops)
+        (and debugged
+             (get-virtual-stop debugged)))))
+  
+  
+  (method (get-virtual-stop self debugged)
+    (and debugged
+         (get-virtual-stop debugged)))
   
   
   ;;;
@@ -395,7 +402,9 @@
   (method public (for-each-thread self proc (detailed?: detailed? #f) (sort-priority?: sort-priority? #f))
     (define system-threads
       '(debuggee-pump
+        debuggee-repl
         debugger-pump
+        (execute get-threads)
         local-repl
         presence-listener
         presence-accepted
@@ -411,7 +420,7 @@
     
     (define (system-thread? thread)
       (let ((name (get-name thread)))
-        (or (memq? name system-threads)
+        (or (member? name system-threads)
             (and (pair? name)
                  (memq? (car name) system-threads))
             (and (symbol? name)

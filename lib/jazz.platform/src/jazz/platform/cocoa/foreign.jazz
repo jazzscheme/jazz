@@ -3200,9 +3200,13 @@ void platformCloseWindow(PlatformWindow* window)
 
 void platformDestroyWindow(PlatformWindow* window)
 {
-    platformInternalMakeContextCurrent(NULL);
+    // The window's context must not be current on another thread when the window is destroyed
+    if (window == platformInternalGetCurrentContext())
+        platformInternalMakeContextCurrent(NULL);
 
-    platform.focusedWindow = NULL;
+    // Clear the active window pointer if this is the active window
+    if (window == platform.focusedWindow)
+        platform.focusedWindow = NULL;
     
     [NSApp removeWindowsItem:window->object];
 

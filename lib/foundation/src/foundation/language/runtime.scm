@@ -64,6 +64,7 @@
 (native jazz:conditional-satisfied?)
 (native jazz:process-conditional)
 (native jazz:cond-expand-features)
+(native jazz:cond-expand-features-add!)
 (native jazz:feature-satisfied?)
 (native jazz:generate-symbol)
 (native jazz:simplify-begin)

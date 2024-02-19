@@ -540,6 +540,10 @@
   (%%cond-expand-features))
 
 
+(define (jazz:cond-expand-features-add! feature)
+  (%%cond-expand-features (append (%%cond-expand-features) (list feature))))
+
+
 ;;;
 ;;;; Fixnum
 ;;;

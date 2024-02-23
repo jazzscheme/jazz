@@ -1451,6 +1451,7 @@
                (walker (jazz:dialect-walker dialect))
                (backend (and backend-name (jazz:require-backend backend-name)))
                (resume #f)
+               (body (jazz:dialect-wrap dialect body))
                (declaration (jazz:walk-module-declaration walker #f name 'public '() dialect-name dialect-invoice dialect-src body))
                (environment (%%cons declaration (jazz:walker-environment walker)))
                (body (jazz:walk-namespace walker resume declaration environment body)))

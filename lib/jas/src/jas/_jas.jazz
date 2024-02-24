@@ -348,13 +348,16 @@
 (definition package (jas$lookup arguments)
   (with-jas
     (lambda (output)
-      (let ((what 'all))
-        (let ((repo (jas-open (jas-directory "."))))
-          (let ((remote (jas-config-get repo 'remote)))
-            (if (not remote)
-                (format output "Remote not set{%}")
-              (bind (host path) (split remote "/")
-                (jas-lookup repo host path)))))))))
+      (let ((repo (jas-open (jas-directory "."))))
+        (let ((remote (jas-config-get repo 'remote)))
+          (if (not remote)
+              (format output "Remote not set{%}")
+            (bind (host path) (split remote "/")
+              (let ((diff (jas-lookup repo host path)))
+                (if (null? (get-changes diff))
+                    (format :terminal "Everything is up to date{%}")
+                  (format :terminal "Changes with remote:{%}")
+                  (jas-describe diff output #t))))))))))
 
 
 (definition package (jas$download arguments)
@@ -509,8 +512,8 @@
            (format :terminal "{a}{%}" (exception-reason exc)))
     (let ((client (new Jas-Client repo host path access feedback: feedback)))
       (connect client)
-      (proc client)
-      (deconnect client))))
+      (prog1 (proc client)
+        (deconnect client)))))
 
 
 (definition package (jas-lookup repo host path)
@@ -522,11 +525,7 @@
   (let ((before (current-seconds)))
     (with-jas-client repo host path 'read feedback 'all
       (lambda (client)
-        (let ((uptodate? (uptodate? client)))
-          (let ((elapse #f @elapse (- (current-seconds) before)))
-            (if uptodate?
-                (format :terminal "Everything is up to date{? ({r precision: 3}s)~}{%}" elapse)
-              (format :terminal "Changes are available for download{? ({r precision: 3}s)~}{%}" elapse))))))))
+        (lookup-diff client)))))
 
 
 (definition package (jas-download repo host path what (cache: cache #f))

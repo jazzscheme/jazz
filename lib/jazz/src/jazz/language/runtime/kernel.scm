@@ -1023,6 +1023,8 @@
 
 (native jazz:resource-package)
 (native jazz:resource-pathname)
+(native jazz:name->path)
+(native jazz:path->name)
 
 
 ;;;

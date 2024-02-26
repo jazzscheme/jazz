@@ -835,6 +835,14 @@
                      (%%symbol->string (%%get-package-name package)))))
 
 
+(define (jazz:package-units-root package)
+  (let ((root (jazz:package-root package))
+        (units-root (%%get-package-units-root package)))
+    (if (%%not units-root)
+        root
+      (%%string-append root "/" units-root))))
+
+
 (define (jazz:package-pathname package path)
   (jazz:repository-pathname (%%get-package-repository package)
                             (%%string-append (%%symbol->string (%%get-package-name package)) "/" path)))

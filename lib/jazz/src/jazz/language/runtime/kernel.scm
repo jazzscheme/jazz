@@ -588,6 +588,7 @@
 (native jazz:package-repository)
 (native jazz:package-name)
 (native jazz:package-root)
+(native jazz:package-units-root)
 (native jazz:package-pathname)
 (native jazz:package-root-pathname)
 (native jazz:package-directory)

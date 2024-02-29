@@ -326,8 +326,27 @@
   
   
   (method (walk-define self context symbol form declaration keyword expression doc)
+    (define (backward-starter-line n)
+      (declare (proper-tail-calls))
+      (let (iter (n n))
+        (if (< n 0)
+            #f
+          (let ((line (paragraph-string self n)))
+            (if (and (> (string-length line) 0)
+                     (not (whitespace? (string-ref line 0))))
+                line
+              (iter (- n 1)))))))
+    
+    (define (inner-heuristic?)
+      (and line-hook
+           (> (get-col start) 1)
+           (let ((line (backward-starter-line (- (get-line start) 1))))
+             (not (and line
+                       (or (starts-with? line "(server")
+                           (starts-with? line "(client")))))))
+    
     (let ((entry context)
-          (recolorizing-inner? (and line-hook (> (get-col start) 1))))
+          (recolorizing-inner? (inner-heuristic?)))
       (when (not recolorizing-inner?)
         (keyword context start end))
       (forward-whites self)

@@ -49,7 +49,6 @@
   (%%readtable-char-class-set! readtable #\[ #t jazz:read-tensor)
   (%%readtable-char-class-set! readtable #\{ #t jazz:read-literal)
   (%%readtable-char-class-set! readtable #\@ #t jazz:read-comment)
-  (%%readtable-char-class-set! readtable #\^ #f jazz:read-conditional)
   (%%readtable-char-sharp-handler-set! readtable #\" jazz:read-delimited-string)
   (%%readtable-char-sharp-handler-set! readtable #\/ jazz:read-syntax-string))
 
@@ -180,15 +179,6 @@
         (read port))       ; comment name
       (read port))         ; commented expr
     (%%read-datum-or-label-or-none-or-dot re)))
-
-
-(define (jazz:read-conditional re c)
-  (let ((port (jazz:readenv-port re)))
-    (read-char port)
-    (let ((feature (read port))
-          (expr (%%read-datum-or-label-or-none-or-dot re)))
-      `(cond-expand (,feature ,expr)
-                    (else)))))
 
 
 (define (jazz:read-delimited-string re next start-pos)

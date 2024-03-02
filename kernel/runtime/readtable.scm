@@ -175,9 +175,11 @@
     (parameterize ((jazz:in-expression-comment? #t))
       (read-char port)
       (if (%%memv (peek-char port) '(#\space #\return #\newline))
-          (read-char port) ; comment space
-        (read port))       ; comment name
-      (read port))         ; commented expr
+          (read-char port)          ; comment space
+        (let ((name (read port)))   ; comment name
+          (if (%%not (%%symbol? name))
+              (jazz:error "Invalid comment"))))
+      (read port))                  ; commented expr
     (%%read-datum-or-label-or-none-or-dot re)))
 
 

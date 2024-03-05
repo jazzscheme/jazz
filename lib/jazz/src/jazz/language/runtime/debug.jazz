@@ -212,7 +212,7 @@
   (get-procedure-name (continuation-creator cont)))
 
 
-(definition public (continuation-stack cont (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (identifiers?: identifiers? #f) (locations?: locations? #f) (depth: depth #f))
+(definition public (continuation-stack cont (identifiers?: identifiers? #f) (locations?: locations? #f) (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (depth: depth #f))
   (define (package-name name)
     (if (and identifiers? (symbol? name))
         (reference-name name)
@@ -235,28 +235,26 @@
         name))
     
     (map (lambda (cont)
-           (let ((name (->code-name (package-name (get-continuation-name cont)))))
-             (cond ((and (not dynamic-environment?) (not lexical-environment?))
-                    (if (not locations?)
-                        name
-                      (cons name
-                            (let ((location (get-continuation-location cont)))
-                              (if (not location)
-                                  (list #f #f)
-                                (bind (container line col) location
-                                  (list line col)))))))
-                   ((not dynamic-environment?)
-                    (cons name (package-variables (get-continuation-lexical-environment cont))))
-                   (else
-                    (cons name (append (package-variables (get-continuation-dynamic-environment cont))
-                                       (package-variables (get-continuation-lexical-environment cont))))))))
+           (let ((name (->code-name (package-name (get-continuation-name cont))))
+                 (location (and locations? (get-continuation-location cont)))
+                 (dynamic-environment (if dynamic-environment? (package-variables (get-continuation-dynamic-environment cont)) '()))
+                 (lexical-environment (if lexical-environment? (package-variables (get-continuation-lexical-environment cont)) '())))
+             (let ((environment (append dynamic-environment lexical-environment)))
+               (cond ((and (not locations?)
+                           (not dynamic-environment?)
+                           (not lexical-environment?))
+                      name)
+                     ((not locations?)
+                      (list name environment))
+                     (else
+                      (cons name (cons location environment)))))))
          stack)))
 
 
-(definition public (execution-stack (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (identifiers?: identifiers? #f) (locations?: locations? #f) (depth: depth #f))
+(definition public (execution-stack (identifiers?: identifiers? #f) (locations?: locations? #f) (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (depth: depth #f))
   (continuation-capture
     (lambda (cont)
-      (continuation-stack cont dynamic-environment?: dynamic-environment? lexical-environment?: lexical-environment? identifiers?: identifiers? locations?: locations? depth: depth))))
+      (continuation-stack cont identifiers?: identifiers? locations?: locations? dynamic-environment?: dynamic-environment? lexical-environment?: lexical-environment? depth: depth))))
 
 
 (definition public (execution-backtrace (depth #f))

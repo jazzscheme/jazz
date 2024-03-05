@@ -359,7 +359,7 @@
 
 (native jazz:exception-reason)
 (native jazz:exception-detail)
-(native jazz:exception-location)
+(native jazz:exception-locat)
 (native jazz:get-exception-hook)
 (native jazz:set-exception-hook)
 (native jazz:invoke-exception-hook)

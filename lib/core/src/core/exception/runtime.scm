@@ -131,7 +131,7 @@
     #f))
 
 
-(define (jazz:exception-location exc cont)
+(define (jazz:exception-locat exc cont)
   (%%exception->locat exc cont))
 
 

@@ -1609,16 +1609,6 @@
 ;;;
 
 
-(define (jazz:find-if predicate lst)
-  (let iter ((scan lst))
-    (if (null? scan)
-        #f
-      (let ((value (car scan)))
-        (if (predicate value)
-            value
-          (iter (cdr scan)))))))
-
-
 (define (jazz:collect-if predicate lst)
   (let iter ((scan lst))
     (if (not (null? scan))

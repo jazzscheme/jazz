@@ -83,6 +83,16 @@
       not-found)))
 
 
+(define (jazz:find-if predicate lst)
+  (let iter ((scan lst))
+    (if (null? scan)
+        #f
+      (let ((value (car scan)))
+        (if (predicate value)
+            value
+          (iter (cdr scan)))))))
+
+
 (define (jazz:sort-list smaller l #!key (key #f))
   (declare (proper-tail-calls))
   (declare (optimize-dead-local-variables))

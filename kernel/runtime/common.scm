@@ -770,6 +770,14 @@
     '()))
 
 
+(define (jazz:manifest-jazz-version manifest)
+  (let ((version-alist (%%get-manifest-version manifest)))
+    (let ((pair (%%assq 'Jazz version-alist)))
+      (if pair
+          (%%cdr pair)
+        #f))))
+
+
 (define (jazz:load-manifest digest-filepath manifest-filepath)
   (if (file-exists? manifest-filepath)
       (call-with-input-file (%%list path: manifest-filepath eol-encoding: 'cr-lf)
@@ -779,8 +787,12 @@
                   (version-form (%%assq 'version (%%cddr form)))
                   (digest-form (%%assq 'digest (%%cddr form)))
                   (references-form (%%assq 'references (%%cddr form))))
-              (let (;; test is for backward compatibility and could be removed in the future
-                    (version (if version-form (%%cadr version-form) #f))
+              (let ((version (let ((lst (%%cdr version-form)))
+                               ;; backward compatibility with number version and could be removed in the future
+                               (if (and (%%pair? lst)
+                                        (%%fixnum? (%%car lst)))
+                                   (%%list (%%cons 'Jazz (%%car lst)))
+                                 lst)))
                     (compile-time-hash (%%cadr digest-form))
                     (source-digests (jazz:load-source-digests digest-filepath))
                     (references (if references-form (%%cdr references-form) #f)))
@@ -790,7 +802,7 @@
 
 (define (jazz:save-manifest filepath manifest)
   (let ((name (%%get-manifest-name manifest))
-        (version (%%get-manifest-version manifest))
+        (version-alist (%%get-manifest-version manifest))
         (references (%%get-manifest-references manifest)))
     (jazz:create-directories (jazz:pathname-dir filepath))
     (call-with-output-file (list path: filepath eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
@@ -799,8 +811,11 @@
         (display name output)
         (newline output)
         (newline output)
-        (display "  (version " output)
-        (write version output)
+        (display "  (version" output)
+        (for-each (lambda (version)
+                    (display " " output)
+                    (write version output))
+                  version-alist)
         (display ")" output)
         (newline output)
         (display "  (digest " output)
@@ -885,9 +900,47 @@
          digest)))
 
 
+(define jazz:manifest-repositories
+  #f)
+
+(define jazz:manifest-version
+  #f)
+
+
+(define (jazz:setup-manifest-repositories)
+  (set! jazz:manifest-repositories (jazz:collect-if (lambda (repository)
+                                                      (and (%%not (%%get-repository-binary? repository))
+                                                           (let ((versions (jazz:load-repository-versions repository)))
+                                                             (%%not (%%null? versions)))))
+                                                    jazz:Repositories))
+  (set! jazz:manifest-version (map (lambda (repository)
+                                     (let ((versions (jazz:load-repository-versions repository)))
+                                       (%%cons (%%get-repository-name repository)
+                                               (jazz:get-version-number (%%car versions)))))
+                                   jazz:manifest-repositories)))
+
+
+(define (jazz:load-repository-versions repository)
+  (define (load-versions)
+    (if (%%eq? (%%get-repository-name repository) 'Jazz)
+        (jazz:get-jazz-versions)
+      (let ((file (%%string-append (%%get-repository-directory repository) ".versions")))
+        (jazz:load-versions-file file))))
+  
+  (or (%%get-repository-versions repository)
+      (let ((versions (or (load-versions) '())))
+        (%%set-repository-versions repository versions)
+        versions)))
+
+
+(define (jazz:kernel-manifest-version)
+  (or jazz:manifest-version
+      (%%list (%%cons 'Jazz jazz:kernel-version))))
+
+
 (define (jazz:load/create-manifest name digest-filepath manifest-filepath)
   (or (jazz:load-manifest digest-filepath manifest-filepath)
-      (%%make-manifest name jazz:kernel-version "" '() #f)))
+      (%%make-manifest name (jazz:kernel-manifest-version) "" '() #f)))
 
 
 (define (jazz:load-updated-manifest name digest-filepath manifest-filepath src-filepath)
@@ -901,7 +954,7 @@
 
 (define (jazz:update-manifest-compile-time name digest-filepath manifest-filepath src-filepath updated-references)
   (let ((manifest (jazz:load/create-manifest name digest-filepath manifest-filepath)))
-    (%%set-manifest-version manifest jazz:kernel-version)
+    (%%set-manifest-version manifest (jazz:kernel-manifest-version))
     (let ((digest (jazz:find-source-digest src-filepath manifest)))
       (jazz:updated-digest-source? digest src-filepath)
       (if updated-references

@@ -117,25 +117,22 @@
   #f)
 
 
+(define (jazz:load-versions-file file)
+  (if (and file (file-exists? file))
+      (call-with-input-file (list path: file eol-encoding: 'cr-lf)
+        (lambda (input)
+          (map (lambda (arguments)
+                 (apply jazz:new-version arguments))
+               (read-all input read))))
+    #f))
+
+
 (define jazz:load-jazz-versions
   (let ((loaded? #f))
     (lambda ()
       (define (determine-jazz-versions-file)
         (or jazz:jazz-versions-file
             (and jazz:jazz-source (string-append jazz:jazz-source "kernel/versions"))))
-      
-      (define (load-versions)
-        (let ((file (determine-jazz-versions-file)))
-          (if (and file (file-exists? file))
-              (call-with-input-file (list path: file eol-encoding: 'cr-lf)
-                (lambda (input)
-                  (list->versions (read-all input read))))
-            jazz:jazz-versions)))
-      
-      (define (list->versions lst)
-        (map (lambda (arguments)
-               (apply jazz:new-version arguments))
-             lst))
       
       (define (setup-jazz-gambit-version/stamp)
         (if jazz:jazz-versions-cache
@@ -152,7 +149,7 @@
       
       (if (not loaded?)
           (begin
-            (set! jazz:jazz-versions-cache (load-versions))
+            (set! jazz:jazz-versions-cache (or (jazz:load-versions-file (determine-jazz-versions-file)) jazz:jazz-versions))
             (set! jazz:jazz-version-number (jazz:get-version-number (car jazz:jazz-versions-cache)))
             (setup-jazz-gambit-version/stamp)
             (set! loaded? #t))))))

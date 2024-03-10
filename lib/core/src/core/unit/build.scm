@@ -54,25 +54,28 @@
           (manifest-filepath (jazz:manifest-pathname (%%get-resource-package bin) bin)))
       (jazz:load-manifest digest-filepath manifest-filepath)))
   
-  (define (module-references-valid? version lst)
+  (define (module-references-valid? version-alist lst)
     (define (recompile-reference? module-locator module-references)
+      (define (recompile-references-match? recompile-references)
+        (jazz:some? (lambda (recompile-reference)
+                      (if (%%symbol? recompile-reference)
+                          (%%eq? recompile-reference module-locator)
+                        (and (%%eq? (%%car recompile-reference) module-locator)
+                             (jazz:some? (lambda (recompile-symbol)
+                                           (%%memq recompile-symbol module-references))
+                                         (%%cdr recompile-reference)))))
+                    recompile-references))
+      
       (if (and jazz:recompile-references
-               (%%eq? jazz:recompile-references module-locator))
+               (recompile-references-match? jazz:recompile-references))
           #t
         (%%continuation-capture
           (lambda (return)
-            (jazz:for-each-higher-jazz-version version
-              (lambda (jazz-version)
-                (let ((recompile-references (jazz:get-version-recompile-references jazz-version)))
+            (jazz:for-each-higher-version version-alist
+              (lambda (version)
+                (let ((recompile-references (jazz:get-version-recompile-references version)))
                   (if (and recompile-references
-                           (jazz:some? (lambda (recompile-reference)
-                                         (if (%%symbol? recompile-reference)
-                                             (%%eq? recompile-reference module-locator)
-                                           (and (%%eq? (%%car recompile-reference) module-locator)
-                                                (jazz:some? (lambda (recompile-symbol)
-                                                              (%%memq recompile-symbol module-references))
-                                                            (%%cdr recompile-reference)))))
-                                       recompile-references))
+                           (recompile-references-match? recompile-references))
                       (%%continuation-return return #t)))))
             #f))))
     
@@ -104,11 +107,11 @@
   
   (let ((manifest (get-manifest)))
     (if manifest
-        (let ((version (%%get-manifest-version manifest))
+        (let ((version-alist (%%get-manifest-version manifest))
               (references (%%get-manifest-references manifest)))
           (if references
               (jazz:every? (lambda (lst)
-                             (module-references-valid? version lst))
+                             (module-references-valid? version-alist lst))
                            references)
             #f))
       #f)))

@@ -496,7 +496,7 @@
             (library-root (if library-pair (%%cadr library-pair) #f))
             (dependencies (if dependencies-pair (%%cdr dependencies-pair) '())))
         (let ((library-directory (if (%%not library-root) directory (%%string-append directory library-root "/"))))
-          (%%make-repository name directory library-root library-directory binary? #f dependencies))))))
+          (%%make-repository name directory library-root library-directory binary? #f dependencies #f))))))
 
 
 (define (jazz:install-repository directory/repository #!key (name #f))
@@ -634,6 +634,7 @@
 
 (define (jazz:setup-repositories)
   (for-each jazz:setup-repository jazz:Repositories)
+  (jazz:setup-manifest-repositories)
   (set! jazz:setup-repositories-called? #t))
 
 

@@ -55,7 +55,8 @@
    (library-directory getter: generate)
    (binary?           getter: generate)
    (packages-table    getter: generate setter: generate)
-   (dependencies      getter: generate)))
+   (dependencies      getter: generate)
+   (versions          getter: generate setter: generate)))
 
 
 ;;;

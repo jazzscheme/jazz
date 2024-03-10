@@ -108,13 +108,29 @@
 
 
 (define (jazz:for-each-higher-jazz-version version proc)
-  (let iter ((jazz-versions (jazz:get-jazz-versions)))
-    (if (%%not (%%null? jazz-versions))
-        (let ((jazz-version (%%car jazz-versions)))
-          (if (%%fx> (jazz:get-version-number jazz-version) version)
+  (jazz:for-each-higher-versions (jazz:get-jazz-versions) version proc))
+
+
+(define (jazz:for-each-higher-versions versions target-version proc)
+  (let iter ((versions versions))
+    (if (%%not (%%null? versions))
+        (let ((version (%%car versions)))
+          (if (or (%%not target-version)
+                  (%%fx> (jazz:get-version-number version) target-version))
               (begin
-                (proc jazz-version)
-                (iter (%%cdr jazz-versions))))))))
+                (proc version)
+                (iter (%%cdr versions))))))))
+
+
+(define (jazz:for-each-higher-version version-alist proc)
+  (for-each (lambda (repo)
+              (let ((name (%%get-repository-name repo))
+                    (versions (jazz:load-repository-versions repo)))
+                (let ((pair (%%assq name version-alist)))
+                  (let ((target-version (if (%%pair? pair) (%%car pair) #f)))
+                    (jazz:for-each-higher-versions versions target-version
+                      proc)))))
+            jazz:manifest-repositories))
 
 
 (define (jazz:kernel/product-needs-rebuild? version-file)
@@ -176,7 +192,7 @@
 
 (define (jazz:manifest-needs-rebuild?-impl manifest)
   (let ((name (%%get-manifest-name manifest))
-        (version (%%get-manifest-version manifest)))
+        (version (jazz:manifest-jazz-version manifest)))
     (let ((rebuild? #f))
       (jazz:for-each-higher-jazz-version version
         (lambda (jazz-version)

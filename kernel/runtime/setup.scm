@@ -498,6 +498,11 @@ end-of-code
         (%%string->symbol arg)
       arg))
   
+  (define (expression-argument arg)
+    (if (%%string? arg)
+        (call-with-input-string arg read)
+      arg))
+  
   ;; c -> compile
   ;; e -> eval
   ;; f -> force
@@ -537,7 +542,7 @@ end-of-code
                 (jazz-repository (jazz:find-option "jazz-repository" options))
                 (repositories (jazz:find-option "repositories" options))
                 (dependencies (jazz:find-option "dependencies" options))
-                (recompile-references (symbol-argument (jazz:find-option "recompile-references" options)))
+                (recompile-references (expression-argument (jazz:find-option "recompile-references" options)))
                 (ev (or (jazz:find-option "e" options) (jazz:find-option "eval" options)))
                 (load (or (jazz:find-option "l" options) (jazz:find-option "load" options)))
                 (interpret (or (jazz:find-option "i" options) (jazz:find-option "interpret" options)))

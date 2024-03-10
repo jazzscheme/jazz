@@ -802,7 +802,7 @@ end-of-code
                   (compile
                    (setup-build)
                    (for-each (lambda (name)
-                               (jazz:custom-compile-unit (%%string->symbol name) skip-references?: #t force?: force?))
+                               (jazz:custom-compile-unit (%%string->symbol name) force?: force?))
                              (jazz:split-string compile #\;)))
                   (update
                    (setup-build)

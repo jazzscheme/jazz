@@ -1223,8 +1223,10 @@
 ;;;
 
 
-(define jazz:thread-int!
-  ##thread-int!)
+(define (jazz:thread-int! thread thunk)
+  (if (%%not (jazz:thread-active? thread))
+      (jazz:error "Thread is not active")
+    (##thread-int! thread thunk)))
 
 
 (define (jazz:thread-state-active? state)

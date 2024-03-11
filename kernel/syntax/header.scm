@@ -329,6 +329,12 @@
 ;;;
 
 
+(define (jazz:thread-active? thread)
+  (and (macro-initialized-thread? thread)
+       (##not (macro-terminated-thread-given-initialized? thread))
+       (macro-started-thread-given-initialized? thread)))
+
+
 (define (jazz:thread-cont thread)
   (macro-thread-cont thread))
 

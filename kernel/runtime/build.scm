@@ -127,7 +127,7 @@
               (let ((name (%%get-repository-name repo))
                     (versions (jazz:load-repository-versions repo)))
                 (let ((pair (%%assq name version-alist)))
-                  (let ((target-version (if (%%pair? pair) (%%car pair) #f)))
+                  (let ((target-version (if (%%pair? pair) (%%cdr pair) #f)))
                     (jazz:for-each-higher-versions versions target-version
                       proc)))))
             jazz:manifest-repositories))

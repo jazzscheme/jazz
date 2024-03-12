@@ -294,7 +294,8 @@
           (frame-rect surface bounds (get-frame-color skin)))
         (let ((h 1)
               (first (first all))
-              (compact? (determine-compact? self)))
+              (compact? (determine-compact? self))
+              (image-spacing (image-spacing self transparent?)))
           (for-each (lambda (docked)
                       (let ((title (get-title docked))
                             (icon (or (get-icon docked) (host-icon (class-of (get-guest docked)))))
@@ -303,7 +304,7 @@
                         (let* ((left (- h .5))
                                (top .5)
                                (title? (or selected? (not compact?)))
-                               (width (if title? (+ (get-text-width surface title) 37) 24))
+                               (width (if title? (+ (get-text-width surface title) image-spacing) 24))
                                (height 24)
                                (right (+ left width))
                                (bottom (+ top height)))
@@ -339,14 +340,16 @@
   
   (method (determine-compact? self)
     (define (full-width)
-      (let ((all (collect-all self))
-            (h 0))
-        (for-each (lambda (docked)
-                    (let ((title (get-title docked)))
-                      (let ((width (+ (text-width {Font Label} title) 37)))
-                        (increase! h width))))
-                  all)
-        h))
+      (let ((transparent? (eq? (get-background (get-skin self)) 'none)))
+        (let ((all (collect-all self))
+              (h 0)
+              (image-spacing (image-spacing self transparent?)))
+          (for-each (lambda (docked)
+                      (let ((title (get-title docked)))
+                        (let ((width (+ (text-width {Font Label} title) image-spacing)))
+                          (increase! h width))))
+                    all)
+          h)))
     
     (let ((tools-width (get-width (locate self 'tools))))
       (> (full-width) (- (get-width self) tools-width))))
@@ -359,6 +362,10 @@
   
   (method override (get-skin self)
     (find-skin 'ui:docked))
+  
+  
+  (method (image-spacing self transparent?)
+    (if transparent? 15 37))
 
   
   ;;;
@@ -449,17 +456,19 @@
   
   
   (method (for-all self proc)
-    (let ((all (collect-all self)))
+    (let ((transparent? (eq? (get-background (get-skin self)) 'none))
+          (all (collect-all self)))
       (let ((h 0)
             (first (first all))
-            (compact? (determine-compact? self)))
+            (compact? (determine-compact? self))
+            (image-spacing (image-spacing self transparent?)))
         (for-each (lambda (docked)
                     (let ((title (get-title docked))
                           (first? (eq? docked first))
                           (title? (or (eq? docked self) (not compact?))))
                       (let ((left (if first? (+ h 1) h))
                             (top 1)
-                            (width (if title? (+ (text-width {Font Label} title) 37) 24))
+                            (width (if title? (+ (text-width {Font Label} title) image-spacing) 24))
                             (height 23))
                         (proc docked (new Rect left top (+ h width) (+ top height)))
                         (increase! h width))))

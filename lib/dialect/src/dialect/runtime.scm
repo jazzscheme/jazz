@@ -596,7 +596,7 @@
     (for-each (lambda (form-src)
                 (continuation-capture
                   (lambda (resume)
-                    (jazz:cond-expand form-src
+                    (jazz:cond-expand walker resume declaration form-src
                       (lambda (expr expr?)
                         (%%when expr?
                           (let ((expansion (jazz:expand-macros walker resume declaration environment expr)))
@@ -1465,14 +1465,14 @@
             declaration))))))
 
 
-(define (jazz:cond-expand form-src cont)
+(define (jazz:cond-expand walker resume declaration form-src cont)
   (if (and (%%pair? (jazz:source-code form-src))
            (%%eq? (jazz:source-code (%%car (jazz:source-code form-src))) 'cond-expand))
-      (jazz:process-cond-expand form-src cont)
+      (jazz:process-cond-expand walker resume declaration form-src cont)
     (cont form-src #t)))
 
 
-(define (jazz:process-cond-expand form-src proc)
+(define (jazz:process-cond-expand walker resume declaration form-src proc)
   (define (valid-feature-requirement clause)
     (if (%%pair? clause)
         (let ((requirement (jazz:desourcify-all (%%car clause))))
@@ -1485,7 +1485,7 @@
   
   (let iter ((scan (%%cdr (jazz:source-code form-src))))
        (if (%%null? scan)
-           (jazz:error "Unfulfilled cond-expand")
+           (jazz:walk-error walker resume declaration form-src "Unfulfilled cond-expand")
          (let ((clause (jazz:source-code (%%car scan))))
            (let ((feature-requirement (valid-feature-requirement clause)))
              (if (%%not feature-requirement)
@@ -1504,7 +1504,7 @@
       (for-each (lambda (form-src)
                   (continuation-capture
                     (lambda (resume)
-                      (jazz:cond-expand form-src
+                      (jazz:cond-expand walker resume declaration form-src
                         (lambda (expr expr?)
                           (%%when expr?
                             (cond ((jazz:include-form? expr)
@@ -5165,7 +5165,7 @@
 
 
 (define (jazz:walk-cond-expand walker resume declaration environment form-src)
-  (jazz:process-cond-expand form-src
+  (jazz:process-cond-expand walker resume declaration form-src
     (lambda (form form?)
       (jazz:walk walker resume declaration environment (or form '(unspecified))))))
 

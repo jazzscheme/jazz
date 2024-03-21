@@ -1163,7 +1163,7 @@
           (let ((value-locator (effective-locator value))
                 (actual-locator (effective-locator actual)))
             (%%when (%%neq? value-locator actual-locator)
-              (jazz:walk-conflict walker resume declaration key actual-locator value-locator form-src)))))))
+              (jazz:walk-conflict walker resume declaration prefix key actual-locator value-locator form-src)))))))
   
   (let ((table-count (%%table-length table))
         (add-count (%%table-length add)))
@@ -3720,17 +3720,19 @@
 
 
 (jazz:define-class jazz:Conflict-Error jazz:Walk-Error (constructor: jazz:allocate-conflict-error)
-  ((symbol getter: generate)
+  ((prefix getter: generate)
+   (symbol getter: generate)
    (first  getter: generate)
    (second getter: generate)))
 
 
-(define (jazz:new-conflict-error location symbol first second)
-  (jazz:allocate-conflict-error #f location symbol first second))
+(define (jazz:new-conflict-error location prefix symbol first second)
+  (jazz:allocate-conflict-error #f location prefix symbol first second))
 
 
 (jazz:define-method (jazz:present-exception (jazz:Conflict-Error error))
-  (jazz:format "Import conflict: {s} {s} {s}"
+  (jazz:format "{a} conflict: {s} {s} {s}"
+               (jazz:get-conflict-error-prefix error)
                (jazz:get-conflict-error-symbol error)
                (jazz:get-conflict-error-first error)
                (jazz:get-conflict-error-second error)))
@@ -4666,9 +4668,9 @@
     (jazz:walker-error walker resume (jazz:new-walk-error location message))))
 
 
-(define (jazz:walk-conflict walker resume declaration symbol first second form-src)
+(define (jazz:walk-conflict walker resume declaration prefix symbol first second form-src)
   (let ((location (jazz:walk-location walker declaration (jazz:source-locat form-src))))
-    (jazz:walker-error walker resume (jazz:new-conflict-error location symbol first second))))
+    (jazz:walker-error walker resume (jazz:new-conflict-error location prefix symbol first second))))
 
 
 (define (jazz:walk-unresolved walker resume declaration symbol-src)

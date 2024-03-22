@@ -105,6 +105,9 @@ end-of-code
 (jazz:define-variable jazz:build-unit-internal)
 (jazz:define-variable jazz:get-subunit-names-internal)
 (jazz:define-variable jazz:hub-declaration-class)
+(jazz:define-variable jazz:new-hub-declaration)
+(jazz:define-variable jazz:hub-declaration-nodes)
+(jazz:define-variable jazz:module-shape)
 (jazz:define-variable jazz:manifest-ignore?)
 (jazz:define-variable jazz:manifest-valid?)
 
@@ -521,7 +524,7 @@ end-of-code
     (lambda ()
       (jazz:split-command-line (jazz:command-arguments)
                                '("v" "version" "nosource" "debug" "f" "force" "force-outlines" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit")
-                               '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "download" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "load-expected" "m" "module" "dialect" "listen")
+                               '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "download" "install" "deploy" "p" "parse" "s" "sourcify" "shape" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "load-expected" "m" "module" "dialect" "listen")
                                missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:find-option "v" options) (jazz:find-option "version" options)))
@@ -556,6 +559,7 @@ end-of-code
                 (deploy (jazz:find-option "deploy" options))
                 (parse (or (jazz:find-option "p" options) (jazz:find-option "parse" options)))
                 (sourcify (or (jazz:find-option "s" options) (jazz:find-option "sourcify" options)))
+                (shape (jazz:find-option "shape" options))
                 (walk (or (jazz:find-option "w" options) (jazz:find-option "walk" options)))
                 (expand (or (jazz:find-option "x" options) (jazz:find-option "expand" options)))
                 (check (or (jazz:find-option "k" options) (jazz:find-option "check" options)))
@@ -779,6 +783,11 @@ end-of-code
                    (jazz:load-unit 'foundation.dialect)
                    (jazz:load-unit 'dialect.development)
                    ((jazz:global-ref 'jazz:expand-source) (%%string->symbol sourcify)))
+                  (shape
+                   (setup-build)
+                   (jazz:load-unit 'foundation.dialect)
+                   (jazz:load-unit 'dialect.development)
+                   ((jazz:global-ref 'jazz:shape-unit) (%%string->symbol shape)))
                   (walk
                    (setup-build)
                    (jazz:load-unit 'foundation.dialect)

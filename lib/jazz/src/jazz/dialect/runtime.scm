@@ -891,11 +891,13 @@
 
 
 (jazz:define-method (jazz:emit-binding-call (jazz:Method-Declaration declaration) binding-src arguments arguments-codes source-declaration walker resume environment backend)
-  (let ((object-argument (%%car arguments))
+  (let ((name (jazz:get-lexical-binding-name declaration))
+        (nodes #f)
+        (object-argument (%%car arguments))
         (object-code (%%car arguments-codes))
         (others-arguments (%%cdr arguments))
         (others-codes (%%cdr arguments-codes)))
-    (jazz:emit backend 'dispatch-call (jazz:get-lexical-binding-name declaration) binding-src source-declaration walker resume environment object-argument object-code others-arguments others-codes)))
+    (jazz:emit backend 'dispatch-call name nodes binding-src source-declaration walker resume environment object-argument object-code others-arguments others-codes)))
 
 
 (jazz:define-method (jazz:get-nextmethod-signature (jazz:Method-Declaration declaration))
@@ -1419,23 +1421,24 @@
 ;;;
 
 
-(define (jazz:cache-dispatch name setter)
+(define (jazz:cache-dispatch name setter nodes)
   (lambda (object)
     (let ((class (jazz:class-of object)))
       (let ((category (jazz:locate-method-owner class name)))
         (%%assertion category (jazz:error "Unable to find method {s} in: {s}" name object)
           (let ((field (%%get-category-field category name)))
             (%%assertion (%%class-is? field jazz:Method) (jazz:error "Field {s} is not a method of {s}" name object)
-              (let ((proc
-                      (case (%%get-method-dispatch-type field)
-                        ((final)
-                         (jazz:final-dispatch field category))
-                        ((class)
-                         (jazz:class-dispatch field category))
-                        ((interface)
-                         (jazz:interface-dispatch field category)))))
-                (setter proc)
-                (proc object)))))))))
+              (%%assertion (or (%%not nodes) (%%memq category (map jazz:global-ref nodes))) (jazz:error "Missing import for {s}.{s}" (jazz:reference-name (jazz:get-category-identifier category)) name)
+                (let ((proc
+                        (case (%%get-method-dispatch-type field)
+                          ((final)
+                           (jazz:final-dispatch field category))
+                          ((class)
+                           (jazz:class-dispatch field category))
+                          ((interface)
+                           (jazz:interface-dispatch field category)))))
+                  (setter proc)
+                  (proc object))))))))))
 
 
 (define (jazz:final-dispatch field type)
@@ -1486,30 +1489,15 @@
 ;;;
 
 
-(define jazz:hub-declarations
-  (%%make-table test: eq?))
-
-
-(define (jazz:find-hub-declaration name)
-  (%%table-ref jazz:hub-declarations name #f))
-
-
-(define (jazz:register-hub-declaration hub-declaration)
-  (%%table-set! jazz:hub-declarations (jazz:get-lexical-binding-name hub-declaration) hub-declaration))
-
-
 (jazz:define-class jazz:Hub-Declaration jazz:Declaration (constructor: jazz:allocate-hub-declaration)
   ((nodes getter: generate setter: generate)))
 
 
-(define (jazz:new-hub-declaration name type access compatibility modifiers attributes parent)
-  (let ((new-declaration (jazz:allocate-hub-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f '())))
-    (jazz:setup-declaration new-declaration)
-    new-declaration))
-
-
-(define (jazz:add-hub-declaration-node hub-declaration node)
-  (jazz:set-hub-declaration-nodes hub-declaration (%%cons node (jazz:get-hub-declaration-nodes hub-declaration))))
+(jazz:define-variable-override jazz:new-hub-declaration
+  (lambda (name type access compatibility modifiers attributes parent nodes)
+    (let ((new-declaration (jazz:allocate-hub-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f nodes)))
+      (jazz:setup-declaration new-declaration)
+      new-declaration)))
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Hub-Declaration declaration) walker resume environment backend)
@@ -1530,11 +1518,13 @@
 (jazz:define-method (jazz:emit-binding-call (jazz:Hub-Declaration declaration) binding-src arguments arguments-codes source-declaration walker resume environment backend)
   (if (%%null? arguments)
       (jazz:error "Ill-formed hub call: ({a})" (jazz:get-lexical-binding-name declaration))
-    (let ((object-argument (%%car arguments))
+    (let ((name (jazz:get-lexical-binding-name declaration))
+          (nodes (jazz:get-hub-declaration-nodes declaration))
+          (object-argument (%%car arguments))
           (object-code (%%car arguments-codes))
           (others-arguments (%%cdr arguments))
           (others-codes (%%cdr arguments-codes)))
-      (jazz:emit backend 'dispatch-call (jazz:get-lexical-binding-name declaration) binding-src source-declaration walker resume environment object-argument object-code others-arguments others-codes))))
+      (jazz:emit backend 'dispatch-call name nodes binding-src source-declaration walker resume environment object-argument object-code others-arguments others-codes))))
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Hub-Declaration declaration) meta)
@@ -1542,24 +1532,22 @@
 
 
 (define (jazz:parse-hub walker resume declaration rest)
-  (jazz:bind (name) rest
-    (let ((name (jazz:source-code name)))
-      (values name jazz:Any 'public 'uptodate '()))))
+  (jazz:bind (name node) rest
+    (let ((name (jazz:source-code name))
+          (node (jazz:source-code node)))
+      (values name node jazz:Any 'public 'uptodate '()))))
 
 
 (define (jazz:walk-hub-declaration walker resume declaration environment form-src)
-  (receive (name type access compatibility modifiers) (jazz:parse-hub walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let ((new-declaration (or (jazz:find-hub-declaration name)
-                               (let ((hub-declaration (jazz:new-hub-declaration name type access compatibility modifiers '() declaration)))
-                                 (jazz:register-hub-declaration hub-declaration)
-                                 hub-declaration))))
+  (receive (name node type access compatibility modifiers) (jazz:parse-hub walker resume declaration (%%cdr (jazz:source-code form-src)))
+    (let ((new-declaration (jazz:new-hub-declaration name type access compatibility modifiers '() declaration (%%list node))))
       (jazz:set-declaration-source new-declaration form-src)
       (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
         effective-declaration))))
 
 
 (define (jazz:walk-hub walker resume declaration environment form-src)
-  (receive (name type access compatibility modifiers) (jazz:parse-hub walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name node type access compatibility modifiers) (jazz:parse-hub walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let ((new-declaration (jazz:require-declaration declaration name)))
       (jazz:set-declaration-source new-declaration form-src)
       new-declaration)))
@@ -1567,6 +1555,10 @@
 
 (jazz:define-variable-override jazz:hub-declaration-class
   jazz:Hub-Declaration)
+
+
+(jazz:define-variable-override jazz:hub-declaration-nodes
+  jazz:get-hub-declaration-nodes)
 
 
 (jazz:define-variable-override jazz:manifest-ignore?
@@ -1579,62 +1571,142 @@
 ;;;
 
 
-(define (jazz:expand-node walker resume declaration environment . rest)
-  (let ((signature (%%car rest))
-        (body (%%cdr rest)))
-    (let ((name (%%car signature))
-          (parameters (%%cdr signature)))
-      `(begin
-         (hub ,name)
-         (%node ,name ,parameters ,@body)))))
-
-
-(jazz:define-class jazz:Node-Declaration jazz:Declaration (constructor: jazz:allocate-node-declaration)
-  ((hub-name  getter: generate)
-   (signature getter: generate)))
-
-
-(define (jazz:new-node-declaration name type access compatibility modifiers attributes parent hub-name signature)
-  (let ((new-declaration (jazz:allocate-node-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f hub-name signature)))
-    (jazz:setup-declaration new-declaration)
-    new-declaration))
-
-
-(jazz:define-method (jazz:emit-declaration (jazz:Node-Declaration declaration) walker resume environment backend)
-  (let ((class-reference (jazz:get-dynamic-parameter-class (%%car (jazz:get-signature-positional (jazz:get-node-declaration-signature declaration))))))
-    (jazz:sourcify-deep-if
-      `(begin)
-      #; ;; FOR NOW THE HUB OBJECT IS NOT NEEDED
-      `(jazz:register-hub-node ',(jazz:get-node-declaration-hub-name declaration) ,(jazz:sourcified-form (jazz:emit-expression class-reference declaration walker resume environment backend)))
-      (jazz:get-declaration-source declaration))))
-
-
-(jazz:define-method (jazz:outline-extract (jazz:Node-Declaration declaration) meta)
-  #f)
-
-
 (define (jazz:parse-node walker resume declaration rest)
-  (jazz:bind (name parameters . body) rest
-    (let ((node-name (%%string->symbol (%%string-append (%%symbol->string name) "$" (%%symbol->string (%%caar parameters))))))
-      (values name node-name jazz:Any 'public 'uptodate '() parameters body))))
+  (jazz:bind (access name category-name) rest
+    (let ((access (jazz:source-code access))
+          (name (jazz:source-code name))
+          (category-name (jazz:source-code category-name)))
+      (values name category-name jazz:Any access 'uptodate '()))))
 
 
 (define (jazz:walk-node-declaration walker resume declaration environment form-src)
-  (receive (name node-name type access compatibility modifiers parameters body) (jazz:parse-node walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
-      (let ((new-declaration (or (jazz:find-declaration-child declaration node-name)
-                                 (jazz:new-node-declaration node-name type access compatibility modifiers '() declaration name signature))))
-        (jazz:add-hub-declaration-node (jazz:find-hub-declaration name) new-declaration)
-        (jazz:set-declaration-source new-declaration form-src)
-        (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
-          effective-declaration)))))
+  (receive (name category-name type access compatibility modifiers) (jazz:parse-node walker resume declaration (%%cdr (jazz:source-code form-src)))
+    (let ((category-locator (jazz:get-declaration-locator (jazz:lookup-reference walker resume declaration environment category-name)))
+          (actual-declaration (jazz:find-declaration-child declaration name)))
+      (if actual-declaration
+          (let ((actual-nodes (jazz:get-hub-declaration-nodes actual-declaration)))
+            (jazz:set-hub-declaration-nodes actual-declaration (jazz:union actual-nodes (%%list category-locator)))
+            actual-declaration)
+        (let ((new-declaration (jazz:new-hub-declaration name type access compatibility modifiers '() declaration (%%list category-locator))))
+          (jazz:set-declaration-source new-declaration form-src)
+          (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
+            effective-declaration))))))
 
 
 (define (jazz:walk-node walker resume declaration environment form-src)
-  (receive (name node-name type access compatibility modifiers parameters body) (jazz:parse-node walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let ((new-declaration (jazz:require-declaration declaration node-name)))
+  (receive (name category-name type access compatibility modifiers) (jazz:parse-node walker resume declaration (%%cdr (jazz:source-code form-src)))
+    (let ((new-declaration (jazz:require-declaration declaration name)))
       (jazz:set-declaration-source new-declaration form-src)
       new-declaration)))
+
+
+;;;
+;;;; Shape
+;;;
+
+
+(define jazz:module-shapes
+  (%%make-table test: eq?))
+
+
+(define jazz:module-shapes-mutex
+  (make-mutex 'module-shapes))
+
+
+(jazz:define-variable-override jazz:module-shape
+  (lambda (walker resume declaration unit-name)
+    (or (%%table-ref jazz:module-shapes unit-name #f)
+        (begin
+          (mutex-lock! jazz:module-shapes-mutex)
+          (let ((result (or (%%table-ref jazz:module-shapes unit-name #f)
+                            (let ((shape (jazz:shape-module walker resume declaration unit-name)))
+                              (%%table-set! jazz:module-shapes unit-name shape)
+                              shape))))
+            (mutex-unlock! jazz:module-shapes-mutex)
+            result)))))
+
+
+(define (jazz:shape-module walker resume declaration unit-name)
+  (define (shape-class toplevel)
+    (receive (access abstraction compatibility implementor modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:class-modifiers (%%cdr toplevel))
+      (shape-category 'class rest)))
+  
+  (define (shape-interface toplevel)
+    (receive (access compatibility implementor modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:interface-modifiers (%%cdr toplevel))
+      (shape-category 'interface rest)))
+
+  (define (shape-category declaration-name rest)
+    (let ((category-name (jazz:source-code (%%car rest))))
+      (%%cons declaration-name
+              (%%cons category-name
+                      (let ((hubs (jazz:new-queue)))
+                        (for-each (lambda (form-src)
+                                    (let ((form (jazz:source-code form-src)))
+                                      (%%when (%%pair? form)
+                                        (let ((form-name (jazz:source-code (%%car form))))
+                                          (cond ((%%eq? form-name 'attributes)
+                                                 (shape-attributes form-src hubs))
+                                                ((or (%%eq? form-name 'slot)
+                                                     (%%eq? form-name 'property))
+                                                 (shape-slot form-src hubs))
+                                                ((%%eq? form-name 'method)
+                                                 (shape-method form hubs)))))))
+                                  (%%cdr rest))
+                        (jazz:queue-list hubs))))))
+  
+  (define (shape-attributes form-src hubs)
+    (for-each (lambda (form-src)
+                (let ((form (jazz:source-code form-src)))
+                  (%%when (%%pair? form)
+                    (let ((form-name (jazz:source-code (%%car form))))
+                      (%%when (%%eq? form-name 'slot)
+                        (let ((name (jazz:source-code (%%cadr form))))
+                          (let ((getter (%%string->symbol (jazz:system-format "get-{a}" name)))
+                                (setter (%%string->symbol (jazz:system-format "set-{a}" name))))
+                            (jazz:enqueue hubs getter)
+                            (jazz:enqueue hubs setter))))))))
+              (%%cddr (jazz:source-code form-src))))
+  
+  (define (shape-slot form-src hubs)
+    (jazz:with-expand-slot-form walker resume declaration form-src
+      (lambda (name specifier access compatibility modifiers initialize
+               getter-access getter-propagation getter-abstraction getter-expansion getter-generation getter-name
+               setter-access setter-propagation setter-abstraction setter-expansion setter-generation setter-name
+               name-self generate-getter? generate-setter? specifier-list)
+        (%%when generate-getter?
+          (jazz:enqueue hubs getter-name))
+        (%%when generate-setter?
+          (jazz:enqueue hubs setter-name)))))
+  
+  (define (shape-method form hubs)
+    (let ((meta? (%%eq? (jazz:source-code (%%cadr form)) 'meta)))
+      (let ((rest (if meta? (%%cddr form) (%%cdr form))))
+        (receive (access compatibility propagation abstraction expansion remote synchronized modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:method-modifiers rest)
+          (let ((name (jazz:source-code (%%car (jazz:source-code (%%car rest))))))
+            (%%when (or (%%eq? access 'public)
+                        (%%eq? access 'package))
+              (jazz:enqueue hubs name)))))))
+  
+  (jazz:with-unit-resources unit-name #f
+    (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+      (if (%%not src)
+          (raise (jazz:new-walk-source-not-found (jazz:format "Unable to locate unit source: {s}" unit-name) unit-name))
+        (jazz:with-verbose (jazz:shape-verbose?) "shaping" (jazz:resource-pathname src)
+          (lambda ()
+            ;; not reading the literals is necessary as reading a literal will load units
+            (let ((form (jazz:read-toplevel-form src read-literals?: #f)))
+              (let ((module (jazz:source-code form)))
+                (jazz:collect (lambda (src)
+                                (let ((toplevel (jazz:source-code src)))
+                                  (and (%%pair? toplevel)
+                                       (let ((declaration-name (jazz:source-code (%%car toplevel))))
+                                         (cond ((%%eq? declaration-name 'class)
+                                                (shape-class toplevel))
+                                               ((%%eq? declaration-name 'interface)
+                                                (shape-interface toplevel))
+                                               (else
+                                                #f))))))
+                              module)))))))))
 
 
 ;;;
@@ -1939,21 +2011,14 @@
                  (jazz:enqueue metaclass (jazz:sourcify-deep-if (%%cons (%%car (jazz:source-code expr)) (%%cddr (jazz:source-code expr))) expr)))
                 ;; first draft lets not worry about meta public methods generating nodes
                 ((and (%%pair? (jazz:source-code expr))
-                      (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'method)
-                      (%%pair? (%%cdr (jazz:source-code expr)))
-                      (or 
-                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'public)
-                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'package)
-                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'protected)))
+                      (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'method))
                  (jazz:enqueue class expr)
-                 ;; is there a function to just skip the modifiers?
                  (receive (access compatibility propagation abstraction expansion remote synchronized modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:method-modifiers (%%cdr (jazz:source-code expr)))
-                   (let ((signature (jazz:source-code (%%car rest))))
-                     (let ((method-name (jazz:source-code (%%car signature)))
-                           (parameters (%%cdr signature)))
-                         ;; quicky for tests as parameters are not needed at the moment and break some code in jazz.locale
-                         (set! parameters '())
-                         (jazz:enqueue nodes `(node (,method-name (,(jazz:name->specifier name) self) ,@parameters)))))))
+                   (%%unless (or (%%eq? access 'protected)
+                                 (%%eq? propagation 'override))
+                     (let ((signature (jazz:source-code (%%car rest))))
+                       (let ((method-name (jazz:source-code (%%car signature))))
+                         (jazz:enqueue nodes `(node ,access ,method-name ,name)))))))
                 (else
                  (jazz:enqueue class expr)))))
       
@@ -2113,21 +2178,14 @@
                  (jazz:enqueue metaclass (jazz:sourcify-deep-if (%%cons (%%car (jazz:source-code expr)) (%%cddr (jazz:source-code expr))) expr)))
                 ;; first draft lets not worry about meta public methods generating nodes
                 ((and (%%pair? (jazz:source-code expr))
-                      (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'method)
-                      (%%pair? (%%cdr (jazz:source-code expr)))
-                      (or 
-                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'public)
-                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'package)
-                        (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'protected)))
+                      (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'method))
                  (jazz:enqueue interface expr)
-                 ;; is there a function to just skip the modifiers?
                  (receive (access compatibility propagation abstraction expansion remote synchronized modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:method-modifiers (%%cdr (jazz:source-code expr)))
-                   (let ((signature (jazz:source-code (%%car rest))))
-                     (let ((method-name (jazz:source-code (%%car signature)))
-                           (parameters (%%cdr signature)))
-                         ;; quicky for tests as parameters are not needed at the moment and break some code in jazz.locale
-                         (set! parameters '())
-                         (jazz:enqueue nodes `(node (,method-name (,(jazz:name->specifier name) self) ,@parameters)))))))
+                   (%%unless (or (%%eq? access 'protected)
+                                 (%%eq? propagation 'override))
+                     (let ((signature (jazz:source-code (%%car rest))))
+                       (let ((method-name (jazz:source-code (%%car signature))))
+                         (jazz:enqueue nodes `(node ,access ,method-name ,name)))))))
                 (else
                  (jazz:enqueue interface expr)))))
       
@@ -2254,7 +2312,7 @@
   (jazz:expand-slot-form walker resume declaration form-src '%slot))
 
 
-(define (jazz:expand-slot-form walker resume declaration form-src symbol)
+(define (jazz:with-expand-slot-form walker resume declaration form-src proc)
   (define (parse-accessors form slot-access)
     (receive (access propagation abstraction expansion generation modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:slot-accessors-modifiers form)
       (if (%%not-null? rest)
@@ -2298,18 +2356,30 @@
                     (generate-getter? (%%eq? getter-generation 'generate))
                     (generate-setter? (%%eq? setter-generation 'generate))
                     (specifier-list (if specifier (%%list specifier) '())))
-                `(begin
-                   ,(jazz:sourcify-deep-if
-                      `(,symbol ,name ,specifier ,access ,compatibility ,modifiers ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name ,getter-generation ,setter-generation)
-                      form-src)
-                   ,@(if generate-getter?
-                         `((method ,(or getter-access 'public) ,getter-propagation ,getter-abstraction ,getter-expansion (,getter-name self) ,@specifier-list
-                             ,name-self))
-                       '())
-                   ,@(if generate-setter?
-                         `((method ,(or setter-access 'protected) ,setter-propagation ,setter-abstraction ,setter-expansion (,setter-name self value ,@specifier-list) <void>
-                             (set! ,name-self value)))
-                       '()))))))))))
+                (proc name specifier access compatibility modifiers initialize
+                      getter-access getter-propagation getter-abstraction getter-expansion getter-generation getter-name
+                      setter-access setter-propagation setter-abstraction setter-expansion setter-generation setter-name
+                      name-self generate-getter? generate-setter? specifier-list)))))))))
+
+
+(define (jazz:expand-slot-form walker resume declaration form-src symbol)
+  (jazz:with-expand-slot-form walker resume declaration form-src
+    (lambda (name specifier access compatibility modifiers initialize
+             getter-access getter-propagation getter-abstraction getter-expansion getter-generation getter-name
+             setter-access setter-propagation setter-abstraction setter-expansion setter-generation setter-name
+             name-self generate-getter? generate-setter? specifier-list)
+      `(begin
+         ,(jazz:sourcify-deep-if
+            `(,symbol ,name ,specifier ,access ,compatibility ,modifiers ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name ,getter-generation ,setter-generation)
+            form-src)
+         ,@(if generate-getter?
+               `((method ,(or getter-access 'public) ,getter-propagation ,getter-abstraction ,getter-expansion (,getter-name self) ,@specifier-list
+                         ,name-self))
+             '())
+         ,@(if generate-setter?
+               `((method ,(or setter-access 'package) ,setter-propagation ,setter-abstraction ,setter-expansion (,setter-name self value ,@specifier-list) <void>
+                         (set! ,name-self value)))
+             '())))))
 
 
 (define (jazz:walk-%slot-declaration walker resume declaration environment form-src)
@@ -2760,8 +2830,7 @@
 (jazz:define-walker-declaration %property            jazz jazz:walk-%slot-declaration jazz:walk-%slot)
 (jazz:define-walker-declaration method               jazz jazz:walk-method-declaration jazz:walk-method)
 (jazz:define-walker-declaration hub                  jazz jazz:walk-hub-declaration jazz:walk-hub)
-(jazz:define-walker-macro       node                 jazz jazz:expand-node)
-(jazz:define-walker-declaration %node                jazz jazz:walk-node-declaration jazz:walk-node)
+(jazz:define-walker-declaration node                 jazz jazz:walk-node-declaration jazz:walk-node)
 (jazz:define-walker-special     declare              jazz jazz:walk-declare)
 (jazz:define-walker-macro       specialize           jazz jazz:expand-specialize)
 (jazz:define-walker-declaration %specialize          jazz jazz:walk-%specialize-declaration jazz:walk-%specialize)

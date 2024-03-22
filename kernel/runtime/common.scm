@@ -263,6 +263,14 @@
       '())))
 
 
+(define (jazz:union actual new)
+  (for-each (lambda (obj)
+              (if (%%not (%%memq obj actual))
+                  (set! actual (%%cons obj actual))))
+            new)
+  actual)
+
+
 (define (jazz:remove item lst #!key (test #f))
   (declare (proper-tail-calls))
   (let iter ((scan lst))

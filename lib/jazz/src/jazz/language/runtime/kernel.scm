@@ -552,6 +552,7 @@
 (native jazz:unit-verbose?)
 (native jazz:load-verbose?)
 (native jazz:outline-verbose?)
+(native jazz:shape-verbose?)
 (native jazz:done-verbose?)
 (native jazz:warn-interpreted?)
 (native jazz:force-interpreted?)

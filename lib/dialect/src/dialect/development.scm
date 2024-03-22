@@ -63,6 +63,16 @@
 
 
 ;;;
+;;;; Shape
+;;;
+
+
+(define (jazz:shape-unit unit-name)
+  (let ((shape (jazz:shape-module #f #f #f unit-name)))
+    (pp shape)))
+
+
+;;;
 ;;;; Walk
 ;;;
 

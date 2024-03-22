@@ -82,6 +82,9 @@
 (jazz:define-setting jazz:outline-verbose?
   #f)
 
+(jazz:define-setting jazz:shape-verbose?
+  #f)
+
 (jazz:define-setting jazz:done-verbose?
   #f)
 

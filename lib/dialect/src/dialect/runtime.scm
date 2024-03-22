@@ -778,14 +778,14 @@
 
 
 (jazz:define-class jazz:Autoload-Reference jazz:Export-Reference (constructor: jazz:allocate-autoload-reference)
-  ())
+  ((hubs? getter: generate)))
 
 
-(define (jazz:new-autoload-reference name declaration module-reference)
-  (jazz:allocate-autoload-reference name declaration module-reference))
+(define (jazz:new-autoload-reference name declaration module-reference hubs?)
+  (jazz:allocate-autoload-reference name declaration module-reference hubs?))
 
 
-(define (jazz:resolve-autoload-reference declaration-reference module-declaration exported-module-reference)
+(define (jazz:cache-autoload-reference declaration-reference module-declaration exported-module-reference)
   (or (jazz:get-declaration-reference-declaration declaration-reference)
       (let* ((name (jazz:get-declaration-reference-name declaration-reference))
              (type jazz:Any)
@@ -1027,34 +1027,49 @@
         (autoload (jazz:get-export-invoice-autoload module-invoice))
         (symbols (jazz:get-export-invoice-symbols module-invoice)))
     (cond (autoload
-            (let ((exported-module-reference (jazz:get-module-invoice-module module-invoice)))
-              (for-each (lambda (declaration-reference)
-                          (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
-                                (declaration (jazz:resolve-autoload-reference declaration-reference module-declaration exported-module-reference)))
-                            (%%table-set! public name declaration)
-                            (add-to-module-exports declaration)))
-                        autoload)))
+           (let ((exported-module-reference (jazz:get-module-invoice-module module-invoice)))
+             (for-each (lambda (declaration-reference)
+                         (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
+                               (declaration (jazz:cache-autoload-reference declaration-reference module-declaration exported-module-reference))
+                               (hubs? (jazz:get-autoload-reference-hubs? declaration-reference)))
+                           (%%table-set! public name declaration)
+                           (add-to-module-exports declaration)
+                           (if hubs?
+                               (let ((unit-name (jazz:get-declaration-reference-name exported-module-reference)))
+                                 (let ((shape (jazz:module-shape walker resume declaration unit-name)))
+                                   (for-each (lambda (category)
+                                               (let ((category-name (%%cadr category)))
+                                                 (%%when (%%eq? category-name name)
+                                                   (let ((hub-names (%%cddr category)))
+                                                     (for-each (lambda (hub-name)
+                                                                 (let ((nodes (%%list (jazz:autoload-declaration-locator-heuristic declaration))))
+                                                                   (let ((hub-declaration (jazz:new-hub-declaration hub-name jazz:Any 'public 'uptodate '() '() module-declaration nodes)))
+                                                                     (%%table-set! public hub-name hub-declaration)
+                                                                     (add-to-module-exports hub-declaration))))
+                                                               hub-names)))))
+                                             shape))))))
+                       autoload)))
           (symbols
-            (for-each (lambda (declaration-reference)
-                        (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference))))
-                          (let ((mangled-name (if mangler (mangler name) name)))
-                            (if mangled-name
-                                (let ((declaration (jazz:resolve-reference declaration-reference module-declaration)))
-                                  (%%table-set! public mangled-name declaration)
-                                  (add-to-module-exports declaration))))))
-                      symbols))
+           (for-each (lambda (declaration-reference)
+                       (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference))))
+                         (let ((mangled-name (if mangler (mangler name) name)))
+                           (if mangled-name
+                               (let ((declaration (jazz:resolve-reference declaration-reference module-declaration)))
+                                 (%%table-set! public mangled-name declaration)
+                                 (add-to-module-exports declaration))))))
+                     symbols))
           (mangler
-            (let ((exported-module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration))
-                  (exported (%%make-table test: eq?)))
-              (table-for-each (lambda (key declaration)
-                                (let ((mangled-key (mangler key)))
-                                  (if mangled-key
-                                      (%%table-set! exported mangled-key declaration))))
-                              (jazz:get-public-lookup exported-module-declaration))
-              (jazz:table-merge-reporting-conflicts! walker resume declaration form-src module-declaration "Export" public exported)
-              (table-for-each (lambda (key declaration)
-                                (add-to-module-exports declaration))
-                              exported)))
+           (let ((exported-module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration))
+                 (exported (%%make-table test: eq?)))
+             (table-for-each (lambda (key declaration)
+                               (let ((mangled-key (mangler key)))
+                                 (if mangled-key
+                                     (%%table-set! exported mangled-key declaration))))
+                             (jazz:get-public-lookup exported-module-declaration))
+             (jazz:table-merge-reporting-conflicts! walker resume declaration form-src module-declaration "Export" public exported)
+             (table-for-each (lambda (key declaration)
+                               (add-to-module-exports declaration))
+                             exported)))
           (else
            (let* ((exported-module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration))
                   (exported-table (jazz:get-public-lookup exported-module-declaration)))
@@ -1140,21 +1155,34 @@
           (else
            (jazz:get-declaration-locator decl))))
   
-  (define (report-conflicts)
+  (define (merge/report-conflicts)
     (jazz:iterate-table add
-      (lambda (key value)
+      (lambda (key new)
         (let ((actual (%%table-ref table key #f)))
-          (let ((value-locator (effective-locator value))
-                (actual-locator (effective-locator actual)))
-            (%%when (%%neq? value-locator actual-locator)
-              (jazz:walk-conflict walker resume declaration prefix key actual-locator value-locator form-src)))))))
+          (if (and jazz:hub-declaration-class
+                   (%%is? new jazz:hub-declaration-class)
+                   (%%is? actual jazz:hub-declaration-class))
+              (let ((new-nodes (jazz:hub-declaration-nodes new))
+                    (actual-nodes (jazz:hub-declaration-nodes actual)))
+                (let ((name (jazz:get-lexical-binding-name actual))
+                      (type (jazz:get-lexical-binding-type actual))
+                      (access (jazz:get-declaration-access actual))
+                      (compatibility (jazz:get-declaration-compatibility actual))
+                      (modifiers (jazz:get-declaration-modifiers actual))
+                      (nodes (jazz:union actual-nodes new-nodes)))
+                  (let ((hub (jazz:new-hub-declaration name type access compatibility modifiers '() declaration nodes)))
+                    (%%table-set! table key hub))))
+            (let ((new-locator (effective-locator new))
+                  (actual-locator (effective-locator actual)))
+              (%%when (%%neq? new-locator actual-locator)
+                (jazz:walk-conflict walker resume declaration prefix key actual-locator new-locator form-src))))))))
   
   (let ((table-count (%%table-length table))
         (add-count (%%table-length add)))
     (%%table-merge! table add #f)
     (%%when (%%not (%%fx= (%%table-length table) (%%fx+ table-count add-count)))
       ;; Can report no conflicts if the same declaration was imported from different modules
-      (report-conflicts))))
+      (merge/report-conflicts))))
 
 
 (define (jazz:add-to-module-references declaration referenced-declaration)
@@ -1779,8 +1807,13 @@
                                  module-transformations
                                  (if (%%not module-autoload)
                                      #f
-                                   (map (lambda (symbol)
-                                          (jazz:new-autoload-reference symbol #f #f))
+                                   (map (lambda (clause)
+                                          (if (%%symbol? clause)
+                                              (jazz:new-autoload-reference clause #f #f #f)
+                                            (%%assert (and (%%pair? clause)
+                                                           (%%null? (%%cdr clause))
+                                                           (%%symbol? (%%car clause)))
+                                              (jazz:new-autoload-reference (%%car clause) #f #f #t))))
                                         module-autoload))
                                  #f))))
   

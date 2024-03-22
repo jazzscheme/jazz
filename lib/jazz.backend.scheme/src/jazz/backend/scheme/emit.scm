@@ -329,7 +329,7 @@
 ;;;
 
 
-(jazz:define-emit (dispatch-call (scheme backend) name source declaration walker resume environment object-argument object-code others-arguments others-codes)
+(jazz:define-emit (dispatch-call (scheme backend) name nodes source declaration walker resume environment object-argument object-code others-arguments others-codes)
   (define (resolve-type object-code)
     (let ((object-type (jazz:patch-type-until-unification (jazz:get-code-type object-code))))
       (if (%%class-is? object-type jazz:Autoload-Declaration)
@@ -379,7 +379,7 @@
                 (jazz:emit-method-dispatch object-argument code source others-arguments others-codes method-declaration declaration walker resume environment backend))))
       (let ((dv (jazz:register-variable declaration (%%string-append (%%symbol->string name) "!d") #f)))
         (let ((d (%%car dv)))
-          (%%set-cdr! dv `(jazz:cache-dispatch ',name (lambda (d) (set! ,d d))))
+          (%%set-cdr! dv `(jazz:cache-dispatch ',name (lambda (d) (set! ,d d)) ',nodes))
           (jazz:new-code
             (jazz:with-uniqueness (jazz:sourcified-form object-code)
               (lambda (object)

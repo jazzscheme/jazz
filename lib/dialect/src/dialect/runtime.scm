@@ -626,21 +626,6 @@
 
 (define (jazz:add-declaration-child walker resume namespace-declaration child)
   (let ((name (jazz:get-lexical-binding-name child)))
-    ;; not 100% sure about this change
-    ;; tests to try and implement redefine error
-    #;
-    (let ((decl (jazz:find-declaration-child namespace-declaration name)))
-      (%%when (eq? (jazz:get-declaration-locator child) 'jazz.test.advise.abc)
-        (continuation-capture
-          (lambda (cont)
-            (jazz:debug (jazz:current-load-stack))
-            (display-continuation-backtrace cont)
-            (newline)
-            (jazz:testing (append (or (jazz:testing) '()) (list cont)))))))
-    #;
-    (let ((decl (jazz:find-declaration-child namespace-declaration name)))
-      (%%when decl
-        (jazz:debug (jazz:get-declaration-locator decl))))
     (%%when (%%not (jazz:find-declaration-child namespace-declaration name))
       (jazz:enqueue (jazz:get-namespace-declaration-children namespace-declaration) child))
     (%%table-set! (jazz:get-private-lookup namespace-declaration) name child)

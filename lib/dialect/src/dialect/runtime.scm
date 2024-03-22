@@ -993,7 +993,6 @@
 (define (jazz:reset-module-imported module-declaration)
   (let ((private (jazz:get-private-lookup module-declaration)))
     (for-each (lambda (module-invoice)
-                (pp module-invoice)
                 (let ((invoice-module (jazz:get-module-invoice-module module-invoice)))
                   (jazz:iterate-table private
                     (lambda (name declaration)

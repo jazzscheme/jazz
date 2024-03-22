@@ -6242,7 +6242,7 @@
   (set! jazz:outline-hook hook))
 
 
-(define (jazz:outline-unit unit-name #!key (use-catalog? #t) (error? #t))
+(define (jazz:outline-unit unit-name #!key (error? #t))
   (define (load-toplevel-declaration)
     (let try-again ((first-try? #t))
       (jazz:with-unit-resources unit-name #f
@@ -6281,26 +6281,24 @@
                           ((module)
                            (jazz:parse-module-declaration (%%cdr (jazz:source-code form))))))))))))))))
   
-  (if (not use-catalog?)
-      (load-toplevel-declaration)
-    (or (let ((declaration (jazz:get-catalog-entry unit-name)))
-          (if (%%pair? declaration)
-              #f
-            declaration))
-        (jazz:call-with-catalog-entry-lock unit-name
-          (lambda ()
-            (let ((feedback (jazz:outline-feedback)))
-              (if feedback
-                  (feedback unit-name)))
-            (let ((declaration (load-toplevel-declaration)))
-              (if (%%not declaration)
-                  (if error?
-                      (jazz:error "Unable to locate unit declaration: {s}" unit-name))
-                (jazz:set-catalog-entry unit-name
-                                        (if jazz:outline-hook
-                                            (jazz:outline-hook unit-name declaration)
-                                          declaration)))
-              declaration))))))
+  (or (let ((declaration (jazz:get-catalog-entry unit-name)))
+        (if (%%pair? declaration)
+            #f
+          declaration))
+      (jazz:call-with-catalog-entry-lock unit-name
+        (lambda ()
+          (let ((feedback (jazz:outline-feedback)))
+            (if feedback
+                (feedback unit-name)))
+          (let ((declaration (load-toplevel-declaration)))
+            (if (%%not declaration)
+                (if error?
+                    (jazz:error "Unable to locate unit declaration: {s}" unit-name))
+              (jazz:set-catalog-entry unit-name
+                                      (if jazz:outline-hook
+                                          (jazz:outline-hook unit-name declaration)
+                                        declaration)))
+            declaration)))))
 
 
 (define (jazz:outline-module unit-name #!key (error? #t))

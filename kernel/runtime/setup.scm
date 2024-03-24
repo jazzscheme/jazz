@@ -106,6 +106,7 @@ end-of-code
 (jazz:define-variable jazz:get-subunit-names-internal)
 (jazz:define-variable jazz:hub-declaration-class)
 (jazz:define-variable jazz:new-hub-declaration)
+(jazz:define-variable jazz:hub-declaration-hubs)
 (jazz:define-variable jazz:hub-declaration-nodes)
 (jazz:define-variable jazz:module-shape)
 (jazz:define-variable jazz:manifest-ignore?)

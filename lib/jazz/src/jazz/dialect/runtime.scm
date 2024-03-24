@@ -1490,12 +1490,14 @@
 
 
 (jazz:define-class jazz:Hub-Declaration jazz:Declaration (constructor: jazz:allocate-hub-declaration)
-  ((nodes getter: generate setter: generate)))
+  ((hubs  getter: generate setter: generate)
+   (nodes getter: generate setter: generate)))
 
 
 (jazz:define-variable-override jazz:new-hub-declaration
-  (lambda (name type access compatibility modifiers attributes parent nodes)
-    (let ((new-declaration (jazz:allocate-hub-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f nodes)))
+  (lambda (name type access compatibility modifiers attributes parent hubs nodes)
+    (let ((new-declaration (jazz:allocate-hub-declaration name type #f access compatibility modifiers attributes #f parent #f #f #f #f nodes)))
+      (jazz:set-hub-declaration-hubs new-declaration (or hubs (%%list new-declaration)))
       (jazz:setup-declaration new-declaration)
       new-declaration)))
 
@@ -1540,7 +1542,7 @@
 
 (define (jazz:walk-hub-declaration walker resume declaration environment form-src)
   (receive (name node type access compatibility modifiers) (jazz:parse-hub walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let ((new-declaration (jazz:new-hub-declaration name type access compatibility modifiers '() declaration (%%list node))))
+    (let ((new-declaration (jazz:new-hub-declaration name type access compatibility modifiers '() declaration #f (%%list node))))
       (jazz:set-declaration-source new-declaration form-src)
       (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
         effective-declaration))))
@@ -1556,6 +1558,9 @@
 (jazz:define-variable-override jazz:hub-declaration-class
   jazz:Hub-Declaration)
 
+
+(jazz:define-variable-override jazz:hub-declaration-hubs
+  jazz:get-hub-declaration-hubs)
 
 (jazz:define-variable-override jazz:hub-declaration-nodes
   jazz:get-hub-declaration-nodes)
@@ -1583,12 +1588,14 @@
   (receive (name category-name type access compatibility modifiers) (jazz:parse-node walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let ((category-locator (jazz:get-declaration-locator (jazz:lookup-reference walker resume declaration environment category-name)))
           (actual-declaration (jazz:find-declaration-child declaration name)))
-      (if actual-declaration
-          (let ((actual-nodes (jazz:get-hub-declaration-nodes actual-declaration)))
-            (jazz:set-hub-declaration-nodes actual-declaration (jazz:union actual-nodes (%%list category-locator)))
-            actual-declaration)
-        (let ((new-declaration (jazz:new-hub-declaration name type access compatibility modifiers '() declaration (%%list category-locator))))
-          (jazz:set-declaration-source new-declaration form-src)
+      (let ((new-declaration (jazz:new-hub-declaration name type access compatibility modifiers '() declaration #f (%%list category-locator))))
+        (jazz:set-declaration-source new-declaration form-src)
+        (if actual-declaration
+            (let ((actual-hubs (jazz:get-hub-declaration-hubs actual-declaration))
+                  (actual-nodes (jazz:get-hub-declaration-nodes actual-declaration)))
+              (jazz:set-hub-declaration-hubs actual-declaration (jazz:union actual-hubs (%%list new-declaration)))
+              (jazz:set-hub-declaration-nodes actual-declaration (jazz:union actual-nodes (%%list category-locator)))
+              actual-declaration)
           (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
             effective-declaration))))))
 

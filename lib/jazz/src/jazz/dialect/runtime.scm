@@ -1533,31 +1533,8 @@
   `(hub ,(jazz:get-lexical-binding-name declaration)))
 
 
-(define (jazz:parse-hub walker resume declaration rest)
-  (jazz:bind (name node) rest
-    (let ((name (jazz:source-code name))
-          (node (jazz:source-code node)))
-      (values name node jazz:Any 'public 'uptodate '()))))
-
-
-(define (jazz:walk-hub-declaration walker resume declaration environment form-src)
-  (receive (name node type access compatibility modifiers) (jazz:parse-hub walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let ((new-declaration (jazz:new-hub-declaration name type access compatibility modifiers '() declaration #f (%%list node))))
-      (jazz:set-declaration-source new-declaration form-src)
-      (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
-        effective-declaration))))
-
-
-(define (jazz:walk-hub walker resume declaration environment form-src)
-  (receive (name node type access compatibility modifiers) (jazz:parse-hub walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let ((new-declaration (jazz:require-declaration declaration name)))
-      (jazz:set-declaration-source new-declaration form-src)
-      new-declaration)))
-
-
 (jazz:define-variable-override jazz:hub-declaration-class
   jazz:Hub-Declaration)
-
 
 (jazz:define-variable-override jazz:hub-declaration-hubs
   jazz:get-hub-declaration-hubs)
@@ -2836,7 +2813,6 @@
 (jazz:define-walker-declaration %slot                jazz jazz:walk-%slot-declaration jazz:walk-%slot)
 (jazz:define-walker-declaration %property            jazz jazz:walk-%slot-declaration jazz:walk-%slot)
 (jazz:define-walker-declaration method               jazz jazz:walk-method-declaration jazz:walk-method)
-(jazz:define-walker-declaration hub                  jazz jazz:walk-hub-declaration jazz:walk-hub)
 (jazz:define-walker-declaration node                 jazz jazz:walk-node-declaration jazz:walk-node)
 (jazz:define-walker-special     declare              jazz jazz:walk-declare)
 (jazz:define-walker-macro       specialize           jazz jazz:expand-specialize)

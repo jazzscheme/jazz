@@ -1998,11 +1998,12 @@
                       (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'method))
                  (jazz:enqueue class expr)
                  (receive (access compatibility propagation abstraction expansion remote synchronized modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:method-modifiers (%%cdr (jazz:source-code expr)))
-                   (%%unless (or (%%eq? access 'protected)
-                                 (%%eq? propagation 'override))
-                     (let ((signature (jazz:source-code (%%car rest))))
-                       (let ((method-name (jazz:source-code (%%car signature))))
-                         (jazz:enqueue nodes `(node ,access ,method-name ,name)))))))
+                   (%%unless (%%eq? propagation 'override)
+                     ;; for protected we generate a private node so code in the same module can access the method
+                     (let ((adjusted-access (if (%%eq? access 'protected) 'private access)))
+                       (let ((signature (jazz:source-code (%%car rest))))
+                         (let ((method-name (jazz:source-code (%%car signature))))
+                           (jazz:enqueue nodes `(node ,adjusted-access ,method-name ,name))))))))
                 (else
                  (jazz:enqueue class expr)))))
       
@@ -2165,11 +2166,12 @@
                       (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'method))
                  (jazz:enqueue interface expr)
                  (receive (access compatibility propagation abstraction expansion remote synchronized modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:method-modifiers (%%cdr (jazz:source-code expr)))
-                   (%%unless (or (%%eq? access 'protected)
-                                 (%%eq? propagation 'override))
-                     (let ((signature (jazz:source-code (%%car rest))))
-                       (let ((method-name (jazz:source-code (%%car signature))))
-                         (jazz:enqueue nodes `(node ,access ,method-name ,name)))))))
+                   (%%unless (%%eq? propagation 'override)
+                     ;; for protected we generate a private node so code in the same module can access the method
+                     (let ((adjusted-access (if (%%eq? access 'protected) 'private access)))
+                       (let ((signature (jazz:source-code (%%car rest))))
+                         (let ((method-name (jazz:source-code (%%car signature))))
+                           (jazz:enqueue nodes `(node ,adjusted-access ,method-name ,name))))))))
                 (else
                  (jazz:enqueue interface expr)))))
       

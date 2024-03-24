@@ -1676,7 +1676,10 @@
                         (if autoload
                             (let ((autoload-names
                                     (map (lambda (declaration-reference)
-                                           (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
+                                           (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference))))
+                                             (if (jazz:get-autoload-reference-hubs? declaration-reference)
+                                                 (%%list name)
+                                               name)))
                                          autoload)))
                               (jazz:format output "{%}  {s}" `(export (,name (autoload ,@autoload-names)))))
                           (jazz:format output "{%}  {s}" `(export (,name ,@(jazz:outline-generate-phase-list phase) ,@(jazz:outline-generate-transformations transformations)))))))))

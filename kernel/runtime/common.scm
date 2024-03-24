@@ -263,9 +263,22 @@
       '())))
 
 
-(define (jazz:union actual new)
+(define (jazz:member? obj lst #!key (test equal?))
+  (declare (proper-tail-calls))
+  (let iter ((scan lst))
+    (cond ((%%null? scan)
+           #f)
+          ((test obj (%%car scan))
+           #t)
+          (else
+           (iter (%%cdr scan))))))
+
+
+(define (jazz:union actual new #!key (test #f))
   (for-each (lambda (obj)
-              (if (%%not (%%memq obj actual))
+              (if (%%not (if (%%not test)
+                             (%%memq obj actual)
+                           (jazz:member? obj actual test: test)))
                   (set! actual (%%cons obj actual))))
             new)
   actual)

@@ -785,6 +785,13 @@
   (jazz:allocate-autoload-reference name declaration module-reference hubs?))
 
 
+(define (jazz:autoload-reference=? x y)
+  (and (%%eq? (jazz:get-export-reference-module-reference x)
+              (jazz:get-export-reference-module-reference y))
+       (%%eqv? (jazz:get-autoload-reference-hubs? x)
+               (jazz:get-autoload-reference-hubs? y))))
+
+
 (define (jazz:cache-autoload-reference declaration-reference module-declaration exported-module-reference)
   (or (jazz:get-declaration-reference-declaration declaration-reference)
       (let* ((name (jazz:get-declaration-reference-name declaration-reference))
@@ -1006,7 +1013,7 @@
     (let ((actual-autoload (jazz:get-export-invoice-autoload actual))
           (new-autoload (jazz:get-export-invoice-autoload new)))
       (%%when new-autoload
-        (jazz:set-export-invoice-autoload actual (if actual-autoload (%%append actual-autoload new-autoload) new-autoload)))))
+        (jazz:set-export-invoice-autoload actual (if actual-autoload (jazz:union actual-autoload new-autoload test: jazz:autoload-reference=?) new-autoload)))))
   
   (define (add-to-module-exports declaration)
     (%%when (and declaration

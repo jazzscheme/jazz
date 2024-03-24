@@ -1198,7 +1198,7 @@
 
 (define (jazz:add-to-module-references declaration referenced-declaration)
   (%%when referenced-declaration
-    (if (%%class-is? referenced-declaration jazz:hub-declaration-class)
+    (if (and jazz:hub-declaration-class (%%class-is? referenced-declaration jazz:hub-declaration-class))
         (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
           (let ((references-table (jazz:get-module-declaration-walker-references module-declaration)))
             (for-each (lambda (hub)

@@ -1998,7 +1998,8 @@
                       (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'method))
                  (jazz:enqueue class expr)
                  (receive (access compatibility propagation abstraction expansion remote synchronized modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:method-modifiers (%%cdr (jazz:source-code expr)))
-                   (%%unless (%%eq? propagation 'override)
+                   (%%unless (or (%%eq? access 'hidden)
+                                 (%%eq? propagation 'override))
                      ;; for protected we generate a private node so code in the same module can access the method
                      (let ((adjusted-access (if (%%eq? access 'protected) 'private access)))
                        (let ((signature (jazz:source-code (%%car rest))))
@@ -2166,7 +2167,8 @@
                       (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'method))
                  (jazz:enqueue interface expr)
                  (receive (access compatibility propagation abstraction expansion remote synchronized modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:method-modifiers (%%cdr (jazz:source-code expr)))
-                   (%%unless (%%eq? propagation 'override)
+                   (%%unless (or (%%eq? access 'hidden)
+                                 (%%eq? propagation 'override))
                      ;; for protected we generate a private node so code in the same module can access the method
                      (let ((adjusted-access (if (%%eq? access 'protected) 'private access)))
                        (let ((signature (jazz:source-code (%%car rest))))
@@ -2434,7 +2436,7 @@
 
 
 (define jazz:method-modifiers
-  '(((private protected package public) . protected)
+  '(((hidden private protected package public) . protected)
     ((deprecated undocumented uptodate) . uptodate)
     ((final virtual chained override) . final)
     ((abstract concrete core) . concrete)

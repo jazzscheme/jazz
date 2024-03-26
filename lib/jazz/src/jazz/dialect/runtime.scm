@@ -1618,6 +1618,26 @@
   (define (shape-interface toplevel)
     (receive (access compatibility implementor modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:interface-modifiers (%%cdr toplevel))
       (shape-category 'interface rest)))
+  
+  (define (shape-remotable-stub toplevel)
+    (define method-stub-modifiers
+      '(((private protected package public) . private)
+        ((post send call) . call)
+        ((reference value) . reference)))
+    
+    (receive (access compatibility implementor modifiers rest) (jazz:parse-modifiers walker resume declaration jazz:interface-modifiers (%%cdr toplevel))
+      (let ((category-name (jazz:source-code (%%car rest))))
+        (let ((stub-interface (%%string->symbol (%%string-append (%%symbol->string category-name) "-Stub"))))
+          (%%cons 'interface
+                  (%%cons stub-interface
+                          (jazz:collect (lambda (form-src)
+                                          (let ((form (jazz:source-code form-src)))
+                                            (and (%%pair? form)
+                                                 (let ((form-name (jazz:source-code (%%car form))))
+                                                   (and (%%eq? form-name 'method)
+                                                        (receive (access invocation passage modifiers rest) (jazz:parse-modifiers walker resume declaration method-stub-modifiers (%%cdr form))
+                                                          (jazz:source-code (%%car (jazz:source-code (%%car rest))))))))))
+                                        (%%cdr rest))))))))
 
   (define (shape-category declaration-name rest)
     (let ((category-name (jazz:source-code (%%car rest))))
@@ -1688,6 +1708,8 @@
                                                 (shape-class toplevel))
                                                ((%%eq? declaration-name 'interface)
                                                 (shape-interface toplevel))
+                                               ((%%eq? declaration-name 'remotable-stub)
+                                                (shape-remotable-stub toplevel))
                                                (else
                                                 #f))))))
                               module)))))))))

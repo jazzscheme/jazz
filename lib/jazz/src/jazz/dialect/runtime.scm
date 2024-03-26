@@ -1568,11 +1568,13 @@
       (let ((new-declaration (jazz:new-hub-declaration name type access compatibility modifiers '() declaration #f (%%list category-locator))))
         (jazz:set-declaration-source new-declaration form-src)
         (if actual-declaration
-            (let ((actual-hubs (jazz:get-hub-declaration-hubs actual-declaration))
-                  (actual-nodes (jazz:get-hub-declaration-nodes actual-declaration)))
-              (jazz:set-hub-declaration-hubs actual-declaration (jazz:union actual-hubs (%%list new-declaration)))
-              (jazz:set-hub-declaration-nodes actual-declaration (jazz:union actual-nodes (%%list category-locator)))
-              actual-declaration)
+            (if (%%class-is? actual-declaration jazz:hub-declaration-class)
+                (let ((actual-hubs (jazz:get-hub-declaration-hubs actual-declaration))
+                      (actual-nodes (jazz:get-hub-declaration-nodes actual-declaration)))
+                  (jazz:set-hub-declaration-hubs actual-declaration (jazz:union actual-hubs (%%list new-declaration)))
+                  (jazz:set-hub-declaration-nodes actual-declaration (jazz:union actual-nodes (%%list category-locator)))
+                  actual-declaration)
+              (jazz:error "Found conflicting declarations for {a}" name))
           (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
             effective-declaration))))))
 

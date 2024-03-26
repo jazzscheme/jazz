@@ -1539,8 +1539,14 @@
 (jazz:define-variable-override jazz:hub-declaration-hubs
   jazz:get-hub-declaration-hubs)
 
+(jazz:define-variable-override jazz:hub-declaration-hubs-set!
+  jazz:set-hub-declaration-hubs)
+
 (jazz:define-variable-override jazz:hub-declaration-nodes
   jazz:get-hub-declaration-nodes)
+
+(jazz:define-variable-override jazz:hub-declaration-nodes-set!
+  jazz:set-hub-declaration-nodes)
 
 
 (jazz:define-variable-override jazz:manifest-ignore?
@@ -1691,7 +1697,7 @@
           (let ((name (jazz:source-code (%%car (jazz:source-code (%%car rest))))))
             (%%when (or (%%eq? access 'public)
                         (%%eq? access 'package))
-              (jazz:enqueue hubs name)))))))
+              (jazz:enqueue hubs (if meta? (%%list name) name))))))))
   
   (jazz:with-unit-resources unit-name #f
     (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)

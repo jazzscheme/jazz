@@ -111,6 +111,7 @@
                          (ascendant-access (if (%%not ascendant-declaration) #f (jazz:sourcified-form (jazz:emit-binding-reference ascendant-declaration declaration walker resume environment backend)))))
                      `((define ,locator ,core-class-locator)
                        (define ,level-locator (%%get-class-level ,locator))
+                       (%%set-category-identifier ,locator ',locator)
                        (jazz:set-core-class-redefined ',name ',core-class-locator))))
                (let ((metaclass-declaration (jazz:get-category-declaration-metaclass declaration)))
                  (let ((ascendant-access (jazz:emit-ascendant-access declaration walker resume environment backend)))

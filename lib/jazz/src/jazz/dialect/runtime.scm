@@ -1570,7 +1570,8 @@
 (define (jazz:walk-node-declaration walker resume declaration environment form-src)
   (receive (name category-name type access compatibility modifiers) (jazz:parse-node walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let ((category-locator (jazz:get-declaration-locator (jazz:lookup-reference walker resume declaration environment category-name)))
-          (actual-declaration (jazz:find-declaration-child declaration name)))
+          (actual-declaration (or (jazz:find-declaration-child declaration name)
+                                  (%%table-ref (jazz:get-private-lookup declaration) name #f))))
       (let ((new-declaration (jazz:new-hub-declaration name type access compatibility modifiers '() declaration #f (%%list category-locator))))
         (jazz:set-declaration-source new-declaration form-src)
         (if actual-declaration
@@ -1579,6 +1580,7 @@
                       (actual-nodes (jazz:get-hub-declaration-nodes actual-declaration)))
                   (jazz:set-hub-declaration-hubs actual-declaration (jazz:union actual-hubs (%%list new-declaration)))
                   (jazz:set-hub-declaration-nodes actual-declaration (jazz:union actual-nodes (%%list category-locator)))
+                  (jazz:add-declaration-child walker resume declaration actual-declaration)
                   actual-declaration)
               (jazz:error "Found conflicting declarations for {a}" name))
           (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))

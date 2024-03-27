@@ -68,7 +68,7 @@
 
 
 (define (jazz:shape-unit unit-name)
-  (let ((shape (jazz:shape-module #f #f #f unit-name)))
+  (let ((shape (jazz:module-shape #f #f #f unit-name)))
     (pp shape)))
 
 

@@ -1703,26 +1703,35 @@
   
   (jazz:with-unit-resources unit-name #f
     (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-      (if (%%not src)
-          (raise (jazz:new-walk-source-not-found (jazz:format "Unable to locate unit source: {s}" unit-name) unit-name))
-        (jazz:with-verbose (jazz:shape-verbose?) "shaping" (jazz:resource-pathname src)
-          (lambda ()
-            ;; not reading the literals is necessary as reading a literal will load units
-            (let ((form (jazz:read-toplevel-form src read-literals?: #f)))
-              (let ((module (jazz:source-code form)))
-                (jazz:collect (lambda (src)
-                                (let ((toplevel (jazz:source-code src)))
-                                  (and (%%pair? toplevel)
-                                       (let ((declaration-name (jazz:source-code (%%car toplevel))))
-                                         (cond ((%%eq? declaration-name 'class)
-                                                (shape-class toplevel))
-                                               ((%%eq? declaration-name 'interface)
-                                                (shape-interface toplevel))
-                                               ((%%eq? declaration-name 'remotable-stub)
-                                                (shape-remotable-stub toplevel))
-                                               (else
-                                                #f))))))
-                              module)))))))))
+      (let ((src (if (%%not src)
+                     (if (%%not bin)
+                         #f
+                       (let ((otl (jazz:bin->otl bin)))
+                         (let ((otl-path (jazz:resource-pathname otl)))
+                           (if (file-exists? otl-path)
+                               otl
+                             #f))))
+                   src)))
+        (if (%%not src)
+            (raise (jazz:new-walk-source-not-found (jazz:format "Unable to locate unit source: {s}" unit-name) unit-name))
+          (jazz:with-verbose (jazz:shape-verbose?) "shaping" (jazz:resource-pathname src)
+            (lambda ()
+              ;; not reading the literals is necessary as reading a literal will load units
+              (let ((form (jazz:read-toplevel-form src read-literals?: #f)))
+                (let ((module (jazz:source-code form)))
+                  (jazz:collect (lambda (src)
+                                  (let ((toplevel (jazz:source-code src)))
+                                    (and (%%pair? toplevel)
+                                         (let ((declaration-name (jazz:source-code (%%car toplevel))))
+                                           (cond ((%%eq? declaration-name 'class)
+                                                  (shape-class toplevel))
+                                                 ((%%eq? declaration-name 'interface)
+                                                  (shape-interface toplevel))
+                                                 ((%%eq? declaration-name 'remotable-stub)
+                                                  (shape-remotable-stub toplevel))
+                                                 (else
+                                                  #f))))))
+                                module))))))))))
 
 
 ;;;

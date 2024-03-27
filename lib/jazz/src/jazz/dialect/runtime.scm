@@ -1428,7 +1428,7 @@
         (%%assertion category (jazz:error "Unable to find method {s} in: {s}" name object)
           (let ((field (%%get-category-field category name)))
             (%%assertion (%%class-is? field jazz:Method) (jazz:error "Field {s} is not a method of {s}" name object)
-              (%%assertion (or (%%not nodes) (%%memq category (map jazz:global-ref nodes))) (jazz:error "Missing import for {s}.{s}" (jazz:reference-name (jazz:get-category-identifier category)) name)
+              (%%assertion (or (%%not nodes) (%%memq (jazz:get-category-identifier category) nodes)) (jazz:error "Missing import for {s}.{s}" (jazz:get-category-identifier category) name)
                 (let ((proc
                         (case (%%get-method-dispatch-type field)
                           ((final)

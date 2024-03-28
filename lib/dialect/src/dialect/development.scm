@@ -68,6 +68,7 @@
 
 
 (define (jazz:shape-unit unit-name)
+  (jazz:load-unit 'jazz.dialect)
   (let ((shape (jazz:module-shape #f #f #f unit-name)))
     (pp shape)))
 

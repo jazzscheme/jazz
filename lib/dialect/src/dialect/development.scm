@@ -166,6 +166,15 @@
 
 
 ;;;
+;;;; Emit
+;;;
+
+
+(define (jazz:emit-unit unit-name)
+  (jazz:expand-unit unit-name))
+
+
+;;;
 ;;;; Check
 ;;;
 

@@ -1309,6 +1309,7 @@
 (native jazz:walk-extended-definition)
 (native jazz:walk-describe)
 (native jazz:generate-unit)
+(native jazz:emit-unit)
 (native jazz:check-unit)
 (native jazz:verify-unit)
 (native jazz:custom-compile-unit)

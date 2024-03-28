@@ -1485,6 +1485,19 @@
 
 
 ;;;
+;;;; Autoload
+;;;
+
+
+(define (jazz:cache-autoload unit-name reference-locator global)
+  (lambda ()
+    (jazz:load-unit unit-name)
+    (let ((object (%%global-var-ref reference-locator)))
+      (%%global-var-set! global (lambda () object))
+      object)))
+
+
+;;;
 ;;;; Hub
 ;;;
 

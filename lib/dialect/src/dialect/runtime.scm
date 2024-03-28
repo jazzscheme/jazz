@@ -1628,14 +1628,22 @@
                     (%%when (%%not (%%table-ref locators locator #f))
                       (%%table-set! locators locator #t)
                       (jazz:enqueue queue
-                        `(define ,locator
-                           (let ((loaded? #f))
-                             (lambda ()
-                               (if (%%not loaded?)
-                                   (begin
-                                     (jazz:load-unit ',(jazz:get-declaration-locator (jazz:get-declaration-toplevel referenced-declaration)))
-                                     (set! loaded? #t)))
-                               ,(jazz:sourcified-form (jazz:emit-binding-reference referenced-declaration module-declaration walker resume environment backend))))))))))
+                        (let ((declaration-locator (jazz:get-declaration-locator (jazz:get-declaration-toplevel referenced-declaration)))
+                              (reference-locator (jazz:sourcified-form (jazz:emit-binding-reference referenced-declaration module-declaration walker resume environment backend))))
+                          (if (%%symbol? reference-locator)
+                              `(jazz:define-variable ,locator
+                                 (jazz:cache-autoload
+                                   ',declaration-locator
+                                   ',reference-locator
+                                   ',locator))
+                            `(define ,locator
+                               (let ((loaded? #f))
+                                 (lambda ()
+                                   (if (%%not loaded?)
+                                       (begin
+                                         (jazz:load-unit ',(jazz:get-declaration-locator (jazz:get-declaration-toplevel referenced-declaration)))
+                                         (set! loaded? #t)))
+                                   ,(jazz:sourcified-form (jazz:emit-binding-reference referenced-declaration module-declaration walker resume environment backend))))))))))))
               (jazz:get-module-declaration-walker-autoloads module-declaration))
     (jazz:sort-list (lambda (x y) (%%string<? (%%symbol->string (%%cadr x)) (%%symbol->string (%%cadr y)))) (jazz:queue-list queue))))
 

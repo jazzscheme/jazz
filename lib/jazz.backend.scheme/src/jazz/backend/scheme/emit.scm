@@ -380,7 +380,7 @@
                 (jazz:emit-method-dispatch object-argument code source others-arguments others-codes method-declaration declaration walker resume environment backend))))
       (let ((dv (jazz:register-variable declaration (%%string-append (%%symbol->string name) "!d") #f)))
         (let ((d (%%car dv)))
-          (%%set-cdr! dv `(jazz:cache-dispatch ',name (lambda (d) (set! ,d d)) ',nodes))
+          (%%set-cdr! dv `(jazz:cache-dispatch ',name ',d ',nodes))
           (jazz:new-code
             (jazz:with-uniqueness (jazz:sourcified-form object-code)
               (lambda (object)

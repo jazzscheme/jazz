@@ -1421,7 +1421,7 @@
 ;;;
 
 
-(define (jazz:cache-dispatch name setter nodes)
+(define (jazz:cache-dispatch name global nodes)
   (lambda (object)
     (let ((class (jazz:class-of object)))
       (let ((category (jazz:locate-method-owner class name)))
@@ -1437,7 +1437,7 @@
                            (jazz:class-dispatch field category))
                           ((interface)
                            (jazz:interface-dispatch field category)))))
-                  (setter proc)
+                  (%%global-var-set! global proc)
                   (proc object))))))))))
 
 

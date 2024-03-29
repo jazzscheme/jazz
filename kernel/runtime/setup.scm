@@ -670,7 +670,7 @@ end-of-code
                         ;; this will clearly be missing user-defined syntax
                         (jazz:load-unit 'foundation.dialect)
                         (jazz:load-unit 'jazz)
-                        (jazz:load-unit 'jazz.language.syntax)
+                        (jazz:load-unit 'jazz.dialect.syntax)
                         (jazz:load-unit 'core.unit.runtime)
                         (jazz:load-unit 'core.unit.build)
                         (jazz:load-unit 'scheme.syntax-rules)

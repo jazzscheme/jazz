@@ -574,7 +574,7 @@
 
 
 (jazz:define-emit (new-call (scheme backend) operator locator arguments arguments-codes declaration walker resume environment)
-  (if (%%eq? locator 'jazz.language.runtime.kernel:new)
+  (if (%%eq? locator 'jazz.dialect.kernel:new)
       (%%assert (%%pair? arguments)
         (let ((class-expression (%%car arguments)))
           (if (%%class-is? class-expression jazz:Binding-Reference)
@@ -675,8 +675,8 @@
 (jazz:add-primitive-patterns     'scheme.language.runtime:vector-ref                  '((bounds-unsafe %%vector-ref    <vector^fx:any>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime:vector-set!                 '((bounds-unsafe %%vector-set!   <vector^fx^any:void>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-ref             '((bounds-unsafe %%values-ref  <values^fx:any>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:values-set!            '((bounds-unsafe %%values-set! <values^fx^any:void>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:values-ref                      '((bounds-unsafe %%values-ref  <values^fx:any>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:values-set!                     '((bounds-unsafe %%values-set! <values^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:table-ref                   '((safe %%table-ref  <table^any:any>) (safe %%table-ref <table^any^any:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:table-set!                  '((safe %%table-set! <table^any^any:void>)))
@@ -703,11 +703,11 @@
 (jazz:add-primitive-patterns     'gambit.language.runtime:bitwise-ior                 '((safe %%fxior <fx^fx:fx>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:bitwise-xor                 '((safe %%fxxor <fx^fx:fx>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:arithmetic-shift            '((safe %%fxarithmetic-shift <fx^fx:fx>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:arithmetic-shift-left  '((safe %%fxarithmetic-shift-left <fx^fx:fx>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:arithmetic-shift-right '((safe %%fxarithmetic-shift-right <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:arithmetic-shift-left           '((safe %%fxarithmetic-shift-left <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:arithmetic-shift-right          '((safe %%fxarithmetic-shift-right <fx^fx:fx>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fixnum->flonum         '((safe %%fixnum->flonum <fx:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flonum->fixnum         '((safe %%flonum->fixnum <fv:fx>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:fixnum->flonum                  '((safe %%fixnum->flonum <fx:fl>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:flonum->fixnum                  '((safe %%flonum->fixnum <fv:fx>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:s8vector                    '((safe          %%s8vector         <fx*:s8vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:s8vector-length             '((safe          %%s8vector-length  <s8vector:fx>)))
@@ -760,17 +760,17 @@
 (jazz:add-primitive-patterns     'gambit.language.runtime:f64vector-set!              '((bounds-unsafe %%f64vector-set!   <f64vector^fx^any:void>)))
 
 ;; use at your own risk versions that do not initialize memory
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s8vector  '((safe %%allocate-s8vector  <any*:s8vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u8vector  '((safe %%allocate-u8vector  <any*:u8vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s16vector '((safe %%allocate-s16vector <any*:s16vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u16vector '((safe %%allocate-u16vector <any*:u16vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s32vector '((safe %%allocate-s32vector <any*:s32vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u32vector '((safe %%allocate-u32vector <any*:u32vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s64vector '((safe %%allocate-s64vector <any*:s64vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u64vector '((safe %%allocate-u64vector <any*:u64vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-f32vector '((safe %%allocate-f32vector <any*:f32vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-f64vector '((safe %%allocate-f64vector <any*:f64vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-vector    '((safe %%allocate-vector    <any*:vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-s8vector             '((safe %%allocate-s8vector  <any*:s8vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-u8vector             '((safe %%allocate-u8vector  <any*:u8vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-s16vector            '((safe %%allocate-s16vector <any*:s16vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-u16vector            '((safe %%allocate-u16vector <any*:u16vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-s32vector            '((safe %%allocate-s32vector <any*:s32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-u32vector            '((safe %%allocate-u32vector <any*:u32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-s64vector            '((safe %%allocate-s64vector <any*:s64vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-u64vector            '((safe %%allocate-u64vector <any*:u64vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-f32vector            '((safe %%allocate-f32vector <any*:f32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-f64vector            '((safe %%allocate-f64vector <any*:f64vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-vector               '((safe %%allocate-vector    <any*:vector>)))
 
 ;; tracking allocations
 (jazz:add-primitive-patterns     'scheme.language.runtime:make-string                 '((safe %%make-string    <any*:string>)))
@@ -792,17 +792,17 @@
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-will                   '((safe %%make-will      <any*:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-parameter              '((safe %%make-parameter <any*:any>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flref                  '((safe %%flref <fv^fx:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((safe %%flset! <fv^fx^fv:void>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:flref                           '((safe %%flref <fv^fx:fl>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:flset!                          '((safe %%flset! <fv^fx^fv:void>)))
 
 (%%when (%%not jazz:debug-user?)
-  (jazz:add-primitive-patterns   'jazz.language.runtime.functional:element            '((safe list-ref <list^int:any>) (bounds-unsafe %%vector-ref    <vector^int:any>)      (bounds-unsafe %%string-ref    <string^int:char>)))
-  (jazz:add-primitive-patterns   'jazz.language.runtime.functional:set-element!       '(                               (bounds-unsafe %%vector-set!   <vector^int^any:void>) (bounds-unsafe %%string-set!   <string^int^char:void>))))
+  (jazz:add-primitive-patterns   'jazz.language.runtime:element                       '((safe list-ref <list^int:any>) (bounds-unsafe %%vector-ref    <vector^int:any>)      (bounds-unsafe %%string-ref    <string^int:char>)))
+  (jazz:add-primitive-patterns   'jazz.language.runtime:set-element!                  '(                               (bounds-unsafe %%vector-set!   <vector^int^any:void>) (bounds-unsafe %%string-set!   <string^int^char:void>))))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:between?           '((safe %%fxbetween? <fx^fx^fx:bool>) (safe %%flbetween? <fl^fl^fl:bool>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:between?                      '((safe %%fxbetween? <fx^fx^fx:bool>) (safe %%flbetween? <fl^fl^fl:bool>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:current-seconds!       '((safe %%get-current-time! <f64vector^fx:void>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:bytes-allocated!       '((safe %%get-bytes-allocated! <f64vector^fx:void>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:current-seconds!                '((safe %%get-current-time! <f64vector^fx:void>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:bytes-allocated!                '((safe %%get-bytes-allocated! <f64vector^fx:void>)))
 
 
 (jazz:define-emit (primitive-call (scheme backend) operator locator arguments arguments-codes declaration walker resume environment)

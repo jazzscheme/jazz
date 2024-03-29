@@ -2947,7 +2947,7 @@
 (define (jazz:patch-type-until-unification type)
   (let ((name (%%table-ref jazz:primitive-declarations type #f)))
     (if name
-        (let ((module-name (if (%%eq? name 'Object) 'jazz.language.runtime.object 'jazz.language.runtime.functional)))
+        (let ((module-name 'jazz.language.runtime))
           (let ((module-declaration (jazz:get-catalog-entry module-name)))
             (if module-declaration
                 (jazz:lookup-declaration module-declaration name jazz:public-access module-declaration)

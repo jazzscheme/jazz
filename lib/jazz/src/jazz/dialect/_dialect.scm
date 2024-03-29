@@ -43,5 +43,6 @@
          (jazz.backend.scheme.runtime))
 
 
-(export (jazz.language.syntax (phase syntax))
+(export (jazz.dialect.kernel)
+        (jazz.dialect.syntax (phase syntax))
         (gambit (except break current-directory current-time error print seconds->time time->seconds time? trace unbreak untrace))))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Functional
+;;;; Jazz Language Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,19 +35,331 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.runtime.functional jazz.dialect
+(module protected jazz.language.runtime jazz.dialect
+
+
+(import (irregex)
+        (scheme.core.kernel)
+        (jazz.language.loop (phase syntax)))
+
+
+(native private jazz:system-format)
+
+
+;;;
+;;;; Object
+;;;
 
 
 (proclaim (warn optimizations))
 
 
-(import (jazz.language.runtime.kernel)
-        (jazz.language.runtime.object)
-        (irregex))
+(class primitive Object metaclass Object-Class
+  
+  
+  (method core chained (initialize self)
+    )
+
+  
+  (method core chained (destroy self)
+    )
+  
+  
+  (method core public virtual (call-print self output detail)
+    (print self output detail))
+  
+  
+  (method core virtual (print-object self output detail)
+    )
+  
+  
+  (method core hidden virtual (tree-fold self down up here seed environment)
+    )
+  
+  
+  (method public virtual (print self output detail)
+    (if (object? self)
+        (print-unreadable self output
+          (lambda (output)
+            ))
+      (print-detail self output detail)))
+  
+  
+  (method package (print-detail self output detail)
+    (if (eq? detail :human)
+        (display self output)
+      (write self output)))
+  
+  
+  (method package virtual (assemble self)
+    )
+  
+  
+  (method public virtual (class-actions self)
+    '())
+  
+  
+  (method public virtual (focus-actions self)
+    '())
+  
+  
+  (method public virtual (guest-actions self)
+    '())
+  
+  
+  (method public virtual (hash-object self)
+    (error "No hashing defined for {t}" self))
+  
+  
+  (method package virtual (copy-object self deep?)
+    (error "Unable to copy {t}" self))
 
 
-(native private jazz:error)
-(native private jazz:system-format)
+  (method package virtual (compare-object self object)
+    :incompatible)
+
+
+  (method package virtual (ci-compare-object self object)
+    :incompatible)
+
+
+  (method package virtual (di-compare-object self object)
+    :incompatible)
+
+
+  (method protected virtual (describe-object self output)
+    (print self output #t))
+
+
+  (method public virtual (initialized? self)
+    ;; todo
+    #t)
+
+
+  (method public virtual (close self)
+    (destroy self))
+
+
+  (method public virtual (destroying? self)
+    ;; todo
+    #f)
+
+
+  (method public virtual (destroyed? self)
+    ;; todo
+    #f)
+  
+  
+  (method public virtual (walk-references self proc)
+    )
+  
+  
+  (method public virtual (setup-context self context)
+    )
+  
+  
+  (method public virtual (get-sort-value self)
+    #f)
+  
+  
+  (method package virtual (coerce-string self)
+    (error "{t} cannot be coerced into a string" self))
+  
+  
+  (method package virtual (iterate-object self)
+    (error "{t} is not an iterable type" self))
+
+
+  ;;;
+  ;;;; Marshall
+  ;;;
+  
+  
+  (method protected virtual (marshall-size self)
+    )
+  
+  
+  (method protected virtual (marshall-to self obj content)
+    )
+  
+  
+  (method protected virtual (unmarshall-from self obj content)
+    )
+
+
+  ;;;
+  ;;;; Compare
+  ;;;
+
+
+  (method protected virtual (object-similar? self object)
+    (eq? self object))
+
+
+  (method package virtual (object-alphabetic? self)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method package virtual (object-numeric? self)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method package virtual (object-alphanumeric? self)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method package virtual (object-whitespace? self)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method package virtual (object-upper-case? self)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method package virtual (object-lower-case? self)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method package virtual (object-upcase self)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method package virtual (object-downcase self)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method package virtual (object-capitalize self)
+    (error "{t} is not an alphabetic type" self)))
+
+
+(definition public inline (compare a <Object> b <Object>)
+  (if (eqv? a b)
+      :equal
+    (compare-object a b)))
+
+
+(definition public inline (ci-compare a <Object> b <Object>)
+  (if (eqv? a b)
+      :equal
+    (ci-compare-object a b)))
+
+
+(definition public inline (di-compare a <Object> b <Object>)
+  (if (eqv? a b)
+      :equal
+    (di-compare-object a b)))
+
+
+(definition public (copy obj <Object>)
+  (subcopy obj #f))
+
+
+(definition public (subcopy obj <Object> deep? <bool>)
+  (copy-object obj deep?))
+
+
+(definition public (print-unreadable object <Object> output proc)
+  (let ((class-name (reference-name (get-name (class-of object))))
+        (string (with-exception-catcher
+                  (lambda (exc)
+                    "@error@")
+                  (lambda ()
+                    (let ((output (open-output-string)))
+                      (proc output)
+                      (get-output-string output)))))
+        (serial (object->serial object)))
+    (display "{" output)
+    (display class-name output)
+    (unless (string=? string "")
+      (display " " output)
+      (display string output))
+    (display " #" output)
+    (display serial output)
+    (display "}" output)))
+
+
+(definition package (native-class name)
+  (error "Scheme primitives must be used to create {a}" name))
+
+
+(definition public (hash obj <Object>)
+  (hash-object obj))
+
+
+;;;
+;;;; Leak detection
+;;;
+
+
+(definition public track-leaks?
+  (global-setting 'track-leaks? #f))
+
+
+(definition protected leak-stack?
+  (global-setting 'leak-stack? #f))
+
+(definition protected leak-backtrace?
+  (global-setting 'leak-backtrace? #f))
+
+(definition protected leak-depth
+  (global-setting 'leak-depth 8))
+
+
+(definition public *allocated* <table>
+  (make-table weak-keys: #t test: eq?))
+
+(definition public *double-freed* <table>
+  (make-table test: eq?))
+
+
+(definition public (leak-info)
+  (cond (leak-stack?
+         (execution-stack depth: leak-depth))
+        (leak-backtrace?
+         (execution-backtrace leak-depth))
+        (else
+         #t)))
+
+
+(definition public (allocated obj)
+  (when track-leaks?
+    (let ((info (leak-info)))
+      (table-set! *allocated* obj info)
+      (make-will obj
+        (lambda (obj)
+          (let ((info (table-ref *allocated* obj #f)))
+            (when info
+              (leaked obj info))))))))
+
+(definition public (freed obj)
+  (when track-leaks?
+    (if (table-ref *allocated* obj #f)
+        (table-set! *allocated* obj)
+      (let ((info (leak-info)))
+        (table-set! *double-freed* obj info)))))
+
+
+(definition *leaks-mutex*
+  (make-mutex))
+
+(definition *leaks*
+  '())
+
+(definition public (leaks)
+  *leaks*)
+
+(definition (leaked obj info)
+  (mutex-lock! *leaks-mutex*)
+  (set! *leaks* (cons (cons obj info) *leaks*))
+  (mutex-unlock! *leaks-mutex*))
+
+
+;;;
+;;;; Functional
+;;;
+
+
+(proclaim (warn optimizations))
 
 
 ;;;
@@ -6226,4 +6538,4887 @@
   (get-procedure (registered-site name)))
 
 (definition public (call-site-set! name value)
-  (set-procedure (registered-site name) value)))
+  (set-procedure (registered-site name) value))
+
+
+;;;
+;;;; Format
+;;;
+
+
+(proclaim (warn optimizations))
+
+
+;;;
+;;;; Lexicon
+;;;
+
+
+;; (format "{a width: 10 justify: :right} {l}" 5 lst)
+
+;; In the preceding format :
+;;   directives -> {a} and {l}
+;;   parameters -> width: 10 justify: :right
+;;   arguments  -> 5 and lst
+
+
+;;;
+;;;; Format
+;;;
+
+
+(definition public (format . rest)
+  
+  (declare (proper-tail-calls))
+  
+  (define (process-format destination control-string arguments out control-reader arguments-scan)
+    
+    ;;;
+    ;;;; Process
+    ;;;
+    
+    (define (process input context output?)
+      (let ((done? #f))
+        (while (not done?)
+          (let ((c (read-char input)))
+            (if (eof-object? c)
+                (set! done? #t)
+              (case c
+                ((#\~)
+                 (let ((c (require-char input)))
+                   (when output?
+                     (write-char c out))))
+                ((#\{)
+                 (if context
+                     (let ((parameters (read-parameters input)))
+                       (assert (not-null? parameters)
+                         (let ((name (car parameters)))
+                           (cond ((noarg-letter->directive name)
+                                  => (lambda (directive)
+                                       (let ((parameters (cdr parameters)))
+                                         (dispatch-directive directive parameters output?))))
+                                 ((enumerator? name)
+                                  (let ((name (enumerator->symbol name)))
+                                    (let ((directive (name->directive name))
+                                          (parameters (cdr parameters)))
+                                      (dispatch-directive directive parameters output?))))
+                                 (else
+                                  (let ((binding (assv name context)))
+                                    (if binding
+                                        (let ((value (cdr binding))
+                                              (parameters (cdr parameters)))
+                                          (add-argument value)
+                                          (if (null? parameters)
+                                              (dispatch-directive #\a parameters output?)
+                                            (let ((directive (name->directive (enumerator->symbol (car parameters))))
+                                                  (parameters (cdr parameters)))
+                                              (dispatch-directive directive parameters output?))))
+                                      (error "Unable to find binding: {s}" name))))))))
+                   (let ((c (peek-char input)))
+                     (case c
+                       ((#\?)
+                        (if (not output?)
+                            (error "Recursive conditional directive not yet supported")
+                          (read-char input)
+                          (conditional-directive input context)))
+                       ((#\^)
+                        (read-char input)
+                        (context-directive input))
+                       (else
+                        (let ((directive (read-char input))
+                              (parameters (read-parameters input)))
+                          (if (eqv? directive #\:)
+                              (assert (not-null? parameters)
+                                (bind (name . parameters) parameters
+                                  (dispatch-directive (name->directive name) parameters output?)))
+                            (dispatch-directive directive parameters output?))))))))
+                (else
+                 (when output?
+                   (write-char c out))))))))
+      (when (and (toplevel? input) (not (arguments-empty?)))
+        (error "Too many format arguments")))
+    
+    (define (dispatch-directive directive parameters output?)
+      (case directive
+        ((#\a) (display-directive parameters output?))
+        ((#\s) (write-directive parameters output?))
+        ((#\t) (text-directive parameters output?))
+        ((#\p) (print-directive parameters output?))
+        ((#\c) (char-directive parameters output?))
+        ((#\u) (unsigned-directive parameters output?))
+        ((#\b) (binary-directive parameters output?))
+        ((#\x) (hexadecimal-directive parameters output?))
+        ((#\r) (real-directive parameters output?))
+        ((#\l) (list-directive parameters output?))
+        ((#\k) (properties-directive parameters output?))
+        ((#\_) (column-directive parameters output?))
+        ((#\&) (tab-directive parameters output?))
+        ((#\%) (newline-directive parameters output?))
+        ((#\$) (freshline-directive parameters output?))
+        ((#\!) (force-directive parameters output?))
+        (else (error "Unknown format directive {a}" directive))))
+    
+    (define (noarg-letter->directive letter)
+      (case letter
+        ((_) #\_)
+        ((&) #\&)
+        ((%) #\%)
+        (($) #\$)
+        ((!) #\!)
+        (else #f)))
+    
+    (define (name->directive name)
+      (case name
+        ((display)     #\a)
+        ((write)       #\s)
+        ((text)        #\t)
+        ((print)       #\p)
+        ((char)        #\c)
+        ((unsigned)    #\u)
+        ((binary)      #\b)
+        ((hexadecimal) #\x)
+        ((real)        #\r)
+        ((list)        #\l)
+        ((properties)  #\k)
+        ((column)      #\_)
+        ((tab)         #\&)
+        ((newline)     #\%)
+        ((freshline)   #\$)
+        ((force)       #\!)))
+    
+    (define (read-parameters input)
+      (read-delimited input "format parameter" #\}))
+    
+    (define (toplevel? input)
+      (eq? input control-reader))
+    
+    (define (arguments-empty?)
+      (null? arguments-scan))
+    
+    ;;;
+    ;;;; Conditional
+    ;;;
+    
+    (define (conditional-directive input context)
+      (cond ((eqv? (peek-char input) #\:)
+             (read-char input)
+             (process-conditional input context #t))
+            (else
+             (process-conditional input context #f))))
+    
+    (define (process-conditional input context explicit?)
+      (let ((subreader (open-input-string (read-control-string input)))
+            (output? (or (and explicit? (next-argument)) (and (not explicit?) (peek-argument)))))
+        (process subreader context output?)))
+    
+    ;;;
+    ;;;; Context
+    ;;;
+    
+    (define (context-directive input)
+      (cond ((eqv? (peek-char input) #\:)
+             (read-char input)
+             (process-context input (next-argument))
+             (read-char input)
+             (read-char input))
+            (else
+             (process-context input (read-control-string input)))))
+    
+    (define (process-context input substr)
+      (let ((subreader (open-input-string substr))
+            (context (next-argument)))
+        (process subreader context #t)))
+    
+    ;;;
+    ;;;; Control
+    ;;;
+    
+    (define (read-control-string input)
+      (let ((output (open-output-string))
+            (done? #f))
+        (while (not done?)
+          (let ((c (require-char input)))
+            (if (and (eqv? c #\~) (eqv? (peek-char input) #\}))
+                (begin
+                  (read-char input)
+                  (set! done? #t))
+              (write-char c output))))
+        (get-output-string output)))
+    
+    ;;;
+    ;;;; Directives
+    ;;;
+    
+    (define (display-directive parameters output?)
+      (let ((argument (next-argument)))
+        (when output?
+          (with-justification parameters
+            (lambda (output)
+              (display argument output))))))
+    
+    (define (write-directive parameters output?)
+      (let ((argument (next-argument)))
+        (when output?
+          (with-justification parameters
+            (lambda (output)
+              (write argument output))))))
+    
+    (define (text-directive parameters output?)
+      (let ((argument (next-argument)))
+        (when output?
+          (with-justification parameters
+            (lambda (output)
+              (textual argument output))))))
+    
+    (define (print-directive parameters output?)
+      (let ((argument (next-argument))
+            (detail (next-argument)))
+        (when output?
+          (with-justification parameters
+            (lambda (output)
+              (print-expr argument detail output))))))
+    
+    (define (char-directive parameters output?)
+      (let ((argument (next-argument)))
+        (when output?
+          (with-justification parameters
+            (lambda (output)
+              (write-char argument output))))))
+    
+    (define (unsigned-directive parameters output?)
+      (let ((argument (next-argument)))
+        (when output?
+          (with-justification parameters
+            (lambda (output)
+              (print-unsigned argument output))))))
+    
+    (define (binary-directive parameters output?)
+      (let ((argument (next-argument)))
+        (when output?
+          (with-justification parameters
+            (lambda (output)
+              (print-binary argument output))))))
+    
+    (define (hexadecimal-directive parameters output?)
+      (let ((argument (next-argument)))
+        (when output?
+          (with-justification parameters
+            (lambda (output)
+              (print-hexadecimal argument output))))))
+    
+    (define (real-directive parameters output?)
+      (let ((argument (next-argument))
+            (precision (get-precision parameters)))
+        (when output?
+          (with-justification parameters
+            (lambda (output)
+              (print-real argument precision output))))))
+    
+    (define (list-directive parameters output?)
+      (let* ((argument (next-argument))
+             (separator (get-separator parameters))
+             (last-separator (get-last-separator parameters separator))
+             (before (get-before parameters))
+             (after (get-after parameters))
+             (detail (get-detail parameters)))
+        (when output?
+          (with-justification parameters
+            (lambda (output)
+              (print-list argument separator last-separator before after detail output))))))
+    
+    (define (properties-directive parameters output?)
+      (let ((argument (next-argument))
+            (properties (get-properties parameters))
+            (empty-value (get-empty-value parameters))
+            (detail (get-detail parameters)))
+        (when output?
+          (with-justification parameters
+            (lambda (output)
+              (let ((scan argument))
+                (while (not-null? scan)
+                  (let ((key (car scan))
+                        (value (cadr scan)))
+                    (when (and (or (null? properties) (memq key properties))
+                               (or (unspecified? empty-value) (neq? value empty-value)))
+                      (write-char #\space output)
+                      (print-expr key detail output)
+                      (write-char #\space output)
+                      (print-expr value detail output)))
+                  (set! scan (cddr scan)))))))))
+    
+    (define (column-directive parameters output?)
+      (when output?
+        (let ((count (optional-parameter parameters 1)))
+          (loop (repeat count)
+                (do (write-char #\space out))))))
+    
+    (define (tab-directive parameters output?)
+      (when output?
+        (let ((count (optional-parameter parameters 1)))
+          (loop (repeat count)
+                (do (write-char #\tab out))))))
+    
+    (define (newline-directive parameters output?)
+      (when output?
+        (let ((count (optional-parameter parameters 1)))
+          (loop (repeat count)
+                (do (newline out))))))
+    
+    (define (freshline-directive parameters output?)
+      (when output?
+        (let ((count (optional-parameter parameters 1)))
+          (fresh-line out)
+          (loop (repeat (- count 1))
+                (do (newline out))))))
+    
+    (define (force-directive parameters output?)
+      (when output?
+        (force-output out)))
+    
+    ;;;
+    ;;;; Justification
+    ;;;
+    
+    (define (with-justification parameters proc)
+      (let ((width (get-width parameters)))
+        (if (not width)
+            (proc out)
+          (let ((justification (get-justify parameters))
+                (padding (get-padding parameters))
+                (output (open-output-string)))
+            (proc output)
+            (let ((buffer (get-output-string output)))
+              (justify buffer width justification padding))))))
+    
+    (define (justify buffer width justification padding)
+      (let ((size (cardinality buffer)))
+        (if (>= size width)
+            (display buffer out)
+          (let ((n (- width size)))
+            (case justification
+              ((:left)
+               (display buffer out)
+               (loop (repeat n)
+                     (do (write-char padding out))))
+              ((:right)
+               (loop (repeat n)
+                     (do (write-char padding out)))
+               (display buffer out)))))))
+    
+    ;;;
+    ;;;; Parameters
+    ;;;
+    
+    (define (optional-parameter parameters default)
+      (if (null? parameters)
+          default
+        (let ((param (car parameters)))
+          (if (eq? param :v)
+              (next-argument)
+            param))))
+    
+    (define (keyword-parameter parameters keyword default)
+      (let ((param (getf parameters keyword not-found: default)))
+        (if (eq? param :v)
+            (next-argument)
+          param)))
+    
+    (define (get-list? parameters)
+      (keyword-parameter parameters list?: #f))
+    
+    (define (get-width parameters)
+      (keyword-parameter parameters width: #f))
+    
+    (define (get-justify parameters)
+      (let ((param (keyword-parameter parameters justify: :left)))
+        (if (not (memq param '(:left :right)))
+            (error "Unknown justification {t}" param)
+          param)))
+    
+    (define (get-padding parameters)
+      (keyword-parameter parameters padding: #\space))
+    
+    (define (get-separator parameters)
+      (keyword-parameter parameters separator: " "))
+    
+    (define (get-last-separator parameters separator)
+      (keyword-parameter parameters last-separator: separator))
+    
+    (define (get-before parameters)
+      (keyword-parameter parameters before: #f))
+    
+    (define (get-after parameters)
+      (keyword-parameter parameters after: #f))
+    
+    (define (get-precision parameters)
+      (keyword-parameter parameters precision: 3))
+    
+    (define (get-properties parameters)
+      (keyword-parameter parameters properties: '()))
+    
+    (define (get-empty-value parameters)
+      (keyword-parameter parameters empty-value: (unspecified)))
+    
+    (define (get-detail parameters)
+      (keyword-parameter parameters detail: :reader))
+    
+    ;;;
+    ;;;; Arguments
+    ;;;
+    
+    (define (peek-argument)
+      (if (null? arguments-scan)
+          (error "Not enough format arguments for {t}" control-string)
+        (car arguments-scan)))
+    
+    (define (next-argument)
+      (if (null? arguments-scan)
+          (error "Not enough format arguments for {t}" control-string)
+        (prog1 (car arguments-scan)
+          (set! arguments-scan (cdr arguments-scan)))))
+    
+    (define (add-argument arg)
+      (set! arguments-scan (cons arg arguments-scan)))
+    
+    (process control-reader #f #t))
+  
+  (define (parse-format proc)
+    (if (string? (car rest))
+        (proc :string (car rest) (cdr rest))
+      (proc (car rest) (cadr rest) (cddr rest))))
+  
+  (parse-format
+    (lambda (destination control-string <string> arguments <list>)
+      (with-printer destination
+        (lambda (output)
+          (process-format destination control-string arguments output (open-input-string control-string) arguments))))))
+
+
+;;;
+;;;; Formatting
+;;;
+
+
+(definition public (format-cardinality n <fx>)
+  (if (= n 0)
+      "no"
+    (->string n)))
+
+
+(definition public (format-plural n <fx> (plural "s"))
+  (if (= n 1)
+      ""
+    plural))
+
+
+(definition public (format-gender word)
+  (if (vowel? (first word))
+      "an"
+    "a"))
+
+
+(definition public (format-is/are n <fx>)
+  (if (= n 1)
+      "is"
+    "are"))
+
+
+(definition public (format-was/were n <fx>)
+  (if (= n 1)
+      "was"
+    "were"))
+
+
+(definition public (format-y/ies n <fx>)
+  (if (= n 1)
+      "y"
+    "ies"))
+
+
+(definition public (format-following name n <fx>)
+  (if (= n 1)
+      (format "{a} was" name)
+    (format "{a} {a}s where" n name)))
+
+
+;;;
+;;;; Printing
+;;;
+
+
+(definition (print-expr expr detail (output (current-output-port)))
+  (print-detail expr output detail))
+
+
+(definition (print-unsigned n (output (current-output-port)))
+  (unimplemented 'print-unsigned))
+
+
+(definition (print-binary n (output (current-output-port)))
+  (display (number->string n 2) output))
+
+
+(definition (print-hexadecimal n (output (current-output-port)))
+  (display (number->string n 16) output))
+
+
+(definition (print-real r d (output (current-output-port)))
+  (if (not (finite? r))
+      (display r output)
+    (let ((n (inexact->exact (round (* (abs r) (expt 10 d))))))
+      (let ((i (quotient n (expt 10 d)))
+            (f (modulo n (expt 10 d))))
+        (let ((si (string-append
+                    (if (< r 0) "-" "")
+                    (if (and (= i 0) (> d 0)) "" (number->string i 10))))
+              (sf (number->string (+ f (expt 10 d)) 10)))
+          (if (> d 0)
+              (string-set! sf 0 #\.)
+            (set! sf ""))
+          (let ((lsi (string-length si))
+                (lsf (string-length sf)))
+            (display si output)
+            (display sf output)))))))
+
+
+(definition (print-list list separator last-separator before after detail (output (current-output-port)))
+  (when (not-null? list)
+    (when before
+      (display before output))
+    (let (iter (scan list))
+      (let ((expr (car scan)))
+        (print-detail expr output detail)
+        (let ((next (cdr scan)))
+          (when (not-null? next)
+            (if (pair? next)
+                (begin
+                  (display (if (null? (cdr next)) last-separator separator) output)
+                  (iter next))
+              (display " . " output)
+              (print-detail next output detail))))))
+    (when after
+      (display after output))))
+
+
+;;;
+;;;; Geometry
+;;;
+
+
+(proclaim (warn optimizations))
+
+
+;;;
+;;;; Cell
+;;;
+
+
+(class Cell extends Numeric
+  
+  
+  (state ()
+    (slot line <fx> accessors generate)
+    (slot col  <fx> accessors generate))
+  
+  
+  (method override (initialize self l <fx> c <fx>)
+    (set! line l)
+    (set! col c))
+  
+  
+  (method override (copy-object self deep?)
+    (new Cell line col))
+
+
+  (method override (compare-object self target)
+    (if (is-not? target Cell)
+        :incompatible
+      (let ((compared (compare line (get-line target))))
+        (if (not (eq? compared :equal))
+            compared
+          (compare col (get-col target))))))
+
+
+  (method override (di-compare-object self target)
+    (if (is-not? target Cell)
+        :incompatible
+      (let ((compared (di-compare line (get-line target))))
+        (if (not (eq? compared :equal))
+            compared
+          (di-compare col (get-col target))))))
+  
+  
+  (method override (print self output readably)
+    (format output "~{{a} {a} {a}}"
+            (category-name (class-of self))
+            line
+            col))
+
+
+  (method override (numeric-norm self)
+    (error "Cannot norm {t}" self))
+
+
+  (method override (numeric-add self n)
+    (cond ((is? n Cell) (new Cell (+ line (get-line n)) (+ col (get-col n))))
+          ((integer? n) (new Cell line (+ col n)))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method override (numeric-negate self)
+    (new Cell (- line) (- col)))
+
+
+  (method override (numeric-multiply self n)
+    (if (integer? n)
+        (new Cell (* line n) (* col n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method override (numeric-inverse self)
+    (error "Cannot inverse {t}" self))
+  
+  
+  (method public (increase-line self (delta <fx> 1))
+    (set! line (+ line delta)))
+  
+  
+  (method public (increase-col self (delta <fx> 1))
+    (set! col (+ col delta))))
+
+
+(definition public inline (allocate-cell line <fx> col <fx>) <Cell>
+  (allocate Cell line col))
+
+(specialize inline (new class <category<Cell>> line col) <Cell>
+  (allocate-cell line col))
+
+
+(specialize inline as copy-cell (copy c <Cell>) <Cell>
+  (new Cell (get-line c) (get-col c)))
+
+
+(specialize inline as cell=? (= c1 <Cell> c2 <Cell>) <bool>
+  (and (= (get-line c1) (get-line c2))
+       (= (get-col c1) (get-col c2))))
+
+
+(specialize as cell<? (< c1 <Cell> c2 <Cell>) <bool>
+  (let ((l1 (get-line c1))
+        (l2 (get-line c2)))
+    (or (< l1 l2)
+        (and (= l1 l2)
+             (< (get-col c1) (get-col c2))))))
+
+
+(specialize as cell<=? (<= c1 <Cell> c2 <Cell>) <bool>
+  (let ((l1 (get-line c1))
+        (l2 (get-line c2)))
+    (or (< l1 l2)
+        (and (= l1 l2)
+             (<= (get-col c1) (get-col c2))))))
+
+
+(specialize as cell>? (> c1 <Cell> c2 <Cell>) <bool>
+  (let ((l1 (get-line c1))
+        (l2 (get-line c2)))
+    (or (> l1 l2)
+        (and (= l1 l2)
+             (> (get-col c1) (get-col c2))))))
+
+
+(specialize as cell>=? (>= c1 <Cell> c2 <Cell>) <bool>
+  (let ((l1 (get-line c1))
+        (l2 (get-line c2)))
+    (or (> l1 l2)
+        (and (= l1 l2)
+             (>= (get-col c1) (get-col c2))))))
+
+
+(specialize inline as cell+ (+ c1 <Cell> c2 <Cell>) <Cell>
+  (new Cell
+    (+ (get-line c1) (get-line c2))
+    (+ (get-col c1) (get-col c2))))
+
+
+(specialize inline (+ c <Cell> n <int>) <Cell>
+  (new Cell
+    (get-line c)
+    (+ (get-col c) n)))
+
+
+(specialize inline as cell- (- c1 <Cell> c2 <Cell>) <Cell>
+  (new Cell
+    (- (get-line c1) (get-line c2))
+    (- (get-col c1) (get-col c2))))
+
+
+(specialize inline (- c <Cell> n <int>) <Cell>
+  (new Cell
+    (get-line c)
+    (- (get-col c) n)))
+
+
+(definition public (cell-hash c <Cell>)
+  (fxwrap+ (eqv?-hash (get-line c))
+           (eqv?-hash (get-col c))))
+
+
+;;;
+;;;; Range
+;;;
+
+
+(class Range extends Object
+  
+  
+  (state ()
+    (slot start)
+    (slot end))
+    
+    
+  (method override (initialize self s e)
+    (nextmethod self)
+    (set! start s)
+    (set! end e))
+  
+  
+  (method override (copy-object self deep?)
+    (new Range start end))
+
+
+  (method override (compare-object self target)
+    (cond ((is-not? target Range)
+           :incompatible)
+          ((and (= start (get-start target)) (= end (get-end target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method override (print self output readably)
+    (format output "~{{a} {s} {s}}"
+            (category-name (class-of self))
+            start
+            end))
+  
+  
+  (method public inline (get-start self)
+    start)
+  
+  
+  (method public inline (get-end self)
+    end)
+  
+  
+  (method public virtual (extent self)
+    (- end start))
+  
+  
+  (method public virtual (extended? self)
+    (not (= start end)))
+  
+  
+  (method public virtual (empty? self)
+    (= start end))
+  
+  
+  (method public (inside? self n)
+    (and (>= n start)
+         (< n end)))
+
+
+  (method public (before? self n)
+    (< n start))
+
+
+  (method public (after? self n)
+    (> n end))
+  
+  
+  (method public (intersect? self range)
+    (and (< (get-start range) end)
+         (>= (get-end range) start)))
+
+
+  (method public (intersect self range)
+    (when (intersect? self range)
+      (new (class-of self) (max start (get-start range)) (min end (get-end range))))))
+
+
+(definition public inline (allocate-range start end) <Range>
+  (allocate Range start end))
+
+(specialize inline (new class <category<Range>> start end) <Range>
+  (allocate-range start end))
+
+
+(specialize inline as range=? (= r1 <Range> r2 <Range>) <bool>
+  (and (= (get-start r1) (get-start r2))
+       (= (get-end r1) (get-end r2))))
+
+
+;;;
+;;;; Range$Cell$
+;;;
+
+
+(class Range$Cell$ extends Object
+  
+  
+  (state ()
+    (slot start <Cell> getter generate)
+    (slot end   <Cell> getter generate))
+  
+  
+  (method override (initialize self s <Cell> e <Cell>)
+    (nextmethod self)
+    (set! start s)
+    (set! end e))
+  
+  
+  (method override (copy-object self deep?)
+    (new Range$Cell$ start end))
+
+
+  (method override (compare-object self target)
+    (cond ((is-not? target Range$Cell$)
+           :incompatible)
+          ((and (= start (get-start target)) (= end (get-end target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method override (print self output readably)
+    (format output "~{{a} {s} {s}}"
+            (category-name (class-of self))
+            start
+            end))
+  
+  
+  (method public virtual (extent self) <Cell>
+    (- end start))
+  
+  
+  (method public virtual (extended? self)
+    (not (= start end)))
+  
+  
+  (method public virtual (empty? self)
+    (= start end))
+  
+  
+  (method public (inside? self n <Cell>) <bool>
+    (and (>= n start)
+         (< n end)))
+
+
+  (method public (before? self n <Cell>) <bool>
+    (< n start))
+
+
+  (method public (after? self n <Cell>) <bool>
+    (> n end))
+  
+  
+  (method public (intersect? self range <Range$Cell$>) <bool>
+    (and (< (get-start range) end)
+         (>= (get-end range) start)))
+
+
+  (method public (intersect self range <Range$Cell$>)
+    (when (intersect? self range)
+      (new (class-of self) (max start (get-start range)) (min end (get-end range))))))
+
+
+(definition public inline (allocate-range$Cell$ start <Cell> end <Cell>) <Range$Cell$>
+  (allocate Range$Cell$ start end))
+
+(specialize inline (new class <category<Range$Cell$>> start end) <Range$Cell$>
+  (allocate-range$Cell$ start end))
+
+
+(specialize inline (= r1 <Range$Cell$> r2 <Range$Cell$>) <bool>
+  (and (= (get-start r1) (get-start r2))
+       (= (get-end r1) (get-end r2))))
+
+
+;;;
+;;;; Point
+;;;
+
+
+(class Point extends Numeric
+  
+  
+  (state ()
+    (slot h <fx> getter generate)
+    (slot v <fx> getter generate))
+  
+  
+  (method override (initialize self h <fx> v <fx>)
+    (nextmethod self)
+    (set! self.h h)
+    (set! self.v v))
+  
+  
+  (method override (copy-object self deep?)
+    (new Point h v))
+
+
+  (method override (compare-object self target)
+    (cond ((is-not? target Point)
+           :incompatible)
+          ((let ((target-point <Point> target))
+             (and (= h (get-h target-point)) (= v (get-v target-point))))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method override (print self output readably)
+    (format output "~{Point {a} {a}}"
+            h
+            v))
+  
+  
+  (method override (numeric-norm self)
+    (sqrt (+ (expt h 2) (expt v 2))))
+
+
+  (method override (numeric-add self n)
+    (cond ((is? n Point) (new Point (+ h (get-h n)) (+ v (get-v n))))
+          ((is? n Distance) (new Point (+ h (get-x n)) (+ v (get-y n))))
+          ((is? n Dimension) (new Point (+ h (get-width n)) (+ v (get-height n))))
+          ((integer? n) (new Point (+ h n) v))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method override (numeric-negate self)
+    (new Point (- h) (- v)))
+
+
+  (method override (numeric-multiply self n)
+    (if (integer? n)
+        (new Point (* h n) (* v n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method override (numeric-inverse self)
+    (error "Cannot inverse {t}" self)))
+
+
+(definition public inline (allocate-point h <fx> v <fx>) <Point>
+  (allocate Point h v))
+
+(specialize inline (new class <category<Point>> h v) <Point>
+  (allocate-point h v))
+
+
+(specialize inline as point=? (= p1 <Point> p2 <Point>) <bool>
+  (and (= (get-h p1) (get-h p2))
+       (= (get-v p1) (get-v p2))))
+
+
+(specialize inline as point+ (+ p1 <Point> p2 <Point>) <Point>
+  (new Point
+    (+ (get-h p1) (get-h p2))
+    (+ (get-v p1) (get-v p2))))
+
+
+(specialize inline (+ p <Point> n <int>) <Point>
+  (new Point
+    (+ (get-h p) n)
+    (get-v p)))
+
+
+(specialize inline as point- (- p1 <Point> p2 <Point>) <Point>
+  (new Point
+    (- (get-h p1) (get-h p2))
+    (- (get-v p1) (get-v p2))))
+
+
+(specialize inline (- p <Point> n <int>) <Point>
+  (new Point
+    (- (get-h p) n)
+    (get-v p)))
+
+
+(specialize inline (- p <Point>) <Point>
+  (new Point
+    (- (get-h p))
+    (- (get-v p))))
+
+
+(specialize inline as point* (* p <Point> n <int>) <Point>
+  (new Point
+    (* (get-h p) n)
+    (* (get-v p) n)))
+
+
+;;;
+;;;; Point$fl$
+;;;
+
+
+(class Point$fl$ extends Numeric
+  
+  
+  (state ()
+    (slot h <fl> getter generate)
+    (slot v <fl> getter generate))
+  
+  
+  (method override (initialize self h <fl> v <fl>)
+    (nextmethod self)
+    (set! self.h h)
+    (set! self.v v))
+  
+  
+  (method override (copy-object self deep?)
+    (new Point$fl$ h v))
+
+
+  (method override (compare-object self target)
+    (cond ((is-not? target Point$fl$)
+           :incompatible)
+          ((let ((target-point <Point$fl$> target))
+             (and (= h (get-h target-point)) (= v (get-v target-point))))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method override (print self output readably)
+    (format output "~{Point$fl$ {a} {a}}"
+            h
+            v))
+  
+  
+  (method override (numeric-norm self)
+    (sqrt (+ (expt h 2) (expt v 2))))
+
+
+  (method override (numeric-add self n)
+    (cond ((is? n Point$fl$) (new Point$fl$ (+ h (get-h n)) (+ v (get-v n))))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method override (numeric-negate self)
+    (new Point$fl$ (- h) (- v)))
+
+
+  (method override (numeric-multiply self n)
+    (if (real? n)
+        (new Point$fl$ (* h n) (* v n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method override (numeric-inverse self)
+    (error "Cannot inverse {t}" self)))
+
+
+;;;
+;;;; Distance
+;;;
+
+
+(class Distance extends Numeric
+  
+  
+  (state ()
+    (slot x <fx> getter generate)
+    (slot y <fx> getter generate))
+  
+  
+  (method override (initialize self x <fx> y <fx>)
+    (nextmethod self)
+    (set! self.x x)
+    (set! self.y y))
+  
+  
+  (method override (copy-object self deep?)
+    (new Distance x y))
+
+
+  (method override (compare-object self target)
+    (if (is-not? target Distance)
+        :incompatible
+      (let ((compared (compare x (get-x target))))
+        (if (neq? compared :equal)
+            compared
+          (compare y (get-y target))))))
+  
+  
+  (method override (print self output readably)
+    (format output "~{Distance {a} {a}}"
+            x
+            y))
+
+
+  (method override (numeric-norm self)
+    (error "Cannot norm {t}" self))
+
+
+  (method override (numeric-add self n)
+    (cond ((is? n Distance) (new Distance (+ x (get-x n)) (+ y (get-y n))))
+          ((is? n Point) (new Distance (+ x (get-h n)) (+ y (get-v n))))
+          ((integer? n) (new Distance (+ x n) y))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method override (numeric-negate self)
+    (new Distance (- x) (- y)))
+
+
+  (method override (numeric-multiply self n)
+    (if (integer? n)
+        (new Distance (* x n) (* y n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method override (numeric-inverse self)
+    (error "Cannot inverse {t}" self)))
+
+
+(definition public inline (allocate-distance x <fx> y <fx>) <Distance>
+  (allocate Distance x y))
+
+(specialize inline (new class <category<Distance>> x y) <Distance>
+  (allocate-distance x y))
+
+
+(specialize inline as distance=? (= d1 <Distance> d2 <Distance>) <bool>
+  (and (= (get-x d1) (get-x d2))
+       (= (get-y d1) (get-y d2))))
+
+
+(specialize inline as distance+ (+ d1 <Distance> d2 <Distance>) <Distance>
+  (new Distance
+    (+ (get-x d1) (get-x d2))
+    (+ (get-y d1) (get-y d2))))
+
+
+(specialize inline as distance- (- d1 <Distance> d2 <Distance>) <Distance>
+  (new Distance
+    (- (get-x d1) (get-x d2))
+    (- (get-y d1) (get-y d2))))
+
+
+(specialize inline (- d <Distance>) <Distance>
+  (new Distance
+    (- (get-x d))
+    (- (get-y d))))
+
+
+(specialize inline as distance* (* d <Distance> n <int>) <Distance>
+  (new Distance
+    (* (get-x d) n)
+    (* (get-y d) n)))
+
+
+(definition public (distance-min d1 <Distance> d2 <Distance>) <Distance>
+  (new Distance
+    (min (get-x d1) (get-x d2))
+    (min (get-y d1) (get-y d2))))
+
+
+(definition public (distance-max d1 <Distance> d2 <Distance>) <Distance>
+  (new Distance
+    (max (get-x d1) (get-x d2))
+    (max (get-y d1) (get-y d2))))
+
+
+;;;
+;;;; Dimension
+;;;
+
+
+(class Dimension extends Numeric
+  
+  
+  (state ()
+    (slot width  <fx> getter generate)
+    (slot height <fx> getter generate))
+  
+  
+  (method override (initialize self w <fx> h <fx>)
+    (nextmethod self)
+    (set! width w)
+    (set! height h))
+  
+  
+  (method override (copy-object self deep?)
+    (new Dimension width height))
+
+
+  (method override (compare-object self target)
+    (if (is-not? target Dimension)
+        :incompatible
+      (let ((compared (compare width (get-width target))))
+        (if (neq? compared :equal)
+            compared
+          (compare height (get-height target))))))
+  
+  
+  (method override (print self output readably)
+    (format output "~{Dimension {a} {a}}"
+            width
+            height))
+
+
+  (method override (numeric-norm self)
+    (error "Cannot norm {t}" self))
+
+
+  (method override (numeric-add self n)
+    (cond ((is? n Dimension) (new Dimension (+ width (get-width n)) (+ height (get-height n))))
+          ((is? n Point) (new Dimension (+ width (get-h n)) (+ height (get-v n))))
+          ((integer? n) (new Dimension (+ width n) height))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method override (numeric-negate self)
+    (new Dimension (- width) (- height)))
+
+
+  (method override (numeric-multiply self n)
+    (if (integer? n)
+        (new Dimension (* width n) (* height n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method override (numeric-inverse self)
+    (error "Cannot inverse {t}" self)))
+
+
+(definition public inline (allocate-dimension width <fx> height <fx>) <Dimension>
+  (allocate Dimension width height))
+
+(specialize inline (new class <category<Dimension>> width height) <Dimension>
+  (allocate-dimension width height))
+
+
+(specialize inline as dimension=? (= d1 <Dimension> d2 <Dimension>) <bool>
+  (and (= (get-width d1) (get-width d2))
+       (= (get-height d1) (get-height d2))))
+
+
+(specialize inline as dimension+ (+ d1 <Dimension> d2 <Dimension>) <Dimension>
+  (new Dimension
+    (+ (get-width d1) (get-width d2))
+    (+ (get-height d1) (get-height d2))))
+
+
+(specialize inline as dimension- (- d1 <Dimension> d2 <Dimension>) <Dimension>
+  (new Dimension
+    (- (get-width d1) (get-width d2))
+    (- (get-height d1) (get-height d2))))
+
+
+(specialize inline as dimension* (* d <Dimension> n <int>) <Dimension>
+  (new Dimension
+    (* (get-width d) n)
+    (* (get-height d) n)))
+
+
+(definition public (dimension-min d1 <Dimension> d2 <Dimension>) <Dimension>
+  (new Dimension
+    (min (get-width d1) (get-width d2))
+    (min (get-height d1) (get-height d2))))
+
+
+(definition public (dimension-max d1 <Dimension> d2 <Dimension>) <Dimension>
+  (new Dimension
+    (max (get-width d1) (get-width d2))
+    (max (get-height d1) (get-height d2))))
+
+
+;;;
+;;;; Dimension$fl$
+;;;
+
+
+(class Dimension$fl$ extends Numeric
+  
+  
+  (state ()
+    (slot width  <fl> getter generate)
+    (slot height <fl> getter generate))
+  
+  
+  (method override (initialize self w <fl> h <fl>)
+    (nextmethod self)
+    (set! width w)
+    (set! height h))
+  
+  
+  (method override (copy-object self deep?)
+    (new Dimension$fl$ width height))
+
+
+  (method override (compare-object self target)
+    (if (is-not? target Dimension$fl$)
+        :incompatible
+      (let ((compared (compare width (get-width target))))
+        (if (neq? compared :equal)
+            compared
+          (compare height (get-height target))))))
+  
+  
+  (method override (print self output readably)
+    (format output "~{Dimension$fl$ {a} {a}}"
+            width
+            height))
+
+
+  (method override (numeric-norm self)
+    (error "Cannot norm {t}" self))
+
+
+  (method override (numeric-add self n)
+    (cond ((is? n Dimension$fl$) (new Dimension$fl$ (+ width (get-width n)) (+ height (get-height n))))
+          ((is? n Point$fl$) (new Dimension$fl$ (+ width (get-h n)) (+ height (get-v n))))
+          ((flonum? n) (new Dimension$fl$ (+ width n) height))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method override (numeric-negate self)
+    (new Dimension$fl$ (- width) (- height)))
+
+
+  (method override (numeric-multiply self n)
+    (if (flonum? n)
+        (new Dimension$fl$ (* width n) (* height n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method override (numeric-inverse self)
+    (error "Cannot inverse {t}" self)))
+
+
+;;;
+;;;; Rect
+;;;
+
+
+(class Rect extends Object
+  
+  
+  (state ()
+    (slot left   <fx> accessors generate)
+    (slot top    <fx> accessors generate)
+    (slot right  <fx> accessors generate)
+    (slot bottom <fx> accessors generate))
+  
+  
+  (method meta override (coerce-object self object)
+    (typecase object
+      ((Point) (new Rect (get-h object) (get-v object) 0 0))
+      (else (nextmethod self object))))
+  
+  
+  (method override (initialize self l <fx> t <fx> r <fx> b <fx>)
+    (nextmethod self)
+    (set! left l)
+    (set! top t)
+    (set! right r)
+    (set! bottom b))
+  
+  
+  (method override (copy-object self deep?)
+    (new Rect left top right bottom))
+
+
+  (method override (compare-object self target)
+    (cond ((is-not? target Rect)
+           :incompatible)
+          ((and (= left (get-left target)) (= top (get-top target)) (= right (get-right target)) (= bottom (get-bottom target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method override (print self output readably)
+    (format output "~{{a} {a} {a} {a} {a}}"
+            (category-name (class-of self))
+            left
+            top
+            right
+            bottom)))
+
+
+(definition public inline (rect? obj)
+  (is? obj Rect))
+
+
+(definition public inline (allocate-rect left <fx> top <fx> right <fx> bottom <fx>) <Rect>
+  (allocate Rect left top right bottom))
+
+(specialize inline (new class <category<Rect>> left top right bottom) <Rect>
+  (allocate-rect left top right bottom))
+
+
+(specialize inline as rect=? (= r1 <Rect> r2 <Rect>) <bool>
+  (and (= (get-left r1) (get-left r2))
+       (= (get-top r1) (get-top r2))
+       (= (get-right r1) (get-right r2))
+       (= (get-bottom r1) (get-bottom r2))))
+
+
+(definition public inline (empty-rect? rect)
+  (and (= (get-left rect) 0)
+       (= (get-top rect) 0)
+       (= (get-right rect) 0)
+       (= (get-bottom rect) 0)))
+
+
+(definition public inline (empty-rect$fl$? rect)
+  (and (= (get-left rect) 0.)
+       (= (get-top rect) 0.)
+       (= (get-right rect) 0.)
+       (= (get-bottom rect) 0.)))
+
+
+;;;
+;;;; Rect$fl$
+;;;
+
+
+(class Rect$fl$ extends Object
+  
+  
+  (state ()
+    (slot left   <fl> accessors generate)
+    (slot top    <fl> accessors generate)
+    (slot right  <fl> accessors generate)
+    (slot bottom <fl> accessors generate))
+  
+  
+  (method meta override (coerce-object self object)
+    (typecase object
+      ((Point) (new Rect$fl$ (get-h object) (get-v object) 0 0))
+      (else (nextmethod self object))))
+  
+  
+  (method override (initialize self l <fl> t <fl> r <fl> b <fl>)
+    (nextmethod self)
+    (set! left l)
+    (set! top t)
+    (set! right r)
+    (set! bottom b))
+  
+  
+  (method override (copy-object self deep?)
+    (new Rect$fl$ left top right bottom))
+
+
+  (method override (compare-object self target)
+    (cond ((is-not? target Rect$fl$)
+           :incompatible)
+          ((and (= left (get-left target)) (= top (get-top target)) (= right (get-right target)) (= bottom (get-bottom target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method override (print self output readably)
+    (format output "~{{a} {a} {a} {a} {a}}"
+            (category-name (class-of self))
+            left
+            top
+            right
+            bottom)))
+
+
+(definition public inline (rect$fl$? obj)
+  (is? obj Rect$fl$))
+
+
+(definition public inline (allocate-rect$fl$ left <fl> top <fl> right <fl> bottom <fl>) <Rect$fl$>
+  (allocate Rect$fl$ left top right bottom))
+
+(specialize inline (new class <category<Rect$fl$>> left top right bottom) <Rect$fl$>
+  (allocate-rect$fl$ left top right bottom))
+
+
+(specialize inline as rect$fl$=? (= r1 <Rect$fl$> r2 <Rect$fl$>) <bool>
+  (and (= (get-left r1) (get-left r2))
+       (= (get-top r1) (get-top r2))
+       (= (get-right r1) (get-right r2))
+       (= (get-bottom r1) (get-bottom r2))))
+
+
+;;;
+;;;; Conversion
+;;;
+
+
+(definition public (point->distance pt <Point>) <Distance>
+  (new Distance (get-h pt) (get-v pt)))
+
+
+(definition public (point->dimension pt <Point>) <Dimension>
+  (new Dimension (get-h pt) (get-v pt)))
+
+
+(definition public (distance->point dist <Distance>) <Point>
+  (new Point (get-x dist) (get-y dist)))
+
+
+(definition public (distance->dimension dist <Distance>) <Dimension>
+  (new Dimension (get-x dist) (get-y dist)))
+
+
+(definition public (dimension->point dim <Dimension>) <Point>
+  (new Point (get-width dim) (get-height dim)))
+
+
+(definition public (dimension->distance dim <Dimension>) <Distance>
+  (new Distance (get-width dim) (get-height dim)))
+
+
+;;;
+;;;; Homogeneous
+;;;
+
+
+(proclaim (warn optimizations))
+
+
+;;;
+;;;; S8Vector
+;;;
+
+
+(class S8Vector-Class extends Sequence-Class
+  
+  
+  (method override (make-sequence self len)
+    (make-s8vector len)))
+
+
+(class primitive S8Vector metaclass S8Vector-Class extends Sequence
+  
+  
+  (method override (initialize self . rest)
+    (native-class "s8vectors"))
+
+
+  @convert
+  (method (object-similar? object)
+    (and (vector? object)
+         (zero? (cardinality self))
+         (zero? (cardinality object))))
+  
+  
+  (method override (sequence-element self n)
+    (s8vector-ref self n))
+  
+  
+  (method override (sequence-set-element! self n obj)
+    (s8vector-set! self n obj))
+  
+  
+  (method override (sequence-cardinality self)
+    (s8vector-length self))
+  
+  
+  (method override (sequence-tail self n)
+    (list->s8vector (tail (s8vector->list self) n)))
+  
+  
+  (method override (sequence-last self)
+    (element self (- (cardinality self) 1)))
+  
+  
+  (method override (sequence-butlast self)
+    (list->s8vector (butlast (s8vector->list self)))))
+
+
+(specialize inline (element vector <s8vector> n) <object>
+  (s8vector-ref vector n))
+
+
+(specialize inline (set-element! vector <s8vector> n obj) <void>
+  (s8vector-set! vector n obj))
+
+
+(specialize inline (cardinality vector <s8vector>) <int>
+  (s8vector-length vector))
+
+
+;;;
+;;;; U8Vector
+;;;
+
+
+(class U8Vector-Class extends Sequence-Class
+  
+  
+  (method override (make-sequence self len)
+    (make-u8vector len)))
+
+
+(class primitive U8Vector metaclass U8Vector-Class extends Sequence
+  
+  
+  (method override (initialize self . rest)
+    (native-class "u8vectors"))
+
+
+  @convert
+  (method (object-similar? object)
+    (and (vector? object)
+         (zero? (cardinality self))
+         (zero? (cardinality object))))
+  
+  
+  (method override (sequence-element self n)
+    (u8vector-ref self n))
+  
+  
+  (method override (sequence-set-element! self n obj)
+    (u8vector-set! self n obj))
+  
+  
+  (method override (sequence-cardinality self)
+    (u8vector-length self))
+  
+  
+  (method override (sequence-tail self n)
+    (list->u8vector (tail (u8vector->list self) n)))
+  
+  
+  (method override (sequence-last self)
+    (element self (- (cardinality self) 1)))
+  
+  
+  (method override (sequence-butlast self)
+    (list->u8vector (butlast (u8vector->list self)))))
+
+
+(specialize inline (element vector <u8vector> n) <object>
+  (u8vector-ref vector n))
+
+
+(specialize inline (set-element! vector <u8vector> n obj) <void>
+  (u8vector-set! vector n obj))
+
+
+(specialize inline (cardinality vector <u8vector>) <int>
+  (u8vector-length vector))
+
+
+;;;
+;;;; S16Vector
+;;;
+
+
+(class S16Vector-Class extends Sequence-Class
+  
+  
+  (method override (make-sequence self len)
+    (make-s16vector len)))
+
+
+(class primitive S16Vector metaclass S16Vector-Class extends Sequence
+  
+  
+  (method override (initialize self . rest)
+    (native-class "s16vectors"))
+
+
+  @convert
+  (method (object-similar? object)
+    (and (vector? object)
+         (zero? (cardinality self))
+         (zero? (cardinality object))))
+  
+  
+  (method override (sequence-element self n)
+    (s16vector-ref self n))
+  
+  
+  (method override (sequence-set-element! self n obj)
+    (s16vector-set! self n obj))
+  
+  
+  (method override (sequence-cardinality self)
+    (s16vector-length self))
+  
+  
+  (method override (sequence-tail self n)
+    (list->s16vector (tail (s16vector->list self) n)))
+  
+  
+  (method override (sequence-last self)
+    (element self (- (cardinality self) 1)))
+  
+  
+  (method override (sequence-butlast self)
+    (list->s16vector (butlast (s16vector->list self)))))
+
+
+(specialize inline (element vector <s16vector> n) <object>
+  (s16vector-ref vector n))
+
+
+(specialize inline (set-element! vector <s16vector> n obj) <void>
+  (s16vector-set! vector n obj))
+
+
+(specialize inline (cardinality vector <s16vector>) <int>
+  (s16vector-length vector))
+
+
+;;;
+;;;; U16Vector
+;;;
+
+
+(class U16Vector-Class extends Sequence-Class
+  
+  
+  (method override (make-sequence self len)
+    (make-u16vector len)))
+
+
+(class primitive U16Vector metaclass U16Vector-Class extends Sequence
+  
+  
+  (method override (initialize self . rest)
+    (native-class "u16vectors"))
+
+
+  @convert
+  (method (object-similar? object)
+    (and (vector? object)
+         (zero? (cardinality self))
+         (zero? (cardinality object))))
+  
+  
+  (method override (sequence-element self n)
+    (u16vector-ref self n))
+  
+  
+  (method override (sequence-set-element! self n obj)
+    (u16vector-set! self n obj))
+  
+  
+  (method override (sequence-cardinality self)
+    (u16vector-length self))
+  
+  
+  (method override (sequence-tail self n)
+    (list->u16vector (tail (u16vector->list self) n)))
+  
+  
+  (method override (sequence-last self)
+    (element self (- (cardinality self) 1)))
+  
+  
+  (method override (sequence-butlast self)
+    (list->u16vector (butlast (u16vector->list self)))))
+
+
+(specialize inline (element vector <u16vector> n) <object>
+  (u16vector-ref vector n))
+
+
+(specialize inline (set-element! vector <u16vector> n obj) <void>
+  (u16vector-set! vector n obj))
+
+
+(specialize inline (cardinality vector <u16vector>) <int>
+  (u16vector-length vector))
+
+
+;;;
+;;;; S32Vector
+;;;
+
+
+(class S32Vector-Class extends Sequence-Class
+  
+  
+  (method override (make-sequence self len)
+    (make-s32vector len)))
+
+
+(class primitive S32Vector metaclass S32Vector-Class extends Sequence
+  
+  
+  (method override (initialize self . rest)
+    (native-class "s32vectors"))
+
+
+  @convert
+  (method (object-similar? object)
+    (and (vector? object)
+         (zero? (cardinality self))
+         (zero? (cardinality object))))
+  
+  
+  (method override (sequence-element self n)
+    (s32vector-ref self n))
+  
+  
+  (method override (sequence-set-element! self n obj)
+    (s32vector-set! self n obj))
+  
+  
+  (method override (sequence-cardinality self)
+    (s32vector-length self))
+  
+  
+  (method override (sequence-tail self n)
+    (list->s32vector (tail (s32vector->list self) n)))
+  
+  
+  (method override (sequence-last self)
+    (element self (- (cardinality self) 1)))
+  
+  
+  (method override (sequence-butlast self)
+    (list->s32vector (butlast (s32vector->list self)))))
+
+
+(specialize inline (element vector <s32vector> n) <object>
+  (s32vector-ref vector n))
+
+
+(specialize inline (set-element! vector <s32vector> n obj) <void>
+  (s32vector-set! vector n obj))
+
+
+(specialize inline (cardinality vector <s32vector>) <int>
+  (s32vector-length vector))
+
+
+;;;
+;;;; U32Vector
+;;;
+
+
+(class U32Vector-Class extends Sequence-Class
+  
+  
+  (method override (make-sequence self len)
+    (make-u32vector len)))
+
+
+(class primitive U32Vector metaclass U32Vector-Class extends Sequence
+  
+  
+  (method override (initialize self . rest)
+    (native-class "u32vectors"))
+
+
+  @convert
+  (method (object-similar? object)
+    (and (vector? object)
+         (zero? (cardinality self))
+         (zero? (cardinality object))))
+  
+  
+  (method override (sequence-element self n)
+    (u32vector-ref self n))
+  
+  
+  (method override (sequence-set-element! self n obj)
+    (u32vector-set! self n obj))
+  
+  
+  (method override (sequence-cardinality self)
+    (u32vector-length self))
+  
+  
+  (method override (sequence-tail self n)
+    (list->u32vector (tail (u32vector->list self) n)))
+  
+  
+  (method override (sequence-last self)
+    (element self (- (cardinality self) 1)))
+  
+  
+  (method override (sequence-butlast self)
+    (list->u32vector (butlast (u32vector->list self)))))
+
+
+(specialize inline (element vector <u32vector> n) <object>
+  (u32vector-ref vector n))
+
+
+(specialize inline (set-element! vector <u32vector> n obj) <void>
+  (u32vector-set! vector n obj))
+
+
+(specialize inline (cardinality vector <u32vector>) <int>
+  (u32vector-length vector))
+
+
+;;;
+;;;; S64Vector
+;;;
+
+
+(class S64Vector-Class extends Sequence-Class
+  
+  
+  (method override (make-sequence self len)
+    (make-s64vector len)))
+
+
+(class primitive S64Vector metaclass S64Vector-Class extends Sequence
+  
+  
+  (method override (initialize self . rest)
+    (native-class "s64vectors"))
+
+
+  @convert
+  (method (object-similar? object)
+    (and (vector? object)
+         (zero? (cardinality self))
+         (zero? (cardinality object))))
+  
+  
+  (method override (sequence-element self n)
+    (s64vector-ref self n))
+  
+  
+  (method override (sequence-set-element! self n obj)
+    (s64vector-set! self n obj))
+  
+  
+  (method override (sequence-cardinality self)
+    (s64vector-length self))
+  
+  
+  (method override (sequence-tail self n)
+    (list->s64vector (tail (s64vector->list self) n)))
+  
+  
+  (method override (sequence-last self)
+    (element self (- (cardinality self) 1)))
+  
+  
+  (method override (sequence-butlast self)
+    (list->s64vector (butlast (s64vector->list self)))))
+
+
+(specialize inline (element vector <s64vector> n) <object>
+  (s64vector-ref vector n))
+
+
+(specialize inline (set-element! vector <s64vector> n obj) <void>
+  (s64vector-set! vector n obj))
+
+
+(specialize inline (cardinality vector <s64vector>) <int>
+  (s64vector-length vector))
+
+
+;;;
+;;;; U64Vector
+;;;
+
+
+(class U64Vector-Class extends Sequence-Class
+  
+  
+  (method override (make-sequence self len)
+    (make-u64vector len)))
+
+
+(class primitive U64Vector metaclass U64Vector-Class extends Sequence
+  
+  
+  (method override (initialize self . rest)
+    (native-class "u64vectors"))
+
+
+  @convert
+  (method (object-similar? object)
+    (and (vector? object)
+         (zero? (cardinality self))
+         (zero? (cardinality object))))
+  
+  
+  (method override (sequence-element self n)
+    (u64vector-ref self n))
+  
+  
+  (method override (sequence-set-element! self n obj)
+    (u64vector-set! self n obj))
+  
+  
+  (method override (sequence-cardinality self)
+    (u64vector-length self))
+  
+  
+  (method override (sequence-tail self n)
+    (list->u64vector (tail (u64vector->list self) n)))
+  
+  
+  (method override (sequence-last self)
+    (element self (- (cardinality self) 1)))
+  
+  
+  (method override (sequence-butlast self)
+    (list->u64vector (butlast (u64vector->list self)))))
+
+
+(specialize inline (element vector <u64vector> n) <object>
+  (u64vector-ref vector n))
+
+
+(specialize inline (set-element! vector <u64vector> n obj) <void>
+  (u64vector-set! vector n obj))
+
+
+(specialize inline (cardinality vector <u64vector>) <int>
+  (u64vector-length vector))
+
+
+;;;
+;;;; F32Vector
+;;;
+
+
+(class F32Vector-Class extends Sequence-Class
+  
+  
+  (method override (make-sequence self len)
+    (make-f32vector len)))
+
+
+(class primitive F32Vector metaclass F32Vector-Class extends Sequence
+  
+  
+  (method override (initialize self . rest)
+    (native-class "f32vectors"))
+
+
+  @convert
+  (method (object-similar? object)
+    (and (vector? object)
+         (zero? (cardinality self))
+         (zero? (cardinality object))))
+  
+  
+  (method override (sequence-element self n)
+    (f32vector-ref self n))
+  
+  
+  (method override (sequence-set-element! self n obj)
+    (f32vector-set! self n obj))
+  
+  
+  (method override (sequence-cardinality self)
+    (f32vector-length self))
+  
+  
+  (method override (sequence-tail self n)
+    (list->f32vector (tail (f32vector->list self) n)))
+  
+  
+  (method override (sequence-last self)
+    (element self (- (cardinality self) 1)))
+  
+  
+  (method override (sequence-butlast self)
+    (list->f32vector (butlast (f32vector->list self)))))
+
+
+(specialize inline (element vector <f32vector> n) <object>
+  (f32vector-ref vector n))
+
+
+(specialize inline (set-element! vector <f32vector> n obj) <void>
+  (f32vector-set! vector n obj))
+
+
+(specialize inline (cardinality vector <f32vector>) <int>
+  (f32vector-length vector))
+
+
+;;;
+;;;; F64Vector
+;;;
+
+
+(class F64Vector-Class extends Sequence-Class
+  
+  
+  (method override (make-sequence self len)
+    (make-f64vector len)))
+
+
+(class primitive F64Vector metaclass F64Vector-Class extends Sequence
+  
+  
+  (method override (initialize self . rest)
+    (native-class "f64vectors"))
+
+
+  @convert
+  (method (object-similar? object)
+    (and (vector? object)
+         (zero? (cardinality self))
+         (zero? (cardinality object))))
+  
+  
+  (method override (sequence-element self n)
+    (f64vector-ref self n))
+  
+  
+  (method override (sequence-set-element! self n obj)
+    (f64vector-set! self n obj))
+  
+  
+  (method override (sequence-cardinality self)
+    (f64vector-length self))
+  
+  
+  (method override (sequence-tail self n)
+    (list->f64vector (tail (f64vector->list self) n)))
+  
+  
+  (method override (sequence-last self)
+    (element self (- (cardinality self) 1)))
+  
+  
+  (method override (sequence-butlast self)
+    (list->f64vector (butlast (f64vector->list self)))))
+
+
+(specialize inline (element vector <f64vector> n) <object>
+  (f64vector-ref vector n))
+
+
+(specialize inline (set-element! vector <f64vector> n obj) <void>
+  (f64vector-set! vector n obj))
+
+
+(specialize inline (cardinality vector <f64vector>) <int>
+  (f64vector-length vector))
+
+
+;;;
+;;;; Fixed Types
+;;;
+
+
+(class FixedVector-Class    extends Vector-Class)
+(class FixedS8Vector-Class  extends S8Vector-Class)
+(class FixedU8Vector-Class  extends U8Vector-Class)
+(class FixedS16Vector-Class extends S16Vector-Class)
+(class FixedU16Vector-Class extends U16Vector-Class)
+(class FixedS32Vector-Class extends S32Vector-Class)
+(class FixedU32Vector-Class extends U32Vector-Class)
+(class FixedS64Vector-Class extends S64Vector-Class)
+(class FixedU64Vector-Class extends U64Vector-Class)
+(class FixedF32Vector-Class extends F32Vector-Class)
+(class FixedF64Vector-Class extends F64Vector-Class)
+
+
+(class primitive FixedVector    metaclass FixedVector-Class    extends Vector)
+(class primitive FixedS8Vector  metaclass FixedS8Vector-Class  extends S8Vector)
+(class primitive FixedU8Vector  metaclass FixedU8Vector-Class  extends U8Vector)
+(class primitive FixedS16Vector metaclass FixedS16Vector-Class extends S16Vector)
+(class primitive FixedU16Vector metaclass FixedU16Vector-Class extends U16Vector)
+(class primitive FixedS32Vector metaclass FixedS32Vector-Class extends S32Vector)
+(class primitive FixedU32Vector metaclass FixedU32Vector-Class extends U32Vector)
+(class primitive FixedS64Vector metaclass FixedS64Vector-Class extends S64Vector)
+(class primitive FixedU64Vector metaclass FixedU64Vector-Class extends U64Vector)
+(class primitive FixedF32Vector metaclass FixedF32Vector-Class extends F32Vector)
+(class primitive FixedF64Vector metaclass FixedF64Vector-Class extends F64Vector)
+
+
+;;;
+;;;; Debug
+;;;
+
+
+(proclaim (warn optimizations))
+
+
+(declare (proper-tail-calls))
+
+
+;;;
+;;;; Console
+;;;
+
+
+(definition *console-port-getter*
+  #f)
+
+
+(definition public (console-port-getter-set! getter)
+  (set! *console-port-getter* getter))
+
+
+(definition public (current-console-port)
+  (if (not *console-port-getter*)
+      (terminal-port)
+    (*console-port-getter*)))
+
+
+(definition public (attached-console-port)
+  (if (not *console-port-getter*)
+      (and (terminal-available?) (terminal-port))
+    (*console-port-getter*)))
+
+
+(definition public (console-input-port)
+  (current-console-port))
+
+(definition public (console-output-port)
+  (current-console-port))
+
+
+(definition public (force-console)
+  (force-output (current-console-port)))
+
+
+(register-printer :console current-console-port)
+
+
+;;;
+;;;; Log
+;;;
+
+
+(definition platform-log
+  #f)
+
+(definition package (set-platform-log log)
+  (set! platform-log log))
+
+
+;;;
+;;;; Output
+;;;
+
+
+(definition *console-clear*
+  #f)
+
+(definition public (console-clear-set! clear)
+  (set! *console-clear* clear))
+
+
+(definition console-mutex
+  (make-mutex 'console))
+
+(definition (with-console-mutex thunk)
+  (mutex-lock! console-mutex)
+  (prog1 (thunk)
+    (mutex-unlock! console-mutex)))
+
+
+(definition public (console-string string (color: color #f))
+  (with-console-mutex
+    (lambda ()
+      (let ((output (attached-console-port)))
+        (if (not output)
+            (when platform-log
+              (platform-log string))
+          (format output "{a}" string)
+          @wait-new-console-completion (
+                                        (format output #"\($\)\(color Debug {a}\)\(%\)"# string)
+                                        (format output #"\(prompt\){%}"#)
+                                        )
+          (force-output output)))
+      (unspecified))))
+
+
+(definition public (console-line string (color: color #f))
+  (with-console-mutex
+    (lambda ()
+      (let ((output (attached-console-port)))
+        (if (not output)
+            (when platform-log
+              (platform-log string))
+          (format output "{a}{%}" string)
+          @wait-new-console-completion (
+                                        (format output #"\($\)\(color Debug {a}\)\(%\){%}"# string)
+                                        (format output #"\(prompt\){%}"#)
+                                        )
+          (force-output output)))
+      (unspecified))))
+
+
+(definition public (console . rest)
+  (console-line (format "{l detail: :describe}" rest)))
+
+
+(definition public (debug-line . rest)
+  (apply console-line rest))
+
+
+(definition public (debug-string . rest)
+  (apply console-string rest))
+
+
+(definition public (debug-thread . rest)
+  (apply console rest))
+
+
+(definition public (debug . rest)
+  (if (primordial-thread?)
+      (apply debug-thread rest)
+    (thread-post (primordial-thread) 'post-event
+      (lambda ()
+        (apply debug-thread rest)))))
+
+
+(definition public (clear-debug)
+  (if (not *console-clear*)
+      (clear-terminal)
+    (*console-clear*)))
+
+
+;;;
+;;;; Stack
+;;;
+
+
+(definition procedure-name-cache <table>
+  (make-table test: eq?))
+
+
+(definition public (get-procedure-name procedure)
+  (define (present-anonymous)
+    (let ((output (open-output-string)))
+      (write procedure output)
+      (get-output-string output)))
+  
+  (if procedure
+      (or (table-ref procedure-name-cache procedure #f)
+          (let ((name (or (procedure-name procedure)
+                          @wait-check-all-use-cases
+                          (present-anonymous))))
+            (table-set! procedure-name-cache procedure name)
+            name))
+    "(interaction)"))
+
+
+(definition public (get-continuation-name cont)
+  (get-procedure-name (continuation-creator cont)))
+
+
+(definition public (continuation-stack cont (identifiers?: identifiers? #f) (locations?: locations? #f) (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (depth: depth #f))
+  (define (package-name name)
+    (if (and identifiers? (symbol? name))
+        (reference-name name)
+      name))
+  
+  (define (package-variable variable)
+    (bind (name value mutable?) variable
+      (list name value)))
+  
+  (define (package-variables variables)
+    (map package-variable variables))
+  
+  (let ((stack (get-continuation-stack cont depth)))
+    (define (->code-name name)
+      (if (symbol? name)
+          (let ((str (symbol->string name)))
+            (if (starts-with? str "%%")
+                (string->symbol (substring str 2 (string-length str)))
+              name))
+        name))
+    
+    (map (lambda (cont)
+           (let ((name (->code-name (package-name (get-continuation-name cont))))
+                 (location (and locations? (get-continuation-location cont)))
+                 (dynamic-environment (if dynamic-environment? (package-variables (get-continuation-dynamic-environment cont)) '()))
+                 (lexical-environment (if lexical-environment? (package-variables (get-continuation-lexical-environment cont)) '())))
+             (let ((environment (append dynamic-environment lexical-environment)))
+               (cond ((and (not locations?)
+                           (not dynamic-environment?)
+                           (not lexical-environment?))
+                      name)
+                     ((not locations?)
+                      (list name environment))
+                     (else
+                      (cons name (cons location environment)))))))
+         stack)))
+
+
+(definition public (execution-stack (identifiers?: identifiers? #f) (locations?: locations? #f) (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (depth: depth #f))
+  (continuation-capture
+    (lambda (cont)
+      (continuation-stack cont identifiers?: identifiers? locations?: locations? dynamic-environment?: dynamic-environment? lexical-environment?: lexical-environment? depth: depth))))
+
+
+(definition public (execution-backtrace (depth #f))
+  (continuation-capture
+    (lambda (cont)
+      (continuation-backtrace cont depth #f #f))))
+
+
+;;;
+;;;; Debuggee
+;;;
+
+
+(definition public (break . rest)
+  (apply (module-ref 'jazz.debuggee 'break-internal) rest))
+
+
+(definition public (inspect . rest)
+  (apply (module-ref 'jazz.debuggee 'inspect-internal) rest))
+
+
+(definition public (advise . rest)
+  (apply (module-ref 'jazz.debuggee 'advise-internal) rest))
+
+(definition public (unadvise . rest)
+  (apply (module-ref 'jazz.debuggee 'unadvise-internal) rest))
+
+
+(definition public (debug-advice . rest)
+  (apply (module-ref 'jazz.debuggee 'debug-advice-internal) rest))
+
+
+(definition public (count-advice . rest)
+  (apply (module-ref 'jazz.debuggee 'count-advice-internal) rest))
+
+
+(definition public (time-advice . rest)
+  (apply (module-ref 'jazz.debuggee 'time-advice-internal) rest))
+
+
+(definition public (trace . rest)
+  (apply (module-ref 'jazz.debuggee 'trace-internal) rest))
+
+(definition public (untrace . rest)
+  (apply (module-ref 'jazz.debuggee 'untrace-internal) rest))
+
+
+(definition public (start-repl . rest)
+  (apply (module-ref 'jazz.debuggee 'start-repl-internal) rest))
+
+
+(definition public (start-jazz-repl . rest)
+  (apply (module-ref 'jazz.debuggee 'start-jazz-repl-internal) rest))
+
+
+;;;
+;;;; Exception
+;;;
+
+
+(proclaim (warn optimizations))
+
+
+(declare (proper-tail-calls))
+
+
+(definition *exception-debugger*
+  #f)
+
+
+(definition public (get-exception-debugger)
+  *exception-debugger*)
+
+(definition public (set-exception-debugger exception-debugger)
+  (set! *exception-debugger* exception-debugger))
+
+
+(definition public current-exception-debugger
+  (make-parameter #f))
+
+
+(definition package (exception-debugger-hook exc other)
+  (let ((exception-debugger (active-exception-debugger)))
+    (if exception-debugger
+        (exception-debugger exc)
+      (system-exception-hook exc other))))
+
+
+(definition public (with-exception-debugger exception-debugger thunk)
+  (parameterize ((current-exception-debugger exception-debugger))
+    (thunk)))
+
+
+(definition public (active-exception-debugger)
+  (or (current-exception-debugger) *exception-debugger*))
+
+
+(definition public (system-exception-debugger exc)
+  (invoke-exception-hook system-exception-hook exc))
+
+
+(definition public (with-system-exception-debugger thunk)
+  (with-exception-debugger system-exception-debugger
+    thunk))
+
+
+(class Exception extends Object
+  
+  
+  (method core virtual (present-exception self))
+  (method core virtual (exception-message self))
+  (method core virtual (get-detail self))
+  
+  
+  (method public virtual (get-message self)
+    #f)
+  
+  
+  (method public virtual (present-message self . rest)
+    (list (get-message self)))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{?{s}~}" (get-message self))))))
+
+
+(definition public (exception? obj)
+  (and (object? obj)
+       (is? obj Exception)))
+
+
+(class package Exception-Detail-Class extends Class
+  
+  
+  (method override (marshall-object self object)
+    (serialize-object (class-of object)
+                      (vector (get-icon object)
+                              (get-title object)
+                              (get-location object)
+                              (get-children object))))
+  
+  
+  (method override (unmarshall-object self content)
+    (allocate Exception-Detail
+              (vector-ref content 0)
+              (vector-ref content 1)
+              (vector-ref content 2)
+              (vector-ref content 3))))
+
+
+(class package Exception-Detail metaclass Exception-Detail-Class extends Object
+  
+  
+  (slot icon     getter generate)
+  (slot title    getter generate)
+  (slot location getter generate)
+  (slot children getter generate)
+  
+  
+  (method override (initialize self icon title location children)
+    (nextmethod self)
+    (set! self.icon icon)
+    (set! self.title title)
+    (set! self.location location)
+    (set! self.children children))
+  
+  
+  (method override (print self output readably)
+    (format output "~{{a} {s} {s} {s} {s}}"
+            (category-name (class-of self))
+            icon
+            title
+            location
+            children)))
+
+
+(class System-Exception extends Exception
+  
+  
+  (slot exception getter generate)
+  
+  
+  (method override (initialize self exception)
+    (nextmethod self)
+    (set! self.exception exception)))
+
+
+(definition public (wrap-exception obj)
+  (if (exception? obj)
+      obj
+    (new System-Exception obj)))
+
+
+(class Break extends Exception
+  
+  
+  (slot continue)
+  
+  
+  (method override (initialize self continue)
+    (nextmethod self)
+    (set! self.continue continue)))
+
+
+(class Continue extends Exception)
+
+
+(class Error extends Exception
+  
+  
+  (slot message setter generate getter (override generate))
+  
+  
+  (method override (initialize self (message: message #f))
+    (nextmethod self)
+    (set-message self message)))
+
+
+(definition public (error? obj)
+  (and (object? obj)
+       (is? obj Error)))
+
+
+(class package Read-Error extends Error
+  
+  
+  (slot source getter generate)
+  (slot start  getter generate)
+  (slot end    getter generate)
+  
+  
+  (method override (initialize self . rest)
+    (bind-keywords ((source #f) (start #f) (end #f) . others) rest
+      (apply nextmethod self others)
+      (set! self.source source)
+      (set! self.start start)
+      (set! self.end end)))
+  
+  
+  (method public (get-range self)
+    (new Range start end)))
+
+
+(class package Parse-Error extends Error
+  
+  
+  (slot source getter generate)
+  (slot start  getter generate)
+  (slot end    getter generate)
+  
+  
+  (method override (initialize self . rest)
+    (bind-keywords ((source #f) (start #f) (end #f) . others) rest
+      (apply nextmethod self others)
+      (set! self.source source)
+      (set! self.start start)
+      (set! self.end end))))
+
+
+(class package Conversion-Error extends Parse-Error
+  
+  
+  (slot object getter generate)
+  (slot type   getter generate)
+  
+  
+  (method override (initialize self . rest)
+    (bind-keywords ((object #f) (type #f) . others) rest
+      (apply nextmethod self others)
+      (set! self.object object)
+      (set! self.type type)))
+  
+  
+  (method override (get-message self)
+    (let ((type (if (string? type) type (category-identifier type))))
+      (format "Unable to convert \"{a}\" into {a} {a}"
+              object
+              (format-gender type)
+              type))))
+
+
+(class Source-Error extends Error
+  
+  
+  (slot source getter generate)
+  (slot start  getter generate)
+  (slot end    getter generate)
+  
+  
+  (method override (initialize self source . rest)
+    (bind-keywords ((start #f) (end #f) . others) rest
+      (apply nextmethod self others)
+      (set! self.source source)
+      (set! self.start start)
+      (set! self.end end)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-range self)
+    (new Range$Cell$ start end)))
+
+
+(class Signal extends Exception)
+
+
+(class package Cancel-Signal extends Signal)
+
+
+(definition public (call-with-catch predicate/type catcher thunk)
+  (catch-exception-filter
+    (lambda (obj)
+      (if (procedure? predicate/type)
+          (predicate/type obj)
+        ;; we have to be very carefull as we can
+        ;; potentially receive system exceptions
+        (and (object? obj)
+             (is? obj predicate/type))))
+    catcher
+    thunk))
+
+
+;;;
+;;;; Context
+;;;
+
+
+(definition exception-contexts
+  (make-table test: eq? weak-keys: #t))
+
+
+(definition public (get-exception-context exception)
+  (table-ref exception-contexts exception #f))
+
+
+(definition public (set-exception-context exception continuation)
+  (table-set! exception-contexts exception continuation))
+
+
+(definition public (capture-exception-context exception)
+  (continuation-capture
+    (lambda (cont)
+      (set-exception-context exception cont))))
+
+
+;;;
+;;;; Control
+;;;
+
+
+(definition public (throw exception)
+  (raise exception))
+
+
+(definition public (error . rest)
+  (throw (new Error message: (apply format rest))))
+
+
+(definition public (disabled-functionality)
+  (error "This functionality is temporarily disabled"))
+
+
+(definition public (must-implement definition-name (what #f))
+  (error "The {a} definition must be implemented for {a} to work correctly"
+         definition-name
+         (or what "this application")))
+
+
+(definition public (warn string . rest)
+  (format :console "{%}Warning: ")
+  (apply format :console string rest))
+
+
+(definition public (warn-unimplemented name)
+  (format :console "{%}Warning: {a} is unimplemented" name))
+
+
+(definition public (signal signal)
+  (raise signal))
+
+
+(definition public inline (signal-cancel)
+  (signal (new Cancel-Signal)))
+
+
+;;;
+;;;; Restart
+;;;
+
+
+(class Restart extends Object
+  
+  
+  (slot name    getter generate)
+  (slot message getter generate)
+  (slot handler getter generate)
+  
+  
+  (method override (initialize self name message handler)
+    (nextmethod self)
+    (set! self.name name)
+    (set! self.message message)
+    (set! self.handler handler))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}"
+                name)))))
+
+
+(definition public current-restarts
+  (make-parameter '()))
+
+
+(definition public (with-restart-handler name message handler thunk)
+  (parameterize ((current-restarts (cons (new Restart name message handler) (current-restarts))))
+    (thunk)))
+
+
+(definition public (with-restart-catcher name message thunk (restart-result #f))
+  (continuation-capture
+    (lambda (catcher-cont)
+      (with-restart-handler name message
+        (lambda rest
+          (continuation-return catcher-cont
+            (if (not-null? rest)
+                (car rest)
+              restart-result)))
+        thunk))))
+
+
+(definition public (find-restart name)
+  (find-if (lambda (restart)
+             (eq? (get-name restart) name))
+           (current-restarts)))
+
+
+(definition public (find-restarts name)
+  (collect-if (lambda (restart)
+                (eq? (get-name restart) name))
+              (current-restarts)))
+
+
+(definition public (invoke-restart restart . rest)
+  (let ((handler (get-handler restart)))
+    (apply handler rest)))
+
+
+;;;
+;;;; Thread
+;;;
+
+
+(definition public (new-system-thread thunk name . rest)
+  (apply new-thread
+         (lambda ()
+           (with-system-exception-debugger
+             thunk))
+         name
+         rest))
+
+
+;;;
+;;;; Output
+;;;
+
+
+;;;
+;;;; Header
+;;;
+
+
+(definition public (output-header title printer (language: language 'jazz) (system: system #f) (license: license #f) (author: author #f) (copyright: copyright #f) (contributors: contributors '()) (end-proper?: end-proper? #t))
+  (with-printer printer
+    (lambda (output)
+      (let* ((system (or system "JazzScheme"))
+             (system-padding (make-string (string-length system) #\=))
+             (comment (case language ((jazz) ";;;") ((c) "//")))
+             (toplevel-comment (case language ((jazz) ";;;;") ((c) "///"))))
+        (format output #"{a}=={a}=={%}"# comment system-padding)
+        (format output #"{a}  {a}{%}"# comment system)
+        (format output #"{a}=={a}=={%}"# comment system-padding)
+        (format output #"{a}{%}"# comment)
+        (format output #"{a} {a}{%}"# toplevel-comment title)
+        (format output #"{a}"# comment)
+        (case license
+          ((jazzscheme)
+           (format output "{%}")
+           (format output #"{a}  The contents of this file are subject to the Mozilla Public License Version{%}"# comment)
+           (format output #"{a}  1.1 (the "License"); you may not use this file except in compliance with{%}"# comment)
+           (format output #"{a}  the License. You may obtain a copy of the License at{%}"# comment)
+           (format output #"{a}  http://www.mozilla.org/MPL/{%}"# comment)
+           (format output #"{a}{%}"# comment)
+           (format output #"{a}  Software distributed under the License is distributed on an "AS IS" basis,{%}"# comment)
+           (format output #"{a}  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License{%}"# comment)
+           (format output #"{a}  for the specific language governing rights and limitations under the{%}"# comment)
+           (format output #"{a}  License.{%}"# comment)
+           (format output #"{a}{%}"# comment)
+           (format output #"{a}  The Original Code is JazzScheme.{%}"# comment)
+           (format output #"{a}{%}"# comment)
+           (format output #"{a}  The Initial Developer of the Original Code is {a}.{%}"# comment author)
+           (format output #"{a}  Portions created by the Initial Developer are Copyright (C) {a}{%}"# comment copyright)
+           (format output #"{a}  the Initial Developer. All Rights Reserved.{%}"# comment)
+           (format output #"{a}{%}"# comment)
+           (format output #"{a}  Contributor(s):{%}"# comment)
+           (for-each (lambda (contributor)
+                       (format output #"{a}    {a}{%}"# comment contributor))
+                     contributors)
+           (format output #"{a}{%}"# comment)
+           (format output #"{a}  Alternatively, the contents of this file may be used under the terms of{%}"# comment)
+           (format output #"{a}  the GNU General Public License Version 2 or later (the "GPL"), in which{%}"# comment)
+           (format output #"{a}  case the provisions of the GPL are applicable instead of those above. If{%}"# comment)
+           (format output #"{a}  you wish to allow use of your version of this file only under the terms of{%}"# comment)
+           (format output #"{a}  the GPL, and not to allow others to use your version of this file under the{%}"# comment)
+           (format output #"{a}  terms of the MPL, indicate your decision by deleting the provisions above{%}"# comment)
+           (format output #"{a}  and replace them with the notice and other provisions required by the GPL.{%}"# comment)
+           (format output #"{a}  If you do not delete the provisions above, a recipient may use your version{%}"# comment)
+           (format output #"{a}  of this file under the terms of any one of the MPL or the GPL.{%}"# comment)
+           (format output #"{a}{%}"# comment)
+           (format output #"{a}  See www.jazzscheme.org for details."# comment)))
+        (when end-proper?
+          (format output "{%}"))))))
+
+
+(definition public (output-section title output (language: language 'jazz) (level: level 0))
+  (let ((comment (case language ((jazz) ";;;") ((c) "//")))
+        (toplevel (case language ((jazz) ";;;;") ((c) "///")))
+        (extra (case language ((jazz) "") ((c) (make-string (+ (string-length title) 4) #\-)))))
+    (format output "{%}{%}")
+    (format output "{_ :v}{a}{a}{%}" (* level 2) comment extra)
+    (format output "{_ :v}{a} {a}{%}" (* level 2) toplevel title)
+    (format output "{_ :v}{a}{a}{%}" (* level 2) comment extra)
+    (format output "{%}{%}")))
+
+
+;;;
+;;;; Formatter
+;;;
+
+
+(class undocumented Formatter extends Object
+
+
+  (method public virtual (format-directive self formatting output directive)
+    ))
+
+
+;;;
+;;;; Print-Sequencer
+;;;
+
+
+(class undocumented Print-Sequencer extends Object)
+
+
+@convert
+
+
+(class undocumented Print-Sequencer extends Object
+  
+  
+  (slot printer)
+  (slot start)
+  (slot sections initialize (new List-Factory))
+  
+  
+  (method (initialize prt)
+    (nextmethod)
+    (set! printer prt)
+    (start-section))
+  
+  
+  (method public (start-section)
+    (set! start (get-position)))
+  
+  
+  (method public (end-section)
+    (prog1 (cons start (get-position))
+      (start-section)))
+  
+  
+  (method (get-position)
+    (get-position printer))
+  
+  
+  ;;;
+  ;;;; Sections
+  ;;;
+  
+  
+  (method public (put-section section)
+    (put sections section))
+  
+  
+  (method public (put-sections sections-list)
+    (put-sequence sections sections-list))
+  
+  
+  (method public (print-sections output)
+    (for-each (lambda (section)
+                (bind (start . end) section
+                  (transfer start end output)))
+              (get-output sections)))
+  
+  
+  ;;;
+  ;;;; Transfer
+  ;;;
+  
+  
+  (definition transfer-size
+    1024)
+  
+  (definition transfer-buffer
+    (new Heap-Block size: transfer-size))
+  
+  
+  (method synchronized (transfer start end output)
+    (let ((size (- end start)))
+      (while (> size 0)
+        (set-position printer start)
+        (let ((subsize (min size transfer-size)))
+          (ReadFile (get-handle printer) transfer-buffer subsize NULL)
+          (WriteFile (get-handle output) transfer-buffer subsize NULL)
+          (decrease! size subsize)
+          (increase! start subsize))))))
+
+
+;;;
+;;;; Parse
+;;;
+
+
+(proclaim (warn optimizations))
+
+
+(definition public (parse-integer string)
+  (if (and (not (empty-string? string)) (numeric? string))
+      (read-string-element string)
+    (signal (new Conversion-Error object: string type: "integer"))))
+
+
+(definition public (parse-hexadecimal string)
+  (read-string-element (format "#x{a}" string)))
+
+
+(definition public (parse-boolean string)
+  (cond ((not string) #f)
+        ((or (ci=? string "#f") (ci=? string "f") (ci=? string "false")) #f)
+        ((or (ci=? string "#t") (ci=? string "t") (ci=? string "true")) #t)
+        (else (signal (new Conversion-Error object: string type: "boolean")))))
+
+
+(definition public (parse-strings string (separator: separator ","))
+  (if (or (empty-string? string) (string=? string "{}"))
+      #f
+    (map (lambda (string)
+           (trim-spaces string))
+         (split string separator))))
+
+
+(definition public (parse-delimited-string string (separator: separator ","))
+  (map (lambda (string)
+         (parse-strings string separator: " "))
+       (parse-strings string separator: separator)))
+
+
+;;;
+;;;; Platform
+;;;
+
+
+(proclaim (warn optimizations))
+
+
+(definition public (bell . rest)
+  (apply (module-ref 'jazz.platform 'bell-internal) rest))
+
+
+;;;
+;;;; Tell
+;;;
+
+
+(proclaim (warn optimizations))
+
+
+(definition public tell-precision
+  3)
+
+(definition public (set-tell-precision precision)
+  (set! tell-precision precision))
+
+
+(definition public (tell . rest)
+  (define (tell-flonum obj)
+    (if (not tell-precision)
+        (format :terminal "{a}" obj)
+      (format :terminal "{r precision: :v}" obj tell-precision)))
+  
+  (define (tell-pair pair)
+    (format :terminal "(")
+    (tell-subpair pair)
+    (format :terminal ")"))
+  
+  (define (tell-subpair pair)
+    (tell-object (car pair))
+    (let ((rest (cdr pair)))
+      (cond ((null? rest))
+            ((pair? rest)
+             (format :terminal " ")
+             (tell-subpair rest))
+            (else
+             (format :terminal " . ")
+             (tell-object rest)))))
+  
+  (define (tell-sequence prefix seq)
+    (format :terminal "{a}" prefix)
+    (format :terminal "(")
+    (let ((first? #t))
+      (iterate seq
+        (lambda (obj)
+          (if first?
+              (set! first? #f)
+            (format :terminal " "))
+          (tell-object obj))))
+    (format :terminal ")"))
+  
+  (define (tell-object obj)
+    (cond ((flonum? obj)    (tell-flonum obj))
+          ((pair? obj)      (tell-pair obj))
+          ((vector? obj)    (tell-sequence "#" obj))
+          ((u8vector? obj)  (tell-sequence "#u8" obj))
+          ((s8vector? obj)  (tell-sequence "#s8" obj))
+          ((u16vector? obj) (tell-sequence "#u16" obj))
+          ((s16vector? obj) (tell-sequence "#s16" obj))
+          ((u32vector? obj) (tell-sequence "#u32" obj))
+          ((s32vector? obj) (tell-sequence "#s32" obj))
+          ((u64vector? obj) (tell-sequence "#u64" obj))
+          ((s64vector? obj) (tell-sequence "#s64" obj))
+          ((f32vector? obj) (tell-sequence "#f32" obj))
+          ((f64vector? obj) (tell-sequence "#f64" obj))
+          (else (format :terminal "{a}" obj))))
+  
+  (let ((first? #t))
+    (for-each (lambda (obj)
+                (if first?
+                    (set! first? #f)
+                  (format :terminal " "))
+                (tell-object obj))
+              rest))
+  (format :terminal "{%}"))
+
+
+;;;
+;;;; Walk-Binding
+;;;
+
+
+(class Walk-Binding extends Type
+  
+  
+  (method core virtual (walk-binding-lookup self symbol source-declaration))
+  (method core virtual (walk-binding-referenced self))
+  (method core virtual (walk-binding-validate-call self walker resume source-declaration operator arguments form-src))
+  (method core virtual (walk-binding-validate-assignment self walker resume source-declaration symbol-src))
+  (method core virtual (walk-binding-assignable? self))
+  (method core virtual (walk-binding-walkable? self))
+  (method core virtual (walk-binding-walk-form self walker resume declaration environment form-src))
+  (method core virtual (walk-binding-expandable? self))
+  (method core virtual (walk-binding-expand-form self walker resume declaration environment form-src))
+  (method core virtual (emit-binding-symbol self source-declaration environment backend))
+  (method core virtual (emit-binding-reference self source-declaration walker resume environment backend))
+  (method core virtual (emit-binding-call self binding-src arguments arguments-codes source-declaration environment backend))
+  (method core virtual (emit-inlined-binding-call self arguments call source-declaration walker resume environment backend))
+  (method core virtual (emit-binding-assignment self value source-declaration environment backend form-src)))
+
+
+(native-syntax jazz:walk-binding-lookup)
+(native-syntax jazz:walk-binding-referenced)
+(native-syntax jazz:walk-binding-validate-call)
+(native-syntax jazz:walk-binding-validate-assignment)
+(native-syntax jazz:walk-binding-assignable?)
+(native-syntax jazz:walk-binding-walkable?)
+(native-syntax jazz:walk-binding-walk-form)
+(native-syntax jazz:walk-binding-expandable?)
+(native-syntax jazz:walk-binding-expand-form)
+(native-syntax jazz:emit-binding-reference)
+(native-syntax jazz:emit-binding-call)
+(native-syntax jazz:emit-inlined-binding-call)
+(native-syntax jazz:emit-binding-assignment)
+
+
+;;;
+;;;; Lexical-Binding
+;;;
+
+
+(class Lexical-Binding extends Walk-Binding
+  
+  
+  (slot name getter generate)
+  (slot type getter generate)
+  (slot hits accessors generate)
+  
+  
+  (method override (initialize self . rest)
+    (bind-keywords ((name #f) (type #f)) rest
+      (set! self.name name)
+      (set! self.type type)
+      (set! self.hits #f)))
+  
+  
+  (method core package virtual (resolve-binding self))
+  
+  
+  (method override (print self output detail)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{s}" (get-name self))))))
+
+
+(native-syntax jazz:resolve-binding)
+
+
+;;;
+;;;; Declaration
+;;;
+
+
+(class Declaration extends Lexical-Binding
+  
+  
+  (slot access        getter generate)
+  (slot compatibility getter generate)
+  (slot modifiers     getter generate)
+  (slot attributes    getter generate)
+  (slot toplevel      getter generate)
+  (slot parent        getter generate)
+  (slot locator       getter generate)
+  (slot source        accessors generate)
+  (slot name-source   accessors generate)
+  
+  
+  (method override (initialize self . rest)
+    (bind-keywords ((access #f) (compatibility #f) (modifiers #f) (attributes #f) (parent #f) . others) rest
+      (apply nextmethod self others)
+      (set! self.access access)
+      (set! self.compatibility compatibility)
+      (set! self.modifiers modifiers)
+      (set! self.attributes attributes)
+      (set! self.toplevel #f)
+      (set! self.parent parent)
+      (set! self.locator #f)
+      (set! self.source #f)
+      (set! self.name-source #f)
+      (setup-declaration self)))
+  
+  
+  (method core virtual (compose-declaration-locator self))
+  (method core package virtual (lookup-declaration self symbol access source-declaration))
+  (method core virtual (get-declaration-inclusions self))
+  (method core virtual (get-nextmethod-signature self))
+  (method core virtual (emit-declaration self walker resume environment backend))
+  (method core virtual (expand-referenced-declaration self))
+  (method core virtual (outline-generate self output))
+  (method core virtual (outline-extract self meta)))
+
+
+(native-syntax jazz:lookup-declaration)
+(native-syntax jazz:update-declaration)
+(native-syntax jazz:get-declaration-inclusions)
+(native-syntax jazz:emit-declaration)
+(native-syntax jazz:expand-referenced-declaration)
+(native-syntax jazz:private-access)
+(native-syntax jazz:public-access)
+(native-syntax jazz:protected-access)
+
+
+;;;
+;;;; Declaration-Reference
+;;;
+
+
+(class Declaration-Reference extends Object
+  
+  
+  (slot name        getter generate)
+  (slot declaration getter generate)
+  
+  
+  (method core virtual (resolve-reference self module-declaration)))
+
+
+(native-syntax jazz:resolve-reference)
+
+
+;;;
+;;;; Module-Reference
+;;;
+
+
+(class Module-Reference extends Declaration-Reference)
+
+
+;;;
+;;;; Export-Reference
+;;;
+
+
+(class Export-Reference extends Declaration-Reference
+  
+  
+  (slot module-reference getter generate))
+
+
+;;;
+;;;; Autoload-Reference
+;;;
+
+
+(class Autoload-Reference extends Export-Reference
+  
+  
+  (slot hubs? getter generate))
+
+
+;;;
+;;;; Unit-Declaration
+;;;
+
+
+(class Unit-Declaration extends Declaration
+  
+  
+  (slot container getter generate)
+  (slot requires  getter generate))
+
+
+;;;
+;;;; Namespace-Declaration
+;;;
+
+
+(class Namespace-Declaration extends Declaration
+  
+  
+  (slot lookups  getter generate)
+  (slot children accessors generate)
+  (slot body     accessors generate))
+
+
+(native-syntax jazz:get-access-lookup)
+
+
+;;;
+;;;; Module-Declaration
+;;;
+
+
+(class Module-Declaration extends Namespace-Declaration
+  
+  
+  (slot walker          getter generate)
+  (slot container       getter generate)
+  (slot dialect-name    getter generate)
+  (slot dialect-invoice getter generate)
+  (slot requires        getter generate)
+  (slot exports         getter generate)
+  (slot imports         getter generate)
+  (slot inclusions      accessors generate)
+  (slot local-macros    getter generate))
+
+
+;;;
+;;;; Require-Invoice
+;;;
+
+
+(class Require-Invoice extends Object
+  
+  
+  (slot name  getter generate)
+  (slot phase getter generate)
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "on {s}"
+          name)))))
+
+
+;;;
+;;;; Module-Invoice
+;;;
+
+
+(class Module-Invoice extends Object
+  
+  
+  (slot name            getter generate)
+  (slot module          getter generate)
+  (slot phase           getter generate)
+  (slot transformations getter generate)
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "on {s}"
+          name)))))
+
+
+;;;
+;;;; Export-Invoice
+;;;
+
+
+(class Export-Invoice extends Module-Invoice
+  
+  
+  (slot autoload getter generate)
+  (slot symbols  getter generate))
+
+
+;;;
+;;;; Import-Invoice
+;;;
+
+
+(class Import-Invoice extends Module-Invoice
+  
+  
+  (slot hit? getter generate))
+
+
+;;;
+;;;; Export
+;;;
+
+
+(class Export-Declaration extends Declaration
+  
+  
+  (slot symbol getter generate))
+
+
+;;;
+;;;; Export Syntax
+;;;
+
+
+(class Export-Syntax-Declaration extends Declaration
+  
+  
+  (slot symbol getter generate))
+
+
+;;;
+;;;; Autoload
+;;;
+
+
+(class Autoload-Declaration extends Declaration
+  
+  
+  (slot module          getter generate)
+  (slot exported-module getter generate)
+  (slot declaration     getter generate))
+
+
+;;;
+;;;; Literal
+;;;
+
+
+(definition public *print-literal*
+  (make-parameter #f))
+
+
+(class Literal-Class extends Class
+  
+  
+  (method override (marshall-object self obj)
+    (serialize-object (class-of obj)
+                      (vector
+                        (serialize (get-name obj))
+                        (serialize (get-arguments obj)))))
+  
+  
+  (method override (unmarshall-object self content)
+    (bind-vector (name arguments) content
+      (new self
+        (deserialize name)
+        (deserialize arguments)))))
+
+
+(class Literal metaclass Literal-Class extends Object
+  
+  
+  (slot name      getter generate)
+  (slot arguments getter generate)
+  
+  
+  (method override (initialize self name arguments)
+    (set! self.name name)
+    (set! self.arguments arguments))
+  
+  
+  (method override (print self output readably)
+    (if (*print-literal*)
+        (format output "~{{a}{?: {l detail: :v}~}}" name (not-null? arguments) arguments readably)
+      (format output "~{Literal {s} {s}}" name arguments)))
+  
+  
+  (method override (walk-references self proc)
+    (walk-literal (source-code name) arguments proc)))
+
+
+(native jazz:new-literal)
+
+
+;;;
+;;;; Any
+;;;
+
+
+(class Any extends Type)
+
+
+;;;
+;;;; Macro
+;;;
+
+
+(class Macro-Declaration extends Declaration
+  
+  
+  (slot signature getter generate)
+  (slot body      getter generate))
+
+
+;;;
+;;;; Syntax
+;;;
+
+
+(class Syntax-Declaration extends Declaration
+  
+  
+  (slot signature getter generate)
+  (slot body      getter generate))
+
+
+;;;
+;;;; Define-Syntax
+;;;
+
+
+(class Define-Syntax-Declaration extends Syntax-Declaration)
+
+
+;;;
+;;;; Define-Local-Syntax
+;;;
+
+
+(class Define-Local-Syntax-Declaration extends Syntax-Declaration)
+
+
+;;;
+;;;; Void
+;;;
+
+
+(class Void-Class extends Class)
+
+
+(class Void metaclass Void-Class extends Type)
+
+
+;;;
+;;;; Opt Type
+;;;
+
+
+(class Opt-Type extends Type
+  
+  
+  (slot type getter generate))
+
+
+;;;
+;;;; Key Type
+;;;
+
+
+(class Key-Type extends Type
+  
+  
+  (slot key  getter generate)
+  (slot type getter generate))
+
+
+;;;
+;;;; Rest Type
+;;;
+
+
+(class Rest-Type extends Type
+  
+  
+  (slot type getter generate))
+
+
+;;;
+;;;; Function Type
+;;;
+
+
+(class Function-Type extends Type
+  
+  
+  (slot mandatory  getter generate)
+  (slot positional getter generate)
+  (slot optional   getter generate)
+  (slot named      getter generate)
+  (slot rest       getter generate)
+  (slot result     getter generate))
+
+
+;;;
+;;;; Category Type
+;;;
+
+
+(class Category-Type extends Type
+  
+  
+  (slot declaration getter generate))
+
+
+;;;
+;;;; Values Type
+;;;
+
+
+(class Values-Type extends Type
+  
+  
+  (slot types getter generate))
+
+
+;;;
+;;;; Restriction Type
+;;;
+
+
+(class Restriction-Type extends Type
+  
+  
+  (slot base getter generate)
+  (slot type getter generate))
+
+
+;;;
+;;;; Complement Type
+;;;
+
+
+(class Complement-Type extends Type
+  
+  
+  (slot type getter generate))
+
+
+;;;
+;;;; Union Type
+;;;
+
+
+(class Union-Type extends Type
+  
+  
+  (slot types getter generate))
+
+
+;;;
+;;;; Template Type
+;;;
+
+
+(class Template-Type extends Type
+  
+  
+  (slot class getter generate)
+  (slot types getter generate))
+
+
+;;;
+;;;; Nillable Type
+;;;
+
+
+(class Nillable-Type extends Type
+  
+  
+  (slot type getter generate)
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}"
+          type)))))
+
+
+;;;
+;;;; Dialect
+;;;
+
+
+(class Dialect extends Object
+  
+  
+  (method core virtual (dialect-walker self))
+  
+  
+  (slot name         getter generate)
+  (slot declarations getter generate)
+  (slot bindings     getter generate))
+
+
+;;;
+;;;; Backend
+;;;
+
+
+(class Backend extends Object
+  
+  
+  (slot name     getter generate)
+  (slot bindings getter generate)
+  (slot hook     accessors generate))
+
+
+;;;
+;;;; Walker
+;;;
+
+
+(class Walker extends Object
+  
+  
+  (slot declarations getter generate)
+  (slot bindings     getter generate)
+  (slot warnings     getter generate)
+  (slot errors       getter generate)
+  (slot literals     getter generate)
+  (slot variables    getter generate)
+  (slot statics      getter generate)
+  (slot exports      getter generate)
+  (slot references   getter generate)
+  (slot autoloads    getter generate)
+  
+  
+  (method core virtual (walker-declarations self))
+  (method core virtual (walker-bindings self))
+  (method core virtual (walk-form self resume declaration environment form))
+  (method core virtual (walk-symbol self resume declaration environment symbol-src))
+  (method core virtual (walk-symbol-assignment self resume declaration environment symbol-src value form-src))
+  (method core virtual (validate-proclaim self resume declaration environment form-src))
+  (method core virtual (runtime-export self declaration))
+  (method core virtual (lookup-environment self resume declaration environment symbol-src symbol))
+  (method core virtual (lookup-analyse self declaration symbol-src referenced-declaration)))
+
+
+(native-syntax jazz:validate-access)
+(native-syntax jazz:walk-symbol-assignment)
+(native-syntax jazz:walk-symbol)
+(native-syntax jazz:walk-form)
+(native-syntax jazz:validate-proclaim)
+
+
+;;;
+;;;; Walk Context
+;;;
+
+
+(class Walk-Context extends Object
+  
+  
+  (slot policy    getter generate)
+  (slot locator   getter generate)
+  (slot pathname  getter generate)
+  (slot proclaims getter generate))
+
+
+;;;
+;;;; Walk-Location
+;;;
+
+
+(class package Walk-Location-Class extends Class
+  
+  
+  (method override (marshall-object self object)
+    (serialize-object (class-of object)
+                      (vector (get-unit-locator object)
+                              (get-declaration-locator object)
+                              (get-locat object)
+                              (get-path object))))
+  
+  
+  (method override (unmarshall-object self content)
+    (allocate Walk-Location
+              (vector-ref content 0)
+              (vector-ref content 1)
+              (vector-ref content 2)
+              (vector-ref content 3))))
+
+
+(class package Walk-Location extends Object
+  
+  
+  (slot unit-locator        getter generate)
+  (slot declaration-locator getter generate)
+  (slot locat               getter generate)
+  (slot path                getter generate)
+  
+  
+  (method override (initialize self unit-locator declaration-locator locat path)
+    (nextmethod self)
+    (set! self.unit-locator unit-locator)
+    (set! self.declaration-locator declaration-locator)
+    (set! self.locat locat)
+    (set! self.path path))
+  
+  
+  (method override (print self output readably)
+    (format output "~{{a} {s} {s} {s} {s}}"
+            (category-name (class-of self))
+            unit-locator
+            declaration-locator
+            locat
+            path)))
+
+
+;;;
+;;;; Walk-Problem
+;;;
+
+
+(class package Walk-Problem extends Error
+  
+  
+  (slot location getter generate))
+
+
+;;;
+;;;; Walk-Problems
+;;;
+
+
+(class package Walk-Problems extends Error
+  
+  
+  (slot warnings getter generate)
+  (slot errors   getter generate))
+
+
+;;;
+;;;; Walk-Warning
+;;;
+
+
+(class package Walk-Warning extends Walk-Problem)
+
+
+;;;
+;;;; Walk-Error
+;;;
+
+
+(class package Walk-Error extends Walk-Problem)
+
+
+;;;
+;;;; Unresolved-Error
+;;;
+
+
+(class package Unresolved-Error extends Walk-Error
+  
+  
+  (slot symbol getter generate))
+
+
+;;;
+;;;; Walk-Frame
+;;;
+
+
+(class Walk-Frame extends Walk-Binding
+  
+  
+  (slot bindings getter generate))
+
+
+;;;
+;;;; Signature
+;;;
+
+
+(class Signature extends Object
+  
+  
+  (slot mandatory   getter generate)
+  (slot positional  getter generate)
+  (slot optional    getter generate)
+  (slot named       getter generate)
+  (slot rest        getter generate)
+  (slot expressions getter generate))
+
+
+;;;
+;;;; Symbol-Binding
+;;;
+
+
+(class Symbol-Binding extends Lexical-Binding
+  
+  
+  (slot gensym getter generate))
+
+
+;;;
+;;;; Variable
+;;;
+
+
+(class Variable extends Symbol-Binding
+  
+  
+  (slot source           getter generate)
+  (slot specifier-source getter generate)
+  (slot reference-count  getter generate)
+  
+  
+  (method override (initialize self name type source specifier-source)
+    (set! self.name name)
+    (set! self.type type)
+    (set! self.source source)
+    (set! self.specifier-source specifier-source)
+    (set! self.reference-count 0)))
+
+
+;;;
+;;;; NextMethod-Variable
+;;;
+
+
+(class NextMethod-Variable extends Variable)
+
+
+;;;
+;;;; Parameter
+;;;
+
+
+(class Parameter extends Variable
+  
+  
+  (method core virtual (emit-parameter self declaration walker resume environment backend)))
+
+
+;;;
+;;;; Dynamic-Parameter
+;;;
+
+
+(class Dynamic-Parameter extends Parameter
+  
+  
+  (slot class getter generate))
+
+
+;;;
+;;;; Optional-Parameter
+;;;
+
+
+(class Optional-Parameter extends Parameter
+  
+  
+  (slot default getter generate))
+
+
+;;;
+;;;; Named-Parameter
+;;;
+
+
+(class Named-Parameter extends Parameter
+  
+  
+  (slot default getter generate))
+
+
+;;;
+;;;; Rest-Parameter
+;;;
+
+
+(class Rest-Parameter extends Parameter)
+
+
+;;;
+;;;; Dynamic Self Binding
+;;;
+
+
+(class Dynamic-Self-Binding extends Lexical-Binding
+  
+  
+  (slot code getter generate))
+
+
+;;;
+;;;; Local Variable Binding
+;;;
+
+
+(class Local-Variable-Binding extends Lexical-Binding
+  
+  
+  (slot variable getter generate))
+
+
+;;;
+;;;; Macro Symbol
+;;;
+
+
+(class Macro-Symbol extends Symbol-Binding
+  
+  
+  (slot getter getter generate)
+  (slot setter getter generate))
+
+
+;;;
+;;;; Form Binding
+;;;
+
+
+(class Form-Binding extends Lexical-Binding)
+
+
+;;;
+;;;; Special Form
+;;;
+
+
+(class Special-Form extends Form-Binding
+  
+  
+  (slot walk getter generate))
+
+
+;;;
+;;;; Macro Form
+;;;
+
+
+(class Macro-Form extends Form-Binding
+  
+  
+  (slot expander getter generate))
+
+
+;;;
+;;;; Syntax Form
+;;;
+
+
+(class Syntax-Form extends Form-Binding
+  
+  
+  (slot expander getter generate))
+
+
+;;;
+;;;; Define-Syntax Form
+;;;
+
+
+(class Define-Syntax-Form extends Syntax-Form
+  
+  
+  (slot environment getter generate))
+
+
+;;;
+;;;; Define-Local-Syntax Form
+;;;
+
+
+(class Define-Local-Syntax-Form extends Syntax-Form
+  
+  
+  (slot environment getter generate))
+
+
+;;;
+;;;; Syntactic Closures
+;;;
+
+
+(class Syntactic-Closure extends Object
+  
+  
+  (slot environment getter generate)
+  (slot variables   getter generate)
+  (slot expression  getter generate)
+  (slot form        getter generate)
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{s}"
+          form)))))
+
+
+;;;
+;;;; Annotated Variable
+;;;
+
+
+(class Annotated-Variable extends Object
+  
+  
+  (slot variable      getter generate)
+  (slot declared-type getter generate)
+  (slot type          getter generate)
+  
+  
+  (method override (initialize self variable declared-type type)
+    (set! self.variable variable)
+    (set! self.declared-type declared-type)
+    (set! self.type type))
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{s}"
+          (get-name variable))))))
+
+
+;;;
+;;;; Restricted Binding
+;;;
+
+
+(class Restricted-Binding extends Object
+  
+  
+  (slot binding getter generate)
+  (slot type    getter generate))
+
+
+;;;
+;;;; Annotated Frame
+;;;
+
+
+(class Annotated-Frame extends Object
+  
+  
+  (slot variables getter generate)
+  (slot reset     getter generate))
+
+
+;;;
+;;;; Code
+;;;
+
+
+(class Code extends Object
+  
+  
+  (slot form   getter generate)
+  (slot type   getter generate)
+  (slot source getter generate))
+
+
+;;;
+;;;; Expression
+;;;
+
+
+(class Expression extends Object
+  
+  
+  (slot type   getter generate)
+  (slot source getter generate)
+  
+  
+  (method override (initialize self . rest)
+    (bind-keywords ((type #f) (source #f)) rest
+      (nextmethod self)
+      (set! self.type type)
+      (set! self.source source)))
+  
+  
+  (method core package virtual (emit-expression self declaration walker resume environment backend))
+  (method core package virtual (emit-call self arguments arguments-codes declaration environment backend)))
+
+
+(native-syntax jazz:emit-expression)
+(native-syntax jazz:emit-call)
+
+
+;;;
+;;;; Proclaim
+;;;
+
+
+(class Proclaim extends Expression
+  
+  
+  (slot clauses getter generate))
+
+
+;;;
+;;;; Constant
+;;;
+
+
+(class Constant extends Expression
+  
+  
+  (slot expansion getter generate)
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{s}"
+          expansion)))))
+
+
+;;;
+;;;; Delay
+;;;
+
+
+(class Delay extends Expression
+  
+  
+  (slot expression getter generate))
+
+
+;;;
+;;;; Quasiquote
+;;;
+
+
+(class Quasiquote extends Expression
+  
+  
+  (slot form        getter generate)
+  (slot expressions getter generate))
+
+
+;;;
+;;;; Reference
+;;;
+
+
+(class Binding-Reference extends Expression
+  
+  
+  (slot binding getter generate)
+  
+  
+  (method override (print self output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{s}"
+          binding)))))
+
+
+;;;
+;;;; Assignment
+;;;
+
+
+(class Assignment extends Expression
+  
+  
+  (slot binding       getter generate)
+  (slot value         getter generate)
+  (slot symbol-source getter generate))
+
+
+;;;
+;;;; Lambda
+;;;
+
+
+(class Lambda extends Expression
+  
+  
+  (slot signature getter generate)
+  (slot body      getter generate))
+
+
+;;;
+;;;; Let
+;;;
+
+
+(class Let extends Expression
+  
+  
+  (slot bindings getter generate)
+  (slot body     getter generate)
+  
+  
+  (method override (initialize self bindings body)
+    (set! self.bindings bindings)
+    (set! self.body body)))
+
+
+;;;
+;;;; Named Let
+;;;
+
+
+(class Named-Let extends Let
+  
+  
+  (slot variable getter generate))
+
+
+;;;
+;;;; Letstar
+;;;
+
+
+(class Letstar extends Expression
+  
+  
+  (slot bindings getter generate)
+  (slot body     getter generate))
+
+
+;;;
+;;;; Letrec
+;;;
+
+
+(class Letrec extends Expression
+  
+  
+  (slot bindings getter generate)
+  (slot body     getter generate))
+
+
+;;;
+;;;; Receive
+;;;
+
+
+(class Receive extends Expression
+  
+  
+  (slot variables  getter generate)
+  (slot expression getter generate)
+  (slot body       getter generate))
+
+
+;;;
+;;;; Body
+;;;
+
+
+(class Body extends Expression
+  
+  
+  (slot internal-proclaims getter generate)
+  (slot internal-defines   getter generate)
+  (slot expressions        getter generate))
+
+
+;;;
+;;;; Internal Define
+;;;
+
+
+(class Internal-Define extends Expression
+  
+  
+  (slot variable getter generate)
+  (slot value    getter generate))
+
+
+
+;;;
+;;;; Internal-Define-Variable
+;;;
+
+
+(class Internal-Define-Variable extends Variable
+  
+  
+  (slot signature getter generate))
+
+
+;;;
+;;;; Begin
+;;;
+
+
+(class Begin extends Expression
+  
+  
+  (slot expressions getter generate)
+  
+  
+  (method override (initialize self expressions)
+    (set! self.expressions expressions)))
+
+
+;;;
+;;;; Do
+;;;
+
+
+(class Do extends Expression
+  
+  
+  (slot bindings getter generate)
+  (slot test     getter generate)
+  (slot result   getter generate)
+  (slot body     getter generate))
+
+
+;;;
+;;;; Call
+;;;
+
+
+(class Call extends Expression
+  
+  
+  (slot operator  getter generate)
+  (slot arguments getter generate))
+
+
+;;;
+;;;; If
+;;;
+
+
+(class If extends Expression
+  
+  
+  (slot test getter generate)
+  (slot yes  getter generate)
+  (slot no   getter generate))
+
+
+;;;
+;;;; Cond
+;;;
+
+
+(class Cond extends Expression
+  
+  
+  (slot clauses getter generate))
+
+
+;;;
+;;;; Case
+;;;
+
+
+(class Case extends Expression
+  
+  
+  (slot target  getter generate)
+  (slot clauses getter generate))
+
+
+;;;
+;;;; And
+;;;
+
+
+(class And extends Expression
+  
+  
+  (slot expressions getter generate))
+
+
+;;;
+;;;; Or
+;;;
+
+
+(class Or extends Expression
+  
+  
+  (slot expressions getter generate))
+
+
+;;;
+;;;; Declare
+;;;
+
+
+(class Declare extends Expression
+  
+  
+  (slot declarations getter generate))
+
+
+;;;
+;;;; Parameterize
+;;;
+
+
+(class Parameterize extends Expression
+  
+  
+  (slot bindings getter generate)
+  (slot body     getter generate))
+
+
+;;;
+;;;; Unspecific
+;;;
+
+
+(class Unspecific extends Expression
+  
+  
+  (slot expressions getter generate))
+
+
+;;;
+;;;; Analysis Data
+;;;
+
+
+(class Analysis-Data extends Object
+  
+  
+  (slot autoload-reference     getter generate)
+  (slot declaration-references getter generate))
+
+
+;;;
+;;;; Foundation Dialect
+;;;
+
+
+(class Foundation-Dialect extends Dialect)
+
+
+;;;
+;;;; Foundation Walker
+;;;
+
+
+(class Foundation-Walker extends Walker)
+
+
+;;;
+;;;; Define
+;;;
+
+
+(class Define-Declaration extends Declaration
+  
+  
+  (slot signature        getter generate)
+  (slot specifier-source getter generate)
+  (slot value            getter generate))
+
+
+;;;
+;;;; Define Special Form
+;;;
+
+
+(class Define-Special-Form-Declaration extends Declaration
+  
+  
+  (slot signature getter generate)
+  (slot body      getter generate))
+
+
+;;;
+;;;; Define Macro
+;;;
+
+
+(class Define-Macro-Declaration extends Declaration
+  
+  
+  (slot signature getter generate)
+  (slot body      getter generate))
+
+
+;;;
+;;;; Dialect
+;;;
+
+
+(class Scheme-Dialect extends Dialect)
+
+
+;;;
+;;;; Walker
+;;;
+
+
+(class Scheme-Walker extends Walker)
+
+
+;;;
+;;;; Definition
+;;;
+
+
+(class Definition-Declaration extends Declaration
+  
+  
+  (slot expansion        getter generate)
+  (slot signature        getter generate)
+  (slot specifier-source getter generate)
+  (slot value            getter generate)
+  
+  
+  (method override (initialize self . rest)
+    (bind-keywords ((expansion #f) (signature #f) (specifier-source #f) . others) rest
+      (apply nextmethod self others)
+      (set! self.expansion expansion)
+      (set! self.signature signature)
+      (set! self.specifier-source specifier-source))))
+
+
+;;;
+;;;; Specialize
+;;;
+
+
+(class Specialize extends Expression)
+
+
+;;;
+;;;; Generic
+;;;
+
+
+(class Generic-Declaration extends Declaration
+  
+  
+  (slot dispatch-types getter generate)
+  (slot signature      getter generate)
+  (slot body           getter generate))
+
+
+;;;
+;;;; Specific
+;;;
+
+
+(class Specific-Declaration extends Declaration
+  
+  
+  (slot generic   getter generate)
+  (slot signature getter generate)
+  (slot body      getter generate)
+  (slot root?     getter generate))
+
+
+;;;
+;;;; Category
+;;;
+
+
+(class Category-Declaration extends Namespace-Declaration
+  
+  
+  (slot implementor         getter generate)
+  (slot metaclass           getter generate)
+  (slot metaclass-explicit? getter generate))
+
+
+;;;
+;;;; Class
+;;;
+
+
+(class Class-Declaration extends Category-Declaration
+  
+  
+  (slot ascendant          getter generate)
+  (slot ascendant-relation getter generate)
+  (slot ascendant-base     getter generate)
+  (slot interfaces         getter generate))
+
+
+;;;
+;;;; Interface
+;;;
+
+
+(class Interface-Declaration extends Category-Declaration
+  
+  
+  (slot ascendants getter generate))
+
+
+;;;
+;;;; Field
+;;;
+
+
+(class Field-Declaration extends Declaration)
+
+
+;;;
+;;;; Slot
+;;;
+
+
+(class Slot-Declaration extends Field-Declaration
+  
+  
+  (slot specifier-source  getter generate)
+  (slot initialize        getter generate)
+  (slot getter-name       getter generate)
+  (slot setter-name       getter generate)
+  (slot getter-generation getter generate)
+  (slot setter-generation getter generate)
+  (slot dynamic?          getter generate))
+
+
+;;;
+;;;; Property
+;;;
+
+
+(class Property-Declaration extends Slot-Declaration
+  
+  
+  (slot getter getter generate)
+  (slot setter getter generate))
+
+
+;;;
+;;;; Method
+;;;
+
+
+(class Method-Declaration extends Field-Declaration
+  
+  
+  (slot root             getter generate)
+  (slot propagation      getter generate)
+  (slot abstraction      getter generate)
+  (slot expansion        getter generate)
+  (slot remote           getter generate)
+  (slot synchronized     getter generate)
+  (slot signature        getter generate)
+  (slot specifier-source getter generate)
+  (slot body             getter generate))
+
+
+;;;
+;;;; Hub
+;;;
+
+
+(class Hub-Declaration extends Declaration
+  
+  
+  (slot hubs  getter generate)
+  (slot nodes getter generate))
+
+
+;;;
+;;;; With Self
+;;;
+
+
+(class With-Self extends Expression
+  
+  
+  (slot body getter generate))
+
+
+;;;
+;;;; With Dynamic Self
+;;;
+
+
+(class With-Dynamic-Self extends Expression
+  
+  
+  (slot code getter generate)
+  (slot body getter generate))
+
+
+;;;
+;;;; Cast
+;;;
+
+
+(class Cast extends Expression
+  
+  
+  (slot expression getter generate))
+
+
+;;;
+;;;; Allocate
+;;;
+
+
+(class Allocate extends Expression
+  
+  
+  (slot class  getter generate)
+  (slot values getter generate))
+
+
+;;;
+;;;; Dialect
+;;;
+
+
+(class Jazz-Dialect extends Dialect)
+
+
+;;;
+;;;; Walker
+;;;
+
+
+(class Jazz-Walker extends Scheme-Walker))

@@ -1060,7 +1060,7 @@
 (jazz:define-variable-override jazz:emit-specialized-locator
   (lambda (locator arguments environment backend)
     (case locator
-      ((jazz.language.runtime.kernel:class-of)
+      ((jazz.dialect.kernel:class-of)
        (%%assert (and (%%pair? arguments) (%%null? (%%cdr arguments)))
          (jazz:emit-specialized-class-of (%%car arguments) environment backend)))
       (else
@@ -1818,7 +1818,7 @@
           (%%when (and (%%neq? (jazz:walk-for) 'eval) (jazz:get-definition-declaration-value new-declaration))
             (jazz:walk-error walker resume declaration form-src "Cannot redefine definition: {s}" name))
           ;; adding source information for parameters (default for optional and keyword may be source code)
-          ;; jazz:find-annotated fails on first keyword at jazz.language.runtime.functional:minimum
+          ;; jazz:find-annotated fails on first keyword at jazz.language.runtime:minimum
           ;; because (eq? variable annotated-variable) -> one points to a stale value
           (let ((new-environment (if #f #; parameters
                                      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)

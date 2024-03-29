@@ -706,8 +706,8 @@
 
 
 (define (jazz:get-console-port)
-  (if (jazz:global-bound? 'jazz.language.runtime.debug:current-console-port)
-      ((jazz:global-ref 'jazz.language.runtime.debug:current-console-port))
+  (if (jazz:global-bound? 'jazz.language.runtime:current-console-port)
+      ((jazz:global-ref 'jazz.language.runtime:current-console-port))
     #f))
 
 

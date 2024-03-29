@@ -3,7 +3,7 @@
 (export let-string-start+end
         let-string-start+end2)
 
-(import (jazz.language.syntax.bind (phase syntax)))
+(import (jazz.dialect.syntax (phase syntax)))
 
 (native private gensym)
 

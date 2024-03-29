@@ -35,15 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax.loop scheme
+(module protected jazz.language.loop scheme
 
 
 (export loop)
 
-(import (jazz.language.runtime.kernel)
-        (jazz.language.syntax.increase (phase syntax))
-        (jazz.language.syntax.bind (phase syntax))
-        (jazz.language.syntax.macros (phase syntax)))
+(import (jazz.dialect.kernel)
+        (jazz.dialect.syntax (phase syntax)))
 
 
 (native private jazz:->string)

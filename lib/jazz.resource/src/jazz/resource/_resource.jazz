@@ -38,17 +38,67 @@
 (module jazz.resource jazz
 
 
-(export (jazz.resource.autoload))
-(import (jazz.resource.autoload))
-
-
 ;;;
 ;;;; Resource
 ;;;
 
 
+(class Resource extends Object
+  
+  
+  (method meta override (marshall-object self obj)
+    (serialize-literal obj))
+  
+  
+  (method meta override (unmarshall-object self content)
+    (deserialize-literal content))
+  
+  
+  (slot name getter generate)
+  
+  
+  (method override (initialize self name)
+    (nextmethod self)
+    (set! self.name name))
+
+
+  (method override (compare-object self target)
+    (cond ((is-not? target Resource)
+           :incompatible)
+          ((= name (get-name target))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method override (print self output readably)
+    (format output "~{{a} {s}}"
+            (category-name (class-of self))
+            name))
+  
+  
+  (method meta public virtual (resource-type self)
+    ))
+
+
 (definition public inline (resource? object)
   (is? object Resource))
+
+
+;;;
+;;;; Image
+;;;
+
+
+(class Image-Resource extends Resource
+  
+  
+  (method meta override (resource-type self)
+    'image))
+
+
+(definition package (construct-image-resource name)
+  (new Image-Resource name))
 
 
 (definition public (disabled-image-resource resource)
@@ -57,4 +107,52 @@
 
 (definition public (default-disabled-resource resource)
   (new (class-of resource)
-    (format "{a}_" (get-name resource)))))
+    (format "{a}_" (get-name resource))))
+
+
+;;;
+;;;; Icon
+;;;
+
+
+(class Icon-Resource extends Resource
+  
+  
+  (method meta override (resource-type self)
+    'icon))
+
+
+(definition package (construct-icon-resource name)
+  (new Icon-Resource name))
+
+
+;;;
+;;;; Cursor
+;;;
+
+
+(class Cursor-Resource extends Resource
+  
+  
+  (method meta override (resource-type self)
+    'cursor))
+
+
+(definition package (construct-cursor-resource name)
+  (new Cursor-Resource name))
+
+
+;;;
+;;;; Sound
+;;;
+
+
+(class Sound-Resource extends Resource
+  
+  
+  (method meta override (resource-type self)
+    'sound))
+
+
+(definition package (construct-sound-resource name)
+  (new Sound-Resource name)))

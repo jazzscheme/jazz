@@ -38,7 +38,7 @@
 (unit jazz.resource.install
 
 
-(jazz:define-literal Image-Resource  jazz.resource.literals:construct-image-resource)
-(jazz:define-literal Icon-Resource   jazz.resource.literals:construct-icon-resource)
-(jazz:define-literal Cursor-Resource jazz.resource.literals:construct-cursor-resource)
-(jazz:define-literal Sound-Resource  jazz.resource.literals:construct-sound-resource))
+(jazz:define-literal Image-Resource  jazz.resource:construct-image-resource)
+(jazz:define-literal Icon-Resource   jazz.resource:construct-icon-resource)
+(jazz:define-literal Cursor-Resource jazz.resource:construct-cursor-resource)
+(jazz:define-literal Sound-Resource  jazz.resource:construct-sound-resource))

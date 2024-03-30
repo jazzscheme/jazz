@@ -38,15 +38,57 @@
 (module jazz.reference jazz
 
 
-(export (jazz.reference.autoload)
-        (jazz.reference.syntax (phase syntax)))
-
-(import (jazz.reference.autoload))
+(export (jazz.reference.syntax (phase syntax)))
 
 
 ;;;
 ;;;; Environment
 ;;;
+
+
+(interface Environment-Provider
+  
+  
+  (method public virtual abstract (locate-reference self symbol))
+  (method public virtual abstract (require-reference self symbol))
+  (method public virtual abstract (get-reference self symbol)))
+
+
+(class Environment extends Object implements Environment-Provider
+  
+  
+  (slot data    getter generate)
+  (slot locator getter generate)
+    
+  
+  (method override (initialize self data locator)
+    (nextmethod self)
+    (set! self.data data)
+    (set! self.locator locator))
+  
+  
+  (method override (print self output readably)
+    (format output "~{{a} {a}}"
+            (category-name (class-of self))
+            data))
+
+
+  (method override (setup-context self context)
+    (setup-context data context))
+  
+  
+  (method override (get-reference self symbol)
+    (locator symbol))
+  
+  
+  (method override (locate-reference self symbol)
+    (let ((reference (locator symbol)))
+      (and reference (resolve-runtime-reference reference))))
+  
+  
+  (method override (require-reference self symbol)
+    (or (locate-reference self symbol)
+        (error "Unable to find reference: {s}" symbol))))
 
 
 (definition public (construct-environment data locator)
@@ -58,6 +100,47 @@
 ;;;
 ;;;; Reference
 ;;;
+
+
+(class Reference extends Object
+  
+  
+  (slot context getter generate)
+  (slot symbol  getter generate)
+    
+  
+  (method override (initialize self symbol)
+    (nextmethod self)
+    (set! self.symbol symbol))
+  
+  
+  (method override (print self output readably)
+    (format output "~{{a} {a}}"
+            (category-name (class-of self))
+            symbol))
+  
+  
+  (method override (walk-references self proc)
+    (proc symbol))
+
+
+  (method override (setup-context self ctx)
+    (set! context ctx))
+  
+  
+  (method public (get-runtime-reference self)
+    (get-reference context symbol))
+  
+  
+  (method public (reference-resolve self)
+    (require-reference context symbol))
+  
+  
+  (method public virtual (parameters-resolve self)
+    (reference-resolve self)))
+
+
+(class Class-Reference extends Reference)
 
 
 (definition package (walk-reference arguments proc)

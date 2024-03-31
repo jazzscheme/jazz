@@ -527,7 +527,7 @@ end-of-code
     (lambda ()
       (jazz:split-command-line (jazz:command-arguments)
                                '("v" "version" "nosource" "debug" "f" "force" "force-outlines" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit")
-                               '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "download" "install" "deploy" "p" "parse" "s" "sourcify" "shape" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "load-feedback" "load-expected" "m" "module" "dialect" "listen")
+                               '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "download" "install" "deploy" "p" "parse" "s" "sourcify" "shape" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "d" "debugger" "link" "j" "jobs" "port" "load-feedback" "load-expected" "m" "module" "dialect" "listen")
                                missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:find-option "v" options) (jazz:find-option "version" options)))
@@ -571,7 +571,7 @@ end-of-code
                 (report (jazz:find-option "report" options))
                 (reporting? (jazz:find-option "reporting" options))
                 (target (symbol-argument (jazz:find-option "target" options)))
-                (debugger (jazz:find-option "debugger" options))
+                (debugger (or (jazz:find-option "d" options) (jazz:find-option "debugger" options)))
                 (link (symbol-argument (jazz:find-option "link" options)))
                 (jobs (number-argument (or (jazz:find-option "j" options) (jazz:find-option "jobs" options))))
                 (port (number-argument (jazz:find-option "port" options)))

@@ -40,15 +40,6 @@
 
 
 ;;;
-;;;; Output
-;;;
-
-
-(jazz:define-variable jazz:display display)
-(jazz:define-variable jazz:write write)
-
-
-;;;
 ;;;; Format
 ;;;
 
@@ -1289,7 +1280,6 @@
 
 
 (define (jazz:load-debuggee-units)
-  (jazz:load-foundation)
   (jazz:load-unit 'jazz)
   (jazz:load-unit 'jazz.debuggee)
   (jazz:load-unit 'jazz.debuggee.base)
@@ -1869,13 +1859,7 @@
         (jobs (or jazz:jobs (jazz:build-jobs) jazz:jobs-default))
         (stop-build? #f))
     (define (key-product? name)
-      (%%memq name '(backend
-                     backend.scheme
-                     contrib.irregex
-                     core
-                     dialect
-                     foundation
-                     foundation.backend.scheme
+      (%%memq name '(contrib.irregex
                      jazz
                      jazz.backend.scheme
                      scheme
@@ -2377,17 +2361,11 @@
       (and src (jazz:resource-pathname src)))))
 
 
-(define (jazz:load-foundation)
-  (jazz:load-unit 'foundation.dialect))
-
-
 (define (jazz:load-runtime)
-  (jazz:load-foundation)
   (jazz:load-unit 'core.unit.runtime))
 
 
 (define (jazz:load-build)
-  (jazz:load-foundation)
   (jazz:load-unit 'core.unit.runtime)
   (jazz:load-unit 'core.unit.build))
 
@@ -2920,6 +2898,5 @@
 
 (jazz:register-reader-extension "jazz"
   (lambda ()
-    (jazz:load-foundation)
     (jazz:load-unit 'jazz.dialect)
     jazz:jazz-readtable)))

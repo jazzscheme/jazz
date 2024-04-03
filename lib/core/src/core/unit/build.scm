@@ -39,10 +39,6 @@
 (unit core.unit.build
 
 
-(require (core.base)
-         (dialect))
-
-
 ;;;
 ;;;; Manifest
 ;;;

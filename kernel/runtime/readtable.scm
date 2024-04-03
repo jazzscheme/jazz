@@ -159,7 +159,6 @@
                                   (%%unspecified))
                                  ;; walk
                                  ((jazz:walk-for)
-                                  (jazz:load-foundation)
                                   (jazz:new-literal (%%car lst) (%%cdr lst)))
                                  ;; read
                                  (else

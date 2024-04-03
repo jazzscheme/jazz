@@ -60,7 +60,26 @@
     "kernel/runtime/common"
     "kernel/runtime/advise"
     "kernel/runtime/build"
-    "kernel/runtime/digest"))
+    "kernel/runtime/digest"
+    "kernel/runtime/readtable"
+    "kernel/core/base-syntax"
+    "kernel/core/base-runtime"
+    "kernel/core/class-syntax"
+    "kernel/core/class-classes"
+    "kernel/core/class-runtime"
+    "kernel/core/exception-classes"
+    "kernel/core/exception-runtime"
+    "kernel/core/generic-syntax"
+    "kernel/core/generic-runtime"
+    "kernel/backend/backend-syntax"
+    "kernel/backend/backend-runtime"
+    "kernel/backend/backend-scheme"
+    "kernel/dialect/dialect-syntax"
+    "kernel/dialect/dialect-runtime"
+    "kernel/dialect/dialect-expression"
+    "kernel/dialect/dialect-development"
+    "kernel/foundation/foundation-runtime"
+    "kernel/foundation/foundation-emit"))
 
 
 (define jazz:Kernel-Setup

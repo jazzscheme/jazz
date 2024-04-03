@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit Dialect
+;;;; Exception Classes
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,11 +35,14 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected gambit.dialect scheme
+(block core.exception-classes
 
 
-(require (scheme (phase syntax))
-         (gambit.dialect.runtime))
+;;;
+;;;; Exception
+;;;
 
 
-(export (gambit.language.runtime)))
+(jazz:define-virtual-syntax (jazz:present-exception (jazz:Exception exception)))
+(jazz:define-virtual-syntax (jazz:exception-message (jazz:Exception exception)))
+(jazz:define-virtual-syntax (jazz:get-detail (jazz:Exception exception))))

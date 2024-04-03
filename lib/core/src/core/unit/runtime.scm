@@ -39,9 +39,6 @@
 (unit core.unit.runtime
 
 
-(require (core.base))
-
-
 (define jazz:for-each-subunit-continue
   (%%make-parameter #f))
 

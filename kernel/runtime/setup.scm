@@ -621,8 +621,7 @@ end-of-code
               (setup-repositories #f)
               (jazz:load-libraries)
               ;; to test cross compiling REMOVE CODE WHEN DONE
-              (setup-target)
-              (jazz:load-foundation))
+              (setup-target))
             
             (define (setup-build #!optional (make? #f))
               (jazz:setup-kernel-source)
@@ -655,8 +654,7 @@ end-of-code
                   (jazz:setup-report report))
               (if reporting?
                   (jazz:setup-reporting))
-              (setup-target)
-              (jazz:load-foundation))
+              (setup-target))
             
             (define (setup-target)
               (if target
@@ -668,7 +666,6 @@ end-of-code
                         (jazz:build-configuration configuration)
                         ;; quick hack load everything needed for compilation before changing repositories
                         ;; this will clearly be missing user-defined syntax
-                        (jazz:load-unit 'foundation.dialect)
                         (jazz:load-unit 'jazz)
                         (jazz:load-unit 'jazz.dialect.syntax)
                         (jazz:load-unit 'core.unit.runtime)
@@ -707,7 +704,6 @@ end-of-code
               (setup-build))
             
             (define (run-scripts lst)
-              (jazz:load-foundation)
               (let iter ((scan lst))
                    (if (%%not (%%null? scan))
                        (let ((arg (%%car scan)))
@@ -778,38 +774,24 @@ end-of-code
                    (jazz:run-product jazz:product))
                   (parse
                    (setup-build)
-                   (jazz:load-unit 'foundation.dialect)
-                   (jazz:load-unit 'dialect.development)
                    ((jazz:global-ref 'jazz:parse-source) (%%string->symbol parse)))
                   (sourcify
                    (setup-build)
-                   (jazz:load-unit 'foundation.dialect)
-                   (jazz:load-unit 'dialect.development)
                    ((jazz:global-ref 'jazz:expand-source) (%%string->symbol sourcify)))
                   (shape
                    (setup-build)
-                   (jazz:load-unit 'foundation.dialect)
-                   (jazz:load-unit 'dialect.development)
                    ((jazz:global-ref 'jazz:shape-unit) (%%string->symbol shape)))
                   (walk
                    (setup-build)
-                   (jazz:load-unit 'foundation.dialect)
-                   (jazz:load-unit 'dialect.development)
                    ((jazz:global-ref 'jazz:walk-describe) (%%string->symbol walk)))
                   (expand
                    (setup-build)
-                   (jazz:load-unit 'foundation.dialect)
-                   (jazz:load-unit 'dialect.development)
                    ((jazz:global-ref 'jazz:expand-to) (%%string->symbol expand)))
                   (check
                    (setup-build)
-                   (jazz:load-unit 'foundation.dialect)
-                   (jazz:load-unit 'dialect.development)
                    ((jazz:global-ref 'jazz:check-unit) (%%string->symbol check)))
                   (verify
                    (setup-build)
-                   (jazz:load-unit 'foundation.dialect)
-                   (jazz:load-unit 'dialect.development)
                    ((jazz:global-ref 'jazz:verify-unit) (%%string->symbol verify)))
                   (compile
                    (setup-build)
@@ -978,7 +960,6 @@ end-of-code
           (cond ((%%not jazz:expansion-module)
                  src)
                 (else
-                 (jazz:load-foundation)
                  (if (%%neq? jazz:expansion-module 'terminal)
                      (begin
                        (jazz:load-unit jazz:expansion-module)

@@ -38,4 +38,93 @@
 (module foundation foundation.dialect
 
 
-(export (foundation.language.runtime)))
+;;;
+;;;; Digest
+;;;
+
+
+(native open-digest)
+(native close-digest)
+(native digest-update-subu8vector)
+(native digest-string)
+(native digest-substring)
+(native digest-u8vector)
+(native digest-subu8vector)
+(native digest-file)
+
+
+;;;
+;;;; Kernel
+;;;
+
+
+(native jazz:debug-core?)
+(native jazz:debug-user?)
+(native jazz:valid-conditional-requirement)
+(native jazz:conditional-satisfied?)
+(native jazz:process-conditional)
+(native jazz:cond-expand-features)
+(native jazz:cond-expand-features-set!)
+(native jazz:cond-expand-features-add!)
+(native jazz:feature-satisfied?)
+(native jazz:generate-symbol)
+(native jazz:simplify-begin)
+(native jazz:compose-reference)
+
+
+;;;
+;;;; Syntactic Closure
+;;;
+
+
+(native jazz:make-syntactic-closure)
+(native jazz:syntactic-closure?)
+(native jazz:syntactic-closure-form)
+(native jazz:unwrap-syntactic-closure)
+(native jazz:strip-syntactic-closures)
+(native jazz:strip-source-info)
+(native jazz:identifier?)
+(native jazz:identifier=?)
+(native jazz:sc-macro-transformer)
+(native jazz:rsc-macro-transformer)
+(native jazz:er-macro-transformer)
+
+
+;;;
+;;;; Syntax
+;;;
+
+
+(native jazz:source?)
+(native jazz:text-source?)
+(native jazz:source-code)
+(native jazz:source-locat)
+(native jazz:desourcify)
+(native jazz:desourcify-all)
+(native jazz:sourcify)
+(native jazz:sourcify-if)
+(native jazz:sourcify-deep)
+(native jazz:sourcify-deep-if)
+(native jazz:extract-location)
+(native jazz:present-source)
+(native jazz:save-emit-to)
+(native jazz:locat-container)
+(native jazz:locat-position)
+(native jazz:locat-start)
+(native jazz:locat-end)
+(native jazz:locat->container/line/col)
+(native jazz:locat->path/container/start/end&)
+(native jazz:container->path)
+(native jazz:position->filepos)
+(native jazz:filepos-line)
+(native jazz:filepos-col)
+
+
+;;;
+;;;; Table
+;;;
+
+
+(native jazz:table-iterate)
+(native jazz:iterate-table)
+(native jazz:search-table))

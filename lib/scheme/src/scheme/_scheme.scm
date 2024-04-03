@@ -38,7 +38,7 @@
 (module scheme foundation.dialect
 
 
-(export (foundation.language.runtime)
+(export (foundation)
         (scheme.dialect)
         (scheme.dialect (phase syntax))
         (scheme.backend.scheme.runtime)

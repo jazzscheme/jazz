@@ -38,6 +38,180 @@
 (module jazz.test jazz
 
 
+@splash
+(begin
+(import (jazz.cairo)
+        (jazz.graphic)
+        (jazz.io)
+        (jazz.splash))
+
+
+(definition width
+  850)
+
+(definition height
+  550)
+
+
+(class Splash extends Object implements Splashable
+  
+  
+  (method override (splash-paint self context)
+    (with-splash-painting context width height
+      (lambda (surface)
+        (paint-background self surface)
+        (let ((context (get-context surface))
+              (font {Font Heading1}))
+          (cairo_set_source_rgb context 0.0 0.0 1.0)
+          (with-preserved-matrix surface
+            (lambda ()
+              (cairo_translate context 50. 50.)
+              (fill-rect surface (new Rect 0 0 400 200) {Color Red})
+              (set-font surface font)
+              (draw-text surface 0 0 "Bazoum" {Color White})))
+          (with-preserved-matrix surface
+            (lambda ()
+              (cairo_translate context 300. 300.)
+              (fill-rect surface (new Rect 0 0 400 200) {Color Blue})
+              (draw-text surface 0 0 "Hello Jazz" {Color White})))))))
+  
+  
+  (method (paint-background self surface)
+    (fill-rect surface (new Rect 0 0 850 550) {Color Dark-Gray})
+    @w
+    (draw-surface surface (cache-background) 0 0)
+    @w
+    (when (jiri-dark-overlay?)
+      (let ((bounds (new Rect 0 0 width height)))
+        (let ((rect (new Rect (get-left bounds) (- (get-bottom bounds) 350) (get-right bounds) (get-bottom bounds)))
+              (stops (list (list 0 {Color Black alpha: 0.}) (list 1 {Color Black}))))
+          (gradient-fill-rect surface (new Rect (get-left rect) (- (get-bottom rect) 350) (get-right rect) (get-bottom rect)) (list (list 0 {Color Black alpha: 0.}) (list 1 {Color Black})) direction: 'vertical))))))
+
+
+(initialize-aliases)
+
+
+(splash-set! (new Splash))
+
+
+(splashInit)
+(splashRun)
+
+
+(definition environment-at-splash
+  (table-copy (get-environment-table)))
+
+
+(iterate-table environment-at-splash
+  (lambda (name loaded)
+    (when (ends-with? (symbol->string name) ".install")
+      (table-clear environment-at-splash name))))
+
+
+@w
+(for-each tell (sort nu<? (table-keys environment-at-splash)))
+
+(tell (table-length environment-at-splash) 'loaded 'in (- (current-seconds) kernel-boot))
+
+
+(let ((start (current-seconds)))
+  (let (loop)
+    (poll-events)
+    (let ((elapse (- (current-seconds) start)))
+      (when (< elapse 1.5)
+        (sleep .01)
+        (loop))))))
+
+
+;@jiri
+(begin
+(import (jazz.fontconfig)
+        (jazz.freetype)
+        (jazz.io)
+        (jazz.platform)
+        (jazz.process)
+        (jazz.splash)
+        (jiri.appl)
+        (jiri.settings)
+        (jiri.update)
+        (jiri.window))
+
+
+(initialize-aliases)
+
+
+(initialize-platform)
+
+
+(jiri-invite "Together")
+(jiri-background (cond-expand
+                   (windows {File Home "together" "app" "stable" "lib" "together" "assets" "background.png"})
+                   (else {File Home "Devel" "together" "app" "stable" "lib" "together" "assets" "background.png"})))
+(jiri-dark-overlay? #t)
+
+(set-jiri-init
+  (lambda ()
+    (jiri-layout)))
+
+(set-jiri-startup
+  (lambda ()
+    ))
+
+(jiri-prepare)
+(jiri-finish)
+
+
+(definition environment-at-splash
+  (table-copy (get-environment-table)))
+
+
+(iterate-table environment-at-splash
+  (lambda (name loaded)
+    (when (ends-with? (symbol->string name) ".install")
+      (table-clear environment-at-splash name))))
+
+
+@w
+(for-each tell (sort nu<? (table-keys environment-at-splash)))
+
+
+(tell (table-length environment-at-splash) 'loaded 'in (- (current-seconds) kernel-boot))
+
+
+@w
+(load-debuggee)
+
+@w
+(jazz.debuggee:setup-debuggee debugger: ":55000")
+
+@w
+(inspect environment-at-splash)
+
+@w
+(jazz.debuggee:ready-debuggee)
+
+
+@w
+(thread-start!
+  (new-thread
+    (lambda ()
+      (start-repl))
+    'repl))
+
+
+(splashInit)
+(splashRun)
+
+
+(let ((start (current-seconds)))
+  (let (loop)
+    (poll-events)
+    (let ((elapse (- (current-seconds) start)))
+      (when (< elapse 1.5)
+        (sleep .01)
+        (loop))))))
+
+
 ;;;
 ;;;; Generate
 ;;;

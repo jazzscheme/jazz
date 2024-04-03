@@ -247,25 +247,26 @@
                   (enqueue queue (resource-pathname resource)))))
             
             (let ((process (current-process)))
-              (let ((properties (runtime-properties process)))
-                (if (eq? (effective-transmit-runtime-what process what) 'properties)
-                    (transmit-information '() '() properties)
-                  ;; immediately transmit properties before doing
-                  ;; the potentially long computation of filenames
-                  (transmit-information #f #f properties)
-                  (when kernel-source-access?
-                    (when (remote-proxy? (get-controller-debugger))
-                      (let ((product (runtime-product process)))
-                        (when product
-                          (for-each add-unit (product-units product))))
-                      (let ((products (runtime-products process)))
-                        (for-each (lambda (product)
-                                    (for-each add-unit (product-units product)))
-                                  products)))
-                    (for-each add-unit (runtime-units process)))
-                  (let ((filenames (queue-list queue))
-                        (processes (evaluation-processes process)))
-                    (transmit-information filenames processes properties)))))))
+              (when process
+                (let ((properties (runtime-properties process)))
+                  (if (eq? (effective-transmit-runtime-what process what) 'properties)
+                      (transmit-information '() '() properties)
+                    ;; immediately transmit properties before doing
+                    ;; the potentially long computation of filenames
+                    (transmit-information #f #f properties)
+                    (when kernel-source-access?
+                      (when (remote-proxy? (get-controller-debugger))
+                        (let ((product (runtime-product process)))
+                          (when product
+                            (for-each add-unit (product-units product))))
+                        (let ((products (runtime-products process)))
+                          (for-each (lambda (product)
+                                      (for-each add-unit (product-units product)))
+                                    products)))
+                      (for-each add-unit (runtime-units process)))
+                    (let ((filenames (queue-list queue))
+                          (processes (evaluation-processes process)))
+                      (transmit-information filenames processes properties))))))))
         'runtime-information)))
   
   

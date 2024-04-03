@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Test Run
+;;;; Splash Product
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,25 +35,43 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.test.run jazz
+(unit jazz.splash.product
 
 
-@w
-(import (jazz.debuggee)
-        (jazz.test))
+;;;
+;;;; Build
+;;;
 
 
-(definition (run descriptor)
-  (load-unit 'jazz.test)
-  @w
-  (when (global-bound? 'jazz.test:run-test)
-    (let ((run-test (global-ref 'jazz.test:run-test)))
-      (debug run-test)
-      (run-test)))
-  @w
-  (when (get-controller-debugger)
-    (set-default-context 'jazz.test)
-    (start-repl)))
+(cond-expand
+  (mac
+    (define jazz:custom-cc
+      'llvm))
+  (else))
 
 
-(register-product-run 'jazz.test run))
+(cond-expand
+  (mac
+   (define jazz:splash-units
+     `((jazz.splash cc-options: ,(jazz:patch-mac-ld-warnings "") ld-options: "-framework Cocoa -framework IOKit" custom-cc: ,jazz:custom-cc output-language: objc))))
+  (windows
+   (define jazz:splash-units
+     (let ((base-windows-cc-options "-DUNICODE"))
+       `((jazz.splash cc-options: ,base-windows-cc-options ld-options: "-mwindows")))))
+  (else))
+
+
+(define (jazz:build-splash descriptor #!key (unit #f) (skip-references? #f) (force? #f))
+  (let ((unit-specs jazz:splash-units))
+    (jazz:custom-compile/build unit-specs unit: unit force?: force?)
+    (if (or (not unit) (not (assq unit unit-specs)))
+        (jazz:build-product-descriptor descriptor))))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(jazz:register-product 'jazz.splash
+  build: jazz:build-splash))

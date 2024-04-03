@@ -1,0 +1,488 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Splash Window
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.splash jazz
+
+
+(import (jazz.cairo)
+        (jazz.foreign)
+        (jazz.graphic)
+        (jazz.platform))
+
+
+(interface Splashable
+  
+  
+  (method public virtual abstract (splash-paint self context))
+  (method public virtual abstract (splash-close self))
+  (method public virtual abstract (splash-mouse-down self x y))
+  (method public virtual abstract (splash-mouse-up self x y)))
+
+
+(cond-expand
+;;;
+;;;; Mac
+;;;
+  
+  (mac
+(c-declare splash #/Objective-C/
+
+#import <Cocoa/Cocoa.h>
+#include <stdio.h>
+
+id        delegate;
+NSWindow* window;
+
+static void paint_callback(CGContextRef context);
+
+
+//
+/// Application
+//
+
+
+void splashPostEmptyEvent()
+{
+    @autoreleasepool {
+    
+    NSEvent* event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
+                                        location:NSMakePoint(0, 0)
+                                   modifierFlags:0
+                                       timestamp:0
+                                    windowNumber:0
+                                         context:nil
+                                         subtype:0
+                                           data1:0
+                                           data2:0];
+    [NSApp postEvent:event atStart:YES];
+    
+    }
+}
+
+@interface SplashApplicationDelegate : NSObject
+@end
+
+@implementation SplashApplicationDelegate
+
+- (void)applicationDidFinishLaunching:(NSNotification *)notification
+{
+    [NSApp stop:nil];
+
+    splashPostEmptyEvent();
+}
+
+@end
+
+@interface SplashApplication : NSApplication
+{
+    bool shouldKeepRunning;
+}
+
+@end
+
+
+@implementation SplashApplication
+
+- (void)terminate:(id)sender
+{
+    shouldKeepRunning = NO;
+}
+@end
+
+
+//
+/// Window
+//
+
+
+@interface SplashWindowDelegate : NSObject <NSDraggingDestination>
+{
+}
+
+@end
+
+
+@implementation SplashWindowDelegate
+
+- (BOOL)windowShouldClose:(id)sender
+{
+    // close_callback(window);
+    return YES;
+}
+
+- (void)windowWillClose:(NSNotification *)notification
+{
+}
+
+@end
+
+
+//
+/// View
+//
+
+
+@interface SplashView: NSView
+{
+}
+@end
+
+
+@implementation SplashView
+
+- (id)initWithFrame:(NSRect)frameRect
+{
+    self = [super initWithFrame:frameRect];
+
+    return self;
+}
+
+- (BOOL)isOpaque
+{
+    return NO;
+}
+
+- (BOOL)isFlipped
+{
+    return YES;
+}
+
+- (void)drawRect:(NSRect)dirtyRect
+{
+    paint_callback((CGContextRef) [[NSGraphicsContext currentContext] graphicsPort]);
+}
+
+@end
+
+
+//
+/// Event
+//
+
+
+NSAutoreleasePool *autoreleasePool;
+
+
+bool splashPollEvent()
+{
+    NSEvent* event;
+  
+    event = [NSApp nextEventMatchingMask:NSEventMaskAny
+                               untilDate:[NSDate distantPast]
+                                  inMode:NSDefaultRunLoopMode
+                                 dequeue:YES];
+
+    if (event && ([event type] != NSEventTypeKeyDown || ! [event isARepeat]))
+    {
+        [NSApp sendEvent:event];
+        
+        return true;
+    }
+    else
+    {
+        [autoreleasePool drain];
+        autoreleasePool = [[NSAutoreleasePool alloc] init];
+    
+        return false;
+    }
+}
+
+
+//
+/// Main
+//
+
+
+void create_menubar()
+{
+    NSMenu* bar = [[NSMenu alloc] init];
+    [NSApp setMainMenu:bar];
+
+    NSMenuItem* appMenuItem =
+        [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    NSMenu* appMenu = [[NSMenu alloc] init];
+    [appMenuItem setSubmenu:appMenu];
+
+    [appMenu addItemWithTitle:@"Enter Full Screen"
+                       action:@selector(toggleFullScreen:)
+                keyEquivalent:@"f"];
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    [appMenu addItemWithTitle:@"Quit"
+                       action:@selector(terminate:)
+                keyEquivalent:@"q"];
+  
+    NSMenuItem* windowMenuItem =
+        [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:@"Window"];
+    [NSApp setWindowsMenu:windowMenu];
+    [windowMenuItem setSubmenu:windowMenu];
+
+    [windowMenu addItemWithTitle:@"Miniaturize"
+                          action:@selector(performMiniaturize:)
+                   keyEquivalent:@"m"];
+    [windowMenu addItemWithTitle:@"Zoom"
+                          action:@selector(performZoom:)
+                   keyEquivalent:@""];
+}
+
+
+NSWindow* create_window(int x, int y)
+{
+    int style;
+    NSWindow *window;
+    id delegate;
+    NSView *view;
+  
+    style = NSWindowStyleMaskClosable;
+    window = [[NSWindow alloc] initWithContentRect:NSMakeRect(x, y, 850, 550)
+                                         styleMask:style
+                                           backing:NSBackingStoreBuffered
+                                             defer:NO];
+
+    delegate = [[SplashWindowDelegate alloc] init];
+    [window setDelegate:delegate];
+    [window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
+    [window setTitle:@"Splash"];
+  
+    view = [[SplashView alloc] init];
+    
+    [window setContentView: view];
+    [window makeKeyAndOrderFront:window];
+  
+    return window;
+}
+
+
+void splashInit()
+{
+    autoreleasePool = [[NSAutoreleasePool alloc] init];
+}
+
+
+void splashTerminate()
+{
+    [NSApp setDelegate:nil];
+    [delegate release];
+    delegate = nil;
+
+    [autoreleasePool release];
+    autoreleasePool = nil;
+}
+
+
+void splashRun()
+{
+    [SplashApplication sharedApplication];
+  
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    
+    create_menubar();
+  
+    window = create_window(150, 300);
+
+    [NSApp activateIgnoringOtherApps:YES];
+
+    delegate = [[SplashApplicationDelegate alloc] init];
+
+    [NSApp setDelegate:delegate];
+    [NSApp run];
+}
+
+//#)
+
+
+(definition protected splash
+  #f)
+
+(definition protected (splash-set! value)
+  (set! splash value))
+
+
+;(c-type CGContextRef (pointer (struct "CGContext")))
+
+
+(c-external (splashInit) void)
+(c-external (splashTerminate) void)
+(c-external (splashRun) void)
+(c-callable (splashPollEvent) bool)
+
+
+(c-definition (paint-callback-bazoo context) (CGContextRef) void "paint_callback" "static"
+  (splash-paint splash context))
+
+
+(definition package (poll-events)
+  (declare (proper-tail-calls))
+  ;; not doing the loop in C to enable thread scheduling
+  (let (loop)
+    (when (splashPollEvent)
+      (loop))))
+
+
+(definition package (with-splash-painting context width height proc)
+  (let ((surface (new Surface (cairo_quartz_surface_create_for_cg_context context width height)))
+        (image-surface (new Image-Surface (new Dimension width height))))
+    (proc image-surface)
+    (blit-surface surface image-surface)
+    (close surface)
+    @crashes
+    (close image-surface))))
+  
+  
+;;;
+;;;; Windows
+;;;
+  
+  (windows
+(c-declare splash #/Objective-C/
+#include <windows.h>
+#include <cmath>
+#include <stdio.h>
+
+static void paint_callback(HDC hdc);
+
+
+void SetClientSize( HWND hwnd, int clientWidth, int clientHeight )
+{
+    if ( IsWindow( hwnd ) ) {
+        DWORD dwStyle = GetWindowLongPtr( hwnd, GWL_STYLE );
+        DWORD dwExStyle = GetWindowLongPtr( hwnd, GWL_EXSTYLE );
+        HMENU menu = GetMenu( hwnd );
+        RECT rc = { 0, 0, clientWidth, clientHeight };
+        AdjustWindowRectEx( &rc, dwStyle, menu ? TRUE : FALSE, dwExStyle );
+        SetWindowPos( hwnd, NULL, 0, 0, rc.right - rc.left, rc.bottom - rc.top,
+                      SWP_NOZORDER | SWP_NOMOVE );
+  }
+}
+
+
+LRESULT onPaint( HWND hwnd, WPARAM wParam, LPARAM lParam )
+{
+    PAINTSTRUCT ps;
+    HDC hdc = BeginPaint( hwnd, &ps );
+    paint_callback(hdc);
+    EndPaint( hwnd, &ps );
+    return 0;
+}
+
+
+LRESULT onClose(HWND hwnd, WPARAM wParam, LPARAM lParam)
+{
+    PostQuitMessage( 0 );
+    return 0;
+}
+
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    switch(msg) {
+        case WM_PAINT: return onPaint(hwnd, wParam, lParam);
+        case WM_CLOSE: return onClose(hwnd, wParam, lParam);
+        default: return DefWindowProc(hwnd,msg,wParam,lParam);
+    }
+}
+
+
+void splashInit()
+{
+}
+
+
+void splashRun()
+{
+    HINSTANCE hInst = NULL;
+
+    WNDCLASS wc = {0};
+    wc.lpszClassName = TEXT("SplashWndClass");
+    wc.hInstance     = hInst;
+    wc.hbrBackground = GetSysColorBrush(COLOR_3DFACE);
+    wc.lpfnWndProc   = WndProc;
+    wc.hCursor       = LoadCursor(0, IDC_ARROW);
+
+    RegisterClass(&wc);
+    HWND hwnd = CreateWindow(wc.lpszClassName,TEXT("Splash"),
+                             WS_OVERLAPPEDWINDOW, 0, 0, 850, 550, 0, 0, hInst, 0);
+    SetClientSize(hwnd, 850, 550);
+    ShowWindow(hwnd, SW_SHOWNORMAL);
+}
+
+
+bool splashPollEvent()
+{
+    MSG msg;
+  
+    if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE) > 0)
+    {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+        return true;
+    }
+    else
+        return false;
+}
+
+//#)
+
+
+(definition protected splash
+  #f)
+
+(definition protected (splash-set! value)
+  (set! splash value))
+
+
+(c-external (splashInit) void)
+(c-external (splashRun) void)
+(c-external (splashPollEvent) bool)
+
+
+(c-definition (paint-callback hdc) (HDC) void "paint_callback" "static"
+  (splash-paint splash hdc))
+
+
+(definition package (poll-events)
+  (declare (proper-tail-calls))
+  ;; not doing the loop in C to enable thread scheduling
+  (let (loop)
+    (when (splashPollEvent)
+      (loop))))
+
+
+(definition package (with-splash-painting hdc width height proc)
+  (let ((surface (new Surface (cairo_win32_surface_create hdc))))
+    (proc surface)
+    (close surface))))))

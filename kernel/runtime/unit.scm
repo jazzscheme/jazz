@@ -1861,9 +1861,7 @@
     (define (key-product? name)
       (%%memq name '(contrib.irregex
                      jazz
-                     jazz.backend.scheme
                      scheme
-                     scheme.backend.scheme
                      scheme.core)))
     
     (define (atomic-output line)

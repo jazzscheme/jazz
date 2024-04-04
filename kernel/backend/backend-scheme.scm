@@ -38,9 +38,6 @@
 (block backend.backend-scheme
 
 
-(jazz:define-backend scheme)
-
-
 ;;;
 ;;;; Module
 ;;;

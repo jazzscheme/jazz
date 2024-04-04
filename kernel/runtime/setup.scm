@@ -520,14 +520,13 @@ end-of-code
   ;; s -> sourcify
   ;; t -> test
   ;; v -> version
-  ;; w -> walk
   ;; x -> expand
   ;; y -> verify
   (jazz:with-quit
     (lambda ()
       (jazz:split-command-line (jazz:command-arguments)
                                '("v" "version" "nosource" "debug" "f" "force" "force-outlines" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit")
-                               '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "download" "install" "deploy" "p" "parse" "s" "sourcify" "shape" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "d" "debugger" "link" "j" "jobs" "port" "load-feedback" "load-expected" "m" "module" "dialect" "listen")
+                               '("build-repository" "jazz-repository" "repositories" "dependencies" "recompile-references" "e" "eval" "i" "interpret" "l" "load" "t" "test" "r" "run" "update" "make" "build" "download" "install" "deploy" "p" "parse" "s" "sourcify" "shape" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "d" "debugger" "link" "j" "jobs" "port" "load-feedback" "load-expected" "m" "module" "dialect" "listen")
                                missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:find-option "v" options) (jazz:find-option "version" options)))
@@ -563,7 +562,6 @@ end-of-code
                 (parse (or (jazz:find-option "p" options) (jazz:find-option "parse" options)))
                 (sourcify (or (jazz:find-option "s" options) (jazz:find-option "sourcify" options)))
                 (shape (jazz:find-option "shape" options))
-                (walk (or (jazz:find-option "w" options) (jazz:find-option "walk" options)))
                 (expand (or (jazz:find-option "x" options) (jazz:find-option "expand" options)))
                 (check (or (jazz:find-option "k" options) (jazz:find-option "check" options)))
                 (verify (or (jazz:find-option "y" options) (jazz:find-option "verify" options)))
@@ -781,9 +779,6 @@ end-of-code
                   (shape
                    (setup-build)
                    ((jazz:global-ref 'jazz:shape-unit) (%%string->symbol shape)))
-                  (walk
-                   (setup-build)
-                   ((jazz:global-ref 'jazz:walk-describe) (%%string->symbol walk)))
                   (expand
                    (setup-build)
                    ((jazz:global-ref 'jazz:expand-to) (%%string->symbol expand)))

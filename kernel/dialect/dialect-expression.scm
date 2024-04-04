@@ -51,7 +51,7 @@
   (jazz:allocate-proclaim #f #f clauses))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Proclaim expression) declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Proclaim expression) declaration walker resume environment)
   (let ((clauses (jazz:get-proclaim-clauses expression)))
     (for-each jazz:proclaim clauses))
   #f)
@@ -118,10 +118,10 @@
   (jazz:allocate-delay #f #f expression))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Delay expression) declaration walker resume environment backend)
-  (let ((expr (jazz:emit-expression (jazz:get-delay-expression expression) declaration walker resume environment backend)))
+(jazz:define-method (jazz:emit-expression (jazz:Delay expression) declaration walker resume environment)
+  (let ((expr (jazz:emit-expression (jazz:get-delay-expression expression) declaration walker resume environment)))
     (jazz:new-code
-      (jazz:emit backend 'delay expression declaration walker resume environment expr)
+      `(delay ,(jazz:sourcified-form expr))
       jazz:Any
       #f)))
 
@@ -153,10 +153,10 @@
 
 
 (jazz:define-variable-override jazz:emit-specialized-call
-  (lambda (operator locator arguments arguments-codes call declaration walker resume environment backend)
+  (lambda (operator locator arguments arguments-codes call declaration walker resume environment)
     (if (%%not locator)
         #f
-      (or (jazz:emit-specialized-locator locator arguments-codes environment backend)
+      (or (jazz:emit-specialized-locator locator arguments-codes environment)
           (if (%%class-is? operator jazz:Binding-Reference)
               (let ((binding (jazz:get-binding-reference-binding operator)))
                 (let ((specializers (jazz:get-specializers binding)))
@@ -194,7 +194,7 @@
                              (let ((function-type (jazz:get-lexical-binding-type specializer)))
                                (let ((mismatch (jazz:signature-mismatch arguments types function-type)))
                                  (if (%%not mismatch)
-                                     (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration walker resume environment backend)
+                                     (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration walker resume environment)
                                          (begin
                                            (jazz:add-to-module-references declaration specializer)
                                            (jazz:new-code
@@ -215,7 +215,7 @@
 (jazz:define-variable jazz:emit-specialized-locator)
 
 (jazz:define-variable-override jazz:emit-specialized-locator
-  (lambda (locator arguments-codes environment backend)
+  (lambda (locator arguments-codes environment)
     #f))
 
 
@@ -225,7 +225,7 @@
 
 
 (jazz:define-variable-override jazz:emit-new-call
-  (lambda (operator locator arguments arguments-codes declaration walker resume environment backend)
+  (lambda (operator locator arguments arguments-codes declaration walker resume environment)
     #f))
 
 
@@ -235,8 +235,294 @@
 
 
 (jazz:define-variable-override jazz:emit-primitive-call
-  (lambda (operator locator arguments arguments-codes declaration walker resume environment backend)
-    (jazz:emit backend 'primitive-call operator locator arguments arguments-codes declaration walker resume environment)))
+  (lambda (operator locator arguments arguments-codes declaration walker resume environment)
+    (jazz:primitive-call-emit operator locator arguments arguments-codes declaration walker resume environment)))
+
+
+;; To make this a lot more clean would necessitate moving the specializer into the walk phase so that the
+;; result of inlining can be Jazz code. With this we could specialize for instance (##length x) and ##length
+;; would simply be an external typed as <list:int> which would do all type propagation automatically.
+;; This is really difficult to achieve because as inlining can impact type inference it also needs
+;; to be done at emit phase... Even better, all those should be specialized definitions in Jazz with support
+;; for specializing based on static types...
+
+
+(define jazz:*primitive-patterns*
+  (%%make-table test: eq?))
+
+
+(define (jazz:primitive-patterns-get)
+  jazz:*primitive-patterns*)
+
+
+(define (jazz:add-primitive-patterns operator patterns)
+  (%%table-set! jazz:*primitive-patterns* operator
+    (map (lambda (pattern)
+           (let ((safety (%%car pattern))
+                 (primitive (%%cadr pattern))
+                 (specifier (%%car (%%cddr pattern))))
+             (%%list safety primitive (jazz:walk-specifier #f #f #f '() specifier))))
+         patterns)))
+
+
+(define (jazz:get-primitive-patterns locator)
+  (%%table-ref jazz:*primitive-patterns* locator #f))
+
+
+(jazz:add-primitive-patterns     'scheme.language.runtime:=                           '((safe %%fx=  <fx*:bool>)  (safe %%fl=  <fv*:bool>)  (safe %%= <number^number:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:<                           '((safe %%fx<  <fx*:bool>)  (safe %%fl<  <fv*:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:<=                          '((safe %%fx<= <fx*:bool>)  (safe %%fl<= <fv*:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:>                           '((safe %%fx>  <fx*:bool>)  (safe %%fl>  <fv*:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:>=                          '((safe %%fx>= <fx*:bool>)  (safe %%fl>= <fv*:bool>)))
+
+(jazz:add-primitive-patterns     'scheme.language.runtime:+                           '((safe %%fx+  <fx*:fx>)    (safe %%fl+  <fv*:fl>)    (safe %%+ <int^int:int>) (safe %%+ <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:-                           '((safe %%fx-  <fx^fx*:fx>) (safe %%fl-  <fv^fv*:fl>) (safe %%- <int^int:int>) (safe %%- <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:*                           '((safe %%fx*  <fx*:fx>)    (safe %%fl*  <fv*:fl>)    (safe %%* <int^int:int>) (safe %%* <number^number:number>)))
+
+(jazz:add-primitive-patterns     'scheme.language.runtime:/                           '(                          (safe %%fl/  <fv^fv*:fl>)                   (zero-unsafe %%/ <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:quotient                    '((zero-unsafe %%fxquotient <fx^fx:fx>)))
+
+(jazz:add-primitive-patterns     'scheme.language.runtime:floor                       '(                          (safe %%flfloor    <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:ceiling                     '(                          (safe %%flceiling  <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:truncate                    '(                          (safe %%fltruncate <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:round                       '(                          (safe %%flround    <fv:fl>)))
+
+(jazz:add-primitive-patterns     'scheme.language.runtime:abs                         '((safe %%fxabs <fx:fx>)    (safe %%flabs      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:sqrt                        '(                          (safe %%flsqrt     <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:expt                        '(                          (safe %%flexpt     <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:square                      '(                          (safe %%flsquare   <fv:fl>)))
+
+(jazz:add-primitive-patterns     'scheme.language.runtime:sin                         '(                          (safe %%flsin      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:cos                         '(                          (safe %%flcos      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:tan                         '(                          (safe %%fltan      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:asin                        '(                          (safe %%flasin     <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:acos                        '(                          (safe %%flacos     <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:atan                        '(                          (safe %%flatan     <fv:fl>) (safe %%flatan <fv^fv:fl>)))
+
+(jazz:add-primitive-patterns     'scheme.language.runtime:not                         '((safe %%not  <any:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:eq?                         '((safe %%eq?  <any^any:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:eqv?                        '((safe %%eqv? <any^any:bool>)))
+
+(jazz:add-primitive-patterns     'scheme.language.runtime:car                         '((safe %%car    <pair:any>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:cdr                         '((safe %%cdr    <pair:any>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:cons                        '((safe %%cons   <any^any:pair>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:list                        '((safe %%list   <any*:list>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:length                      '((safe %%length <list:int>) (safe %%vector-length <vector:int>) (safe %%string-length <string:int>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:null?                       '((safe %%null?  <any:bool>)))
+
+(jazz:add-primitive-patterns     'scheme.language.runtime:string-length               '((safe          %%string-length <string:fx>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:string-ref                  '((bounds-unsafe %%string-ref    <string^fx:char>)))
+
+(jazz:add-primitive-patterns     'scheme.language.runtime:vector                      '((safe          %%vector        <any*:vector>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:vector-length               '((safe          %%vector-length <vector:fx>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:vector-ref                  '((bounds-unsafe %%vector-ref    <vector^fx:any>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:vector-set!                 '((bounds-unsafe %%vector-set!   <vector^fx^any:void>)))
+
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:values-ref                      '((bounds-unsafe %%values-ref  <values^fx:any>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:values-set!                     '((bounds-unsafe %%values-set! <values^fx^any:void>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:table-ref                   '((safe %%table-ref  <table^any:any>) (safe %%table-ref <table^any^any:any>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:table-set!                  '((safe %%table-set! <table^any^any:void>)))
+
+(jazz:add-primitive-patterns     'scheme.language.runtime:min                         '((safe %%fxmin <fx^fx:fx>) (safe %%flmin <fv^fv:fl>) (safe %%flmin <fv^fv^fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:max                         '((safe %%fxmax <fx^fx:fx>) (safe %%flmax <fv^fv:fl>) (safe %%flmax <fv^fv^fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:modulo                      '((zero-unsafe %%fxmodulo <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:even?                       '((safe %%fxeven? <fx:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:odd?                        '((safe %%fxodd? <fx:bool>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:fx+                         '((safe %%fx+ <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:fx-                         '((safe %%fx- <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:fx*                         '((safe %%fx* <fx^fx:fx>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:fl+                         '(                     (safe %%fl+ <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:fl-                         '(                     (safe %%fl- <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:fl*                         '(                     (safe %%fl* <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:fl/                         '(                     (safe %%fl/ <fv^fv:fl>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:nan?                        '(                     (safe %%flnan? <fv:bool>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:bitwise-not                 '((safe %%fxnot <fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:bitwise-and                 '((safe %%fxand <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:bitwise-ior                 '((safe %%fxior <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:bitwise-xor                 '((safe %%fxxor <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:arithmetic-shift            '((safe %%fxarithmetic-shift <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:arithmetic-shift-left           '((safe %%fxarithmetic-shift-left <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:arithmetic-shift-right          '((safe %%fxarithmetic-shift-right <fx^fx:fx>)))
+
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:fixnum->flonum                  '((safe %%fixnum->flonum <fx:fl>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:flonum->fixnum                  '((safe %%flonum->fixnum <fv:fx>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:s8vector                    '((safe          %%s8vector         <fx*:s8vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s8vector-length             '((safe          %%s8vector-length  <s8vector:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s8vector-ref                '((bounds-unsafe %%s8vector-ref     <s8vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s8vector-set!               '((bounds-unsafe %%s8vector-set!    <s8vector^fx^any:void>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:u8vector                    '((safe          %%u8vector         <fx*:u8vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u8vector-length             '((safe          %%u8vector-length  <u8vector:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u8vector-ref                '((bounds-unsafe %%u8vector-ref     <u8vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u8vector-set!               '((bounds-unsafe %%u8vector-set!    <u8vector^fx^any:void>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:s16vector                   '((safe          %%s16vector        <fx*:s16vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s16vector-length            '((safe          %%s16vector-length <s16vector:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s16vector-ref               '((bounds-unsafe %%s16vector-ref    <s16vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s16vector-set!              '((bounds-unsafe %%s16vector-set!   <s16vector^fx^any:void>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:u16vector                   '((safe          %%u16vector        <fx*:u16vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u16vector-length            '((safe          %%u16vector-length <u16vector:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u16vector-ref               '((bounds-unsafe %%u16vector-ref    <u16vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u16vector-set!              '((bounds-unsafe %%u16vector-set!   <u16vector^fx^any:void>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:s32vector                   '((safe          %%s32vector        <fx*:s32vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s32vector-length            '((safe          %%s32vector-length <s32vector:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s32vector-ref               '((bounds-unsafe %%s32vector-ref    <s32vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s32vector-set!              '((bounds-unsafe %%s32vector-set!   <s32vector^fx^any:void>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:u32vector                   '((safe          %%u32vector        <fx*:u32vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u32vector-length            '((safe          %%u32vector-length <u32vector:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u32vector-ref               '((bounds-unsafe %%u32vector-ref    <u32vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u32vector-set!              '((bounds-unsafe %%u32vector-set!   <u32vector^fx^any:void>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:s64vector                   '((safe          %%s64vector        <fx*:s64vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s64vector-length            '((safe          %%s64vector-length <s64vector:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s64vector-ref               '((bounds-unsafe %%s64vector-ref    <s64vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:s64vector-set!              '((bounds-unsafe %%s64vector-set!   <s64vector^fx^any:void>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:u64vector                   '((safe          %%u64vector        <fx*:u64vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u64vector-length            '((safe          %%u64vector-length <u64vector:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u64vector-ref               '((bounds-unsafe %%u64vector-ref    <u64vector^fx:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:u64vector-set!              '((bounds-unsafe %%u64vector-set!   <u64vector^fx^any:void>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:f32vector                   '((safe          %%f32vector        <fl*:f32vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:f32vector-length            '((safe          %%f32vector-length <f32vector:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:f32vector-ref               '((bounds-unsafe %%f32vector-ref    <f32vector^fx:fl>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:f32vector-set!              '((bounds-unsafe %%f32vector-set!   <f32vector^fx^any:void>)))
+
+(jazz:add-primitive-patterns     'gambit.language.runtime:f64vector                   '((safe          %%f64vector        <fl*:f64vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:f64vector-length            '((safe          %%f64vector-length <f64vector:fx>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:f64vector-ref               '((bounds-unsafe %%f64vector-ref    <f64vector^fx:fl>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:f64vector-set!              '((bounds-unsafe %%f64vector-set!   <f64vector^fx^any:void>)))
+
+;; use at your own risk versions that do not initialize memory
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-s8vector             '((safe %%allocate-s8vector  <any*:s8vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-u8vector             '((safe %%allocate-u8vector  <any*:u8vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-s16vector            '((safe %%allocate-s16vector <any*:s16vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-u16vector            '((safe %%allocate-u16vector <any*:u16vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-s32vector            '((safe %%allocate-s32vector <any*:s32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-u32vector            '((safe %%allocate-u32vector <any*:u32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-s64vector            '((safe %%allocate-s64vector <any*:s64vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-u64vector            '((safe %%allocate-u64vector <any*:u64vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-f32vector            '((safe %%allocate-f32vector <any*:f32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-f64vector            '((safe %%allocate-f64vector <any*:f64vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime:allocate-vector               '((safe %%allocate-vector    <any*:vector>)))
+
+;; tracking allocations
+(jazz:add-primitive-patterns     'scheme.language.runtime:make-string                 '((safe %%make-string    <any*:string>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime:make-vector                 '((safe %%make-vector    <any*:vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-s8vector               '((safe %%make-s8vector  <any*:s8vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-u8vector               '((safe %%make-u8vector  <any*:u8vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-s16vector              '((safe %%make-s16vector <any*:s16vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-u16vector              '((safe %%make-u16vector <any*:u16vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-s32vector              '((safe %%make-s32vector <any*:s32vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-u32vector              '((safe %%make-u32vector <any*:u32vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-s64vector              '((safe %%make-s64vector <any*:s64vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-u64vector              '((safe %%make-u64vector <any*:u64vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-f32vector              '((safe %%make-f32vector <any*:f32vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-f64vector              '((safe %%make-f64vector <any*:f64vector>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-table                  '((safe %%make-table     <any*:table>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-condition-variable     '((safe %%make-condition-variable <any*:any>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-mutex                  '((safe %%make-mutex     <any*:any>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-thread                 '((safe %%make-thread    <any*:any>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-will                   '((safe %%make-will      <any*:any>)))
+(jazz:add-primitive-patterns     'gambit.language.runtime:make-parameter              '((safe %%make-parameter <any*:any>)))
+
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:flref                           '((safe %%flref <fv^fx:fl>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:flset!                          '((safe %%flset! <fv^fx^fv:void>)))
+
+(%%when (%%not jazz:debug-user?)
+  (jazz:add-primitive-patterns   'jazz.language.runtime:element                       '((safe list-ref <list^int:any>) (bounds-unsafe %%vector-ref    <vector^int:any>)      (bounds-unsafe %%string-ref    <string^int:char>)))
+  (jazz:add-primitive-patterns   'jazz.language.runtime:set-element!                  '(                               (bounds-unsafe %%vector-set!   <vector^int^any:void>) (bounds-unsafe %%string-set!   <string^int^char:void>))))
+
+(jazz:add-primitive-patterns     'jazz.language.runtime:between?                      '((safe %%fxbetween? <fx^fx^fx:bool>) (safe %%flbetween? <fl^fl^fl:bool>)))
+
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:current-seconds!                '((safe %%get-current-time! <f64vector^fx:void>)))
+(jazz:add-primitive-patterns     'jazz.dialect.kernel:bytes-allocated!                '((safe %%get-bytes-allocated! <f64vector^fx:void>)))
+
+
+(define (jazz:primitive-call-emit operator locator arguments arguments-codes declaration walker resume environment)
+  (if (%%not locator)
+      #f
+    (let ((patterns (jazz:get-primitive-patterns locator)))
+      (if (%%not patterns)
+          #f
+        (let ((zero-unsafe? (%%not (jazz:get-check? 'zero)))
+              (bounds-unsafe? (%%not (jazz:get-check? 'bounds)))
+              (types (jazz:codes-types arguments-codes)))
+          (let iter ((scan patterns) (least-mismatch #f))
+               (if (%%null? scan)
+                   (begin
+                     (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations)
+                                  ;; a bit extreme for now
+                                  (%%not (%%memq locator '(scheme.language.runtime:car
+                                                           scheme.language.runtime:cdr))))
+                       (let ((expression (and (%%pair? least-mismatch) (%%car least-mismatch))))
+                         (jazz:warning "Warning: In {a}{a}: Unmatched call to primitive {a}"
+                                       (jazz:get-declaration-locator declaration)
+                                       (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
+                                       (jazz:reference-name locator))))
+                     #f)
+                 (jazz:bind (safety primitive function-type) (%%car scan)
+                   (let ((mismatch (jazz:signature-mismatch arguments types function-type)))
+                     (if (and (%%not mismatch)
+                              (or (%%eq? safety 'safe)
+                                  (and (%%eq? safety 'zero-unsafe) (or zero-unsafe?
+                                                                       ;; at the moment the divisor is always the last argument
+                                                                       (let ((divisor (jazz:last arguments)))
+                                                                         (and (%%class-is? divisor jazz:Constant)
+                                                                              (let ((value (jazz:source-code (jazz:get-constant-expansion divisor))))
+                                                                                (and (%%fixnum? value)
+                                                                                     (%%not (%%fx= value 0))))))))
+                                  (and (%%eq? safety 'bounds-unsafe)
+                                       (or bounds-unsafe?
+                                           (let ((fixed-safe?
+                                                   (let ((fixed-metaclass (jazz:class->fixed-metaclass (%%car (jazz:get-function-type-positional function-type)))))
+                                                     (and fixed-metaclass
+                                                          (let ((type (%%car types))
+                                                                (arg (%%cadr arguments)))
+                                                            (and (%%is? type fixed-metaclass)
+                                                                 (let ((size (%%get-class-user-data type)))
+                                                                   (and (%%class-is? arg jazz:Constant)
+                                                                        (let ((index (jazz:source-code (jazz:get-constant-expansion arg))))
+                                                                          (and (%%fixnum? index)
+                                                                               (%%fx< index size)))))))))))
+                                             (%%when (and (%%not fixed-safe?) (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
+                                               (let ((expression (or (jazz:call-being-inlined) (and (%%pair? least-mismatch) (%%car least-mismatch)))))
+                                                 (jazz:warning "Warning: In {a}{a}: Bounds checked call to primitive {a}"
+                                                               (jazz:get-declaration-locator declaration)
+                                                               (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
+                                                               (jazz:reference-name locator))))
+                                             fixed-safe?)))))
+                         (jazz:new-code
+                           `(,primitive ,@(jazz:codes-forms arguments-codes))
+                           (let ((class (jazz:constructor->fixed-class locator)))
+                             (if class
+                                 (jazz:new-fixed-type class (%%length arguments))
+                               (let ((class (jazz:maker->fixed-class locator)))
+                                 (if class
+                                     (let ((arg (%%car arguments)))
+                                       (if (%%class-is? arg jazz:Constant)
+                                           (let ((card (jazz:source-code (jazz:get-constant-expansion arg))))
+                                             (if (%%fixnum? card)
+                                                 (jazz:new-fixed-type class card)
+                                               (jazz:get-function-type-result function-type)))
+                                         (jazz:get-function-type-result function-type)))
+                                   (jazz:get-function-type-result function-type)))))
+                           #f)
+                       (iter (%%cdr scan) (if (or (%%not least-mismatch)
+                                                  (%%symbol? least-mismatch)
+                                                  (and (%%pair? mismatch)
+                                                       (%%fx< (%%length mismatch) (%%length least-mismatch))))
+                                              mismatch
+                                            least-mismatch))))))))))))
 
 
 ;;;
@@ -245,10 +531,10 @@
 
 
 (jazz:define-variable-override jazz:emit-inlined-call
-  (lambda (operator arguments call declaration walker resume environment backend)
+  (lambda (operator arguments call declaration walker resume environment)
     (if (%%class-is? operator jazz:Binding-Reference)
         (let ((binding (jazz:get-binding-reference-binding operator)))
-          (jazz:emit-inlined-binding-call binding arguments call declaration walker resume environment backend))
+          (jazz:emit-inlined-binding-call binding arguments call declaration walker resume environment))
       #f)))
 
 
@@ -257,9 +543,83 @@
 ;;;
 
 
+#; ;; quicky to fix
 (jazz:define-variable-override jazz:emit-unsafe-call
-  (lambda (operator locator arguments arguments-codes declaration walker resume environment backend)
-    (jazz:emit backend 'unsafe-call operator locator arguments arguments-codes declaration walker resume environment)))
+  (lambda (operator locator arguments arguments-codes declaration walker resume environment)
+    (and jazz:debug-user?
+         (and (%%class-is? operator jazz:Binding-Reference)
+              (let ((binding (jazz:get-binding-reference-binding operator)))
+                (cond ((%%class-is? binding jazz:Definition-Declaration)
+                       (let ((type (jazz:get-lexical-binding-type binding)))
+                         (and (%%is? type jazz:Function-Type)
+                              ;; fail safe as this should never occur as inlined-call is before
+                              (%%neq? (jazz:get-definition-declaration-expansion binding) 'inline)
+                              ;; safe first iteration simplification
+                              (jazz:only-positional-function-type? type)
+                              (jazz:typed-function-type? type)
+                              (let ((types (jazz:codes-types arguments-codes)))
+                                (let ((mismatch (jazz:signature-mismatch arguments types type #t)))
+                                  ;; quick solution to calling an inline function from
+                                  ;; a script that does not have access to source code
+                                  (cond ((%%not jazz:kernel-source-access?)
+                                         #f)
+                                        ((or (%%not mismatch)
+                                             (%%not (jazz:get-check? 'types)))
+                                         (jazz:new-code
+                                           (let ((locator (jazz:unsafe-locator locator)))
+                                             `(,locator ,@(map (lambda (code type)
+                                                                 (jazz:emit-implicit-cast code type))
+                                                               arguments-codes
+                                                               (jazz:get-function-type-positional type))))
+                                           (jazz:get-function-type-result type)
+                                           #f))
+                                        (else
+                                         (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
+                                           (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
+                                             (jazz:warning "Warning: In {a}{a}: Unmatched call to typed definition {a}"
+                                                           (jazz:get-declaration-locator declaration)
+                                                           (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
+                                                           (jazz:reference-name locator))))
+                                         #f)))))))
+                      ((%%class-is? binding jazz:Internal-Define-Variable)
+                       (let ((type (jazz:get-lexical-binding-type binding)))
+                         (and (%%is? type jazz:Function-Type)
+                              ;; safe first iteration simplification
+                              (jazz:only-positional-function-type? type)
+                              (jazz:typed-function-type? type)
+                              (let ((types (jazz:codes-types arguments-codes)))
+                                (let ((mismatch (jazz:signature-mismatch arguments types type #t)))
+                                  (if (or (%%not mismatch)
+                                          (%%not (jazz:get-check? 'types)))
+                                      (jazz:new-code
+                                        `(,(jazz:get-lexical-binding-name binding) ,@(map (lambda (code type)
+                                                                                            (jazz:emit-implicit-cast code type))
+                                                                                          arguments-codes
+                                                                                          (jazz:get-function-type-positional type)))
+                                        (jazz:get-function-type-result type)
+                                        #f)
+                                    (begin
+                                      (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
+                                        (jazz:unsafe-warning "Unsafe: In {a}{a}: Unmatched call to typed internal define {a}"
+                                                             (jazz:get-declaration-locator declaration)
+                                                             (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
+                                                             (jazz:get-lexical-binding-name binding))
+                                        #; ;; waiting for warning tooltip
+                                        (display (jazz:format "  Unsafe: {l}{%}" (%%apply append (map (lambda (arg type)
+                                                                                                        (if (%%class-is? arg jazz:Binding-Reference)
+                                                                                                            (let ((variable (jazz:get-binding-reference-binding arg)))
+                                                                                                              (%%list (jazz:get-lexical-binding-name variable)
+                                                                                                                      (jazz:type->specifier type)))
+                                                                                                          (%%list (cond ((%%is? arg jazz:Constant)
+                                                                                                                         (jazz:desourcify-all (jazz:get-constant-expansion arg)))
+                                                                                                                        (else
+                                                                                                                         arg))
+                                                                                                                  (jazz:type->specifier type))))
+                                                                                                      arguments
+                                                                                                      types)))))
+                                      #f)))))))
+                      (else
+                       #f)))))))
 
 
 ;;;
@@ -575,16 +935,20 @@
   (process-expr test (%%cons environment environment)))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:If expression) declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:If expression) declaration walker resume environment)
   (let ((test (jazz:get-if-test expression))
         (yes (jazz:get-if-yes expression))
         (no (jazz:get-if-no expression)))
     (jazz:bind (yes-environment . no-environment) (jazz:branch-types test environment)
-      (let ((test (jazz:emit-expression test declaration walker resume environment backend))
-            (yes (jazz:emit-expression yes declaration walker resume yes-environment backend))
-            (no (and no (jazz:emit-expression no declaration walker resume no-environment backend))))
+      (let ((test (jazz:emit-expression test declaration walker resume environment))
+            (yes (jazz:emit-expression yes declaration walker resume yes-environment))
+            (no (and no (jazz:emit-expression no declaration walker resume no-environment))))
         (jazz:new-code
-          (jazz:emit backend 'if expression declaration walker resume environment test yes no)
+          `(if ,(jazz:sourcified-form test)
+               ,(jazz:sourcified-form yes)
+             ,@(if no
+                   (%%list (jazz:simplify-begin (jazz:sourcified-form no)))
+                 '()))
           (jazz:extend-type (jazz:get-code-type yes) (and no (jazz:get-code-type no)))
           (jazz:get-expression-source expression))))))
 
@@ -622,7 +986,7 @@
   (jazz:allocate-cond #f source clauses))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Cond expression) declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Cond expression) declaration walker resume environment)
   (let ((clauses (jazz:get-cond-clauses expression)))
     (let ((clauses
             (let recurse ((clauses clauses)
@@ -634,8 +998,8 @@
                            (arrow? (%%cadr clause))
                            (body (%%cddr clause)))
                        (jazz:bind (yes-environment . no-environment) (jazz:branch-types test environment)
-                         (let ((test (and test (jazz:emit-expression test declaration walker resume environment backend)))
-                               (body (and body (jazz:emit-expression body declaration walker resume yes-environment backend))))
+                         (let ((test (and test (jazz:emit-expression test declaration walker resume environment)))
+                               (body (and body (jazz:emit-expression body declaration walker resume yes-environment))))
                            (let ((output
                                    `(,(if (%%not test)
                                           'else
@@ -653,7 +1017,7 @@
                                          (else jazz:Any))))
                              (%%cons (%%cons output type) (recurse (%%cdr clauses) no-environment)))))))))))
       (jazz:new-code
-        (jazz:emit backend 'cond expression declaration walker resume environment (map car clauses))
+        `(cond ,@(map car clauses))
         (jazz:extend-types (map cdr clauses))
         (jazz:get-expression-source expression)))))
 
@@ -690,16 +1054,21 @@
   (jazz:allocate-case #f source target clauses))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Case expression) declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Case expression) declaration walker resume environment)
   (let ((target (jazz:get-case-target expression))
         (clauses (jazz:get-case-clauses expression)))
-    (let ((target-emit (jazz:emit-expression target declaration walker resume environment backend))
+    (let ((target-emit (jazz:emit-expression target declaration walker resume environment))
           (clauses-emit (map (lambda (clause)
                                (let ((body (%%cdr clause)))
-                                 (jazz:emit-expression body declaration walker resume environment backend)))
+                                 (jazz:emit-expression body declaration walker resume environment)))
                              clauses)))
       (jazz:new-code
-        (jazz:emit backend 'case expression declaration walker resume environment target-emit clauses clauses-emit)
+        `(case ,(jazz:sourcified-form target-emit)
+           ,@(map (lambda (clause emited-clause)
+                    (let ((tries (%%car clause)))
+                      `(,tries ,(jazz:sourcified-form emited-clause))))
+                  clauses
+                  clauses-emit))
         (jazz:extend-types (map (lambda (emited-clause)
                                   (jazz:get-code-type emited-clause))
                                 clauses-emit))
@@ -729,7 +1098,7 @@
   (jazz:allocate-and #f source expressions))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:And expression) declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:And expression) declaration walker resume environment)
   (let ((expressions
           (let recurse ((expressions (jazz:get-and-expressions expression))
                         (environment environment))
@@ -737,7 +1106,7 @@
                    '()
                  (let ((expression (%%car expressions)))
                    (jazz:bind (yes-environment . no-environment) (jazz:branch-types expression environment)
-                     (let ((code (jazz:emit-expression expression declaration walker resume environment backend)))
+                     (let ((code (jazz:emit-expression expression declaration walker resume environment)))
                        (%%cons code (recurse (%%cdr expressions) yes-environment)))))))))
     (let ((type (cond ((%%null? expressions) jazz:Any)
                       ((%%null? (%%cdr expressions)) (jazz:get-code-type (%%car expressions)))
@@ -746,7 +1115,7 @@
                                   jazz:Any
                                 (jazz:new-nillable-type last-type)))))))
       (jazz:new-code
-        (jazz:emit backend 'and expression declaration walker resume environment expressions)
+        `(and ,@(jazz:codes-forms expressions))
         type
         (jazz:get-expression-source expression)))))
 
@@ -772,7 +1141,7 @@
   (jazz:allocate-or #f source expressions))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Or expression) declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Or expression) declaration walker resume environment)
   (let ((expressions
           (let recurse ((expressions (jazz:get-or-expressions expression))
                         (environment environment))
@@ -780,7 +1149,7 @@
                    '()
                  (let ((expression (%%car expressions)))
                    (jazz:bind (yes-environment . no-environment) (jazz:branch-types expression environment)
-                     (let ((code (jazz:emit-expression expression declaration walker resume environment backend)))
+                     (let ((code (jazz:emit-expression expression declaration walker resume environment)))
                        (%%cons code (recurse (%%cdr expressions) no-environment)))))))))
     (let ((type (cond ((%%null? expressions) jazz:Any)
                       ((%%null? (%%cdr expressions)) (jazz:get-code-type (%%car expressions)))
@@ -794,7 +1163,7 @@
                                   last-type
                                 jazz:Any))))))
       (jazz:new-code
-        (jazz:emit backend 'or expression declaration walker resume environment expressions)
+        `(or ,@(jazz:codes-forms expressions))
         type
         (jazz:get-expression-source expression)))))
 
@@ -820,9 +1189,10 @@
   (jazz:allocate-declare #f #f declarations))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Declare expression) declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Declare expression) declaration walker resume environment)
   (jazz:new-code
-    (jazz:emit backend 'declare expression declaration walker resume environment)
+    (let ((declarations (jazz:get-declare-declarations expression)))
+      `(declare ,@declarations))
     jazz:Any
     #f))
 
@@ -845,11 +1215,18 @@
   (jazz:allocate-parameterize #f #f bindings body))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Parameterize expression) declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Parameterize expression) declaration walker resume environment)
   (let ((body (jazz:get-parameterize-body expression)))
-    (let ((body-code (jazz:emit-expression body declaration walker resume environment backend)))
+    (let ((body-code (jazz:emit-expression body declaration walker resume environment)))
       (jazz:new-code
-        (jazz:emit backend 'parameterize expression declaration walker resume environment body-code)
+        (let ((bindings (jazz:get-parameterize-bindings expression)))
+          `(parameterize ,(map (lambda (binding)
+                                 (let ((variable (%%car binding))
+                                       (value (%%cdr binding)))
+                                   `(,(jazz:sourcified-form (jazz:emit-expression variable declaration walker resume environment))
+                                     ,(jazz:sourcified-form (jazz:emit-expression value declaration walker resume environment)))))
+                               bindings)
+             ,@(jazz:sourcified-form body-code)))
         (jazz:get-code-type body-code)
         #f))))
 

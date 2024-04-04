@@ -202,7 +202,7 @@
 ;;;
 
 
-(definition (emit-optimize body declaration walker resume environment backend (defoptimize? #f))
+(definition (emit-optimize body declaration walker resume environment (defoptimize? #f))
   (let ((globals '())
         (inputs '())
         (bailout? #f)
@@ -314,7 +314,7 @@
             (else
              ;; quick try to generalize
              (if (eq? symbol 'vector-set!)
-                 (emit-tail `(vector-set! ,(emit (car arguments) env #f) ,(emit (cadr arguments) env #f) ,(convert (get-type (call-emit-expression (caddr arguments) declaration walker resume env backend)) Object (emit (caddr arguments) env #f))) tail?)
+                 (emit-tail `(vector-set! ,(emit (car arguments) env #f) ,(emit (cadr arguments) env #f) ,(convert (get-type (call-emit-expression (caddr arguments) declaration walker resume env)) Object (emit (caddr arguments) env #f))) tail?)
                (let ((caller (or (primitive-reference symbol)
                                  (vector-reference symbol))))
                  (if caller
@@ -367,7 +367,7 @@
         (or (let ((name (get-name binding)))
               (let ((object-argument (car arguments))
                     (rest-arguments (cdr arguments)))
-                (let ((object-type (get-type (call-emit-expression object-argument declaration walker resume env backend)))
+                (let ((object-type (get-type (call-emit-expression object-argument declaration walker resume env)))
                       (str (symbol->string name)))
                   (cond ;; quick solution for getter
                         ((and (starts-with? str "get-") (null? rest-arguments))
@@ -412,7 +412,7 @@
       
       (define (emit-arguments arguments)
         (map (lambda (arg)
-               (let ((type (get-type (call-emit-expression arg declaration walker resume env backend))))
+               (let ((type (get-type (call-emit-expression arg declaration walker resume env))))
                  (let ((code (argument->lisp type (emit arg env #f))))
                    (or code
                        (bailout `(unsupported-argument-type ,type))))))
@@ -449,7 +449,7 @@
                  (bailout `(unsupported-call ,operator)))))))
     
     (define (emit-let expr env tail?)
-      (annotate-let expr declaration walker resume env backend
+      (annotate-let expr declaration walker resume env
         (lambda (augmented-environment)
           (let ((bindings (get-bindings expr))
                 (body (get-body expr)))
@@ -514,7 +514,7 @@
               `(while 1
                  ,@body))
           (let ((var (name->c (get-name variable)))
-                (type (get-type (call-emit-expression (get-init expr) declaration walker resume env backend))))
+                (type (get-type (call-emit-expression (get-init expr) declaration walker resume env))))
             (let ((init (emit (get-init expr) env #f)))
               (with-annotated-frame (list (new Annotated-Variable variable Fixnum Fixnum))
                 (lambda (frame)
@@ -587,7 +587,7 @@
                               (naturals 1 (+ (length inputs) 1)))
                        ,@code)))
           (let ((code (c-expr/sexp expr))
-                (statements-code (emit-statements-code body declaration walker resume environment backend)))
+                (statements-code (emit-statements-code body declaration walker resume environment)))
             (let ((return-type (get-type statements-code)))
               (let ((lisp-return-type (or (type->lisp return-type) 'void))
                     (lisp-types (map (lambda (input)
@@ -642,7 +642,7 @@
         (wrap code)))))
 
 
-(definition (emit-defoptimize-constant locator name type constant declaration walker resume environment backend)
+(definition (emit-defoptimize-constant locator name type constant declaration walker resume environment)
   (let ((name (name->c name))
         (value (source-code (unquote-expr (get-expansion constant)))))
     (define (extract)
@@ -663,12 +663,12 @@
               (fmt #t code) (newline))
             `(begin
                (c-declare ,(fmt #f "" code))
-               (define ,locator ,(get-form (call-emit-expression constant declaration walker resume environment backend)))))
+               (define ,locator ,(get-form (call-emit-expression constant declaration walker resume environment)))))
         (error "Unsupported optimize constant: {s}" value)))))
 
 
-(definition (emit-defoptimize-function name signature return-type body expansion declaration walker resume environment backend)
-  (receive (bailout? bailout-expr globals body) (emit-optimize (get-expressions body) declaration walker resume environment backend #t)
+(definition (emit-defoptimize-function name signature return-type body expansion declaration walker resume environment)
+  (receive (bailout? bailout-expr globals body) (emit-optimize (get-expressions body) declaration walker resume environment #t)
     (let ((arguments (map (lambda (parameter)
                             (list (type->c (get-type parameter)) (name->c (get-name parameter))))
                           (get-positional signature)))
@@ -885,10 +885,10 @@
 (class Definition-Optimize-Declaration extends Definition-Declaration
   
   
-  (method override (emit-declaration self walker resume environment backend)
-    (let ((expression (emit-expression value self walker resume environment backend)))
+  (method override (emit-declaration self walker resume environment)
+    (let ((expression (emit-expression value self walker resume environment)))
       (cond ((is? value Constant)
-             (emit-defoptimize-constant locator name (get-type value) value self walker resume environment backend))
+             (emit-defoptimize-constant locator name (get-type value) value self walker resume environment))
             ((is? value Lambda)
              (let ((signature (get-signature value))
                    (body (get-body value)))
@@ -902,7 +902,7 @@
                (with-annotated-frame (annotate-signature signature)
                  (lambda (frame)
                    (let ((augmented-environment (cons frame environment)))
-                     (emit-defoptimize-function name signature (get-type value) body expansion self walker resume augmented-environment backend))))))
+                     (emit-defoptimize-function name signature (get-type value) body expansion self walker resume augmented-environment))))))
             (else
              (error "Unsupported optimize: {s}" value))))))
 
@@ -938,13 +938,13 @@
     (set! self.body body))
   
   
-  (method override (emit-expression self declaration walker resume environment backend)
+  (method override (emit-expression self declaration walker resume environment)
     (new-code
       (if debug?
           (parameterize ((debug-optimize? #t)
                          (debug-lambda? #t))
-            (emit-optimize body declaration walker resume environment backend))
-        (emit-optimize body declaration walker resume environment backend))
+            (emit-optimize body declaration walker resume environment))
+        (emit-optimize body declaration walker resume environment))
       Any
       #f)))
 
@@ -979,8 +979,8 @@
     (set! self.expansion expansion))
   
   
-  (method override (emit-expression self declaration walker resume environment backend)
-    (call-emit-expression expansion declaration walker resume environment backend)))
+  (method override (emit-expression self declaration walker resume environment)
+    (call-emit-expression expansion declaration walker resume environment)))
 
 
 (special-form (c-inline walker resume declaration environment form-src)
@@ -1018,8 +1018,8 @@
     (set! self.expansion expansion))
   
   
-  (method override (emit-expression self declaration walker resume environment backend)
-    (call-emit-expression expansion declaration walker resume environment backend)))
+  (method override (emit-expression self declaration walker resume environment)
+    (call-emit-expression expansion declaration walker resume environment)))
 
 
 (special-form (for walker resume declaration environment form-src)

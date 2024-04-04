@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected jazz.backend.scheme.runtime.core
+(unit protected jazz.backend.core
 
 
 ;;;

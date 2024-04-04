@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Scheme Backend Runtime
+;;;; Scheme Backend
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,9 +35,21 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.backend.scheme.runtime scheme
+(unit scheme.backend
 
 
-(require (jazz.backend.scheme.runtime.core)
-         (jazz.backend.scheme.runtime.syntax (phase syntax))
-         (jazz.backend.scheme.runtime.classes)))
+;;;
+;;;; Define
+;;;
+
+
+(jazz:define-class jazz:Define jazz:Field (constructor: jazz:allocate-define accessors-type: macro)
+  ((locator getter: generate)))
+
+
+(define (jazz:new-define name locator)
+  (jazz:allocate-define name locator))
+
+
+(define (jazz:register-define module-name name locator)
+  (jazz:register-module-entry module-name name (jazz:new-define name locator))))

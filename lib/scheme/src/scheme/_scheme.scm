@@ -41,5 +41,4 @@
 (export (foundation)
         (scheme.dialect)
         (scheme.dialect (phase syntax))
-        (scheme.backend.scheme.runtime)
         (scheme.language.runtime)))

@@ -39,8 +39,8 @@
 
 
 (require (jazz.dialect.runtime)
-         (jazz.backend.scheme)
-         (jazz.backend.scheme.runtime))
+         (jazz.backend)
+         (jazz.backend.core))
 
 
 (export (jazz.dialect.kernel)

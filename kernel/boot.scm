@@ -71,15 +71,12 @@
     "kernel/core/exception-runtime"
     "kernel/core/generic-syntax"
     "kernel/core/generic-runtime"
-    "kernel/backend/backend-syntax"
-    "kernel/backend/backend-runtime"
     "kernel/backend/backend-scheme"
     "kernel/dialect/dialect-syntax"
     "kernel/dialect/dialect-runtime"
     "kernel/dialect/dialect-expression"
     "kernel/dialect/dialect-development"
-    "kernel/foundation/foundation-runtime"
-    "kernel/foundation/foundation-emit"))
+    "kernel/foundation/foundation-runtime"))
 
 
 (define jazz:Kernel-Setup

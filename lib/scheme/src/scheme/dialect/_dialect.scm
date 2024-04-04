@@ -39,4 +39,4 @@
 
 
 (require (scheme.dialect.runtime)
-         (scheme.backend.scheme.emit)))
+         (scheme.backend)))

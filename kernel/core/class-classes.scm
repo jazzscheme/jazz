@@ -69,9 +69,9 @@
 (jazz:define-virtual-syntax (jazz:category-type? (jazz:Type type)) #t)
 (jazz:define-virtual-syntax (jazz:resolve-type (jazz:Type type)) #t)
 (jazz:define-virtual-syntax (jazz:emit-specifier (jazz:Type type)) #t)
-(jazz:define-virtual-syntax (jazz:emit-type (jazz:Type type) source-declaration walker resume environment backend) #t)
-(jazz:define-virtual-syntax (jazz:emit-test (jazz:Type type) value source-declaration walker resume environment backend) #t)
-(jazz:define-virtual-syntax (jazz:emit-cast (jazz:Type type) value source-declaration walker resume environment backend) #t)
+(jazz:define-virtual-syntax (jazz:emit-type (jazz:Type type) source-declaration walker resume environment) #t)
+(jazz:define-virtual-syntax (jazz:emit-test (jazz:Type type) value source-declaration walker resume environment) #t)
+(jazz:define-virtual-syntax (jazz:emit-cast (jazz:Type type) value source-declaration walker resume environment) #t)
 
 
 (jazz:define-macro (%%subtype? target type)

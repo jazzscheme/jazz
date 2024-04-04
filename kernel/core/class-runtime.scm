@@ -553,9 +553,9 @@
 (jazz:define-virtual (jazz:category-type? (jazz:Type type)))
 (jazz:define-virtual (jazz:resolve-type (jazz:Type type)))
 (jazz:define-virtual (jazz:emit-specifier (jazz:Type type)))
-(jazz:define-virtual (jazz:emit-type (jazz:Type type) source-declaration walker resume environment backend))
-(jazz:define-virtual (jazz:emit-test (jazz:Type type) value source-declaration walker resume environment backend))
-(jazz:define-virtual (jazz:emit-cast (jazz:Type type) value source-declaration walker resume environment backend))
+(jazz:define-virtual (jazz:emit-type (jazz:Type type) source-declaration walker resume environment))
+(jazz:define-virtual (jazz:emit-test (jazz:Type type) value source-declaration walker resume environment))
+(jazz:define-virtual (jazz:emit-cast (jazz:Type type) value source-declaration walker resume environment))
 
 
 (jazz:define-method (jazz:of-type? (jazz:Type type) object)
@@ -582,17 +582,17 @@
   (jazz:error "Unable to emit specifier for: {s}" type))
 
 
-(jazz:define-method (jazz:emit-type (jazz:Type type) source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-type (jazz:Type type) source-declaration walker resume environment)
   (jazz:error "Unable to emit type for: {s}" type))
 
 
-(jazz:define-method (jazz:emit-test (jazz:Type type) value source-declaration walker resume environment backend)
-  (let ((locator (jazz:emit-type type source-declaration walker resume environment backend)))
+(jazz:define-method (jazz:emit-test (jazz:Type type) value source-declaration walker resume environment)
+  (let ((locator (jazz:emit-type type source-declaration walker resume environment)))
     `(%%is? ,value ,locator)))
 
 
-(jazz:define-method (jazz:emit-cast (jazz:Type type) value source-declaration walker resume environment backend)
-  `(if ,(jazz:emit-test type value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-cast (jazz:Type type) value source-declaration walker resume environment)
+  `(if ,(jazz:emit-test type value source-declaration walker resume environment)
        ,value
      (jazz:type-error ,value ',(jazz:emit-specifier type))))
 
@@ -652,7 +652,7 @@
   #t)
 
 
-(jazz:define-method (jazz:emit-type (jazz:Category type) source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-type (jazz:Category type) source-declaration walker resume environment)
   (%%get-category-identifier type))
 
 
@@ -1077,11 +1077,11 @@
   'bool)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Bool-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Bool-Class type) value source-declaration walker resume environment)
   #t)
 
 
-(jazz:define-method (jazz:emit-cast (jazz:Bool-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-cast (jazz:Bool-Class type) value source-declaration walker resume environment)
   value)
 
 
@@ -1104,7 +1104,7 @@
   'boolean)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Boolean-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Boolean-Class type) value source-declaration walker resume environment)
   `(%%boolean? ,value))
 
 
@@ -1127,7 +1127,7 @@
   'char)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Char-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Char-Class type) value source-declaration walker resume environment)
   `(%%char? ,value))
 
 
@@ -1165,7 +1165,7 @@
   'number)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Number-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Number-Class type) value source-declaration walker resume environment)
   `(%%number? ,value))
 
 
@@ -1188,7 +1188,7 @@
   'complex)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Complex-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Complex-Class type) value source-declaration walker resume environment)
   `(%%complex? ,value))
 
 
@@ -1211,7 +1211,7 @@
   'real)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Real-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Real-Class type) value source-declaration walker resume environment)
   `(%%real? ,value))
 
 
@@ -1234,7 +1234,7 @@
   'rational)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Rational-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Rational-Class type) value source-declaration walker resume environment)
   `(%%rational? ,value))
 
 
@@ -1257,7 +1257,7 @@
   'int)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Integer-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Integer-Class type) value source-declaration walker resume environment)
   `(%%integer? ,value))
 
 
@@ -1280,7 +1280,7 @@
   'fx)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Fixnum-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Fixnum-Class type) value source-declaration walker resume environment)
   `(%%fixnum? ,value))
 
 
@@ -1303,7 +1303,7 @@
   'rt)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Ratnum-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Ratnum-Class type) value source-declaration walker resume environment)
   `(%%ratnum? ,value))
 
 
@@ -1326,11 +1326,11 @@
   'fl)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Flonum-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Flonum-Class type) value source-declaration walker resume environment)
   `(%%flonum? ,value))
 
 
-(jazz:define-method (jazz:emit-cast (jazz:Flonum-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-cast (jazz:Flonum-Class type) value source-declaration walker resume environment)
   `(cond ((%%flonum? ,value)
           ,value)
          ((%%fixnum? ,value)
@@ -1360,12 +1360,12 @@
   'fv)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Flovec-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Flovec-Class type) value source-declaration walker resume environment)
   `(or (%%flonum? ,value)
        (%%f64vector? ,value)))
 
 
-(jazz:define-method (jazz:emit-cast (jazz:Flovec-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-cast (jazz:Flovec-Class type) value source-declaration walker resume environment)
   `(if (or (%%flonum? ,value)
            (%%f64vector? ,value))
        ,value
@@ -1393,7 +1393,7 @@
   's64)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S64-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:S64-Class type) value source-declaration walker resume environment)
   `(%%integer? ,value))
 
 
@@ -1427,7 +1427,7 @@
   'list)
 
 
-(jazz:define-method (jazz:emit-test (jazz:List-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:List-Class type) value source-declaration walker resume environment)
   `(or (%%null? ,value)
        (%%pair? ,value)))
 
@@ -1451,7 +1451,7 @@
   'null)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Null-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Null-Class type) value source-declaration walker resume environment)
   `(%%null? ,value))
 
 
@@ -1474,7 +1474,7 @@
   'pair)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Pair-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Pair-Class type) value source-declaration walker resume environment)
   `(%%pair? ,value))
 
 
@@ -1497,7 +1497,7 @@
   'string)
 
 
-(jazz:define-method (jazz:emit-test (jazz:String-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:String-Class type) value source-declaration walker resume environment)
   `(%%string? ,value))
 
 
@@ -1520,7 +1520,7 @@
   'vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Vector-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Vector-Class type) value source-declaration walker resume environment)
   `(%%vector? ,value))
 
 
@@ -1543,7 +1543,7 @@
   's8vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S8Vector-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:S8Vector-Class type) value source-declaration walker resume environment)
   `(%%s8vector? ,value))
 
 
@@ -1566,7 +1566,7 @@
   'u8vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U8Vector-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:U8Vector-Class type) value source-declaration walker resume environment)
   `(%%u8vector? ,value))
 
 
@@ -1589,7 +1589,7 @@
   's16vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S16Vector-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:S16Vector-Class type) value source-declaration walker resume environment)
   `(%%s16vector? ,value))
 
 
@@ -1612,7 +1612,7 @@
   'u16vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U16Vector-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:U16Vector-Class type) value source-declaration walker resume environment)
   `(%%u16vector? ,value))
 
 
@@ -1635,7 +1635,7 @@
   's32vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S32Vector-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:S32Vector-Class type) value source-declaration walker resume environment)
   `(%%s32vector? ,value))
 
 
@@ -1658,7 +1658,7 @@
   'u32vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U32Vector-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:U32Vector-Class type) value source-declaration walker resume environment)
   `(%%u32vector? ,value))
 
 
@@ -1681,7 +1681,7 @@
   's64vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S64Vector-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:S64Vector-Class type) value source-declaration walker resume environment)
   `(%%s64vector? ,value))
 
 
@@ -1704,7 +1704,7 @@
   'u64vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U64Vector-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:U64Vector-Class type) value source-declaration walker resume environment)
   `(%%u64vector? ,value))
 
 
@@ -1727,7 +1727,7 @@
   'f32vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:F32Vector-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:F32Vector-Class type) value source-declaration walker resume environment)
   `(%%f32vector? ,value))
 
 
@@ -1750,7 +1750,7 @@
   'f64vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:F64Vector-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:F64Vector-Class type) value source-declaration walker resume environment)
   `(%%f64vector? ,value))
 
 
@@ -1774,7 +1774,7 @@
   (%%string->symbol (%%string-append "vector#" (%%number->string (%%get-class-user-data class)))))
 
 
-(jazz:define-method (jazz:emit-test (jazz:FixedVector-Class class) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:FixedVector-Class class) value source-declaration walker resume environment)
   `(and (%%vector? ,value)
         (%%fx= (%%vector-length ,value) ,(%%get-class-user-data class))))
 
@@ -1799,7 +1799,7 @@
   (%%string->symbol (%%string-append "s8vector#" (%%number->string (%%get-class-user-data class)))))
 
 
-(jazz:define-method (jazz:emit-test (jazz:FixedS8Vector-Class class) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:FixedS8Vector-Class class) value source-declaration walker resume environment)
   `(and (%%s8vector? ,value)
         (%%fx= (%%s8vector-length ,value) ,(%%get-class-user-data class))))
 
@@ -1824,7 +1824,7 @@
   (%%string->symbol (%%string-append "u8vector#" (%%number->string (%%get-class-user-data class)))))
 
 
-(jazz:define-method (jazz:emit-test (jazz:FixedU8Vector-Class class) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:FixedU8Vector-Class class) value source-declaration walker resume environment)
   `(and (%%u8vector? ,value)
         (%%fx= (%%u8vector-length ,value) ,(%%get-class-user-data class))))
 
@@ -1849,7 +1849,7 @@
   (%%string->symbol (%%string-append "s16vector#" (%%number->string (%%get-class-user-data class)))))
 
 
-(jazz:define-method (jazz:emit-test (jazz:FixedS16Vector-Class class) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:FixedS16Vector-Class class) value source-declaration walker resume environment)
   `(and (%%s16vector? ,value)
         (%%fx= (%%s16vector-length ,value) ,(%%get-class-user-data class))))
 
@@ -1874,7 +1874,7 @@
   (%%string->symbol (%%string-append "u16vector#" (%%number->string (%%get-class-user-data class)))))
 
 
-(jazz:define-method (jazz:emit-test (jazz:FixedU16Vector-Class class) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:FixedU16Vector-Class class) value source-declaration walker resume environment)
   `(and (%%u16vector? ,value)
         (%%fx= (%%u16vector-length ,value) ,(%%get-class-user-data class))))
 
@@ -1899,7 +1899,7 @@
   (%%string->symbol (%%string-append "s32vector#" (%%number->string (%%get-class-user-data class)))))
 
 
-(jazz:define-method (jazz:emit-test (jazz:FixedS32Vector-Class class) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:FixedS32Vector-Class class) value source-declaration walker resume environment)
   `(and (%%s32vector? ,value)
         (%%fx= (%%s32vector-length ,value) ,(%%get-class-user-data class))))
 
@@ -1924,7 +1924,7 @@
   (%%string->symbol (%%string-append "u32vector#" (%%number->string (%%get-class-user-data class)))))
 
 
-(jazz:define-method (jazz:emit-test (jazz:FixedU32Vector-Class class) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:FixedU32Vector-Class class) value source-declaration walker resume environment)
   `(and (%%u32vector? ,value)
         (%%fx= (%%u32vector-length ,value) ,(%%get-class-user-data class))))
 
@@ -1949,7 +1949,7 @@
   (%%string->symbol (%%string-append "s64vector#" (%%number->string (%%get-class-user-data class)))))
 
 
-(jazz:define-method (jazz:emit-test (jazz:FixedS64Vector-Class class) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:FixedS64Vector-Class class) value source-declaration walker resume environment)
   `(and (%%s64vector? ,value)
         (%%fx= (%%s64vector-length ,value) ,(%%get-class-user-data class))))
 
@@ -1974,7 +1974,7 @@
   (%%string->symbol (%%string-append "u64vector#" (%%number->string (%%get-class-user-data class)))))
 
 
-(jazz:define-method (jazz:emit-test (jazz:FixedU64Vector-Class class) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:FixedU64Vector-Class class) value source-declaration walker resume environment)
   `(and (%%u64vector? ,value)
         (%%fx= (%%u64vector-length ,value) ,(%%get-class-user-data class))))
 
@@ -1999,7 +1999,7 @@
   (%%string->symbol (%%string-append "f32vector#" (%%number->string (%%get-class-user-data class)))))
 
 
-(jazz:define-method (jazz:emit-test (jazz:FixedF32Vector-Class class) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:FixedF32Vector-Class class) value source-declaration walker resume environment)
   `(and (%%f32vector? ,value)
         (%%fx= (%%f32vector-length ,value) ,(%%get-class-user-data class))))
 
@@ -2024,7 +2024,7 @@
   (%%string->symbol (%%string-append "f64vector#" (%%number->string (%%get-class-user-data class)))))
 
 
-(jazz:define-method (jazz:emit-test (jazz:FixedF64Vector-Class class) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:FixedF64Vector-Class class) value source-declaration walker resume environment)
   `(and (%%f64vector? ,value)
         (%%fx= (%%f64vector-length ,value) ,(%%get-class-user-data class))))
 
@@ -2048,7 +2048,7 @@
   'structure)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Structure-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Structure-Class type) value source-declaration walker resume environment)
   `(%%structure? ,value))
 
 
@@ -2071,7 +2071,7 @@
   'port)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Port-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Port-Class type) value source-declaration walker resume environment)
   `(%%port? ,value))
 
 
@@ -2097,7 +2097,7 @@
   'continuation)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Continuation-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Continuation-Class type) value source-declaration walker resume environment)
   `(%%continuation? ,value))
 
 
@@ -2126,7 +2126,7 @@
   'procedure)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Procedure-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Procedure-Class type) value source-declaration walker resume environment)
   `(%%procedure? ,value))
 
 
@@ -2149,7 +2149,7 @@
   'symbol)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Symbol-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Symbol-Class type) value source-declaration walker resume environment)
   `(%%symbol? ,value))
 
 
@@ -2172,7 +2172,7 @@
   'keyword)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Keyword-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Keyword-Class type) value source-declaration walker resume environment)
   `(%%keyword? ,value))
 
 
@@ -2195,7 +2195,7 @@
   'table)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Table-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Table-Class type) value source-declaration walker resume environment)
   `(%%table? ,value))
 
 
@@ -2221,7 +2221,7 @@
   'thread)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Thread-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Thread-Class type) value source-declaration walker resume environment)
   `(%%thread? ,value))
 
 
@@ -2262,7 +2262,7 @@
   'foreign)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Foreign-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Foreign-Class type) value source-declaration walker resume environment)
   `(%%foreign? ,value))
 
 
@@ -2285,7 +2285,7 @@
   'values)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Values-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Values-Class type) value source-declaration walker resume environment)
   `(%%values? ,value))
 
 
@@ -2308,7 +2308,7 @@
   'eof)
 
 
-(jazz:define-method (jazz:emit-test (jazz:EOF-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:EOF-Class type) value source-declaration walker resume environment)
   `(%%eof-object? ,value))
 
 
@@ -2331,7 +2331,7 @@
   'unspecified)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Unspecified-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Unspecified-Class type) value source-declaration walker resume environment)
   `(%%unspecified? ,value))
 
 
@@ -2354,7 +2354,7 @@
   'marker)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Marker-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz:Marker-Class type) value source-declaration walker resume environment)
   `(jazz:marker? ,value))
 
 

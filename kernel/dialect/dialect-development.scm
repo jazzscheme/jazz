@@ -71,18 +71,6 @@
 
 
 ;;;
-;;;; Walk
-;;;
-
-
-(define (jazz:walk-describe unit-name)
-  (jazz:load-unit 'jazz.backend.describe)
-  (let ((port (current-output-port)))
-    (jazz:output-port-width-set! port 160)
-    (jazz:expand-to-port unit-name port backend: 'describe)))
-
-
-;;;
 ;;;; Expand
 ;;;
 
@@ -98,15 +86,15 @@
       (thunk))))
 
 
-(define (jazz:expand-unit unit-name #!key (backend 'scheme) (walk-for #f))
+(define (jazz:expand-unit unit-name #!key (walk-for #f))
   (jazz:expanding-unit unit-name
     (lambda ()
       (let ((form (jazz:read-toplevel-form (jazz:requested-unit-resource))))
-        (jazz:expand-form form unit-name: unit-name backend: backend walk-for: walk-for)))
+        (jazz:expand-form form unit-name: unit-name walk-for: walk-for)))
      walk-for: walk-for))
 
 
-(define (jazz:expand-form form #!key (unit-name #f) (backend 'scheme) (walk-for #f))
+(define (jazz:expand-form form #!key (unit-name #f) (walk-for #f))
   (parameterize ((jazz:walk-for (or walk-for 'walk)))
     (let ((kind (jazz:source-code (car (jazz:source-code form))))
           (rest (cdr (jazz:source-code form))))
@@ -114,8 +102,8 @@
                      (jazz:generate-symbol-context (or unit-name (gensym))))
         (case kind
           ((unit) (jazz:expand-unit-source rest))
-          ((module) (jazz:generate-module rest backend))
-          ((script) (jazz:generate-script rest backend))
+          ((module) (jazz:generate-module rest))
+          ((script) (jazz:generate-script rest))
           (else (jazz:error "Ill-formed toplevel form: {s}" kind)))))))
 
 
@@ -154,12 +142,12 @@
     (thunk)))
 
 
-(define (jazz:expand-script path #!key (backend 'scheme))
+(define (jazz:expand-script path)
   (jazz:expanding-script path
     (lambda ()
       (let ((form (jazz:read-toplevel-form path script?: #t)))
         (let ((rest (cdr (jazz:source-code form))))
-          (jazz:generate-script rest backend))))))
+          (jazz:generate-script rest))))))
 
 
 ;;;

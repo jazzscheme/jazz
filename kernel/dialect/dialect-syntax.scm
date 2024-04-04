@@ -61,11 +61,11 @@
 (jazz:define-virtual-syntax (jazz:walk-binding-walk-form (jazz:Walk-Binding binding) walker resume declaration environment form))
 (jazz:define-virtual-syntax (jazz:walk-binding-expandable? (jazz:Walk-Binding binding)))
 (jazz:define-virtual-syntax (jazz:walk-binding-expand-form (jazz:Walk-Binding binding) walker resume declaration environment form))
-(jazz:define-virtual-syntax (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment backend))
-(jazz:define-virtual-syntax (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration walker resume environment backend))
-(jazz:define-virtual-syntax (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments arguments-codes source-declaration walker resume environment backend))
-(jazz:define-virtual-syntax (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration walker resume environment backend))
-(jazz:define-virtual-syntax (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment backend form-src))
+(jazz:define-virtual-syntax (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment))
+(jazz:define-virtual-syntax (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration walker resume environment))
+(jazz:define-virtual-syntax (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments arguments-codes source-declaration walker resume environment))
+(jazz:define-virtual-syntax (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration walker resume environment))
+(jazz:define-virtual-syntax (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration walker resume environment form-src))
 
 
 ;;;
@@ -85,7 +85,7 @@
 (jazz:define-virtual-syntax (jazz:lookup-declaration (jazz:Declaration declaration) symbol access source-declaration))
 (jazz:define-virtual-syntax (jazz:get-declaration-inclusions (jazz:Declaration declaration)))
 (jazz:define-virtual-syntax (jazz:get-nextmethod-signature (jazz:Declaration declaration)))
-(jazz:define-virtual-syntax (jazz:emit-declaration (jazz:Declaration declaration) walker resume environment backend))
+(jazz:define-virtual-syntax (jazz:emit-declaration (jazz:Declaration declaration) walker resume environment))
 (jazz:define-virtual-syntax (jazz:expand-referenced-declaration (jazz:Declaration declaration)))
 (jazz:define-virtual-syntax (jazz:outline-generate (jazz:Declaration declaration) output))
 (jazz:define-virtual-syntax (jazz:outline-extract (jazz:Declaration declaration) meta))
@@ -130,7 +130,7 @@
 
 
 (jazz:define-virtual-syntax (jazz:emit-check? (jazz:Parameter parameter)))
-(jazz:define-virtual-syntax (jazz:emit-parameter (jazz:Parameter parameter) declaration walker resume environment backend))
+(jazz:define-virtual-syntax (jazz:emit-parameter (jazz:Parameter parameter) declaration walker resume environment))
 
 
 ;;;
@@ -138,5 +138,5 @@
 ;;;
 
 
-(jazz:define-virtual-syntax (jazz:emit-expression (jazz:Expression expression) declaration walker resume environment backend))
-(jazz:define-virtual-syntax (jazz:emit-call (jazz:Expression expression) arguments arguments-codes declaration walker resume environment backend)))
+(jazz:define-virtual-syntax (jazz:emit-expression (jazz:Expression expression) declaration walker resume environment))
+(jazz:define-virtual-syntax (jazz:emit-call (jazz:Expression expression) arguments arguments-codes declaration walker resume environment)))

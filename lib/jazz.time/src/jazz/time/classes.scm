@@ -55,7 +55,7 @@
   'time)
 
 
-(jazz:define-method (jazz:emit-test (jazz.time:Time-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz.time:Time-Class type) value source-declaration walker resume environment)
   `(time? ,value))
 
 
@@ -90,7 +90,7 @@
   'date)
 
 
-(jazz:define-method (jazz:emit-test (jazz.time:Date-Class type) value source-declaration walker resume environment backend)
+(jazz:define-method (jazz:emit-test (jazz.time:Date-Class type) value source-declaration walker resume environment)
   `(date? ,value))
 
 

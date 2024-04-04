@@ -42,5 +42,6 @@
         
         (jazz.dialect (phase syntax))
         (jazz.dialect.syntax (phase syntax))
+        (jazz.dialect.kernel)
         (jazz.language.runtime)
         (jazz.language.loop (phase syntax))))

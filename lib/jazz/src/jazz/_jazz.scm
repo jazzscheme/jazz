@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz gambit:
+(module jazz scheme:
 
 
 (export (gambit (except break current-directory current-time error print seconds->time time->seconds time? trace unbreak untrace))

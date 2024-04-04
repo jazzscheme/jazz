@@ -561,6 +561,8 @@
           (compile-source-file "runtime/" "unit")
           (compile-source-file "runtime/" "readtable")
           (compile-source-file "runtime/" "setup")
+          (if include-compiler?
+              (compile-source-file "runtime/" "compile"))
           (compile-source-file "core/" "base-syntax")
           (compile-source-file "core/" "base-runtime")
           (compile-source-file "core/" "class-syntax")
@@ -691,6 +693,9 @@
                                     ,(kernel-file "runtime/unit")
                                     ,(kernel-file "runtime/readtable")
                                     ,(kernel-file "runtime/setup")
+                                    ,@(if include-compiler?
+                                          `(,(kernel-file "runtime/compile"))
+                                        '())
                                     ,(kernel-file "core/base-syntax")
                                     ,(kernel-file "core/base-runtime")
                                     ,(kernel-file "core/class-syntax")
@@ -952,6 +957,9 @@
                             ,(kernel-file "runtime/unit.o")
                             ,(kernel-file "runtime/readtable.o")
                             ,(kernel-file "runtime/setup.o")
+                            ,@(if include-compiler?
+                                  `(,(kernel-file "runtime/compile.o"))
+                                '())
                             ,(kernel-file "core/base-syntax.o")
                             ,(kernel-file "core/base-runtime.o")
                             ,(kernel-file "core/class-syntax.o")

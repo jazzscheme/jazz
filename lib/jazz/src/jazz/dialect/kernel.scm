@@ -840,7 +840,6 @@
 (native jazz:unit-loadable?)
 (native jazz:unit-obj-uptodate?)
 (native jazz:unit-source)
-(native jazz:load-build)
 (native jazz:split-command-line)
 (native jazz:quit)
 (native jazz:quit-set!)

@@ -100,10 +100,10 @@ end-of-code
 ;;;
 
 
-(jazz:define-variable jazz:compile-unit-internal)
-(jazz:define-variable jazz:custom-compile-unit-internal)
-(jazz:define-variable jazz:build-unit-internal)
-(jazz:define-variable jazz:get-subunit-names-internal)
+(jazz:define-variable jazz:compile-unit)
+(jazz:define-variable jazz:custom-compile-unit)
+(jazz:define-variable jazz:build-unit)
+(jazz:define-variable jazz:get-subunit-names)
 (jazz:define-variable jazz:hub-declaration-class)
 (jazz:define-variable jazz:new-hub-declaration)
 (jazz:define-variable jazz:hub-declaration-hubs)
@@ -113,23 +113,6 @@ end-of-code
 (jazz:define-variable jazz:module-shape)
 (jazz:define-variable jazz:manifest-ignore?)
 (jazz:define-variable jazz:manifest-valid?)
-
-
-(define (jazz:compile-unit . rest)
-  (jazz:load-build)
-  (%%apply jazz:compile-unit-internal rest))
-
-(define (jazz:custom-compile-unit . rest)
-  (jazz:load-build)
-  (%%apply jazz:custom-compile-unit-internal rest))
-
-(define (jazz:build-unit . rest)
-  (jazz:load-build)
-  (%%apply jazz:build-unit-internal rest))
-
-(define (jazz:get-subunit-names . rest)
-  (jazz:load-build)
-  (%%apply jazz:get-subunit-names-internal rest))
 
 
 ;;;
@@ -666,7 +649,6 @@ end-of-code
                         ;; this will clearly be missing user-defined syntax
                         (jazz:load-unit 'jazz)
                         (jazz:load-unit 'jazz.dialect.syntax)
-                        (jazz:load-unit 'core.unit.build)
                         (jazz:load-unit 'scheme.syntax-rules)
                         (jazz:load-unit 'jazz.core)
                         (jazz:load-unit 'jazz.foreign)

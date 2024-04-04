@@ -1707,7 +1707,6 @@
 
 
 (define (jazz:build-product name)
-  (jazz:load-build)
   (let ((product (jazz:setup-product name)))
     #; ;; dynamic-dependencies
     (jazz:adjust-build-repository product)
@@ -1810,7 +1809,6 @@
       (if install
           (let ((descriptor (%%get-product-descriptor product)))
             (jazz:feedback "install {a}" name)
-            (jazz:load-install)
             (install descriptor))))))
 
 
@@ -1819,7 +1817,6 @@
     (let ((deploy (%%get-product-deploy product)))
       (if deploy
           (let ((descriptor (%%get-product-descriptor product)))
-            (jazz:load-deploy)
             (deploy descriptor))))))
 
 
@@ -2358,21 +2355,8 @@
       (and src (jazz:resource-pathname src)))))
 
 
-(define (jazz:load-build)
-  (jazz:load-unit 'core.unit.build))
-
-
 (define (jazz:load-download)
-  (jazz:load-build)
   (jazz:load-unit 'jas))
-
-
-(define (jazz:load-install)
-  (jazz:load-build))
-
-
-(define (jazz:load-deploy)
-  (jazz:load-build))
 
 
 ;;;

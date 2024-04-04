@@ -38,7 +38,9 @@
 (module scheme foundation.dialect
 
 
+(require (scheme.backend)
+         (scheme.dialect))
+
+
 (export (foundation)
-        (scheme.dialect)
-        (scheme.dialect (phase syntax))
-        (scheme.language.runtime)))
+        (scheme.runtime)))

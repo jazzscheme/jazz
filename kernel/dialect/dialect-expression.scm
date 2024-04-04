@@ -169,15 +169,15 @@
                                (let ((expression (and (%%pair? least-mismatch) (%%car least-mismatch))))
                                  (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (%%not (%%null? specializers)) (jazz:get-warn? 'optimizations)
                                            ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
-                                           (%%not (%%memq locator '(scheme.language.runtime:=
-                                                                     scheme.language.runtime:<
-                                                                     scheme.language.runtime:<=
-                                                                     scheme.language.runtime:>
-                                                                     scheme.language.runtime:>=
-                                                                     scheme.language.runtime:+
-                                                                     scheme.language.runtime:-
-                                                                     scheme.language.runtime:*
-                                                                     scheme.language.runtime:/))))
+                                           (%%not (%%memq locator '(scheme.runtime:=
+                                                                    scheme.runtime:<
+                                                                    scheme.runtime:<=
+                                                                    scheme.runtime:>
+                                                                    scheme.runtime:>=
+                                                                    scheme.runtime:+
+                                                                    scheme.runtime:-
+                                                                    scheme.runtime:*
+                                                                    scheme.runtime:/))))
                                    (jazz:warning "Warning: In {a}{a}: Unable to match call to specialized {a}"
                                                  (jazz:get-declaration-locator declaration)
                                                  (jazz:present-expression-location (and expression (jazz:get-expression-source expression)) (jazz:get-expression-source operator))
@@ -269,54 +269,54 @@
   (%%table-ref jazz:*primitive-patterns* locator #f))
 
 
-(jazz:add-primitive-patterns     'scheme.language.runtime:=                           '((safe %%fx=  <fx*:bool>)  (safe %%fl=  <fv*:bool>)  (safe %%= <number^number:bool>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:<                           '((safe %%fx<  <fx*:bool>)  (safe %%fl<  <fv*:bool>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:<=                          '((safe %%fx<= <fx*:bool>)  (safe %%fl<= <fv*:bool>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:>                           '((safe %%fx>  <fx*:bool>)  (safe %%fl>  <fv*:bool>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:>=                          '((safe %%fx>= <fx*:bool>)  (safe %%fl>= <fv*:bool>)))
+(jazz:add-primitive-patterns     'scheme.runtime:=                                    '((safe %%fx=  <fx*:bool>)  (safe %%fl=  <fv*:bool>)  (safe %%= <number^number:bool>)))
+(jazz:add-primitive-patterns     'scheme.runtime:<                                    '((safe %%fx<  <fx*:bool>)  (safe %%fl<  <fv*:bool>)))
+(jazz:add-primitive-patterns     'scheme.runtime:<=                                   '((safe %%fx<= <fx*:bool>)  (safe %%fl<= <fv*:bool>)))
+(jazz:add-primitive-patterns     'scheme.runtime:>                                    '((safe %%fx>  <fx*:bool>)  (safe %%fl>  <fv*:bool>)))
+(jazz:add-primitive-patterns     'scheme.runtime:>=                                   '((safe %%fx>= <fx*:bool>)  (safe %%fl>= <fv*:bool>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime:+                           '((safe %%fx+  <fx*:fx>)    (safe %%fl+  <fv*:fl>)    (safe %%+ <int^int:int>) (safe %%+ <number^number:number>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:-                           '((safe %%fx-  <fx^fx*:fx>) (safe %%fl-  <fv^fv*:fl>) (safe %%- <int^int:int>) (safe %%- <number^number:number>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:*                           '((safe %%fx*  <fx*:fx>)    (safe %%fl*  <fv*:fl>)    (safe %%* <int^int:int>) (safe %%* <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.runtime:+                                    '((safe %%fx+  <fx*:fx>)    (safe %%fl+  <fv*:fl>)    (safe %%+ <int^int:int>) (safe %%+ <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.runtime:-                                    '((safe %%fx-  <fx^fx*:fx>) (safe %%fl-  <fv^fv*:fl>) (safe %%- <int^int:int>) (safe %%- <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.runtime:*                                    '((safe %%fx*  <fx*:fx>)    (safe %%fl*  <fv*:fl>)    (safe %%* <int^int:int>) (safe %%* <number^number:number>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime:/                           '(                          (safe %%fl/  <fv^fv*:fl>)                   (zero-unsafe %%/ <number^number:number>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:quotient                    '((zero-unsafe %%fxquotient <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'scheme.runtime:/                                    '(                          (safe %%fl/  <fv^fv*:fl>)                   (zero-unsafe %%/ <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.runtime:quotient                             '((zero-unsafe %%fxquotient <fx^fx:fx>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime:floor                       '(                          (safe %%flfloor    <fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:ceiling                     '(                          (safe %%flceiling  <fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:truncate                    '(                          (safe %%fltruncate <fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:round                       '(                          (safe %%flround    <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:floor                                '(                          (safe %%flfloor    <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:ceiling                              '(                          (safe %%flceiling  <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:truncate                             '(                          (safe %%fltruncate <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:round                                '(                          (safe %%flround    <fv:fl>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime:abs                         '((safe %%fxabs <fx:fx>)    (safe %%flabs      <fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:sqrt                        '(                          (safe %%flsqrt     <fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:expt                        '(                          (safe %%flexpt     <fv^fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:square                      '(                          (safe %%flsquare   <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:abs                                  '((safe %%fxabs <fx:fx>)    (safe %%flabs      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:sqrt                                 '(                          (safe %%flsqrt     <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:expt                                 '(                          (safe %%flexpt     <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:square                               '(                          (safe %%flsquare   <fv:fl>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime:sin                         '(                          (safe %%flsin      <fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:cos                         '(                          (safe %%flcos      <fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:tan                         '(                          (safe %%fltan      <fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:asin                        '(                          (safe %%flasin     <fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:acos                        '(                          (safe %%flacos     <fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:atan                        '(                          (safe %%flatan     <fv:fl>) (safe %%flatan <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:sin                                  '(                          (safe %%flsin      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:cos                                  '(                          (safe %%flcos      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:tan                                  '(                          (safe %%fltan      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:asin                                 '(                          (safe %%flasin     <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:acos                                 '(                          (safe %%flacos     <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:atan                                 '(                          (safe %%flatan     <fv:fl>) (safe %%flatan <fv^fv:fl>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime:not                         '((safe %%not  <any:bool>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:eq?                         '((safe %%eq?  <any^any:bool>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:eqv?                        '((safe %%eqv? <any^any:bool>)))
+(jazz:add-primitive-patterns     'scheme.runtime:not                                  '((safe %%not  <any:bool>)))
+(jazz:add-primitive-patterns     'scheme.runtime:eq?                                  '((safe %%eq?  <any^any:bool>)))
+(jazz:add-primitive-patterns     'scheme.runtime:eqv?                                 '((safe %%eqv? <any^any:bool>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime:car                         '((safe %%car    <pair:any>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:cdr                         '((safe %%cdr    <pair:any>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:cons                        '((safe %%cons   <any^any:pair>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:list                        '((safe %%list   <any*:list>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:length                      '((safe %%length <list:int>) (safe %%vector-length <vector:int>) (safe %%string-length <string:int>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:null?                       '((safe %%null?  <any:bool>)))
+(jazz:add-primitive-patterns     'scheme.runtime:car                                  '((safe %%car    <pair:any>)))
+(jazz:add-primitive-patterns     'scheme.runtime:cdr                                  '((safe %%cdr    <pair:any>)))
+(jazz:add-primitive-patterns     'scheme.runtime:cons                                 '((safe %%cons   <any^any:pair>)))
+(jazz:add-primitive-patterns     'scheme.runtime:list                                 '((safe %%list   <any*:list>)))
+(jazz:add-primitive-patterns     'scheme.runtime:length                               '((safe %%length <list:int>) (safe %%vector-length <vector:int>) (safe %%string-length <string:int>)))
+(jazz:add-primitive-patterns     'scheme.runtime:null?                                '((safe %%null?  <any:bool>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime:string-length               '((safe          %%string-length <string:fx>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:string-ref                  '((bounds-unsafe %%string-ref    <string^fx:char>)))
+(jazz:add-primitive-patterns     'scheme.runtime:string-length                        '((safe          %%string-length <string:fx>)))
+(jazz:add-primitive-patterns     'scheme.runtime:string-ref                           '((bounds-unsafe %%string-ref    <string^fx:char>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime:vector                      '((safe          %%vector        <any*:vector>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:vector-length               '((safe          %%vector-length <vector:fx>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:vector-ref                  '((bounds-unsafe %%vector-ref    <vector^fx:any>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:vector-set!                 '((bounds-unsafe %%vector-set!   <vector^fx^any:void>)))
+(jazz:add-primitive-patterns     'scheme.runtime:vector                               '((safe          %%vector        <any*:vector>)))
+(jazz:add-primitive-patterns     'scheme.runtime:vector-length                        '((safe          %%vector-length <vector:fx>)))
+(jazz:add-primitive-patterns     'scheme.runtime:vector-ref                           '((bounds-unsafe %%vector-ref    <vector^fx:any>)))
+(jazz:add-primitive-patterns     'scheme.runtime:vector-set!                          '((bounds-unsafe %%vector-set!   <vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns     'jazz.dialect.kernel:values-ref                      '((bounds-unsafe %%values-ref  <values^fx:any>)))
 (jazz:add-primitive-patterns     'jazz.dialect.kernel:values-set!                     '((bounds-unsafe %%values-set! <values^fx^any:void>)))
@@ -324,11 +324,11 @@
 (jazz:add-primitive-patterns     'gambit.language.runtime:table-ref                   '((safe %%table-ref  <table^any:any>) (safe %%table-ref <table^any^any:any>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:table-set!                  '((safe %%table-set! <table^any^any:void>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime:min                         '((safe %%fxmin <fx^fx:fx>) (safe %%flmin <fv^fv:fl>) (safe %%flmin <fv^fv^fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:max                         '((safe %%fxmax <fx^fx:fx>) (safe %%flmax <fv^fv:fl>) (safe %%flmax <fv^fv^fv:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:modulo                      '((zero-unsafe %%fxmodulo <fx^fx:fx>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:even?                       '((safe %%fxeven? <fx:bool>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:odd?                        '((safe %%fxodd? <fx:bool>)))
+(jazz:add-primitive-patterns     'scheme.runtime:min                                  '((safe %%fxmin <fx^fx:fx>) (safe %%flmin <fv^fv:fl>) (safe %%flmin <fv^fv^fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:max                                  '((safe %%fxmax <fx^fx:fx>) (safe %%flmax <fv^fv:fl>) (safe %%flmax <fv^fv^fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.runtime:modulo                               '((zero-unsafe %%fxmodulo <fx^fx:fx>)))
+(jazz:add-primitive-patterns     'scheme.runtime:even?                                '((safe %%fxeven? <fx:bool>)))
+(jazz:add-primitive-patterns     'scheme.runtime:odd?                                 '((safe %%fxodd? <fx:bool>)))
 
 (jazz:add-primitive-patterns     'gambit.language.runtime:fx+                         '((safe %%fx+ <fx^fx:fx>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:fx-                         '((safe %%fx- <fx^fx:fx>)))
@@ -416,8 +416,8 @@
 (jazz:add-primitive-patterns     'jazz.language.runtime:allocate-vector               '((safe %%allocate-vector    <any*:vector>)))
 
 ;; tracking allocations
-(jazz:add-primitive-patterns     'scheme.language.runtime:make-string                 '((safe %%make-string    <any*:string>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime:make-vector                 '((safe %%make-vector    <any*:vector>)))
+(jazz:add-primitive-patterns     'scheme.runtime:make-string                          '((safe %%make-string    <any*:string>)))
+(jazz:add-primitive-patterns     'scheme.runtime:make-vector                          '((safe %%make-vector    <any*:vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-s8vector               '((safe %%make-s8vector  <any*:s8vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-u8vector               '((safe %%make-u8vector  <any*:u8vector>)))
 (jazz:add-primitive-patterns     'gambit.language.runtime:make-s16vector              '((safe %%make-s16vector <any*:s16vector>)))
@@ -462,8 +462,8 @@
                    (begin
                      (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations)
                                   ;; a bit extreme for now
-                                  (%%not (%%memq locator '(scheme.language.runtime:car
-                                                           scheme.language.runtime:cdr))))
+                                  (%%not (%%memq locator '(scheme.runtime:car
+                                                           scheme.runtime:cdr))))
                        (let ((expression (and (%%pair? least-mismatch) (%%car least-mismatch))))
                          (jazz:warning "Warning: In {a}{a}: Unmatched call to primitive {a}"
                                        (jazz:get-declaration-locator declaration)
@@ -652,21 +652,21 @@
   (%%table-set! jazz:primitive-predicates name class))
 
 
-(jazz:add-primitive-predicate 'scheme.language.runtime:number?             jazz:Number)
-(jazz:add-primitive-predicate 'scheme.language.runtime:complex?            jazz:Complex)
-(jazz:add-primitive-predicate 'scheme.language.runtime:real?               jazz:Real)
-(jazz:add-primitive-predicate 'scheme.language.runtime:rational?           jazz:Rational)
-(jazz:add-primitive-predicate 'scheme.language.runtime:integer?            jazz:Integer)
-(jazz:add-primitive-predicate 'scheme.language.runtime:number?             jazz:Number)
-(jazz:add-primitive-predicate 'scheme.language.runtime:boolean?            jazz:Boolean)
+(jazz:add-primitive-predicate 'scheme.runtime:number?                      jazz:Number)
+(jazz:add-primitive-predicate 'scheme.runtime:complex?                     jazz:Complex)
+(jazz:add-primitive-predicate 'scheme.runtime:real?                        jazz:Real)
+(jazz:add-primitive-predicate 'scheme.runtime:rational?                    jazz:Rational)
+(jazz:add-primitive-predicate 'scheme.runtime:integer?                     jazz:Integer)
+(jazz:add-primitive-predicate 'scheme.runtime:number?                      jazz:Number)
+(jazz:add-primitive-predicate 'scheme.runtime:boolean?                     jazz:Boolean)
 ;; not 100% correct because of Scheme's semantic for list? that is costly
-(jazz:add-primitive-predicate 'scheme.language.runtime:list?               jazz:List)
-(jazz:add-primitive-predicate 'scheme.language.runtime:null?               jazz:Null)
-(jazz:add-primitive-predicate 'scheme.language.runtime:pair?               jazz:Pair)
-(jazz:add-primitive-predicate 'scheme.language.runtime:symbol?             jazz:Symbol)
-(jazz:add-primitive-predicate 'scheme.language.runtime:char?               jazz:Char)
-(jazz:add-primitive-predicate 'scheme.language.runtime:string?             jazz:String)
-(jazz:add-primitive-predicate 'scheme.language.runtime:vector?             jazz:Vector)
+(jazz:add-primitive-predicate 'scheme.runtime:list?                        jazz:List)
+(jazz:add-primitive-predicate 'scheme.runtime:null?                        jazz:Null)
+(jazz:add-primitive-predicate 'scheme.runtime:pair?                        jazz:Pair)
+(jazz:add-primitive-predicate 'scheme.runtime:symbol?                      jazz:Symbol)
+(jazz:add-primitive-predicate 'scheme.runtime:char?                        jazz:Char)
+(jazz:add-primitive-predicate 'scheme.runtime:string?                      jazz:String)
+(jazz:add-primitive-predicate 'scheme.runtime:vector?                      jazz:Vector)
 (jazz:add-primitive-predicate 'gambit.language.runtime:s8vector?           jazz:S8Vector)
 (jazz:add-primitive-predicate 'gambit.language.runtime:u8vector?           jazz:U8Vector)
 (jazz:add-primitive-predicate 'gambit.language.runtime:s16vector?          jazz:S16Vector)
@@ -678,10 +678,10 @@
 (jazz:add-primitive-predicate 'gambit.language.runtime:f32vector?          jazz:F32Vector)
 (jazz:add-primitive-predicate 'gambit.language.runtime:f64vector?          jazz:F64Vector)
 (jazz:add-primitive-predicate 'gambit.language.runtime:continuation?       jazz:Continuation)
-(jazz:add-primitive-predicate 'scheme.language.runtime:procedure?          jazz:Procedure)
-(jazz:add-primitive-predicate 'scheme.language.runtime:input-port?         jazz:Port)
-(jazz:add-primitive-predicate 'scheme.language.runtime:output-port?        jazz:Port)
-(jazz:add-primitive-predicate 'scheme.language.runtime:eof-object?         jazz:EOF)
+(jazz:add-primitive-predicate 'scheme.runtime:procedure?                   jazz:Procedure)
+(jazz:add-primitive-predicate 'scheme.runtime:input-port?                  jazz:Port)
+(jazz:add-primitive-predicate 'scheme.runtime:output-port?                 jazz:Port)
+(jazz:add-primitive-predicate 'scheme.runtime:eof-object?                  jazz:EOF)
 (jazz:add-primitive-predicate 'gambit.language.runtime:fixnum?             jazz:Fixnum)
 (jazz:add-primitive-predicate 'gambit.language.runtime:flonum?             jazz:Flonum)
 (jazz:add-primitive-predicate 'gambit.language.runtime:keyword?            jazz:Keyword)
@@ -814,7 +814,7 @@
                              (arguments (jazz:get-call-arguments expr)))
                          (let ((count (%%length arguments)))
                            (case operator-locator
-                             ((scheme.language.runtime:not)
+                             ((scheme.runtime:not)
                               (if (%%fx= count 1)
                                   (process-not (%%car arguments) env)
                                 env))

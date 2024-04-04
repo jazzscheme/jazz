@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit scheme.backend
+(unit protected scheme.backend
 
 
 ;;;

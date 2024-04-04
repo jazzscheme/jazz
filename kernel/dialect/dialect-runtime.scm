@@ -2669,7 +2669,7 @@
   (%%table-ref jazz:fixed-makers locator #f))
 
 
-(jazz:setup-fixed-metadata 'vector    jazz:Vector    jazz:FixedVector    jazz:FixedVector-Class    'scheme.language.runtime:vector    'scheme.language.runtime:make-vector)
+(jazz:setup-fixed-metadata 'vector    jazz:Vector    jazz:FixedVector    jazz:FixedVector-Class    'scheme.runtime:vector             'scheme.runtime:make-vector)
 (jazz:setup-fixed-metadata 's8vector  jazz:S8Vector  jazz:FixedS8Vector  jazz:FixedS8Vector-Class  'gambit.language.runtime:s8vector  'gambit.language.runtime:make-s8vector)
 (jazz:setup-fixed-metadata 'u8vector  jazz:U8Vector  jazz:FixedU8Vector  jazz:FixedU8Vector-Class  'gambit.language.runtime:u8vector  'gambit.language.runtime:make-u8vector)
 (jazz:setup-fixed-metadata 's16vector jazz:S16Vector jazz:FixedS16Vector jazz:FixedS16Vector-Class 'gambit.language.runtime:s16vector 'gambit.language.runtime:make-s16vector)

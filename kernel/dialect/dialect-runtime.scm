@@ -5217,7 +5217,6 @@
             (jazz:emit-new-call operator locator arguments arguments-codes declaration walker resume environment)
             (jazz:emit-primitive-call operator locator arguments arguments-codes declaration walker resume environment)
             (jazz:emit-inlined-call operator arguments-codes expression declaration walker resume environment)
-            #; ;; quicky to fix
             (jazz:emit-unsafe-call operator locator arguments arguments-codes declaration walker resume environment)
             (jazz:emit-call operator arguments arguments-codes declaration walker resume environment))
         (jazz:get-expression-source expression)))))

@@ -71,6 +71,7 @@
     "kernel/core/exception-runtime"
     "kernel/core/generic-syntax"
     "kernel/core/generic-runtime"
+    "kernel/core/unit-runtime"
     "kernel/dialect/dialect-syntax"
     "kernel/dialect/dialect-runtime"
     "kernel/dialect/dialect-expression"

@@ -2358,12 +2358,7 @@
       (and src (jazz:resource-pathname src)))))
 
 
-(define (jazz:load-runtime)
-  (jazz:load-unit 'core.unit.runtime))
-
-
 (define (jazz:load-build)
-  (jazz:load-unit 'core.unit.runtime)
   (jazz:load-unit 'core.unit.build))
 
 

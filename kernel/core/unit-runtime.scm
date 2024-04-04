@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Runtime
+;;;; Unit Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -21,7 +21,6 @@
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
-;;;    Stephane Le Cornec
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -36,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit core.unit.runtime
+(block core.unit-runtime
 
 
 (define jazz:for-each-subunit-continue

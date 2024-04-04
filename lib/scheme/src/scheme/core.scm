@@ -35,14 +35,11 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;; quick hack of making it a .jazz module to turn off warnings
-
-
 (module scheme.core scheme
 
 
-(export (scheme.core.kernel))
-(import (scheme.core.kernel))
+(export (scheme.kernel))
+(import (scheme.kernel))
 
 
 (native jazz:Any)

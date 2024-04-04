@@ -44,7 +44,7 @@
         optional
         let-optionals*)
 
-(import (scheme.core.kernel)
+(import (scheme.kernel)
         (scheme.syntax-rules (phase syntax)))
 
 

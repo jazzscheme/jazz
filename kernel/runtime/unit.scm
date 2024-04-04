@@ -1861,8 +1861,7 @@
     (define (key-product? name)
       (%%memq name '(contrib.irregex
                      jazz
-                     scheme
-                     scheme.core)))
+                     scheme)))
     
     (define (atomic-output line)
       (mutex-lock! output-mutex)

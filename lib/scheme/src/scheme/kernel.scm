@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module scheme.core.kernel scheme
+(module scheme.kernel scheme
 
 
 ;;;

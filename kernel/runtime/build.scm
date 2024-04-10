@@ -437,9 +437,10 @@
                                                          ((silicon) "-D___DYNAMIC -mmacosx-version-min=11")
                                                          (else "-D___DYNAMIC -mmacosx-version-min=10.13")))
                                                 (else "-D___DYNAMIC"))))
-                              ;; reduce long compilation time for purely syntactic files
+                              ;; reduce long compilation time for purely syntactic files or dialect-runtime
                               (let ((cc-options (if (or (equal? name "primitives")
-                                                        (equal? name "unsafe"))
+                                                        (equal? name "unsafe")
+                                                        (equal? name "dialect-runtime"))
                                                     (string-append "-O0 -U___SINGLE_HOST " cc-options)
                                                   cc-options)))
                                 (compile-file dst options: (%%cons 'obj options) cc-options: cc-options))))

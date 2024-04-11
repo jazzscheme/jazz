@@ -72,17 +72,17 @@
 
 (cond-expand
   (cocoa
-   (define jazz:platform-files
+   (define jazz:zlib-files
      '()))
   (windows
-   (define jazz:platform-files
+   (define jazz:zlib-files
      (list (cons "lib/jazz.zlib/foreign/windows/lib/z-1.dll" "z-1.dll"))))
   (else
-   (define jazz:platform-files
+   (define jazz:zlib-files
      (list (cons "lib/jazz.zlib/foreign/linux/lib/libz.so.1" "libz.so.1")))))
 
 
-(define (jazz:copy-platform-files)
+(define (jazz:copy-zlib-files)
   (let ((source jazz:kernel-source)
         (build (%%get-repository-directory jazz:Build-Repository)))
     (define (source-file path)
@@ -95,12 +95,12 @@
                 (let ((source (car info))
                       (build (cdr info)))
                   (jazz:copy&sign-if-needed (source-file source) (build-file build) feedback: jazz:feedback)))
-              jazz:platform-files)))
+              jazz:zlib-files)))
 
 
 (define (jazz:build-zlib descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:zlib-units))
-    (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
+    (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-zlib-files force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))
         (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
 

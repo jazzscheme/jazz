@@ -171,33 +171,33 @@
 
 (cond-expand
   (ios
-    (define jazz:platform-files
+    (define jazz:cairo-files
      '()))
   (silicon
-   (define jazz:platform-files
+   (define jazz:cairo-files
      (list (cons "foreign/jazz.cairo/silicon/lib/libcairo.2.dylib" "Libraries/libcairo.2.dylib")
            (cons "foreign/jazz.pixman/silicon/lib/libpixman-1.0.dylib" "Libraries/libpixman-1.0.dylib")
            (cons "foreign/jazz.png/silicon/lib/libpng16.16.dylib" "Libraries/libpng16.16.dylib"))))
   (mac
-   (define jazz:platform-files
+   (define jazz:cairo-files
      (list (cons "foreign/jazz.cairo/mac/lib/libcairo.2.dylib" "Libraries/libcairo.2.dylib")
            (cons "foreign/jazz.pixman/mac/lib/libpixman-1.0.dylib" "Libraries/libpixman-1.0.dylib")
            (cons "foreign/jazz.png/mac/lib/libpng16.16.dylib" "Libraries/libpng16.16.dylib"))))
   (windows
-   (define jazz:platform-files
+   (define jazz:cairo-files
      (list (cons "foreign/jazz.cairo/windows/lib/libcairo-2.dll" "libcairo-2.dll")
            (cons "foreign/jazz.pixman/windows/lib/pixman-1-0.dll" "pixman-1-0.dll")
            (cons "foreign/jazz.expat/windows/lib/libexpat-1.dll" "libexpat-1.dll")
            (cons "foreign/jazz.png/windows/lib/libpng16-16.dll" "libpng16-16.dll"))))
   (else
-   (define jazz:platform-files
+   (define jazz:cairo-files
      (list (cons "foreign/jazz.cairo/linux/lib/libcairo.so.2" "libcairo.so.2")
            (cons "foreign/jazz.pixman/linux/lib/libpixman-1.so.0" "libpixman-1.so.0")
            (cons "foreign/jazz.png/linux/lib/libpng16.so.16" "libpng16.so.16")
            (cons "foreign/jazz.bz2/linux/lib/libbz2.so.1.0" "libbz2.so.1.0")))))
 
 
-(define (jazz:copy-platform-files)
+(define (jazz:copy-cairo-files)
   (let ((source jazz:kernel-source)
         (build (%%get-repository-directory jazz:Build-Repository)))
     (define (source-file path)
@@ -210,21 +210,17 @@
                 (let ((source (car info))
                       (build (cdr info)))
                   (jazz:copy&sign-if-needed (source-file source) (build-file build) feedback: jazz:feedback)))
-              jazz:platform-files)))
+              jazz:cairo-files)))
 
 
 (define (jazz:build-cairo descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:cairo-units))
-    (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
+    (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-cairo-files force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))
         (jazz:build-product-descriptor descriptor))))
 
 
 (define (jazz:cairo-library-options descriptor add-language)
-  (cond-expand
-    (ios
-      (add-language 'jazz.platform.cocoa.foreign 'objc))
-    (else))
   (jazz:bind (cc-flags ld-flags) (jazz:cairo-flags jazz:jazz-pathname)
     ld-flags))
 

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit jazz.platform.install
+(unit jazz.cairo.install
 
 
 (cond-expand

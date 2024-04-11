@@ -98,20 +98,20 @@
 
 (cond-expand
   (silicon
-   (define jazz:platform-files
+   (define jazz:fontconfig-files
      (list (cons "foreign/jazz.fontconfig/silicon/lib/libfontconfig.1.dylib" "Libraries/libfontconfig.1.dylib"))))
   (mac
-   (define jazz:platform-files
+   (define jazz:fontconfig-files
      (list (cons "foreign/jazz.fontconfig/mac/lib/libfontconfig.1.dylib" "Libraries/libfontconfig.1.dylib"))))
   (windows
-   (define jazz:platform-files
+   (define jazz:fontconfig-files
      (list (cons "foreign/jazz.fontconfig/windows/lib/libfontconfig-1.dll" "libfontconfig-1.dll"))))
   (else
-   (define jazz:platform-files
+   (define jazz:fontconfig-files
      (list (cons "foreign/jazz.fontconfig/linux/lib/libfontconfig.so.1" "libfontconfig.so.1")))))
 
 
-(define (jazz:copy-platform-files)
+(define (jazz:copy-fontconfig-files)
   (let ((source jazz:kernel-source)
         (build (%%get-repository-directory jazz:Build-Repository)))
     (define (source-file path)
@@ -124,12 +124,12 @@
                 (let ((source (car info))
                       (build (cdr info)))
                   (jazz:copy&sign-if-needed (source-file source) (build-file build) feedback: jazz:feedback)))
-              jazz:platform-files)))
+              jazz:fontconfig-files)))
 
 
 (define (jazz:build-fontconfig descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:fontconfig-units))
-    (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
+    (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-fontconfig-files force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))
         (jazz:build-product-descriptor descriptor))))
 

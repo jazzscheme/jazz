@@ -84,21 +84,21 @@
 
 (cond-expand
   (silicon
-   (define jazz:platform-files
+   (define jazz:freetype-files
      (list (cons "foreign/jazz.freetype/silicon/lib/libfreetype.6.dylib" "Libraries/libfreetype.6.dylib"))))
   (mac
-   (define jazz:platform-files
+   (define jazz:freetype-files
      (list (cons "foreign/jazz.freetype/mac/lib/libfreetype.6.dylib" "Libraries/libfreetype.6.dylib"))))
   (windows
-   (define jazz:platform-files
+   (define jazz:freetype-files
      (list (cons "foreign/jazz.freetype/windows/lib/bz2.dll" "bz2.dll")
            (cons "foreign/jazz.freetype/windows/lib/libfreetype-6.dll" "libfreetype-6.dll"))))
   (else
-   (define jazz:platform-files
+   (define jazz:freetype-files
      (list (cons "foreign/jazz.freetype/linux/lib/libfreetype.so.6" "libfreetype.so.6")))))
 
 
-(define (jazz:copy-platform-files)
+(define (jazz:copy-freetype-files)
   (let ((source jazz:kernel-source)
         (build (%%get-repository-directory jazz:Build-Repository)))
     (define (source-file path)
@@ -111,12 +111,12 @@
                 (let ((source (car info))
                       (build (cdr info)))
                   (jazz:copy&sign-if-needed (source-file source) (build-file build) feedback: jazz:feedback)))
-              jazz:platform-files)))
+              jazz:freetype-files)))
 
 
 (define (jazz:build-freetype descriptor #!key (unit #f) (skip-references? #f) (force? #f))
   (let ((unit-specs jazz:freetype-units))
-    (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
+    (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-freetype-files force?: force?)
     (if (or (not unit) (not (assq unit unit-specs)))
         (jazz:build-product-descriptor descriptor))))
 

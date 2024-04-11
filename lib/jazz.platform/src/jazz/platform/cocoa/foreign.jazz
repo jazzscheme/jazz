@@ -60,8 +60,6 @@
 #include <objc/objc.h>
 #include <Foundation/NSString.h>
 
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-
 const char *class_getName(Class cls);
 id objc_getClass(const char *name);
 id objc_msgSend(id self, SEL op, ...);
@@ -1433,10 +1431,13 @@ void toggleFullScreenWindowed(PlatformWindow* window)
 
 - (BOOL)performDragOperation:(id)sender
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     NSPasteboard* pboard = [sender draggingPasteboard];
     NSArray* filenames = [pboard propertyListForType:NSFilenamesPboardType];
     drop_callback(window, retain_id(filenames));
     return YES;
+#pragma GCC diagnostic pop
 }
 
 @end
@@ -1977,6 +1978,8 @@ static GLboolean createContext(PlatformWindow* window,
                                const PlatformWindowConfig* wndconfig,
                                const PlatformFramebufferConfig* fbconfig)
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     unsigned int attributeCount = 0;
 
     // Mac OS X needs non-zero color size, so set resonable values
@@ -2049,6 +2052,7 @@ static GLboolean createContext(PlatformWindow* window,
         [[NSOpenGLContext alloc] initWithFormat:window->pixelFormat shareContext:nil];
 
     return GL_TRUE;
+#pragma GCC diagnostic pop
 }
 
 
@@ -2068,7 +2072,7 @@ void platformInternalSetCursorPos(PlatformWindow* window, double x, double y)
 {
     const NSRect contentRect = [window->view frame];
     const NSPoint localPoint = NSMakePoint(x, contentRect.size.height - y - 1);
-#pragma GCC diagnostic push 
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     const NSPoint globalPoint = [window->object convertBaseToScreen:localPoint];
 #pragma GCC diagnostic pop
@@ -2248,6 +2252,9 @@ const char* platformErrorString(int error)
 
 
 (c-declare cocoa #/Objective-C/
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 static GLboolean parseGLVersion(int* api, int* major, int* minor, int* rev)
 {
@@ -2430,6 +2437,8 @@ int platformGetSwapInterval()
     
     return (int) value;
 }
+
+#pragma GCC diagnostic pop
 
 //#)
 
@@ -2850,15 +2859,21 @@ PlatformWindow* platformCreateWindow(int width, int height,
     {
         // Clearing the front buffer to black to avoid garbage pixels left over
         // from previous uses of our bit of VRAM
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         glClear(GL_COLOR_BUFFER_BIT);
+#pragma GCC diagnostic pop
         platformSwapBuffers(window);
 
         // Restore the previously current context (or NULL)
         platformMakeContextCurrent(previous);
     }
     
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     // Register drag & drop pasteboard types
     [window->object registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, nil]];
+#pragma GCC diagnostic pop
 
     if (wndconfig.visible)
         platformShowWindow(window);
@@ -2910,6 +2925,8 @@ void platformCloseWindow(PlatformWindow* window)
 
 void platformDestroyWindow(PlatformWindow* window)
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     // The window's context must not be current on another thread when the window is destroyed
     PlatformWindow* current = platformInternalGetCurrentContext();
     if (window == current)
@@ -2920,6 +2937,7 @@ void platformDestroyWindow(PlatformWindow* window)
         [NSOpenGLContext clearCurrentContext];
         [current->context makeCurrentContext];
     }
+#pragma GCC diagnostic pop
 
     // Clear the active window pointer if this is the active window
     if (window == platform.focusedWindow)
@@ -3318,7 +3336,10 @@ void platformInvalidateRect(PlatformWindow* window, NSRect* rect)
 
 void platformScrollRect(PlatformWindow* window, NSRect* rect, NSSize* delta)
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     [window->view scrollRect:*rect by:*delta];
+#pragma GCC diagnostic pop
 }
 
 
@@ -3458,6 +3479,8 @@ bool platformMetaDown()
 
 char* platformGetClipboardString(const char* type)
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     NSString* stringType;
     if (! type)
         stringType = NSStringPboardType;
@@ -3477,11 +3500,14 @@ char* platformGetClipboardString(const char* type)
 
         return platform.clipboardString;
 	}
+#pragma GCC diagnostic pop
 }
 
 
 void platformSetClipboardString(const char* string, const char* type)
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     NSString* stringType;
     if (! type)
         stringType = NSStringPboardType;
@@ -3494,6 +3520,7 @@ void platformSetClipboardString(const char* string, const char* type)
     [pasteboard declareTypes:types owner:nil];
     [pasteboard setString:[NSString stringWithUTF8String:string]
                   forType:stringType];
+#pragma GCC diagnostic pop
 }
 
 //#)
@@ -3517,7 +3544,7 @@ void platformSetFocus(PlatformWindow* window)
 {
     ProcessSerialNumber psn = { 0, kCurrentProcess };
     TransformProcessType(&psn, kProcessTransformToForegroundApplication);
-#pragma GCC diagnostic push 
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     SetFrontProcess(&psn);
 #pragma GCC diagnostic pop

@@ -38,9 +38,7 @@
 (module jazz.cairo jazz
 
 
-(import (jazz.foreign)
-        (jazz.graphic)
-        (jazz.platform))
+(import (jazz.foreign))
 
 
 (c-include "<stdlib.h>")
@@ -802,13 +800,12 @@ cairo_status_t _writefunc(void *closure, const unsigned char* data, unsigned int
 //#)
 
 
-(definition package (cairo_ft_glyph_index font char)
-  (let ((scaled-font (get-scaled-font font)))
-    (let ((face (cairo_ft_scaled_font_lock_face scaled-font)))
-      (prog1 ((c-function FT_Get_Char_Index (FT_Face ulong) uint
-                "___return(FT_Get_Char_Index(___arg1, ___arg2));")
-              face char)
-        (cairo_ft_scaled_font_unlock_face scaled-font)))))))
+(definition package (cairo_ft_glyph_index scaled-font char)
+  (let ((face (cairo_ft_scaled_font_lock_face scaled-font)))
+    (prog1 ((c-function FT_Get_Char_Index (FT_Face ulong) uint
+              "___return(FT_Get_Char_Index(___arg1, ___arg2));")
+            face char)
+      (cairo_ft_scaled_font_unlock_face scaled-font))))))
 
 
 ;;;
@@ -819,6 +816,10 @@ cairo_status_t _writefunc(void *closure, const unsigned char* data, unsigned int
 (cond-expand
   ((or cocoa ios)
 (c-include "<cairo-quartz.h>")
+
+
+(c-type private CGFontRef (pointer (struct "CGFont")))
+(c-type private CGContextRef (pointer (struct "CGContext")))
 
 
 (c-external (cairo_quartz_surface_create cairo_format_t uint uint) :alloc cairo_surface_t*)
@@ -839,6 +840,9 @@ cairo_status_t _writefunc(void *closure, const unsigned char* data, unsigned int
 (c-include "<cairo-win32.h>")
 
 
+(c-type private HDC (pointer (struct "HDC__") handle))
+
+
 (c-external (cairo_win32_surface_create HDC) :alloc cairo_surface_t*)
 (c-external (cairo_win32_surface_create_with_dib cairo_format_t int int) :alloc cairo_surface_t*)
 (c-external (cairo_win32_surface_create_with_ddb HDC cairo_format_t int int) :alloc cairo_surface_t*)
@@ -847,10 +851,12 @@ cairo_status_t _writefunc(void *closure, const unsigned char* data, unsigned int
 (c-external (cairo_win32_printing_surface_create HDC) :alloc cairo_surface_t*)
 
 
+@splashoo
 (definition DC
   #f)
 
 
+@splashoo
 (definition package (cairo_logfont_glyph_index font char)
   (unless DC
     (set! DC (CreateCompatibleDC NULL)))
@@ -861,6 +867,7 @@ cairo_status_t _writefunc(void *closure, const unsigned char* data, unsigned int
     (GetGlyphIndex DC char)))
 
 
+@splashoo
 (c-external (cairo_win32_font_face_create_for_logfontw LOGFONTW*) :alloc cairo_font_face_t*))
   (else))
 

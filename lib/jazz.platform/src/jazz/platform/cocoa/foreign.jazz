@@ -38,7 +38,8 @@
 (module protected jazz.platform.cocoa.foreign jazz
 
 
-(import (jazz.event)
+(import (jazz.appl)
+        (jazz.event)
         (jazz.foreign)
         (jazz.graphic)
         (jazz.platform.callback)
@@ -58,6 +59,8 @@
 
 #include <objc/objc.h>
 #include <Foundation/NSString.h>
+
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 const char *class_getName(Class cls);
 id objc_getClass(const char *name);
@@ -395,7 +398,6 @@ ___EXT(___release_scmobj)(dst); }
 
 
 (c-type CGFontRef (pointer (struct "CGFont")))
-(c-type CGContextRef (pointer (struct "CGContext")))
 
 
 ;;;
@@ -900,8 +902,6 @@ struct PlatformState
 
     CGDisplayModeRef desktopMode;
     CGEventSourceRef eventSource;
-    id               delegate;
-    id               autoreleasePool;
 
     char*            clipboardString;
 };
@@ -928,17 +928,11 @@ void char_callback(PlatformWindow* window, int c);
 void button_callback(PlatformWindow* window, int x, int y, int button, int clickCount, int action);
 void moved_callback(PlatformWindow* window, double x, double y);
 void wheel_callback(PlatformWindow* window, double x, double y, double dx, double dy);
-void file_callback(NSString* filename);
 void drop_callback(PlatformWindow* window, NSArray* filenames);
 void entered_callback(PlatformWindow* window);
 void exited_callback(PlatformWindow* window);
 void activate_callback(PlatformWindow* window);
 void deactivate_callback(PlatformWindow* window);
-void terminate_callback();
-void finished_playing_callback(NSString* alias);
-void will_sleep_callback();
-void did_wake_callback();
-void user_callback(int data1, int data2);
 
 //#)
 
@@ -1034,8 +1028,6 @@ void platformInit()
 
     memset(&platform, 0, sizeof(platform));
 
-    platform.autoreleasePool = [[NSAutoreleasePool alloc] init];
-
     changeToResourcesDirectory();
 
     platform.desktopMode = CGDisplayCopyDisplayMode(CGMainDisplayID());
@@ -1066,13 +1058,6 @@ void platformTerminate()
     }
 
     CGDisplayModeRelease(platform.desktopMode);
-
-    [NSApp setDelegate:nil];
-    [platform.delegate release];
-    platform.delegate = nil;
-
-    [platform.autoreleasePool release];
-    platform.autoreleasePool = nil;
 
     platformInitialized = GL_FALSE;
 }
@@ -1479,82 +1464,6 @@ void platformInternalPostEmptyEvent()
 
 
 ;;;
-;;;; Platform Jazz Application Delegate
-;;;
-
-
-(c-declare cocoa #/Objective-C/
-
-static const char* launchURL = NULL;
-
-@interface JazzApplicationDelegate : NSObject
-@end
-
-@implementation JazzApplicationDelegate
-
-- (BOOL)applicationSupportsSecureRestorableState:(NSApplication *)app
-{
-    return YES;
-}
-
-- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
-{
-    terminate_callback();
-    
-    return NSTerminateCancel;
-}
-
-- (void)applicationWillFinishLaunching:(nonnull NSNotification *)notification
-{
-    [[NSAppleEventManager sharedAppleEventManager] setEventHandler:self andSelector:@selector(getURL:withReplyEvent:) forEventClass:kInternetEventClass andEventID:kAEGetURL];
-    [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"NSFullScreenMenuItemEverywhere"];
-    [NSWindow setAllowsAutomaticWindowTabbing: NO];
-}
-
-- (void)applicationDidFinishLaunching:(NSNotification *)notification
-{
-    [NSApp stop:nil];
-
-    platformInternalPostEmptyEvent();
-}
-
-- (void)applicationDidHide:(NSNotification *)notification
-{
-    PlatformWindow* window;
-
-    for (window = platform.windowListHead;  window;  window = window->next)
-        platformInputWindowVisibility(window, GL_FALSE);
-}
-
-- (void)applicationDidUnhide:(NSNotification *)notification
-{
-    PlatformWindow* window;
-
-    for (window = platform.windowListHead;  window;  window = window->next)
-    {
-        if ([window->object isVisible])
-            platformInputWindowVisibility(window, GL_TRUE);
-    }
-}
-
-- (BOOL)application:(NSApplication *)theApplication openFile:(NSString *)filename
-{
-    file_callback(filename);
-    return YES;
-}
-
-- (void)getURL:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)reply
-{
-    launchURL = strdup([[[event paramDescriptorForKeyword:keyDirectObject] stringValue] UTF8String]);
-}
-
-
-@end
-
-//#)
-
-
-;;;
 ;;;; Platform Keys
 ;;;
 
@@ -1949,203 +1858,6 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 }
 
 @end
-
-//#)
-
-
-;;;
-;;;; Platform Jazz Application
-;;;
-
-
-(c-declare cocoa #/Objective-C/
-
-@interface JazzApplication : NSApplication
-@end
-
-@implementation JazzApplication
-
-- (void) registerWorkspaceNotifications
-{
-    NSNotificationCenter *center;
-    center = [[NSWorkspace sharedWorkspace] notificationCenter];
-    
-    // using the screens sleep / wake notifications because
-    // for some reason NSWorkspaceDidWakeNotification can take
-    // up to 30s to be received after the mac actually woke up
-    
-    [center addObserver: self
-            selector: @selector(receiveSleepNote:)
-            name: NSWorkspaceScreensDidSleepNotification
-            object: nil];
-    
-    [center addObserver: self
-            selector: @selector(receiveWakeNote:)
-            name: NSWorkspaceScreensDidWakeNotification
-            object: nil];
-}
-
-- (void) receiveSleepNote: (NSNotification*) note
-{
-    will_sleep_callback();
-}
- 
-- (void) receiveWakeNote: (NSNotification*) note
-{
-    did_wake_callback();
-}
-
-// From http://cocoadev.com/index.pl?GameKeyboardHandlingAlmost
-// This works around an AppKit bug, where key up events while holding
-// down the command key don't get sent to the key window.
-- (void)sendEvent:(NSEvent *)event
-{
-    if ([event type] == NSEventTypeApplicationDefined)
-        user_callback([event data1], [event data2]);
-    
-    if ([event type] == NSEventTypeKeyUp && ([event modifierFlags] & NSEventModifierFlagCommand))
-        [[self keyWindow] sendEvent:event];
-    else
-        [super sendEvent:event];
-}
-
-- (void)sound:(NSSound *)sound didFinishPlaying:(BOOL)finishedPlaying
-{
-    if (finishedPlaying)
-    {
-        NSString* name = [sound name];
-        if (name)
-            finished_playing_callback(name);
-    }
-}
-
-@end
-
-
-static NSString* findAppName()
-{
-    unsigned int i;
-    NSDictionary* infoDictionary = [[NSBundle mainBundle] infoDictionary];
-
-    // Keys to search for as potential application names
-    NSString* NameKeys[] =
-    {
-        @"CFBundleDisplayName",
-        @"CFBundleName",
-        @"CFBundleExecutable",
-    };
-
-    for (i = 0;  i < sizeof(NameKeys) / sizeof(NameKeys[0]);  i++)
-    {
-        id name = [infoDictionary objectForKey:NameKeys[i]];
-        if (name &&
-            [name isKindOfClass:[NSString class]] &&
-            ![@"" isEqualToString:name])
-        {
-            return name;
-        }
-    }
-
-    char** progname = _NSGetProgname();
-    if (progname && *progname)
-        return [NSString stringWithUTF8String:*progname];
-
-    // Really shouldn't get here
-    return @"Jazz Application";
-}
-
-
-static void createMenuBar()
-{
-    NSString* appName = findAppName();
-
-    NSMenu* bar = [[NSMenu alloc] init];
-    [NSApp setMainMenu:bar];
-
-    NSMenuItem* appMenuItem =
-        [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
-    NSMenu* appMenu = [[NSMenu alloc] init];
-    [appMenuItem setSubmenu:appMenu];
-
-    [appMenu addItemWithTitle:[NSString stringWithFormat:@"About %@", appName]
-                       action:@selector(orderFrontStandardAboutPanel:)
-                keyEquivalent:@""];
-    [appMenu addItem:[NSMenuItem separatorItem]];
-    NSMenu* servicesMenu = [[NSMenu alloc] init];
-    [NSApp setServicesMenu:servicesMenu];
-    [[appMenu addItemWithTitle:@"Services"
-                       action:NULL
-                keyEquivalent:@""] setSubmenu:servicesMenu];
-    [appMenu addItem:[NSMenuItem separatorItem]];
-    [appMenu addItemWithTitle:[NSString stringWithFormat:@"Hide %@", appName]
-                       action:@selector(hide:)
-                keyEquivalent:@"h"];
-    [[appMenu addItemWithTitle:@"Hide Others"
-                       action:@selector(hideOtherApplications:)
-                keyEquivalent:@"h"]
-        setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
-    [appMenu addItemWithTitle:@"Show All"
-                       action:@selector(unhideAllApplications:)
-                keyEquivalent:@""];
-    [appMenu addItem:[NSMenuItem separatorItem]];
-    [appMenu addItemWithTitle:[NSString stringWithFormat:@"Quit %@", appName]
-                       action:@selector(terminate:)
-                keyEquivalent:@"q"];
-
-    NSMenuItem* windowMenuItem =
-        [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
-    NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:@"Window"];
-    [NSApp setWindowsMenu:windowMenu];
-    [windowMenuItem setSubmenu:windowMenu];
-
-    [windowMenu addItemWithTitle:@"Miniaturize"
-                          action:@selector(performMiniaturize:)
-                   keyEquivalent:@"m"];
-    [windowMenu addItemWithTitle:@"Zoom"
-                          action:@selector(performZoom:)
-                   keyEquivalent:@""];
-
-#if PLATFORM_FULLSCREEN_MENU == 1
-     if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
-     {
-         [windowMenu addItem:[NSMenuItem separatorItem]];
-         [windowMenu addItemWithTitle:@"Enter Full Screen"
-                               action:@selector(toggleFullScreen:)
-                        keyEquivalent:@"f"];
-     }
-#endif
-
-    [windowMenu addItem:[NSMenuItem separatorItem]];
-    [windowMenu addItemWithTitle:@"Bring All to Front"
-                          action:@selector(arrangeInFront:)
-                   keyEquivalent:@""];
-}
-
-
-static void initializeAppKit()
-{
-    if (NSApp)
-        return;
-
-    [JazzApplication sharedApplication];
-    
-    // In case we are unbundled, make us a proper UI application
-    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-    
-    [NSApp registerWorkspaceNotifications];
-
-    // Menu bar setup must go between sharedApplication above and
-    // finishLaunching below, in order to properly emulate the behavior
-    // of NSApplicationMain
-    createMenuBar();
-    
-    // There can only be one application delegate, but we allocate it the
-    // first time a window is created to keep all window code in this file
-    platform.delegate = [[JazzApplicationDelegate alloc] init];
-
-    [NSApp setDelegate:platform.delegate];
-    [NSApp run];
-}
 
 //#)
 
@@ -3021,8 +2733,6 @@ PlatformWindow* platformCreateWindow(int width, int height,
                                      int mode, int kind, const char* title,
                                      bool closable, bool miniaturizable, bool resizable, bool opengl, bool retina)
 {
-    initializeAppKit();
-
     PlatformFramebufferConfig fbconfig;
     PlatformWindowConfig wndconfig;
     PlatformWindow* window;
@@ -3300,6 +3010,27 @@ void platformHideWindow(PlatformWindow* window)
 
     [window->object orderOut:nil];
     platformInputWindowVisibility(window, GL_FALSE);
+}
+
+
+void did_hide_callback()
+{
+    PlatformWindow* window;
+
+    for (window = platform.windowListHead;  window;  window = window->next)
+        platformInputWindowVisibility(window, GL_FALSE);
+}
+
+
+void did_unhide_callback()
+{
+    PlatformWindow* window;
+
+    for (window = platform.windowListHead;  window;  window = window->next)
+    {
+        if ([window->object isVisible])
+            platformInputWindowVisibility(window, GL_TRUE);
+    }
 }
 
 //#)
@@ -3805,46 +3536,6 @@ void platformSetFocus(PlatformWindow* window)
 (c-declare cocoa #/Objective-C/
 
 
-bool ignoreKeyRepeat = false;
-
-
-bool platformGetIgnoreKeyRepeat()
-{
-    return ignoreKeyRepeat;
-}
-
-
-void platformSetIgnoreKeyRepeat(bool ignore)
-{
-    ignoreKeyRepeat = true;
-}
-
-
-bool platformPollEvent()
-{
-    NSEvent* event;
-  
-    event = [NSApp nextEventMatchingMask:NSEventMaskAny
-                               untilDate:[NSDate distantPast]
-                                  inMode:NSDefaultRunLoopMode
-                                 dequeue:YES];
-
-    if (event && (! ignoreKeyRepeat || [event type] != NSEventTypeKeyDown || ! [event isARepeat]))
-    {
-        [NSApp sendEvent:event];
-        
-        return true;
-    }
-    else
-    {
-        [platform.autoreleasePool drain];
-        platform.autoreleasePool = [[NSAutoreleasePool alloc] init];
-    
-        return false;
-    }
-}
-
-
 void* platformGetContext(PlatformWindow* window)
 {
     return (void*) window->context;
@@ -3870,12 +3561,6 @@ char* platformTemporaryDirectory()
 }
 
 
-char* platformLaunchURL()
-{
-    return (char*) launchURL;
-}
-
-
 void platformLog(char* msg)
 {
     NSLog(@"%@", [NSString stringWithUTF8String:msg]);
@@ -3884,8 +3569,6 @@ void platformLog(char* msg)
 
 void platformAlert(char* msg, char* title, char* header, int style)
 {
-    initializeAppKit();
-    
     [NSApp activateIgnoringOtherApps : YES];
     
     NSAlert *alert = [[[NSAlert alloc] init] autorelease];
@@ -4317,15 +4000,11 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformSetClipboardString UTF-8-string char-string) void)
 (platform-external (platformGetFocus) platformwindow)
 (c-callable (platformSetFocus platformwindow) void)
-(platform-external (platformGetIgnoreKeyRepeat) bool)
-(platform-external (platformSetIgnoreKeyRepeat bool) void)
-(c-callable (platformPollEvent) bool)
 (platform-external (platformGetContext platformwindow) void*)
 (c-callable (platformCloseWindow platformwindow) void)
 (platform-external (platformLocalTimezoneOffset) int)
 (platform-external (platformIsDirectoryWritable char-string) bool)
 (platform-external (platformTemporaryDirectory) char-string)
-(platform-external (platformLaunchURL) char-string)
 (platform-external (platformLog char-string) void)
 (platform-external (platformAlert char-string char-string char-string int) void)
 (platform-external (platformBell) void)
@@ -4564,17 +4243,6 @@ ___SCMOBJ platformProcessThreads()
       (mouse-wheel window (fxround x) (fxround y) (new Point (fxround (* 30. dx)) (fxround (* 30. dy)))))))
 
 
-(c-callback (file-callback filename) (NSString*) void "file_callback" "" #f
-  ;; ugly hack around a problem where launching a worker process from
-  ;; another process receives a file callback with a string like "63442"
-  ;; this can fail when launching from the command line using gambit's -:
-  ;; where for some reason this triggers the mac into calling this callback
-  (when (file-exists? filename)
-    (when event-callback
-      (event-callback 'file))
-    (drop-file-callback filename)))
-
-
 (c-callback (drop-callback handle filenames) (platformwindow NSArray*) void "drop_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
@@ -4621,6 +4289,27 @@ ___SCMOBJ platformProcessThreads()
         (focus-lose (get-focus window))))))
 
 
+(c-callback (file-callback filename) (NSString*) void "file_callback" "" #f
+  ;; ugly hack around a problem where launching a worker process from
+  ;; another process receives a file callback with a string like "63442"
+  ;; this can fail when launching from the command line using gambit's -:
+  ;; where for some reason this triggers the mac into calling this callback
+  (when (file-exists? filename)
+    (when event-callback
+      (event-callback 'file))
+    (drop-file-callback filename)))
+
+(c-external (platformFileCallback) void*
+  "___return(file_callback);")
+
+
+(c-external (platformDidHideCallback) void*
+  "___return(did_hide_callback);")
+
+(c-external (platformDidUnhideCallback) void*
+  "___return(did_unhide_callback);")
+
+
 (c-callback (terminate-callback) () void "terminate_callback" "" #f
   (delay-event
     (lambda ()
@@ -4628,23 +4317,38 @@ ___SCMOBJ platformProcessThreads()
         (event-callback 'quit))
       (quit-callback))))
 
-
-(c-callback (finished-playing-callback alias) (NSString*) void "finished_playing_callback" "" #f
-  (music-played-callback alias))
+(c-external (platformTerminateCallback) void*
+  "___return(terminate_callback);")
 
 
 (c-callback (will-sleep-callback) () void "will_sleep_callback" "" #f
   (sleep-callback))
 
+(c-external (platformWillSleepCallback) void*
+  "___return(will_sleep_callback);")
+
 
 (c-callback (did-wake-callback) () void "did_wake_callback" "" #f
   (wake-callback))
+
+(c-external (platformDidWakeCallback) void*
+  "___return(did_wake_callback);")
+
+
+(c-callback (finished-playing-callback alias) (NSString*) void "finished_playing_callback" "" #f
+  (music-played-callback alias))
+
+(c-external (platformFinishedPlayingCallback) void*
+  "___return(finished_playing_callback);")
 
 
 (c-callback (user-callback data1 data2) (int int) void "user_callback" "" #f
   (when event-callback
     (event-callback 'user))
   (user-notification data1 data2))
+
+(c-external (platformUserCallback) void*
+  "___return(user_callback);")
 
 
 ;; quicky
@@ -4653,6 +4357,16 @@ ___SCMOBJ platformProcessThreads()
 (definition public VK_DOWN 0)
 (definition public VK_UP 0)
 (definition public VK_RBUTTON 0)
+
+
+(applSetFileCallback (platformFileCallback))
+(applSetDidHideCallback (platformDidHideCallback))
+(applSetDidUnhideCallback (platformDidUnhideCallback))
+(applSetTerminateCallback (platformTerminateCallback))
+(applSetWillSleepCallback (platformWillSleepCallback))
+(applSetDidWakeCallback (platformDidWakeCallback))
+(applSetFinishedPlayingCallback (platformFinishedPlayingCallback))
+(applSetUserCallback (platformUserCallback))
 
 
 ;;;

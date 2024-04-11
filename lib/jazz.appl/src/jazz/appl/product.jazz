@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Logfont Fonts
+;;;; Appl Product
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,45 +35,43 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.graphic.font.platform.Logfont-Font jazz
+(unit jazz.appl.product
 
 
-(import (jazz.cairo)
-        (jazz.graphic)
-        (jazz.graphic.font))
+;;;
+;;;; Build
+;;;
 
 
-(class Logfont-Font extends Concrete-Font
-  
-  
-  (method override (calculate-height self point-size) <fl>
-    (/ (cast <fl> (* (cast <fl> point-size) 96.)) 72.))
-  
+(cond-expand
+  (mac
+    (define jazz:custom-cc
+      'llvm))
+  (else))
 
-  (method override (adjust-height-hack self height)
-    (fxround height))
-  
-  
-  (method override (default-hint-style self)
-    'default)
-  
-  
-  (method override (create-font self . rest)
-    (apply create-logfont-font rest))
-  
-  
-  (method override (destroy-font self . rest)
-    (apply destroy-logfont-font rest))
-  
-  
-  (method override (create-cairo-font-face self . rest)
-    (apply create-cairo-logfont-font-face rest))
-  
-  
-  (method override (destroy-cairo-font-face self . rest)
-    (apply destroy-cairo-logfont-font-face rest))
-  
-  
-  (method override (cairo-glyph-index self font char)
-    @splashoo
-    (cairo_logfont_glyph_index font char))))
+
+(cond-expand
+  (mac
+   (define jazz:appl-units
+     `((jazz.appl cc-options: ,(jazz:patch-mac-ld-warnings "") ld-options: "-framework Cocoa -framework IOKit" custom-cc: ,jazz:custom-cc output-language: objc))))
+  (windows
+   (define jazz:appl-units
+     (let ((base-windows-cc-options "-DUNICODE"))
+       `((jazz.appl cc-options: ,base-windows-cc-options ld-options: "-mwindows")))))
+  (else))
+
+
+(define (jazz:build-appl descriptor #!key (unit #f) (skip-references? #f) (force? #f))
+  (let ((unit-specs jazz:appl-units))
+    (jazz:custom-compile/build unit-specs unit: unit force?: force?)
+    (if (or (not unit) (not (assq unit unit-specs)))
+        (jazz:build-product-descriptor descriptor))))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(jazz:register-product 'jazz.appl
+  build: jazz:build-appl))

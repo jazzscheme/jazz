@@ -1,0 +1,530 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Splash Window
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.splash jazz
+
+
+(import (jazz.cairo)
+        (jazz.foreign))
+
+
+;;;
+;;;; Splash
+;;;
+
+
+(interface Splashable
+  
+  
+  (method public virtual abstract (splash-paint self context))
+  (method public virtual abstract (splash-close self))
+  (method public virtual abstract (splash-mouse-down self x y))
+  (method public virtual abstract (splash-mouse-move self x y))
+  (method public virtual abstract (splash-mouse-up self x y)))
+
+
+(cond-expand
+  ;;;
+  ;;;; Mac
+  ;;;
+  
+  (mac
+(c-declare splash #/Objective-C/
+
+#import <Cocoa/Cocoa.h>
+#include <stdio.h>
+
+static NSWindow* window;
+static NSView*   view;
+static id        windowDelegate;
+
+static void paint_callback(CGContextRef context);
+static void mouse_down_callback(double x, double y);
+static void mouse_move_callback(double x, double y);
+static void mouse_up_callback(double x, double y);
+
+
+//
+/// Window
+//
+
+
+@interface SplashWindowDelegate : NSObject <NSDraggingDestination>
+{
+}
+
+@end
+
+
+@implementation SplashWindowDelegate
+
+- (BOOL)windowShouldClose:(id)sender
+{
+    // close_callback(window);
+    return YES;
+}
+
+- (void)windowWillClose:(NSNotification *)notification
+{
+}
+
+@end
+
+
+//
+/// View
+//
+
+
+@interface SplashView: NSView
+{
+}
+@end
+
+
+@implementation SplashView
+
+- (id)initWithFrame:(NSRect)frameRect
+{
+    self = [super initWithFrame:frameRect];
+
+    return self;
+}
+
+- (BOOL)isOpaque
+{
+    return NO;
+}
+
+- (BOOL)isFlipped
+{
+    return YES;
+}
+
+- (void)drawRect:(NSRect)dirtyRect
+{
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    paint_callback((CGContextRef) [[NSGraphicsContext currentContext] graphicsPort]);
+#pragma GCC diagnostic pop
+}
+
+NSPoint flipLocation(NSPoint location)
+{
+    const NSRect contentRect = [view frame];
+    double xpos, ypos;
+    xpos = location.x;
+    ypos = location.y;
+    
+    return NSMakePoint(xpos, contentRect.size.height - ypos - 1);
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+    NSPoint location = flipLocation([event locationInWindow]);
+    mouse_down_callback(location.x, location.y);
+}
+
+- (void)mouseDragged:(NSEvent *)event
+{
+    NSPoint location = flipLocation([event locationInWindow]);
+    mouse_move_callback(location.x, location.y);
+}
+
+- (void)mouseUp:(NSEvent *)event
+{
+    NSPoint location = flipLocation([event locationInWindow]);
+    mouse_up_callback(location.x, location.y);
+}
+
+@end
+
+
+void splashInvalidate(double x, double y, double width, double height)
+{
+    NSRect rect = NSMakeRect(x, y, width, height);
+    [view setNeedsDisplayInRect:rect];
+}
+
+
+//
+/// Main
+//
+
+
+NSWindow* create_window(int x, int y)
+{
+    int style;
+  
+    style = NSWindowStyleMaskClosable;
+    window = [[NSWindow alloc] initWithContentRect:NSMakeRect(x, y, 850, 550)
+                                         styleMask:style
+                                           backing:NSBackingStoreBuffered
+                                             defer:NO];
+
+    windowDelegate = [[SplashWindowDelegate alloc] init];
+    [window setDelegate:windowDelegate];
+    [window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
+    [window setTitle:@"Splash"];
+  
+    view = [[SplashView alloc] init];
+    
+    [window setContentView: view];
+    [window makeKeyAndOrderFront:window];
+  
+    return window;
+}
+
+
+void splashInit()
+{
+    window = create_window(150, 300);
+}
+
+
+void splashTerminate()
+{
+    [NSApp removeWindowsItem:window];
+
+    [window orderOut:nil];
+
+    [window setDelegate:nil];
+    [windowDelegate release];
+    windowDelegate = nil;
+
+    [view release];
+    view = nil;
+
+    [window close];
+    window = nil;
+
+    free(view);
+    free(window);
+}
+
+//#)
+
+
+(definition protected splash
+  #f)
+
+(definition protected (splash-set! value)
+  (set! splash value))
+
+
+(c-type CGContextRef (pointer (struct "CGContext")))
+
+
+(c-external (splashInit) void)
+(c-external (splashTerminate) void)
+(c-external (splashInvalidate double double double double) void)
+
+
+(c-definition (splash-paint-callback context) (CGContextRef) void "paint_callback" "static"
+  (splash-paint splash context))
+
+
+(c-definition (splash-mouse-down-callback x y) (double double) void "mouse_down_callback" "static"
+  (splash-mouse-down splash x y))
+
+(c-definition (splash-mouse-move-callback x y) (double double) void "mouse_move_callback" "static"
+  (splash-mouse-move splash x y))
+
+(c-definition (splash-mouse-up-callback x y) (double double) void "mouse_up_callback" "static"
+  (splash-mouse-up splash x y))
+
+
+(definition package (with-splash-painting context width height proc)
+  (let ((surface (cairo_quartz_surface_create_for_cg_context context width height))
+        (image-surface (cairo_image_surface_create CAIRO_FORMAT_ARGB32 (* width 2) (* height 2))))
+    (let ((context (cairo_create surface))
+          (image-context (cairo_create image-surface)))
+      (cairo_surface_set_device_scale image-surface 2. 2.)
+      (proc image-context)
+      (cairo-blit context image-surface)
+      @buggy (
+      (cairo_destroy context)
+      (cairo_surface_destroy surface)
+      (cairo_destroy image-context)
+      (cairo_surface_destroy image-surface)))))
+
+
+;; splashoo
+(definition public (splash-set-cursor name)
+  ))
+  
+  
+  ;;;
+  ;;;; Windows
+  ;;;
+  
+  (windows
+(c-declare splash #/Objective-C/
+#include <windows.h>
+#include <cmath>
+#include <stdio.h>
+
+static void paint_callback(HDC hdc);
+
+
+void SetClientSize( HWND hwnd, int clientWidth, int clientHeight )
+{
+    if ( IsWindow( hwnd ) ) {
+        DWORD dwStyle = GetWindowLongPtr( hwnd, GWL_STYLE );
+        DWORD dwExStyle = GetWindowLongPtr( hwnd, GWL_EXSTYLE );
+        HMENU menu = GetMenu( hwnd );
+        RECT rc = { 0, 0, clientWidth, clientHeight };
+        AdjustWindowRectEx( &rc, dwStyle, menu ? TRUE : FALSE, dwExStyle );
+        SetWindowPos( hwnd, NULL, 0, 0, rc.right - rc.left, rc.bottom - rc.top,
+                      SWP_NOZORDER | SWP_NOMOVE );
+  }
+}
+
+
+LRESULT onPaint( HWND hwnd, WPARAM wParam, LPARAM lParam )
+{
+    PAINTSTRUCT ps;
+    HDC hdc = BeginPaint( hwnd, &ps );
+    paint_callback(hdc);
+    EndPaint( hwnd, &ps );
+    return 0;
+}
+
+
+LRESULT onClose(HWND hwnd, WPARAM wParam, LPARAM lParam)
+{
+    PostQuitMessage( 0 );
+    return 0;
+}
+
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    switch(msg) {
+        case WM_PAINT: return onPaint(hwnd, wParam, lParam);
+        case WM_CLOSE: return onClose(hwnd, wParam, lParam);
+        default: return DefWindowProc(hwnd,msg,wParam,lParam);
+    }
+}
+
+
+void splashInit()
+{
+    HINSTANCE hInst = NULL;
+
+    WNDCLASS wc = {0};
+    wc.lpszClassName = TEXT("SplashWndClass");
+    wc.hInstance     = hInst;
+    wc.hbrBackground = GetSysColorBrush(COLOR_3DFACE);
+    wc.lpfnWndProc   = WndProc;
+    wc.hCursor       = LoadCursor(0, IDC_ARROW);
+
+    RegisterClass(&wc);
+    HWND hwnd = CreateWindow(wc.lpszClassName,TEXT("Splash"),
+                             WS_OVERLAPPEDWINDOW, 0, 0, 850, 550, 0, 0, hInst, 0);
+    SetClientSize(hwnd, 850, 550);
+    ShowWindow(hwnd, SW_SHOWNORMAL);
+}
+
+
+void splashTerminate()
+{
+}
+
+
+bool splashPollEvent()
+{
+    MSG msg;
+  
+    if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE) > 0)
+    {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+        return true;
+    }
+    else
+        return false;
+}
+
+
+void splashInvalidate(double x, double y, double width, double height)
+{
+}
+
+//#)
+
+
+(definition protected splash
+  #f)
+
+(definition protected (splash-set! value)
+  (set! splash value))
+
+
+(c-type private HDC (pointer (struct "HDC__") handle))
+
+
+(c-external (splashInit) void)
+(c-external (splashTerminate) void)
+(c-external (splashPollEvent) bool)
+(c-external (splashInvalidate double double double double) void)
+
+
+(c-definition (paint-callback hdc) (HDC) void "paint_callback" "static"
+  (splash-paint splash hdc))
+
+
+(definition package (poll-events)
+  (declare (proper-tail-calls))
+  ;; not doing the loop in C to enable thread scheduling
+  (let (loop)
+    (when (splashPollEvent)
+      (loop))))
+
+
+(definition package (with-splash-painting hdc width height proc)
+  (let ((surface (cairo_win32_surface_create hdc)))
+    (let ((context (cairo_create surface)))
+      (proc context)
+      (cairo_destroy context)
+      (cairo_surface_destroy surface))))
+
+
+;; splashoo
+(definition public (splash-set-cursor name)
+  )))
+
+
+;;;
+;;;; Cairo
+;;;
+
+
+(definition public (with-cairo-preserved-clipper context thunk <procedure>)
+  (let ((preserved-clipper (cairo_get_clipper_raw context)))
+    (prog1 (thunk)
+      (cairo_set_clipper_raw context preserved-clipper))))
+  
+  
+(definition public (with-cairo-clip context x <fl> y <fl> width <fl> height <fl> thunk <procedure>)
+  (with-cairo-preserved-clipper context
+    (lambda ()
+      (cairo-clip context x y width height)
+      (thunk))))
+
+
+(definition public (cairo-clip context x <fl> y <fl> width <fl> height <fl>)
+  (cairo_rectangle context x y width height)
+  (cairo_clip context))
+
+
+(definition public (cairo-identity context)
+  (cairo_identity_matrix context))
+
+
+(definition public (cairo-translate context x <fl> y <fl>)
+  (cairo_translate context x y))
+
+
+(definition public (cairo-blit context surface)
+  (cairo_set_source_surface context surface 0. 0.)
+  (cairo_paint context))
+
+
+(definition public (cairo-color context red <fl> green <fl> blue <fl> alpha <fl>)
+  (cairo_set_source_rgba context red green blue alpha))
+
+
+(definition public (cairo-width context w <fl>)
+  (cairo_set_line_width context w))
+
+
+(definition public (cairo-line context x <fl> y <fl> dest-x <fl> dest-y <fl>)
+  (cairo_move_to context x y)
+  (cairo_line_to context dest-x dest-y)
+  (cairo_stroke context))
+
+
+(definition public (cairo-rect context x <fl> y <fl> width <fl> height <fl>)
+  (cairo_rectangle context x y width height)
+  (cairo_fill context))
+
+
+(definition public (cairo-gradient context x <fl> y <fl> width <fl> height <fl> stops (direction: direction 'horizontal))
+  (cairo_rectangle context x y width height)
+  (let ((horzmid (/ width 2.))
+        (vertmid (/ height 2.)))
+    (let ((pattern (case direction
+                      ((horizontal)
+                       (cairo_pattern_create_linear x vertmid (+ x width) vertmid))
+                      ((vertical)
+                       (cairo_pattern_create_linear horzmid y horzmid (+ y height))))))
+      (for-each (lambda (stop)
+                  (bind (offset <fl> red <fl> green <fl> blue <fl> alpha <fl>) stop
+                    (cairo_pattern_add_color_stop_rgba pattern offset red green blue alpha)))
+                stops)
+      (cairo_set_source context pattern)
+      (cairo_fill context)
+      (cairo_pattern_destroy pattern))))
+
+
+(definition public (cairo-font context font-name size <fl>)
+  (cairo_select_font_face context font-name CAIRO_FONT_SLANT_NORMAL CAIRO_FONT_WEIGHT_NORMAL)
+  (cairo_set_font_size context size))
+
+
+(definition public (cairo-text context x <fl> y <fl> text)
+  (let ((font-extents (cairo-metrics context)))
+    (cairo_move_to context x (+ y (cairo_font_extents_t-ascent-ref font-extents)))
+    (cairo_show_text context text)))
+
+
+(definition (cairo-metrics context)
+  (let ((font-extents (cairo_font_extents_t-make)))
+    (cairo_font_extents context font-extents)
+    font-extents))
+
+
+(definition public (cairo-extent context text <string>)
+  (let ((extents (cairo_text_extents_t-make))
+        (metrics (cairo-metrics context)))
+    (cairo_text_extents context text extents)
+    (prog1 (new Dimension
+             (fxround (cairo_text_extents_t-x_advance-ref extents))
+             (fxround (cairo_font_extents_t-height-ref metrics)))
+      (cairo_text_extents_t-free extents)
+      (cairo_font_extents_t-free metrics)))))

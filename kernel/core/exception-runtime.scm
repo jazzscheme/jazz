@@ -201,6 +201,25 @@
 
 
 ;;;
+;;;; Retry
+;;;
+
+
+(define (jazz:retry-exception-handler thunk #!key (retries 500) (delay .01) (feedback #f))
+  (declare (proper-tail-calls))
+  (let loop ((n 0))
+    (jazz:handle-exception-filter
+      (lambda (exc)
+        (%%fx< n retries))
+      (lambda (exc)
+        (%%when feedback
+          (feedback exc))
+        (thread-sleep! delay)
+        (loop (%%fx+ n 1)))
+      thunk)))
+
+
+;;;
 ;;;; Error
 ;;;
 

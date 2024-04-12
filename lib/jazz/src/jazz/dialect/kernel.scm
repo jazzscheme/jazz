@@ -429,6 +429,7 @@
 (native jazz:system-exception-hook)
 (native jazz:handle-exception-filter)
 (native jazz:catch-exception-filter)
+(native jazz:retry-exception-handler)
 (native jazz:dump-exception)
 (native jazz:new-walk-problems)
 

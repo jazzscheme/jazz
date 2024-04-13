@@ -292,7 +292,7 @@
   jazz:*changed-units*)
 
 (define (jazz:push-changed-units-impl unit)
-  (set! jazz:*changed-units* (cons unit jazz:*changed-units*)))
+  (set! jazz:*changed-units* (%%cons unit jazz:*changed-units*)))
 
 (define (jazz:reset-changed-units-impl)
   (set! jazz:*changed-units* '()))
@@ -989,7 +989,7 @@
                              ,(product-file (string-append image-name ".a"))
                              ,@base-files)))
             (if ios?
-                (let ((custom-cc-options (cons "-bundle" ios-custom-cc-options))
+                (let ((custom-cc-options (%%cons "-bundle" ios-custom-cc-options))
                       (link-options (case compiler ((c++) '("-lc++")) (else '()))))
                   (jazz:invoke-process
                     (list
@@ -1265,7 +1265,7 @@
       (if library-options
           (let ()
             (define (add-language unit-name language)
-              (set! unit-language (cons (cons unit-name language) unit-language)))
+              (set! unit-language (%%cons (%%cons unit-name language) unit-language)))
             
             (set! ld-options (append ld-options (let ((ld-options (library-options descriptor add-language)))
                                                   (if (string? ld-options)
@@ -1279,7 +1279,7 @@
                     (process-units descriptor library-name)
                     (process-options descriptor library-options))))
               library-names)
-    (cons units (cons ld-options unit-language))))
+    (%%cons units (%%cons ld-options unit-language))))
 
 
 (define (jazz:make-static-loader file library units)
@@ -1451,7 +1451,7 @@
                   ;(feedback-message "; creating link file...")
                   (link-flat (%%cons loader-c
                                      (map (lambda (module)
-                                            (cons module '((preload . #f))))
+                                            (%%cons module '((preload . #f))))
                                           linked-files))
                              output: linkfile
                              warnings?: #f)

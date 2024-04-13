@@ -249,6 +249,13 @@ void splashTerminate()
   (set! splash value))
 
 
+(definition splash-width
+  850)
+
+(definition splash-height
+  550)
+
+
 (c-type CGContextRef (pointer (struct "CGContext")))
 
 
@@ -257,33 +264,29 @@ void splashTerminate()
 (c-external (splashInvalidate double double double double) void)
 
 
-(c-definition (splash-paint-callback context) (CGContextRef) void "paint_callback" "static"
-  (splash-paint splash context))
-
-
-(c-definition (splash-mouse-down-callback x y) (double double) void "mouse_down_callback" "static"
-  (splash-mouse-down splash x y))
-
-(c-definition (splash-mouse-move-callback x y) (double double) void "mouse_move_callback" "static"
-  (splash-mouse-move splash x y))
-
-(c-definition (splash-mouse-up-callback x y) (double double) void "mouse_up_callback" "static"
-  (splash-mouse-up splash x y))
-
-
-(definition package (with-splash-painting context width height proc)
-  (let ((surface (cairo_quartz_surface_create_for_cg_context context width height))
-        (image-surface (cairo_image_surface_create CAIRO_FORMAT_ARGB32 (* width 2) (* height 2))))
+(c-definition (paint-callback context) (CGContextRef) void "paint_callback" "static"
+  (let ((surface (cairo_quartz_surface_create_for_cg_context context splash-width splash-height))
+        (image-surface (cairo_image_surface_create CAIRO_FORMAT_ARGB32 (* splash-width 2) (* splash-height 2))))
     (let ((context (cairo_create surface))
           (image-context (cairo_create image-surface)))
       (cairo_surface_set_device_scale image-surface 2. 2.)
-      (proc image-context)
+      (splash-paint splash context)
       (cairo-blit context image-surface)
       @buggy (
       (cairo_destroy context)
       (cairo_surface_destroy surface)
       (cairo_destroy image-context)
       (cairo_surface_destroy image-surface)))))
+
+
+(c-definition (mouse-down-callback x y) (double double) void "mouse_down_callback" "static"
+  (splash-mouse-down splash x y))
+
+(c-definition (mouse-move-callback x y) (double double) void "mouse_move_callback" "static"
+  (splash-mouse-move splash x y))
+
+(c-definition (mouse-up-callback x y) (double double) void "mouse_up_callback" "static"
+  (splash-mouse-up splash x y))
 
 
 ;; splashoo
@@ -408,7 +411,11 @@ void splashInvalidate(double x, double y, double width, double height)
 
 
 (c-definition (paint-callback hdc) (HDC) void "paint_callback" "static"
-  (splash-paint splash hdc))
+  (let ((surface (cairo_win32_surface_create hdc)))
+    (let ((context (cairo_create surface)))
+      (splash-paint splash context)
+      (cairo_destroy context)
+      (cairo_surface_destroy surface))))
 
 
 (definition package (poll-events)
@@ -417,14 +424,6 @@ void splashInvalidate(double x, double y, double width, double height)
   (let (loop)
     (when (splashPollEvent)
       (loop))))
-
-
-(definition package (with-splash-painting hdc width height proc)
-  (let ((surface (cairo_win32_surface_create hdc)))
-    (let ((context (cairo_create surface)))
-      (proc context)
-      (cairo_destroy context)
-      (cairo_surface_destroy surface))))
 
 
 ;; splashoo

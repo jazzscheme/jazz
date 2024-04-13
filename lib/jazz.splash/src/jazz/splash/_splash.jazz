@@ -38,7 +38,8 @@
 (module jazz.splash jazz
 
 
-(import (jazz.cairo)
+(import (jazz.appl)
+        (jazz.cairo)
         (jazz.foreign))
 
 
@@ -429,6 +430,41 @@ void splashInvalidate(double x, double y, double width, double height)
 ;; splashoo
 (definition public (splash-set-cursor name)
   )))
+
+
+;;;
+;;;; Event
+;;;
+
+
+(definition splash-thread
+  #f)
+
+(definition splash-done?
+  #f)
+
+
+(definition public (splashStart)
+  (let ((thread
+          (new-thread
+            (lambda ()
+              (declare (proper-tail-calls))
+              (let (loop)
+                (poll-events)
+                (sleep .01)
+                (when (not splash-done?)
+                  (loop))))
+            'event)))
+    (set! splash-thread thread)
+    (set! splash-done? #f)
+    (thread-start! thread)))
+
+
+(definition public (splashStop)
+  (when splash-thread
+    (set! splash-done? #t)
+    (thread-join! splash-thread)
+    (set! splash-thread #f)))
 
 
 ;;;

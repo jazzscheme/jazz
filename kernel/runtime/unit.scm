@@ -1163,8 +1163,9 @@
 
 
 (define (jazz:image-unit-uptodate? image-unit src manifest)
-  (let ((digest (jazz:find-source-digest (jazz:resource-pathname src) manifest)))
-    (and digest (%%string=? (%%get-image-unit-compile-time-hash image-unit) (%%get-digest-hash digest)))))
+  (or (%%not src)
+      (let ((digest (jazz:find-source-digest (jazz:resource-pathname src) manifest)))
+        (and digest (%%string=? (%%get-image-unit-compile-time-hash image-unit) (%%get-digest-hash digest))))))
 
 
 (define (jazz:image-unit-uptodate-src? image-unit src)

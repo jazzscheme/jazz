@@ -595,12 +595,12 @@ end-of-code
               (let ((needs-sweep (and make? (or sweep? (jazz:build-repository-needs-sweep)))))
                 (if needs-sweep
                     (jazz:sweep-build-repository needs-sweep)))
+              (jazz:load-libraries)
               (jazz:setup-repositories))
             
             (define (setup-runtime)
               (setup-kernel)
               (setup-repositories #f)
-              (jazz:load-libraries)
               ;; to test cross compiling REMOVE CODE WHEN DONE
               (setup-target))
             

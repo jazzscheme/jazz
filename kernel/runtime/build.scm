@@ -1397,7 +1397,7 @@
          (library-base (jazz:relocate-product-library-name-base jazz:Build-Repository package (%%symbol->string product-name)))
          (library-dir (jazz:pathname-dir library-base))
          (static-info (jazz:static-info (list product-name))))
-    (jazz:with-numbered-pathname (string-append library-base "." jazz:Library-Extension) #t 1
+    (jazz:with-numbered-library (string-append library-base "." jazz:Library-Extension) #t 1
       (lambda (library-o1 o1-exists?)
         (let* ((static-dir (string-append library-dir "static/"))
                (static-lib (string-append static-dir (%%symbol->string product-name) ".a"))

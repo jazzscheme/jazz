@@ -2142,7 +2142,12 @@
                (proc candidate))))))
 
 
-(define (jazz:with-numbered-pathname pathname fresh? n0 proc)
+(define (jazz:with-numbered-library pathname fresh? n0 proc)
+  ;; quicky around libraries not currently supporting single-objects?
+  ;; and is possible as libraries are only used for setup at the moment
+  (let ((library (string-append pathname (%%number->string n0))))
+    (proc library (file-exists? library)))
+  #;
   (let iter ((n n0) (exists? #f))
        (let ((candidate (string-append pathname (%%number->string n))))
          (if (%%not (file-exists? candidate))

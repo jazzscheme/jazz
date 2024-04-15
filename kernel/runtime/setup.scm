@@ -419,7 +419,7 @@ end-of-code
       (let ((products (%%get-package-products package)))
         (for-each (lambda (product-descriptor)
                     (let ((product-name (jazz:product-descriptor-name product-descriptor)))
-                      (jazz:with-numbered-pathname (string-append (jazz:product-library-name-base package (%%symbol->string product-name)) "." jazz:Library-Extension) #f 1
+                      (jazz:with-numbered-library (string-append (jazz:product-library-name-base package (%%symbol->string product-name)) "." jazz:Library-Extension) #f 1
                         (lambda (filename exists?)
                           (if exists?
                               (add-library product-name filename))))))

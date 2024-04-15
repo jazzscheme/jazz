@@ -844,8 +844,6 @@
 (native jazz:unit-source)
 (native jazz:split-command-line)
 (native jazz:quit)
-(native jazz:quit-set!)
-(native jazz:_exit-set!)
 (native jazz:pkg-config)
 (native jazz:pkg-config-exists?)
 (native jazz:pkg-config-version)

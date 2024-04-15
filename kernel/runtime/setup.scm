@@ -849,19 +849,13 @@ end-of-code
           thunk)))))
 
 
-;; make quit overridable as a temporary hack around
-;; libgit2 corrupting exiting process on some windows
-(define jazz:quit
-  (lambda (#!optional (status 0))
-    (define (raise-quit)
-      (raise (%%cons jazz:quit-marker status)))
-    
-    (if (%%eq? (%%current-thread) jazz:quit-thread)
-        (raise-quit)
-      (##thread-int! jazz:quit-thread raise-quit))))
-
-(define (jazz:quit-set! proc)
-  (set! jazz:quit proc))
+(define (jazz:quit #!optional (status 0))
+  (define (raise-quit)
+    (raise (%%cons jazz:quit-marker status)))
+  
+  (if (%%eq? (%%current-thread) jazz:quit-thread)
+      (raise-quit)
+    (##thread-int! jazz:quit-thread raise-quit)))
 
 
 ;;;

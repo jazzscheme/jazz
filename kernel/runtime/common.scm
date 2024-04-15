@@ -113,6 +113,9 @@
 (jazz:define-variable jazz:warnings
   #f)
 
+(define (jazz:set-link-options options)
+  (set! jazz:link-options options))
+
 (define jazz:recompile-references
   #f)
 

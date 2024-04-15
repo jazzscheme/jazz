@@ -717,6 +717,7 @@
 (native jazz:custom-compile/build)
 (native jazz:find-unit-product)
 (native jazz:find-unit-options)
+(native jazz:set-link-options)
 (native jazz:current-process-product)
 (native jazz:current-process-name)
 (native jazz:current-process-name-set!)

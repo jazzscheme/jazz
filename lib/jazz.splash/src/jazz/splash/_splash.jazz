@@ -214,9 +214,9 @@ NSWindow* create_window(int x, int y, int width, int height)
 }
 
 
-void splashInit()
+void splashInit(int x, int y, int width, int height)
 {
-    window = create_window(100, 66, 850, 550);
+    window = create_window(x, y, width, height);
 }
 
 
@@ -250,6 +250,12 @@ void splashTerminate()
   (set! splash value))
 
 
+(definition splash-x
+  100)
+
+(definition splash-y
+  66)
+
 (definition splash-width
   850)
 
@@ -260,7 +266,7 @@ void splashTerminate()
 (c-type CGContextRef (pointer (struct "CGContext")))
 
 
-(c-external (splashInit) void)
+(c-external (splashInit int int int int) void)
 (c-external (splashTerminate) void)
 (c-external (splashInvalidate double double double double) void)
 
@@ -348,7 +354,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 }
 
 
-void splashInit()
+void splashInit(int x, int y, int width, int height)
 {
     HINSTANCE hInst = NULL;
 
@@ -361,8 +367,8 @@ void splashInit()
 
     RegisterClass(&wc);
     HWND hwnd = CreateWindow(wc.lpszClassName,TEXT("Splash"),
-                             WS_OVERLAPPEDWINDOW, 0, 0, 850, 550, 0, 0, hInst, 0);
-    SetClientSize(hwnd, 850, 550);
+                             WS_OVERLAPPEDWINDOW, x, y, width, height, 0, 0, hInst, 0);
+    SetClientSize(hwnd, width, height);
     ShowWindow(hwnd, SW_SHOWNORMAL);
 }
 
@@ -404,7 +410,7 @@ void splashInvalidate(double x, double y, double width, double height)
 (c-type private HDC (pointer (struct "HDC__") handle))
 
 
-(c-external (splashInit) void)
+(c-external (splashInit int int int int) void)
 (c-external (splashTerminate) void)
 (c-external (splashPollEvent) bool)
 (c-external (splashInvalidate double double double double) void)
@@ -432,6 +438,19 @@ void splashInvalidate(double x, double y, double width, double height)
 
 
 ;;;
+;;;; Init
+;;;
+
+
+(definition public (splash-init)
+  (splashInit splash-x splash-y splash-width splash-height))
+
+
+(definition public (splash-terminate)
+  (splashTerminate))
+
+
+;;;
 ;;;; Event
 ;;;
 
@@ -443,7 +462,7 @@ void splashInvalidate(double x, double y, double width, double height)
   #f)
 
 
-(definition public (splashStart)
+(definition public (splash-start)
   (let ((thread
           (new-thread
             (lambda ()
@@ -459,7 +478,7 @@ void splashInvalidate(double x, double y, double width, double height)
     (thread-start! thread)))
 
 
-(definition public (splashStop)
+(definition public (splash-stop)
   (when splash-thread
     (set! splash-done? #t)
     (thread-join! splash-thread)

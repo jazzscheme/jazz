@@ -42,7 +42,6 @@
         (jazz.io)
         (jazz.moment)
         (jazz.platform)
-        (jazz.process)
         (jazz.settings)
         (jazz.syntax (phase syntax))
         (jazz.time)
@@ -64,6 +63,12 @@
   #f)
 
 (define-setting snapshot-user
+  #f)
+
+(define-setting snapshot-email
+  #f)
+
+(define-setting snapshot-version
   #f)
 
 (define-setting snapshot-max-depth
@@ -225,13 +230,13 @@
     (define package-info-more? fourth)
     
     (define (print-process)
-      (define (present-process-version)
-        (let ((process (current-process)))
-          (and process
-               (present (process-version process)))))
+      (define (present-version)
+        (let ((version (snapshot-version)))
+          (and version
+               (present version))))
       
       (let ((name (current-process-present))
-            (version (present-process-version))
+            (version (present-version))
             (date (present-date (system-date)))
             (user (or user (snapshot-user))))
         (format output "(<process> name: {s}{? version: {s}~} date: {s}{? user: {s}~}" name version date user))
@@ -447,21 +452,18 @@
 
 (definition (application-exception-feedback)
   (lambda (exception snapshot)
-    (let ((process (current-process)))
-      (system-message (format "{a} {a}{%}{%}{a}.{%}{%}{a}{%}    {a}{a}"
-                              "An unexpected problem occurred while executing"
-                              (current-process-present)
-                              "This will terminate the application immediately"
-                              "A log file will be generated at"
-                              (parse snapshot)
-                              (if process
-                                  (let ((email (process-email process)))
-                                    (if email
-                                        (format "{%}{%}{a}{%}{a}: {a}."
-                                                "Help us fix this problem by sending the log file and any comments"
-                                                "about how the problem occurred to"
-                                                email)
-                                      ""))
-                                ""))
-                      title: "Application Error"
-                      type: 'problem)))))
+    (system-message (format "{a} {a}{%}{%}{a}.{%}{%}{a}{%}    {a}{a}"
+                            "An unexpected problem occurred while executing"
+                            (current-process-present)
+                            "This will terminate the application immediately"
+                            "A log file will be generated at"
+                            (parse snapshot)
+                            (let ((email (snapshot-email)))
+                              (if email
+                                  (format "{%}{%}{a}{%}{a}: {a}."
+                                          "Help us fix this problem by sending the log file and any comments"
+                                          "about how the problem occurred to"
+                                          email)
+                                "")))
+                    title: "Application Error"
+                    type: 'problem))))

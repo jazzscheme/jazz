@@ -315,6 +315,24 @@ bool applPollEvent()
 
 
 //
+/// Alert
+//
+
+
+void applAlert(char* msg, char* title, char* header, int style)
+{
+    [NSApp activateIgnoringOtherApps : YES];
+
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    [[alert window] setTitle:[NSString stringWithUTF8String:title]];
+    [alert setAlertStyle:style];
+    [alert setMessageText:[NSString stringWithUTF8String:header]];
+    [alert setInformativeText:[NSString stringWithUTF8String:msg]];
+    [alert runModal];
+}
+
+
+//
 /// Main
 //
 
@@ -472,6 +490,7 @@ void applTerminate()
 (c-external (applTerminate) void)
 (c-callable (applPollEvent) bool)
 (c-external (applLaunchURL) char-string)
+(c-external (applAlert char-string char-string char-string int) void)
 (c-external (applSetFileCallback void*) void)
 (c-external (applSetDidHideCallback void*) void)
 (c-external (applSetDidUnhideCallback void*) void)
@@ -492,6 +511,11 @@ void applTerminate()
 (applSetTerminateCallback (applTerminateQuit))
 
 
+(c-enumerant NSAlertStyleWarning)
+(c-enumerant NSAlertStyleInformational)
+(c-enumerant NSAlertStyleCritical)
+
+
 (definition public (launch-url)
   (applLaunchURL))
 
@@ -501,7 +525,30 @@ void applTerminate()
   ;; not doing the loop in C to enable thread scheduling
   (let (loop)
     (when (applPollEvent)
-      (loop)))))
+      (loop))))
+
+
+(definition public (system-message text . rest)
+  (bind-keywords ((type 'message) (title #f) (header #f) . others) rest
+    (let ((title
+            (or title ""))
+          (header
+            (or header (case type
+                         ((message) "Message")
+                         ((question) "Question")
+                         ((confirmation) "Confirmation")
+                         ((problem) "Problem")
+                         ((error) "Error"))))
+          (style
+            (case type
+              ((message) NSAlertStyleInformational)
+              ((question) NSAlertStyleWarning)
+              ((confirmation) NSAlertStyleWarning)
+              ((problem) NSAlertStyleCritical)
+              ((error) NSAlertStyleCritical))))
+      (applInit)
+      (applAlert text title header style)
+      'yes))))
   
   
   ;;;
@@ -527,7 +574,35 @@ void applTerminate()
 
 
 (definition public (launch-url)
-  (string-argument "url" #f)))
+  (string-argument "url" #f))
+
+
+(definition public (system-message text . rest)
+  (bind-keywords ((type 'message) (title #f) (header #f) . others) rest
+    (let ((text (if header
+                    (string-append header "\n\n" text)
+                  text))
+          (title
+            (or title (case type
+                        ((message) "Message")
+                        ((question) "Question")
+                        ((confirmation) "Confirmation")
+                        ((problem) "Problem")
+                        ((error) "Error"))))
+          (flags
+            (case type
+              ((message) (bitwise-ior MB_OK MB_ICONINFORMATION))
+              ((question) (bitwise-ior MB_YESNO MB_ICONWARNING))
+              ((confirmation) (bitwise-ior MB_YESNOCANCEL MB_ICONWARNING))
+              ((problem) (bitwise-ior MB_OK MB_ICONERROR))
+              ((error) (bitwise-ior MB_OKCANCEL MB_ICONERROR)))))
+      (let ((code (MessageBox #f text title (bitwise-ior MB_TASKMODAL flags))))
+        (ecase code
+          ((IDOK) 'yes)
+          ((IDCANCEL) 'cancel)
+          ((IDYES) 'yes)
+          ((IDNO) 'no)
+          (else #f)))))))
   
   
   ;;;
@@ -536,7 +611,13 @@ void applTerminate()
   
   (x11
 (definition public (launch-url)
-  #f)))
+  #f)
+
+
+(definition public (system-message text . rest)
+  (let ((port (console-port)))
+    (display text port)
+    (newline port)))))
 
 
 ;;;

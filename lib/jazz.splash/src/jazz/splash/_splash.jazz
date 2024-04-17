@@ -432,12 +432,39 @@ void splashInvalidate(double x, double y, double width, double height)
   #f)
 
 
+(definition splash-events
+  (open-vector))
+
+
+(definition (write-splash-event thunk)
+  (write thunk splash-events)
+  (force-output splash-events))
+
+
+(definition (read-splash-event)
+  (input-port-timeout-set! splash-events 0)
+  (read splash-events))
+
+
+(definition (process-splash-events)
+  (declare (proper-tail-calls))
+  (let ((thunk (read-splash-event)))
+    (when (not (eof-object? thunk))
+      (thunk)
+      (process-splash-events))))
+
+
+(definition public (splash-event thunk)
+  (write-splash-event thunk))
+
+
 (definition public (splash-start)
   (let ((thread
           (new-thread
             (lambda ()
               (declare (proper-tail-calls))
               (let (loop)
+                (process-splash-events)
                 (poll-events)
                 (sleep .01)
                 (when (not splash-done?)

@@ -52,6 +52,7 @@
         (jazz.presence)
         (jazz.presence.transmission)
         (jazz.process (cond (not ios)))
+        (jazz.snapshot)
         (jazz.syntax (phase syntax)))
 
 
@@ -1179,6 +1180,39 @@
                   (when (eq? proc procedure)
                     (continuation-return return locator))))
               #f))))))
+
+
+;;;
+;;;; Exception Filter
+;;;
+
+
+(definition public (with-exception-snapshot filter catcher thunk)
+  (catch-exception-filter
+    (lambda (exc)
+      (and (filter exc)
+           (begin
+             (if (using-debugger?)
+                 (let ((reason (exception-reason exc))
+                       (detail (exception-detail exc)))
+                   (break-internal reason: reason detail: detail exception: exc))
+               (let ((reason (exception-reason exc)))
+                 (snapshot-process directory: {Directory Settings "problems"} reason: reason exception: exc)))
+             #t)))
+    catcher
+    thunk))
+
+
+(definition public (new-safe-thread catcher thunk name . rest)
+  (apply new-thread
+         (lambda ()
+           (with-exception-snapshot
+             (lambda (exc)
+               #t)
+             catcher
+             thunk))
+         name
+         rest))
 
 
 ;;;

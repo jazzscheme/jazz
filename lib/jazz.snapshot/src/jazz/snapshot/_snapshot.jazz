@@ -38,8 +38,7 @@
 (module jazz.snapshot jazz
 
 
-(import (jazz.debuggee)
-        (jazz.inspector)
+(import (jazz.inspector)
         (jazz.io)
         (jazz.locale)
         (jazz.moment)
@@ -143,39 +142,6 @@
 
 (definition public (get-snapshot-continuations)
   (apply append (map (lambda (proc) (proc)) *snapshot-continuations*)))
-
-
-;;;
-;;;; Exception Filter
-;;;
-
-
-(definition public (with-exception-snapshot filter catcher thunk)
-  (catch-exception-filter
-    (lambda (exc)
-      (and (filter exc)
-           (begin
-             (if (using-debugger?)
-                 (let ((reason (exception-reason exc))
-                       (detail (exception-detail exc)))
-                   (break-internal reason: reason detail: detail exception: exc))
-               (let ((reason (exception-reason exc)))
-                 (snapshot-process directory: {Directory Settings "problems"} reason: reason exception: exc)))
-             #t)))
-    catcher
-    thunk))
-
-
-(definition public (new-safe-thread catcher thunk name . rest)
-  (apply new-thread
-         (lambda ()
-           (with-exception-snapshot
-             (lambda (exc)
-               #t)
-             catcher
-             thunk))
-         name
-         rest))
 
 
 ;;;
@@ -342,23 +308,15 @@
       (format output ")"))
     
     (define (print-thread thread continuation)
-      (define (stop-kind thread)
-        (let ((stops (thread-active-stops thread)))
-          (and (not-null? stops)
-               (get-kind (last stops)))))
-      
       (format output "{%}")
       (let ((name (thread-name thread))
             (state (present-thread-state (thread-state thread)))
-            (stop (stop-kind thread))
             (priority (thread-base-priority thread)))
         (format output "    (<thread>")
         (when (and name (specified? name))
           (format output " name: {s}" name))
         (when state
           (format output " state: {s}" state))
-        (when stop
-          (format output " stop: {s}" stop))
         (when priority
           (format output " priority: {s}" priority)))
       (force-output output)

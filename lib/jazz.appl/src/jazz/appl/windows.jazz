@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Appl Product
+;;;; Windows Appl
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,56 +35,76 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit jazz.appl.product
+(module protected jazz.appl.windows jazz
+
+
+(import (jazz.foreign))
+
+
+(c-declare appl #/Objective-C/
+
+void applInit()
+{
+}
+
+
+void applTerminate()
+{
+}
+//#)
+
+
+(c-external (applInit) void)
+(c-external (applTerminate) void)
 
 
 ;;;
-;;;; Build
+;;;; URL
 ;;;
 
 
-(cond-expand
-  (mac
-    (define jazz:custom-cc
-      'llvm))
-  (else))
-
-
-(cond-expand
-  (mac
-   (define jazz:appl-units
-     `((jazz.appl.mac cc-options: ,(jazz:patch-mac-ld-warnings "") ld-options: "-framework Cocoa -framework IOKit" custom-cc: ,jazz:custom-cc output-language: objc))))
-  (windows
-   (define jazz:appl-units
-     (let ((base-windows-cc-options "-DUNICODE"))
-       `((jazz.appl.windows cc-options: ,base-windows-cc-options ld-options: "-mwindows")))))
-  (else))
-
-
-(define (jazz:build-appl descriptor #!key (unit #f) (skip-references? #f) (force? #f))
-  (let ((unit-specs jazz:appl-units))
-    (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-    (if (or (not unit) (not (assq unit unit-specs)))
-        (jazz:build-product-descriptor descriptor))))
-
-
-(define (jazz:appl-library-options descriptor add-language)
-  (cond-expand
-    (mac
-     (add-language 'jazz.appl.mac 'objc))
-    (else))
-  (cond-expand
-    (mac
-     "-framework Cocoa -framework IOKit")
-    (else
-     #f)))
+(definition public (launch-url)
+  (string-argument "url" #f))
 
 
 ;;;
-;;;; Register
+;;;; Directory
 ;;;
 
 
-(jazz:register-product 'jazz.appl
-  build: jazz:build-appl
-  library-options: jazz:appl-library-options))
+(definition public (directory-writable? dirname)
+  ;; quicky
+  #t)
+
+
+;;;
+;;;; Message
+;;;
+
+
+(definition public (system-message text . rest)
+  (bind-keywords ((type 'message) (title #f) (header #f) . others) rest
+    (let ((text (if header
+                    (string-append header "\n\n" text)
+                  text))
+          (title
+            (or title (case type
+                        ((message) "Message")
+                        ((question) "Question")
+                        ((confirmation) "Confirmation")
+                        ((problem) "Problem")
+                        ((error) "Error"))))
+          (flags
+            (case type
+              ((message) (bitwise-ior MB_OK MB_ICONINFORMATION))
+              ((question) (bitwise-ior MB_YESNO MB_ICONWARNING))
+              ((confirmation) (bitwise-ior MB_YESNOCANCEL MB_ICONWARNING))
+              ((problem) (bitwise-ior MB_OK MB_ICONERROR))
+              ((error) (bitwise-ior MB_OKCANCEL MB_ICONERROR)))))
+      (let ((code (MessageBox #f text title (bitwise-ior MB_TASKMODAL flags))))
+        (ecase code
+          ((IDOK) 'yes)
+          ((IDCANCEL) 'cancel)
+          ((IDYES) 'yes)
+          ((IDNO) 'no)
+          (else #f)))))))

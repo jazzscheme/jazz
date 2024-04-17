@@ -1,0 +1,576 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Mac Appl
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.appl.mac jazz
+
+
+(import (jazz.foreign))
+
+
+(c-declare appl #/Objective-C/
+
+#import <Cocoa/Cocoa.h>
+#include <stdio.h>
+
+static id applDelegate;
+
+static NSAutoreleasePool *autoreleasePool;
+
+
+//
+/// Callback
+//
+
+
+typedef void (*file_callback)(NSString* filename);
+typedef void (*did_hide_callback)();
+typedef void (*did_unhide_callback)();
+typedef void (*terminate_callback)();
+typedef void (*will_sleep_callback)();
+typedef void (*did_wake_callback)();
+typedef void (*finished_playing_callback)(NSString* alias);
+typedef void (*user_callback)(int data1, int data2);
+
+
+static file_callback applFileCallback;
+static did_hide_callback applDidHideCallback;
+static did_unhide_callback applDidUnhideCallback;
+static terminate_callback applTerminateCallback;
+static will_sleep_callback applWillSleepCallback;
+static did_wake_callback applDidWakeCallback;
+static finished_playing_callback applFinishedPlayingCallback;
+static user_callback applUserCallback;
+
+
+static void applSetFileCallback(void* callback)
+{
+    applFileCallback = callback;
+}
+
+static void applSetDidHideCallback(void* callback)
+{
+    applDidHideCallback = callback;
+}
+
+static void applSetDidUnhideCallback(void* callback)
+{
+    applDidUnhideCallback = callback;
+}
+
+static void applSetTerminateCallback(void* callback)
+{
+    applTerminateCallback = callback;
+}
+
+static void applSetWillSleepCallback(void* callback)
+{
+    applWillSleepCallback = callback;
+}
+
+static void applSetDidWakeCallback(void* callback)
+{
+    applDidWakeCallback = callback;
+}
+
+static void applSetFinishedPlayingCallback(void* callback)
+{
+    applFinishedPlayingCallback = callback;
+}
+
+static void applSetUserCallback(void* callback)
+{
+    applUserCallback = callback;
+}
+
+
+//
+/// Application
+//
+
+
+static const char* launchURL = NULL;
+
+
+void postEmptyEvent()
+{
+    @autoreleasepool {
+    
+    NSEvent* event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
+                                        location:NSMakePoint(0, 0)
+                                   modifierFlags:0
+                                       timestamp:0
+                                    windowNumber:0
+                                         context:nil
+                                         subtype:0
+                                           data1:0
+                                           data2:0];
+    [NSApp postEvent:event atStart:YES];
+    
+    }
+}
+
+
+@interface JazzApplicationDelegate : NSObject
+@end
+
+@implementation JazzApplicationDelegate
+
+- (BOOL)applicationSupportsSecureRestorableState:(NSApplication *)app
+{
+    return YES;
+}
+
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
+{
+    if (applTerminateCallback)
+        applTerminateCallback();
+    
+    return NSTerminateCancel;
+}
+
+- (void)applicationWillFinishLaunching:(nonnull NSNotification *)notification
+{
+    [[NSAppleEventManager sharedAppleEventManager] setEventHandler:self andSelector:@selector(getURL:withReplyEvent:) forEventClass:kInternetEventClass andEventID:kAEGetURL];
+    [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"NSFullScreenMenuItemEverywhere"];
+    [NSWindow setAllowsAutomaticWindowTabbing: NO];
+}
+
+- (void)applicationDidFinishLaunching:(NSNotification *)notification
+{
+    [NSApp stop:nil];
+
+    postEmptyEvent();
+}
+
+- (void)applicationDidHide:(NSNotification *)notification
+{
+    if (applDidHideCallback)
+        applDidHideCallback();
+}
+
+- (void)applicationDidUnhide:(NSNotification *)notification
+{
+    if (applDidUnhideCallback)
+        applDidUnhideCallback();
+}
+
+- (BOOL)application:(NSApplication *)theApplication openFile:(NSString *)filename
+{
+    if (applFileCallback)
+        applFileCallback(filename);
+
+    return YES;
+}
+
+- (void)getURL:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)reply
+{
+    launchURL = strdup([[[event paramDescriptorForKeyword:keyDirectObject] stringValue] UTF8String]);
+}
+
+@end
+
+
+@interface JazzApplication : NSApplication
+@end
+
+
+@implementation JazzApplication
+
+- (void) registerWorkspaceNotifications
+{
+    NSNotificationCenter *center;
+    center = [[NSWorkspace sharedWorkspace] notificationCenter];
+    
+    // using the screens sleep / wake notifications because
+    // for some reason NSWorkspaceDidWakeNotification can take
+    // up to 30s to be received after the mac actually woke up
+    
+    [center addObserver: self
+            selector: @selector(receiveSleepNote:)
+            name: NSWorkspaceScreensDidSleepNotification
+            object: nil];
+    
+    [center addObserver: self
+            selector: @selector(receiveWakeNote:)
+            name: NSWorkspaceScreensDidWakeNotification
+            object: nil];
+}
+
+- (void) receiveSleepNote: (NSNotification*) note
+{
+    if (applWillSleepCallback)
+        applWillSleepCallback();
+}
+ 
+- (void) receiveWakeNote: (NSNotification*) note
+{
+    if (applDidWakeCallback)
+        applDidWakeCallback();
+}
+
+// From http://cocoadev.com/index.pl?GameKeyboardHandlingAlmost
+// This works around an AppKit bug, where key up events while holding
+// down the command key don't get sent to the key window.
+- (void)sendEvent:(NSEvent *)event
+{
+    if ([event type] == NSEventTypeApplicationDefined)
+        if (applUserCallback)
+            applUserCallback([event data1], [event data2]);
+    
+    if ([event type] == NSEventTypeKeyUp && ([event modifierFlags] & NSEventModifierFlagCommand))
+        [[self keyWindow] sendEvent:event];
+    else
+        [super sendEvent:event];
+}
+
+- (void)sound:(NSSound *)sound didFinishPlaying:(BOOL)finishedPlaying
+{
+    if (finishedPlaying)
+    {
+        NSString* name = [sound name];
+        if (name)
+            if (applFinishedPlayingCallback)
+                applFinishedPlayingCallback(name);
+    }
+}
+
+@end
+
+
+char* applLaunchURL()
+{
+    return (char*) launchURL;
+}
+
+
+bool applIsDirectoryWritable(char* dir)
+{
+    NSFileManager *fm = [NSFileManager defaultManager];
+    return [fm isWritableFileAtPath:[NSString stringWithUTF8String:dir]];
+}
+
+
+//
+/// Event
+//
+
+
+bool applPollEvent()
+{
+    NSEvent* event;
+  
+    event = [NSApp nextEventMatchingMask:NSEventMaskAny
+                               untilDate:[NSDate distantPast]
+                                  inMode:NSDefaultRunLoopMode
+                                 dequeue:YES];
+
+    if (event && ([event type] != NSEventTypeKeyDown || ! [event isARepeat]))
+    {
+        [NSApp sendEvent:event];
+        
+        return true;
+    }
+    else
+    {
+        [autoreleasePool drain];
+        autoreleasePool = [[NSAutoreleasePool alloc] init];
+    
+        return false;
+    }
+}
+
+
+//
+/// Alert
+//
+
+
+void applAlert(char* msg, char* title, char* header, int style)
+{
+    [NSApp activateIgnoringOtherApps : YES];
+
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    [[alert window] setTitle:[NSString stringWithUTF8String:title]];
+    [alert setAlertStyle:style];
+    [alert setMessageText:[NSString stringWithUTF8String:header]];
+    [alert setInformativeText:[NSString stringWithUTF8String:msg]];
+    [alert runModal];
+}
+
+
+//
+/// Main
+//
+
+
+#include <crt_externs.h>
+
+
+bool applInited = false;
+
+
+static NSString* findAppName()
+{
+    unsigned int i;
+    NSDictionary* infoDictionary = [[NSBundle mainBundle] infoDictionary];
+
+    // Keys to search for as potential application names
+    NSString* NameKeys[] =
+    {
+        @"CFBundleDisplayName",
+        @"CFBundleName",
+        @"CFBundleExecutable",
+    };
+
+    for (i = 0;  i < sizeof(NameKeys) / sizeof(NameKeys[0]);  i++)
+    {
+        id name = [infoDictionary objectForKey:NameKeys[i]];
+        if (name &&
+            [name isKindOfClass:[NSString class]] &&
+            ![@"" isEqualToString:name])
+        {
+            return name;
+        }
+    }
+
+    char** progname = _NSGetProgname();
+    if (progname && *progname)
+        return [NSString stringWithUTF8String:*progname];
+
+    // Really shouldn't get here
+    return @"Jazz Application";
+}
+
+
+static void createMenuBar()
+{
+    NSString* appName = findAppName();
+
+    NSMenu* bar = [[NSMenu alloc] init];
+    [NSApp setMainMenu:bar];
+
+    NSMenuItem* appMenuItem =
+        [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    NSMenu* appMenu = [[NSMenu alloc] init];
+    [appMenuItem setSubmenu:appMenu];
+
+    [appMenu addItemWithTitle:[NSString stringWithFormat:@"About %@", appName]
+                       action:@selector(orderFrontStandardAboutPanel:)
+                keyEquivalent:@""];
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    NSMenu* servicesMenu = [[NSMenu alloc] init];
+    [NSApp setServicesMenu:servicesMenu];
+    [[appMenu addItemWithTitle:@"Services"
+                       action:NULL
+                keyEquivalent:@""] setSubmenu:servicesMenu];
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    [appMenu addItemWithTitle:[NSString stringWithFormat:@"Hide %@", appName]
+                       action:@selector(hide:)
+                keyEquivalent:@"h"];
+    [[appMenu addItemWithTitle:@"Hide Others"
+                       action:@selector(hideOtherApplications:)
+                keyEquivalent:@"h"]
+        setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
+    [appMenu addItemWithTitle:@"Show All"
+                       action:@selector(unhideAllApplications:)
+                keyEquivalent:@""];
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    [appMenu addItemWithTitle:[NSString stringWithFormat:@"Quit %@", appName]
+                       action:@selector(terminate:)
+                keyEquivalent:@"q"];
+
+    NSMenuItem* windowMenuItem =
+        [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:@"Window"];
+    [NSApp setWindowsMenu:windowMenu];
+    [windowMenuItem setSubmenu:windowMenu];
+
+    [windowMenu addItemWithTitle:@"Miniaturize"
+                          action:@selector(performMiniaturize:)
+                   keyEquivalent:@"m"];
+    [windowMenu addItemWithTitle:@"Zoom"
+                          action:@selector(performZoom:)
+                   keyEquivalent:@""];
+
+#if PLATFORM_FULLSCREEN_MENU == 1
+     if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
+     {
+         [windowMenu addItem:[NSMenuItem separatorItem]];
+         [windowMenu addItemWithTitle:@"Enter Full Screen"
+                               action:@selector(toggleFullScreen:)
+                        keyEquivalent:@"f"];
+     }
+#endif
+
+    [windowMenu addItem:[NSMenuItem separatorItem]];
+    [windowMenu addItemWithTitle:@"Bring All to Front"
+                          action:@selector(arrangeInFront:)
+                   keyEquivalent:@""];
+}
+
+
+void applInit()
+{
+    if (applInited)
+        return;
+
+    autoreleasePool = [[NSAutoreleasePool alloc] init];
+
+    [JazzApplication sharedApplication];
+  
+    // In case we are unbundled, make us a proper UI application
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    
+    [NSApp registerWorkspaceNotifications];
+
+    createMenuBar();
+
+    applDelegate = [[JazzApplicationDelegate alloc] init];
+
+    [NSApp setDelegate:applDelegate];
+    [NSApp run];
+
+    applInited = true;
+}
+
+
+void applTerminate()
+{
+    if (!applInited)
+        return;
+
+    [NSApp setDelegate:nil];
+    [applDelegate release];
+    applDelegate = nil;
+
+    [autoreleasePool release];
+    autoreleasePool = nil;
+
+    applInited = false;
+}
+
+//#)
+
+
+(c-external (applInit) void)
+(c-external (applTerminate) void)
+(c-callable (applPollEvent) bool)
+(c-external (applLaunchURL) char-string)
+(c-external (applIsDirectoryWritable char-string) bool)
+(c-external (applAlert char-string char-string char-string int) void)
+(c-external (applSetFileCallback void*) void)
+(c-external (applSetDidHideCallback void*) void)
+(c-external (applSetDidUnhideCallback void*) void)
+(c-external (applSetTerminateCallback void*) void)
+(c-external (applSetWillSleepCallback void*) void)
+(c-external (applSetDidWakeCallback void*) void)
+(c-external (applSetFinishedPlayingCallback void*) void)
+(c-external (applSetUserCallback void*) void)
+
+
+(c-callback (terminate-quit) () void "terminate_quit" "static" #f
+  (exit))
+
+(c-external (applTerminateQuit) void*
+  "___return(terminate_quit);")
+
+
+(applSetTerminateCallback (applTerminateQuit))
+
+
+(c-enumerant NSAlertStyleWarning)
+(c-enumerant NSAlertStyleInformational)
+(c-enumerant NSAlertStyleCritical)
+
+
+;;;
+;;;; URL
+;;;
+
+
+(definition public (launch-url)
+  (applLaunchURL))
+
+
+;;;
+;;;; Directory
+;;;
+
+
+(definition public (directory-writable? dirname)
+  (applIsDirectoryWritable dirname))
+
+
+;;;
+;;;; Message
+;;;
+
+
+(definition public (system-message text . rest)
+  (bind-keywords ((type 'message) (title #f) (header #f) . others) rest
+    (let ((title
+            (or title ""))
+          (header
+            (or header (case type
+                         ((message) "Message")
+                         ((question) "Question")
+                         ((confirmation) "Confirmation")
+                         ((problem) "Problem")
+                         ((error) "Error"))))
+          (style
+            (case type
+              ((message) NSAlertStyleInformational)
+              ((question) NSAlertStyleWarning)
+              ((confirmation) NSAlertStyleWarning)
+              ((problem) NSAlertStyleCritical)
+              ((error) NSAlertStyleCritical))))
+      (applInit)
+      (applAlert text title header style)
+      'yes)))
+
+
+;;;
+;;;; Events
+;;;
+
+
+(definition package (poll-events)
+  (declare (proper-tail-calls))
+  ;; not doing the loop in C to enable thread scheduling
+  (let (loop)
+    (when (applPollEvent)
+      (loop)))))

@@ -38,10 +38,14 @@
 (module protected jazz.appl.windows jazz
 
 
-(import (jazz.foreign))
+(import (jazz.foreign)
+        (jazz.settings))
 
 
 (c-declare appl #/Objective-C/
+
+#include <tlhelp32.h>
+
 
 void applInit()
 {
@@ -51,11 +55,71 @@ void applInit()
 void applTerminate()
 {
 }
+
+
+bool applIsProcessAlreadyRunning()
+{
+    DWORD myId = GetCurrentProcessId();
+    wchar_t myPath[MAX_PATH];
+    GetModuleFileName(NULL, myPath, MAX_PATH);
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    PROCESSENTRY32 process;
+    process.dwSize = sizeof(PROCESSENTRY32);
+    MODULEENTRY32 module;
+    module.dwSize = sizeof(MODULEENTRY32);
+    if (Process32First(snapshot, &process)) {
+        do {
+            DWORD id = process.th32ProcessID;
+            if (id != 0) {
+                HANDLE moduleSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, id);
+                if (Module32First(moduleSnapshot, &module)) {
+                    WCHAR* path = module.szExePath;
+                    if ((id != myId) && wcscmp(path, myPath) == 0) {
+                        CloseHandle(moduleSnapshot);
+                        CloseHandle(snapshot);
+                        return true;
+                    }
+                    CloseHandle(moduleSnapshot);
+                }
+            }
+        } while (Process32Next(snapshot, &process));
+    }
+    CloseHandle(snapshot);
+    return false;
+}
 //#)
+
+
+(c-type private INT                       (native int))
+(c-type private LPCWSTR                   (native wchar_t-string))
+(c-type private HWND                      (pointer (struct "HWND__") handle))
+
+
+(definition private MB_TASKMODAL          #x00002000)
+
+
+(definition private MB_ICONWARNING        48)
+(definition private MB_ICONERROR          16)
+(definition private MB_OK                 0)
+(definition private MB_ICONINFORMATION    64)
+(definition private MB_OKCANCEL           1)
+(definition private MB_YESNO              4)
+(definition private MB_YESNOCANCEL        3)
+
+
+(definition private IDOK                  1)
+(definition private IDCANCEL              2)
+(definition private IDABORT               3)
+(definition private IDRETRY               4)
+(definition private IDIGNORE              5)
+(definition private IDYES                 6)
+(definition private IDNO                  7)
 
 
 (c-external (applInit) void)
 (c-external (applTerminate) void)
+(c-external (applIsProcessAlreadyRunning) bool)
+(c-external (MessageBox HWND LPCWSTR LPCWSTR INT) INT)
 
 
 ;;;
@@ -75,6 +139,15 @@ void applTerminate()
 (definition public (directory-writable? dirname)
   ;; quicky
   #t)
+
+
+;;;
+;;;; Process
+;;;
+
+
+(definition public (process-already-running?)
+  (applIsProcessAlreadyRunning))
 
 
 ;;;

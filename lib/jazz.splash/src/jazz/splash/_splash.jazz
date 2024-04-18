@@ -272,36 +272,60 @@ void splashTerminate()
 #include <cmath>
 #include <stdio.h>
 
+HWND window;
+
 static void paint_callback(HDC hdc);
+static void mouse_down_callback(double x, double y);
+static void mouse_move_callback(double x, double y);
+static void mouse_up_callback(double x, double y);
 
 
-void SetClientSize( HWND hwnd, int clientWidth, int clientHeight )
+void SetClientSize(HWND hwnd, int clientWidth, int clientHeight)
 {
-    if ( IsWindow( hwnd ) ) {
-        DWORD dwStyle = GetWindowLongPtr( hwnd, GWL_STYLE );
-        DWORD dwExStyle = GetWindowLongPtr( hwnd, GWL_EXSTYLE );
-        HMENU menu = GetMenu( hwnd );
-        RECT rc = { 0, 0, clientWidth, clientHeight };
-        AdjustWindowRectEx( &rc, dwStyle, menu ? TRUE : FALSE, dwExStyle );
-        SetWindowPos( hwnd, NULL, 0, 0, rc.right - rc.left, rc.bottom - rc.top,
-                      SWP_NOZORDER | SWP_NOMOVE );
-  }
+    DWORD dwStyle = GetWindowLongPtr(hwnd, GWL_STYLE);
+    DWORD dwExStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    HMENU menu = GetMenu(hwnd);
+    RECT rc = {0, 0, clientWidth, clientHeight};
+    AdjustWindowRectEx(&rc, dwStyle, menu ? TRUE : FALSE, dwExStyle);
+    SetWindowPos(hwnd, NULL, 0, 0, rc.right - rc.left, rc.bottom - rc.top,
+                 SWP_NOZORDER | SWP_NOMOVE);
 }
 
 
-LRESULT onPaint( HWND hwnd, WPARAM wParam, LPARAM lParam )
+LRESULT onPaint(HWND hwnd, WPARAM wParam, LPARAM lParam)
 {
     PAINTSTRUCT ps;
-    HDC hdc = BeginPaint( hwnd, &ps );
+    HDC hdc = BeginPaint(hwnd, &ps);
     paint_callback(hdc);
-    EndPaint( hwnd, &ps );
+    EndPaint(hwnd, &ps);
+    return 0;
+}
+
+
+LRESULT onMouseDown(double x, double y)
+{
+    mouse_down_callback(x, y);
+    return 0;
+}
+
+
+LRESULT onMouseUp(double x, double y)
+{
+    mouse_up_callback(x, y);
+    return 0;
+}
+
+
+LRESULT onMouseMove(double x, double y)
+{
+    mouse_move_callback(x, y);
     return 0;
 }
 
 
 LRESULT onClose(HWND hwnd, WPARAM wParam, LPARAM lParam)
 {
-    PostQuitMessage( 0 );
+    PostQuitMessage(0);
     return 0;
 }
 
@@ -310,6 +334,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch(msg) {
         case WM_PAINT: return onPaint(hwnd, wParam, lParam);
+        case WM_LBUTTONDOWN: return onMouseDown(LOWORD(lParam), HIWORD(lParam));
+        case WM_LBUTTONUP: return onMouseUp(LOWORD(lParam), HIWORD(lParam));
+        case WM_MOUSEMOVE: return onMouseMove(LOWORD(lParam), HIWORD(lParam));
         case WM_CLOSE: return onClose(hwnd, wParam, lParam);
         default: return DefWindowProc(hwnd,msg,wParam,lParam);
     }
@@ -332,6 +359,8 @@ void splashInit(int x, int y, int width, int height)
                              WS_OVERLAPPEDWINDOW, x, y, width, height, 0, 0, hInst, 0);
     SetClientSize(hwnd, width, height);
     ShowWindow(hwnd, SW_SHOWNORMAL);
+
+    window = hwnd;
 }
 
 
@@ -357,11 +386,18 @@ bool splashPollEvent()
 
 void splashMinimize()
 {
+    ShowWindow(window, SW_MINIMIZE);
 }
 
 
 void splashInvalidate(double x, double y, double width, double height)
 {
+    RECT rect;
+    rect.left = x;
+    rect.top = y;
+    rect.right = x + width;
+    rect.bottom = y + height;
+    InvalidateRect(window, &rect, FALSE);
 }
 
 //#)
@@ -390,6 +426,16 @@ void splashInvalidate(double x, double y, double width, double height)
       (splash-paint splash context)
       (cairo_destroy context)
       (cairo_surface_destroy surface))))
+
+
+(c-definition (mouse-down-callback x y) (double double) void "mouse_down_callback" "static"
+  (splash-mouse-down splash x y))
+
+(c-definition (mouse-move-callback x y) (double double) void "mouse_move_callback" "static"
+  (splash-mouse-move splash x y))
+
+(c-definition (mouse-up-callback x y) (double double) void "mouse_up_callback" "static"
+  (splash-mouse-up splash x y))
 
 
 (definition package (poll-events)

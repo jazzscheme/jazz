@@ -284,6 +284,35 @@ bool applIsDirectoryWritable(char* dir)
 }
 
 
+bool applIsProcessAlreadyRunning()
+{
+    // hack around calling this function very early in the
+    // boot process where the mac somehow returns a -1 pid
+    // as a side note it could be that this ugly hack also
+    // fixes the random hang on startup we sometimes get
+    [NSScreen mainScreen];
+
+    NSRunningApplication* myApp = [NSRunningApplication currentApplication];
+    int myId = [myApp processIdentifier];
+    NSString* myName = [myApp localizedName];
+    NSString* myExe = [[myApp executableURL] absoluteString];
+    NSArray* apps = [[NSWorkspace sharedWorkspace] runningApplications];
+    int count = [apps count];
+    for (int n = 0; n < count; n++)
+    {
+        NSRunningApplication* app = [apps objectAtIndex:n];
+        int id = [app processIdentifier];
+        NSString* name = [app localizedName];
+        NSString* exe = [[app executableURL] absoluteString];
+        if ((id != myId) &&
+            ([name isEqualToString:myName]) &&
+            ([exe isEqualToString:myExe]))
+            return true;
+    }
+    return false;
+}
+
+
 //
 /// Event
 //
@@ -491,6 +520,7 @@ void applTerminate()
 (c-callable (applPollEvent) bool)
 (c-external (applLaunchURL) char-string)
 (c-external (applIsDirectoryWritable char-string) bool)
+(c-external (applIsProcessAlreadyRunning) bool)
 (c-external (applAlert char-string char-string char-string int) void)
 (c-external (applSetFileCallback void*) void)
 (c-external (applSetDidHideCallback void*) void)
@@ -533,6 +563,15 @@ void applTerminate()
 
 (definition public (directory-writable? dirname)
   (applIsDirectoryWritable dirname))
+
+
+;;;
+;;;; Process
+;;;
+
+
+(definition public (process-already-running?)
+  (applIsProcessAlreadyRunning))
 
 
 ;;;

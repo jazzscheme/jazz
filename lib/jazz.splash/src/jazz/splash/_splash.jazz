@@ -274,7 +274,9 @@ void splashTerminate()
 
 HWND window;
 
-static void paint_callback(HDC hdc);
+double windows_scale = 1;
+
+static void paint_callback(HDC hdc, double scale);
 static void mouse_down_callback(double x, double y);
 static void mouse_move_callback(double x, double y);
 static void mouse_up_callback(double x, double y);
@@ -296,7 +298,7 @@ LRESULT onPaint(HWND hwnd, WPARAM wParam, LPARAM lParam)
 {
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hwnd, &ps);
-    paint_callback(hdc);
+    paint_callback(hdc, windows_scale);
     EndPaint(hwnd, &ps);
     return 0;
 }
@@ -304,21 +306,21 @@ LRESULT onPaint(HWND hwnd, WPARAM wParam, LPARAM lParam)
 
 LRESULT onMouseDown(double x, double y)
 {
-    mouse_down_callback(x, y);
+    mouse_down_callback(x / windows_scale, y / windows_scale);
     return 0;
 }
 
 
 LRESULT onMouseUp(double x, double y)
 {
-    mouse_up_callback(x, y);
+    mouse_up_callback(x / windows_scale, y / windows_scale);
     return 0;
 }
 
 
 LRESULT onMouseMove(double x, double y)
 {
-    mouse_move_callback(x, y);
+    mouse_move_callback(x / windows_scale, y / windows_scale);
     return 0;
 }
 
@@ -343,8 +345,26 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 }
 
 
+void setup_scale()
+{
+    HWND hwnd = GetDesktopWindow();
+    HDC hdc = GetDC(hwnd);
+    int phys = GetDeviceCaps(hdc, DESKTOPVERTRES);
+    int virt = GetDeviceCaps(hdc, VERTRES);
+    if (phys != virt) {
+        double scale = (double) phys / (double) virt;
+        double rounded_scale = round(scale * 100.) / 100.;
+        windows_scale = rounded_scale;
+    }
+    ReleaseDC(hwnd, hdc);
+    SetProcessDPIAware();
+}
+
+
 void splashInit(int x, int y, int width, int height)
 {
+    setup_scale();
+
     HINSTANCE hInst = NULL;
 
     WNDCLASS wc = {0};
@@ -354,10 +374,13 @@ void splashInit(int x, int y, int width, int height)
     wc.lpfnWndProc   = WndProc;
     wc.hCursor       = LoadCursor(0, IDC_ARROW);
 
+    int scaled_width = width * windows_scale;
+    int scaled_height = height * windows_scale;
+
     RegisterClass(&wc);
     HWND hwnd = CreateWindow(wc.lpszClassName,TEXT("Splash"),
-                             WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_POPUP, x, y, width, height, 0, 0, hInst, 0);
-    SetClientSize(hwnd, width, height);
+                             WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_POPUP, x, y, scaled_width, scaled_height, 0, 0, hInst, 0);
+    SetClientSize(hwnd, scaled_width, scaled_height);
     ShowWindow(hwnd, SW_SHOWNORMAL);
 
     window = hwnd;
@@ -393,10 +416,10 @@ void splashMinimize()
 void splashInvalidate(double x, double y, double width, double height)
 {
     RECT rect;
-    rect.left = x;
-    rect.top = y;
-    rect.right = x + width;
-    rect.bottom = y + height;
+    rect.left = x * windows_scale;
+    rect.top = y * windows_scale;
+    rect.right = (x + width) * windows_scale;
+    rect.bottom = (y + height) * windows_scale;
     InvalidateRect(window, &rect, FALSE);
 }
 
@@ -420,8 +443,9 @@ void splashInvalidate(double x, double y, double width, double height)
 (c-external (splashInvalidate double double double double) void)
 
 
-(c-definition (paint-callback hdc) (HDC) void "paint_callback" "static"
+(c-definition (paint-callback hdc scale) (HDC double) void "paint_callback" "static"
   (let ((surface (cairo_win32_surface_create hdc)))
+    (cairo_surface_set_device_scale surface scale scale)
     (let ((context (cairo_create surface)))
       (splash-paint splash context)
       (cairo_destroy context)

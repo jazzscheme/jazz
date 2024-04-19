@@ -46,14 +46,52 @@
 
 #include <tlhelp32.h>
 
+bool applInited = false;
+
+static double windows_scale = 1;
+
+
+void setup_scale()
+{
+    // this needs to be before SetProcessDPIAware
+    HWND hwnd = GetDesktopWindow();
+    HDC hdc = GetDC(hwnd);
+    int phys = GetDeviceCaps(hdc, DESKTOPVERTRES);
+    int virt = GetDeviceCaps(hdc, VERTRES);
+    if (phys != virt) {
+        double scale = (double) phys / (double) virt;
+        double rounded_scale = round(scale * 100.) / 100.;
+        windows_scale = rounded_scale;
+    }
+    ReleaseDC(hwnd, hdc);
+
+    SetProcessDPIAware();
+}
+
 
 void applInit()
 {
+    if (applInited)
+        return;
+
+    setup_scale();
+
+    applInited = true;
 }
 
 
 void applTerminate()
 {
+    if (!applInited)
+        return;
+
+    applInited = false;
+}
+
+
+double applWindowsScale()
+{
+    return windows_scale;
 }
 
 
@@ -118,6 +156,7 @@ bool applIsProcessAlreadyRunning()
 
 (c-external (applInit) void)
 (c-external (applTerminate) void)
+(c-external (applWindowsScale) double)
 (c-external (applIsProcessAlreadyRunning) bool)
 (c-external (MessageBox HWND LPCWSTR LPCWSTR INT) INT)
 

@@ -48,6 +48,19 @@
 ;;;
 
 
+(definition splash-x
+  100)
+
+(definition splash-y
+  66)
+
+(definition splash-width
+  850)
+
+(definition splash-height
+  550)
+
+
 (interface Splashable
   
   
@@ -256,7 +269,16 @@ void splashTerminate()
   (splash-mouse-move splash x y))
 
 (c-definition (mouse-up-callback x y) (double double) void "mouse_up_callback" "static"
-  (splash-mouse-up splash x y)))
+  (splash-mouse-up splash x y))
+
+
+(definition public (splash-init)
+  (applInit)
+  (splashInit splash-x splash-y splash-width splash-height))
+
+
+(definition public (splash-terminate)
+  (splashTerminate)))
   
   
   ;;;
@@ -269,9 +291,9 @@ void splashTerminate()
 #include <cmath>
 #include <stdio.h>
 
-HWND window;
+static HWND window;
 
-double windows_scale = 1;
+static double windows_scale = 1;
 
 static void paint_callback(HDC hdc, double scale);
 static void mouse_down_callback(double x, double y);
@@ -342,25 +364,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 }
 
 
-void setup_scale()
+void splashInit(int x, int y, int width, int height, double scale)
 {
-    HWND hwnd = GetDesktopWindow();
-    HDC hdc = GetDC(hwnd);
-    int phys = GetDeviceCaps(hdc, DESKTOPVERTRES);
-    int virt = GetDeviceCaps(hdc, VERTRES);
-    if (phys != virt) {
-        double scale = (double) phys / (double) virt;
-        double rounded_scale = round(scale * 100.) / 100.;
-        windows_scale = rounded_scale;
-    }
-    ReleaseDC(hwnd, hdc);
-    SetProcessDPIAware();
-}
-
-
-void splashInit(int x, int y, int width, int height)
-{
-    setup_scale();
+    windows_scale = scale;
 
     HINSTANCE hInst = NULL;
 
@@ -435,7 +441,7 @@ void splashInvalidate(double x, double y, double width, double height)
 (c-type private HDC (pointer (struct "HDC__") handle))
 
 
-(c-external (splashInit int int int int) void)
+(c-external (splashInit int int int int double) void)
 (c-external (splashTerminate) void)
 (c-external (splashPollEvent) bool)
 (c-external (splashMinimize) void)
@@ -466,33 +472,17 @@ void splashInvalidate(double x, double y, double width, double height)
   ;; not doing the loop in C to enable thread scheduling
   (let (loop)
     (when (splashPollEvent)
-      (loop))))))
-
-
-;;;
-;;;; Init
-;;;
-
-
-(definition splash-x
-  100)
-
-(definition splash-y
-  66)
-
-(definition splash-width
-  850)
-
-(definition splash-height
-  550)
+      (loop))))
 
 
 (definition public (splash-init)
-  (splashInit splash-x splash-y splash-width splash-height))
+  (applInit)
+  (let ((scale (applWindowsScale)))
+    (splashInit splash-x splash-y splash-width splash-height scale)))
 
 
 (definition public (splash-terminate)
-  (splashTerminate))
+  (splashTerminate))))
 
 
 ;;;

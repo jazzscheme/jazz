@@ -63,6 +63,7 @@
         (jazz.platform.windows.User1)
         (jazz.platform.windows.GDI)
         (jazz.platform.scale)
+        (jazz.appl)
         (jazz.foreign)
         (jazz.geometry)
         (jazz.graphic)
@@ -79,10 +80,9 @@
 
 
 (definition public (platform-initialize)
+  (appl-init)
   (set-platform-log system-log)
-  ;; only works if done before the next call
-  (setup-windows-scale)
-  (SetProcessDPIAware))
+  (setup-windows-scale))
 
 
 (definition public (platform-time-initialize)
@@ -91,18 +91,10 @@
 
 
 (definition (setup-windows-scale)
-  (let ((hwnd (GetDesktopWindow)))
-    (let ((hdc (GetDC hwnd)))
-      (let ((physical (GetDeviceCaps hdc DESKTOPVERTRES))
-            (virtual (GetDeviceCaps hdc VERTRES)))
-        (when (/= physical virtual)
-          (let ((scale (/ (cast <fl> physical) (cast <fl> virtual))))
-            (let ((rounded-scale (/ (cast <fl> (fxround (* scale 100.))) 100.)))
-              (set! windows-scale rounded-scale)
-              (set-fix-clipper? #t)))))
-      (ReleaseDC hwnd hdc)))
-  (when application-scale
-    (set! windows-scale (* windows-scale application-scale))))
+  (let ((windows-scale (applWindowsScale)))
+    (if (not application-scale)
+        (set! user-scale windows-scale)
+      (set! user-scale (* windows-scale application-scale)))))
 
 
 ;;;
@@ -110,34 +102,34 @@
 ;;;
 
 
-(definition public windows-scale <fl>
+(definition public user-scale <fl>
   1.)
 
 
 (definition public (device->user shape <Object>)
   (typecase shape
     ((Integer)
-     (scale->user shape windows-scale))
+     (scale->user shape user-scale))
     ((Point)
-     (new Point (scale->user (get-h shape) windows-scale) (scale->user (get-v shape) windows-scale)))
+     (new Point (scale->user (get-h shape) user-scale) (scale->user (get-v shape) user-scale)))
     ((Dimension)
-     (new Dimension (scale->user (get-width shape) windows-scale) (scale->user (get-height shape) windows-scale)))))
+     (new Dimension (scale->user (get-width shape) user-scale) (scale->user (get-height shape) user-scale)))))
 
 
 (definition public (user->device shape <Object>)
   (typecase shape
     ((Integer)
-     (scale->device shape windows-scale))
+     (scale->device shape user-scale))
     ((Point)
-     (new Point (scale->device (get-h shape) windows-scale) (scale->device (get-v shape) windows-scale)))
+     (new Point (scale->device (get-h shape) user-scale) (scale->device (get-v shape) user-scale)))
     ((Dimension)
-     (new Dimension (scale->device (get-width shape) windows-scale) (scale->device (get-height shape) windows-scale)))
+     (new Dimension (scale->device (get-width shape) user-scale) (scale->device (get-height shape) user-scale)))
     ((Rect)
      (new Rect
-       (scale->device (get-left shape) windows-scale)
-       (scale->device (get-top shape) windows-scale)
-       (scale->device (get-right shape) windows-scale)
-       (scale->device (get-bottom shape) windows-scale)))))
+       (scale->device (get-left shape) user-scale)
+       (scale->device (get-top shape) user-scale)
+       (scale->device (get-right shape) user-scale)
+       (scale->device (get-bottom shape) user-scale)))))
 
 
 ;;;

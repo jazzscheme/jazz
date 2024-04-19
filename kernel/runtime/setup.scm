@@ -581,7 +581,7 @@ end-of-code
                      (and (file-exists? dynamic-file)
                           dynamic-file))))
             
-            (define (setup-repositories make?)
+            (define (setup-repositories make? libraries?)
               (if build-repository (jazz:build-repository build-repository))
               (if jazz-repository (jazz:jazz-repository jazz-repository))
               (if repositories (jazz:repositories repositories))
@@ -595,12 +595,13 @@ end-of-code
               (let ((needs-sweep (and make? (or sweep? (jazz:build-repository-needs-sweep)))))
                 (if needs-sweep
                     (jazz:sweep-build-repository needs-sweep)))
-              (jazz:load-libraries)
+              (if libraries?
+                  (jazz:load-libraries))
               (jazz:setup-repositories))
             
             (define (setup-runtime)
               (setup-kernel)
-              (setup-repositories #f)
+              (setup-repositories #f #t)
               ;; to test cross compiling REMOVE CODE WHEN DONE
               (setup-target))
             
@@ -608,7 +609,7 @@ end-of-code
               (jazz:setup-kernel-source)
               (setup-kernel)
               (jazz:process-buildini #t)
-              (setup-repositories make?)
+              (setup-repositories make? #f)
               (set! jazz:link (or link (jazz:build-link)))
               (set! jazz:link-options (jazz:parse-link jazz:link))
               (set! jazz:jobs jobs)

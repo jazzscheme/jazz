@@ -1488,6 +1488,8 @@
                               (jazz:codesign mac? #f apple-id static-o1)))))
                   ;; cleanup
                   (for-each delete-file (%%list loader-c loader-o linkfile))
+                  (if (file-exists? library-o1)
+                      (delete-file library-o1))
                   (rename-file static-o1 library-o1)))
             #t)
           

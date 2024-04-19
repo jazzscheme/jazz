@@ -98,62 +98,32 @@
 
 
 (cond-expand
-  (cocoa
-   (define jazz:platform-files
-     '()))
-  (windows
-   (define jazz:platform-files
-     (list (cons "foreign/jazz.platform/windows/gcc/lib/libgcc_s_seh-1.dll" "libgcc_s_seh-1.dll")
-           (cons "foreign/jazz.platform/windows/gcc/lib/libstdc++-6.dll" "libstdc++-6.dll")
-           (cons "foreign/jazz.platform/windows/gcc/lib/libwinpthread-1.dll" "libwinpthread-1.dll"))))
-  (else
-   (define jazz:platform-files
-     '())))
-
-
-(define (jazz:copy-platform-files)
-  (let ((source jazz:kernel-source)
-        (build (%%get-repository-directory jazz:Build-Repository)))
-    (define (source-file path)
-      (string-append source path))
-    
-    (define (build-file path)
-      (string-append build path))
-    
-    (for-each (lambda (info)
-                (let ((source (car info))
-                      (build (cdr info)))
-                  (jazz:copy&sign-if-needed (source-file source) (build-file build) feedback: jazz:feedback)))
-              jazz:platform-files)))
-
-
-(cond-expand
   (ios
     (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:ios-units)))
-        (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
+        (jazz:custom-compile/build unit-specs unit: unit force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor)))))
   (cocoa
     (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:cocoa-units)))
-        (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
+        (jazz:custom-compile/build unit-specs unit: unit force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor)))))
   (windows
     (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:windows-units)))
-        (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
+        (jazz:custom-compile/build unit-specs unit: unit force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor)))))
   (x11
     (define (jazz:build-platform descriptor #!key (unit #f) (skip-references? #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:x11-units)))
-        (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
+        (jazz:custom-compile/build unit-specs unit: unit force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor unit: unit force?: force?))))))
 

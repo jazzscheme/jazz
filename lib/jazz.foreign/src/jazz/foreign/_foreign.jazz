@@ -44,6 +44,63 @@
 
 
 ;;;
+;;;; Callable
+;;;
+
+
+;; to discover non callable-wrapped callbacks
+(definition current-callable
+  (make-parameter #f))
+
+
+(definition callback-exception
+  #f)
+
+
+(definition public (with-callable name thunk)
+  (set! callback-exception #f)
+  (let ((result (parameterize ((current-callable name))
+                  (thunk))))
+    (let ((exception callback-exception))
+      (set! callback-exception #f)
+      (if exception
+          (throw exception)
+        result))))
+
+
+;;;
+;;;; Callback
+;;;
+
+
+(definition debug-non-callable-wrapped-callbacks?
+  #f)
+
+
+(definition public (with-callback name exit-value thunk)
+  (when (and debug-non-callable-wrapped-callbacks? (current-callable))
+    (call-with-output-file "~/callback"
+      (lambda (port)
+        (continuation-capture
+          (lambda (cont)
+            (debug-port-setup-width port)
+            (display-continuation-backtrace cont port #t #f 100 100)))))
+    (quit))
+  (set-exit-callable #f)
+  (catch-exception-filter
+    (lambda (exc)
+      (capture-exception-context exc)
+      (set! callback-exception exc)
+      (set-exit-callable #t)
+      #t)
+    (lambda (exc)
+      exit-value)
+    (lambda ()
+      (parameterize ((current-callable #f))
+        (thunk)))))
+
+
+;;;
 ;;;; Types
 ;;;
 

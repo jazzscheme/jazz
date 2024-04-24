@@ -3945,7 +3945,7 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformGetWindowScreenFrameHeight platformwindow) double)
 (platform-external (platformGetScreenFrameRect NSScreen* NSRect*) void)
 (platform-external (platformGetScreenContentRect NSScreen* NSRect*) void)
-(platform-external (platformCreateWindow int int int int char-string bool bool bool bool bool) platformwindow)
+(c-callable (platformCreateWindow int int int int char-string bool bool bool bool bool) platformwindow)
 (platform-external (platformMakeContextCurrent platformwindow) void)
 (platform-external (platformGetWindowTitle platformwindow) NSString*)
 (platform-external (platformSetWindowTitle platformwindow char-string) void)
@@ -3955,20 +3955,20 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformGetWindowFrameSize platformwindow NSSize*) void)
 (platform-external (platformSetWindowFrameSize platformwindow NSSize*) void)
 (platform-external (platformGetWindowFrameRect platformwindow NSRect*) void)
-(platform-external (platformSetWindowFrameRect platformwindow NSRect*) void)
+(c-callable (platformSetWindowFrameRect platformwindow NSRect*) void)
 (platform-external (platformGetWindowContentPos platformwindow NSPoint*) void)
 (platform-external (platformGetWindowContentHeight platformwindow) double)
 (platform-external (platformGetWindowContentSize platformwindow NSSize*) void)
 (platform-external (platformGetWindowContentRect platformwindow NSRect*) void)
-(platform-external (platformSetWindowContentRect platformwindow NSRect*) void)
+(c-callable (platformSetWindowContentRect platformwindow NSRect*) void)
 (platform-external (platformGetWindowViewRect platformwindow NSRect*) void)
 (platform-external (platformBringWindowToFront platformwindow) void)
 (platform-external (platformSendWindowToBack platformwindow) void)
 (platform-external (platformInvalidateRect platformwindow NSRect*) void)
 (platform-external (platformScrollRect platformwindow NSRect* NSSize*) void)
 (platform-external (platformDisplayIfNeeded platformwindow) void)
-(platform-external (platformEnterModal platformwindow) void)
-(platform-external (platformRunModal platformwindow) bool)
+(c-callable (platformEnterModal platformwindow) void)
+(c-callable (platformRunModal platformwindow) bool)
 (platform-external (platformExitModal platformwindow) void)
 (platform-external (platformDisableWindow platformwindow) void)
 (platform-external (platformEnableWindow platformwindow) void)
@@ -3983,7 +3983,7 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformIconifyWindow platformwindow) void)
 (platform-external (platformRestoreWindow platformwindow) void)
 (platform-external (platformShowWindow platformwindow) void)
-(platform-external (platformHideWindow platformwindow) void)
+(c-callable (platformHideWindow platformwindow) void)
 (platform-external (platformSwapBuffers platformwindow) void)
 (platform-external (platformSwapInterval int) void)
 (platform-external (platformGetSwapInterval) int)
@@ -4004,9 +4004,9 @@ ___SCMOBJ platformProcessThreads()
 (platform-external (platformGetClipboardString char-string) UTF-8-string)
 (platform-external (platformSetClipboardString UTF-8-string char-string) void)
 (platform-external (platformGetFocus) platformwindow)
-(platform-external (platformSetFocus platformwindow) void)
+(c-callable (platformSetFocus platformwindow) void)
 (platform-external (platformGetContext platformwindow) void*)
-(platform-external (platformCloseWindow platformwindow) void)
+(c-callable (platformCloseWindow platformwindow) void)
 (platform-external (platformLocalTimezoneOffset) int)
 (platform-external (platformTemporaryDirectory) char-string)
 (platform-external (platformLog char-string) void)
@@ -4134,7 +4134,7 @@ ___SCMOBJ platformProcessThreads()
 ;;;
 
 
-(c-definition (paint-callback handle) (platformwindow) void "paint_callback" "" #f
+(c-callback (paint-callback handle) (platformwindow) void "paint_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       ;; the mac can call this before the window is registered
@@ -4144,7 +4144,7 @@ ___SCMOBJ platformProcessThreads()
         (paint window)))))
 
 
-(c-definition (reshape-callback handle width height) (platformwindow int int) void "reshape_callback" "" #f
+(c-callback (reshape-callback handle width height) (platformwindow int int) void "reshape_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when event-callback
@@ -4152,7 +4152,7 @@ ___SCMOBJ platformProcessThreads()
       (call-size-change window 'restored width height))))
 
 
-(c-definition (close-callback handle) (platformwindow) void "close_callback" "" #f
+(c-callback (close-callback handle) (platformwindow) void "close_callback" "" #f
   (delay-event
     (lambda ()
       (when registered-window
@@ -4173,7 +4173,7 @@ ___SCMOBJ platformProcessThreads()
         PLATFORM_KEY_RIGHT_SUPER))
 
 
-(c-definition (key-press-callback handle key action) (platformwindow int int) int "key_press_callback" "" 1
+(c-callback (key-press-callback handle key action) (platformwindow int int) int "key_press_callback" "" 1
   (if (and registered-window
            (catch (Cancel-Signal exc
                     #t)
@@ -4196,7 +4196,7 @@ ___SCMOBJ platformProcessThreads()
     0))
 
 
-(c-definition (char-callback handle c) (platformwindow int) void "char_callback" "" #f
+(c-callback (char-callback handle c) (platformwindow int) void "char_callback" "" #f
   (when registered-window
     (catch (Cancel-Signal exc)
       (let ((window (registered-window handle))
@@ -4206,7 +4206,7 @@ ___SCMOBJ platformProcessThreads()
         (call-key-press window c)))))
 
 
-(c-definition (button-callback handle x y button click-count action) (platformwindow int int int int int) void "button_callback" "" #f
+(c-callback (button-callback handle x y button click-count action) (platformwindow int int int int int) void "button_callback" "" #f
   (when registered-window
     (catch (Cancel-Signal exc)
       (let ((window (registered-window handle)))
@@ -4226,7 +4226,7 @@ ___SCMOBJ platformProcessThreads()
              ((PLATFORM_RELEASE) (right-mouse-up window x y)))))))))
 
 
-(c-definition (moved-callback handle x y) (platformwindow double double) void "moved_callback" "" #f
+(c-callback (moved-callback handle x y) (platformwindow double double) void "moved_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when event-callback
@@ -4234,7 +4234,7 @@ ___SCMOBJ platformProcessThreads()
       (call-mouse-moved window x y))))
 
 
-(c-definition (wheel-callback handle x y dx dy) (platformwindow double double double double) void "wheel_callback" "" #f
+(c-callback (wheel-callback handle x y dx dy) (platformwindow double double double double) void "wheel_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when event-callback
@@ -4242,7 +4242,7 @@ ___SCMOBJ platformProcessThreads()
       (mouse-wheel window (fxround x) (fxround y) (new Point (fxround (* 30. dx)) (fxround (* 30. dy)))))))
 
 
-(c-definition (drop-callback handle filenames) (platformwindow NSArray*) void "drop_callback" "" #f
+(c-callback (drop-callback handle filenames) (platformwindow NSArray*) void "drop_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when event-callback
@@ -4250,7 +4250,7 @@ ___SCMOBJ platformProcessThreads()
       (drop-files window filenames))))
 
 
-(c-definition (entered-callback handle) (platformwindow) void "entered_callback" "" #f
+(c-callback (entered-callback handle) (platformwindow) void "entered_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when window
@@ -4259,7 +4259,7 @@ ___SCMOBJ platformProcessThreads()
         (mouse-enter window)))))
 
 
-(c-definition (exited-callback handle) (platformwindow) void "exited_callback" "" #f
+(c-callback (exited-callback handle) (platformwindow) void "exited_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when window
@@ -4268,7 +4268,7 @@ ___SCMOBJ platformProcessThreads()
         (mouse-leave window)))))
 
 
-(c-definition (activate-callback handle) (platformwindow) void "activate_callback" "" #f
+(c-callback (activate-callback handle) (platformwindow) void "activate_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when window
@@ -4278,7 +4278,7 @@ ___SCMOBJ platformProcessThreads()
         (activate-application window)))))
 
 
-(c-definition (deactivate-callback handle) (platformwindow) void "deactivate_callback" "" #f
+(c-callback (deactivate-callback handle) (platformwindow) void "deactivate_callback" "" #f
   (when registered-window
     (let ((window (registered-window handle)))
       (when window
@@ -4288,7 +4288,7 @@ ___SCMOBJ platformProcessThreads()
         (focus-lose (get-focus window))))))
 
 
-(c-definition (file-callback filename) (NSString*) void "file_callback" "" #f
+(c-callback (file-callback filename) (NSString*) void "file_callback" "" #f
   ;; ugly hack around a problem where launching a worker process from
   ;; another process receives a file callback with a string like "63442"
   ;; this can fail when launching from the command line using gambit's -:
@@ -4309,7 +4309,7 @@ ___SCMOBJ platformProcessThreads()
   "___return(did_unhide_callback);")
 
 
-(c-definition (terminate-callback) () void "terminate_callback" "" #f
+(c-callback (terminate-callback) () void "terminate_callback" "" #f
   (delay-event
     (lambda ()
       (when event-callback
@@ -4320,28 +4320,28 @@ ___SCMOBJ platformProcessThreads()
   "___return(terminate_callback);")
 
 
-(c-definition (will-sleep-callback) () void "will_sleep_callback" "" #f
+(c-callback (will-sleep-callback) () void "will_sleep_callback" "" #f
   (sleep-callback))
 
 (c-external (platformWillSleepCallback) void*
   "___return(will_sleep_callback);")
 
 
-(c-definition (did-wake-callback) () void "did_wake_callback" "" #f
+(c-callback (did-wake-callback) () void "did_wake_callback" "" #f
   (wake-callback))
 
 (c-external (platformDidWakeCallback) void*
   "___return(did_wake_callback);")
 
 
-(c-definition (finished-playing-callback alias) (NSString*) void "finished_playing_callback" "" #f
+(c-callback (finished-playing-callback alias) (NSString*) void "finished_playing_callback" "" #f
   (music-played-callback alias))
 
 (c-external (platformFinishedPlayingCallback) void*
   "___return(finished_playing_callback);")
 
 
-(c-definition (user-callback data1 data2) (int int) void "user_callback" "" #f
+(c-callback (user-callback data1 data2) (int int) void "user_callback" "" #f
   (when event-callback
     (event-callback 'user))
   (user-notification data1 data2))

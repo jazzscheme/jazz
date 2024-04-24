@@ -848,6 +848,22 @@
 
 
 ;;;
+;;;; C-Callback
+;;;
+
+
+(syntax public c-callback
+  (lambda (form-src usage-environment macro-environment)
+    (bind (signature parameter-types result-type c-name scope exit-value . body) (cdr (source-code form-src))
+      (sourcify-deep-if
+        `(c-definition ,signature ,parameter-types ,result-type ,c-name ,scope
+           (with-callback ',(car (source-code signature)) ,exit-value
+             (lambda ()
+               ,@body)))
+        form-src))))
+
+
+;;;
 ;;;; C-Constant
 ;;;
 
@@ -942,6 +958,29 @@
                              (else
                               fn))))
                       form-src)))))))))))
+
+
+;;;
+;;;; C-Callable
+;;;
+
+
+(syntax public c-callable
+  (lambda (form-src usage-environment macro-environment)
+    (bind (signature result-type . rest) (cdr (source-code form-src))
+      (bind-optionals ((c-name-or-code #f)) rest
+        (let ((signature (source-code signature)))
+          (let ((name (car signature))
+                (parameters (cdr signature)))
+            (let ((c-name (string->symbol (string-append (symbol->string (source-code name)) "$c"))))
+              (sourcify-deep-if
+                `(begin
+                   (c-external ,(cons c-name parameters) ,result-type ,(or c-name-or-code (symbol->string (source-code name))))
+                   (definition public (,name . rest)
+                     (with-callable ',name
+                       (lambda ()
+                         (apply ,c-name rest)))))
+                form-src))))))))
 
 
 ;;;

@@ -615,13 +615,7 @@
                               stdin-redirection: #f
                               stdout-redirection: #f
                               stderr-redirection: #f))))
-    ;; temporary patch around a bug that i think started
-    ;; occuring when moving back from gambit being compiled
-    ;; as c++ back to being compiled as c on windows
-    (let ((status (process-status port)))
-      (if (= status 1280)
-          0
-        status))))
+    (process-status port)))
 
 
 (define (jazz:call-process path-or-settings)

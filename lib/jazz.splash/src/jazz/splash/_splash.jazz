@@ -40,7 +40,8 @@
 
 (import (jazz.appl)
         (jazz.cairo)
-        (jazz.foreign))
+        (jazz.foreign)
+        (jazz.math))
 
 
 ;;;
@@ -385,6 +386,7 @@ LRESULT onClose(HWND hwnd, WPARAM wParam, LPARAM lParam)
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch(msg) {
+        case WM_ERASEBKGND: return 0;
         case WM_PAINT: return onPaint(hwnd, wParam, lParam);
         case WM_LBUTTONDOWN: return onMouseDown(LOWORD(lParam), HIWORD(lParam));
         case WM_LBUTTONUP: return onMouseUp(LOWORD(lParam), HIWORD(lParam));
@@ -500,12 +502,18 @@ void splashSetPosition(int x, int y)
 
 
 (c-definition (paint-callback hdc scale) (HDC double) void "paint_callback" "static"
-  (let ((surface (cairo_win32_surface_create hdc)))
+  (let ((surface (cairo_win32_surface_create hdc))
+        (image-surface (cairo_image_surface_create CAIRO_FORMAT_ARGB32 (scale->device splash-width scale) (scale->device splash-height scale))))
     (cairo_surface_set_device_scale surface scale scale)
-    (let ((context (cairo_create surface)))
-      (splash-paint splash context)
+    (cairo_surface_set_device_scale image-surface scale scale)
+    (let ((context (cairo_create surface))
+          (image-context (cairo_create image-surface)))
+      (splash-paint splash image-context)
+      (cairo-blit context image-surface)
       (cairo_destroy context)
-      (cairo_surface_destroy surface))))
+      (cairo_destroy image-context)
+      (cairo_surface_destroy surface)
+      (cairo_surface_destroy image-surface))))
 
 
 (c-definition (mouse-down-callback x y) (double double) void "mouse_down_callback" "static"

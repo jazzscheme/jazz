@@ -52,7 +52,9 @@
   100)
 
 (definition splash-y
-  66)
+  (cond-expand
+    (mac 66)
+    (else 100)))
 
 (definition splash-width
   850)
@@ -174,6 +176,33 @@ void splashInvalidate(double x, double y, double width, double height)
 }
 
 
+void splashGetPosition(___SCMOBJ info)
+{
+    ___U32 *ptr = ___CAST(___U32*, ___BODY(info));
+  
+    NSRect screen = [[NSScreen mainScreen] visibleFrame];
+    NSRect content = [window contentRectForFrameRect:[window frame]];
+
+    ptr[0] = content.origin.x;
+    ptr[1] = screen.origin.y + screen.size.height - content.size.height - content.origin.y;
+}
+
+
+void splashSetPosition(int x, int y)
+{
+    NSRect screen = [[NSScreen mainScreen] visibleFrame];
+    NSRect content = [window contentRectForFrameRect:[window frame]];
+    int top = screen.origin.y + screen.size.height - content.size.height - y;
+
+    content.origin.x = x;
+    content.origin.y = top;
+
+    NSRect frame = [window frameRectForContentRect:content];
+
+    [window setFrame:frame display: YES];
+}
+
+
 //
 /// Main
 //
@@ -183,8 +212,8 @@ NSWindow* create_window(int x, int y, int width, int height)
 {
     int style;
 
-    NSRect content = [[NSScreen mainScreen] visibleFrame];
-    int top = content.origin.y + content.size.height - height - y;
+    NSRect screen = [[NSScreen mainScreen] visibleFrame];
+    int top = screen.origin.y + screen.size.height - height - y;
   
     style = NSWindowStyleMaskBorderless | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable;
     window = [[NSWindow alloc] initWithContentRect:NSMakeRect(x, top, width, height)
@@ -252,6 +281,8 @@ void splashTerminate()
 (c-external (splashTerminate) void)
 (c-external (splashMinimize) void)
 (c-external (splashInvalidate double double double double) void)
+(c-external (splashGetPosition scheme-object) void)
+(c-external (splashSetPosition int int) void)
 
 
 (c-definition (paint-callback context) (CGContextRef) void "paint_callback" "static"
@@ -428,6 +459,24 @@ void splashInvalidate(double x, double y, double width, double height)
     InvalidateRect(window, &rect, FALSE);
 }
 
+
+void splashGetPosition(___SCMOBJ info)
+{
+    ___U32 *ptr = ___CAST(___U32*, ___BODY(info));
+  
+    RECT rect;
+    GetWindowRect(window, &rect);
+
+    ptr[0] = rect.left;
+    ptr[1] = rect.top;
+}
+
+
+void splashSetPosition(int x, int y)
+{
+    SetWindowPos(window, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 //#)
 
 
@@ -446,6 +495,8 @@ void splashInvalidate(double x, double y, double width, double height)
 (c-external (splashPollEvent) bool)
 (c-external (splashMinimize) void)
 (c-external (splashInvalidate double double double double) void)
+(c-external (splashGetPosition scheme-object) void)
+(c-external (splashSetPosition int int) void)
 
 
 (c-definition (paint-callback hdc scale) (HDC double) void "paint_callback" "static"
@@ -558,6 +609,18 @@ void splashInvalidate(double x, double y, double width, double height)
 
 (definition public (splash-invalidate x <fl> y <fl> width <fl> height <fl>)
   (splashInvalidate x y width height))
+
+
+(definition public (splash-position)
+  (let ((info (make-u32vector 2)))
+    (splashGetPosition info)
+    (new Point
+      (u32vector-ref info 0)
+      (u32vector-ref info 1))))
+
+
+(definition public (splash-set-position pos)
+  (splashSetPosition (get-h pos) (get-v pos)))
 
 
 ;;;

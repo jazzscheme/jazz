@@ -678,7 +678,11 @@
 
 
 (define (jazz:guess-compiler platform)
-  'c)
+  ;; at the moment only the C++ compiler with its exceptions
+  ;; plays well with visual C's structured exception handling
+  (if (eq? platform 'windows)
+      'c++
+    'c))
 
 
 (define (jazz:require-compiler platform compiler template)

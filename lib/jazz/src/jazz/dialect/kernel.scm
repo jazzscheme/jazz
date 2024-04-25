@@ -1368,6 +1368,8 @@
 (native jazz:parse-specifier)
 (native jazz:type->specifier)
 (native jazz:new-fixed-type)
+(native jazz:fixed-constructors-get)
+(native jazz:fixed-makers-get)
 (native jazz:add-primitive-type)
 (native jazz:primitive-patterns-get)
 (native jazz:primitive-predicates-get)

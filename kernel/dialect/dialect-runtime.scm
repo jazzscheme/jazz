@@ -2649,6 +2649,13 @@
   (%%make-table test: eq?))
 
 
+(define (jazz:fixed-constructors-get)
+  jazz:fixed-constructors)
+
+(define (jazz:fixed-makers-get)
+  jazz:fixed-makers)
+
+
 (define (jazz:setup-fixed-metadata specifier class fixed-class fixed-metaclass constructor maker)
   (%%table-set! jazz:fixed-specifiers specifier fixed-class)
   (%%table-set! jazz:fixed-classes class fixed-metaclass)
@@ -2669,17 +2676,17 @@
   (%%table-ref jazz:fixed-makers locator #f))
 
 
-(jazz:setup-fixed-metadata 'vector    jazz:Vector    jazz:FixedVector    jazz:FixedVector-Class    'scheme.runtime:vector             'scheme.runtime:make-vector)
-(jazz:setup-fixed-metadata 's8vector  jazz:S8Vector  jazz:FixedS8Vector  jazz:FixedS8Vector-Class  'gambit.language.runtime:s8vector  'gambit.language.runtime:make-s8vector)
-(jazz:setup-fixed-metadata 'u8vector  jazz:U8Vector  jazz:FixedU8Vector  jazz:FixedU8Vector-Class  'gambit.language.runtime:u8vector  'gambit.language.runtime:make-u8vector)
-(jazz:setup-fixed-metadata 's16vector jazz:S16Vector jazz:FixedS16Vector jazz:FixedS16Vector-Class 'gambit.language.runtime:s16vector 'gambit.language.runtime:make-s16vector)
-(jazz:setup-fixed-metadata 'u16vector jazz:U16Vector jazz:FixedU16Vector jazz:FixedU16Vector-Class 'gambit.language.runtime:u16vector 'gambit.language.runtime:make-u16vector)
-(jazz:setup-fixed-metadata 's32vector jazz:S32Vector jazz:FixedS32Vector jazz:FixedS32Vector-Class 'gambit.language.runtime:s32vector 'gambit.language.runtime:make-s32vector)
-(jazz:setup-fixed-metadata 'u32vector jazz:U32Vector jazz:FixedU32Vector jazz:FixedU32Vector-Class 'gambit.language.runtime:u32vector 'gambit.language.runtime:make-u32vector)
-(jazz:setup-fixed-metadata 's64vector jazz:S64Vector jazz:FixedS64Vector jazz:FixedS64Vector-Class 'gambit.language.runtime:s64vector 'gambit.language.runtime:make-s64vector)
-(jazz:setup-fixed-metadata 'u64vector jazz:U64Vector jazz:FixedU64Vector jazz:FixedU64Vector-Class 'gambit.language.runtime:u64vector 'gambit.language.runtime:make-u64vector)
-(jazz:setup-fixed-metadata 'f32vector jazz:F32Vector jazz:FixedF32Vector jazz:FixedF32Vector-Class 'gambit.language.runtime:f32vector 'gambit.language.runtime:make-f32vector)
-(jazz:setup-fixed-metadata 'f64vector jazz:F64Vector jazz:FixedF64Vector jazz:FixedF64Vector-Class 'gambit.language.runtime:f64vector 'gambit.language.runtime:make-f64vector)
+(jazz:setup-fixed-metadata 'vector    jazz:Vector    jazz:FixedVector    jazz:FixedVector-Class    'scheme.runtime:vector 'scheme.runtime:make-vector)
+(jazz:setup-fixed-metadata 's8vector  jazz:S8Vector  jazz:FixedS8Vector  jazz:FixedS8Vector-Class  'gambit:s8vector       'gambit:make-s8vector)
+(jazz:setup-fixed-metadata 'u8vector  jazz:U8Vector  jazz:FixedU8Vector  jazz:FixedU8Vector-Class  'gambit:u8vector       'gambit:make-u8vector)
+(jazz:setup-fixed-metadata 's16vector jazz:S16Vector jazz:FixedS16Vector jazz:FixedS16Vector-Class 'gambit:s16vector      'gambit:make-s16vector)
+(jazz:setup-fixed-metadata 'u16vector jazz:U16Vector jazz:FixedU16Vector jazz:FixedU16Vector-Class 'gambit:u16vector      'gambit:make-u16vector)
+(jazz:setup-fixed-metadata 's32vector jazz:S32Vector jazz:FixedS32Vector jazz:FixedS32Vector-Class 'gambit:s32vector      'gambit:make-s32vector)
+(jazz:setup-fixed-metadata 'u32vector jazz:U32Vector jazz:FixedU32Vector jazz:FixedU32Vector-Class 'gambit:u32vector      'gambit:make-u32vector)
+(jazz:setup-fixed-metadata 's64vector jazz:S64Vector jazz:FixedS64Vector jazz:FixedS64Vector-Class 'gambit:s64vector      'gambit:make-s64vector)
+(jazz:setup-fixed-metadata 'u64vector jazz:U64Vector jazz:FixedU64Vector jazz:FixedU64Vector-Class 'gambit:u64vector      'gambit:make-u64vector)
+(jazz:setup-fixed-metadata 'f32vector jazz:F32Vector jazz:FixedF32Vector jazz:FixedF32Vector-Class 'gambit:f32vector      'gambit:make-f32vector)
+(jazz:setup-fixed-metadata 'f64vector jazz:F64Vector jazz:FixedF64Vector jazz:FixedF64Vector-Class 'gambit:f64vector      'gambit:make-f64vector)
 
 
 (define (jazz:parse-specifier lst proc)

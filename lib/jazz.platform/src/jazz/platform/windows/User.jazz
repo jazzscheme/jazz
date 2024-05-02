@@ -765,17 +765,6 @@
 ;;;
 
 
-(c-structure ACCEL
-  (BYTE fVirt)
-  (WORD key)
-  (WORD cmd))
-
-(c-type LPACCEL ACCEL*)
-
-(c-external (make-ACCEL-array INT) :alloc ACCEL* "___return(calloc(___arg1,sizeof(ACCEL)));")
-(c-external (ACCEL-array-ref ACCEL* INT) ACCEL* "___return((___arg1 + ___arg2));")
-(c-external (ACCEL-array-free ACCEL*) :free VOID "free(___arg1);")
-
 (c-structure TRACKMOUSEEVENT
   (DWORD cbSize)
   (DWORD dwFlags)
@@ -809,16 +798,21 @@
 (c-structure (WNDCLASSEX "WNDCLASSEXW" WNDCLASSEXW)
   (UINT cbSize)
   (UINT style)
-  (WNDPROC lpfnWndProc) ;; Warning.  Incompatible pointer. Qualificatif CALLBACK -> __stdcall
   (INT cbClsExtra)
   (INT cbWndExtra)
   (HINSTANCE hInstance)
   (HICON hIcon)
   (HCURSOR hCursor)
   (HBRUSH hbrBackground)
-  (LPCTSTR lpszMenuName) ;; Warning. Discard qualifier. Qualificatif const
-  (LPCTSTR lpszClassName) ;; Warning. Discard qualifier. Qualificatif const
+  (LPCTSTR lpszMenuName #f "wchar_t*")
+  (LPCTSTR lpszClassName #f "wchar_t*")
   (HICON hIconSm))
+
+;; contortions around C++ warnings
+(c-external (WNDCLASSEX-lpfnWndProc-set! WNDCLASSEX* WNDPROC) void
+  #/C/
+    ___arg1->lpfnWndProc = (WNDPROC) ___arg2;
+//#)
 
 
 (c-structure WINDOWPLACEMENT
@@ -850,9 +844,15 @@
 ;;;
 
 
+(c-callable (CreateWindowEx DWORD ATOM LPCWSTR DWORD INT INT INT INT HWND HMENU HINSTANCE LPVOID) HWND
+  #/C/
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    ___return(CreateWindowExW(___arg1, (LPCWSTR) ___arg2, ___arg3, ___arg4, ___arg5, ___arg6, ___arg7, ___arg8, ___arg9, ___arg10, ___arg11, ___arg12));
+#pragma GCC diagnostic pop
+//#)
+
 (c-external (RegisterClassEx            WNDCLASSEX*) ATOM                                                                 "RegisterClassExW")
-;; Warning : ATOM should be string...
-(c-callable (CreateWindowEx             DWORD ATOM LPCWSTR DWORD INT INT INT INT HWND HMENU HINSTANCE LPVOID) HWND        "CreateWindowExW")
 (c-callable (DefWindowProc              HWND UINT WPARAM LPARAM) LRESULT                                                  "DefWindowProcW")
 (c-callable (GetMessage                 MSG* HWND UINT UINT) BOOL                                                         "GetMessageW")
 (c-callable (PeekMessage                MSG* HWND UINT UINT UINT) BOOL                                                    "PeekMessageW")
@@ -910,16 +910,16 @@
 (c-external (SetLayeredWindowAttributes HWND COLORREF BYTE DWORD) BOOL)
 (c-external (GetWindowTextLength        HWND) INT)
 (c-external (GetWindowText              HWND WCHAR* INT) INT)
-;; Warning : TIMERPROC
-(c-external (SetTimer                   HWND UINT UINT TIMERPROC) UINT)
-(c-external (KillTimer                  HWND UINT) BOOL)
 (c-external (SetCursor                  HCURSOR) HCURSOR)
 (c-external (ShowCursor                 BOOL) INT)
 (c-external (MessageBeep                INT) BOOL)
 
 (c-external (SetWindowMinSize int int int) void
   #/C/
-    LPMINMAXINFO lpMMI = (LPMINMAXINFO)___arg1;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+    LPMINMAXINFO lpMMI = (LPMINMAXINFO) ___arg1;
+#pragma GCC diagnostic pop
     lpMMI->ptMinTrackSize.x = ___arg2;
     lpMMI->ptMinTrackSize.y = ___arg3;
 //#))

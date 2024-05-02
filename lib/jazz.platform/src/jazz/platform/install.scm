@@ -40,9 +40,7 @@
 
 (cond-expand
   (windows
-    (jazz:register-foreign-libraries 'jazz.platform.windows.MM    'winmm)
-    (jazz:register-foreign-libraries 'jazz.platform.windows.Perf  'pdh)
-    (jazz:register-foreign-libraries 'jazz.platform.windows.PSAPI 'psapi))
+    (jazz:register-foreign-libraries 'jazz.platform.windows.MM 'winmm))
   (cocoa
     (jazz:register-foreign-libraries 'jazz.platform.cocoa 'Cocoa 'OpenGL 'IOKit))
   (x11

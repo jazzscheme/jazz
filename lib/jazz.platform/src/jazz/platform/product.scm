@@ -51,9 +51,7 @@
 
 
 (define jazz:windows-units
-  (let ((pdh-include-path   (jazz:quote-jazz-pathname "foreign/jazz.platform/windows/pdh/include"))
-        (pdh-lib-path       (jazz:quote-jazz-pathname "foreign/jazz.platform/windows/pdh/lib"))
-        (base-windows-cc-options "-DUNICODE"))
+  (let ((base-windows-cc-options "-DUNICODE"))
     `((jazz.platform.windows)
       (jazz.platform.windows.Def      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.Types    cc-options: ,base-windows-cc-options ld-options: "-mwindows")
@@ -61,15 +59,11 @@
       (jazz.platform.windows.NT       cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.Kernel   cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.GDI      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
-      (jazz.platform.windows.IDL      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.MM       cc-options: ,base-windows-cc-options ld-options: "-mwindows -lwinmm")
       (jazz.platform.windows.User     cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.User1    cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.Shell    cc-options: ,base-windows-cc-options ld-options: "-mwindows")
-      (jazz.platform.windows.Ctrl     cc-options: ,base-windows-cc-options ld-options: "-mwindows")
-      (jazz.platform.windows.Dlg      cc-options: ,base-windows-cc-options ld-options: "-mwindows -lole32")
-      (jazz.platform.windows.Perf     cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpdh"))
-      (jazz.platform.windows.PSAPI    cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpsapi")))))
+      (jazz.platform.windows.Ctrl     cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))
 
 
 (cond-expand
@@ -135,8 +129,7 @@
     (else))
   (cond-expand
     (windows
-      (let ((pdh-lib-path (jazz:jazz-pathname "foreign/jazz.platform/windows/pdh/lib")))
-        (list (string-append "-L" pdh-lib-path) "-mwindows" "-lwinmm" "-lpdh" "-lpsapi")))
+     (list "-mwindows" "-lwinmm"))
     (x11
       (let ((ld-flags (jazz:pkg-config-libs "x11")))
         (jazz:split-string ld-flags #\space)))

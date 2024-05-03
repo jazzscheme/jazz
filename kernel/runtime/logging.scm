@@ -45,11 +45,11 @@
 
 const char* logging_filename = "log.txt";
 
-bool is_logging = true;
+static bool is_logging = true;
 
-FILE *logging_stream = NULL;
+static FILE *logging_stream = NULL;
 
-int logging_line(const char *line)
+static int logging_line(const char *line)
 {
   if (!is_logging)
     return 0;
@@ -70,7 +70,7 @@ int logging_line(const char *line)
   return result;
 }
 
-int logging(const char *format, ...)
+static int logging(const char *format, ...)
 {
   if (!is_logging)
     return 0;

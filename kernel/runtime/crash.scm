@@ -69,7 +69,7 @@
     (define (jazz:disable-crash-window)
       (SetErrorMode (bitwise-ior SEM_FAILCRITICALERRORS SEM_NOGPFAULTERRORBOX)))
     
-    (c-definition (jazz:call_crash_reporter ignore) ((pointer void)) void "jazz_call_crash_reporter" ""
+    (c-definition (jazz:call_crash_reporter ignore) ((pointer void)) void "jazz_call_crash_reporter" "static"
       (jazz:crash-reporter ignore))
 
     (c-declaration crash #<<end-of-code
@@ -108,10 +108,10 @@ end-of-code
    (define (jazz:disable-crash-window)
      #!void)
    
-   (c-definition (jazz:call_crash_reporter ignore) (int) void "jazz_call_crash_reporter" ""
+   (c-definition (jazz:call_crash_reporter ignore) (int) void "jazz_call_crash_reporter" "static"
      (jazz:crash-reporter ignore))
 
-   (c-definition (jazz:call_crash_exit) () void "jazz_call_crash_exit" ""
+   (c-definition (jazz:call_crash_exit) () void "jazz_call_crash_exit" "static"
      (jazz:exit-no-jobs))
 
    (c-declaration crash #<<end-of-code

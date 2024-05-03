@@ -626,7 +626,6 @@
 (native jazz:list->updates)
 (native jazz:home-directory)
 (native jazz:versioned-directory)
-(native jazz:set-exit-callable)
 (native jazz:path->container-override)
 (native jazz:platform-eol-encoding)
 (native jazz:load-debuggee-units)

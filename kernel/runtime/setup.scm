@@ -39,27 +39,6 @@
 
 
 ;;;
-;;;; Callable
-;;;
-
-
-(c-declare #<<c-end
-#include <stdbool.h>
-
-bool exitCallable = false;
-c-end
-)
-
-
-(define jazz:set-exit-callable
-  (c-lambda (bool) void
-    #<<c-end
-    exitCallable = ___arg1;
-c-end
-))
-
-
-;;;
 ;;;; Permissions
 ;;;
 

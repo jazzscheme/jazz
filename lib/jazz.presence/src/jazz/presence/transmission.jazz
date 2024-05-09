@@ -100,28 +100,32 @@
 (definition public (write-connect port binary? code version info)
   (retry-exception-handler
     (lambda ()
-      (write-binary-header code version port)
+      (if binary?
+          (write-binary-header code version port)
+        (write-text-header code version port))
       (force-output port)))
   (if binary?
-      (write-data info port)
+      (write-binary-data info port)
     (write-text-data info port))
   (force-output port))
 
 
 (definition public (write-port port binary? code version info)
-  (write-binary-header code version port)
-  (if binary?
-      (write-data info port)
-    (write-text-data info port))
+  (cond (binary?
+         (write-binary-header code version port)
+         (write-binary-data info port))
+        (else
+         (write-text-header code version port)
+         (write-text-data info port)))
   (force-output port))
 
 
 (definition public (read-port port binary? expected-code expected-version)
-  (receive (code version) (read-binary-header port)
+  (receive (code version) (if binary? (read-binary-header port) (read-text-header port))
     (validate-code expected-code code)
     (validate-version expected-version version)
     (if binary?
-        (read-data port)
+        (read-binary-data port)
       (read-text-data port))))
 
 
@@ -130,11 +134,11 @@
 ;;;
 
 
-(definition (write-data data port)
+(definition (write-binary-data data port)
   (write-binary data port))
 
 
-(definition (read-data port)
+(definition (read-binary-data port)
   (let ((data (read-binary port)))
     (if (eof-object? data)
         (throw-connection-broke "Read data received eof")
@@ -144,6 +148,25 @@
 ;;;
 ;;;; Text
 ;;;
+
+
+(definition (write-text-header code version port)
+  (32-bit-integer->bytes code
+    (lambda (b1 b2 b3 b4)
+      (version->bytes version
+        (lambda (b5 b6 b7 b8)
+          (write (list b1 b2 b3 b4 b5 b6 b7 b8) port)
+          (force-output port))))))
+
+
+(definition (read-text-header port)
+  (let ((data (read port)))
+    (if (eof-object? data)
+        (throw-connection-broke "Read header received eof")
+      (bind (b1 b2 b3 b4 b5 b6 b7 b8) data
+        (let ((code (bytes->32-bit-integer b1 b2 b3 b4))
+              (version (bytes->version b5 b6 b7 b8)))
+          (values code version))))))
 
 
 (definition (write-text-data data port)

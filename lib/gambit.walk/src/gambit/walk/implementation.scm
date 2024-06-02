@@ -538,13 +538,13 @@ end-of-code
 
                     ((##fx= st (macro-subtype-symbol))
                      #;
-                     (if (not (eq? (mem-allocated-kind obj) 'PERM))
+                     (if (not (eq? (jazz:memory-allocated-kind obj) 'PERM))
                          (error "symbol is not PERM:" obj))
                      obj)
 
                     ((##fx= st (macro-subtype-keyword))
                      #;
-                     (if (not (eq? (mem-allocated-kind obj) 'PERM))
+                     (if (not (eq? (jazz:memory-allocated-kind obj) 'PERM))
                          (error "keyword is not PERM:" obj))
                      obj)
 
@@ -640,29 +640,6 @@ end-of-code
 ;;;; Test
 ;;;
 
-(define MOVABLE0 0)
-(define MOVABLE1 1)
-(define MOVABLE2 2)
-(define STILL    5)
-(define PERM     6)
-
-(define (mem-allocated-kind obj)
-  (let ((k (bitwise-and
-             (if (##fx= 4 (##u8vector-length '#(0)))
-                 (##u32vector-ref (##type-cast obj 1) -1)
-               (##u64vector-ref (##type-cast obj 1) -1))
-             7)))
-    (cond ((##fx= k MOVABLE0) 'MOVABLE0)
-          ((##fx= k MOVABLE1) 'MOVABLE1)
-          ((##fx= k MOVABLE2) 'MOVABLE2)
-          ((##fx= k STILL)    'STILL)
-          ((##fx= k PERM)     'PERM)
-          (else '???))))
-
-(define (mem-allocated-size obj)
-  (##fx+ (##u8vector-length obj)
-         (##u8vector-length '#(1))))
-
 (define make-adder ;; a classic closure creator
   (lambda (x) (lambda (y) (+ x y))))
 
@@ -680,8 +657,8 @@ end-of-code
     (##copy-object (list-ref foobar 1) PERM domain)
 
     ;; foobar does not yet contain copies
-    (pp (map mem-allocated-kind foobar))
-    (pp (map mem-allocated-kind (list-ref foobar 2)))
+    (pp (map jazz:memory-allocated-kind foobar))
+    (pp (map jazz:memory-allocated-kind (list-ref foobar 2)))
 
     ;; update foobar to point to the permanent copies
     (##walk-object!
@@ -692,8 +669,8 @@ end-of-code
             obj)))
 
     ;; foobar now contains copies
-    (pp (map mem-allocated-kind foobar))
-    (pp (map mem-allocated-kind (list-ref foobar 2)))
+    (pp (map jazz:memory-allocated-kind foobar))
+    (pp (map jazz:memory-allocated-kind (list-ref foobar 2)))
 
     ;; test that the copies are correct
     (pp ((list-ref foobar 1) 100))

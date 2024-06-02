@@ -217,7 +217,6 @@
 (native jazz:continuation-locat)
 (native jazz:continuation-next)
 (native jazz:continuation-backtrace)
-(native jazz:track)
 
 
 ;;;
@@ -909,6 +908,15 @@
 (native jazz:get-live-percent)
 (native jazz:raise-heap-overflow-exception)
 (native jazz:get-heap-pointer)
+(native MOVABLE0)
+(native MOVABLE1)
+(native MOVABLE2)
+(native STILL)
+(native PERM)
+(native jazz:memory-allocated?)
+(native jazz:memory-allocated-kind)
+(native jazz:memory-allocated-size)
+(native jazz:memory-size)
 
 
 ;;;
@@ -1296,18 +1304,15 @@
 
 
 (native jazz:tracking-allocations?)
-(native jazz:track-allocations)
-(native jazz:untrack-allocations)
+(native jazz:register-allocations)
+(native jazz:unregister-allocations)
 (native jazz:reset-allocations)
-(native jazz:count-allocations)
-(native jazz:all-allocations)
-(native jazz:snapshot-allocations)
-(native jazz:get-allocation-object)
-(native jazz:get-allocation-file)
-(native jazz:get-allocation-line)
-(native jazz:get-allocation-stack)
-(native jazz:get-allocation)
-(native jazz:with-track-allocations)
+(native jazz:registered-allocations)
+(native jazz:ordered-allocations)
+(native jazz:monitor-allocations-reset)
+(native jazz:monitor-allocations-start)
+(native jazz:monitor-allocations-stop)
+(native jazz:monitor-allocations-rate)
 
 
 ;;;

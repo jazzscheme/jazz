@@ -1355,6 +1355,11 @@
       `(string? ,obj)
     `(^#string? ,obj)))
 
+(jazz:define-synto (%%string . rest)
+  (if jazz:debug-core?
+      `(string ,@rest)
+    `(^#string ,@rest)))
+
 (jazz:define-synto (%%make-string size . rest)
   `(%%tracking
      (make-string ,size ,@rest)))

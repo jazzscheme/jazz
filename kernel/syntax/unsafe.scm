@@ -340,6 +340,7 @@
 (jazz:define-unsafe ^#still-copy)
 (jazz:define-unsafe ^#still-obj-refcount-dec!)
 (jazz:define-unsafe ^#still-obj-refcount-inc!)
+(jazz:define-unsafe ^#string)
 (jazz:define-unsafe ^#string->keyword)
 (jazz:define-unsafe ^#string->number)
 (jazz:define-unsafe ^#string->symbol)

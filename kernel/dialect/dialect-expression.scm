@@ -310,6 +310,7 @@
 (jazz:add-primitive-patterns     'scheme.runtime:length                               '((safe %%length <list:int>) (safe %%vector-length <vector:int>) (safe %%string-length <string:int>)))
 (jazz:add-primitive-patterns     'scheme.runtime:null?                                '((safe %%null?  <any:bool>)))
 
+(jazz:add-primitive-patterns     'scheme.runtime:string                               '((safe          %%string        <char*:string>)))
 (jazz:add-primitive-patterns     'scheme.runtime:string-length                        '((safe          %%string-length <string:fx>)))
 (jazz:add-primitive-patterns     'scheme.runtime:string-ref                           '((bounds-unsafe %%string-ref    <string^fx:char>)))
 

@@ -392,14 +392,14 @@
 
 (define (jazz:process-memory)
   (let ((vec (%%process-statistics)))
-    (let ((last_gc_heap_size  (f64vector-ref vec 15))
-          (last_gc_live       (f64vector-ref vec 17))
-          (last_gc_movable    (f64vector-ref vec 18))
-          (last_gc_nonmovable (f64vector-ref vec 19)))
+    (let ((last_gc_heap_size (f64vector-ref vec 15))
+          (last_gc_live      (f64vector-ref vec 17))
+          (last_gc_movable   (f64vector-ref vec 18))
+          (last_gc_still     (f64vector-ref vec 19)))
       (values last_gc_heap_size
               last_gc_live
               last_gc_movable
-              last_gc_nonmovable))))
+              last_gc_still))))
 
 
 (define (jazz:symbols-memory)

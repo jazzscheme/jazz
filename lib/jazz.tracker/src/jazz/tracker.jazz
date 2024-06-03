@@ -70,36 +70,33 @@
     (set! self.tracker tracker)
     (set! self.all 0)
     (set! self.count 0)
-    (set! self.allocations #f))
+    (set! self.allocations (new-queue)))
   
   
   (method package (reset self)
     (set! all 0)
     (set! count 0)
-    (set! allocations #f))
+    (set! allocations (new-queue)))
   
   
   (method package (add-allocations self)
-    (let ((allocs (count-allocations)))
-      (increase! all allocs)
-      (when (not allocations)
-        (set! count 0)
-        (set! allocations (new-queue)))
-      (let ((free (- 8192 count)))
-        (let ((add (min free allocs)))
-          (loop (for n from 0 below add)
-                (enqueue allocations
-                         (list (get-allocation-object n)
-                               (get-allocation-file n)
-                               (get-allocation-line n)
-                               (get-allocation-stack n)))
-                (increase! count))))))
+    (let ((allocs (ordered-allocations)))
+      (for-each (lambda (alloc)
+                  (bind (obj rank size file line stack) alloc
+                    (enqueue allocations
+                             (list obj
+                                   rank
+                                   size
+                                   file
+                                   line
+                                   stack))
+                    (increase! count)
+                    (increase! all)))
+                allocs)))
   
   
   (method package (extract-allocations self)
-    (if (not allocations)
-        '()
-      (queue-list allocations))))
+    (queue-list allocations)))
 
 
 ;;;
@@ -148,12 +145,12 @@
 
 
 (definition public (start-tracker)
-  (track-allocations)
-  (reset-allocations))
+  (reset-allocations)
+  (register-allocations))
 
 
 (definition public (stop-tracker (tracking #f))
-  (untrack-allocations)
+  (unregister-allocations)
   (let ((tracking (or tracking (default-tracking))))
     (add-allocations tracking)))
 

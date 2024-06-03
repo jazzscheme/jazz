@@ -59,7 +59,7 @@
 (class Tracking-Results extends Layout-View
   
   
-  (slot hierarchical? initialize #t)
+  (slot aggregate initialize 'location)
   
   
   (form
@@ -76,7 +76,10 @@
           (<Push-Tool>              name: view        size: {Dimension 22 22} tooltip?: #t tooltip-text: "View Tracking..." resource: {Image-Resource "Edit"} portfolio: :images action-handler: {Event-Handler :form on-choose-tracking})
           (<Separator>                                size: {Dimension 4 0})
           (<Label-View>             name: tracking    size: {Dimension 250 23} location: center)
-          (<Toggle-Tool>                              size: {Dimension 22 22} tooltip?: #t tooltip-text: "Flatten" resource: {Image-Resource "Flatten"} portfolio: :images action-handler: {Event-Handler :form on-flat/hierarchical} location: tail))
+          (<Label-View>                               title: "Aggregate:" size: {Dimension 75 23} location: tail)
+          (<Layout-View>                              size: {Dimension 90 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
+            (<Border-View>                            border-color: {Color Dark}
+              (<Combo-Box>          name: aggregate   content-change-handler: {Event-Handler :form on-change-aggregate}))))
         (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
           (<content~>                                 layout-type: fill
             (<Tree-Header>                            style: document
@@ -86,6 +89,16 @@
   
   (method meta override (external-name self . rest)
     'Trackings)
+  
+  
+  (method override (finish self initargs)
+    (nextmethod self initargs)
+    (set-choices (locate self 'aggregate)
+      '((location "Location")
+        (class "Class")
+        (entry "Entry")
+        (none "None")))
+    (set-value (locate self 'aggregate) 'location))
   
   
   ;;;
@@ -137,23 +150,22 @@
   
   
   (method (on-start-tracker self evt)
+    (start-tracker self))
+  
+  
+  (method (on-stop-tracker self evt)
+    (stop-tracker self))
+  
+  
+  (method (start-tracker self)
     (user-feedback "Tracking started")
     (tracker-start (require-focused-process (get-debugger-manager))))
   
   
-  (method (on-stop-tracker self evt)
+  (method (stop-tracker self)
     (tracker-stop (require-focused-process (get-debugger-manager)))
     (view-tracking self)
     (user-message "Tracking stopped"))
-  
-  
-  (method (on-flat/hierarchical self evt)
-    (set-hierarchical? self (not hierarchical?))
-    (view-tracking self))
-  
-  
-  (method (set-hierarchical? self flag)
-    (set! hierarchical? flag))
   
   
   (method (on-choose-tracking self evt)
@@ -180,6 +192,11 @@
   
   
   (method (on-refresh-tracking self evt)
+    (view-tracking self))
+  
+  
+  (method (on-change-aggregate self evt)
+    (set! aggregate (get-value (get-sender evt)))
     (view-tracking self))
   
   
@@ -264,19 +281,17 @@
   ;;;
   
   
-  (method (view-tracking self)
+  (method package (view-tracking self)
     (define (add-entry allocation)
-      (bind (info container line stack) allocation
-        ;; hack around a gambit bug fixed in latest
-        (let ((container (remove-trailing #\" container)))
-          (define (determine-entry)
-            (and container
-                 (let ((file-entry (cache-container-entry container)))
-                   (and file-entry
-                        (or (line->entry file-entry (- line 1))
-                            (get-root-definition file-entry))))))
-          
-          (cons (determine-entry) (list info container line stack)))))
+      (bind (info rank size container line stack) allocation
+        (define (determine-entry)
+          (and container
+               (let ((file-entry (cache-container-entry container)))
+                 (and file-entry
+                      (or (line->entry file-entry (- line 1))
+                          (get-root-definition file-entry))))))
+        
+        (cons (determine-entry) allocation)))
     
     (define (add-stack tree father stack)
       (for-each (lambda (frame)
@@ -284,13 +299,12 @@
                     ;; quick try
                     (when locat
                       (bind (container line col) locat
-                        (let ((title (let ((entry (cache-container-entry container)))
-                                       (if entry
-                                           (get-location-name entry)
-                                         (->string container)))))
+                        (let ((title (->string (reference-name creator))))
                           (add-row tree
                                    father: father
-                                   children: (list (new Tree-Node title: (->string container))
+                                   children: (list (new Tree-Node title: title)
+                                                   (new Tree-Label title: "")
+                                                   (new Tree-Label title: "")
                                                    (new Tree-Label title: "")
                                                    (new Tree-Label title: ""))
                                    user-data: locat))))))
@@ -303,85 +317,182 @@
                    partition)
         key: third))
     
+    (define (update-header all count total-size)
+      (let ((title (format "all: {a}, count: {a}, size: {a}" all count (present-bytes total-size))))
+        (set-title (locate self 'tracking) title)
+        (set-tooltip? (locate self 'tracking) #t)
+        (set-tooltip-text (locate self 'tracking) title)))
+    
     (define (present-location allocation)
-      (bind (entry info container line) allocation
+      (bind (entry info rank size container line) allocation
         (if entry
             (get-name entry)
           (format "{a}:{a}" container line))))
+    
+    (define (present-class allocation)
+      (bind (entry info) allocation
+        (reference-name (second info))))
     
     (define (present-object allocation)
       (bind (entry info) allocation
         (third info)))
     
-    (define (allocation-data allocation value minimum maximum)
-      (bind (entry info container line) allocation
+    (define (allocation-data allocation)
+      (bind (entry info rank size file line) allocation
+        (list (and entry (get-file (get-file-definition entry))) (- line 1) 0)))
+    
+    (define (sample-data allocation value minimum maximum)
+      (bind (entry info rank size container line) allocation
         (list entry (- line 1) value minimum maximum info)))
+    
+    (define (aggregate-location tree father all total-size allocations)
+      (let ((partition (partition allocations key: (lambda (allocation)
+                                                     (bind (entry info rank size file line stack) allocation
+                                                       (cons file (cons line stack))))
+                         test: equal?)))
+        (let ((partition (map (lambda (partition)
+                                (bind (key . allocations) partition
+                                  (let ((count 0)
+                                        (size 0))
+                                    (for-each (lambda (allocation)
+                                                (increase! count)
+                                                (increase! size (fourth allocation)))
+                                              allocations)
+                                    (cons count (cons size allocations)))))
+                              partition)))
+          (when (not father)
+            (update-header all (length partition) total-size))
+          (for-each (lambda (partition)
+                      (bind (count size . allocations) partition
+                        (let ((allocation (car allocations)))
+                          (bind (entry info rank sz file line stack) allocation
+                            (let ((father
+                                    (add-row tree
+                                             father: father
+                                             children: (list (new Tree-Node title: (present-location allocation))
+                                                             (new Tree-Label title: (present-class allocation))
+                                                             (new Tree-Label title: (present-object allocation))
+                                                             (new Tree-Label title: (number->string count))
+                                                             (new Tree-Label title: (number->string size)))
+                                             user-data: (allocation-data allocation))))
+                              (when stack
+                                (add-stack tree father stack)))))))
+                    (sort > partition key: car)))))
+    
+    (define (aggregate-class tree father all total-size allocations)
+      (let ((partition (partition allocations key: present-class test: equal?)))
+        (let ((partition (map (lambda (partition)
+                                (bind (key . allocations) partition
+                                  (let ((count 0)
+                                        (size 0))
+                                    (for-each (lambda (allocation)
+                                                (increase! count)
+                                                (increase! size (fourth allocation)))
+                                              allocations)
+                                    (cons count (cons size allocations)))))
+                              partition)))
+          (update-header all (length partition) total-size)
+          (for-each (lambda (partition)
+                      (bind (count size . allocations) partition
+                        (let ((allocation (car allocations)))
+                          (bind (entry info rank sz file line stack) allocation
+                            (let ((father
+                                    (add-row tree
+                                             father: father
+                                             children: (list (new Tree-Node title: (present-location allocation))
+                                                             (new Tree-Label title: (present-class allocation))
+                                                             (new Tree-Label title: (present-object allocation))
+                                                             (new Tree-Label title: (number->string count))
+                                                             (new Tree-Label title: (number->string size)))
+                                             user-data: (allocation-data allocation))))
+                              (aggregate-location tree father #f #f allocations))))))
+                    (sort > partition key: car)))))
+    
+    (define (aggregate-entry tree father all total-size allocations)
+      (let ((entry-set (sort-allocations (partition allocations key: car))))
+        (update-header all (length entry-set) total-size)
+        (for-each (lambda (info)
+                    (bind (entry allocations cardinality) info
+                      (let ((line-set (sort-allocations (partition allocations key: sixth))))
+                        (let ((line-samples (map (lambda (info) (car (second info))) line-set))
+                              (line-cardinalities (map third line-set)))
+                          (let ((sample (car line-samples))
+                                (type-samples (partition line-samples key: cadadr))
+                                (minimum (minimum line-cardinalities))
+                                (maximum (maximum line-cardinalities))
+                                (size (sum fourth allocations)))
+                            (let ((father
+                                    (add-row tree
+                                             father: father
+                                             children: (list (new Tree-Node title: (present-location sample))
+                                                             (new Tree-Node title: (join-strings (map present-class (map cadr type-samples)) " "))
+                                                             (new Tree-Label title: (join-strings (map present-object (map cadr type-samples)) " "))
+                                                             (new Tree-Label title: (->string cardinality))
+                                                             (new Tree-Node title: (->string size)))
+                                             user-data: (map (lambda (sample cardinality)
+                                                               (sample-data sample cardinality minimum maximum))
+                                                             line-samples
+                                                             line-cardinalities))))
+                              (for-each (lambda (info)
+                                          (bind (line allocations cardinality) info
+                                            (let ((stack-set (sort-allocations (partition allocations key: seventh test: equal?))))
+                                              (for-each (lambda (info)
+                                                          (bind (stack allocations cardinality) info
+                                                            (let ((sample (car allocations))
+                                                                  (size (sum fourth allocations)))
+                                                              (let ((father
+                                                                      (add-row tree
+                                                                               father: father
+                                                                               children: (list (new Tree-Node title: (->string line))
+                                                                                               (new Tree-Node title: (present-class sample))
+                                                                                               (new Tree-Label title: (present-object sample))
+                                                                                               (new Tree-Label title: (->string cardinality))
+                                                                                               (new Tree-Node title: (->string size)))
+                                                                               user-data: (list (sample-data sample cardinality minimum maximum)))))
+                                                                (when stack
+                                                                  (add-stack tree father stack))))))
+                                                        stack-set))))
+                                        line-set)))))))
+                  entry-set)))
+    
+    (define (aggregate-none tree father all total-size allocations)
+      (update-header all (length allocations) total-size)
+      (for-each (lambda (allocation)
+                  (bind (entry info rank size file line stack) allocation
+                    (let ((father
+                            (add-row tree
+                                     father: father
+                                     children: (list (new Tree-Node title: (present-location allocation))
+                                                     (new Tree-Label title: (present-class allocation))
+                                                     (new Tree-Label title: (present-object allocation))
+                                                     (new Tree-Label title: "1")
+                                                     (new Tree-Label title: (number->string size)))
+                                     user-data: (allocation-data allocation))))
+                      (when stack
+                        (add-stack tree father stack)))))
+                (sort < allocations key: third)))
     
     (with-cursor :wait
       (lambda ()
         (let ((tree (get-tree self))
               (tracking (tracker-tracking (require-focused-process (get-debugger-manager)))))
-          (when tracking
-            (bind (label all allocations) tracking
+          (if (not tracking)
+              (remove-every-row tree)
+            (bind (all allocations) tracking
               (let ((allocations (map add-entry allocations)))
-                (remove-every-row tree)
-                (let ((title (format "{a}: all: {a}, count: {a}" (or label '<default>) all (length allocations))))
-                  (set-title (locate self 'tracking) title)
-                  (set-tooltip? (locate self 'tracking) #t)
-                  (set-tooltip-text (locate self 'tracking) title))
-                (if hierarchical?
-                    (with-update-locked tree
-                      (lambda ()
-                        (let ((entry-set (sort-allocations (partition allocations key: car))))
-                          (for-each (lambda (info)
-                                      (bind (entry allocations cardinality) info
-                                        (let ((line-set (sort-allocations (partition allocations key: fourth))))
-                                          (let ((line-samples (map (lambda (info) (car (second info))) line-set))
-                                                (line-cardinalities (map third line-set)))
-                                            (let ((sample (car line-samples))
-                                                  (type-samples (partition line-samples key: cadadr))
-                                                  (minimum (minimum line-cardinalities))
-                                                  (maximum (maximum line-cardinalities)))
-                                              (let ((father
-                                                      (add-row tree
-                                                        children: (list (new Tree-Node title: (present-location sample))
-                                                                        (new Tree-Label title: (join-strings (map present-object (map cadr type-samples)) " "))
-                                                                        (new Tree-Label title: (->string cardinality)))
-                                                        user-data: (map (lambda (sample cardinality)
-                                                                          (allocation-data sample cardinality minimum maximum))
-                                                                        line-samples
-                                                                        line-cardinalities))))
-                                                (for-each (lambda (info)
-                                                            (bind (line allocations cardinality) info
-                                                              (let ((stack-set (sort-allocations (partition allocations key: fifth test: equal?))))
-                                                                (for-each (lambda (info)
-                                                                            (bind (stack allocations cardinality) info
-                                                                              (let ((sample (car allocations)))
-                                                                                (let ((father
-                                                                                        (add-row tree
-                                                                                          father: father
-                                                                                          children: (list (new Tree-Node title: (->string line))
-                                                                                                          (new Tree-Label title: (present-object sample))
-                                                                                                          (new Tree-Label title: (->string cardinality)))
-                                                                                          user-data: (list (allocation-data sample cardinality minimum maximum)))))
-                                                                                  (when stack
-                                                                                    (add-stack tree father stack))))))
-                                                                          stack-set))))
-                                                          line-set)))))))
-                                    entry-set))))
+                (let ((total-size (sum fourth allocations)))
+                  (remove-every-row tree)
                   (with-update-locked tree
                     (lambda ()
-                      (for-each (lambda (allocation)
-                                  (let ((father
-                                          (add-row tree
-                                            children: (list (new Tree-Node title: (present-location allocation))
-                                                            (new Tree-Label title: (present-object allocation))
-                                                            (new Tree-Label title: "1"))
-                                            user-data: (list (allocation-data allocation 0 0 0)))))
-                                    (bind (entry info file line stack) allocation
-                                      (when stack
-                                        (add-stack tree father stack)))))
-                                allocations))))))))))))
+                      (case aggregate
+                        ((location)
+                         (aggregate-location tree #f all total-size allocations))
+                        ((class)
+                         (aggregate-class tree #f all total-size allocations))
+                        ((entry)
+                         (aggregate-entry tree #f all total-size allocations))
+                        (else
+                         (aggregate-none tree #f all total-size allocations))))))))))))))
 
 
 ;;;
@@ -395,5 +506,7 @@
   (form
     (<install>                            portfolio: :images filled-column: object
       (<Tree-Node-Column>  name: location title: "Location" width: 250 display-images?: #f)
+      (<Tree-Label-Column> name: class    title: "Class" width: 150)
       (<Tree-Label-Column> name: object   title: "Object" width: 200)
-      (<Tree-Label-Column> name: count    title: "Count" width: 75 justification: tail)))))
+      (<Tree-Label-Column> name: count    title: "Count" width: 75 justification: tail)
+      (<Tree-Label-Column> name: size     title: "Size" width: 75 justification: tail)))))

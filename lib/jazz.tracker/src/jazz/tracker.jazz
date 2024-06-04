@@ -38,16 +38,7 @@
 (module jazz.tracker jazz
 
 
-;;;
-;;;; Tracker
-;;;
-
-
-(class Tracker extends Object)
-
-
-(definition default-tracker
-  (new Tracker))
+(import (jazz.settings))
 
 
 ;;;
@@ -58,16 +49,12 @@
 (class Tracking extends Object
   
   
-  (slot label       getter generate)
-  (slot tracker     getter generate)
   (slot all         accessors generate)
   (slot count       accessors generate)
   (slot allocations accessors generate)
   
   
-  (method override (initialize self label tracker)
-    (set! self.label label)
-    (set! self.tracker tracker)
+  (method override (initialize self)
     (set! self.all 0)
     (set! self.count 0)
     (set! self.allocations (new-queue)))
@@ -80,17 +67,20 @@
   
   
   (method package (add-allocations self)
-    (let ((allocs (ordered-allocations)))
+    (let ((allocs (ordered-allocations))
+          (count 0)
+          (max (find-setting 'world.track-maximum 1024)))
       (for-each (lambda (alloc)
                   (bind (obj rank size file line stack) alloc
-                    (enqueue allocations
-                             (list obj
-                                   rank
-                                   size
-                                   file
-                                   line
-                                   stack))
-                    (increase! count)
+                    (when (< count 1024)
+                      (enqueue allocations
+                               (list obj
+                                     rank
+                                     size
+                                     file
+                                     line
+                                     stack))
+                      (increase! count))
                     (increase! all)))
                 allocs)))
   
@@ -100,48 +90,26 @@
 
 
 ;;;
-;;;; Trackings
+;;;; Start/Stop
 ;;;
 
 
-(definition *trackings*
-  (make-table test: equal?))
-
-(definition *selected-tracking*
+(definition *tracking*
   #f)
 
 
-(definition public (get-trackings)
-  *trackings*)
+(definition public (get-tracking)
+  *tracking*)
 
-(definition public (get-tracking-names)
-  (table-keys *trackings*))
-
-
-(definition public (get-selected-tracking)
-  *selected-tracking*)
-
-(definition public (set-selected-tracking name)
-  (set! *selected-tracking* name))
+(definition public (set-tracking tracking)
+  (set! *tracking* tracking))
 
 
-(definition public (find-tracking name)
-  (table-ref *trackings* name #f))
-
-
-(definition public (find-selected-tracking)
-  (find-tracking (get-selected-tracking)))
-
-
-(definition (find/new-tracking label)
-  (or (find-tracking label)
-      (let ((tracking (new Tracking label default-tracker)))
-        (register-tracking tracking)
+(definition (require-tracking)
+  (or (get-tracking)
+      (let ((tracking (new Tracking)))
+        (set-tracking tracking)
         tracking)))
-
-
-(definition (default-tracking)
-  (find/new-tracking #f))
 
 
 (definition public (start-tracker)
@@ -151,28 +119,17 @@
 
 (definition public (stop-tracker (tracking #f))
   (unregister-allocations)
-  (let ((tracking (or tracking (default-tracking))))
+  (let ((tracking (require-tracking)))
     (add-allocations tracking)))
 
 
-(definition public (with-tracking label thunk)
-  (let ((tracking (find/new-tracking label)))
+(definition public (with-tracking thunk)
+  (let ((tracking (require-tracking)))
     (start-tracker)
     (prog1 (thunk)
       (stop-tracker tracking))))
 
 
-(definition (register-tracking tracking)
-  (table-set! *trackings* (get-label tracking) tracking))
-
-(definition (unregister-tracking name)
-  (table-clear *trackings* name))
-
-
-(definition public (reset-tracking tracking)
-  (reset tracking))
-
-
-(definition public (reset-trackings)
-  (set! *trackings* (make-table test: equal?))
-  (set! *selected-tracking* #f)))
+(definition public (reset-tracking)
+  (when *tracking*
+    (reset *tracking*))))

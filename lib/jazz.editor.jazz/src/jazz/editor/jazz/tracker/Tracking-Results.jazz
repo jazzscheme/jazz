@@ -370,7 +370,7 @@
       (bind (entry info rank size thread file line) allocation
         (list entry (- line 1) value minimum maximum info)))
     
-    (define (aggregate-location tree father all total-size allocations)
+    (define (partition-location allocations)
       (let ((partition (partition allocations key: (lambda (allocation)
                                                      (bind (entry info rank size thread file line stack) allocation
                                                        (cons file (cons line stack))))
@@ -385,24 +385,27 @@
                                               allocations)
                                     (cons count (cons size allocations)))))
                               partition)))
-          (when (not father)
-            (update-header all (length partition) total-size))
-          (for-each (lambda (partition)
-                      (bind (count size . allocations) partition
-                        (let ((allocation (car allocations)))
-                          (bind (entry info rank sz thread file line stack) allocation
-                            (let ((father
-                                    (add-row tree
-                                             father: father
-                                             children: (list (new Tree-Node title: (present-location allocation))
-                                                             (new Tree-Label title: (present-class allocation))
-                                                             (new Tree-Label title: (present-object allocation))
-                                                             (new Tree-Label title: (number->string count))
-                                                             (new Tree-Label title: (number->string size)))
-                                             user-data: (allocation-data allocation))))
-                              (when stack
-                                (add-stack tree father stack)))))))
-                    (sort > partition key: order-key)))))
+          (sort > partition key: order-key))))
+    
+    (define (aggregate-location tree father all total-size partition)
+      (when (not father)
+        (update-header all (length partition) total-size))
+      (for-each (lambda (partition)
+                  (bind (count size . allocations) partition
+                    (let ((allocation (car allocations)))
+                      (bind (entry info rank sz thread file line stack) allocation
+                        (let ((father
+                                (add-row tree
+                                         father: father
+                                         children: (list (new Tree-Node title: (present-location allocation))
+                                                         (new Tree-Label title: (present-class allocation))
+                                                         (new Tree-Label title: (present-object allocation))
+                                                         (new Tree-Label title: (number->string count))
+                                                         (new Tree-Label title: (number->string size)))
+                                         user-data: (allocation-data allocation))))
+                          (when stack
+                            (add-stack tree father stack)))))))
+                partition))
     
     (define (aggregate-thread tree father all total-size allocations)
       (let ((partition (partition allocations key: allocation-thread)))
@@ -419,18 +422,18 @@
           (update-header all (length partition) total-size)
           (for-each (lambda (partition)
                       (bind (count size . allocations) partition
-                        (let ((allocation (car allocations)))
-                          (bind (entry info rank sz thread file line stack) allocation
+                        (let ((location-partition (partition-location allocations)))
+                          (let ((top (car (cddr (car location-partition)))))
                             (let ((father
                                     (add-row tree
                                              father: father
-                                             children: (list (new Tree-Node title: (present-location allocation))
-                                                             (new Tree-Label title: (present-thread allocation))
-                                                             (new Tree-Label title: (present-object allocation))
+                                             children: (list (new Tree-Node title: (present-location top))
+                                                             (new Tree-Label title: (present-thread top))
+                                                             (new Tree-Label title: (present-object top))
                                                              (new Tree-Label title: (number->string count))
                                                              (new Tree-Label title: (number->string size)))
-                                             user-data: (allocation-data allocation))))
-                              (aggregate-location tree father #f #f allocations))))))
+                                             user-data: (allocation-data top))))
+                              (aggregate-location tree father #f #f location-partition))))))
                     (sort > partition key: order-key)))))
     
     (define (aggregate-class tree father all total-size allocations)
@@ -448,18 +451,18 @@
           (update-header all (length partition) total-size)
           (for-each (lambda (partition)
                       (bind (count size . allocations) partition
-                        (let ((allocation (car allocations)))
-                          (bind (entry info rank sz thread file line stack) allocation
+                        (let ((location-partition (partition-location allocations)))
+                          (let ((top (car (cddr (car location-partition)))))
                             (let ((father
                                     (add-row tree
                                              father: father
-                                             children: (list (new Tree-Node title: (present-location allocation))
-                                                             (new Tree-Label title: (present-class allocation))
-                                                             (new Tree-Label title: (present-object allocation))
+                                             children: (list (new Tree-Node title: (present-location top))
+                                                             (new Tree-Label title: (present-class top))
+                                                             (new Tree-Label title: (present-object top))
                                                              (new Tree-Label title: (number->string count))
                                                              (new Tree-Label title: (number->string size)))
-                                             user-data: (allocation-data allocation))))
-                              (aggregate-location tree father #f #f allocations))))))
+                                             user-data: (allocation-data top))))
+                              (aggregate-location tree father #f #f location-partition))))))
                     (sort > partition key: order-key)))))
     
     (define (aggregate-entry tree father all total-size allocations)
@@ -540,7 +543,7 @@
                     (lambda ()
                       (case aggregate
                         ((location)
-                         (aggregate-location tree #f all total-size allocations))
+                         (aggregate-location tree #f all total-size (partition-location allocations)))
                         ((thread)
                          (aggregate-thread tree #f all total-size allocations))
                         ((class)

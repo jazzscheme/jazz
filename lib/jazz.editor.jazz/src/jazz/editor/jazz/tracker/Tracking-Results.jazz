@@ -60,6 +60,7 @@
   
   
   (slot aggregate initialize 'location)
+  (slot order     initialize 'size)
   
   
   (form
@@ -75,9 +76,14 @@
         (<Layout-View>                                size: {Dimension 100 24} location: north layout-type: box layout-insets: {Rect 0 1 0 0} layout-padding: 2
           (<Label-View>             name: tracking    size: {Dimension 250 23} location: center)
           (<Label-View>                               title: "Aggregate:" size: {Dimension 75 23} location: tail)
-          (<Layout-View>                              size: {Dimension 90 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
+          (<Layout-View>                              size: {Dimension 85 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
             (<Border-View>                            border-color: {Color Dark}
-              (<Combo-Box>          name: aggregate   content-change-handler: {Event-Handler :form on-change-aggregate}))))
+              (<Combo-Box>          name: aggregate   content-change-handler: {Event-Handler :form on-change-aggregate})))
+          (<Separator>                                size: {Dimension 8 0} location: tail)
+          (<Label-View>                               title: "Sort:" size: {Dimension 40 23} location: tail)
+          (<Layout-View>                              size: {Dimension 70 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
+            (<Border-View>                            border-color: {Color Dark}
+              (<Combo-Box>          name: order       content-change-handler: {Event-Handler :form on-change-order}))))
         (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
           (<content~>                                 layout-type: fill
             (<Tree-Header>                            style: document
@@ -93,10 +99,15 @@
     (nextmethod self initargs)
     (set-choices (locate self 'aggregate)
       '((location "Location")
+        (thread "Thread")
         (class "Class")
         (entry "Entry")
         (none "None")))
-    (set-value (locate self 'aggregate) 'location))
+    (set-value (locate self 'aggregate) 'location)
+    (set-choices (locate self 'order)
+      '((count "Count")
+        (size "Size")))
+    (set-value (locate self 'order) 'size))
   
   
   ;;;
@@ -184,6 +195,11 @@
     (view-tracking self))
   
   
+  (method (on-change-order self evt)
+    (set! order (get-value (get-sender evt)))
+    (view-tracking self))
+  
+  
   (method (on-select-location self evt)
     (let ((user-origin (get-user-origin evt)))
       (edit-source self)
@@ -267,10 +283,10 @@
   
   (method package (view-tracking self)
     (define (add-entry allocation)
-      (bind (info rank size container line stack) allocation
+      (bind (info rank size thread file line stack) allocation
         (define (determine-entry)
-          (and container
-               (let ((file-entry (cache-container-entry container)))
+          (and file
+               (let ((file-entry (cache-container-entry file)))
                  (and file-entry
                       (or (line->entry file-entry (- line 1))
                           (get-root-definition file-entry))))))
@@ -282,7 +298,7 @@
                   (bind (creator locat) frame
                     ;; quick try
                     (when locat
-                      (bind (container line col) locat
+                      (bind (file line col) locat
                         (let ((title (if (not creator) "<none>" (->string (reference-name creator)))))
                           (add-row tree
                                    father: father
@@ -293,6 +309,28 @@
                                                    (new Tree-Label title: ""))
                                    user-data: locat))))))
                 stack))
+    
+    ;; entry info rank size thread file line stack
+    
+    (define allocation-rank
+      third)
+    
+    (define allocation-size
+      fourth)
+    
+    (define allocation-thread
+      fifth)
+    
+    (define allocation-line
+      seventh)
+    
+    (define allocation-stack
+      eighth)
+    
+    (define order-key
+      (case order
+        ((count) car)
+        ((size) cadr)))
     
     (define (sort-allocations partition)
       (sort > (map (lambda (info)
@@ -308,10 +346,13 @@
         (set-tooltip-text (locate self 'tracking) title)))
     
     (define (present-location allocation)
-      (bind (entry info rank size container line) allocation
+      (bind (entry info rank size thread file line) allocation
         (if entry
             (get-name entry)
-          (format "{a}:{a}" container line))))
+          (format "{a}:{a}" file line))))
+    
+    (define (present-thread allocation)
+      (->string (allocation-thread allocation)))
     
     (define (present-class allocation)
       (bind (entry info) allocation
@@ -322,16 +363,16 @@
         (third info)))
     
     (define (allocation-data allocation)
-      (bind (entry info rank size file line) allocation
+      (bind (entry info rank size thread file line) allocation
         (list (and entry (get-file (get-file-definition entry))) (- line 1) 0)))
     
     (define (sample-data allocation value minimum maximum)
-      (bind (entry info rank size container line) allocation
+      (bind (entry info rank size thread file line) allocation
         (list entry (- line 1) value minimum maximum info)))
     
     (define (aggregate-location tree father all total-size allocations)
       (let ((partition (partition allocations key: (lambda (allocation)
-                                                     (bind (entry info rank size file line stack) allocation
+                                                     (bind (entry info rank size thread file line stack) allocation
                                                        (cons file (cons line stack))))
                          test: equal?)))
         (let ((partition (map (lambda (partition)
@@ -340,7 +381,7 @@
                                         (size 0))
                                     (for-each (lambda (allocation)
                                                 (increase! count)
-                                                (increase! size (fourth allocation)))
+                                                (increase! size (allocation-size allocation)))
                                               allocations)
                                     (cons count (cons size allocations)))))
                               partition)))
@@ -349,7 +390,7 @@
           (for-each (lambda (partition)
                       (bind (count size . allocations) partition
                         (let ((allocation (car allocations)))
-                          (bind (entry info rank sz file line stack) allocation
+                          (bind (entry info rank sz thread file line stack) allocation
                             (let ((father
                                     (add-row tree
                                              father: father
@@ -361,7 +402,36 @@
                                              user-data: (allocation-data allocation))))
                               (when stack
                                 (add-stack tree father stack)))))))
-                    (sort > partition key: car)))))
+                    (sort > partition key: order-key)))))
+    
+    (define (aggregate-thread tree father all total-size allocations)
+      (let ((partition (partition allocations key: allocation-thread)))
+        (let ((partition (map (lambda (partition)
+                                (bind (key . allocations) partition
+                                  (let ((count 0)
+                                        (size 0))
+                                    (for-each (lambda (allocation)
+                                                (increase! count)
+                                                (increase! size (allocation-size allocation)))
+                                              allocations)
+                                    (cons count (cons size allocations)))))
+                              partition)))
+          (update-header all (length partition) total-size)
+          (for-each (lambda (partition)
+                      (bind (count size . allocations) partition
+                        (let ((allocation (car allocations)))
+                          (bind (entry info rank sz thread file line stack) allocation
+                            (let ((father
+                                    (add-row tree
+                                             father: father
+                                             children: (list (new Tree-Node title: (present-location allocation))
+                                                             (new Tree-Label title: (present-thread allocation))
+                                                             (new Tree-Label title: (present-object allocation))
+                                                             (new Tree-Label title: (number->string count))
+                                                             (new Tree-Label title: (number->string size)))
+                                             user-data: (allocation-data allocation))))
+                              (aggregate-location tree father #f #f allocations))))))
+                    (sort > partition key: order-key)))))
     
     (define (aggregate-class tree father all total-size allocations)
       (let ((partition (partition allocations key: present-class test: equal?)))
@@ -371,7 +441,7 @@
                                         (size 0))
                                     (for-each (lambda (allocation)
                                                 (increase! count)
-                                                (increase! size (fourth allocation)))
+                                                (increase! size (allocation-size allocation)))
                                               allocations)
                                     (cons count (cons size allocations)))))
                               partition)))
@@ -379,7 +449,7 @@
           (for-each (lambda (partition)
                       (bind (count size . allocations) partition
                         (let ((allocation (car allocations)))
-                          (bind (entry info rank sz file line stack) allocation
+                          (bind (entry info rank sz thread file line stack) allocation
                             (let ((father
                                     (add-row tree
                                              father: father
@@ -390,21 +460,21 @@
                                                              (new Tree-Label title: (number->string size)))
                                              user-data: (allocation-data allocation))))
                               (aggregate-location tree father #f #f allocations))))))
-                    (sort > partition key: car)))))
+                    (sort > partition key: order-key)))))
     
     (define (aggregate-entry tree father all total-size allocations)
       (let ((entry-set (sort-allocations (partition allocations key: car))))
         (update-header all (length entry-set) total-size)
         (for-each (lambda (info)
                     (bind (entry allocations cardinality) info
-                      (let ((line-set (sort-allocations (partition allocations key: sixth))))
+                      (let ((line-set (sort-allocations (partition allocations key: allocation-line))))
                         (let ((line-samples (map (lambda (info) (car (second info))) line-set))
                               (line-cardinalities (map third line-set)))
                           (let ((sample (car line-samples))
                                 (type-samples (partition line-samples key: cadadr))
                                 (minimum (minimum line-cardinalities))
                                 (maximum (maximum line-cardinalities))
-                                (size (sum fourth allocations)))
+                                (size (sum allocation-size allocations)))
                             (let ((father
                                     (add-row tree
                                              father: father
@@ -419,11 +489,11 @@
                                                              line-cardinalities))))
                               (for-each (lambda (info)
                                           (bind (line allocations cardinality) info
-                                            (let ((stack-set (sort-allocations (partition allocations key: seventh test: equal?))))
+                                            (let ((stack-set (sort-allocations (partition allocations key: allocation-stack test: equal?))))
                                               (for-each (lambda (info)
                                                           (bind (stack allocations cardinality) info
                                                             (let ((sample (car allocations))
-                                                                  (size (sum fourth allocations)))
+                                                                  (size (sum allocation-size allocations)))
                                                               (let ((father
                                                                       (add-row tree
                                                                                father: father
@@ -442,7 +512,7 @@
     (define (aggregate-none tree father all total-size allocations)
       (update-header all (length allocations) total-size)
       (for-each (lambda (allocation)
-                  (bind (entry info rank size file line stack) allocation
+                  (bind (entry info rank size thread file line stack) allocation
                     (let ((father
                             (add-row tree
                                      father: father
@@ -454,7 +524,7 @@
                                      user-data: (allocation-data allocation))))
                       (when stack
                         (add-stack tree father stack)))))
-                (sort < allocations key: third)))
+                (sort < allocations key: allocation-rank)))
     
     (with-cursor :wait
       (lambda ()
@@ -464,13 +534,15 @@
               (remove-every-row tree)
             (bind (all allocations) tracking
               (let ((allocations (map add-entry allocations)))
-                (let ((total-size (sum fourth allocations)))
+                (let ((total-size (sum allocation-size allocations)))
                   (remove-every-row tree)
                   (with-update-locked tree
                     (lambda ()
                       (case aggregate
                         ((location)
                          (aggregate-location tree #f all total-size allocations))
+                        ((thread)
+                         (aggregate-thread tree #f all total-size allocations))
                         ((class)
                          (aggregate-class tree #f all total-size allocations))
                         ((entry)

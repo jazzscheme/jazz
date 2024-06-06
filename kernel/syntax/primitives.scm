@@ -716,60 +716,70 @@
 
 
 (jazz:define-synto (%%s8vector . rest) (if jazz:debug-core? `(s8vector ,@rest) `(^#s8vector ,@rest)))
+(jazz:define-synto (%%subs8vector . rest) (if jazz:debug-core? `(subs8vector ,@rest) `(%%tracking (^#subs8vector ,@rest))))
 (jazz:define-synto (%%s8vector-length vec) (if jazz:debug-core? `(s8vector-length ,vec) `(^#s8vector-length ,vec)))
 (jazz:define-synto (%%s8vector-ref vec n) (if jazz:debug-core? `(s8vector-ref ,vec ,n) `(^#s8vector-ref ,vec ,n)))
 (jazz:define-synto (%%s8vector-set! vec n value) (if jazz:debug-core? `(s8vector-set! ,vec ,n ,value) `(^#s8vector-set! ,vec ,n ,value)))
 
 
 (jazz:define-synto (%%u8vector . rest) (if jazz:debug-core? `(u8vector ,@rest) `(^#u8vector ,@rest)))
+(jazz:define-synto (%%subu8vector . rest) (if jazz:debug-core? `(subu8vector ,@rest) `(%%tracking (^#subu8vector ,@rest))))
 (jazz:define-synto (%%u8vector-length vec) (if jazz:debug-core? `(u8vector-length ,vec) `(^#u8vector-length ,vec)))
 (jazz:define-synto (%%u8vector-ref vec n) (if jazz:debug-core? `(u8vector-ref ,vec ,n) `(^#u8vector-ref ,vec ,n)))
 (jazz:define-synto (%%u8vector-set! vec n value) (if jazz:debug-core? `(u8vector-set! ,vec ,n ,value) `(^#u8vector-set! ,vec ,n ,value)))
 
 
 (jazz:define-synto (%%s16vector . rest) (if jazz:debug-core? `(s16vector ,@rest) `(^#s16vector ,@rest)))
+(jazz:define-synto (%%subs16vector . rest) (if jazz:debug-core? `(subs16vector ,@rest) `(%%tracking (^#subs16vector ,@rest))))
 (jazz:define-synto (%%s16vector-length vec) (if jazz:debug-core? `(s16vector-length ,vec) `(^#s16vector-length ,vec)))
 (jazz:define-synto (%%s16vector-ref vec n) (if jazz:debug-core? `(s16vector-ref ,vec ,n) `(^#s16vector-ref ,vec ,n)))
 (jazz:define-synto (%%s16vector-set! vec n value) (if jazz:debug-core? `(s16vector-set! ,vec ,n ,value) `(^#s16vector-set! ,vec ,n ,value)))
 
 
 (jazz:define-synto (%%u16vector . rest) (if jazz:debug-core? `(u16vector ,@rest) `(^#u16vector ,@rest)))
+(jazz:define-synto (%%subu16vector . rest) (if jazz:debug-core? `(subu16vector ,@rest) `(%%tracking (^#subu16vector ,@rest))))
 (jazz:define-synto (%%u16vector-length vec) (if jazz:debug-core? `(u16vector-length ,vec) `(^#u16vector-length ,vec)))
 (jazz:define-synto (%%u16vector-ref vec n) (if jazz:debug-core? `(u16vector-ref ,vec ,n) `(^#u16vector-ref ,vec ,n)))
 (jazz:define-synto (%%u16vector-set! vec n value) (if jazz:debug-core? `(u16vector-set! ,vec ,n ,value) `(^#u16vector-set! ,vec ,n ,value)))
 
 
 (jazz:define-synto (%%s32vector . rest) (if jazz:debug-core? `(s32vector ,@rest) `(^#s32vector ,@rest)))
+(jazz:define-synto (%%subs32vector . rest) (if jazz:debug-core? `(subs32vector ,@rest) `(%%tracking (^#subs32vector ,@rest))))
 (jazz:define-synto (%%s32vector-length vec) (if jazz:debug-core? `(s32vector-length ,vec) `(^#s32vector-length ,vec)))
 (jazz:define-synto (%%s32vector-ref vec n) (if jazz:debug-core? `(s32vector-ref ,vec ,n) `(^#s32vector-ref ,vec ,n)))
 (jazz:define-synto (%%s32vector-set! vec n value) (if jazz:debug-core? `(s32vector-set! ,vec ,n ,value) `(^#s32vector-set! ,vec ,n ,value)))
 
 
 (jazz:define-synto (%%u32vector . rest) (if jazz:debug-core? `(u32vector ,@rest) `(^#u32vector ,@rest)))
+(jazz:define-synto (%%subu32vector . rest) (if jazz:debug-core? `(subu32vector ,@rest) `(%%tracking (^#subu32vector ,@rest))))
 (jazz:define-synto (%%u32vector-length vec) (if jazz:debug-core? `(u32vector-length ,vec) `(^#u32vector-length ,vec)))
 (jazz:define-synto (%%u32vector-ref vec n) (if jazz:debug-core? `(u32vector-ref ,vec ,n) `(^#u32vector-ref ,vec ,n)))
 (jazz:define-synto (%%u32vector-set! vec n value) (if jazz:debug-core? `(u32vector-set! ,vec ,n ,value) `(^#u32vector-set! ,vec ,n ,value)))
 
 
 (jazz:define-synto (%%s64vector . rest) (if jazz:debug-core? `(s64vector ,@rest) `(^#s64vector ,@rest)))
+(jazz:define-synto (%%subs64vector . rest) (if jazz:debug-core? `(subs64vector ,@rest) `(%%tracking (^#subs64vector ,@rest))))
 (jazz:define-synto (%%s64vector-length vec) (if jazz:debug-core? `(s64vector-length ,vec) `(^#s64vector-length ,vec)))
 (jazz:define-synto (%%s64vector-ref vec n) (if jazz:debug-core? `(s64vector-ref ,vec ,n) `(^#s64vector-ref ,vec ,n)))
 (jazz:define-synto (%%s64vector-set! vec n value) (if jazz:debug-core? `(s64vector-set! ,vec ,n ,value) `(^#s64vector-set! ,vec ,n ,value)))
 
 
 (jazz:define-synto (%%u64vector . rest) (if jazz:debug-core? `(u64vector ,@rest) `(^#u64vector ,@rest)))
+(jazz:define-synto (%%subu64vector . rest) (if jazz:debug-core? `(subu64vector ,@rest) `(%%tracking (^#subu64vector ,@rest))))
 (jazz:define-synto (%%u64vector-length vec) (if jazz:debug-core? `(u64vector-length ,vec) `(^#u64vector-length ,vec)))
 (jazz:define-synto (%%u64vector-ref vec n) (if jazz:debug-core? `(u64vector-ref ,vec ,n) `(^#u64vector-ref ,vec ,n)))
 (jazz:define-synto (%%u64vector-set! vec n value) (if jazz:debug-core? `(u64vector-set! ,vec ,n ,value) `(^#u64vector-set! ,vec ,n ,value)))
 
 
 (jazz:define-synto (%%f32vector . rest) (if jazz:debug-core? `(f32vector ,@rest) `(^#f32vector ,@rest)))
+(jazz:define-synto (%%subf32vector . rest) (if jazz:debug-core? `(subf32vector ,@rest) `(%%tracking (^#subf32vector ,@rest))))
 (jazz:define-synto (%%f32vector-length vec) (if jazz:debug-core? `(f32vector-length ,vec) `(^#f32vector-length ,vec)))
 (jazz:define-synto (%%f32vector-ref vec n) (if jazz:debug-core? `(f32vector-ref ,vec ,n) `(^#f32vector-ref ,vec ,n)))
 (jazz:define-synto (%%f32vector-set! vec n value) (if jazz:debug-core? `(f32vector-set! ,vec ,n ,value) `(^#f32vector-set! ,vec ,n ,value)))
 
 
 (jazz:define-synto (%%f64vector . rest) (if jazz:debug-core? `(f64vector ,@rest) `(^#f64vector ,@rest)))
+(jazz:define-synto (%%subf64vector . rest) (if jazz:debug-core? `(subf64vector ,@rest) `(%%tracking (^#subf64vector ,@rest))))
 (jazz:define-synto (%%f64vector-length vec) (if jazz:debug-core? `(f64vector-length ,vec) `(^#f64vector-length ,vec)))
 (jazz:define-synto (%%f64vector-ref vec n) (if jazz:debug-core? `(f64vector-ref ,vec ,n) `(^#f64vector-ref ,vec ,n)))
 (jazz:define-synto (%%f64vector-set! vec n value) (if jazz:debug-core? `(f64vector-set! ,vec ,n ,value) `(^#f64vector-set! ,vec ,n ,value)))

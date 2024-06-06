@@ -436,6 +436,17 @@
 (jazz:add-primitive-patterns     'gambit:make-will                                    '((safe %%make-will      <any*:any>)))
 (jazz:add-primitive-patterns     'gambit:make-parameter                               '((safe %%make-parameter <any*:any>)))
 
+(jazz:add-primitive-patterns     'gambit:subs8vector                                  '((safe %%subs8vector <any*:s8vector>)))
+(jazz:add-primitive-patterns     'gambit:subu8vector                                  '((safe %%subu8vector <any*:u8vector>)))
+(jazz:add-primitive-patterns     'gambit:subs16vector                                 '((safe %%subs16vector <any*:s16vector>)))
+(jazz:add-primitive-patterns     'gambit:subu16vector                                 '((safe %%subu16vector <any*:u16vector>)))
+(jazz:add-primitive-patterns     'gambit:subs32vector                                 '((safe %%subs32vector <any*:s32vector>)))
+(jazz:add-primitive-patterns     'gambit:subu32vector                                 '((safe %%subu32vector <any*:u32vector>)))
+(jazz:add-primitive-patterns     'gambit:subs64vector                                 '((safe %%subs64vector <any*:s64vector>)))
+(jazz:add-primitive-patterns     'gambit:subu64vector                                 '((safe %%subu64vector <any*:u64vector>)))
+(jazz:add-primitive-patterns     'gambit:subf32vector                                 '((safe %%subf32vector <any*:f32vector>)))
+(jazz:add-primitive-patterns     'gambit:subf64vector                                 '((safe %%subf64vector <any*:f64vector>)))
+
 (jazz:add-primitive-patterns     'jazz.dialect.kernel:flref                           '((safe %%flref <fv^fx:fl>)))
 (jazz:add-primitive-patterns     'jazz.dialect.kernel:flset!                          '((safe %%flset! <fv^fx^fv:void>)))
 

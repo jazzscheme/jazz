@@ -295,44 +295,16 @@
     (lambda ()
       #f)))
 
-
-(define jazz:register-allocations?
-  #f)
-
-
-(define jazz:allocations
-  (##make-table 0 #f #f #f ##eq?))
-
-(define jazz:allocations-rank
-  0)
+(define jazz:record-tracked-hook-set!
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##record-tracked-hook-set!)
+    (lambda (hook)
+      #f)))
 
 
-(define (jazz:register-allocations)
-  (set! jazz:register-allocations? #t)
-  (##track-allocations))
-
-(define (jazz:unregister-allocations)
-  (if (##not jazz:monitor-allocations?)
-      (##untrack-allocations))
-  (set! jazz:register-allocations? #f))
-
-
-(define (jazz:reset-allocations)
-  (set! jazz:allocations (##make-table 0 #f #f #f ##eq?))
-  (set! jazz:allocations-rank 0))
-
-
-(define (jazz:registered-allocations)
-  jazz:allocations)
-
-
-(define (jazz:ordered-allocations)
-  (jazz:sort-list < (table->list (jazz:registered-allocations)) key: cadr))
-
-
-(define (jazz:register-allocation obj allocation)
-  (##table-set! jazz:allocations obj (cons jazz:allocations-rank allocation))
-  (set! jazz:allocations-rank (##fx+ jazz:allocations-rank 1)))
+;;;
+;;;; Monitor
+;;;
 
 
 (define jazz:monitor-allocations?
@@ -414,33 +386,86 @@
     (jazz:allocations-rate-update size)))
 
 
+;;;
+;;;; Register
+;;;
+
+
+(define jazz:register-allocations?
+  #f)
+
+
+(define jazz:allocations
+  (##make-table 0 #f #f #f ##eq?))
+
+(define jazz:allocations-rank
+  0)
+
+
+(define (jazz:register-allocations)
+  (set! jazz:register-allocations? #t)
+  (##track-allocations))
+
+(define (jazz:unregister-allocations)
+  (if (##not jazz:monitor-allocations?)
+      (##untrack-allocations))
+  (set! jazz:register-allocations? #f))
+
+
+(define (jazz:reset-allocations)
+  (set! jazz:allocations (##make-table 0 #f #f #f ##eq?))
+  (set! jazz:allocations-rank 0))
+
+
+(define (jazz:registered-allocations)
+  jazz:allocations)
+
+
+(define (jazz:ordered-allocations)
+  (jazz:sort-list < (table->list (jazz:registered-allocations)) key: cadr))
+
+
+(define (jazz:register-allocation obj allocation)
+  (##table-set! jazz:allocations obj (cons jazz:allocations-rank allocation))
+  (set! jazz:allocations-rank (##fx+ jazz:allocations-rank 1)))
+
+
 (define (jazz:register-tracked)
+  (##continuation-capture
+    (lambda (cont)
+      (define (fix-file file)
+        ;; hack around a gambit bug fixed in latest
+        (let ((len (##string-length file)))
+          (if (and (##fx> len 0)
+                   (##eq? (##string-ref file (##fx- len 1)) #\"))
+              (##substring file 0 (##fx- len 1))
+            file)))
+      
+      (let ((thread (thread-name (##current-thread)))
+            (stack (jazz:track-continuation cont jazz:*track-depth*))
+            (count (##count-tracked)))
+        (let loop ((n 0))
+             (if (##fx< n count)
+                 (let ((obj (##get-tracked-object n))
+                       (file (##get-tracked-file n))
+                       (line (##get-tracked-line n)))
+                   (let ((size (jazz:memory-size obj)))
+                     (jazz:register-allocation obj (##list size thread (fix-file file) line stack))
+                     (loop (##fx+ n 1))))))))))
+
+
+;;;
+;;;; Tracked
+;;;
+
+
+(define (jazz:record-tracked)
   (if jazz:monitor-allocations?
       (jazz:monitor-tracked))
   (if jazz:register-allocations?
-    (##continuation-capture
-      (lambda (cont)
-        (define (fix-file file)
-          ;; hack around a gambit bug fixed in latest
-          (let ((len (##string-length file)))
-            (if (and (##fx> len 0)
-                     (##eq? (##string-ref file (##fx- len 1)) #\"))
-                (##substring file 0 (##fx- len 1))
-              file)))
-        
-        (let ((thread (thread-name (##current-thread)))
-              (stack (jazz:track-continuation cont jazz:*track-depth*))
-              (count (##count-tracked)))
-          (let loop ((n 0))
-               (if (##fx< n count)
-                   (let ((obj (##get-tracked-object n))
-                         (file (##get-tracked-file n))
-                         (line (##get-tracked-line n)))
-                     (let ((size (jazz:memory-size obj)))
-                       (jazz:register-allocation obj (##list size thread (fix-file file) line stack))
-                       (loop (##fx+ n 1)))))))))))
+      (jazz:register-tracked)))
 
-(##register-tracked-set! jazz:register-tracked)
+(jazz:record-tracked-hook-set! jazz:record-tracked)
 
 
 (jazz:define-macro (%%tracking expr)

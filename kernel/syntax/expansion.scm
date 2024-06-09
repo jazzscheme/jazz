@@ -235,6 +235,14 @@
   ##mem-allocated?)
 
 
+(define (jazz:memory-permanent? obj)
+  (and (##mem-allocated? obj)
+       (let ((k (bitwise-and
+                  (##u64vector-ref (##type-cast obj 1) -1)
+                  7)))
+         (##fx= k PERM))))
+
+
 (define (jazz:memory-allocated-kind obj)
   (let ((k (bitwise-and
              (##u64vector-ref (##type-cast obj 1) -1)
@@ -255,9 +263,9 @@
 
 
 (define (jazz:memory-size obj)
-  (cond ((pair? obj)
+  (cond ((##pair? obj)
          48)
-        ((symbol? obj)
+        ((##symbol? obj)
          40)
         ((##mem-allocated? obj)
          (jazz:memory-allocated-size obj))
@@ -358,12 +366,11 @@
 (define (jazz:monitor-allocations-start)
   (set! jazz:monitor-allocations? #t)
   (jazz:monitor-allocations-reset)
-  (##track-allocations))
+  (jazz:track-allocations))
 
 (define (jazz:monitor-allocations-stop)
-  (if (##not jazz:register-allocations?)
-      (##untrack-allocations))
-  (set! jazz:monitor-allocations? #f))
+  (set! jazz:monitor-allocations? #f)
+  (jazz:untrack-allocations))
 
 
 (define (jazz:monitor-allocations-rate)
@@ -404,12 +411,11 @@
 
 (define (jazz:register-allocations)
   (set! jazz:register-allocations? #t)
-  (##track-allocations))
+  (jazz:track-allocations))
 
 (define (jazz:unregister-allocations)
-  (if (##not jazz:monitor-allocations?)
-      (##untrack-allocations))
-  (set! jazz:register-allocations? #f))
+  (set! jazz:register-allocations? #f)
+  (jazz:untrack-allocations))
 
 
 (define (jazz:reset-allocations)
@@ -422,25 +428,17 @@
 
 
 (define (jazz:ordered-allocations)
-  (jazz:sort-list < (table->list (jazz:registered-allocations)) key: cadr))
+  (jazz:sort-list < (##table->list (jazz:registered-allocations)) key: (lambda (pair) (jazz:allocation-rank (##cdr pair)))))
 
 
 (define (jazz:register-allocation obj allocation)
-  (##table-set! jazz:allocations obj (cons jazz:allocations-rank allocation))
+  (##table-set! jazz:allocations obj allocation)
   (set! jazz:allocations-rank (##fx+ jazz:allocations-rank 1)))
 
 
 (define (jazz:register-tracked)
   (##continuation-capture
     (lambda (cont)
-      (define (fix-file file)
-        ;; hack around a gambit bug fixed in latest
-        (let ((len (##string-length file)))
-          (if (and (##fx> len 0)
-                   (##eq? (##string-ref file (##fx- len 1)) #\"))
-              (##substring file 0 (##fx- len 1))
-            file)))
-      
       (let ((thread (thread-name (##current-thread)))
             (stack (jazz:track-continuation cont jazz:*track-depth*))
             (count (##count-tracked)))
@@ -450,8 +448,53 @@
                        (file (##get-tracked-file n))
                        (line (##get-tracked-line n)))
                    (let ((size (jazz:memory-size obj)))
-                     (jazz:register-allocation obj (##list size thread (fix-file file) line stack))
+                     (jazz:register-allocation obj (##vector jazz:allocations-rank size thread (jazz:fix-tracked-file file) line stack))
                      (loop (##fx+ n 1))))))))))
+
+
+;;;
+;;;; Persist
+;;;
+
+
+(define jazz:persist-allocations?
+  #f)
+
+
+(define jazz:persisted-allocations
+  (##make-table 0 #f #t #f ##eq?))
+
+
+(define (jazz:persist-allocations)
+  (set! jazz:persist-allocations? #t)
+  (jazz:track-allocations))
+
+(define (jazz:unpersist-allocations)
+  (set! jazz:persist-allocations? #f)
+  (jazz:untrack-allocations))
+
+
+(define (jazz:persist-allocation obj allocation)
+  (##table-set! jazz:persisted-allocations obj allocation))
+
+
+(define (jazz:persisted-allocations-table)
+  jazz:persisted-allocations)
+
+
+(define (jazz:persist-tracked)
+  (let ((thread (thread-name (##current-thread)))
+        (stack #f)
+        (count (##count-tracked)))
+    (let loop ((n 0))
+         (if (##fx< n count)
+             (let ((obj (##get-tracked-object n)))
+               (if (##not (jazz:memory-permanent? obj))
+                   (let ((file (##get-tracked-file n))
+                         (line (##get-tracked-line n)))
+                     (let ((size (jazz:memory-size obj)))
+                       (jazz:persist-allocation obj (##vector jazz:allocations-rank size thread (jazz:fix-tracked-file file) line stack))
+                       (loop (##fx+ n 1))))))))))
 
 
 ;;;
@@ -463,9 +506,50 @@
   (if jazz:monitor-allocations?
       (jazz:monitor-tracked))
   (if jazz:register-allocations?
-      (jazz:register-tracked)))
+      (jazz:register-tracked))
+  (if jazz:persist-allocations?
+      (jazz:persist-tracked)))
 
 (jazz:record-tracked-hook-set! jazz:record-tracked)
+
+
+(define (jazz:track-allocations)
+  (##track-allocations))
+
+
+(define (jazz:untrack-allocations)
+  (if (and (##not jazz:monitor-allocations?)
+           (##not jazz:register-allocations?)
+           (##not jazz:persist-allocations?))
+      (##untrack-allocations)))
+
+
+(define (jazz:fix-tracked-file file)
+  ;; hack around a gambit bug fixed in latest
+  (let ((len (##string-length file)))
+    (if (and (##fx> len 0)
+             (##eq? (##string-ref file (##fx- len 1)) #\"))
+        (##substring file 0 (##fx- len 1))
+      file)))
+
+
+(define (jazz:allocation-rank allocation)
+  (##vector-ref allocation 0))
+
+(define (jazz:allocation-size allocation)
+  (##vector-ref allocation 1))
+
+(define (jazz:allocation-thread allocation)
+  (##vector-ref allocation 2))
+
+(define (jazz:allocation-file allocation)
+  (##vector-ref allocation 3))
+
+(define (jazz:allocation-line allocation)
+  (##vector-ref allocation 4))
+
+(define (jazz:allocation-stack allocation)
+  (##vector-ref allocation 5))
 
 
 (jazz:define-macro (%%tracking expr)

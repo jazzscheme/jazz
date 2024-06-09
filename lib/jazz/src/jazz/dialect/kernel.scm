@@ -1304,15 +1304,24 @@
 
 
 (native jazz:tracking-allocations?)
+(native jazz:monitor-allocations-reset)
+(native jazz:monitor-allocations-start)
+(native jazz:monitor-allocations-stop)
+(native jazz:monitor-allocations-rate)
 (native jazz:register-allocations)
 (native jazz:unregister-allocations)
 (native jazz:reset-allocations)
 (native jazz:registered-allocations)
 (native jazz:ordered-allocations)
-(native jazz:monitor-allocations-reset)
-(native jazz:monitor-allocations-start)
-(native jazz:monitor-allocations-stop)
-(native jazz:monitor-allocations-rate)
+(native jazz:persist-allocations)
+(native jazz:unpersist-allocations)
+(native jazz:persisted-allocations-table)
+(native jazz:allocation-rank)
+(native jazz:allocation-size)
+(native jazz:allocation-thread)
+(native jazz:allocation-file)
+(native jazz:allocation-line)
+(native jazz:allocation-stack)
 
 
 ;;;

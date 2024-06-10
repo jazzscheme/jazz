@@ -38,7 +38,98 @@
 (module jazz.tracker jazz
 
 
-(import (jazz.settings))
+(import (jazz.inspector)
+        (jazz.settings))
+
+
+;;;
+;;;; Memory
+;;;
+
+
+(definition public (tracker-memory memory aggregate order)
+  (define (package-frame frame)
+      (or (and frame
+               (bind (creator locat) frame
+                 (and creator
+                      (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
+                        (list name locat)))))
+          frame))
+    
+    (define (package-allocation allocation)
+      (bind (object . allocation) allocation
+        (list (package-info object)
+              (allocation-rank allocation)
+              (allocation-size allocation)
+              (allocation-thread allocation)
+              (allocation-file allocation)
+              (allocation-line allocation)
+              (let ((stack (allocation-stack allocation)))
+                (and stack (map package-frame stack))))))
+    
+    (case memory
+      ((transient)
+       (let ((tracking (get-tracking)))
+         (and tracking
+              (let ((allocations (extract-allocations tracking)))
+                (list (get-count tracking)
+                      (get-size tracking)
+                      (map package-allocation allocations))))))
+      ((stable)
+       (let ((persisted (begin (gc) (persisted-allocations-table))))
+         (let ((allocations (table->list persisted))
+               (maximum (find-setting 'world.track-maximum 1024)))
+           (define (alloc-size alloc)
+             (allocation-size (cdr alloc)))
+           
+           (define (alloc-class alloc)
+             (category-name (class-of (car alloc))))
+           
+           (define (collect-class)
+             (let ((partition (partition allocations key: alloc-class)))
+               (let ((partition (map (lambda (partition)
+                                       (bind (key . allocations) partition
+                                         (let ((count (length allocations))
+                                               (size (sum alloc-size allocations)))
+                                           (cons count (cons size allocations)))))
+                                     partition)))
+                 (let ((sorted (sort > partition key: cadr)))
+                   (let ((count (sum car sorted))
+                         (size (sum cadr sorted)))
+                     (list count
+                           size
+                           (map (lambda (partition)
+                                  (bind (count size . allocations) partition
+                                    (cons count (cons size (let ((len (length allocations))
+                                                                 (sorted (sort > allocations key: alloc-size)))
+                                                             (map package-allocation (if (< len 10) sorted (subseq sorted 0 10))))))))
+                                sorted)))))))
+           
+           (define (collect-aggregate predicate)
+             (let ((allocations (if predicate (collect-if (lambda (alloc) (predicate (car alloc))) allocations) allocations)))
+               (let ((sorted (sort > allocations key: alloc-size)))
+                 (let ((count (length sorted))
+                       (size (sum alloc-size sorted)))
+                   (list count
+                         size
+                         (map package-allocation
+                              (if (< count maximum)
+                                  sorted
+                                (subseq sorted 0 maximum))))))))
+           
+           (if (eq? aggregate 'class)
+               (collect-class)
+             (collect-aggregate
+               (case aggregate
+                 ((string) string?)
+                 ((vector) vector?)
+                 ((u8vector) u8vector?)
+                 ((f32vector) f32vector?)
+                 ((f64vector) f64vector?)
+                 ((table) (lambda (obj)
+                            (or (table? obj)
+                                (gc-hash-table? obj))))
+                 ((none) #f)))))))))
 
 
 ;;;
@@ -49,32 +140,33 @@
 (class Tracking extends Object
   
   
-  (slot all         accessors generate)
   (slot count       accessors generate)
+  (slot size        accessors generate)
   (slot allocations accessors generate)
   
   
   (method override (initialize self)
-    (set! self.all 0)
     (set! self.count 0)
+    (set! self.size 0)
     (set! self.allocations (new-queue)))
   
   
   (method package (reset self)
-    (set! all 0)
     (set! count 0)
+    (set! size 0)
     (set! allocations (new-queue)))
   
   
   (method package (add-allocations self)
     (let ((allocs (ordered-allocations))
-          (count 0)
+          (added 0)
           (maximum (find-setting 'world.track-maximum 1024)))
       (for-each (lambda (alloc)
-                  (when (< count maximum)
+                  (when (< added maximum)
                     (enqueue allocations alloc)
-                    (increase! count))
-                  (increase! all))
+                    (increase! added))
+                  (increase! count)
+                  (increase! size (allocation-size (cdr alloc))))
                 allocs)))
   
   

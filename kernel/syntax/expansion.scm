@@ -496,7 +496,7 @@
                    (let ((file (##get-tracked-file n))
                          (line (##get-tracked-line n)))
                      (let ((size (jazz:memory-size obj)))
-                       (let ((stack (and (>= size 2000)
+                       (let ((stack (and (>= size 500)
                                          (##continuation-capture
                                            (lambda (cont)
                                              (jazz:track-continuation cont jazz:*track-depth*))))))
@@ -595,7 +595,10 @@ end-of-code
     (let loop ((current-cont cont))
          (if current-cont
              (if (and (or (^#not filter) (filter current-cont))
-                      (^#not (^#eq? (continuation-creator current-cont) ##record-tracked)))
+                      (let ((creator (continuation-creator current-cont)))
+                        (and (^#not (^#eq? creator ##record-tracked))
+                             (^#not (^#eq? creator jazz:record-tracked))
+                             (^#not (^#eq? creator jazz:persist-tracked)))))
                  current-cont
                (loop (^#continuation-next current-cont)))
            #f)))

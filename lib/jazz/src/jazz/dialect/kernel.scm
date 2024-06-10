@@ -917,6 +917,7 @@
 (native jazz:memory-allocated-kind)
 (native jazz:memory-allocated-size)
 (native jazz:memory-size)
+(native jazz:gc-hash-table?)
 
 
 ;;;

@@ -274,6 +274,10 @@
          0)))
 
 
+(define jazz:gc-hash-table?
+  ##gc-hash-table?)
+
+
 ;;;
 ;;;; Tracking
 ;;;

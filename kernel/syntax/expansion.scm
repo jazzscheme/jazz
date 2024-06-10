@@ -488,7 +488,6 @@
 
 (define (jazz:persist-tracked)
   (let ((thread (thread-name (##current-thread)))
-        (stack #f)
         (count (##count-tracked)))
     (let loop ((n 0))
          (if (##fx< n count)
@@ -497,8 +496,12 @@
                    (let ((file (##get-tracked-file n))
                          (line (##get-tracked-line n)))
                      (let ((size (jazz:memory-size obj)))
-                       (jazz:persist-allocation obj (##vector jazz:allocations-rank size thread (jazz:fix-tracked-file file) line stack))
-                       (loop (##fx+ n 1))))))))))
+                       (let ((stack (and (>= size 2000)
+                                         (##continuation-capture
+                                           (lambda (cont)
+                                             (jazz:track-continuation cont jazz:*track-depth*))))))
+                         (jazz:persist-allocation obj (##vector jazz:allocations-rank size thread (jazz:fix-tracked-file file) line stack))
+                         (loop (##fx+ n 1)))))))))))
 
 
 ;;;

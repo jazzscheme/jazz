@@ -439,6 +439,24 @@
 
 
 ;;;
+;;;; Still
+;;;
+
+
+(define jazz:still8-minimum
+  2048)
+
+(define jazz:still16-minimum
+  1024)
+
+(define jazz:still32-minimum
+  512)
+
+(define jazz:still64-minimum
+  256)
+
+
+;;;
 ;;;; Classes
 ;;;
 

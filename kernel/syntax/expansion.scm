@@ -342,6 +342,10 @@
   #f)
 
 
+(define (jazz:monitoring-allocations?)
+  jazz:monitor-allocations?)
+
+
 (define (jazz:monitor-allocations-reset)
   (set! jazz:monitor-allocations-count 0)
   (set! jazz:monitor-allocations-size 0)

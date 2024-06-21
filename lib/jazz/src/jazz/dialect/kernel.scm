@@ -1308,6 +1308,7 @@
 
 
 (native jazz:tracking-allocations?)
+(native jazz:monitoring-allocations?)
 (native jazz:monitor-allocations-reset)
 (native jazz:monitor-allocations-start)
 (native jazz:monitor-allocations-stop)

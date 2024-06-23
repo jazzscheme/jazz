@@ -126,5 +126,5 @@
 
 
 (native jazz:table-iterate)
-(native jazz:iterate-table)
-(native jazz:search-table))
+(native jazz:table-iterate-safe)
+(native jazz:table-search-safe))

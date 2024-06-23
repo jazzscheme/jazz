@@ -397,13 +397,13 @@
 ;; safe versions of table-iterate and table-search
 
 
-(define (jazz:iterate-table table proc)
+(define (jazz:table-iterate-safe table proc)
   (for-each (lambda (pair)
               (proc (%%car pair) (%%cdr pair)))
             (%%table->list table)))
 
 
-(define (jazz:search-table table proc)
+(define (jazz:table-search-safe table proc)
   (declare (proper-tail-calls))
   (let loop ((scan (%%table->list table)))
     (if (%%null? scan)

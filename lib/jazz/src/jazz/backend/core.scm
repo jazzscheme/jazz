@@ -477,7 +477,7 @@
                               (jazz:list-size (%%get-class-instance-slots class))
                               (jazz:vector-vector-size (%%get-class-class-table class))
                               (jazz:vector-vector-size (%%get-class-interface-table class))))
-      (jazz:iterate-table (%%get-category-fields class)
+      (jazz:table-iterate-safe (%%get-category-fields class)
         (lambda (name field)
           (cond ((jazz:is? field jazz:Slot) (process-slot field))
                 ((jazz:is? field jazz:Method) (process-method field)))))
@@ -1174,7 +1174,7 @@
 (define (jazz:map-table proc table)
   (%%debug-assert (%%table? table)
     (let ((queue (jazz:new-queue)))
-      (jazz:iterate-table table
+      (jazz:table-iterate-safe table
         (lambda (key value)
           (jazz:enqueue queue (proc key value))))
       (jazz:queue-list queue))))

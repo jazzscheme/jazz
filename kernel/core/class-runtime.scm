@@ -272,7 +272,7 @@
                                     (let ((category-vtable (%%make-vector size jazz:call-into-incoherent))
                                           (class-name (%%get-category-identifier class))
                                           (category-identifier (%%get-category-identifier category)))
-                                      (jazz:iterate-table (%%get-category-fields category)
+                                      (jazz:table-iterate-safe (%%get-category-fields category)
                                         (lambda (field-name field)
                                           (%%when (%%is? field jazz:Method)
                                             (%%vector-set! category-vtable
@@ -307,7 +307,7 @@
 (define (jazz:update-class-class-table class)
   (let ((class-table (%%get-class-class-table class))
         (class-level (%%get-class-level class)))
-    (jazz:iterate-table (%%get-category-fields class)
+    (jazz:table-iterate-safe (%%get-category-fields class)
       (lambda (key field)
         (%%when (jazz:virtual-method? field)
           (if (%%not (%%get-method-category-rank field))
@@ -1020,7 +1020,7 @@
   (define (update-interface-root-methods interface)
     (let* ((interface-rank (%%get-interface-rank interface))
            (added-methods '()))
-      (jazz:iterate-table (%%get-category-fields interface)
+      (jazz:table-iterate-safe (%%get-category-fields interface)
         (lambda (key field)
           (%%when (and (jazz:virtual-method? field)
                        (%%not (%%get-method-category-rank field)))
@@ -2521,7 +2521,7 @@
     (let iter ((ancestor ascendant))
          (if ancestor
              (begin
-               (jazz:iterate-table (%%get-category-fields ancestor)
+               (jazz:table-iterate-safe (%%get-category-fields ancestor)
                  (lambda (name field)
                    (if (and (%%is? field jazz:Method)
                             (let ((dispatch-type (%%get-method-dispatch-type field)))

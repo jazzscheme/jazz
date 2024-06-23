@@ -1003,7 +1003,7 @@
   (let ((private (jazz:get-private-lookup module-declaration)))
     (for-each (lambda (module-invoice)
                 (let ((invoice-module (jazz:get-module-invoice-module module-invoice)))
-                  (jazz:iterate-table private
+                  (jazz:table-iterate-safe private
                     (lambda (name declaration)
                       (%%when (%%eq? (jazz:get-declaration-toplevel declaration) invoice-module)
                         (%%table-clear private name))))))
@@ -1178,7 +1178,7 @@
            (jazz:get-declaration-locator decl))))
   
   (define (merge/report-conflicts)
-    (jazz:iterate-table add
+    (jazz:table-iterate-safe add
       (lambda (key new)
         (let ((actual (%%table-ref table key #f)))
           (if (and jazz:hub-declaration-class
@@ -1259,8 +1259,8 @@
             (merge-sorted (compose-name module resolved-declaration) (%%table-ref partition module '()))))))
     
     ;; necessary to merge exports because of runtime access through module-ref
-    (jazz:iterate-table (jazz:get-module-declaration-walker-exports module-declaration) merge-declaration)
-    (jazz:iterate-table (jazz:get-module-declaration-walker-references module-declaration) merge-declaration)
+    (jazz:table-iterate-safe (jazz:get-module-declaration-walker-exports module-declaration) merge-declaration)
+    (jazz:table-iterate-safe (jazz:get-module-declaration-walker-references module-declaration) merge-declaration)
     (let iter ((in (%%table->list partition))
                (out '()))
          (if (%%null? in)
@@ -1707,7 +1707,7 @@
           (jazz:sort-list (lambda (x y) (%%string<? (%%symbol->string x) (%%symbol->string y))) (jazz:queue-list queue)))
       ',(let ((walker (jazz:get-module-declaration-walker declaration))
               (queue (jazz:new-queue)))
-          (jazz:iterate-table (jazz:get-public-lookup declaration)
+          (jazz:table-iterate-safe (jazz:get-public-lookup declaration)
             (lambda (name decl)
               (%%when (or (%%eq? (jazz:get-declaration-toplevel decl) declaration)
                           ;; quick hack
@@ -6344,7 +6344,7 @@
 
 
 (define (jazz:release-catalog-entries)
-  (jazz:iterate-table jazz:Catalog
+  (jazz:table-iterate-safe jazz:Catalog
     (lambda (unit-name entry)
       (if (%%pair? entry)
           (jazz:set-catalog-entry unit-name (%%cdr entry))))))
@@ -6669,7 +6669,7 @@
   (let ((module (or (jazz:find-module name) (jazz:new-module name access))))
     (let ((exports (%%get-module-exports module)))
       (for-each (lambda (module-name)
-                  (jazz:iterate-table (%%get-module-exports (jazz:require-module module-name))
+                  (jazz:table-iterate-safe (%%get-module-exports (jazz:require-module module-name))
                     (lambda (name info)
                       (%%table-set! exports name info))))
                 exported-modules)

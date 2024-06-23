@@ -405,7 +405,7 @@ end-of-code
                   products))))
   
   ; load the libraries found
-  (jazz:iterate-table libraries
+  (jazz:table-iterate-safe libraries
     (lambda (product-name library-filename)
       (let ((pathname (path-normalize library-filename)))
         (jazz:load-binary pathname #t)))))

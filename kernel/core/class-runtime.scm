@@ -272,7 +272,7 @@
                                     (let ((category-vtable (%%make-vector size jazz:call-into-incoherent))
                                           (class-name (%%get-category-identifier class))
                                           (category-identifier (%%get-category-identifier category)))
-                                      (jazz:table-iterate-safe (%%get-category-fields category)
+                                      (jazz:table-iterate (%%get-category-fields category)
                                         (lambda (field-name field)
                                           (%%when (%%is? field jazz:Method)
                                             (%%vector-set! category-vtable
@@ -1020,7 +1020,7 @@
   (define (update-interface-root-methods interface)
     (let* ((interface-rank (%%get-interface-rank interface))
            (added-methods '()))
-      (jazz:table-iterate-safe (%%get-category-fields interface)
+      (jazz:table-iterate (%%get-category-fields interface)
         (lambda (key field)
           (%%when (and (jazz:virtual-method? field)
                        (%%not (%%get-method-category-rank field)))

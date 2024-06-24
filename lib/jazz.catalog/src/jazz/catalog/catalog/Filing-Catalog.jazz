@@ -120,12 +120,6 @@
     (table-ref content-index name '()))
   
   
-  (method public (for-each-file-entry self proc)
-    (iterate-content self
-      (lambda (name file-entries)
-        (for-each proc file-entries))))
-  
-  
   (method override (get-file-entry self file)
     (with-mutex self
       (lambda ()
@@ -141,7 +135,7 @@
   (method public (get-statistics self)
     (define (count-file-entries content-index)
       (let ((count 0))
-        (table-iterate-safe content-index
+        (table-iterate content-index
           (lambda (name file-entries)
             (increase! count (length file-entries))))
         count))
@@ -221,7 +215,7 @@
   
   (method public (save self)
     (define (save-content)
-      (let* ((all (table-keys/values content-index))
+      (let* ((all (table->list content-index))
              (sorted (sort string<? all key: car)))
         (create-directories file)
         (call-with-output-file (path-settings file)
@@ -391,7 +385,7 @@
   
   
   (method package (reset self)
-    (table-iterate-safe content-index
+    (table-iterate content-index
       (lambda (name definitions)
         (for-each (lambda (file-definition)
                     (set-marked? file-definition #f))
@@ -488,7 +482,7 @@
   
   (method (update-completions-index self)
     (define (process-table table)
-      (table-iterate-safe table
+      (table-iterate table
         (lambda (name value)
           (when (>= (string-length name) 2)
             (let ((key (substring name 0 2)))

@@ -1243,7 +1243,6 @@
 
 (native jazz:table-iterate)
 (native jazz:table-iterate-safe)
-(native jazz:table-search-safe)
 (native jazz:table-clear)
 (native jazz:map-table)
 (native jazz:table-entries)

@@ -6344,7 +6344,7 @@
 
 
 (define (jazz:release-catalog-entries)
-  (jazz:table-iterate-safe jazz:Catalog
+  (jazz:table-iterate jazz:Catalog
     (lambda (unit-name entry)
       (if (%%pair? entry)
           (jazz:set-catalog-entry unit-name (%%cdr entry))))))

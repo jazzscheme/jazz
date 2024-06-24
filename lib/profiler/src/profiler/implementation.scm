@@ -216,7 +216,7 @@
 
 (define (get-profile-names)
   (let ((names '()))
-    (jazz:table-iterate-safe *profiles*
+    (jazz:table-iterate *profiles*
       (lambda (name profile)
         (set! names (%%cons name names))))
     names))

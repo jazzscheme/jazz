@@ -1595,9 +1595,6 @@
 (jazz:define-synto (%%table-clear table key)
   `(table-set! ,table ,key))
 
-(jazz:define-synto (%%table-keys table)
-  `(map car (table->list ,table)))
-
 (jazz:define-synto (%%table-length table)
   `(table-length ,table))
 
@@ -1615,9 +1612,6 @@
 
 (jazz:define-synto (%%table->list table)
   `(table->list ,table))
-
-(jazz:define-synto (%%table-entries table)
-  `(map cdr (table->list ,table)))
 
 (jazz:define-synto (%%copy-table table)
   `(table-copy ,table))

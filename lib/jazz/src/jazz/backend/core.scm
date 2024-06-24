@@ -1166,11 +1166,6 @@
     (%%table-clear table key)))
 
 
-(define (jazz:table-keys table)
-  (%%debug-assert (%%table? table)
-    (%%table-keys table)))
-
-
 (define (jazz:map-table proc table)
   (%%debug-assert (%%table? table)
     (let ((queue (jazz:new-queue)))
@@ -1187,11 +1182,6 @@
 (define (jazz:table->list table)
   (%%debug-assert (%%table? table)
     (%%table->list table)))
-
-
-(define (jazz:table-entries table)
-  (%%debug-assert (%%table? table)
-    (%%table-entries table)))
 
 
 ;;;

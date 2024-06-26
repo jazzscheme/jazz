@@ -204,6 +204,14 @@
   (macro-continuation-denv cont))
 
 
+(define (jazz:continuation-needs-winding? cont)
+  (let ((src (macro-denv-dynwind (macro-thread-denv (macro-current-thread))))
+        (dst (macro-denv-dynwind (macro-continuation-denv cont))))
+    (##not (or (##eq? src dst)
+               (and (##fx= (macro-dynwind-level src) 0)
+                    (##fx= (macro-dynwind-level dst) 0))))))
+
+
 ;;;
 ;;;; Fifo
 ;;;

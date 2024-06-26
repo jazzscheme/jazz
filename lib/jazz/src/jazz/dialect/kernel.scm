@@ -212,6 +212,7 @@
 
 
 (native jazz:continuation-graft-no-winding)
+(native jazz:continuation-needs-winding?)
 (native jazz:continuation-parent)
 (native jazz:continuation-creator)
 (native jazz:continuation-locat)

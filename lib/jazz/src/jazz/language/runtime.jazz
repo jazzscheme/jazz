@@ -9377,13 +9377,15 @@
   (slot name    getter generate)
   (slot message getter generate)
   (slot handler getter generate)
+  (slot mutexes getter generate)
   
   
-  (method override (initialize self name message handler)
+  (method override (initialize self name message handler mutexes)
     (nextmethod self)
     (set! self.name name)
     (set! self.message message)
-    (set! self.handler handler))
+    (set! self.handler handler)
+    (set! self.mutexes mutexes))
   
   
   (method override (print self output readably)
@@ -9397,21 +9399,25 @@
   (make-parameter '()))
 
 
-(definition public (with-restart-handler name message handler thunk)
-  (parameterize ((current-restarts (cons (new Restart name message handler) (current-restarts))))
-    (thunk)))
-
-
 (definition public (with-restart-catcher name message thunk (restart-result #f))
   (continuation-capture
     (lambda (catcher-cont)
-      (with-restart-handler name message
-        (lambda rest
-          (continuation-return catcher-cont
-            (if (not-null? rest)
-                (car rest)
-              restart-result)))
-        thunk))))
+      (let ((thread (current-thread)))
+        (let ((mutexes (thread-mutexes thread)))
+          (define (handler . rest)
+            (continuation-graft catcher-cont
+              (lambda ()
+                (for-each (lambda (mutex)
+                            (unless (memq? mutex mutexes)
+                              (mutex-unlock! mutex)))
+                          (thread-mutexes thread))
+                (if (not-null? rest)
+                    (car rest)
+                  restart-result))))
+          
+          (let ((restart (new Restart name message handler mutexes)))
+            (parameterize ((current-restarts (cons restart (current-restarts))))
+              (thunk))))))))
 
 
 (definition public (find-restart name)

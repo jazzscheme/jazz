@@ -401,21 +401,24 @@
       (bind (entry info rank size thread file line) allocation
         (list entry (- line 1) value minimum maximum info)))
     
+    (define (count-partition partition)
+      (map (lambda (partition)
+             (bind (key . allocations) partition
+               (let ((count 0)
+                     (size 0))
+                 (for-each (lambda (allocation)
+                             (increase! count)
+                             (increase! size (allocation-size allocation)))
+                           allocations)
+                 (cons count (cons size allocations)))))
+           partition))
+    
     (define (partition-location allocations)
       (let ((partition (partition allocations key: (lambda (allocation)
                                                      (bind (entry info rank size thread file line stack) allocation
                                                        (cons file (cons line stack))))
                          test: equal?)))
-        (let ((partition (map (lambda (partition)
-                                (bind (key . allocations) partition
-                                  (let ((count 0)
-                                        (size 0))
-                                    (for-each (lambda (allocation)
-                                                (increase! count)
-                                                (increase! size (allocation-size allocation)))
-                                              allocations)
-                                    (cons count (cons size allocations)))))
-                              partition)))
+        (let ((partition (count-partition partition)))
           (sort > partition key: order-key))))
     
     (define (aggregate-location tree father all-count all-size total-count total-size partition)
@@ -440,16 +443,7 @@
     
     (define (aggregate-thread tree father all-count all-size total-count total-size allocations)
       (let ((partition (partition allocations key: allocation-thread)))
-        (let ((partition (map (lambda (partition)
-                                (bind (key . allocations) partition
-                                  (let ((count 0)
-                                        (size 0))
-                                    (for-each (lambda (allocation)
-                                                (increase! count)
-                                                (increase! size (allocation-size allocation)))
-                                              allocations)
-                                    (cons count (cons size allocations)))))
-                              partition)))
+        (let ((partition (count-partition partition)))
           (update-header all-count all-size total-count total-size)
           (for-each (lambda (partition)
                       (bind (count size . allocations) partition
@@ -469,16 +463,7 @@
     
     (define (aggregate-class tree father all-count all-size total-count total-size allocations)
       (let ((partition (partition allocations key: present-class test: equal?)))
-        (let ((partition (map (lambda (partition)
-                                (bind (key . allocations) partition
-                                  (let ((count 0)
-                                        (size 0))
-                                    (for-each (lambda (allocation)
-                                                (increase! count)
-                                                (increase! size (allocation-size allocation)))
-                                              allocations)
-                                    (cons count (cons size allocations)))))
-                              partition)))
+        (let ((partition (count-partition partition)))
           (update-header all-count all-size total-count total-size)
           (for-each (lambda (partition)
                       (bind (count size . allocations) partition
@@ -497,18 +482,17 @@
                     (sort > partition key: order-key)))))
     
     (define (aggregate-entry tree father all-count all-size total-count total-size allocations)
-      (let ((entry-set (sort-allocations (partition allocations key: car))))
+      (let ((entry-set (count-partition (partition allocations key: car))))
         (update-header all-count all-size total-count total-size)
         (for-each (lambda (info)
-                    (bind (entry allocations cardinality) info
+                    (bind (cardinality size . allocations) info
                       (let ((line-set (sort-allocations (partition allocations key: allocation-line))))
                         (let ((line-samples (map (lambda (info) (car (second info))) line-set))
                               (line-cardinalities (map third line-set)))
                           (let ((sample (car line-samples))
                                 (type-samples (partition line-samples key: cadadr))
                                 (minimum (minimum line-cardinalities))
-                                (maximum (maximum line-cardinalities))
-                                (size (sum allocation-size allocations)))
+                                (maximum (maximum line-cardinalities)))
                             (let ((father
                                     (add-row tree
                                              father: father
@@ -541,7 +525,7 @@
                                                                   (add-stack tree father stack))))))
                                                         stack-set))))
                                         line-set)))))))
-                  entry-set)))
+                  (sort > entry-set key: order-key))))
     
     (define (aggregate-none tree father all-count all-size total-count total-size allocations)
       (update-header all-count all-size total-count total-size)

@@ -616,18 +616,6 @@
 
 
 ;;;
-;;;; Infinity
-;;;
-
-
-(define jazz:+infinity
-  +inf.0)
-
-(define jazz:-infinity
-  -inf.0)
-
-
-;;;
 ;;;; Random
 ;;;
 

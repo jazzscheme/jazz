@@ -469,8 +469,6 @@
 (native jazz:fixnum->flonum <fx:fl>)
 (native jazz:flonum->fixnum <fl:fx>)
 (native jazz:->flonum <:fl>)
-(native jazz:+infinity)
-(native jazz:-infinity)
 
 
 ;;;

@@ -249,6 +249,57 @@
 
 
 ;;;
+;;;; Pool
+;;;
+
+
+(macro public (define-pool name allocate type)
+  (let ((pool (string->symbol (format "{a}-pool" name)))
+        (mutex (string->symbol (format "{a}-mutex" name)))
+        (allocated (string->symbol (format "{a}-allocated" name)))
+        (available (string->symbol (format "{a}-available" name)))
+        (info (string->symbol (format "{a}-info" name)))
+        (need (string->symbol (format "need-{a}" name)))
+        (return (string->symbol (format "return-{a}" name))))
+  `(begin
+     (definition protected ,pool <vector>
+       (make-vector 0))
+     (definition protected ,mutex
+       (make-mutex ',name))
+     (definition protected ,allocated <fx>
+       0)
+     (definition protected ,available <fx>
+       0)
+     
+     (definition protected (,info)
+       (let ((live (- ,allocated ,available)))
+         (values live ,available)))
+
+     (definition public (,need) ,type
+       (mutex-lock! ,mutex)
+       (prog1 (if (= ,available 0)
+                  (begin
+                    (increase! ,allocated)
+                    (,allocate))
+                (decrease! ,available)
+                (let ((,name (vector-ref ,pool ,available)))
+                  (vector-set! ,pool ,available #f)
+                  ,name))
+         (mutex-unlock! ,mutex)))
+     
+     (definition public (,return ,name)
+       (mutex-lock! ,mutex)
+       (when (>= ,available (vector-length ,pool))
+         (let ((new-size (if (= ,available 0) 8 (fxround (* ,available GOLDEN-RATIO)))))
+           (let ((new-pool (make-vector new-size #f)))
+             (subvector-move! ,pool 0 ,available new-pool 0)
+             (set! ,pool new-pool))))
+       (vector-set! ,pool ,available ,name)
+       (increase! ,available)
+       (mutex-unlock! ,mutex)))))
+
+
+;;;
 ;;;; Tie
 ;;;
 

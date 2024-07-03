@@ -1310,6 +1310,8 @@
 (native jazz:monitor-allocations-reset)
 (native jazz:monitor-allocations-start)
 (native jazz:monitor-allocations-stop)
+(native jazz:monitor-stack-rate)
+(native jazz:monitor-heap-rate)
 (native jazz:monitor-allocations-rate)
 (native jazz:register-allocations)
 (native jazz:unregister-allocations)

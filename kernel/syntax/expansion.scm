@@ -329,6 +329,30 @@
 (define jazz:monitor-allocations-size
   0)
 
+(define jazz:stack-rate-start
+  #f)
+
+(define jazz:stack-rate-total
+  #f)
+
+(define jazz:stack-rate-rate
+  #f)
+
+(define jazz:stack-rate-average
+  #f)
+
+(define jazz:heap-rate-start
+  #f)
+
+(define jazz:heap-rate-total
+  #f)
+
+(define jazz:heap-rate-rate
+  #f)
+
+(define jazz:heap-rate-average
+  #f)
+
 (define jazz:allocations-rate-start
   #f)
 
@@ -349,13 +373,52 @@
 (define (jazz:monitor-allocations-reset)
   (set! jazz:monitor-allocations-count 0)
   (set! jazz:monitor-allocations-size 0)
+  (set! jazz:stack-rate-start #f)
+  (set! jazz:stack-rate-total #f)
+  (set! jazz:stack-rate-rate 0.)
+  (set! jazz:stack-rate-average -1.)
+  (set! jazz:heap-rate-start #f)
+  (set! jazz:heap-rate-total #f)
+  (set! jazz:heap-rate-rate 0.)
+  (set! jazz:heap-rate-average -1.)
   (set! jazz:allocations-rate-start #f)
   (set! jazz:allocations-rate-total #f)
   (set! jazz:allocations-rate-rate 0.)
   (set! jazz:allocations-rate-average -1.))
 
 
+(define (jazz:stack-rate-update size)
+  (declare (not interrupts-enabled))
+  (let ((now (jazz:current-monotonic)))
+    (cond ((##not jazz:stack-rate-start)
+           (set! jazz:stack-rate-start now)
+           (set! jazz:stack-rate-total 0))
+          (else
+           (set! jazz:stack-rate-total (##fx+ jazz:stack-rate-total size))
+           (let ((elapsed (##fl- now jazz:stack-rate-start)))
+             (set! jazz:stack-rate-rate (##fl/ (##fixnum->flonum jazz:stack-rate-total) elapsed))
+             (set! jazz:stack-rate-average (if (##fl= jazz:stack-rate-average -1.) jazz:stack-rate-rate (##fl/ (##fl+ (##fl* 3. jazz:stack-rate-average) jazz:stack-rate-rate) 4.)))
+             (set! jazz:stack-rate-start now)
+             (set! jazz:stack-rate-total 0))))))
+
+
+(define (jazz:heap-rate-update size)
+  (declare (not interrupts-enabled))
+  (let ((now (jazz:current-monotonic)))
+    (cond ((##not jazz:heap-rate-start)
+           (set! jazz:heap-rate-start now)
+           (set! jazz:heap-rate-total 0))
+          (else
+           (set! jazz:heap-rate-total (##fx+ jazz:heap-rate-total size))
+           (let ((elapsed (##fl- now jazz:heap-rate-start)))
+             (set! jazz:heap-rate-rate (##fl/ (##fixnum->flonum jazz:heap-rate-total) elapsed))
+             (set! jazz:heap-rate-average (if (##fl= jazz:heap-rate-average -1.) jazz:heap-rate-rate (##fl/ (##fl+ (##fl* 3. jazz:heap-rate-average) jazz:heap-rate-rate) 4.)))
+             (set! jazz:heap-rate-start now)
+             (set! jazz:heap-rate-total 0))))))
+
+
 (define (jazz:allocations-rate-update size)
+  (declare (not interrupts-enabled))
   (let ((now (jazz:current-monotonic)))
     (if (##not jazz:allocations-rate-start)
         (begin
@@ -372,6 +435,8 @@
 
 
 (define (jazz:monitor-allocations-start)
+  ;; reset tracked stack and heap
+  (##reset-tracked)
   (set! jazz:monitor-allocations? #t)
   (jazz:monitor-allocations-reset)
   (jazz:track-allocations))
@@ -381,6 +446,16 @@
   (jazz:untrack-allocations))
 
 
+(define (jazz:monitor-stack-rate)
+  (if (##fl= jazz:stack-rate-average -1.)
+      #f
+    jazz:stack-rate-average))
+
+(define (jazz:monitor-heap-rate)
+  (if (##fl= jazz:heap-rate-average -1.)
+      #f
+    jazz:heap-rate-average))
+
 (define (jazz:monitor-allocations-rate)
   (if (##fl= jazz:allocations-rate-average -1.)
       #f
@@ -388,6 +463,13 @@
 
 
 (define (jazz:monitor-tracked)
+  (declare (not interrupts-enabled))
+  (let ((stack (##stack-tracked)))
+    (if (##fx> stack 0)
+        (jazz:stack-rate-update (* stack 1048600))))
+  (let ((heap (##heap-tracked)))
+    (if (##fx> heap 0)
+        (jazz:heap-rate-update (* heap 1048600))))
   (let ((count (##count-tracked))
         (size 0))
     (let loop ((n 0))
@@ -445,6 +527,7 @@
 
 
 (define (jazz:register-tracked)
+  (declare (not interrupts-enabled))
   (##continuation-capture
     (lambda (cont)
       (let ((thread (thread-name (##current-thread)))
@@ -491,6 +574,7 @@
 
 
 (define (jazz:persist-tracked)
+  (declare (not interrupts-enabled))
   (let ((thread (thread-name (##current-thread)))
         (count (##count-tracked)))
     (let loop ((n 0))

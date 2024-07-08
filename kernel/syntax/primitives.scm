@@ -38,6 +38,9 @@
 (block kernel.primitives
 
 
+(declare (not safe))
+
+
 ;;;
 ;;;; Boolean
 ;;;

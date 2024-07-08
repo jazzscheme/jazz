@@ -38,6 +38,9 @@
 (block kernel.expansion
 
 
+(declare (not safe))
+
+
 (define (jazz:generate-symbol #!optional (prefix "sym"))
   (let ((for (jazz:generate-symbol-for)))
     (let ((name (string-append prefix (or for "^"))))

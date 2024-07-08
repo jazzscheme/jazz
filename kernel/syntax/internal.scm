@@ -38,6 +38,9 @@
 (block kernel.internal
 
 
+(declare (not safe))
+
+
 ;;;
 ;;;; Closure
 ;;;

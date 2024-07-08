@@ -38,6 +38,9 @@
 (include "~~lib/_gambit#.scm")
 
 
+(declare (not safe))
+
+
 ;;;
 ;;;; Macro
 ;;;

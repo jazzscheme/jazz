@@ -59,7 +59,7 @@
              (let ((module-descr (%%vector-ref module-descrs i)))
                (let ((name (%%symbol->string (%%vector-ref module-descr 0))))
                  (if (jazz:string-starts-with? name jazz:bin-uniqueness-prefix)
-                     (##vector-set! module-descr 0 (%%string->symbol (%%string-append jazz:lib-uniqueness-prefix (%%substring name (%%string-length jazz:bin-uniqueness-prefix) (%%string-length name)))))))
+                     (%%vector-set! module-descr 0 (%%string->symbol (%%string-append jazz:lib-uniqueness-prefix (%%substring name (%%string-length jazz:bin-uniqueness-prefix) (%%string-length name)))))))
                (loop (%%fx- i 1))))))
   
   (let ((quiet? (if (%%null? rest) #f (%%car rest))))

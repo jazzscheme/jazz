@@ -318,6 +318,96 @@
 
 
 ;;;
+;;;; Moving
+;;;
+
+
+(define (jazz:make-moving)
+  (let ((moving (##make-f64vector 4)))
+    (jazz:reset-moving moving)
+    moving))
+
+(define-macro (jazz:moving-start moving)
+  `(##f64vector-ref ,moving 0))
+
+(define-macro (jazz:moving-total moving)
+  `(##f64vector-ref ,moving 1))
+
+(define-macro (jazz:moving-rate moving)
+  `(##f64vector-ref ,moving 2))
+
+(define-macro (jazz:moving-average moving)
+  `(##f64vector-ref ,moving 3))
+
+(define-macro (jazz:moving-start-set! moving val)
+  `(##f64vector-set! ,moving 0 ,val))
+
+(define-macro (jazz:moving-total-set! moving val)
+  `(##f64vector-set! ,moving 1 ,val))
+
+(define-macro (jazz:moving-rate-set! moving val)
+  `(##f64vector-set! ,moving 2 ,val))
+
+(define-macro (jazz:moving-average-set! moving val)
+  `(##f64vector-set! ,moving 3 ,val))
+
+
+;; MSECTION / MSECTION - FUDGE * 2
+(define jazz:fudge-price
+  1.142897)
+
+
+(define jazz:monotonic-time
+  (##make-f64vector 1))
+
+(define-macro (jazz:monotonic-get!)
+  `(##get-current-monotonic-time! jazz:monotonic-time 0))
+
+(define-macro (jazz:monotonic-ref)
+  `(##f64vector-ref jazz:monotonic-time 0))
+
+
+(define jazz:moving-elapsed
+  (##make-f64vector 1))
+
+(define-macro (jazz:elapsed-ref)
+  `(##f64vector-ref jazz:moving-elapsed 0))
+
+(define-macro (jazz:elapsed-set! val)
+  `(##f64vector-set! jazz:moving-elapsed 0 ,val))
+
+
+;; <<<<<<<<<<<<<<<<<<
+;; the code from here
+
+
+(define (jazz:update-moving moving size)
+  (declare (not interrupts-enabled))
+  (jazz:monotonic-get!)
+  (if (##fl= (jazz:moving-start moving) -1.)
+      (begin
+        (jazz:moving-start-set! moving (jazz:monotonic-ref))
+        (jazz:moving-total-set! moving 0.)))
+  (jazz:moving-total-set! moving (##fl+ (jazz:moving-total moving) (##fl* (##fixnum->flonum size) jazz:fudge-price)))
+  (jazz:elapsed-set! (##fl- (jazz:monotonic-ref) (jazz:moving-start moving)))
+  (if (##fl>= (jazz:elapsed-ref) .1)
+      (begin
+        (jazz:moving-rate-set! moving (##fl/ (jazz:moving-total moving) (jazz:elapsed-ref)))
+        (if (##fl= (jazz:moving-average moving) -1.)
+            (jazz:moving-average-set! moving (jazz:moving-rate moving))
+          (jazz:moving-average-set! moving (##fl/ (##fl+ (##fl* 15. (jazz:moving-average moving)) (jazz:moving-rate moving)) 16.)))
+        (jazz:moving-start-set! moving (jazz:monotonic-ref))
+        (jazz:moving-total-set! moving 0.))))
+
+
+(define (jazz:reset-moving moving)
+  (jazz:moving-start-set! moving -1.)
+  (jazz:moving-total-set! moving -1.)
+  (jazz:moving-rate-set! moving 0.)
+  (jazz:moving-average-set! moving -1.))
+
+
+;;;
 ;;;; Monitor
 ;;;
 
@@ -332,41 +422,15 @@
 (define jazz:monitor-allocations-size
   0)
 
-(define jazz:stack-rate-start
-  #f)
 
-(define jazz:stack-rate-total
-  #f)
+(define jazz:save-moving
+  (jazz:make-moving))
 
-(define jazz:stack-rate-rate
-  #f)
+(define jazz:capture-moving
+  (jazz:make-moving))
 
-(define jazz:stack-rate-average
-  #f)
-
-(define jazz:heap-rate-start
-  #f)
-
-(define jazz:heap-rate-total
-  #f)
-
-(define jazz:heap-rate-rate
-  #f)
-
-(define jazz:heap-rate-average
-  #f)
-
-(define jazz:allocations-rate-start
-  #f)
-
-(define jazz:allocations-rate-total
-  #f)
-
-(define jazz:allocations-rate-rate
-  #f)
-
-(define jazz:allocations-rate-average
-  #f)
+(define jazz:allocation-moving
+  (jazz:make-moving))
 
 
 (define (jazz:monitoring-allocations?)
@@ -376,70 +440,24 @@
 (define (jazz:monitor-allocations-reset)
   (set! jazz:monitor-allocations-count 0)
   (set! jazz:monitor-allocations-size 0)
-  (set! jazz:stack-rate-start #f)
-  (set! jazz:stack-rate-total #f)
-  (set! jazz:stack-rate-rate 0.)
-  (set! jazz:stack-rate-average -1.)
-  (set! jazz:heap-rate-start #f)
-  (set! jazz:heap-rate-total #f)
-  (set! jazz:heap-rate-rate 0.)
-  (set! jazz:heap-rate-average -1.)
-  (set! jazz:allocations-rate-start #f)
-  (set! jazz:allocations-rate-total #f)
-  (set! jazz:allocations-rate-rate 0.)
-  (set! jazz:allocations-rate-average -1.))
+  (jazz:reset-moving jazz:save-moving)
+  (jazz:reset-moving jazz:capture-moving)
+  (jazz:reset-moving jazz:allocation-moving))
 
 
-(define (jazz:stack-rate-update size)
-  (declare (not interrupts-enabled))
-  (let ((now (jazz:current-monotonic)))
-    (cond ((##not jazz:stack-rate-start)
-           (set! jazz:stack-rate-start now)
-           (set! jazz:stack-rate-total 0))
-          (else
-           (set! jazz:stack-rate-total (##fx+ jazz:stack-rate-total size))
-           (let ((elapsed (##fl- now jazz:stack-rate-start)))
-             (set! jazz:stack-rate-rate (##fl/ (##fixnum->flonum jazz:stack-rate-total) elapsed))
-             (set! jazz:stack-rate-average (if (##fl= jazz:stack-rate-average -1.) jazz:stack-rate-rate (##fl/ (##fl+ (##fl* 3. jazz:stack-rate-average) jazz:stack-rate-rate) 4.)))
-             (set! jazz:stack-rate-start now)
-             (set! jazz:stack-rate-total 0))))))
+(define (jazz:save-rate-update size)
+  (jazz:update-moving jazz:save-moving size))
 
 
-(define (jazz:heap-rate-update size)
-  (declare (not interrupts-enabled))
-  (let ((now (jazz:current-monotonic)))
-    (cond ((##not jazz:heap-rate-start)
-           (set! jazz:heap-rate-start now)
-           (set! jazz:heap-rate-total 0))
-          (else
-           (set! jazz:heap-rate-total (##fx+ jazz:heap-rate-total size))
-           (let ((elapsed (##fl- now jazz:heap-rate-start)))
-             (set! jazz:heap-rate-rate (##fl/ (##fixnum->flonum jazz:heap-rate-total) elapsed))
-             (set! jazz:heap-rate-average (if (##fl= jazz:heap-rate-average -1.) jazz:heap-rate-rate (##fl/ (##fl+ (##fl* 3. jazz:heap-rate-average) jazz:heap-rate-rate) 4.)))
-             (set! jazz:heap-rate-start now)
-             (set! jazz:heap-rate-total 0))))))
+(define (jazz:capture-rate-update size)
+  (jazz:update-moving jazz:capture-moving size))
 
 
-(define (jazz:allocations-rate-update size)
-  (declare (not interrupts-enabled))
-  (let ((now (jazz:current-monotonic)))
-    (if (##not jazz:allocations-rate-start)
-        (begin
-          (set! jazz:allocations-rate-start now)
-          (set! jazz:allocations-rate-total 0)))
-    (set! jazz:allocations-rate-total (##fx+ jazz:allocations-rate-total size))
-    (let ((elapsed (##fl- now jazz:allocations-rate-start)))
-      (if (##fl>= elapsed .1)
-          (begin
-            (set! jazz:allocations-rate-rate (##fl/ (##fixnum->flonum jazz:allocations-rate-total) elapsed))
-            (set! jazz:allocations-rate-average (if (##fl= jazz:allocations-rate-average -1.) jazz:allocations-rate-rate (##fl/ (##fl+ (##fl* 7. jazz:allocations-rate-average) jazz:allocations-rate-rate) 8.)))
-            (set! jazz:allocations-rate-start now)
-            (set! jazz:allocations-rate-total 0))))))
+(define (jazz:allocation-rate-update size)
+  (jazz:update-moving jazz:allocation-moving size))
 
 
 (define (jazz:monitor-allocations-start)
-  ;; reset tracked stack and heap
-  (##reset-tracked)
   (set! jazz:monitor-allocations? #t)
   (jazz:monitor-allocations-reset)
   (jazz:track-allocations))
@@ -449,41 +467,45 @@
   (jazz:untrack-allocations))
 
 
-(define (jazz:monitor-stack-rate)
-  (if (##fl= jazz:stack-rate-average -1.)
-      #f
-    jazz:stack-rate-average))
-
-(define (jazz:monitor-heap-rate)
-  (if (##fl= jazz:heap-rate-average -1.)
-      #f
-    jazz:heap-rate-average))
-
-(define (jazz:monitor-allocations-rate)
-  (if (##fl= jazz:allocations-rate-average -1.)
-      #f
-    jazz:allocations-rate-average))
-
-
 (define (jazz:monitor-tracked)
   (declare (not interrupts-enabled))
-  (let ((stack (##stack-tracked)))
-    (if (##fx> stack 0)
-        (jazz:stack-rate-update (* stack 1048600))))
-  (let ((heap (##heap-tracked)))
-    (if (##fx> heap 0)
-        (jazz:heap-rate-update (* heap 1048600))))
-  (let ((count (##count-tracked))
-        (size 0))
-    (let loop ((n 0))
-         (if (##fx< n count)
-             (let ((obj (##get-tracked-object n)))
-               (let ((sz (jazz:memory-size obj)))
-                 (set! jazz:monitor-allocations-count (##fx+ jazz:monitor-allocations-count 1))
-                 (set! jazz:monitor-allocations-size (##fx+ jazz:monitor-allocations-size sz))
-                 (set! size (##fx+ size sz))
-                 (loop (##fx+ n 1))))))
-    (jazz:allocations-rate-update size)))
+  (let ((save (##save-tracked)))
+    (if (##fx> save 0)
+        (jazz:save-rate-update (##fx* save 8 2))))
+  (let ((capture (##capture-tracked)))
+    (if (##fx> capture 0)
+        (jazz:capture-rate-update (##fx* capture 8 2))))
+  (let ((count (##count-tracked)))
+    (let loop ((n 0) (size 0))
+         (if (##fx>= n count)
+             (jazz:allocation-rate-update size)
+           (let ((obj (##get-tracked-object n)))
+             (let ((sz (jazz:memory-size obj)))
+               (set! jazz:monitor-allocations-count (##fx+ jazz:monitor-allocations-count 1))
+               (set! jazz:monitor-allocations-size (##fx+ jazz:monitor-allocations-size sz))
+               (loop (##fx+ n 1) (##fx+ size sz))))))))
+
+
+;; to here should not allocate memory so as to not impact
+;; the gc period. note that opening the generated c file and
+;; scanning for BOX is a good way to check for allocations
+;; <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+(define (jazz:monitor-save-rate)
+  (if (##fl= (jazz:moving-average jazz:save-moving) -1.)
+      #f
+    (jazz:moving-average jazz:save-moving)))
+
+(define (jazz:monitor-capture-rate)
+  (if (##fl= (jazz:moving-average jazz:capture-moving) -1.)
+      #f
+    (jazz:moving-average jazz:capture-moving)))
+
+(define (jazz:monitor-allocation-rate)
+  (if (##fl= (jazz:moving-average jazz:allocation-moving) -1.)
+      #f
+    (jazz:moving-average jazz:allocation-moving)))
 
 
 ;;;

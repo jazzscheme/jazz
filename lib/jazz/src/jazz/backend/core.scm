@@ -616,6 +616,18 @@
 
 
 ;;;
+;;;; Number
+;;;
+
+
+(define jazz:ratnum?
+  ##ratnum?)
+
+(define jazz:bignum?
+  ##bignum?)
+
+
+;;;
 ;;;; Random
 ;;;
 

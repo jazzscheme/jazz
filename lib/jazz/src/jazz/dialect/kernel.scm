@@ -934,6 +934,15 @@
 
 
 ;;;
+;;;; Number
+;;;
+
+
+(native jazz:ratnum?)
+(native jazz:bignum?)
+
+
+;;;
 ;;;; Object
 ;;;
 

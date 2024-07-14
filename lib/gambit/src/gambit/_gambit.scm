@@ -1056,6 +1056,8 @@
 (native thread-priority-boost-set!)
 (native thread-quantum)
 (native thread-quantum-set!)
+(native thread-timeouts)
+(native thread-timeouts-reset!)
 (native thread-receive)
 (native thread-resume!)
 (native thread-send)

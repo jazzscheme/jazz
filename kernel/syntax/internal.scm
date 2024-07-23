@@ -532,56 +532,6 @@
 
 
 ;;;
-;;;; Thread With Stack
-;;;
-
-
-(define jazz:word-size
-  (let ((word-size #f))
-    (lambda ()
-      (or word-size
-          (let ((size
-                  (%%danger jazz:word-size
-                    (%%u8vector-length '#(0)))))
-            (set! word-size size)
-            size)))))
-
-
-(define (jazz:header-get obj)
-  (%%danger jazz:header-get
-    (if (= (jazz:word-size) 4)
-        (%%u32vector-ref obj -1)
-      (%%u64vector-ref obj -1))))
-
-(define (jazz:header-set! obj h)
-  (%%danger jazz:header-set!
-    (if (= (jazz:word-size) 4)
-        (%%u32vector-set! obj -1 h)
-      (%%u64vector-set! obj -1 h))))
-
-
-(define (jazz:make-thread-with-stack stack-len thunk)
-  (%%danger jazz:make-thread-with-stack
-    (let* ((pt ##primordial-thread)
-           (thread-len (%%vector-length pt))
-           (total-len (+ thread-len stack-len))
-           (thread (make-vector total-len #f)))
-      (%%vector-set! thread 0 (%%vector-ref pt 0))
-      (jazz:header-set! thread
-                        (+ (bitwise-and (jazz:header-get pt) -4)
-                           (bitwise-and (jazz:header-get thread) 3)))
-      (thread-init! thread thunk)
-      (thread-specific-set! thread (+ thread-len 1))
-      thread)))
-
-
-;; work around PERM not being mutable
-(define (jazz:thread-local-set! vec n value)
-  (%%danger jazz:thread-local-set!
-    (%%f64vector-set! vec n value)))
-
-
-;;;
 ;;;; Timeout
 ;;;
 

@@ -153,6 +153,7 @@
 (define jazz:subtype-pair         (macro-subtype-pair))
 (define jazz:subtype-ratnum       (macro-subtype-ratnum))
 (define jazz:subtype-cpxnum       (macro-subtype-cpxnum))
+(define jazz:subtype-structure    (macro-subtype-structure))
 (define jazz:subtype-jazz         (macro-subtype-jazz))
 (define jazz:subtype-symbol       (macro-subtype-symbol))
 (define jazz:subtype-keyword      (macro-subtype-keyword))
@@ -173,6 +174,15 @@
 (define jazz:subtype-f32vector    (macro-subtype-f32vector))
 (define jazz:subtype-f64vector    (macro-subtype-f64vector))
 (define jazz:subtype-boxvalues    (macro-subtype-boxvalues))
+
+
+;;;
+;;;; Tags
+;;;
+
+
+(define jazz:tag-still 5)
+(define jazz:tag-permanent 6)
 
 
 ;;;
@@ -356,6 +366,38 @@
 
 (define (jazz:btq-owner mutex)
   (macro-btq-owner mutex))
+
+
+;;;
+;;;; Thread With Stack
+;;;
+
+
+(define (jazz:header-get obj)
+  (##u64vector-ref obj -1))
+
+(define (jazz:header-set! obj h)
+  (##u64vector-set! obj -1 h))
+
+(define (jazz:header bytes subtype tag)
+  (+ (* bytes 256) (* subtype 8) tag))
+
+
+(define (jazz:thread-add-stack thread stack-len)
+  ;; ensure vector is a still
+  (let ((total-len (max 256 stack-len)))
+    (let ((stack (make-vector total-len #f)))
+      ;; so the gc doesn't collect the stack
+      (jazz:header-set! stack (jazz:header 0 jazz:subtype-vector jazz:tag-still))
+      (macro-thread-stack-set! thread stack)
+      (macro-thread-frame-pointer-set! thread 0)
+      (macro-thread-stack-limit-set! thread (##fx* total-len 2)))))
+
+
+(define (jazz:make-thread-with-stack stack-len thunk name)
+  (let ((thread (make-root-thread thunk name)))
+    (jazz:thread-add-stack thread stack-len)
+    thread))
 
 
 ;;;

@@ -1832,6 +1832,96 @@
 
 
 ;;;
+;;;; Stack
+;;;
+
+
+(jazz:define-class jazz:Stack jazz:Expression (constructor: jazz:allocate-stack)
+  ((init getter: generate)))
+
+
+(define (jazz:new-stack type init)
+  (jazz:allocate-stack type #f init))
+
+
+(define (jazz:find-stack-body declaration)
+  (cond ((%%class-is? declaration jazz:Definition-Declaration)
+         (jazz:get-lambda-body (jazz:get-definition-declaration-value declaration)))
+        ((%%class-is? declaration jazz:Method-Declaration)
+         (jazz:get-with-self-body (jazz:get-method-declaration-body declaration)))
+        (else
+         (jazz:error "Ill-formed stack"))))
+
+
+;; size is returned in 32 bit quads to match fixnums being shifted by 2
+(define (jazz:stack-type-info type init)
+  (cond ((%%subtype? type jazz:Flonum)
+         (values (%%fx* 2 2) (%%fx* 1 8) jazz:subtype-flonum #f))
+        ((%%subtype? type jazz:FixedF64Vector)
+         (let ((len (%%get-class-user-data type)))
+           (values (%%fx* (%%fx+ 1 len) 2) (%%fx* len 8) jazz:subtype-f64vector #f)))
+        ((%%subtype? type jazz:F64Vector)
+         (%%assert (%%pair? init)
+           (let ((constant (%%car init)))
+             (%%assert (%%is? constant jazz:Constant)
+               (let ((len (jazz:source-code (jazz:get-constant-expansion constant))))
+                 (values (%%fx* (%%fx+ 1 len) 2) (%%fx* len 8) jazz:subtype-f64vector #f))))))
+        ((%%subtype? type jazz:FixedF32Vector)
+         (let ((len (%%get-class-user-data type)))
+           (let ((words (%%fx+ (%%fxquotient len 2) (%%fxremainder len 2))))
+             (values (%%fx* (%%fx+ 1 words) 2) (%%fx* len 4) jazz:subtype-f32vector #f))))
+        ((%%class-is? type jazz:Class-Declaration)
+         (let ((len (%%length init)))
+           (values (%%fx* (%%fx+ 1 len) 2) (%%fx* len 8) jazz:subtype-jazz #t)))
+        (else
+         (jazz:error "Ill-formed stack"))))
+
+
+(define (jazz:register-stack body quads)
+  (let ((offset (or (jazz:get-body-stack-frame body) 0)))
+    (jazz:set-body-stack-frame body (%%fx+ offset quads))
+    offset))
+
+
+(jazz:define-method (jazz:emit-expression (jazz:Stack expression) declaration walker resume environment)
+  (let ((body (jazz:find-stack-body declaration))
+        (type (jazz:get-expression-type expression))
+        (init (jazz:get-stack-init expression)))
+    (receive (quads bytes subtype jazz?) (jazz:stack-type-info type init)
+      (let ((offset (jazz:register-stack body quads)))
+        (jazz:new-code
+          (if (%%not jazz?)
+              `(%%stack ,offset ,bytes ,subtype)
+            (let ((class-emit (jazz:sourcified-form (jazz:emit-expression (%%car init) declaration walker resume environment)))
+                  (slots-emit (jazz:codes-forms (jazz:emit-expressions (%%cdr init) declaration walker resume environment))))
+              `(let ((obj (%%stack ,offset ,bytes ,subtype)))
+                 (%%set-object-class obj ,class-emit)
+                 ,@(map (lambda (slot-emit rank)
+                          `(%%object-set! obj ,rank ,slot-emit))
+                        slots-emit
+                        (jazz:naturals 1 (%%fx+ (%%length slots-emit) 1)))
+                 obj)))
+          type
+          #f)))))
+
+
+#;
+(jazz:define-method (jazz:tree-fold (jazz:Stack expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz:tree-fold (jazz:get-stack-expression expression) down up here (down expression seed environment) environment)
+      environment))
+
+
+(define (jazz:walk-stack walker resume declaration environment form-src)
+  (let ((form (%%cdr (jazz:source-code form-src))))
+    (let ((specifier (jazz:source-code (%%car form)))
+          (init (jazz:walk-list walker resume declaration environment (%%cdr form))))
+      (let ((type (jazz:walk-specifier walker resume declaration environment specifier)))
+        (jazz:new-stack type init)))))
+
+
+;;;
 ;;;; Dispatch
 ;;;
 
@@ -3302,4 +3392,5 @@
 (jazz:define-walker-special     cast                 jazz jazz:walk-cast)
 (jazz:define-walker-special     %allege              jazz jazz:walk-%allege)
 (jazz:define-walker-special     allocate             jazz jazz:walk-allocate)
-(jazz:define-walker-special     static               jazz jazz:walk-static))
+(jazz:define-walker-special     static               jazz jazz:walk-static)
+(jazz:define-walker-special     stack                jazz jazz:walk-stack))

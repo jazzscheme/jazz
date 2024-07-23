@@ -1291,6 +1291,15 @@
 
 
 ;;;
+;;;; Thread With Stack
+;;;
+
+
+(native jazz:thread-add-stack)
+(native jazz:make-thread-with-stack)
+
+
+;;;
 ;;;; Time
 ;;;
 

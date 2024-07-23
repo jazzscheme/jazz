@@ -5034,11 +5034,12 @@
 (jazz:define-class jazz:Body jazz:Expression (constructor: jazz:allocate-body)
   ((internal-proclaims getter: generate)
    (internal-defines   getter: generate)
-   (expressions        getter: generate)))
+   (expressions        getter: generate)
+   (stack-frame        getter: generate setter: generate)))
 
 
 (define (jazz:new-body internal-proclaims internal-defines expressions)
-  (jazz:allocate-body #f #f internal-proclaims internal-defines expressions))
+  (jazz:allocate-body #f #f internal-proclaims internal-defines expressions #f))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Body expression) declaration walker resume environment)
@@ -5052,8 +5053,12 @@
               (let ((internal-defines (jazz:emit-expressions internal-defines declaration walker resume augmented-environment))
                     (expressions (jazz:emit-expressions expressions declaration walker resume augmented-environment)))
                 (jazz:new-code
-                  (%%append (jazz:codes-forms internal-defines)
-                            (jazz:codes-forms expressions))
+                  (let ((forms (%%append (jazz:codes-forms internal-defines)
+                                         (jazz:codes-forms expressions)))
+                        (stack-frame (jazz:get-body-stack-frame expression)))
+                    (if (not stack-frame)
+                        forms
+                      `((%%stack-frame ,stack-frame ,@forms))))
                   (if (%%null? expressions) jazz:Any (jazz:get-code-type (jazz:last expressions)))
                   #f)))))))
     

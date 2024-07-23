@@ -221,6 +221,56 @@
 
 
 ;;;
+;;;; Stack
+;;;
+
+
+;; work around gambit header not included
+(jazz:define-macro (%%thread-stack thread)
+  `(%%vector-ref ,thread 34))
+
+(jazz:define-macro (%%thread-frame-pointer thread)
+  `(%%vector-ref ,thread 35))
+
+(jazz:define-macro (%%thread-frame-pointer-set! thread fp)
+  `(%%vector-set! ,thread 35 ,fp))
+
+(jazz:define-macro (%%thread-stack-limit thread)
+  `(%%vector-ref ,thread 36))
+
+
+(jazz:define-syntax %%stack-frame
+  (lambda (src)
+    (let ((frame-quads (%%cadr (jazz:source-code src)))
+          (body (%%cddr (jazz:source-code src))))
+      `(let ((thread (current-thread)))
+         (let ((stack (%%thread-stack thread)))
+           (if (%%not stack)
+               (jazz:error "Thread doesn't have a stack")
+             (let ((fp (%%thread-frame-pointer thread)))
+               (let ((new-fp (%%fx+ fp ,frame-quads)))
+                 (if (%%fx> new-fp (%%thread-stack-limit thread))
+                     (jazz:error "Stack overflow")
+                   (begin
+                     (%%thread-frame-pointer-set! thread new-fp)
+                     (let ((result (begin ,@body)))
+                       (%%thread-frame-pointer-set! thread fp)
+                       result)))))))))))
+
+
+(jazz:define-syntax %%stack
+  (lambda (src)
+    (let ((form (%%cdr (jazz:source-code src))))
+      (let ((offset (jazz:source-code (%%car form)))
+            (bytes (jazz:source-code (%%cadr form)))
+            (subtype (jazz:source-code (%%car (%%cddr form)))))
+        (let ((header (jazz:header bytes subtype jazz:tag-permanent)))
+          `(let ((obj (%%fx+ stack fp ,offset)))
+             (%%u64vector-set! obj -1 ,header)
+             obj))))))
+
+
+;;;
 ;;;; Compose
 ;;;
 

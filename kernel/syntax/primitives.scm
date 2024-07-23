@@ -1641,7 +1641,7 @@
   `(%%tracking
      (make-thread ,@rest)))
 
-(jazz:define-synto (%%primordial-thread-ref)
+(jazz:define-synto (%%primordial-thread)
   `##primordial-thread)
 
 (jazz:define-synto (%%current-thread)

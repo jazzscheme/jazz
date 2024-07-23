@@ -224,6 +224,7 @@
 (jazz:define-unsafe ^#fxnot)
 (jazz:define-unsafe ^#fxodd?)
 (jazz:define-unsafe ^#fxquotient)
+(jazz:define-unsafe ^#fxremainder)
 (jazz:define-unsafe ^#fxxor)
 (jazz:define-unsafe ^#gc)
 (jazz:define-unsafe ^#gc-hash-table?)

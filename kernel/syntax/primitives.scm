@@ -392,6 +392,11 @@
       `(quotient ,x ,y)
     `(^#fxquotient ,x ,y)))
 
+(jazz:define-synto (%%fxremainder x y)
+  (if jazz:debug-core?
+      `(remainder ,x ,y)
+    `(^#fxremainder ,x ,y)))
+
 (jazz:define-synto (%%fxmin . rest)
   (if jazz:debug-core?
       `(fxmin ,@rest)

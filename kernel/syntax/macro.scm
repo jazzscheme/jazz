@@ -35,6 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(declare
+  (block)
+  (standard-bindings)
+  (extended-bindings)
+  (not safe))
+
+
 (define jazz:Macros
   (make-table test: eq?))
 

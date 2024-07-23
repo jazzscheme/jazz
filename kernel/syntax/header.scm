@@ -38,7 +38,11 @@
 (include "~~lib/_gambit#.scm")
 
 
-(declare (not safe))
+(declare
+  (block)
+  (standard-bindings)
+  (extended-bindings)
+  (not safe))
 
 
 ;;;

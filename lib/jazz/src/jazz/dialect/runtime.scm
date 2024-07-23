@@ -1665,8 +1665,7 @@
           declaration
           walker
           resume
-          environment
-         )
+          environment)
         type
         #f))))
 

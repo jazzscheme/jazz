@@ -390,8 +390,9 @@
       ;; so the gc doesn't collect the stack
       (jazz:header-set! stack (jazz:header 0 jazz:subtype-vector jazz:tag-still))
       (macro-thread-stack-set! thread stack)
-      (macro-thread-frame-pointer-set! thread 0)
-      (macro-thread-stack-limit-set! thread (##fx* total-len 2)))))
+      ;; skip 2 32 bit quads for header
+      (macro-thread-frame-pointer-set! thread 2)
+      (macro-thread-stack-limit-set! thread (##fx+ 2 (##fx* total-len 2))))))
 
 
 (define (jazz:make-thread-with-stack stack-len thunk name)

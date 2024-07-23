@@ -253,7 +253,7 @@
                      (jazz:error "Stack overflow")
                    (begin
                      (%%thread-frame-pointer-set! thread new-fp)
-                     (let ((result (begin ,@body)))
+                     (let ((result (let () ,@body)))
                        (%%thread-frame-pointer-set! thread fp)
                        result)))))))))))
 

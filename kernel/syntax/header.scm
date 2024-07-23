@@ -387,7 +387,7 @@
   ;; ensure vector is a still
   (let ((total-len (max 256 stack-len)))
     (let ((stack (make-vector total-len #f)))
-      ;; so the gc doesn't collect the stack
+      ;; 0 bytes header so the gc doesn't collect the stack
       (jazz:header-set! stack (jazz:header 0 jazz:subtype-vector jazz:tag-still))
       (macro-thread-stack-set! thread stack)
       ;; skip 2 32 bit quads for header

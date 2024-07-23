@@ -190,6 +190,9 @@
 (definition (default-process-handler proc connection)
   (proc connection))
 
+(definition (default-execute-runner thunk name)
+  (new-thread thunk name))
+
 (definition (default-execute-handler proc connection)
   (proc connection))
 
@@ -212,6 +215,7 @@
   (slot invoke-handler     accessors generate)
   (slot process-handler    accessors generate)
   (slot processing-handler accessors generate)
+  (slot execute-runner     accessors generate)
   (slot execute-handler    accessors generate)
   
   
@@ -232,6 +236,7 @@
     (set! self.invoke-handler default-invoke-handler)
     (set! self.process-handler default-process-handler)
     (set! self.processing-handler #f)
+    (set! self.execute-runner default-execute-runner)
     (set! self.execute-handler default-execute-handler))
   
   
@@ -294,7 +299,7 @@
                       (reference-proxy (and reference (load-reference register reference))))
                   (write-port port #f code version (list local-binary? local-uuid local-title local-service peer-address reference-proxy))
                   (let ((binary? (and local-binary? remote-binary?)))
-                    (let ((connection (new Remote-Connection self port binary? remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-handler)))
+                    (let ((connection (new Remote-Connection self port binary? remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-runner execute-handler)))
                       (when (and debug-remote? (debug-remote-presence? self))
                         (callee-garble-hack)
                         (debug-remote self '<<< remote-title remote-uuid 'accept connection))
@@ -339,7 +344,7 @@
                     (else
                      (bind (remote-binary? remote-uuid remote-title remote-service remote-address reference-proxy) reply
                        (let ((binary? (and local-binary? remote-binary?)))
-                         (let ((connection (new Remote-Connection self port binary? remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-handler)))
+                         (let ((connection (new Remote-Connection self port binary? remote-uuid remote-title remote-service remote-address invoke-handler process-handler processing-handler execute-runner execute-handler)))
                            (when (and debug-remote? (debug-remote-presence? self))
                              (callee-garble-hack)
                              (callee-garble-hack)
@@ -464,10 +469,11 @@
   (slot invoke-handler     getter generate)
   (slot process-handler    getter generate)
   (slot processing-handler getter generate)
+  (slot execute-runner     getter generate)
   (slot execute-handler    getter generate)
   
   
-  (method override (initialize self presence port binary? remote-uuid remote-title service address invoke-handler process-handler processing-handler execute-handler)
+  (method override (initialize self presence port binary? remote-uuid remote-title service address invoke-handler process-handler processing-handler execute-runner execute-handler)
     (set! self.presence presence)
     (set! self.port port)
     (set! self.binary? binary?)
@@ -482,6 +488,7 @@
     (set! self.invoke-handler invoke-handler)
     (set! self.process-handler process-handler)
     (set! self.processing-handler processing-handler)
+    (set! self.execute-runner execute-runner)
     (set! self.execute-handler execute-handler))
   
   
@@ -627,7 +634,7 @@
         (callee-garble-hack)
         (debug-remote presence '<<< remote-title remote-uuid 'execute method-name))
       (let ((thread
-              (new-thread
+              (execute-runner
                 (lambda ()
                   (let ((result (apply (dispatch (class-of proxy) method-name) proxy arguments)))
                     (execute-handler
@@ -787,6 +794,10 @@
 (definition protected (set-presence-processing-handler processing-handler (purpose: purpose #f))
   (let ((presence (require-presence purpose)))
     (set-processing-handler presence processing-handler)))
+
+(definition protected (set-presence-execute-runner execute-runner (purpose: purpose #f))
+  (let ((presence (require-presence purpose)))
+    (set-execute-runner presence execute-runner)))
 
 (definition protected (set-presence-execute-handler execute-handler (purpose: purpose #f))
   (let ((presence (require-presence purpose)))

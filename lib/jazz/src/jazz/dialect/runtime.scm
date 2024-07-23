@@ -1574,7 +1574,8 @@
 (jazz:define-method (jazz:emit-expression (jazz:With-Self expression) declaration walker resume environment)
   (let ((type (jazz:get-expression-type expression))
         (body (jazz:get-with-self-body expression)))
-    (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code 'self type #f)))
+    (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code 'self type #f))
+                                    (jazz:stack-frame-body body))
                        (jazz:emit-expression body declaration walker resume environment))))
       (jazz:new-code
         (jazz:simplify-begin
@@ -1844,13 +1845,9 @@
   (jazz:allocate-stack type #f init))
 
 
-(define (jazz:find-stack-body declaration)
-  (cond ((%%class-is? declaration jazz:Definition-Declaration)
-         (jazz:get-lambda-body (jazz:get-definition-declaration-value declaration)))
-        ((%%class-is? declaration jazz:Method-Declaration)
-         (jazz:get-with-self-body (jazz:get-method-declaration-body declaration)))
-        (else
-         (jazz:error "Ill-formed stack"))))
+(define (jazz:require-stack-body declaration)
+  (or (jazz:stack-frame-body)
+      (jazz:error "Ill-formed stack")))
 
 
 ;; size is returned in 32 bit quads to match fixnums being shifted by 2
@@ -1884,7 +1881,7 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Stack expression) declaration walker resume environment)
-  (let ((body (jazz:find-stack-body declaration))
+  (let ((body (jazz:require-stack-body declaration))
         (type (jazz:get-expression-type expression))
         (init (jazz:get-stack-init expression)))
     (receive (quads bytes subtype jazz?) (jazz:stack-type-info type init)

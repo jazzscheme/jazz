@@ -716,7 +716,8 @@
       ancestors))
 
   ;; this should be made into a call to jazz:new somehow
-  (let ((class (%%make-object class-of-class (%%get-class-instance-size class-of-class))))
+  (let ((class (%%jazzify (jazz:alloc-class (%%get-class-instance-size class-of-class)))))
+    (%%set-object-class class class-of-class)
     (%%set-category-identifier class identifier)
     (%%set-category-fields class (%%make-table test: eq?))
     (%%set-category-virtual-size class 0)

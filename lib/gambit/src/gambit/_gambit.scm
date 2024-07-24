@@ -1064,6 +1064,7 @@
 (native thread-sleep!)
 (native thread-specific)
 (native thread-specific-set!)
+(native thread-stack)
 (native thread-frame-pointer)
 (native thread-stack-limit)
 (native thread-start!)

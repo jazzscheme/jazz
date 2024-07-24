@@ -39,6 +39,22 @@
 
 
 ;;;
+;;;; Stack
+;;;
+
+
+;; quick hack to make classes still objects for stack allocation
+(define jazz:alloc-class
+  (c-lambda (int) scheme-object
+    #<<end-of-code
+      ___SCMOBJ r = ___EXT(___make_vector) (___ps, ___arg1, ___VOID);
+      ___EXT(___release_scmobj)(r);
+      ___return(r);
+end-of-code
+))
+
+
+;;;
 ;;;; Permissions
 ;;;
 

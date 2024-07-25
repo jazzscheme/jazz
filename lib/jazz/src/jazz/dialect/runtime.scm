@@ -1895,13 +1895,15 @@
               `(%%stack ,offset ,bytes ,subtype)
             (let ((class-emit (jazz:sourcified-form (jazz:emit-expression (%%car init) declaration walker resume environment)))
                   (slots-emit (jazz:codes-forms (jazz:emit-expressions (%%cdr init) declaration walker resume environment))))
-              `(let ((obj (%%stack ,offset ,bytes ,subtype)))
-                 (%%set-object-class obj ,class-emit)
-                 ,@(map (lambda (slot-emit rank)
-                          `(%%object-set! obj ,rank ,slot-emit))
-                        slots-emit
-                        (jazz:naturals 1 (%%fx+ (%%length slots-emit) 1)))
-                 obj)))
+              `(let ()
+                 (declare (not interrupts-enabled))
+                 (let ((obj (%%stack ,offset ,bytes ,subtype)))
+                   (%%set-object-class obj ,class-emit)
+                   ,@(map (lambda (slot-emit rank)
+                            `(%%object-set! obj ,rank ,slot-emit))
+                          slots-emit
+                          (jazz:naturals 1 (%%fx+ (%%length slots-emit) 1)))
+                   obj))))
           type
           #f)))))
 

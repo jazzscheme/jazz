@@ -384,6 +384,7 @@
 
 
 (define (jazz:thread-add-stack thread stack-len)
+  (declare (not interrupts-enabled))
   ;; ensure vector is a still
   (let ((total-len (max 256 stack-len)))
     (let ((stack (make-vector total-len #f)))

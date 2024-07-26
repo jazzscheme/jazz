@@ -43,6 +43,27 @@
 ;;;
 
 
+(define jazz:debug-memory
+  (c-lambda (char-string scheme-object) void
+    #<<end-of-code
+      printf("%s #x%016lx\n", ___arg1, ___arg2);
+      ___WORD *ptr = ___UNTAG(___arg2);
+      printf("  0    #x%016lx\n", ptr[0]);
+      printf("  1    #x%016lx\n", ptr[1]);
+      printf("  2    #x%016lx\n", ptr[2]);
+      printf("  3    #x%016lx\n", ptr[3]);
+end-of-code
+))
+
+
+(define jazz:debug-stack
+  (c-lambda (char-string scheme-object) void
+    #<<end-of-code
+      printf("stack  #x%016lx   %s\n", ___arg2, ___arg1);
+end-of-code
+))
+
+
 ;; quick hack to make classes still objects for stack allocation
 (define jazz:alloc-class
   (c-lambda (int) scheme-object

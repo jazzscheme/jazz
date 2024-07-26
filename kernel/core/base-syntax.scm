@@ -261,22 +261,30 @@
                      (jazz:error "Stack overflow")
                    (begin
                      (%%thread-frame-pointer-set! ___thread ___new-fp)
+                     (jazz:push-stack-frame ___thread ___stack ___fp ___new-fp)
                      (let ((result (let () ,@body)))
                        (%%thread-frame-pointer-set! ___thread ___fp)
+                       (jazz:pop-stack-frame ___thread ___stack ___fp ___new-fp)
                        result)))))))))))
 
 
 (jazz:define-syntax %%stack
   (lambda (src)
-    (let ((form (%%cdr (jazz:source-code src))))
+    (let ((form (%%cdr (jazz:source-code src)))
+          (locat (jazz:source-locat src)))
       (let ((offset (jazz:source-code (%%car form)))
             (bytes (jazz:source-code (%%cadr form)))
-            (subtype (jazz:source-code (%%car (%%cddr form)))))
-        (let ((header (jazz:header bytes subtype jazz:tag-permanent)))
+            (subtype (jazz:source-code (%%car (%%cddr form))))
+            (location (jazz:locat->container/line/col locat)))
+        (let ((header (jazz:header bytes subtype jazz:tag-permanent))
+              (container (%%car location))
+              (line (%%cadr location))
+              (col (%%car (%%cddr location))))
           `(let ()
              (declare (not interrupts-enabled))
              (let ((obj (%%fx+ ___stack ___fp ,offset)))
                (%%u64vector-set! obj -1 ,header)
+               (jazz:push-value ___thread ___stack ___fp ,offset obj ',container ,line ,col)
                obj)))))))
 
 

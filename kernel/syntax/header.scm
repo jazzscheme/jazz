@@ -393,13 +393,76 @@
       (macro-thread-stack-set! thread stack)
       ;; skip 2 32 bit quads for header
       (macro-thread-frame-pointer-set! thread 2)
-      (macro-thread-stack-limit-set! thread (##fx+ 2 (##fx* total-len 2))))))
+      (macro-thread-stack-limit-set! thread (##fx+ 2 (##fx* total-len 2)))
+      (let ((name (thread-name thread)))
+        (let ((str (if (##symbol? name) (##symbol->string name) (##object->string name))))
+          (if (##not (jazz:string-starts-with? str "(execute "))
+              (jazz:debug-stack str stack)))))))
 
 
 (define (jazz:make-thread-with-stack stack-len thunk name)
   (let ((thread (make-root-thread thunk name)))
     (jazz:thread-add-stack thread stack-len)
     thread))
+
+
+(define (jazz:push-stack-frame thread stack fp new-fp)
+  (declare (not interrupts-enabled))
+  #f
+  #;
+  (if (##eq? (thread-name thread) 'player)
+      (pp (list (##fx* fp 4) '>>> (##fx* new-fp 4)))))
+
+
+(define jazz:pushed-values
+  (make-table test: equal?))
+
+(define (jazz:push-value thread stack fp offset obj container line col)
+  (declare (not interrupts-enabled))
+  #f
+  #;
+  (let ((stack-offset (##fx+ fp offset)))
+    (if (##fx= stack-offset 82)
+        (let ((name (thread-name thread)))
+          (let ((key (##list name container line col)))
+            (if (##not (##table-ref jazz:pushed-values key #f))
+                (begin
+                  (##table-set! jazz:pushed-values key #t)
+                  (pp (list 'push stack-offset name container (##fx+ line 1) (##fx+ col 1) obj)))))))))
+
+
+(define (jazz:pop-stack-frame thread stack fp new-fp)
+  (declare (not interrupts-enabled))
+  #;
+  (let ((name (thread-name thread)))
+    (if (##eq? name 'player)
+        (pp (list (##fx* fp 4) '<<< (##fx* new-fp 4)))))
+  (jazz:zap-stack-frame thread stack fp new-fp)
+  #;
+  (let ((name (thread-name thread)))
+    (if (and (##eq? name 'player)
+             #;(##fx>= fp 394)
+             #;(##fx< 394 new-fp))
+        (begin
+          (##write-string "." (##repl-output-port))
+          (##gc)))))
+
+
+(define jazz:zap-header
+  (jazz:header 12345678 17 2))
+
+(define (jazz:zap-stack-frame thread stack fp new-fp)
+  (declare (not interrupts-enabled))
+  (let ((ptr (##fx+ stack fp))
+        (frame-quads (##fx- new-fp fp)))
+    (let loop ((n (##fx- frame-quads 1)))
+         (if (##fx>= n 0)
+             (let ((rank (##fx- n 2)))
+               (let ((quad (##u32vector-ref ptr rank)))
+                 (##u32vector-set! ptr rank (##replace-bit-field 3 0 2 quad))
+                 #;
+                 (##u32vector-set! ptr rank jazz:zap-header)
+                 (loop (##fx- n 1))))))))
 
 
 ;;;

@@ -1295,6 +1295,7 @@
 ;;;
 
 
+(native jazz:debug-memory)
 (native jazz:thread-add-stack)
 (native jazz:make-thread-with-stack)
 

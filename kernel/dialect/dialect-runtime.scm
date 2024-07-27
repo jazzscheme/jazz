@@ -2943,6 +2943,7 @@
 (jazz:add-primitive-type 'promise      jazz:Promise)
 (jazz:add-primitive-type 'foreign      jazz:Foreign)
 (jazz:add-primitive-type 'values       jazz:Values)
+(jazz:add-primitive-type 'box          jazz:Box)
 (jazz:add-primitive-type 'eof          jazz:EOF)
 (jazz:add-primitive-type 'unspecified  jazz:Unspecified)
 (jazz:add-primitive-type 'void         jazz:Void)

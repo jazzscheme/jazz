@@ -154,6 +154,7 @@
 (define jazz:subtype-ratnum       (macro-subtype-ratnum))
 (define jazz:subtype-cpxnum       (macro-subtype-cpxnum))
 (define jazz:subtype-structure    (macro-subtype-structure))
+(define jazz:subtype-boxvalues    (macro-subtype-boxvalues))
 (define jazz:subtype-jazz         (macro-subtype-jazz))
 (define jazz:subtype-symbol       (macro-subtype-symbol))
 (define jazz:subtype-keyword      (macro-subtype-keyword))
@@ -173,7 +174,6 @@
 (define jazz:subtype-u64vector    (macro-subtype-u64vector))
 (define jazz:subtype-f32vector    (macro-subtype-f32vector))
 (define jazz:subtype-f64vector    (macro-subtype-f64vector))
-(define jazz:subtype-boxvalues    (macro-subtype-boxvalues))
 
 
 ;;;
@@ -422,13 +422,14 @@
   #f
   #;
   (let ((stack-offset (##fx+ fp offset)))
-    (if (##fx= stack-offset 82)
+    (if (##fx= stack-offset 246)
         (let ((name (thread-name thread)))
-          (let ((key (##list name container line col)))
-            (if (##not (##table-ref jazz:pushed-values key #f))
-                (begin
-                  (##table-set! jazz:pushed-values key #t)
-                  (pp (list 'push stack-offset name container (##fx+ line 1) (##fx+ col 1) obj)))))))))
+          (if (##eq? name 'player)
+              (let ((key (##list name container line col)))
+                (if (##not (##table-ref jazz:pushed-values key #f))
+                    (begin
+                      (##table-set! jazz:pushed-values key #t)
+                      (pp (list 'push stack-offset name container (##fx+ line 1) (##fx+ col 1) obj))))))))))
 
 
 (define (jazz:pop-stack-frame thread stack fp new-fp)
@@ -459,8 +460,8 @@
          (if (##fx>= n 0)
              (let ((rank (##fx- n 2)))
                (let ((quad (##u32vector-ref ptr rank)))
-                 (##u32vector-set! ptr rank (##replace-bit-field 3 0 2 quad))
                  #;
+                 (##u32vector-set! ptr rank (##replace-bit-field 3 0 2 quad))
                  (##u32vector-set! ptr rank jazz:zap-header)
                  (loop (##fx- n 1))))))))
 

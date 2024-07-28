@@ -419,7 +419,9 @@
 
 (define (jazz:push-value thread stack fp offset obj container line col)
   (declare (not interrupts-enabled))
-  #f
+  ;; proof-of-concept with new stack tag bits
+  (let ((header (%%u64vector-ref obj -1)))
+    (%%u64vector-set! obj -1 (##replace-bit-field 3 0 1 header)))
   #;
   (let ((stack-offset (##fx+ fp offset)))
     (if (##fx= stack-offset 246)
@@ -438,10 +440,9 @@
   (let ((name (thread-name thread)))
     (if (##eq? name 'player)
         (pp (list (##fx* fp 4) '<<< (##fx* new-fp 4)))))
-  (jazz:zap-stack-frame thread stack fp new-fp)
-  #;
+  (jazz:invalidate-stack-frame thread stack fp new-fp)
   (let ((name (thread-name thread)))
-    (if (and (##eq? name 'player)
+    (if (and (##equal? name "cow")
              #;(##fx>= fp 394)
              #;(##fx< 394 new-fp))
         (begin
@@ -449,10 +450,7 @@
           (##gc)))))
 
 
-(define jazz:zap-header
-  (jazz:header 12345678 17 2))
-
-(define (jazz:zap-stack-frame thread stack fp new-fp)
+(define (jazz:invalidate-stack-frame thread stack fp new-fp)
   (declare (not interrupts-enabled))
   (let ((ptr (##fx+ stack fp))
         (frame-quads (##fx- new-fp fp)))
@@ -460,9 +458,7 @@
          (if (##fx>= n 0)
              (let ((rank (##fx- n 2)))
                (let ((quad (##u32vector-ref ptr rank)))
-                 #;
                  (##u32vector-set! ptr rank (##replace-bit-field 3 0 2 quad))
-                 (##u32vector-set! ptr rank jazz:zap-header)
                  (loop (##fx- n 1))))))))
 
 

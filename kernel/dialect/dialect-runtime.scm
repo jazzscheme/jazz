@@ -5032,6 +5032,10 @@
 ;;;
 
 
+(define jazz:stack-frame-body
+  (make-parameter #f))
+
+
 (jazz:define-class jazz:Body jazz:Expression (constructor: jazz:allocate-body)
   ((internal-proclaims getter: generate)
    (internal-defines   getter: generate)

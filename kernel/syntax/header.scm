@@ -154,6 +154,7 @@
 (define jazz:subtype-ratnum       (macro-subtype-ratnum))
 (define jazz:subtype-cpxnum       (macro-subtype-cpxnum))
 (define jazz:subtype-structure    (macro-subtype-structure))
+(define jazz:subtype-boxvalues    (macro-subtype-boxvalues))
 (define jazz:subtype-jazz         (macro-subtype-jazz))
 (define jazz:subtype-symbol       (macro-subtype-symbol))
 (define jazz:subtype-keyword      (macro-subtype-keyword))
@@ -173,7 +174,6 @@
 (define jazz:subtype-u64vector    (macro-subtype-u64vector))
 (define jazz:subtype-f32vector    (macro-subtype-f32vector))
 (define jazz:subtype-f64vector    (macro-subtype-f64vector))
-(define jazz:subtype-boxvalues    (macro-subtype-boxvalues))
 
 
 ;;;
@@ -384,14 +384,16 @@
 
 
 (define (jazz:thread-add-stack thread stack-len)
+  (declare (not interrupts-enabled))
   ;; ensure vector is a still
   (let ((total-len (max 256 stack-len)))
     (let ((stack (make-vector total-len #f)))
-      ;; so the gc doesn't collect the stack
+      ;; 0 bytes header so the gc doesn't collect the stack
       (jazz:header-set! stack (jazz:header 0 jazz:subtype-vector jazz:tag-still))
       (macro-thread-stack-set! thread stack)
-      (macro-thread-frame-pointer-set! thread 0)
-      (macro-thread-stack-limit-set! thread (##fx* total-len 2)))))
+      ;; skip 2 32 bit quads for header
+      (macro-thread-frame-pointer-set! thread 2)
+      (macro-thread-stack-limit-set! thread (##fx+ 2 (##fx* total-len 2))))))
 
 
 (define (jazz:make-thread-with-stack stack-len thunk name)

@@ -227,35 +227,44 @@
 
 ;; work around gambit header not included
 (jazz:define-macro (%%thread-stack thread)
-  `(%%vector-ref ,thread 34))
+  (if jazz:debug-core?
+      `(^#vector-ref ,thread 34)
+    `(%%vector-ref ,thread 34)))
 
 (jazz:define-macro (%%thread-frame-pointer thread)
-  `(%%vector-ref ,thread 35))
+  (if jazz:debug-core?
+      `(^#vector-ref ,thread 35)
+    `(%%vector-ref ,thread 35)))
 
 (jazz:define-macro (%%thread-frame-pointer-set! thread fp)
-  `(%%vector-set! ,thread 35 ,fp))
+  (if jazz:debug-core?
+      `(^#vector-set! ,thread 35 ,fp)
+    `(%%vector-set! ,thread 35 ,fp)))
 
 (jazz:define-macro (%%thread-stack-limit thread)
-  `(%%vector-ref ,thread 36))
+  (if jazz:debug-core?
+      `(^#vector-ref ,thread 36)
+    `(%%vector-ref ,thread 36)))
 
 
 (jazz:define-syntax %%stack-frame
   (lambda (src)
-    (let ((frame-quads (%%cadr (jazz:source-code src)))
-          (body (%%cddr (jazz:source-code src))))
-      `(let ((thread (current-thread)))
-         (let ((stack (%%thread-stack thread)))
-           (if (%%not stack)
-               (jazz:error "Thread doesn't have a stack")
-             (let ((fp (%%thread-frame-pointer thread)))
-               (let ((new-fp (%%fx+ fp ,frame-quads)))
-                 (if (%%fx> new-fp (%%thread-stack-limit thread))
-                     (jazz:error "Stack overflow")
-                   (begin
-                     (%%thread-frame-pointer-set! thread new-fp)
-                     (let ((result (begin ,@body)))
-                       (%%thread-frame-pointer-set! thread fp)
-                       result)))))))))))
+    (let ((form (%%cdr (jazz:source-code src))))
+      (let ((frame-quads (%%car form))
+            (body (%%cdr form)))
+        `(let ((___thread (%%current-thread)))
+           (let ((___stack (%%thread-stack ___thread)))
+             (if (%%not ___stack)
+                 (jazz:error "Thread doesn't have a stack")
+               (let ((___fp (%%thread-frame-pointer ___thread)))
+                 (let ((___new-fp (%%fx+ ___fp ,frame-quads)))
+                   (if (%%fx> ___new-fp (%%thread-stack-limit ___thread))
+                       (jazz:error "Stack overflow")
+                     (begin
+                       (%%thread-frame-pointer-set! ___thread ___new-fp)
+                       (let ((result (let () ,@body)))
+                         (%%thread-frame-pointer-set! ___thread ___fp)
+                         result))))))))))))
 
 
 (jazz:define-syntax %%stack
@@ -265,9 +274,11 @@
             (bytes (jazz:source-code (%%cadr form)))
             (subtype (jazz:source-code (%%car (%%cddr form)))))
         (let ((header (jazz:header bytes subtype jazz:tag-permanent)))
-          `(let ((obj (%%fx+ stack fp ,offset)))
-             (%%u64vector-set! obj -1 ,header)
-             obj))))))
+          `(let ()
+             (declare (not interrupts-enabled))
+             (let ((obj (%%fx+ ___stack ___fp ,offset)))
+               (%%u64vector-set! obj -1 ,header)
+               obj)))))))
 
 
 ;;;

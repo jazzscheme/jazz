@@ -77,6 +77,11 @@
       `(unbox ,box)
     `(^#unbox ,box)))
 
+(jazz:define-synto (%%set-box! box val)
+  (if jazz:debug-core?
+      `(set-box! ,box ,val)
+    `(^#set-box! ,box ,val)))
+
 
 ;;;
 ;;;; Char

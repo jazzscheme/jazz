@@ -340,6 +340,7 @@
 (jazz:define-unsafe ^#s8vector-ref)
 (jazz:define-unsafe ^#s8vector-set!)
 (jazz:define-unsafe ^#s8vector?)
+(jazz:define-unsafe ^#set-box!)
 (jazz:define-unsafe ^#set-car!)
 (jazz:define-unsafe ^#set-cdr!)
 (jazz:define-unsafe ^#set-heartbeat-interval!)

@@ -2293,6 +2293,29 @@
 
 
 ;;;
+;;;; Box
+;;;
+
+
+(jazz:define-class-runtime jazz:Box-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:Box-Class class) object)
+  (%%box? object))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:Box-Class class))
+  'box)
+
+
+(jazz:define-method (jazz:emit-test (jazz:Box-Class type) value source-declaration walker resume environment)
+  `(%%box? ,value))
+
+
+(jazz:define-class-runtime jazz:Box)
+
+
+;;;
 ;;;; EOF
 ;;;
 

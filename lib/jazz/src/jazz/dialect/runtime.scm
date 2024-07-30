@@ -1953,11 +1953,13 @@
           #f)))))
 
 
-#;
 (jazz:define-method (jazz:tree-fold (jazz:Stack expression) down up here seed environment)
   (up expression
       seed
-      (jazz:tree-fold (jazz:get-stack-expression expression) down up here (down expression seed environment) environment)
+      (jazz:tree-fold-list
+        (jazz:get-stack-init expression) down up here
+        (down expression seed environment)
+        environment)
       environment))
 
 

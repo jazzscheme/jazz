@@ -1837,12 +1837,22 @@
 ;;;
 
 
+#;
 (jazz:define-class jazz:Stack jazz:Expression (constructor: jazz:allocate-stack)
   ((init getter: generate)))
 
+;; dazoo
+(jazz:define-class jazz:Stack jazz:Expression (constructor: jazz:allocate-stack)
+  ((expression getter: generate)))
 
+
+#;
 (define (jazz:new-stack type init)
   (jazz:allocate-stack type #f init))
+
+;; dazoo
+(define (jazz:new-stack expression)
+  (jazz:allocate-stack #f #f expression))
 
 
 (define (jazz:require-stack-body declaration)
@@ -1850,6 +1860,7 @@
       (jazz:error "Ill-formed stack")))
 
 
+#;
 ;; size is returned in 32 bit quads to match fixnums being shifted by 2
 (define (jazz:stack-type-info type init)
   (cond ((%%subtype? type jazz:Flonum)
@@ -1897,10 +1908,12 @@
 
 (define (jazz:register-stack body quads)
   (let ((offset (or (jazz:get-body-stack-frame body) 0)))
+    ;; dazoo
     (jazz:set-body-stack-frame body (%%fx+ offset quads))
     offset))
 
 
+#;
 (jazz:define-method (jazz:emit-expression (jazz:Stack expression) declaration walker resume environment)
   (let ((body (jazz:require-stack-body declaration))
         (type (jazz:get-expression-type expression))
@@ -1952,6 +1965,17 @@
           type
           #f)))))
 
+;; dazoo
+(jazz:define-method (jazz:emit-expression (jazz:Stack expression) declaration walker resume environment)
+  (let ((body (jazz:require-stack-body declaration))
+        (expr (jazz:get-static-expression expression)))
+    (let ((offset (jazz:register-stack body 1)))
+      (let ((code (jazz:emit-expression expr declaration walker resume environment)))
+        (jazz:new-code
+          `(%%stack ,offset ,(jazz:sourcified-form code))
+          (jazz:get-code-type code)
+          #f)))))
+
 
 #;
 (jazz:define-method (jazz:tree-fold (jazz:Stack expression) down up here seed environment)
@@ -1961,12 +1985,19 @@
       environment))
 
 
+#;
 (define (jazz:walk-stack walker resume declaration environment form-src)
   (let ((form (%%cdr (jazz:source-code form-src))))
     (let ((specifier (jazz:source-code (%%car form)))
           (init (jazz:walk-list walker resume declaration environment (%%cdr form))))
       (let ((type (jazz:walk-specifier walker resume declaration environment specifier)))
         (jazz:new-stack type init)))))
+
+;; dazoo
+(define (jazz:walk-stack walker resume declaration environment form-src)
+  (let ((form (jazz:source-code form-src)))
+    (let ((expression (jazz:walk walker resume declaration environment (%%cadr form))))
+      (jazz:new-stack expression))))
 
 
 ;;;

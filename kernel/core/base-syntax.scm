@@ -294,6 +294,23 @@
                (jazz:push-value ___thread ___stack ___fp ,offset obj ',container ,line ,col)
                obj)))))))
 
+;; dazoo
+(jazz:define-syntax %%stack
+  (lambda (src)
+    (let ((form (%%cdr (jazz:source-code src)))
+          (locat (jazz:source-locat src)))
+      (let ((offset (jazz:source-code (%%car form)))
+            (expr (jazz:source-code (%%cadr form)))
+            (location (jazz:locat->container/line/col locat)))
+        (let ((container (%%car location))
+              (line (%%cadr location))
+              (col (%%car (%%cddr location))))
+          `(let ()
+             (declare (not interrupts-enabled))
+             (let ((obj ,expr))
+               (jazz:push-value ___thread ___stack ___fp ,offset obj ',container ,line ,col)
+               obj)))))))
+
 
 ;;;
 ;;;; Compose

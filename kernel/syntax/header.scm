@@ -373,6 +373,11 @@
 ;;;
 
 
+;; dazoo
+(define debug-stack?
+  #t)
+
+
 (define (jazz:header-get obj)
   (##u64vector-ref obj -1))
 
@@ -385,19 +390,29 @@
 
 (define (jazz:thread-add-stack thread stack-len)
   (declare (not interrupts-enabled))
-  ;; ensure vector is a still
-  (let ((total-len (max 256 stack-len)))
-    (let ((stack (make-vector total-len #f)))
-      ;; 0 bytes header so the gc doesn't collect the stack
-      (jazz:header-set! stack (jazz:header 0 jazz:subtype-vector jazz:tag-still))
-      (macro-thread-stack-set! thread stack)
-      ;; skip 2 32 bit quads for header
-      (macro-thread-frame-pointer-set! thread 2)
-      (macro-thread-stack-limit-set! thread (##fx+ 2 (##fx* total-len 2)))
-      (let ((name (thread-name thread)))
-        (let ((str (if (##symbol? name) (##symbol->string name) (##object->string name))))
-          (if (##not (jazz:string-starts-with? str "(execute "))
-              (jazz:debug-stack str stack)))))))
+  (cond ((not debug-stack?)
+         ;; ensure vector is a still
+         (let ((total-len (max 256 stack-len)))
+           (let ((stack (make-vector total-len #f)))
+             ;; 0 bytes header so the gc doesn't collect the stack
+             (jazz:header-set! stack (jazz:header 0 jazz:subtype-vector jazz:tag-still))
+             (macro-thread-stack-set! thread stack)
+             ;; skip 2 32 bit quads for header
+             (macro-thread-frame-pointer-set! thread 2)
+             (macro-thread-stack-limit-set! thread (##fx+ 2 (##fx* total-len 2)))
+             (let ((name (thread-name thread)))
+               (let ((str (if (##symbol? name) (##symbol->string name) (##object->string name))))
+                 (if (##not (jazz:string-starts-with? str "(execute "))
+                     (jazz:debug-stack str stack)))))))
+        ;; dazoo
+        (else
+         (pp (list (thread-name thread)))
+         ;; ensure vector is a still
+         (let ((total-len (max 256 stack-len)))
+           (let ((stack (make-vector total-len #f)))
+             (macro-thread-stack-set! thread stack)
+             (macro-thread-frame-pointer-set! thread 0)
+             (macro-thread-stack-limit-set! thread total-len))))))
 
 
 (define (jazz:make-thread-with-stack stack-len thunk name)
@@ -406,17 +421,71 @@
     thread))
 
 
-(define (jazz:push-stack-frame thread stack fp new-fp)
+(define (jazz:push-stack-frame thread stack fp new-fp container line col)
   (declare (not interrupts-enabled))
+  (jazz:clear-stack-frame thread stack fp new-fp)
+  ;(pp (list fp '----> new-fp container line col))
   #f
   #;
   (if (##eq? (thread-name thread) 'player)
       (pp (list (##fx* fp 4) '>>> (##fx* new-fp 4)))))
 
 
+(define (jazz:pop-stack-frame thread stack fp new-fp container line col)
+  (declare (not interrupts-enabled))
+  ;(pp (list fp '<---- new-fp container line col))
+  #;
+  (let ((name (thread-name thread)))
+    (if (##eq? name 'player)
+        (pp (list (##fx* fp 4) '<<< (##fx* new-fp 4)))))
+  (jazz:invalidate-stack-frame thread stack fp new-fp)
+  (let ((name (thread-name thread)))
+    (if (and (##equal? name "cow")
+             #;(##fx>= fp 394)
+             #;(##fx< 394 new-fp))
+        (begin
+          (##write-string "." (##repl-output-port))
+          (##gc)))))
+
+
+#;
+(define (jazz:invalidate-stack-frame thread stack fp new-fp)
+  (declare (not interrupts-enabled))
+  (let ((ptr (##fx+ stack fp))
+        (frame-quads (##fx- new-fp fp)))
+    (let loop ((n (##fx- frame-quads 1)))
+         (if (##fx>= n 0)
+             (let ((rank (##fx- n 2)))
+               (let ((quad (##u32vector-ref ptr rank)))
+                 (##u32vector-set! ptr rank (##replace-bit-field 3 0 2 quad))
+                 (loop (##fx- n 1))))))))
+
+;; dazoo
+(define (jazz:clear-stack-frame thread stack fp new-fp)
+  (declare (not interrupts-enabled))
+  (let loop ((n fp))
+       (if (##fx< n new-fp)
+           (begin
+             (##vector-set! stack n #f)
+             (loop (##fx+ n 1))))))
+
+;; dazoo
+(define (jazz:invalidate-stack-frame thread stack fp new-fp)
+  (declare (not interrupts-enabled))
+  (let loop ((n fp))
+       (if (##fx< n new-fp)
+           (let ((obj (##vector-ref stack n)))
+             (if obj
+                 (let ((header (##u64vector-ref obj -1)))
+                   (##u64vector-set! obj -1 (##replace-bit-field 3 0 2 header))
+                   (##vector-set! stack n #f)))
+             (loop (##fx+ n 1))))))
+
+
 (define jazz:pushed-values
   (make-table test: equal?))
 
+#;
 (define (jazz:push-value thread stack fp offset obj container line col)
   (declare (not interrupts-enabled))
   ;; proof-of-concept with new stack tag bits
@@ -433,33 +502,12 @@
                       (##table-set! jazz:pushed-values key #t)
                       (pp (list 'push stack-offset name container (##fx+ line 1) (##fx+ col 1) obj))))))))))
 
-
-(define (jazz:pop-stack-frame thread stack fp new-fp)
+;; dazoo
+(define (jazz:push-value thread stack fp offset obj container line col)
   (declare (not interrupts-enabled))
+  (%%vector-set! stack (##fx+ fp offset) obj)
   #;
-  (let ((name (thread-name thread)))
-    (if (##eq? name 'player)
-        (pp (list (##fx* fp 4) '<<< (##fx* new-fp 4)))))
-  (jazz:invalidate-stack-frame thread stack fp new-fp)
-  (let ((name (thread-name thread)))
-    (if (and (##equal? name "cow")
-             #;(##fx>= fp 394)
-             #;(##fx< 394 new-fp))
-        (begin
-          (##write-string "." (##repl-output-port))
-          (##gc)))))
-
-
-(define (jazz:invalidate-stack-frame thread stack fp new-fp)
-  (declare (not interrupts-enabled))
-  (let ((ptr (##fx+ stack fp))
-        (frame-quads (##fx- new-fp fp)))
-    (let loop ((n (##fx- frame-quads 1)))
-         (if (##fx>= n 0)
-             (let ((rank (##fx- n 2)))
-               (let ((quad (##u32vector-ref ptr rank)))
-                 (##u32vector-set! ptr rank (##replace-bit-field 3 0 2 quad))
-                 (loop (##fx- n 1))))))))
+  (pp (list 'push offset obj container line col)))
 
 
 ;;;

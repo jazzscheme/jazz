@@ -43,6 +43,12 @@
 ;;;
 
 
+(c-declare #<<end-of-code
+#include <stdio.h>
+end-of-code
+)
+
+
 (define jazz:debug-memory
   (c-lambda (char-string scheme-object) void
     #<<end-of-code

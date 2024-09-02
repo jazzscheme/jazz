@@ -604,11 +604,15 @@
       (define (prepare-bundle rebuild?)
         (if (and bundle (eq? windowing 'cocoa) (not library-image?))
             (let ((bundle-default-src (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "/")))
+                  (bundle-live-src (and (%%memq 'live features) (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "_live" "/"))))
                   (bundle-prod-src (and (%%memq 'prod features) (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "_prod" "/"))))
                   (bundle-test-src (and (%%memq 'test features) (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "_test" "/"))))
                   (bundle-triage-src (and (%%memq 'triage features) (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "_triage" "/"))))
                   (bundle-dst (build-file (%%string-append bundle ".app" "/"))))
-              (let ((bundle-src (cond ((and bundle-prod-src
+              (let ((bundle-src (cond ((and bundle-live-src
+                                            (file-exists? bundle-live-src))
+                                       bundle-live-src)
+                                      ((and bundle-prod-src
                                             (file-exists? bundle-prod-src))
                                        bundle-prod-src)
                                       ((and bundle-test-src
@@ -860,10 +864,14 @@
           ((windows)
            (let ()
              (define (split resources rcname)
-               (let ((resources-prod (and (%%memq 'prod features) (%%string-append resources "_prod")))
+               (let ((resources-live (and (%%memq 'live features) (%%string-append resources "_live")))
+                     (resources-prod (and (%%memq 'prod features) (%%string-append resources "_prod")))
                      (resources-test (and (%%memq 'test features) (%%string-append resources "_test")))
                      (resources-triage (and (%%memq 'triage features) (%%string-append resources "_triage"))))
-                 (let ((resources (cond ((and resources-prod
+                 (let ((resources (cond ((and resources-live
+                                              (file-exists? resources-live))
+                                         resources-live)
+                                        ((and resources-prod
                                               (file-exists? resources-prod))
                                          resources-prod)
                                         ((and resources-test

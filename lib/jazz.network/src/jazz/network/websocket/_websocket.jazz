@@ -123,6 +123,168 @@
 
 
 ;;;
+;;;; Frame
+;;;
+
+
+(definition (websocket-unmask-frame-payload payload len frame-masking-key)
+  (define tmaskkey (make-u8vector 4))
+  
+  (u8vector-set! tmaskkey 0 (vector-ref frame-masking-key 0))
+  (u8vector-set! tmaskkey 1 (vector-ref frame-masking-key 1))
+  (u8vector-set! tmaskkey 2 (vector-ref frame-masking-key 2))
+  (u8vector-set! tmaskkey 3 (vector-ref frame-masking-key 3))
+  
+  (unmask-websocket-frame tmaskkey len payload)
+  payload)
+
+
+(definition public (unmask fragment)
+  (if (get-masked? fragment)
+      (let ((r (websocket-unmask-frame-payload
+                 (get-payload fragment)
+                 (get-length fragment)
+                 (get-masking-key fragment))))
+        (set-masked? fragment #f)
+        r)
+    (get-payload fragment)))
+
+
+(definition (read-frame-payload port frame-payload-length)
+  (let ((data (make-u8vector frame-payload-length)))
+    (read-subu8vector data 0 frame-payload-length port)
+    data))
+
+
+(definition public (read-frame-unsafe total-size port)
+  (let ((b0 (read-u8 port)))
+    (if (eof-object? b0)
+        b0
+      ;; we don't support reserved bits yet
+      (if (or (> (bitwise-and b0 64) 0)
+              (> (bitwise-and b0 32) 0)
+              (> (bitwise-and b0 16) 0))
+          (signal 'reserved-bits-not-supported)
+        (let* ((frame-fin (> (bitwise-and b0 128) 0))
+               (frame-opcode (bitwise-and b0 15))
+               (frame-optype (opcode->optype frame-opcode))
+               (b1 (read-u8 port))
+               (frame-masked (> (bitwise-and b1 128) 0))
+               (frame-payload-length (bitwise-and b1 127)))
+          (cond ((= frame-payload-length 126)
+                 (let ((bl0 (read-u8 port))
+                       (bl1 (read-u8 port)))
+                   (set! frame-payload-length (+ (arithmetic-shift bl0 8) bl1))))
+                ((= frame-payload-length 127)
+                 (let ()
+                   (define (shift i r)
+                     (if (< i 0)
+                         r
+                       (shift (- i 1) (+ (arithmetic-shift (read-u8 port) (* 8 i))
+                                         r))))
+                   (set! frame-payload-length (shift 7 0)))))
+          (if (or (> frame-payload-length (max-frame-size))
+                  (> (+ frame-payload-length total-size) (max-message-size)))
+              (signal 'message-too-large)
+            (let* ((frame-masking-key
+                     (if frame-masked
+                         (let* ((fm0 (read-u8 port))
+                                (fm1 (read-u8 port))
+                                (fm2 (read-u8 port))
+                                (fm3 (read-u8 port)))
+                           (vector fm0 fm1 fm2 fm3))
+                       #f)))
+              (cond
+                ((or (eq? frame-optype 'text) (eq? frame-optype 'binary)
+                   (eq? frame-optype 'continuation) (eq? frame-optype 'ping)
+                   (eq? frame-optype 'pong))
+                 (new Fragment
+                   (read-frame-payload port frame-payload-length)
+                   frame-payload-length frame-masked
+                   frame-masking-key frame-fin frame-optype))
+                ((eq? frame-optype 'connection-close)
+                 (new Fragment
+                   (read-frame-payload port frame-payload-length)
+                   frame-payload-length frame-masked frame-masking-key
+                   frame-fin frame-optype))
+                (else
+                 (signal 'unhandled-optype))))))))))
+
+
+(definition public (write-frame-unsafe optype data last-frame? port)
+  (define (write-u8vector vec port)
+    (write-subu8vector vec 0 (u8vector-length vec) port))
+  
+  (if (eq? optype 'pong)
+      (let* ((len 0)
+             (frame-fin (if last-frame? 1 0))
+             (frame-rsv1 0)
+             (frame-rsv2 0)
+             (frame-rsv3 0)
+             (frame-opcode (optype->opcode optype))
+             (octet0 (bitwise-ior (arithmetic-shift frame-fin 7)
+                                  (arithmetic-shift frame-rsv1 6)
+                                  (arithmetic-shift frame-rsv2 5)
+                                  (arithmetic-shift frame-rsv3 4)
+                                  frame-opcode))
+             (frame-masked 1)
+             (frame-payload-length (cond ((< len 126) len)
+                                         ((< len 65536) 126)
+                                         (else 127)))
+             (octet1 (bitwise-ior (arithmetic-shift frame-masked 7)
+                                  frame-payload-length)))
+        (write-u8vector (u8vector octet0 octet1) port)
+        (write-u8vector (u8vector 1 2 3 4) port)
+        (force-output port))
+        
+  (let* ((len (if (string? data) (string-length data) (u8vector-length data)))
+         (frame-fin (if last-frame? 1 0))
+         (frame-rsv1 0)
+         (frame-rsv2 0)
+         (frame-rsv3 0)
+         (frame-opcode (optype->opcode optype))
+         (octet0 (bitwise-ior (arithmetic-shift frame-fin 7)
+                              (arithmetic-shift frame-rsv1 6)
+                              (arithmetic-shift frame-rsv2 5)
+                              (arithmetic-shift frame-rsv3 4)
+                              frame-opcode))
+         
+         (frame-masked 0)
+         (frame-payload-length (cond ((< len 126) len)
+                                     ((< len 65536) 126)
+                                     (else 127)))
+         (octet1 (bitwise-ior (arithmetic-shift frame-masked 7)
+                              frame-payload-length)))
+    
+    (write-u8vector (u8vector octet0 octet1) port)
+    
+    (write-u8vector
+      (cond ((= frame-payload-length 126)
+             (u8vector
+               (arithmetic-shift (bitwise-and len 65280) -8)
+               (bitwise-and len 255)))
+            ((= frame-payload-length 127)
+             (u8vector
+               0 0 0 0
+               (arithmetic-shift
+                 (bitwise-and len 4278190080) -24)
+               (arithmetic-shift
+                 (bitwise-and len 16711680) -16)
+               (arithmetic-shift
+                 (bitwise-and len 65280) -8)
+               (bitwise-and len 255)))
+            (else
+             (u8vector)))
+      port)
+    
+    (if (string? data)
+        (write-substring data 0 len port)
+      (write-subu8vector data 0 len port))
+    
+    (force-output port))))
+
+
+;;;
 ;;;; Server
 ;;;
 
@@ -196,90 +358,6 @@
       (write (format "Sec-WebSocket-Accept: {a}" accept))
       (format port "{%}")
       (force-output port)))
-
-
-  (method (websocket-unmask-frame-payload self payload len frame-masking-key)
-    (define tmaskkey (make-u8vector 4))
-    
-    (u8vector-set! tmaskkey 0 (vector-ref frame-masking-key 0))
-    (u8vector-set! tmaskkey 1 (vector-ref frame-masking-key 1))
-    (u8vector-set! tmaskkey 2 (vector-ref frame-masking-key 2))
-    (u8vector-set! tmaskkey 3 (vector-ref frame-masking-key 3))
-    
-    (unmask-websocket-frame tmaskkey len payload)
-    payload)
-
-
-  (method public (unmask self fragment)
-    (if (get-masked? fragment)
-        (let ((r (websocket-unmask-frame-payload self
-                   (get-payload fragment)
-                   (get-length fragment)
-                   (get-masking-key fragment))))
-          (set-masked? fragment #f)
-          r)
-      (get-payload fragment)))
-
-
-  (method (read-frame-payload self port frame-payload-length)
-    (let ((data (make-u8vector frame-payload-length)))
-      (read-subu8vector data 0 frame-payload-length port)
-      data))
-
-
-  (method (read-frame-unsafe self total-size port)
-    (let ((b0 (read-u8 port)))
-      (if (eof-object? b0)
-          b0
-        ;; we don't support reserved bits yet
-        (if (or (> (bitwise-and b0 64) 0)
-                (> (bitwise-and b0 32) 0)
-                (> (bitwise-and b0 16) 0))
-            (signal 'reserved-bits-not-supported)
-          (let* ((frame-fin (> (bitwise-and b0 128) 0))
-                 (frame-opcode (bitwise-and b0 15))
-                 (frame-optype (opcode->optype frame-opcode))
-                 (b1 (read-u8 port))
-                 (frame-masked (> (bitwise-and b1 128) 0))
-                 (frame-payload-length (bitwise-and b1 127)))
-            (cond ((= frame-payload-length 126)
-                   (let ((bl0 (read-u8 port))
-                         (bl1 (read-u8 port)))
-                     (set! frame-payload-length (+ (arithmetic-shift bl0 8) bl1))))
-                  ((= frame-payload-length 127)
-                   (let ()
-                     (define (shift i r)
-                       (if (< i 0)
-                           r
-                         (shift (- i 1) (+ (arithmetic-shift (read-u8 port) (* 8 i))
-                                           r))))
-                     (set! frame-payload-length (shift 7 0)))))
-            (if (or (> frame-payload-length (max-frame-size))
-                    (> (+ frame-payload-length total-size) (max-message-size)))
-                (signal 'message-too-large)
-              (let* ((frame-masking-key
-                       (if frame-masked
-                           (let* ((fm0 (read-u8 port))
-                                  (fm1 (read-u8 port))
-                                  (fm2 (read-u8 port))
-                                  (fm3 (read-u8 port)))
-                             (vector fm0 fm1 fm2 fm3))
-                         #f)))
-                (cond
-                  ((or (eq? frame-optype 'text) (eq? frame-optype 'binary)
-                       (eq? frame-optype 'continuation) (eq? frame-optype 'ping)
-                       (eq? frame-optype 'pong))
-                   (new Fragment
-                     (read-frame-payload self port frame-payload-length)
-                     frame-payload-length frame-masked
-                     frame-masking-key frame-fin frame-optype))
-                  ((eq? frame-optype 'connection-close)
-                   (new Fragment
-                     (read-frame-payload self port frame-payload-length)
-                     frame-payload-length frame-masked frame-masking-key
-                     frame-fin frame-optype))
-                  (else
-                   (signal 'unhandled-optype))))))))))
   
   
   (method public (read-frame self total-size port)
@@ -288,62 +366,12 @@
         (problem "read-frame exception: {a}" (exception-reason exc))
         (eof-object))
       (lambda ()
-        (read-frame-unsafe self total-size port))))
+        (read-frame-unsafe total-size port))))
 
 
-  (method (write-frame-unsafe self optype data last-frame port)
-    (define (write-u8vector vec port)
-      (write-subu8vector vec 0 (u8vector-length vec) port))
-    
-    (let* ((len (if (string? data) (string-length data) (u8vector-length data)))
-           (frame-fin (if last-frame 1 0))
-           (frame-rsv1 0)
-           (frame-rsv2 0)
-           (frame-rsv3 0)
-           (frame-opcode (optype->opcode optype))
-           (octet0 (bitwise-ior (arithmetic-shift frame-fin 7)
-                                (arithmetic-shift frame-rsv1 6)
-                                (arithmetic-shift frame-rsv2 5)
-                                (arithmetic-shift frame-rsv3 4)
-                                frame-opcode))
-           
-           (frame-masked 0)
-           (frame-payload-length (cond ((< len 126) len)
-                                       ((< len 65536) 126)
-                                       (else 127)))
-           (octet1 (bitwise-ior (arithmetic-shift frame-masked 7)
-                                frame-payload-length)))
-      
-      (write-u8vector (u8vector octet0 octet1) port)
-      
-      (write-u8vector
-        (cond ((= frame-payload-length 126)
-               (u8vector
-                 (arithmetic-shift (bitwise-and len 65280) -8)
-                 (bitwise-and len 255)))
-              ((= frame-payload-length 127)
-               (u8vector
-                 0 0 0 0
-                 (arithmetic-shift
-                   (bitwise-and len 4278190080) -24)
-                 (arithmetic-shift
-                   (bitwise-and len 16711680) -16)
-                 (arithmetic-shift
-                   (bitwise-and len 65280) -8)
-                 (bitwise-and len 255)))
-              (else (u8vector)))
-        port)
-      
-      (if (string? data)
-          (write-substring data 0 len port)
-        (write-subu8vector data 0 len port))
-      
-      (force-output port)))
-
-
-  (method public (write-frame self optype data last-frame port)
+  (method public (write-frame self optype data last-frame? port)
     (with-safe-websocket
       (lambda (exc)
         (problem "write-frame exception: {a}" (exception-reason exc)))
       (lambda ()
-        (write-frame-unsafe self optype data last-frame port))))))
+        (write-frame-unsafe optype data last-frame? port))))))

@@ -1592,8 +1592,7 @@ static void gst_print_error(GstMessage *msg)
     gchar  *debug;
     GError *error;
 
-    gst_message_parse_error(msg, &error, &debug);
-    g_free(debug);
+    gst_message_parse_error(msg, &error, NULL);
 
     g_printerr("Error: %s\n", error->message);
     g_error_free(error);
@@ -1798,10 +1797,8 @@ static void gst_print_message(char* pipeline_name, GstMessage *msg)
             break;
         }
         case GST_MESSAGE_ERROR: {
-            gchar  *debug;
             GError *error;
-            gst_message_parse_error(msg, &error, &debug);
-            g_free(debug);
+            gst_message_parse_error(msg, &error, NULL);
             g_printerr("MESSAGE error %s %s %s\n",
                 pipeline_name,
                 GST_MESSAGE_SRC_NAME(msg),
@@ -1810,10 +1807,8 @@ static void gst_print_message(char* pipeline_name, GstMessage *msg)
             break;
         }
         case GST_MESSAGE_WARNING: {
-            gchar  *debug;
             GError *error;
-            gst_message_parse_warning(msg, &error, &debug);
-            g_free(debug);
+            gst_message_parse_warning(msg, &error, NULL);
             g_printerr("MESSAGE warning %s %s %s\n",
                 pipeline_name,
                 GST_MESSAGE_SRC_NAME(msg),
@@ -3085,9 +3080,9 @@ static gboolean gst_pad_push_force_key_unit(GstPad* pad)
                 FALSE, 0));
 }
 
-static GstBusSyncReply bus_sync_handler(GstBus* bus,
-                                        GstMessage* message,
-                                        gpointer user_data)
+static GstBusSyncReply print_sync_handler(GstBus* bus,
+                                          GstMessage* message,
+                                          gpointer user_data)
 {
     GstPipeline* pipeline = (GstPipeline*) user_data;
     char* name = GST_OBJECT_NAME(pipeline);
@@ -3101,7 +3096,52 @@ static void gst_print_messages(GstPipeline* pipeline)
 {
     GstBus* bus = gst_pipeline_get_bus(pipeline);
     gst_bus_set_sync_handler(bus,
-                             bus_sync_handler,
+                             print_sync_handler,
+                             pipeline,
+                             NULL);
+    gst_object_unref(bus);
+}
+
+// as we do not use a glib main loop we
+// need to process and unref messages else
+// they will stay in the bus and leak
+static GstBusSyncReply process_sync_handler(GstBus* bus,
+                                            GstMessage* message,
+                                            gpointer user_data)
+{
+    switch (GST_MESSAGE_TYPE(message)) {
+        case GST_MESSAGE_EOS: {
+            // quick solution that will leak
+            // as we sometimes need eos messages
+            // a listener could be used to inform
+            // the lisp code of the eos message
+            return GST_BUS_PASS;
+        }
+        case GST_MESSAGE_ERROR: {
+            GstPipeline* pipeline = (GstPipeline*) user_data;
+            char* name = GST_OBJECT_NAME(pipeline);
+            GError *error;
+            gst_message_parse_error(message, &error, NULL);
+            g_printerr("ERROR in %s:%s : %s\n",
+                name,
+                GST_MESSAGE_SRC_NAME(message),
+                error->message);
+            g_error_free(error);
+            gst_message_unref(message);
+            return GST_BUS_DROP;
+        }
+        default: {
+            gst_message_unref(message);
+            return GST_BUS_DROP;
+        }
+    }
+}
+
+static void gst_process_messages(GstPipeline* pipeline)
+{
+    GstBus* bus = gst_pipeline_get_bus(pipeline);
+    gst_bus_set_sync_handler(bus,
+                             process_sync_handler,
                              pipeline,
                              NULL);
     gst_object_unref(bus);
@@ -3342,6 +3382,7 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (gst_monitor_queries GstPad* (call GST_PIPELINE GstElement*)) void*)
 (gst-external (gst_monitor_remove GstPad* void*) void)
 (gst-external (gst_print_messages (call GST_PIPELINE GstElement*)) void)
+(gst-external (gst_process_messages (call GST_PIPELINE GstElement*)) void)
 (gst-external (gst_queue_connect_running GstElement*) gulong)
 (gst-external (gst_queue_connect_overrun GstElement*) gulong)
 (gst-external (gst_app_src_get_caps (call GST_APP_SRC GstElement*)) GstCaps*)
@@ -3386,29 +3427,9 @@ static void gst_print_messages(GstPipeline* pipeline)
 (gst-external (GST_MESSAGE_SRC GstMessage*) GstElement*)
 
 
-(definition pipeline-flushing
-  (make-table test: eq? weak-keys: #t))
-
-(definition pipeline-flushing-mutex
-  (make-mutex 'pipeline-flushing))
-
-(definition public (set-pipeline-flushing? pipeline flushing?)
-  (mutex-lock! pipeline-flushing-mutex)
-  (table-set! pipeline-flushing pipeline flushing?)
-  (mutex-unlock! pipeline-flushing-mutex)
-  (set-bus-flushing pipeline flushing?))
-
-(definition public (get-pipeline-flushing? pipeline)
-  (mutex-lock! pipeline-flushing-mutex)
-  (prog1 (table-ref pipeline-flushing pipeline #t)
-    (mutex-unlock! pipeline-flushing-mutex)))
-
-
 @blocking
 (definition public (gst_element_set_state elem state)
-  (gst_element_set_state_blocking elem state)
-  (when (gst_is_pipeline elem)
-    (set-bus-flushing elem (get-pipeline-flushing? elem))))
+  (gst_element_set_state_blocking elem state))
 
 
 ;; non-blocking listener-based set state
@@ -3438,19 +3459,7 @@ static void gst_print_messages(GstPipeline* pipeline)
         (lambda (c)
           (assert (eqv? c #\!)
             (gst_element_set_state_free data)
-            (close-stream-listener listener)
-            (when (gst_is_pipeline elem)
-              (set-bus-flushing elem (get-pipeline-flushing? elem)))))))))
-
-
-;; we are not using messages at the moment and
-;; not processing them causes nasty memory leaks
-;; note that setting the bus to flushing from set_state
-;; is a quick solution to gstreamer overriding flushing
-;; when going to ready state
-(definition (set-bus-flushing pipeline flushing?)
-  (with-unref ((bus (gst_pipeline_get_bus pipeline)))
-    (gst_bus_set_flushing bus (if flushing? 1 0))))
+            (close-stream-listener listener)))))))
 
 
 (gst-external (separate-alpha void* void* int) void

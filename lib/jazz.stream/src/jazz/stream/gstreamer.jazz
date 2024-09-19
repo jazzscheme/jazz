@@ -355,6 +355,7 @@
       (terminal description))
     (let ((pipeline (gst_parse_launch description)))
       (register-bin pipeline)
+      (gst_process_messages pipeline)
       pipeline)))
 
 
@@ -403,29 +404,29 @@
 
 
 (definition public (pipeline-messages-processor pipeline (playing-proc: playing-proc #f) (print?: print? #f))
-  (let ((name (gst_object_get_name pipeline))
-        (bus (gst_pipeline_get_bus pipeline)))
-    (lambda ()
-      (let (loop)
-        (let ((msg (gst_bus_pop bus)))
-          (when msg
-            (when (and playing-proc
-                       (= (GST_MESSAGE_TYPE msg) GST_MESSAGE_STATE_CHANGED)
-                       (= (gst_message_state_changed_get_new_state msg) GST_STATE_PLAYING)
-                       (equal? (gst_object_get_name (GST_MESSAGE_SRC msg)) name))
-              (playing-proc))
-            (when print?
-              (gst_print_message name msg))
-            (let ((type (GST_MESSAGE_TYPE msg)))
-              (ecase type
-                ((GST_MESSAGE_ERROR)
-                 (unless print?
-                   (gst_print_message name msg)))
-                ((GST_MESSAGE_WARNING)
-                 (unless print?
-                   (gst_print_message name msg)))))
-            (gst_message_unref msg)
-            (loop)))))))
+  (let ((name (gst_object_get_name pipeline)))
+    (with-unref ((bus (gst_pipeline_get_bus pipeline)))
+      (lambda ()
+        (let (loop)
+          (let ((msg (gst_bus_pop bus)))
+            (when msg
+              (when (and playing-proc
+                         (= (GST_MESSAGE_TYPE msg) GST_MESSAGE_STATE_CHANGED)
+                         (= (gst_message_state_changed_get_new_state msg) GST_STATE_PLAYING)
+                         (equal? (gst_object_get_name (GST_MESSAGE_SRC msg)) name))
+                (playing-proc))
+              (when print?
+                (gst_print_message name msg))
+              (let ((type (GST_MESSAGE_TYPE msg)))
+                (ecase type
+                  ((GST_MESSAGE_ERROR)
+                   (unless print?
+                     (gst_print_message name msg)))
+                  ((GST_MESSAGE_WARNING)
+                   (unless print?
+                     (gst_print_message name msg)))))
+              (gst_message_unref msg)
+              (loop))))))))
 
 
 (definition public (gst-element name . rest)
@@ -436,22 +437,6 @@
                            (format port " {a}={a}" (keyword->string key) value)))
                        rest)
     (get-output-string port)))
-
-
-;;;
-;;;; Bus
-;;;
-
-
-;; obsoleted by always setting the bus to flushing
-(definition public (gst-flush-bus pipeline)
-  (with-unref ((bus (gst_pipeline_get_bus pipeline)))
-    (let (loop (count 0))
-      (let ((msg (gst_bus_pop bus)))
-        (if (not msg)
-            count
-          (gst_message_unref msg)
-          (loop (+ count 1)))))))
 
 
 ;;;

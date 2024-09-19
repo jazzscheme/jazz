@@ -3840,6 +3840,16 @@ static ___SCMOBJ double_to_scmobj(double x)
 }
 
 
+static ___SCMOBJ alloc_voidptr(void* ptr)
+{
+    ___SCMOBJ foreign = ___EXT(___alloc_scmobj) (___PSTATE, ___sFOREIGN, ___FOREIGN_SIZE<<___LWS);
+    ___FIELD(foreign,___FOREIGN_TAGS) = ___FAL;
+    ___FIELD(foreign,___FOREIGN_RELEASE_FN) = ___CAST(___SCMOBJ, ___EXT(___release_pointer));
+    ___FIELD(foreign,___FOREIGN_PTR) = ___CAST(___SCMOBJ, ptr);
+    return foreign;
+}
+
+
 static uint64 platformProcessMemory()
 {
     kern_return_t error;
@@ -3862,11 +3872,12 @@ static ___SCMOBJ platformProcessThreads()
     size_t i;
     double my_user_time = 0, my_system_time = 0, my_percent = 0;
     char name[256];
+    ___SCMOBJ foreign;
 
     if ((error = task_threads(mach_task_self(), &th_array, &th_count)) != KERN_SUCCESS)
         return ___FAL;
     
-    ___SCMOBJ r = ___EXT(___alloc_scmobj) (___PSTATE, ___sVECTOR, th_count*2*sizeof(___SCMOBJ));
+    ___SCMOBJ r = ___EXT(___alloc_scmobj) (___PSTATE, ___sVECTOR, th_count*3*sizeof(___SCMOBJ));
     ___SCMOBJ *ptr = ___CAST(___SCMOBJ*,___BODY(r));
 
     // iterate live threads
@@ -3882,16 +3893,20 @@ static ___SCMOBJ platformProcessThreads()
 
         pthread_t pt = pthread_from_mach_thread_np(th_array[i]);
         if (pt) {
+            foreign = alloc_voidptr(pt);
             name[0] = '\0';
             pthread_getname_np(pt, name, sizeof name);
-            ptr[i*2] = charstar_to_scmobj(name);
+            ptr[i*3] = foreign;
+            ptr[i*3+1] = charstar_to_scmobj(name);
+            ___EXT(___release_scmobj)(foreign);
         } else {
-            ptr[i*2] = ___FAL;
+            ptr[i*3] = ___FAL;
+            ptr[i*3+1] = ___FAL;
         }
-        
+
         th_percent = (double)th_info.cpu_usage / TH_USAGE_SCALE;
         
-        ptr[i*2+1] = double_to_scmobj(th_percent);
+        ptr[i*3+2] = double_to_scmobj(th_percent);
     }
 
     // destroy thread array

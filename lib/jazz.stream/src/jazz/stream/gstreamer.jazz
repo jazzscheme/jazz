@@ -277,108 +277,48 @@
 
 
 ;;;
-;;;; Renaming
+;;;; Bins
 ;;;
 
 
-;; gstreamer threads are named as element name:pad direction
-;; the following renaming scheme gives a unique name to every
-;; element so we can find the element bin solely from its name
+(definition bins-mutex
+  (make-mutex 'bins))
 
-
-(definition bin-renaming?
-  #t)
-
-
-(definition bin-mutex
-  (make-mutex 'bin))
-
-(definition protected (with-bin-mutex thunk)
-  (mutex-lock! bin-mutex)
+(definition protected (with-bins-mutex thunk)
+  (mutex-lock! bins-mutex)
   (prog1 (thunk)
-    (mutex-unlock! bin-mutex)))
-
-
-(definition bin-unique-id
-  0)
-
-(definition (bin-unique-id!)
-  (with-bin-mutex
-    (lambda ()
-      (prog1 bin-unique-id
-        (increase! bin-unique-id)))))
-
-(definition (bin-suffix id)
-  (if (not bin-renaming?)
-      ""
-    (string-append "%" (->string id))))
+    (mutex-unlock! bins-mutex)))
 
 
 (definition bins
-  (make-table test: eq?))
+  '())
 
-(definition (register-bin bin id)
-  (with-bin-mutex
+(definition (register-bin bin)
+  (with-bins-mutex
     (lambda ()
-      (table-set! bins bin id))))
-
-(definition (registered-bin bin)
-  (with-bin-mutex
-    (lambda ()
-      (table-ref bins bin))))
+      (set! bins (append! bins (list bin))))))
 
 (definition protected (unregister-bin bin)
-  (table-clear bins bin))
-
-
-(definition protected (bin->id bin)
-  (registered-bin bin))
-
-(definition protected (id->bin id)
-  (table-find bins id))
+  (set! bins (remove! bin bins)))
 
 
 (definition protected (collect-bins)
-  (table-keys bins))
+  bins)
 
 
-(definition protected (gst-element-bin-name bin name)
-  (let ((id (registered-bin bin)))
-    (string-append name (bin-suffix id))))
-
-
-(definition public (gst_bin_get_by_name bin name)
-  (let ((elem (gst_bin_get_by_name_aux bin (gst-element-bin-name bin name))))
-    (if (not elem)
-        (error "Unable to find element {a}" name)
-      elem)))
-
-
-(definition (substitute-names description id)
-  (let ((output (open-output-string))
-        (len (string-length description)))
-    (let (iter (start 0))
-      (let ((pos (search description "name=" start: start)))
-        (cond ((not pos)
-               (write-string (substring description start len) output)
-               (get-output-string output))
-              ((and (> pos 0)
-                    (not (whitespace? (string-ref description (- pos 1)))))
-               (let ((end (+ pos 5)))
-                 (write-string (substring description start end) output)
-                 (iter end)))
-              (else
-               (write-string (substring description start pos) output)
-               (let ((start (+ pos 5)))
-                 (let ((end (or (search description " " start: start) len)))
-                   (write-string "name=" output)
-                   (write-string (substring description start end) output)
-                   (write-string (bin-suffix id) output)
-                   (iter end)))))))))
-
-
-(definition (substitute-^s description id)
-  (substitute-string description "^" (bin-suffix id)))
+(definition protected (find-streaming-bin id name pad)
+  (let ((address (foreign-address id)))
+    (find-if (lambda (bin)
+               (with-unref ((elem (gst_bin_get_by_name_aux bin name)))
+                 (and elem
+                      (with-unref ((pad (gst_element_get_static_pad elem pad)))
+                        (and pad
+                             (let ((task (gst_pad_task pad)))
+                               (and task
+                                    (let ((system-thread (gst_task_system_thread task)))
+                                      (and system-thread
+                                           (= (foreign-address system-thread) address))))))))))
+             bins)))
 
 
 ;;;
@@ -410,25 +350,23 @@
 (definition public (gst-pipeline . elements)
   (when show-elements?
     (pp elements))
-  (let ((id (bin-unique-id!)))
-    (let ((description (substitute-^s (substitute-names (gst-parse elements) id) id)))
-      (when show-bin?
-        (terminal description))
-      (let ((pipeline (gst_parse_launch description)))
-        (register-bin pipeline id)
-        pipeline))))
+  (let ((description (gst-parse elements)))
+    (when show-bin?
+      (terminal description))
+    (let ((pipeline (gst_parse_launch description)))
+      (register-bin pipeline)
+      pipeline)))
 
 
 (definition public (gst-bin . elements)
   (when show-elements?
     (pp elements))
-  (let ((id (bin-unique-id!)))
-    (let ((description (substitute-^s (substitute-names (gst-parse elements) id) id)))
-      (when show-bin?
-        (terminal description))
-      (let ((bin (gst_parse_bin_from_description description 0)))
-        (register-bin bin id)
-        bin))))
+  (let ((description (gst-parse elements)))
+    (when show-bin?
+      (terminal description))
+    (let ((bin (gst_parse_bin_from_description description 0)))
+      (register-bin bin)
+      bin)))
 
 
 (definition public (gst-parse elements)
@@ -458,7 +396,7 @@
 
 
 (definition public (gst_bin_release bin)
-  (with-bin-mutex
+  (with-bins-mutex
     (lambda ()
       (gst_element_release bin)
       (unregister-bin bin))))
@@ -558,6 +496,13 @@
               (queue-list queue))
           (enqueue queue elem)
           (loop))))))
+
+
+(definition public (gst_bin_get_by_name bin name)
+  (let ((elem (gst_bin_get_by_name_aux bin name)))
+    (if (not elem)
+        (error "Unable to find element {a}" name)
+      elem)))
 
 
 ;;;

@@ -321,7 +321,7 @@
                                   (map (lambda (n)
                                          (let ((name (tie "queue{n}")))
                                            (list
-                                             "tee^."
+                                             "tee."
                                              (tie "queue name={name}")
                                              "x264enc tune=zerolatency speed-preset=superfast bitrate=2048"
                                              "appsink sync=false async=false")))
@@ -453,17 +453,13 @@
                      (let ((total (+ main others)))
                        (format :terminal "Total: {r precision: 1 width: 4 justify: :right},   Main: {r precision: 1 width: 4 justify: :right},   Others: {r precision: 1 width: 4 justify: :right}" (* total 100.) (* main 100.) (* others 100.))
                        (for-each (lambda (thread)
-                                   (bind (fullname percentage) thread
+                                   (bind (id fullname percentage) thread
                                      (when (and fullname (find fullname #\:))
                                        (bind (name pad) (split-string fullname #\:)
-                                         (let ((split (split-string name #\%)))
-                                           (if (= (length split) 1)
-                                               (format :terminal "Streaming thread {a} is missing an explicit name{%}" name)
-                                             (bind (element id) split
-                                               (let ((bin (id->bin (string->number id))))
-                                                 (when bin
-                                                   (let ((bin-name (gst_object_get_name bin)))
-                                                     (format :terminal ",   {a}.{a}.{a}: {r precision: 1 width: 4 justify: :right}%" bin-name element pad (* percentage 100.))))))))))))
+                                         (let ((bin (find-streaming-bin id name pad)))
+                                           (when bin
+                                             (let ((bin-name (gst_object_get_name bin)))
+                                               (format :terminal ",   {a}.{a}.{a}: {r precision: 1 width: 4 justify: :right}%" bin-name element pad (* percentage 100.)))))))))
                                  threads)))))
                (newline)
                (sleep 1)
@@ -2221,7 +2217,7 @@ description-end
     
     (define (create-channel location volume)
       (when (not mixer?)
-        (let ((mix (gst_element_factory_make "audiomixer" (gst-element-bin-name audio "mix"))))
+        (let ((mix (gst_element_factory_make "audiomixer" "mix")))
           (with-unref ((queue (gst_bin_get_by_name audio "queue")))
             (gst_bin_add audio mix)
             (gst_element_link mix queue)
@@ -2351,7 +2347,7 @@ description-end
     
     (define (insert-mixer)
       (when (not mixer?)
-        (let ((mixer (gst_element_factory_make "audiomixer" (gst-element-bin-name audio "mixer"))))
+        (let ((mixer (gst_element_factory_make "audiomixer" "mixer")))
           (when gc?
             (g_object_set_uint64 mixer "latency" 100000000))
           (with-unref ((queue (gst_bin_get_by_name audio "queue")))
@@ -2362,7 +2358,7 @@ description-end
     
     (define (add-silence-channel)
       (insert-mixer)
-      (let ((elem (gst_element_factory_make "audiotestsrc" (gst-element-bin-name audio "silence"))))
+      (let ((elem (gst_element_factory_make "audiotestsrc" "silence")))
         (g_object_set_boolean elem "is-live" #t)
         (g_object_set_int elem "wave" 4)
         (with-unref ((audio-mixer (gst_bin_get_by_name audio "mixer")))
@@ -2499,7 +2495,7 @@ description-end
     
     (define (add-channel location (volume 1.))
       (when (not mixer?)
-        (let ((mixer (gst_element_factory_make "audiomixer" (gst-element-bin-name audio "mixer"))))
+        (let ((mixer (gst_element_factory_make "audiomixer" "mixer")))
           (with-unref ((queue (gst_bin_get_by_name audio "queue")))
             (gst_bin_add audio mixer)
             (gst_element_link mixer queue)

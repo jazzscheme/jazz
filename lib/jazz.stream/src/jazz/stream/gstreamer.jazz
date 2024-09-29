@@ -634,6 +634,26 @@
              (values caps-string (new Dimension width height)))))))
 
 
+(definition public (wait-eos pipeline)
+  (with-unref ((bus (gst_pipeline_get_bus pipeline)))
+    (let (loop (n 0))
+      (if (> n 1000)
+          #f
+        (let ((msg (gst_bus_pop bus)))
+          (if (not msg)
+              (begin
+                (sleep .001)
+                (loop (+ n 1)))
+            (let ((type (GST_MESSAGE_TYPE msg)))
+              (if (/= type GST_MESSAGE_EOS)
+                  (begin
+                    (gst_message_unref msg)
+                    (sleep .001)
+                    (loop (+ n 1)))
+                (gst_message_unref msg)
+                #t))))))))
+
+
 (definition public (gst_element_release elem)
   (gst_element_set_state elem GST_STATE_NULL)
   (gst_object_unref elem))

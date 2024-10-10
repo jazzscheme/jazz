@@ -87,14 +87,14 @@
     (define jazz:opengl-units
       (let ((glew-include-path (jazz:quote-jazz-pathname "foreign/jazz.opengl/silicon/glew/include"))
             (glew-lib-path     (jazz:quote-jazz-pathname "foreign/jazz.opengl/silicon/glew/lib")))
-        `((jazz.opengl.glew.foreign cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" glew-include-path)) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))
-          (jazz.opengl.glew.header cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" glew-include-path)) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))))))
+        `((jazz.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))
+          (jazz.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))))))
   (cocoa
     (define jazz:opengl-units
       (let ((glew-include-path (jazz:quote-jazz-pathname "foreign/jazz.opengl/mac/glew/include"))
             (glew-lib-path     (jazz:quote-jazz-pathname "foreign/jazz.opengl/mac/glew/lib")))
-        `((jazz.opengl.glew.foreign cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" glew-include-path)) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))
-          (jazz.opengl.glew.header cc-options: ,(jazz:patch-mac-ld-warnings (string-append "-I" glew-include-path)) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))))))
+        `((jazz.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))
+          (jazz.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lGLEW"))))))
   (x11
     (define jazz:opengl-units
       (let ((glew-include-path (jazz:quote-jazz-pathname "foreign/jazz.opengl/linux/glew/include"))

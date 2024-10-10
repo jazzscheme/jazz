@@ -94,7 +94,7 @@
             (png-lib-path            (quoter "foreign/jazz.png/silicon/lib")))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfreetype.6" " -lcairo.2")))
-          (list (jazz:patch-mac-ld-warnings cc-flags) ld-flags)))))
+          (list cc-flags ld-flags)))))
   (mac
     (define (jazz:cairo-flags quoter)
       (let ((cairo-include-path      (quoter "foreign/jazz.cairo/mac/include/cairo"))
@@ -109,7 +109,7 @@
             (png-lib-path            (quoter "foreign/jazz.png/mac/lib")))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfreetype.6" " -lcairo.2")))
-          (list (jazz:patch-mac-ld-warnings cc-flags) ld-flags)))))
+          (list cc-flags ld-flags)))))
   (windows
     (define (jazz:cairo-flags quoter)
       (let ((cairo-include-path      (quoter "foreign/jazz.cairo/windows/include"))

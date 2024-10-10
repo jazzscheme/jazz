@@ -894,7 +894,7 @@
       
       (define (gambit-link-libraries)
         (if (%%not library-image?)
-            `("-lgambit" ,(%%string-append "-l" gambit-library))
+            `(,(%%string-append "-l" gambit-library))
           '()))
       
       (define (link-libraries)

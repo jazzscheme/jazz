@@ -160,7 +160,10 @@
 
 
   (slot device             initialize #f accessors generate)
-  (slot context            initialize #f accessors generate)
+  (slot device-x           initialize #f getter generate)
+  (slot device-y           initialize #f getter generate)
+  (slot device-width       initialize #f getter generate)
+  (slot device-height      initialize #f getter generate)
   (slot context-mutex      initialize #f getter generate)
   (slot previous-placement initialize #f getter generate)
   (slot window-mode        initialize #f getter generate)
@@ -184,6 +187,9 @@
             (begin
               (mutex-lock! context-mutex)
               (make-context-current self)
+              (when (not device-x)
+                (update-device-size self))
+              (glViewport device-x device-y device-width device-height)
               (thunk)) 
           (mutex-unlock! context-mutex)))))
 
@@ -201,6 +207,10 @@
 
 
   (method package virtual (resize-scene self width <fl> height <fl>)
+    (update-device-size self))
+  
+  
+  (method (update-device-size self)
     ;; quick try to solve wiggles on resizing window
     (cond-expand
       (windows
@@ -208,11 +218,17 @@
          (let ((device-width (get-width device-size))
                (device-height (get-height device-size))
                (surface-height (scale->device height (main-screen-scale-factor))))
-           (let ((delta-heigth (- device-height surface-height)))
-             (glViewport 0 delta-heigth device-width surface-height)))))
+           (let ((delta-height (- device-height surface-height)))
+             (set! self.device-x 0)
+             (set! self.device-y delta-height)
+             (set! self.device-width device-width)
+             (set! self.device-height surface-height)))))
       (else
        (let ((device-size (get-device-size self)))
-         (glViewport 0 0 (get-width device-size) (get-height device-size))))))
+         (set! self.device-x 0)
+         (set! self.device-y 0)
+         (set! self.device-width (get-width device-size))
+         (set! self.device-height (get-height device-size))))))
 
 
   (method package virtual (setup-opengl self)

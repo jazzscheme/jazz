@@ -1,0 +1,488 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; REST
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.rest jazz
+
+
+(import (jazz.io)
+        (jazz.json)
+        (jazz.network))
+
+
+(definition Max-Body
+  1048576)
+
+
+;;;
+;;;; Values
+;;;
+
+
+(definition public (respond status body (headers: headers '()))
+  (list 'response status body headers))
+
+
+(definition (response? value)
+  (and (pair? value)
+       (eq? (car value) 'response)))
+
+
+(definition (response-status response)
+  (cadr response))
+
+
+(definition (response-body response)
+  (caddr response))
+
+
+(definition (response-headers response)
+  (cadddr response))
+
+
+(definition (normalize-response value)
+  (if (response? value)
+      value
+    (respond 200 value)))
+
+
+(definition public (json-error message)
+  (list->table `(("error" . ,message))))
+
+
+(definition (request method path segments query headers body json error)
+  `((method . ,method)
+    (path . ,path)
+    (segments . ,segments)
+    (query . ,query)
+    (headers . ,headers)
+    (body . ,body)
+    (json . ,json)
+    (error . ,error)))
+
+
+(definition public (request-ref request field)
+  (assq-value field request #f))
+
+
+(definition public (request-query request name)
+  (let ((entry (assoc name (request-ref request 'query))))
+    (and entry
+         (cdr entry))))
+
+
+(definition (route method compiled handler)
+  (list method compiled handler))
+
+
+(definition (route-method route)
+  (car route))
+
+
+(definition (route-compiled route)
+  (cadr route))
+
+
+(definition (route-handler route)
+  (caddr route))
+
+
+;;;
+;;;; Text
+;;;
+
+
+(definition (ascii-upcase str)
+  (list->string (map char-upcase (string->list str))))
+
+
+(definition (ascii-downcase str)
+  (list->string (map char-downcase (string->list str))))
+
+
+(definition (contains-string? str part)
+  (let ((n (string-length str))
+        (m (string-length part)))
+    (let loop ((i 0))
+         (and (<= (+ i m) n)
+              (or (string=? (substring str i (+ i m)) part)
+                  (loop (+ i 1)))))))
+
+
+(definition (header-ref headers name)
+  (let loop ((headers headers))
+       (cond ((null? headers)
+              #f)
+             ((string-ci=? (caar headers) name)
+              (cdar headers))
+             (else
+              (loop (cdr headers))))))
+
+
+(definition (status-text status)
+  (case status
+    ((200) "OK")
+    ((204) "No Content")
+    ((400) "Bad Request")
+    ((404) "Not Found")
+    ((405) "Method Not Allowed")
+    ((413) "Request Entity Too Large")
+    ((500) "Internal Server Error")
+    (else "Error")))
+
+
+(definition (encode-payload status body)
+  (cond ((or (= status 204) (= status 205))
+         "")
+        ((string? body)
+         body)
+        (else
+         (json->string body))))
+
+
+(definition (error-message exc)
+  (catch-exception-filter
+    (lambda (nested)
+      #t)
+    (lambda (nested)
+      "Internal Server Error")
+    (lambda ()
+      (let ((reason (exception-reason exc)))
+        (cond ((string? reason)
+               reason)
+              ((not reason)
+               "Internal Server Error")
+              (else
+               (->string reason)))))))
+
+
+;;;
+;;;; HTTP
+;;;
+
+
+(definition (read-header-line line)
+  (let ((pos (find line #\:)))
+    (if (not pos)
+        #f
+      (cons (trim-whitespace (substring line 0 pos))
+            (trim-whitespace (substring line (+ pos 1) (string-length line)))))))
+
+
+(definition (read-header-block port)
+  (let loop ((headers '()))
+       (let ((line (read-line port)))
+         (cond ((not (string? line))
+                #f)
+               (else
+                (let ((text (trim-whitespace line)))
+                  (if (string=? text "")
+                      (reverse headers)
+                    (let ((header (read-header-line text)))
+                      (if header
+                          (loop (cons header headers))
+                        #f)))))))))
+
+
+(definition (read-body port headers)
+  (let ((declared (header-ref headers "Content-Length")))
+    (if (not declared)
+        ""
+      (let ((n (string->number declared)))
+        (cond ((not (and n (integer? n) (exact? n) (>= n 0)))
+               'bad)
+              ((> n Max-Body)
+               'too-large)
+              (else
+               (let ((str (make-string n)))
+                 (let ((got (read-substring str 0 n port)))
+                   (if (= got n)
+                       str
+                     'bad)))))))))
+
+
+(definition (json-content? headers)
+  (let ((type (header-ref headers "Content-Type")))
+    (and type
+         (contains-string? (ascii-downcase type) "application/json"))))
+
+
+(definition (read-json-body headers body)
+  (if (or (string=? body "")
+          (not (json-content? headers)))
+      #f
+    (catch-exception-filter
+      (lambda (exc)
+        #t)
+      (lambda (exc)
+        'invalid-json)
+      (lambda ()
+        (string->json body)))))
+
+
+(definition (read-request port)
+  (let ((line (read-line port)))
+    (if (not (string? line))
+        #f
+      (let ((parts (remove-empty (split (trim-whitespace line) " "))))
+        (if (< (length parts) 2)
+            (request "GET" "/" '() '() '() "" #f 'bad-request)
+          (let ((headers (read-header-block port)))
+            (if (not headers)
+                (request "GET" "/" '() '() '() "" #f 'bad-request)
+              (let ((body (read-body port headers)))
+                (cond ((eq? body 'bad)
+                       (request "GET" "/" '() '() headers "" #f 'bad-request))
+                      ((eq? body 'too-large)
+                       (request "GET" "/" '() '() headers "" #f 'too-large))
+                      (else
+                       (receive (path query) (parse-url (cadr parts))
+                         (let ((json (read-json-body headers body)))
+                           (if (eq? json 'invalid-json)
+                               (request (ascii-upcase (car parts)) path '() (or query '()) headers body #f 'invalid-json)
+                             (request (ascii-upcase (car parts))
+                                      path
+                                      (remove-empty (split path "/"))
+                                      (or query '())
+                                      headers
+                                      body
+                                      json
+                                      #f))))))))))))))
+
+
+(definition (write-response port status body (headers: headers '()))
+  (let ((payload (encode-payload status body)))
+    (format port "HTTP/1.1 {a} {a}\n" status (status-text status))
+    (format port "Content-Type: application/json; charset=utf-8\n")
+    (format port "Content-Length: {a}\n" (string-length payload))
+    (format port "Connection: close\n")
+    (format port "Access-Control-Allow-Origin: *\n")
+    (format port "Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS\n")
+    (format port "Access-Control-Allow-Headers: Content-Type\n")
+    (for-each (lambda (header)
+                (format port "{a}: {a}\n" (car header) (cdr header)))
+              headers)
+    (newline port)
+    (when (not (string=? payload ""))
+      (display payload port))
+    (force-output port)))
+
+
+(definition (send-response port response)
+  (write-response port
+    (response-status response)
+    (response-body response)
+    headers: (response-headers response)))
+
+
+;;;
+;;;; Routes
+;;;
+
+
+(definition (compile-pattern pattern)
+  (map (lambda (segment)
+         (if (eqv? (string-ref segment 0) #\:)
+             (cons 'param (substring segment 1 (string-length segment)))
+           (cons 'literal segment)))
+       (remove-empty (split pattern "/"))))
+
+
+(definition (match-compiled compiled segments)
+  (let loop ((compiled compiled)
+             (segments segments)
+             (params '()))
+       (cond ((and (null? compiled) (null? segments))
+              (reverse params))
+             ((or (null? compiled) (null? segments))
+              #f)
+             ((eq? (caar compiled) 'literal)
+              (if (string=? (cdar compiled) (car segments))
+                  (loop (cdr compiled) (cdr segments) params)
+                #f))
+             (else
+              (loop (cdr compiled)
+                    (cdr segments)
+                    (cons (cons (cdar compiled) (car segments)) params))))))
+
+
+(definition public (add-route routes method pattern handler)
+  (append routes
+          (list (route (ascii-upcase method)
+                       (compile-pattern pattern)
+                       handler))))
+
+
+(definition (matching-routes routes segments)
+  (let loop ((routes routes)
+             (found '()))
+       (if (null? routes)
+           (reverse found)
+         (let ((params (match-compiled (route-compiled (car routes)) segments)))
+           (loop (cdr routes)
+                 (if params
+                     (cons (cons (car routes) params) found)
+                   found))))))
+
+
+(definition (allow-header matches)
+  (join (remove-duplicates
+          (cons "OPTIONS"
+                (map (lambda (hit)
+                       (route-method (car hit)))
+                     matches))
+          test: equal?)
+        ", "))
+
+
+(definition (invoke-route hit request)
+  (normalize-response
+    ((route-handler (car hit)) request (cdr hit))))
+
+
+(definition (dispatch routes request)
+  (let ((matches (matching-routes routes (request-ref request 'segments)))
+        (method (request-ref request 'method)))
+    (cond ((null? matches)
+           (respond 404 (json-error "Not Found")))
+          ((string=? method "OPTIONS")
+           (respond 204 #f headers: `(("Allow" . ,(allow-header matches)))))
+          (else
+           (let ((hit (find-if (lambda (candidate)
+                                 (string=? (route-method (car candidate)) method))
+                               matches)))
+             (if hit
+                 (invoke-route hit request)
+               (respond 405
+                 (json-error "Method Not Allowed")
+                 headers: `(("Allow" . ,(allow-header matches))))))))))
+
+
+(definition (handle-request routes request)
+  (cond ((not request)
+         (respond 400 (json-error "Bad Request")))
+        ((eq? (request-ref request 'error) 'too-large)
+         (respond 413 (json-error "Request Entity Too Large")))
+        ((eq? (request-ref request 'error) 'invalid-json)
+         (respond 400 (json-error "Invalid JSON")))
+        ((request-ref request 'error)
+         (respond 400 (json-error "Bad Request")))
+        (else
+         (dispatch routes request))))
+
+
+;;;
+;;;; Server
+;;;
+
+
+(definition (serve-connection port routes)
+  (input-port-timeout-set! port 30)
+  (output-port-timeout-set! port 30)
+  (catch-exception-filter
+    (lambda (exc)
+      #t)
+    (lambda (exc)
+      (send-response port (respond 500 (json-error (error-message exc)))))
+    (lambda ()
+      (send-response port (handle-request routes (read-request port))))))
+
+
+(definition public (start-rest-server (service: service 8080) (host: host #f) (routes: routes '()))
+  (let ((server (new TCP-Server
+                   name: 'rest-server
+                   host: host
+                   service: service
+                   connection-handler: (lambda (port)
+                                         (serve-connection port routes)))))
+    (start server)
+    server))
+
+
+;;;
+;;;; Test
+;;;
+
+
+(definition (expect name actual expected)
+  (unless (equal? actual expected)
+    (error "REST test {a} failed: expected {s} actual {s}" name expected actual)))
+
+
+(definition (test-routes)
+  (add-route
+    (add-route '()
+      "GET" "/items/:id"
+      (lambda (request params)
+        (list->table `(("id" . ,(cdr (assoc "id" params)))))))
+    "POST" "/items"
+    (lambda (request params)
+      (respond 201 (or (request-ref request 'json) '#())))))
+
+
+(definition (read-http text)
+  (call-with-input-string (list init: text)
+    read-request))
+
+
+(definition public (test-rest)
+  (let ((routes (test-routes))
+        (item (request "GET" "/items/7" '("items" "7") '() '() "" #f #f)))
+    (let ((got (dispatch routes item)))
+      (expect "get status" (response-status got) 200)
+      (expect "get id" (table-ref (response-body got) "id" #f) "7"))
+    (expect "missing" (response-status (dispatch routes (request "GET" "/missing" '("missing") '() '() "" #f #f))) 404)
+    (let ((got (dispatch routes (request "DELETE" "/items/7" '("items" "7") '() '() "" #f #f))))
+      (expect "method" (response-status got) 405)
+      (expect "allow" (cdr (assoc "Allow" (response-headers got))) "OPTIONS, GET"))
+    (expect "options" (response-status (dispatch routes (request "OPTIONS" "/items/7" '("items" "7") '() '() "" #f #f))) 204)
+    (let ((posted (read-http "POST /items HTTP/1.1\nContent-Type: application/json\nContent-Length: 12\n\n{\"name\":\"a\"}")))
+      (expect "posted method" (request-ref posted 'method) "POST")
+      (expect "posted name" (table-ref (request-ref posted 'json) "name" #f) "a")
+      (expect "created" (response-status (handle-request routes posted)) 201))
+    (let ((queried (read-http "GET /items/7?verbose=yes HTTP/1.1\n\n")))
+      (expect "query" (request-query queried "verbose") "yes")
+      (expect "segments" (request-ref queried 'segments) '("items" "7")))
+    (expect "invalid json" (request-ref (read-http "POST /items HTTP/1.1\nContent-Type: application/json\nContent-Length: 1\n\nx") 'error) 'invalid-json)
+    (expect "empty" (response-status (handle-request routes (read-http ""))) 400)
+    (let ((text (let ((port (open-output-string)))
+                  (send-response port (respond 200 (list->table '(("ok" . #t)))))
+                  (get-output-string port))))
+      (unless (contains-string? text "HTTP/1.1 200 OK")
+        (error "REST test write failed: {s}" text))
+      (unless (contains-string? text "\"ok\"")
+        (error "REST test body failed: {s}" text))))
+  #t))

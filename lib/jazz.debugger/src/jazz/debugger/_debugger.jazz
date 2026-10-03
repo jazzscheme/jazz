@@ -40,7 +40,8 @@
 
 (export (jazz.debugger.autoload))
 
-(import (jazz.debuggee)
+(import (jazz.agent)
+        (jazz.debuggee)
         (jazz.debugger.autoload)
         (jazz.console)
         (jazz.event)
@@ -397,12 +398,15 @@
         'debugger-pump)))
   
   (let ((manager (get-console-manager-guest))
+        (agent-manager (get-agent-manager-guest))
         (process-proxy (get-reference debugged-process))
         (thread-proxy (get-reference debugged-thread)))
     (bind (title traits thread) (process-information process-proxy thread-proxy)
-      (let ((text (register-console manager (present-process-title/traits/thread title traits thread) select? process-title: title process-traits: traits process-thread: thread)))
-        (setup-debugger-console-ports text process-proxy thread-proxy)
-        text))))
+      (let ((presentation (present-process-title/traits/thread title traits thread)))
+        (let ((agent-text (register-console agent-manager presentation select? process-title: title process-traits: traits process-thread: thread))
+              (text (register-console manager presentation select? process-title: title process-traits: traits process-thread: thread)))
+          (setup-debugger-console-ports text process-proxy thread-proxy)
+          (values agent-text text))))))
 
 
 (definition public (unregister-debugger-console text)

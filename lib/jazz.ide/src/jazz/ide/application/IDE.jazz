@@ -39,6 +39,7 @@
 
 
 (import (jazz.action)
+        (jazz.agent)
         (jazz.application)
         (jazz.catalog)
         (jazz.catalog.edit)
@@ -558,6 +559,42 @@
 
 
   ;;;
+  ;;;; Agent
+  ;;;
+
+
+  (method public (fresh-agent-prompt self (text: text #f))
+    (let ((text (or text (get-agent-text))))
+      (when text
+        (fresh-prompt text))))
+  
+  
+  (method package (on-agent self evt)
+    (let ((focus (active-focus))
+          (text (show-agent self)))
+      (when (and text (eq? text focus))
+        (cond ((or (not (at-end? text))
+                   (extended? (console-last-block text)))
+               (fresh-prompt text))
+              ((not (cell-displayed? text (get-end text)))
+               (ensure-displayed text))
+              (else
+               (select-next-console (get-agent-manager-guest)))))))
+  
+  
+  (method public (show-agent self (class: class Agent-Console-Manager)
+                               (workspace: workspace 'home)
+                               (focus?: focus? #t))
+    (let ((manager (select-docked class workspace: workspace)))
+      (when (and manager focus?)
+        (let ((text (get-text manager)))
+          (if (not text)
+              (bell)
+            (acquire-focus text))
+          text))))
+
+
+  ;;;
   ;;;; Console
   ;;;
 
@@ -594,7 +631,10 @@
   
   
   (method package (on-clear-console self evt)
-    (clear-console (get-console-text)))
+    (let ((focus (active-focus)))
+      (if (is? focus Console-Text-View)
+          (clear-console focus)
+        (clear-console (get-console-text)))))
   
   
   ;;;

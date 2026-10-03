@@ -38,7 +38,8 @@
 (module protected jazz.debugger.jazz.Jazz-Debugger jazz
 
 
-(import (jazz.application)
+(import (jazz.agent)
+        (jazz.application)
         (jazz.console)
         (jazz.debuggee)
         (jazz.debugger)
@@ -698,14 +699,22 @@
         (let ((actual (or (find-in processes process test: (~ process=? self)) process)))
           (let ((debugged-process (new Debugged-Process self actual actual))
                 (debugged-thread (new Debugged-Thread self actual thread)))
-            (let ((text (register-console-text self debugged-process debugged-thread select?)))
-              (let ((console (new Debugger-Resource
+            (receive (agent-text text) (register-console-text self debugged-process debugged-thread select?)
+              (let ((ai (new Debugger-Resource
+                          debugged-process
+                          debugged-thread
+                          agent-text
+                          (lambda ()
+                            (unregister-console-text self agent-text))))
+                    (console (new Debugger-Resource
                                debugged-process
                                debugged-thread
                                text
                                (lambda ()
                                  (unregister-console-text self text)))))
+                (register-debugger-resource debugged-process ai)
                 (register-debugger-resource debugged-process console)
+                (show-banner agent-text)
                 (object->serial console))))))))
   
   

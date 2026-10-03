@@ -35,4 +35,103 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.ai jazz)
+(module jazz.ai jazz
+
+
+(import (jazz.json))
+
+
+;;;
+;;;; JSON
+;;;
+
+
+(definition (gemini-part text)
+  (list->table (list (cons "text" text))))
+
+
+(definition (gemini-content role text)
+  (let ((fields (list (list "parts" (gemini-part text)))))
+    (when role
+      (set! fields (cons (cons "role" role) fields)))
+    (list->table fields)))
+
+
+(definition (gemini-body prompt (model: model #f) (system: system #f) (temperature: temperature #f) (response-id: response-id #f))
+  (let ((fields (list
+                  (cons "model" (or model "gemini-3.8-flash"))
+                  (cons "input" prompt))))
+    (when system
+      (set! fields (cons (cons "system_instruction" system) fields)))
+    (when temperature
+      (set! fields (cons (cons "generationConfig" (list->table (list (cons "temperature" temperature)))) fields)))
+    (when response-id
+      (set! fields (cons (cons "previous_interaction_id" response-id) fields)))
+    (list->table fields)))
+
+
+;;;
+;;;; Curl
+;;;
+
+
+(definition (call-gemini api-key model payload)
+  (let ((port (open-process
+                (list path: "curl"
+                      arguments: (list
+                                   "--silent"
+                                   "--show-error"
+                                   "--fail-with-body"
+                                   "--request" "POST"
+                                   "--header" "Content-Type: application/json"
+                                   "--header" (string-append "X-goog-api-key: " api-key)
+                                   "--data" payload
+                                   "https://generativelanguage.googleapis.com/v1/interactions")))))
+    (let ((text (read-line port #f)))
+      (let ((status (process-status port)))
+        (close-port port)
+        (cond ((string? text)
+               (catch-exception-filter
+                 (lambda (exc)
+                   #t)
+                 (lambda (exc)
+                   (error "Gemini request failed with status {a}: {a}" status text))
+                 (lambda ()
+                   (string->json text))))
+              (else
+               (error "Gemini request failed with status {a}" status)))))))
+
+
+;;;
+;;;; Generate
+;;;
+
+
+(definition public (gemini-generate prompt (model: model #f) (system: system #f) (temperature: temperature #f) (response-id: response-id #f))
+  (let ((api-key (global-setting 'GEMINI_API_KEY #f)))
+    (let ((body (gemini-body prompt model: model system: system temperature: temperature response-id: response-id)))
+      (let ((message (json->string body)))
+        (call-gemini api-key model message)))))
+
+
+;;;
+;;;; Reply
+;;;
+
+
+(definition public (gemini-text reply)
+  (let ((err (table-ref reply "error" #f)))
+    (if err
+        (error "Gemini error {a}: {a}"
+               (table-ref err "code" "?")
+               (table-ref err "message" "unknown"))
+      (let ((steps (table-ref reply "steps" '())))
+        (if (null? steps)
+            #f
+          (let ((content (table-ref (cadr steps) "content" #f)))
+            (and content
+                 (table-ref (car content) "text" ""))))))))
+
+
+(definition public (gemini-id reply)
+  (table-ref reply "id" #f)))

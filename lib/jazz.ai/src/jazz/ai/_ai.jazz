@@ -139,6 +139,33 @@
 ;;;
 
 
+;;;
+;;;; File
+;;;
+
+
+(definition public (gemini-resolve-file path (roots: roots #f))
+  (cond ((is? path Pathname)
+         path)
+        ((not (string? path))
+         (error "Invalid path: {s}" path))
+        ((starts-with? path "/")
+         (new File (tokenise-filename path)))
+        (else
+         (let ((active-roots (let ((available (collect-if exists? (or roots *search-roots*))))
+                               (if (null? available)
+                                   (list (default-workspace-root))
+                                 available))))
+           (let loop ((scan active-roots))
+             (if (null? scan)
+                 (new-file (car active-roots) (tokenise-filename path))
+               (let* ((root (car scan))
+                      (cand (new-file root (tokenise-filename path))))
+                 (if (exists? cand)
+                     cand
+                   (loop (cdr scan))))))))))
+
+
 (definition public (gemini-strip-code text)
   (if (and (string? text) (string-starts-with? text "```"))
       (let ((start (let ((n (string-find text #\newline)))
@@ -151,16 +178,78 @@
     text))
 
 
-(definition public (gemini-read-file file)
-  (call-with-input-file (parse file)
-    read-content-string))
+(definition public (gemini-read-file file (offset: offset #f) (limit: limit #f) (line-numbers?: line-numbers? #t))
+  (let ((target (gemini-resolve-file file)))
+    (if (not (exists? target))
+        (error "File does not exist: {a}" (parse target))
+      (if (and (not offset) (not limit))
+          (call-with-input-file (parse target) read-content-string)
+        (call-with-input-file (parse target)
+          (lambda (port)
+            (let ((start-line (or offset 1))
+                  (max-lines (or limit 100)))
+              (let loop ((line-num 1)
+                         (collected 0)
+                         (acc '()))
+                (let ((line (read-line port)))
+                  (cond ((or (eof-object? line) (>= collected max-lines))
+                         (join (reverse acc) "\n"))
+                        ((< line-num start-line)
+                         (loop (+ line-num 1) collected acc))
+                        (else
+                         (let ((formatted-line (if line-numbers?
+                                                   (format "{a width: 6 justify: :right}| {a}" line-num line)
+                                                 line)))
+                           (loop (+ line-num 1)
+                                 (+ collected 1)
+                                 (cons formatted-line acc))))))))))))))
 
 
 (definition public (gemini-write-file file content (strip-code?: strip-code? #t))
-  (create-directories file)
-  (call-with-output-file (parse file)
-    (lambda (port)
-      (display (if strip-code? (gemini-strip-code content) content) port))))
+  (let ((target (gemini-resolve-file file)))
+    (create-directories target)
+    (call-with-output-file (parse target)
+      (lambda (port)
+        (display (if strip-code? (gemini-strip-code content) content) port)))
+    target))
+
+
+(definition public (gemini-str-replace file old-string new-string (replace-all?: replace-all? #f))
+  (let ((target (gemini-resolve-file file)))
+    (if (not (exists? target))
+        (error "File does not exist: {a}" (parse target))
+      (if (string=? old-string "")
+          (error "old_string cannot be empty")
+        (let ((content (call-with-input-file (parse target) read-content-string)))
+          (let ((old-len (string-length old-string)))
+            ;; Find all occurrences of old-string
+            (let loop ((pos 0)
+                       (matches '()))
+              (let ((found (string-search content old-string start: pos)))
+                (if (not found)
+                    (let ((match-count (length matches)))
+                      (cond ((= match-count 0)
+                             (error "old_string not found in {a}. Ensure exact indentation and content." (parse target)))
+                            ((and (> match-count 1) (not replace-all?))
+                             (error "old_string occurs {a} times in {a}. Provide more surrounding context to make it unique, or set replace-all?: #t." match-count (parse target)))
+                            (else
+                             ;; Perform replacements
+                             (let replace-loop ((scan (reverse matches))
+                                                (last-end 0)
+                                                (pieces '()))
+                               (if (null? scan)
+                                   (let* ((final-pieces (reverse (cons (substring content last-end (string-length content)) pieces)))
+                                          (new-content (join-strings final-pieces "")))
+                                     (call-with-output-file (parse target)
+                                       (lambda (port)
+                                         (display new-content port)))
+                                     target)
+                                 (let* ((match-start (car scan))
+                                        (prefix (substring content last-end match-start)))
+                                   (replace-loop (cdr scan)
+                                                 (+ match-start old-len)
+                                                 (cons new-string (cons prefix pieces)))))))))
+                  (loop (+ found old-len) (cons found matches)))))))))))
 
 
 ;;;
@@ -261,6 +350,28 @@
                                   (display (string-append "Action WRITE -> " (parse file) "\n"))
                                   (force-output (current-output-port))
                                   (cons 'write (parse file))))))
+                           ((equal? action "read")
+                            (let ((path (table-ref action-table "path" #f))
+                                  (offset (table-ref action-table "offset" #f))
+                                  (limit (table-ref action-table "limit" #f))
+                                  (line-numbers? (table-ref action-table "line_numbers" #t)))
+                              (if (not path)
+                                  (error "Missing 'path' in read action: {s}" action-table)
+                                (let ((content (gemini-read-file path offset: offset limit: limit line-numbers?: line-numbers?)))
+                                  (display (string-append "Action READ -> " path "\n"))
+                                  (force-output (current-output-port))
+                                  (cons 'read content)))))
+                           ((equal? action "str_replace")
+                            (let ((path (table-ref action-table "path" #f))
+                                  (old-string (table-ref action-table "old_string" #f))
+                                  (new-string (table-ref action-table "new_string" #f))
+                                  (replace-all? (table-ref action-table "replace_all" #f)))
+                              (if (or (not path) (not old-string) (not new-string))
+                                  (error "Missing parameters in str_replace action: {s}" action-table)
+                                (let ((target (gemini-str-replace path old-string new-string replace-all?: replace-all?)))
+                                  (display (string-append "Action STR_REPLACE -> " (parse target) "\n"))
+                                  (force-output (current-output-port))
+                                  (cons 'str_replace (parse target))))))
                            ((equal? action "grep")
                             (let ((pattern (table-ref action-table "pattern" #f))
                                   (dir (table-ref action-table "dir" #f))

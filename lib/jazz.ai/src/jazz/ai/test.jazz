@@ -69,7 +69,36 @@
   (assert (string-search (cdar results) "Agent-Text-View.jazz"))
   (display "  [PASS] gemini-execute-actions with GREP\n"))
 
-;; Test 4: Live Gemini prompt generation with WRITE action
+;; Test 4: gemini-read-file with line numbers and ranges
+(let* ((test-file {File :root "Users" "cartier" "Devel" "psi-lab" "experiments" "actions" "hello.jazz"})
+       (content (gemini-read-file test-file offset: 1 limit: 2)))
+  (assert (string? content))
+  (assert (string-search content "1|"))
+  (display "  [PASS] gemini-read-file with offset and limit\n"))
+
+;; Test 5: gemini-str-replace uniqueness contract and replacement
+(let* ((temp-dir {Directory :root "Users" "cartier" "Devel" "psi-lab" ".chats"})
+       (temp-file (new-file temp-dir "test_replace.txt")))
+  (gemini-write-file temp-file "line 1\nreplace_me\nline 3\n")
+  ;; Replace single unique occurrence
+  (gemini-str-replace temp-file "replace_me" "replaced_successfully")
+  (let ((updated (gemini-read-file temp-file)))
+    (assert (string-search updated "replaced_successfully"))
+    (assert (not (string-search updated "replace_me"))))
+  ;; Non-unique without replace-all should raise error
+  (gemini-write-file temp-file "dup\ndup\n")
+  (let ((error-thrown? #f))
+    (with-exception-catcher
+      (lambda (exc)
+        (set! error-thrown? #t))
+      (lambda ()
+        (gemini-str-replace temp-file "dup" "one")))
+    (assert error-thrown?))
+  ;; Clean up temp file
+  (delete temp-file)
+  (display "  [PASS] gemini-str-replace with uniqueness contract\n"))
+
+;; Test 6: Live Gemini prompt generation with WRITE action
 (let* ((prompt (string-append
                  "You are an autonomous AI coding agent operating inside JazzScheme.\n"
                  "You must respond with a JSON object conforming strictly to this format:\n"

@@ -98,22 +98,66 @@
               (insert-styled self (format "Error: {a}" exc) 'Output)
               (insert-newline self)
               (insert-newline self)
-              (insert-styled self (or banner-prompt "> ") 'Prompt))
+              (insert-styled self (or banner-prompt "> ") 'Prompt)
+              (ensure-displayed self)
+              (update-view self))
             (lambda ()
-              (let ((reply (gemini-generate question system: "You must output only pure, raw text." response-id: response-id)))
-                (let ((answer (gemini-text reply))
-                      (id (gemini-id reply)))
-                  (set! response-id id)
-                  (set! conversation-messages
-                    (append conversation-messages
-                            (list (list 'user question)
-                                  (list 'agent (trim-trailing-whitespace answer)))))
-                  ;; auto-save (commented out per Jedi explicit save philosophy)
-                  ;;(save-conversation-to-disk self)
-                  (insert-styled self answer 'Output)
-                  (insert-newline self)
-                  (insert-newline self)
-                  (insert-styled self (or banner-prompt "> ") 'Prompt)))))))))
+              (receive (answer final-resp-id history)
+                  (gemini-agent-query
+                    question
+                    response-id: response-id
+                    on-thought:
+                    (lambda (thought)
+                      (insert-styled self (format "Thinking: {a}\n" thought) 'Comment)
+                      (ensure-displayed self)
+                      (update-view self))
+                    on-action:
+                    (lambda (action-table)
+                      (let ((action (table-ref action-table "action" #f)))
+                        (let ((desc (cond ((equal? action "grep")
+                                           (format "grep \"{a}\"" (table-ref action-table "pattern" "")))
+                                          ((equal? action "read")
+                                           (let ((path (table-ref action-table "path" ""))
+                                                 (offset (table-ref action-table "offset" #f))
+                                                 (limit (table-ref action-table "limit" #f)))
+                                             (if offset
+                                                 (format "read {a} (lines {a}-{a})" path offset (+ offset (or limit 100)))
+                                               (format "read {a}" path))))
+                                          ((equal? action "str_replace")
+                                           (format "str_replace in {a}" (table-ref action-table "path" "")))
+                                          ((equal? action "write")
+                                           (format "write {a}" (table-ref action-table "path" "")))
+                                          (else
+                                           (format "{a}" (or action "?"))))))
+                          (insert-styled self (format "Action: {a}\n" desc) 'Comment)
+                          (ensure-displayed self)
+                          (update-view self))))
+                    on-observation:
+                    (lambda (results formatted-obs)
+                      (for-each
+                        (lambda (item)
+                          (let ((action (car item))
+                                (target (cadr item))
+                                (output (caddr item))
+                                (err? (cadddr item)))
+                            (when err?
+                              (insert-styled self (format "  ! {a}\n" output) 'Comment)
+                              (ensure-displayed self)
+                              (update-view self))))
+                        results)))
+                (set! response-id final-resp-id)
+                (set! conversation-messages
+                  (append conversation-messages
+                          (list (list 'user question)
+                                (list 'agent (trim-trailing-whitespace answer)))))
+                ;; auto-save (commented out per Jedi explicit save philosophy)
+                ;;(save-conversation-to-disk self)
+                (insert-styled self answer 'Output)
+                (insert-newline self)
+                (insert-newline self)
+                (insert-styled self (or banner-prompt "> ") 'Prompt)
+                (ensure-displayed self)
+                (update-view self))))))))
   
   
   (method public (new-conversation self)

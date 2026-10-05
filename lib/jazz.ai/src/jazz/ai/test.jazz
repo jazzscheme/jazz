@@ -121,6 +121,65 @@
       (pp results)
       (force-output (current-output-port)))))
 
+;; Test 7: gemini-find-outer-braces and gemini-parse-reply
+(let ((raw-actions "Here is my plan:\n```json\n{\n  \"thought\": \"Locate Agent-Text-View\",\n  \"actions\": [{\"action\": \"grep\", \"pattern\": \"Agent-Text-View\"}]\n}\n```\nHope that helps!")
+      (raw-answer "```json\n{\n  \"thought\": \"Found answer\",\n  \"answer\": \"It is in Agent-Text-View.jazz\"\n}\n```")
+      (raw-plain "Hello world, pure text!"))
+  (bind (k1 t1 p1) (gemini-parse-reply raw-actions)
+    (assert (eq? k1 'actions))
+    (assert (equal? t1 "Locate Agent-Text-View"))
+    (assert (pair? p1)))
+  (bind (k2 t2 p2) (gemini-parse-reply raw-answer)
+    (assert (eq? k2 'answer))
+    (assert (equal? t2 "Found answer"))
+    (assert (equal? p2 "It is in Agent-Text-View.jazz")))
+  (bind (k3 t3 p3) (gemini-parse-reply raw-plain)
+    (assert (eq? k3 'answer))
+    (assert (equal? p3 "Hello world, pure text!")))
+  (display "  [PASS] gemini-find-outer-braces and gemini-parse-reply\n"))
+
+;; Test 8: gemini-run-actions and gemini-format-observations with error isolation
+(let* ((actions-table (list (list->table (list (cons "action" "grep") (cons "pattern" "gemini-agent-query")))
+                            (list->table (list (cons "action" "read") (cons "path" "nonexistent_file_xyz.jazz")))))
+       (results (gemini-run-actions actions-table)))
+  (assert (= (length results) 2))
+  ;; First action (grep) should succeed
+  (let ((r1 (car results)))
+    (assert (eq? (car r1) 'grep))
+    (assert (not (cadddr r1))))
+  ;; Second action (read nonexistent) should be cleanly caught as error
+  (let ((r2 (cadr results)))
+    (assert (eq? (car r2) 'read))
+    (assert (cadddr r2)))
+  (let ((obs (gemini-format-observations results)))
+    (assert (string-search obs "[Observation 1: action grep]"))
+    (assert (string-search obs "[Observation 2: ERROR in action read]"))
+    (display "  [PASS] gemini-run-actions and gemini-format-observations\n")))
+
+;; Test 9: Live autonomous ReAct loop query
+(display "Testing live autonomous ReAct loop query with gemini-agent-query...\n")
+(force-output (current-output-port))
+(receive (answer final-resp-id history)
+    (gemini-agent-query
+      "What is the exact string value of default-model defined in jazz.ai? Search for it and tell me."
+      max-turns: 5
+      on-thought:
+      (lambda (th)
+        (display (string-append "  Agent Thought: " th "\n"))
+        (force-output (current-output-port)))
+      on-action:
+      (lambda (ac)
+        (display (string-append "  Agent Tool Call: " (table-ref ac "action" "?") "\n"))
+        (force-output (current-output-port))))
+  (assert (string? answer))
+  (assert (string-search answer "gemini-3.8-flash"))
+  (assert (string? final-resp-id))
+  (display "  Agent Final Answer:\n")
+  (display answer)
+  (newline)
+  (display "  [PASS] Live ReAct loop query\n")
+  (force-output (current-output-port)))
+
 (display "All jazz.ai tests passed successfully!\n")
 (force-output (current-output-port))
 

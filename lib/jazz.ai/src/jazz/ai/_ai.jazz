@@ -389,6 +389,240 @@
 
 
 ;;;
+;;;; ReAct Loop
+;;;
+
+
+(definition public default-agent-system-prompt
+  (string-append
+    "You are an autonomous AI coding agent operating inside JazzScheme and Jedi.\n"
+    "You must ALWAYS communicate by responding ONLY with a valid JSON object. Never output text outside JSON.\n"
+    "You have access to tools to search, inspect, and modify the codebase.\n"
+    "\n"
+    "Workspace search roots:\n"
+    "- /Users/cartier/Devel/psi-lab (application workspace)\n"
+    "- /Users/cartier/Devel/jedi/app/stable (Jedi and JazzScheme core system)\n"
+    "\n"
+    "Available Actions:\n"
+    "1. grep: Search files using regular expressions across workspace roots.\n"
+    "   Parameters: {\"action\": \"grep\", \"pattern\": \"<regex>\", \"dir\": \"<optional-subdir>\", \"case_sensitive\": true}\n"
+    "2. read: Read file contents with 1-based line numbers.\n"
+    "   Parameters: {\"action\": \"read\", \"path\": \"<filepath>\", \"offset\": <optional-1-based-line>, \"limit\": <optional-line-count>}\n"
+    "3. str_replace: Surgically replace a unique string in a file.\n"
+    "   Parameters: {\"action\": \"str_replace\", \"path\": \"<filepath>\", \"old_string\": \"<exact-unique-snippet>\", \"new_string\": \"<replacement>\", \"replace_all\": false}\n"
+    "   Note: old_string MUST be unique in the file unless replace_all is true.\n"
+    "4. write: Create or overwrite a file.\n"
+    "   Parameters: {\"action\": \"write\", \"path\": \"<filepath>\", \"content\": \"<file-content>\"}\n"
+    "\n"
+    "Protocol:\n"
+    "On every turn, you MUST respond with a single JSON object conforming to ONE of the following:\n"
+    "\n"
+    "If you need to use tools (search, read, edit):\n"
+    "{\n"
+    "  \"thought\": \"Brief explanation of your plan or reasoning\",\n"
+    "  \"actions\": [\n"
+    "    { \"action\": \"grep\", \"pattern\": \"...\" }\n"
+    "  ]\n"
+    "}\n"
+    "\n"
+    "If you are ready to answer the user (or no tools are needed):\n"
+    "{\n"
+    "  \"thought\": \"Summary of your findings or conclusion\",\n"
+    "  \"answer\": \"Your comprehensive final response in Markdown format.\"\n"
+    "}\n"
+    "\n"
+    "Rules:\n"
+    "- Always verify code by searching and reading before making modifications.\n"
+    "- Make targeted edits with str_replace rather than rewriting entire files when possible.\n"
+    "- Output strictly a single valid JSON object."))
+
+
+(definition public (gemini-find-outer-braces text)
+  (and (string? text)
+       (let ((first (string-find text #\{))
+             (last (string-find-reversed text #\})))
+         (and first last (< first last)
+              (substring text first (+ last 1))))))
+
+
+(definition public (gemini-parse-reply reply-or-text)
+  (let ((text (if (string? reply-or-text) reply-or-text (gemini-text reply-or-text))))
+    (if (not (string? text))
+        (list 'answer #f "Error: empty response")
+      (let* ((clean (gemini-strip-code text))
+             (candidate-json (or (gemini-find-outer-braces clean)
+                                 (gemini-find-outer-braces text)
+                                 clean)))
+        (let ((table (with-exception-catcher
+                       (lambda (exc)
+                         #f)
+                       (lambda ()
+                         (string->json candidate-json)))))
+          (if (table? table)
+              (let ((thought (table-ref table "thought" #f))
+                    (actions (table-ref table "actions" #f))
+                    (answer (table-ref table "answer" #f)))
+                (cond ((and (pair? actions) (not (null? actions)))
+                       (list 'actions thought actions))
+                      ((string? answer)
+                       (list 'answer thought answer))
+                      ((string? thought)
+                       (list 'answer thought thought))
+                      (else
+                       (list 'answer #f clean))))
+            (list 'answer #f clean)))))))
+
+
+(definition public (gemini-run-actions actions (root: root (default-workspace-root)))
+  (map (lambda (action-table)
+         (let ((action (table-ref action-table "action" #f)))
+           (with-exception-catcher
+             (lambda (exc)
+               (list (if action (string->symbol (format "{a}" action)) 'unknown)
+                     action-table
+                     (format "Error: {a}" exc)
+                     #t))
+             (lambda ()
+               (cond ((or (equal? action "grep") (equal? action "search"))
+                      (let ((pattern (or (table-ref action-table "pattern" #f)
+                                         (table-ref action-table "query" #f)))
+                            (dir (or (table-ref action-table "dir" #f)
+                                     (table-ref action-table "directory" #f)))
+                            (case-sensitive? (table-ref action-table "case_sensitive" #t)))
+                        (if (not pattern)
+                            (list 'grep action-table "Error: Missing 'pattern' in grep action" #t)
+                          (let ((result (gemini-grep pattern dir: dir case-sensitive?: case-sensitive?)))
+                            (list 'grep pattern result #f)))))
+                     ((or (equal? action "read") (equal? action "read_file"))
+                      (let ((path (or (table-ref action-table "path" #f)
+                                      (table-ref action-table "file" #f)))
+                            (offset (or (table-ref action-table "offset" #f)
+                                        (table-ref action-table "line" #f)
+                                        (table-ref action-table "start_line" #f)))
+                            (limit (table-ref action-table "limit" #f))
+                            (line-numbers? (table-ref action-table "line_numbers" #t)))
+                        (if (not path)
+                            (list 'read action-table "Error: Missing 'path' in read action" #t)
+                          (let ((content (gemini-read-file path offset: offset limit: limit line-numbers?: line-numbers?)))
+                            (list 'read path content #f)))))
+                     ((or (equal? action "str_replace") (equal? action "replace") (equal? action "replace_string"))
+                      (let ((path (or (table-ref action-table "path" #f)
+                                      (table-ref action-table "file" #f)))
+                            (old-string (or (table-ref action-table "old_string" #f)
+                                            (table-ref action-table "old" #f)))
+                            (new-string (or (table-ref action-table "new_string" #f)
+                                            (table-ref action-table "new" #f)))
+                            (replace-all? (or (table-ref action-table "replace_all" #f)
+                                              (table-ref action-table "replace_all?" #f))))
+                        (if (or (not path) (not old-string) (not new-string))
+                            (list 'str_replace action-table "Error: Missing path, old_string, or new_string in str_replace action" #t)
+                          (let ((target (gemini-str-replace path old-string new-string replace-all?: replace-all?)))
+                            (list 'str_replace (parse target) (format "Successfully replaced unique occurrence in {a}" (parse target)) #f)))))
+                     ((or (equal? action "write") (equal? action "write_file"))
+                      (let ((path (or (table-ref action-table "path" #f)
+                                      (table-ref action-table "file" #f)))
+                            (content (table-ref action-table "content" "")))
+                        (if (not path)
+                            (list 'write action-table "Error: Missing 'path' in write action" #t)
+                          (let ((target (gemini-write-file path content)))
+                            (list 'write (parse target) (format "Successfully wrote {a}" (parse target)) #f)))))
+                     (else
+                      (list 'unknown action-table (format "Error: Unknown action '{a}'" action) #t)))))))
+       actions))
+
+
+(definition public (gemini-format-observations results)
+  (let ((formatted
+          (let loop ((scan results)
+                     (index 1)
+                     (acc '()))
+            (if (null? scan)
+                (reverse acc)
+              (let* ((item (car scan))
+                     (action (car item))
+                     (target (cadr item))
+                     (output (caddr item))
+                     (error? (cadddr item)))
+                (loop (cdr scan)
+                      (+ index 1)
+                      (cons (format "[Observation {a}: {a} {a}]\n{a}\n"
+                                    index
+                                    (if error? "ERROR in action" "action")
+                                    action
+                                    output)
+                            acc)))))))
+    (join-strings formatted "\n")))
+
+
+(definition public (gemini-agent-query prompt
+                                       (system: system default-agent-system-prompt)
+                                       (response-id: response-id #f)
+                                       (max-turns: max-turns 10)
+                                       (on-thought: on-thought #f)
+                                       (on-action: on-action #f)
+                                       (on-observation: on-observation #f))
+  (define (generate-turn current-prompt sys resp-id)
+    (let ((reply (with-exception-catcher
+                   (lambda (exc) #f)
+                   (lambda () (gemini-generate current-prompt system: sys response-id: resp-id)))))
+      (let ((err (and reply (table-ref reply "error" #f))))
+        (if (or (not reply)
+                (and err (equal? (table-ref err "code" #f) "malformed_tool_call")))
+            ;; Auto-retry instructing model to produce strictly valid JSON
+            (gemini-generate
+              (string-append current-prompt "\n\n[System Note: Model output was malformed. You must respond ONLY with a valid JSON object conforming to the protocol: {\"thought\": \"...\", \"actions\": [...]} or {\"thought\": \"...\", \"answer\": \"...\"}.]")
+              system: sys
+              response-id: resp-id)
+          reply))))
+
+  (let loop ((turn 0)
+             (current-prompt prompt)
+             (current-resp-id response-id)
+             (history '()))
+    (let* ((reply (generate-turn current-prompt
+                                 (if (= turn 0) system #f)
+                                 current-resp-id))
+           (text (gemini-text reply))
+           (new-id (gemini-id reply)))
+      (if (not (string? text))
+          (values (format "Error: No response text received from Gemini") current-resp-id history)
+        (let ((parsed (gemini-parse-reply text)))
+          (let ((kind (car parsed))
+                (thought (cadr parsed))
+                (payload (caddr parsed)))
+            (when (and thought on-thought)
+              (on-thought thought))
+            (case kind
+              ((actions)
+               (let ((actions-list payload))
+                 (when on-action
+                   (for-each on-action actions-list))
+                 (let* ((action-results (gemini-run-actions actions-list))
+                        (observations (gemini-format-observations action-results)))
+                   (when on-observation
+                     (on-observation action-results observations))
+                   (if (>= (+ turn 1) max-turns)
+                       ;; Force final answer turn
+                       (let* ((force-prompt (string-append
+                                              observations
+                                              "\n\n[System Note: Maximum tool execution turns reached. Provide your final answer to the user now without any further actions.]"))
+                              (final-reply (generate-turn force-prompt #f new-id))
+                              (final-text (gemini-text final-reply))
+                              (final-id (or (gemini-id final-reply) new-id))
+                              (final-parsed (gemini-parse-reply final-text))
+                              (final-answer (if (eq? (car final-parsed) 'answer)
+                                                (caddr final-parsed)
+                                              (gemini-strip-code final-text))))
+                         (values final-answer final-id (reverse (cons (list 'final final-answer) history))))
+                     (loop (+ turn 1)
+                           (string-append observations "\n\nAnalyze these tool results. Respond with a JSON object with 'thought' and either 'actions' (to execute more tools) or 'answer' (to provide your final answer).")
+                           new-id
+                           (cons (list 'turn turn thought actions-list action-results) history))))))
+              ((answer)
+               (values payload new-id (reverse (cons (list 'answer payload) history)))))))))))
+
+
+;;;
 ;;;; Curl
 ;;;
 
@@ -407,7 +641,6 @@
         (let ((port (open-process
                       (list path: "curl"
                         arguments: `("--silent"
-                                     "--show-error"
                                      "--fail-with-body"
                                      "--request" "POST"
                                      "--header" ,(string-append "X-goog-api-key: " api-key)

@@ -187,10 +187,13 @@
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Definition-Declaration declaration) meta)
-  (let ((signature (jazz:get-definition-declaration-signature declaration)))
-    (if (not signature)
-        `(definition ,@(jazz:outline-generate-modifiers declaration) ,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type declaration)))
-      `(definition ,@(jazz:outline-generate-modifiers declaration) (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature signature)) ,@(jazz:outline-generate-specifier-list (jazz:get-definition-declaration-specifier-source declaration))))))
+  ;; not sure if this breaks together's script evaluation
+  (if (%%eq? (jazz:get-declaration-access declaration) 'private)
+      #f
+    (let ((signature (jazz:get-definition-declaration-signature declaration)))
+      (if (not signature)
+          `(definition ,@(jazz:outline-generate-modifiers declaration) ,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type declaration)))
+        `(definition ,@(jazz:outline-generate-modifiers declaration) (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature signature)) ,@(jazz:outline-generate-specifier-list (jazz:get-definition-declaration-specifier-source declaration)))))))
 
 
 ;;;
@@ -1262,10 +1265,13 @@
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Method-Declaration declaration) meta)
-  `(method ,@meta
-           ,@(jazz:outline-generate-modifiers declaration)
-           (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-method-declaration-signature declaration) #t))
-           ,@(jazz:outline-generate-specifier-list (jazz:get-method-declaration-specifier-source declaration))))
+  ;; not sure if this breaks together's script evaluation
+  (if (%%eq? (jazz:get-declaration-access declaration) 'private)
+      #f
+    `(method ,@meta
+             ,@(jazz:outline-generate-modifiers declaration)
+             (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-method-declaration-signature declaration) #t))
+             ,@(jazz:outline-generate-specifier-list (jazz:get-method-declaration-specifier-source declaration)))))
 
 
 ;;;
@@ -2100,6 +2106,8 @@
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Hub-Declaration declaration) meta)
+  #f
+  #; ;; not sure if this breaks together's script evaluation
   `(hub ,(jazz:get-lexical-binding-name declaration)))
 
 

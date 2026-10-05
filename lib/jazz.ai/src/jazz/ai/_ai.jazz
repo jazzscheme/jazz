@@ -38,68 +38,37 @@
 (module jazz.ai jazz
 
 
-(import (jazz.json))
+(import (jazz.io)
+        (jazz.json))
+
+
+(definition gemini-api-key
+  (global-setting 'GEMINI_API_KEY #f))
+
+
+(definition default-model
+  "gemini-3.8-flash")
+
+
+(definition files-url
+  "https://generativelanguage.googleapis.com/upload/v1beta/files")
+
+(definition interactions-url
+  "https://generativelanguage.googleapis.com/v1beta/interactions")
 
 
 ;;;
-;;;; JSON
+;;;; Upload
 ;;;
 
 
-(definition (gemini-part text)
-  (list->table (list (cons "text" text))))
-
-
-(definition (gemini-content role text)
-  (let ((fields (list (list "parts" (gemini-part text)))))
-    (when role
-      (set! fields (cons (cons "role" role) fields)))
-    (list->table fields)))
-
-
-(definition (gemini-body prompt (model: model #f) (system: system #f) (temperature: temperature #f) (response-id: response-id #f))
-  (let ((fields (list
-                  (cons "model" (or model "gemini-3.8-flash"))
-                  (cons "input" prompt))))
-    (when system
-      (set! fields (cons (cons "system_instruction" system) fields)))
-    (when temperature
-      (set! fields (cons (cons "generationConfig" (list->table (list (cons "temperature" temperature)))) fields)))
-    (when response-id
-      (set! fields (cons (cons "previous_interaction_id" response-id) fields)))
-    (list->table fields)))
-
-
-;;;
-;;;; Curl
-;;;
-
-
-(definition (call-gemini api-key model payload)
-  (let ((port (open-process
-                (list path: "curl"
-                      arguments: (list
-                                   "--silent"
-                                   "--show-error"
-                                   "--fail-with-body"
-                                   "--request" "POST"
-                                   "--header" "Content-Type: application/json"
-                                   "--header" (string-append "X-goog-api-key: " api-key)
-                                   "--data" payload
-                                   "https://generativelanguage.googleapis.com/v1/interactions")))))
-    (let ((text (read-line port #f)))
-      (let ((status (process-status port)))
-        (close-port port)
-        (cond ((string? text)
-               (catch-exception-filter
-                 (lambda (exc)
-                   #t)
-                 (lambda (exc)
-                   (error "Gemini request failed with status {a}: {a}" status text))
-                 (lambda ()
-                   (string->json text))))
-              (else
-               (error "Gemini request failed with status {a}" status)))))))
+(definition public (gemini-upload file (model: model #f))
+  (let ((headers '("X-Goog-Upload-Protocol: raw"
+                   "X-Goog-Upload-Command: upload, finalize"
+                   "X-Goog-Upload-Header-Content-Type: text/plain"))
+        (data (list "--data-binary" (string-append "@" (parse file)))))
+    (let ((reply (call-gemini gemini-api-key model headers data files-url)))
+      (table-ref (table-ref reply "file") "uri"))))
 
 
 ;;;
@@ -107,16 +76,44 @@
 ;;;
 
 
+(definition public (gemini-inject uri (model: model #f) (response-id: response-id #f))
+  (define (generate-payload)
+    (let ((fields (list
+                    (cons "model" (or model default-model))
+                    (cons "input" (list (list->table (list
+                                                       (cons "type" "document")
+                                                       (cons "uri" uri)
+                                                       (cons "mime_type" "text/plain")))
+                                        (list->table (list
+                                                       (cons "type" "text")
+                                                       (cons "text" "System: Process this file context for a continuous conversation. Do not analyze it yet. Reply with exactly the single character '.' and nothing else."))))))))
+      (when response-id
+        (set! fields (cons (cons "previous_interaction_id" response-id) fields)))
+      (list->table fields)))
+  
+  (let ((headers '("Content-Type: application/json"))
+        (payload (generate-payload)))
+    (let ((data (json->string payload)))
+      (gemini-id (call-gemini gemini-api-key model headers (list "--data" data) interactions-url)))))
+
+
 (definition public (gemini-generate prompt (model: model #f) (system: system #f) (temperature: temperature #f) (response-id: response-id #f))
-  (let ((api-key (global-setting 'GEMINI_API_KEY #f)))
-    (let ((body (gemini-body prompt model: model system: system temperature: temperature response-id: response-id)))
-      (let ((message (json->string body)))
-        (call-gemini api-key model message)))))
-
-
-;;;
-;;;; Reply
-;;;
+  (define (generate-payload)
+    (let ((fields (list
+                    (cons "model" (or model default-model))
+                    (cons "input" (list (list->table (list (cons "type" "text") (cons "text" prompt))))))))
+      (when system
+        (set! fields (cons (cons "system_instruction" system) fields)))
+      (when temperature
+        (set! fields (cons (cons "generationConfig" (list->table (list (cons "temperature" temperature)))) fields)))
+      (when response-id
+        (set! fields (cons (cons "previous_interaction_id" response-id) fields)))
+      (list->table fields)))
+  
+  (let ((headers '("Content-Type: application/json"))
+        (payload (generate-payload)))
+    (let ((data (json->string payload)))
+      (call-gemini gemini-api-key model headers (list "--data" data) interactions-url))))
 
 
 (definition public (gemini-text reply)
@@ -134,4 +131,35 @@
 
 
 (definition public (gemini-id reply)
-  (table-ref reply "id" #f)))
+  (table-ref reply "id" #f))
+
+
+;;;
+;;;; Curl
+;;;
+
+
+(definition (call-gemini api-key model headers data url)
+  (let ((port (open-process
+                (list path: "curl"
+                  arguments: `("--silent"
+                               "--show-error"
+                               "--fail-with-body"
+                               "--request" "POST"
+                               "--header" ,(string-append "X-goog-api-key: " api-key)
+                               ,@(flatten-lists (map (lambda (header) (list "--header" header)) headers))
+                               ,@data
+                               ,url)))))
+    (let ((text (read-line port #f)))
+      (let ((status (process-status port)))
+        (close-port port)
+        (cond ((string? text)
+               (catch-exception-filter
+                 (lambda (exc)
+                   #t)
+                 (lambda (exc)
+                   (error "Gemini request failed with status {a}: {a}" status text))
+                 (lambda ()
+                   (string->json text))))
+              (else
+               (error "Gemini request failed with status {a}" status))))))))

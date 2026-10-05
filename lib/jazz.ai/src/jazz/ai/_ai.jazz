@@ -164,6 +164,72 @@
 
 
 ;;;
+;;;; Grep
+;;;
+
+
+(definition *search-roots*
+  (list {Directory :root "Users" "cartier" "Devel" "psi-lab"}
+        {Directory :root "Users" "cartier" "Devel" "jedi" "app" "stable"}))
+
+
+(definition public (get-search-roots)
+  *search-roots*)
+
+
+(definition public (set-search-roots roots)
+  (set! *search-roots* roots))
+
+
+(definition public (gemini-grep pattern (dir: dir #f) (roots: roots #f) (max-results: max-results 100) (case-sensitive?: case-sensitive? #t))
+  (let* ((active-roots (let ((available (collect-if exists? (or roots *search-roots*))))
+                         (if (null? available)
+                             (list (default-workspace-root))
+                           available)))
+         (target-dirs (cond ((not dir)
+                             (map parse active-roots))
+                            ((string? dir)
+                             (if (starts-with? dir "/")
+                                 (list dir)
+                               (let loop ((scan active-roots))
+                                 (if (null? scan)
+                                     (list (string-append (parse (car active-roots)) "/" dir))
+                                   (let* ((root (car scan))
+                                          (cand-dir (new-directory root (tokenise-filename dir)))
+                                          (cand-file (new-file root (tokenise-filename dir))))
+                                     (cond ((exists? cand-dir)
+                                            (list (parse cand-dir)))
+                                           ((exists? cand-file)
+                                            (list (parse cand-file)))
+                                           (else
+                                            (loop (cdr scan)))))))))
+                            (else
+                             (list (parse dir)))))
+         (args `(,@(if case-sensitive? '("-rnI") '("-rnIi"))
+                 "--exclude-dir=.git"
+                 "--exclude-dir=build"
+                 "--exclude-dir=node_modules"
+                 "--exclude-dir=.chats"
+                 "-e" ,(format "{a}" pattern)
+                 ,@target-dirs)))
+    (let ((port (open-process (list path: "grep" arguments: args show-console: #f))))
+      (let loop ((count 0)
+                 (lines '()))
+        (let ((line (read-line port)))
+          (cond ((eof-object? line)
+                 (close-port port)
+                 (if (null? lines)
+                     (format "No matches found for '{a}'." pattern)
+                   (join (reverse lines) "\n")))
+                ((>= count max-results)
+                 (close-port port)
+                 (string-append (join (reverse lines) "\n")
+                                (format "\n... (truncated at {a} matches)" max-results)))
+                (else
+                 (loop (+ count 1) (cons line lines)))))))))
+
+
+;;;
 ;;;; Actions
 ;;;
 
@@ -195,6 +261,16 @@
                                   (display (string-append "Action WRITE -> " (parse file) "\n"))
                                   (force-output (current-output-port))
                                   (cons 'write (parse file))))))
+                           ((equal? action "grep")
+                            (let ((pattern (table-ref action-table "pattern" #f))
+                                  (dir (table-ref action-table "dir" #f))
+                                  (case-sensitive? (table-ref action-table "case_sensitive" #t)))
+                              (if (not pattern)
+                                  (error "Missing 'pattern' in grep action: {s}" action-table)
+                                (let ((result (gemini-grep pattern dir: dir case-sensitive?: case-sensitive?)))
+                                  (display (string-append "Action GREP -> " pattern "\n"))
+                                  (force-output (current-output-port))
+                                  (cons 'grep result)))))
                            (else
                             (display (string-append "Unknown action: " (or action "?") "\n"))
                             (cons 'unknown action)))))

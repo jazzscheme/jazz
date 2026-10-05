@@ -46,6 +46,30 @@
 (initialize-aliases)
 
 
+(display "Running jazz.ai tests...\n")
+(force-output (current-output-port))
+
+;; Test 1: Direct gemini-grep across search roots
+(let ((matches (gemini-grep "Agent-Text-View extends")))
+  (assert (string? matches))
+  (assert (string-search matches "Agent-Text-View.jazz"))
+  (display "  [PASS] gemini-grep across search roots\n"))
+
+;; Test 2: Scoped gemini-grep in relative directory
+(let ((matches (gemini-grep "gemini-generate" dir: "jazz/lib/jazz.ai")))
+  (assert (string? matches))
+  (assert (string-search matches "_ai.jazz"))
+  (display "  [PASS] gemini-grep in scoped directory\n"))
+
+;; Test 3: Structured action execution with GREP
+(let* ((json-payload "{\n  \"thought\": \"Find definition of Agent-Text-View\",\n  \"actions\": [\n    {\n      \"action\": \"grep\",\n      \"pattern\": \"Agent-Text-View extends\"\n    }\n  ]\n}")
+       (results (gemini-execute-actions json-payload)))
+  (assert (pair? results))
+  (assert (eq? (caar results) 'grep))
+  (assert (string-search (cdar results) "Agent-Text-View.jazz"))
+  (display "  [PASS] gemini-execute-actions with GREP\n"))
+
+;; Test 4: Live Gemini prompt generation with WRITE action
 (let* ((prompt (string-append
                  "You are an autonomous AI coding agent operating inside JazzScheme.\n"
                  "You must respond with a JSON object conforming strictly to this format:\n"
@@ -66,7 +90,10 @@
     (let ((results (gemini-execute-actions reply)))
       (display "Executed actions result: ")
       (pp results)
-      (force-output (current-output-port))))))
+      (force-output (current-output-port)))))
+
+(display "All jazz.ai tests passed successfully!\n")
+(force-output (current-output-port))
 
 
-
+)

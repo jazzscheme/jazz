@@ -40,7 +40,9 @@
 
 (export (jazz.agent.autoload))
 (import (jazz.agent.autoload)
+        (jazz.application)
         (jazz.component)
+        (jazz.io)
         (jazz.json)
         (jazz.text)
         (jazz.view))
@@ -55,4 +57,111 @@
 
 
 (definition package (get-agent-text-manager text)
-  (get-creator (get-parent (get-creator text)))))
+  (get-creator (get-parent (get-creator text))))
+
+
+;;;
+;;;; Chat Storage
+;;;
+
+
+(definition (plist-ref plist key (default #f))
+  (let loop ((scan plist))
+    (cond ((null? scan) default)
+          ((and (pair? scan) (pair? (cdr scan)))
+           (if (eq? (car scan) key)
+               (cadr scan)
+             (loop (cddr scan))))
+          (else default))))
+
+
+(definition *chats-directory*
+  #f)
+
+
+(definition public (get-chats-directory)
+  *chats-directory*)
+
+
+(definition public (set-chats-directory dir)
+  (set! *chats-directory* dir))
+
+
+(definition public (find-chats-directory)
+  (let ((dir (or *chats-directory*
+                 {Directory :root "Users" "cartier" "Devel" "psi-lab" ".chats"})))
+    (unless (exists? dir)
+      (create-directories dir))
+    dir))
+
+
+(definition public (generate-conversation-id)
+  (format "chat_{a}_{a}"
+    (inexact->exact (round (current-seconds)))
+    (random-integer 100000)))
+
+
+(definition public (conversation-title-from-prompt prompt)
+  (let* ((line (or (let ((pos (string-find prompt #\newline)))
+                     (if pos (substring prompt 0 pos) prompt))
+                   "Chat"))
+         (trimmed (trim-whitespace line)))
+    (if (> (string-length trimmed) 45)
+        (string-append (substring trimmed 0 42) "...")
+      (if (string=? trimmed "")
+          "New Chat"
+        trimmed))))
+
+
+(definition public (save-conversation id title response-id messages (file #f))
+  (let* ((file (or file
+                   (let ((dir (find-chats-directory)))
+                     (new-file dir (string-append id ".chat")))))
+         (data `(conversation
+                  id: ,id
+                  title: ,title
+                  response-id: ,response-id
+                  messages: ,messages)))
+    (create-directories file)
+    (call-with-output-file (parse file)
+      (lambda (port)
+        (display ";;;==============\n" port)
+        (display ";;;  Jedi AI Chat\n" port)
+        (display ";;;==============\n\n" port)
+        (pp data port)))
+    file))
+
+
+(definition public (load-conversation file)
+  (let ((data (call-with-input-file (parse file) read)))
+    (if (and (pair? data) (eq? (car data) 'conversation))
+        (let ((plist (cdr data)))
+          (list
+            (plist-ref plist id:)
+            (plist-ref plist title:)
+            (plist-ref plist response-id:)
+            (plist-ref plist messages:)
+            file))
+      (error "Invalid conversation file format: {a}" file))))
+
+
+(definition public (list-saved-conversations (dir #f))
+  (let ((dir (or dir (find-chats-directory))))
+    (if (not (exists? dir))
+        '()
+      (let ((files (collect-files dir (lambda (f) (extension=? (get-extension f) "chat")))))
+        (let ((sorted-files (sort > files key: get-last-modification-seconds)))
+          (let loop ((scan sorted-files)
+                     (acc '()))
+            (if (null? scan)
+                (reverse acc)
+              (let* ((f (car scan))
+                     (chat (with-exception-catcher
+                             (lambda (exc) #f)
+                             (lambda () (load-conversation f)))))
+                (if chat
+                    (loop (cdr scan) (cons (list f (cadr chat) (car chat)) acc))
+                  (loop (cdr scan) acc))))))))))
+
+
+)

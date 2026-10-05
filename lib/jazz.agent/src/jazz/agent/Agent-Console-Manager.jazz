@@ -40,7 +40,15 @@
 
 (import (jazz.agent)
         (jazz.console)
-        (jazz.resource))
+        (jazz.event)
+        (jazz.graphic)
+        (jazz.handler)
+        (jazz.layout)
+        (jazz.markup)
+        (jazz.menu)
+        (jazz.resource)
+        (jazz.ui)
+        (jazz.view))
 
 
 (class Agent-Console-Manager extends Console-Manager
@@ -62,6 +70,20 @@
   (method meta override (host-title self)
     "Agents")
 
+
+  ;;;
+  ;;;; Toolbar
+  ;;;
+
+
+  (form
+    (<install>
+      (<!> name: tools
+        ;;(<!> name: detail visible?: #f)
+        (<Push-Tool> name: new-chat  size: {Dimension 22 22} tooltip?: #t tooltip-text: "New Chat" resource: {Image-Resource "New"} portfolio: :images action-handler: {Event-Handler :guest on-new-chat})
+        (<Push-Tool> name: chats     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Saved Chats..." resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :guest on-saved-chats-menu})
+        (<Push-Tool> name: save-chat size: {Dimension 22 22} tooltip?: #t tooltip-text: "Save Chat" resource: {Image-Resource "Save"} portfolio: :images action-handler: {Event-Handler :guest on-save-chat}))))
+
   
   ;;;
   ;;;; Console
@@ -69,4 +91,76 @@
   
   
   (method override (console-class self)
-    Agent-Console-View)))
+    Agent-Console-View)
+
+
+  (method public (ensure-console self)
+    (or (get-text self)
+        (let ((text (register-console self "Agent" #t process-title: "Agent")))
+          (show-banner text)
+          text)))
+
+
+  (method override (focus-default self)
+    (let ((text (ensure-console self)))
+      (when text
+        (acquire-focus text))))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (on-new-chat self evt)
+    (let ((text (ensure-console self)))
+      (new-conversation text)))
+
+
+  (method (on-save-chat self evt)
+    (let ((text (ensure-console self)))
+      (when text
+        (save-conversation-to-disk text))))
+
+
+  (method (on-saved-chats-menu self evt)
+    (let* ((sender (get-sender evt))
+           (pos (new Point 0 (get-height (get-size sender))))
+           (menu (new Saved-Chats-Menu manager: self)))
+      (track-popup-menu sender menu pos))))
+
+
+;;;
+;;;; Saved-Chats-Menu
+;;;
+
+
+(class Saved-Chats-Menu extends Context-Menu
+  
+  
+  (property manager accessors generate)
+  
+  
+  (method override (finish self rest)
+    (nextmethod self rest)
+    (let ((chats (list-saved-conversations)))
+      (if (null? chats)
+          (new Label-Item parent: self title: "No Saved Chats" enabled?: #f)
+        (for-each
+          (lambda (chat)
+            (bind (file title id) chat
+              (new Label-Item parent: self
+                              title: title
+                              action-handler: (new Event-Handler
+                                                target: self
+                                                method-name: 'on-select-chat
+                                                properties: (list file: file)))))
+          chats))))
+  
+  
+  (method (on-select-chat self evt)
+    (let ((file (get-property evt file:))
+          (text (ensure-console manager)))
+      (when (and file text)
+        (load-conversation-from-file text file))))))
+

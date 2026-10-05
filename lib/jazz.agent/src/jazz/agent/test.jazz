@@ -1,0 +1,94 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Agent Test
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2018
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.agent.test jazz
+
+
+(import (jazz.agent)
+        (jazz.io))
+
+
+(initialize-aliases)
+
+
+(display "Running jazz.agent tests...\n")
+(force-output (current-output-port))
+
+;; Test 1: ID generation
+(let ((id (generate-conversation-id)))
+  (assert (string? id))
+  (assert (starts-with? id "chat_"))
+  (display "  [PASS] generate-conversation-id\n"))
+
+;; Test 2: Title derivation
+(let ((t1 (conversation-title-from-prompt "How to use Cairo in Jazz?"))
+      (t2 (conversation-title-from-prompt "First line\nSecond line\nThird line"))
+      (t3 (conversation-title-from-prompt "   A very long prompt that exceeds forty-five characters and should be trimmed   ")))
+  (assert (equal? t1 "How to use Cairo in Jazz?"))
+  (assert (equal? t2 "First line"))
+  (assert (ends-with? t3 "..."))
+  (display "  [PASS] conversation-title-from-prompt\n"))
+
+;; Test 3: Save and Load Roundtrip
+(let* ((id (generate-conversation-id))
+       (title "Test Conversation")
+       (response-id "resp_123456789")
+       (messages '((user "Hello agent!")
+                   (agent "Hello human, ready to code.")))
+       (saved-file (save-conversation id title response-id messages)))
+  (assert (exists? saved-file))
+  (let ((loaded (load-conversation saved-file)))
+    (bind (loaded-id loaded-title loaded-resp-id loaded-messages f) loaded
+      (assert (equal? loaded-id id))
+      (assert (equal? loaded-title title))
+      (assert (equal? loaded-resp-id response-id))
+      (assert (equal? loaded-messages messages))
+      (display "  [PASS] save-conversation and load-conversation roundtrip\n")))
+  ;; Test 4: list-saved-conversations
+  (let ((chats (list-saved-conversations)))
+    (assert (pair? chats))
+    (let ((found (find-if (lambda (c) (equal? (caddr c) id)) chats)))
+      (assert found)
+      (display "  [PASS] list-saved-conversations includes saved chat\n")))
+  ;; Cleanup
+  (delete saved-file))
+
+(display "All jazz.agent tests passed successfully!\n")
+(force-output (current-output-port))
+
+
+)

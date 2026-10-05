@@ -180,6 +180,24 @@
   (display "  [PASS] Live ReAct loop query\n")
   (force-output (current-output-port)))
 
+;; Test 10: gemini-run-test and structured RUN_TEST action
+(display "Testing gemini-run-test on 'agent'...\n")
+(force-output (current-output-port))
+(receive (output status failed?) (gemini-run-test 'agent)
+  (assert (= status 0))
+  (assert (not failed?))
+  (assert (string-search output "All jazz.agent tests passed successfully!"))
+  (display "  [PASS] gemini-run-test 'agent'\n"))
+
+(let* ((action-table (list (list->table (list (cons "action" "run_test") (cons "product" "agent")))))
+       (results (gemini-run-actions action-table)))
+  (assert (= (length results) 1))
+  (let ((r (car results)))
+    (assert (eq? (car r) 'run_test))
+    (assert (not (cadddr r)))
+    (assert (string-search (caddr r) "All jazz.agent tests passed successfully!")))
+  (display "  [PASS] gemini-run-actions with RUN_TEST\n"))
+
 (display "All jazz.ai tests passed successfully!\n")
 (force-output (current-output-port))
 

@@ -319,6 +319,72 @@
 
 
 ;;;
+;;;; Test Execution
+;;;
+
+
+(definition *jazz-binary*
+  {File :root "Users" "cartier" "Devel" "jedi" "app" "stable" "build" "stable" "jazz"})
+
+
+(definition public (get-jazz-binary)
+  (if (exists? *jazz-binary*)
+      (parse *jazz-binary*)
+    "jazz"))
+
+
+(definition public (set-jazz-binary path)
+  (set! *jazz-binary* (if (string? path) (new File (tokenise-filename path)) path)))
+
+
+(definition public (gemini-run-test product
+                                    (arguments: arguments '())
+                                    (repositories: repositories #f)
+                                    (work-dir: work-dir #f)
+                                    (max-lines: max-lines 200))
+  (let* ((jazz-bin (get-jazz-binary))
+         (prod-str (format "{a}" product))
+         (dir (or work-dir "/Users/cartier/Devel/jedi/app/stable"))
+         (repo-args (if repositories
+                        (list "-repositories" (format "{a}" repositories))
+                      '()))
+         (extra-args (if (list? arguments) arguments '()))
+         (args `("-:d-aq"
+                 ,@repo-args
+                 "-test"
+                 ,prod-str
+                 ,@extra-args)))
+    (let ((port (open-process
+                  (list path: jazz-bin
+                        arguments: args
+                        directory: dir
+                        stderr-redirection: #t
+                        show-console: #f))))
+      (let loop ((count 0)
+                 (lines '()))
+        (let ((line (read-line port)))
+          (cond ((eof-object? line)
+                 (let ((status (process-status port)))
+                   (close-port port)
+                   (let* ((output (join (reverse lines) "\n"))
+                          (failed? (or (/= status 0)
+                                       (string-search output "*** ERROR")
+                                       (string-search output "FAILED")
+                                       (string-search output "failed"))))
+                     (values output status (and failed? #t)))))
+                ((>= count max-lines)
+                 (let ((status (process-status port)))
+                   (close-port port)
+                   (let* ((output (string-append (join (reverse lines) "\n")
+                                                 (format "\n... (truncated at {a} lines)" max-lines)))
+                          (failed? (or (/= status 0)
+                                       (string-search output "*** ERROR"))))
+                     (values output status (and failed? #t)))))
+                (else
+                 (loop (+ count 1) (cons line lines)))))))))
+
+
+;;;
 ;;;; Actions
 ;;;
 
@@ -382,6 +448,15 @@
                                   (display (string-append "Action GREP -> " pattern "\n"))
                                   (force-output (current-output-port))
                                   (cons 'grep result)))))
+                           ((or (equal? action "run_test") (equal? action "test"))
+                            (let ((product (or (table-ref action-table "product" #f)
+                                               (table-ref action-table "target" #f))))
+                              (if (not product)
+                                  (error "Missing 'product' in run_test action: {s}" action-table)
+                                (receive (output status failed?) (gemini-run-test product)
+                                  (display (string-append "Action RUN_TEST -> " (format "{a}" product) (if failed? " [FAILED]\n" " [PASSED]\n")))
+                                  (force-output (current-output-port))
+                                  (cons 'run_test output)))))
                            (else
                             (display (string-append "Unknown action: " (or action "?") "\n"))
                             (cons 'unknown action)))))
@@ -397,7 +472,7 @@
   (string-append
     "You are an autonomous AI coding agent operating inside JazzScheme and Jedi.\n"
     "You must ALWAYS communicate by responding ONLY with a valid JSON object. Never output text outside JSON.\n"
-    "You have access to tools to search, inspect, and modify the codebase.\n"
+    "You have access to tools to search, inspect, modify, and test the codebase.\n"
     "\n"
     "Workspace search roots:\n"
     "- /Users/cartier/Devel/psi-lab (application workspace)\n"
@@ -413,6 +488,8 @@
     "   Note: old_string MUST be unique in the file unless replace_all is true.\n"
     "4. write: Create or overwrite a file.\n"
     "   Parameters: {\"action\": \"write\", \"path\": \"<filepath>\", \"content\": \"<file-content>\"}\n"
+    "5. run_test: Safely run JazzScheme product or unit tests and observe compiler/test output.\n"
+    "   Parameters: {\"action\": \"run_test\", \"product\": \"<product-name>\", \"repositories\": \"<optional-repo-path>\"}\n"
     "\n"
     "Protocol:\n"
     "On every turn, you MUST respond with a single JSON object conforming to ONE of the following:\n"
@@ -526,6 +603,20 @@
                             (list 'write action-table "Error: Missing 'path' in write action" #t)
                           (let ((target (gemini-write-file path content)))
                             (list 'write (parse target) (format "Successfully wrote {a}" (parse target)) #f)))))
+                     ((or (equal? action "run_test") (equal? action "test") (equal? action "run_product"))
+                      (let ((product (or (table-ref action-table "product" #f)
+                                         (table-ref action-table "target" #f)
+                                         (table-ref action-table "name" #f)))
+                            (repositories (table-ref action-table "repositories" #f))
+                            (arguments (table-ref action-table "arguments" '()))
+                            (work-dir (table-ref action-table "work_dir" #f)))
+                        (if (not product)
+                            (list 'run_test action-table "Error: Missing 'product' in run_test action" #t)
+                          (receive (output status failed?) (gemini-run-test product
+                                                                            repositories: repositories
+                                                                            arguments: (if (list? arguments) arguments '())
+                                                                            work-dir: work-dir)
+                            (list 'run_test product output (and failed? #t))))))
                      (else
                       (list 'unknown action-table (format "Error: Unknown action '{a}'" action) #t)))))))
        actions))

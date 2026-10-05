@@ -135,31 +135,77 @@
 
 
 ;;;
+;;;; File
+;;;
+
+
+(definition public (gemini-strip-code text)
+  (if (and (string? text) (string-starts-with? text "```"))
+      (let ((start (let ((n (string-find text #\newline)))
+                     (if n (+ n 1) 0))))
+        (let ((body (substring text start (string-length text))))
+          (let ((trimmed (trim-trailing-whitespace body)))
+            (if (string-ends-with? trimmed "```")
+                (trim-trailing-whitespace (substring trimmed 0 (- (string-length trimmed) 3)))
+              trimmed))))
+    text))
+
+
+(definition public (gemini-read-file file)
+  (call-with-input-file (parse file)
+    read-content-string))
+
+
+(definition public (gemini-write-file file content (strip-code?: strip-code? #t))
+  (create-directories file)
+  (call-with-output-file (parse file)
+    (lambda (port)
+      (display (if strip-code? (gemini-strip-code content) content) port))))
+
+
+;;;
 ;;;; Curl
 ;;;
 
 
 (definition (call-gemini api-key model headers data url)
-  (let ((port (open-process
-                (list path: "curl"
-                  arguments: `("--silent"
-                               "--show-error"
-                               "--fail-with-body"
-                               "--request" "POST"
-                               "--header" ,(string-append "X-goog-api-key: " api-key)
-                               ,@(flatten-lists (map (lambda (header) (list "--header" header)) headers))
-                               ,@data
-                               ,url)))))
-    (let ((text (read-line port #f)))
-      (let ((status (process-status port)))
-        (close-port port)
-        (cond ((string? text)
-               (catch-exception-filter
-                 (lambda (exc)
-                   #t)
-                 (lambda (exc)
-                   (error "Gemini request failed with status {a}: {a}" status text))
-                 (lambda ()
-                   (string->json text))))
-              (else
-               (error "Gemini request failed with status {a}" status))))))))
+  (let ((temp-file #f))
+    (dynamic-wind
+      (lambda ()
+        (when (and (pair? data) (string=? (car data) "--data"))
+          (set! temp-file (string-append "/tmp/gemini_payload_" (number->string (random-integer 1000000000)) ".json"))
+          (call-with-output-file temp-file
+            (lambda (p)
+              (display (cadr data) p)))
+          (set! data (list "--data-binary" (string-append "@" temp-file)))))
+      (lambda ()
+        (let ((port (open-process
+                      (list path: "curl"
+                        arguments: `("--silent"
+                                     "--show-error"
+                                     "--fail-with-body"
+                                     "--request" "POST"
+                                     "--header" ,(string-append "X-goog-api-key: " api-key)
+                                     ,@(flatten-lists (map (lambda (header) (list "--header" header)) headers))
+                                     ,@data
+                                     ,url)))))
+          (let ((text (read-line port #f)))
+            (let ((status (process-status port)))
+              (close-port port)
+              (cond ((string? text)
+                     (catch-exception-filter
+                       (lambda (exc)
+                         #t)
+                       (lambda (exc)
+                         (error "Gemini request failed with status {a}: {a}" status text))
+                       (lambda ()
+                         (string->json text))))
+                    (else
+                     (error "Gemini request failed with status {a}" status)))))))
+      (lambda ()
+        (when (and temp-file (file-exists? temp-file))
+          (delete-file temp-file))))))
+
+
+)
+

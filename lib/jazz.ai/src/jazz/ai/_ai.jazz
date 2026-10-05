@@ -105,7 +105,7 @@
       (when system
         (set! fields (cons (cons "system_instruction" system) fields)))
       (when temperature
-        (set! fields (cons (cons "generationConfig" (list->table (list (cons "temperature" temperature)))) fields)))
+        (set! fields (cons (cons "generation_config" (list->table (list (cons "temperature" temperature)))) fields)))
       (when response-id
         (set! fields (cons (cons "previous_interaction_id" response-id) fields)))
       (list->table fields)))
@@ -161,6 +161,44 @@
   (call-with-output-file (parse file)
     (lambda (port)
       (display (if strip-code? (gemini-strip-code content) content) port))))
+
+
+;;;
+;;;; Actions
+;;;
+
+
+(definition (default-workspace-root)
+  {Directory :root "Users" "cartier" "Devel" "psi-lab"})
+
+
+(definition public (gemini-execute-actions reply (root: root (default-workspace-root)))
+  (let ((text (if (string? reply) reply (gemini-text reply))))
+    (if (not (string? text))
+        (error "Invalid reply text from Gemini: {s}" reply)
+      (let ((clean-text (gemini-strip-code text)))
+        (let ((json (string->json clean-text)))
+          (let ((thought (table-ref json "thought" #f))
+                (actions (table-ref json "actions" '())))
+            (when thought
+              (display (string-append "\nAI Thought: " thought "\n"))
+              (force-output (current-output-port)))
+            (map (lambda (action-table)
+                   (let ((action (table-ref action-table "action" #f)))
+                     (cond ((equal? action "write")
+                            (let ((rel-path (table-ref action-table "path" #f))
+                                  (content (table-ref action-table "content" "")))
+                              (if (not rel-path)
+                                  (error "Missing 'path' in write action: {s}" action-table)
+                                (let ((file (new-file root (tokenise-filename rel-path))))
+                                  (gemini-write-file file content)
+                                  (display (string-append "Action WRITE -> " (parse file) "\n"))
+                                  (force-output (current-output-port))
+                                  (cons 'write (parse file))))))
+                           (else
+                            (display (string-append "Unknown action: " (or action "?") "\n"))
+                            (cons 'unknown action)))))
+                 actions)))))))
 
 
 ;;;

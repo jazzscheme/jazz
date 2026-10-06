@@ -1098,9 +1098,46 @@
     (join-strings formatted "\n")))
 
 
+(definition public (gemini-user-input text)
+  (list->table
+    (list
+      (cons "type" "user_input")
+      (cons "content"
+            (list (list->table (list (cons "type" "text") (cons "text" text))))))))
+
+
+(definition public (gemini-model-output text)
+  (list->table
+    (list
+      (cons "type" "model_output")
+      (cons "content"
+            (list (list->table (list (cons "type" "text") (cons "text" text))))))))
+
+
+(definition public (gemini-messages->interaction-input messages prompt)
+  (let loop ((scan messages)
+             (acc '()))
+    (if (null? scan)
+        (let ((final-item
+                (if (string? prompt)
+                    (gemini-user-input prompt)
+                  prompt)))
+          (reverse (cons final-item acc)))
+      (let* ((msg (car scan))
+             (role (car msg))
+             (text (cadr msg)))
+        (cond ((eq? role 'user)
+               (loop (cdr scan) (cons (gemini-user-input text) acc)))
+              ((or (eq? role 'agent) (eq? role 'model) (eq? role 'assistant))
+               (loop (cdr scan) (cons (gemini-model-output text) acc)))
+              (else
+               (loop (cdr scan) acc)))))))
+
+
 (definition public (gemini-agent-query prompt
                                        (system: system default-agent-system-prompt)
                                        (response-id: response-id #f)
+                                       (history: history '())
                                        (max-turns: max-turns 25)
                                        (yield-to: yield-to #f)
                                        (on-complete: on-complete #f)
@@ -1172,16 +1209,27 @@
                 (loop-actions (cdr scan) (cons (list item step) acc)))))))))
 
   (let loop ((turn 0)
-             (current-prompt prompt)
+             (current-prompt
+               (if (and (not response-id) (pair? history))
+                   (gemini-messages->interaction-input history prompt)
+                 prompt))
              (current-resp-id response-id)
-             (history '()))
+             (trace-history '()))
     (when on-status
       (on-status "Thinking..."))
     (call-yield
       (lambda ()
-        (let* ((reply (generate-turn current-prompt
-                                     (if (= turn 0) system #f)
-                                     current-resp-id))
+        (let* ((initial-reply (generate-turn current-prompt
+                                             (if (= turn 0) system #f)
+                                             current-resp-id))
+               (err (table-ref initial-reply "error" #f))
+               (reply
+                 (if (and err (= turn 0) current-resp-id (pair? history))
+                     (begin
+                       (set! current-resp-id #f)
+                       (set! current-prompt (gemini-messages->interaction-input history prompt))
+                       (generate-turn current-prompt system #f))
+                   initial-reply))
                (new-id (or (gemini-id reply) current-resp-id))
                (status (table-ref reply "status" #f))
                (calls (gemini-function-calls reply))
@@ -1192,9 +1240,9 @@
           (when (and thought on-thought)
             (on-thought thought))
           (cond ((pair? calls)
-                 (run-calls calls turn thought new-id history loop))
+                 (run-calls calls turn thought new-id trace-history loop))
                 ((not (gemini-blank-text? text))
-                 (complete-answer text new-id (cons (list 'answer text) history)))
+                 (complete-answer text new-id (cons (list 'answer text) trace-history)))
                 ((equal? status "requires_action")
                  (error "Gemini requires_action but no function_call steps ({a})" (gemini-reply-summary reply)))
                 (else

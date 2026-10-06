@@ -61,6 +61,85 @@
   (assert (string-search matches "_ai.jazz"))
   (display "  [PASS] gemini-grep in scoped directory\n"))
 
+;; Test 2b: gemini-locate by glob
+(let ((matches (gemini-locate "*hello.jazz")))
+  (assert (string? matches))
+  (assert (string-search matches "hello.jazz"))
+  (display "  [PASS] gemini-locate by glob\n"))
+
+;; Test 2c: gemini-list-directory
+(let ((listing (gemini-list-directory "experiments/actions")))
+  (assert (string? listing))
+  (assert (string-search listing "hello.jazz"))
+  (display "  [PASS] gemini-list-directory\n"))
+(let ((results (gemini-run-actions (list (list->table (list (cons "action" "list_directory")
+                                                           (cons "path" "experiments")))))))
+  (assert (= (length results) 1))
+  (assert (eq? (caar results) 'list_directory))
+  (assert (string-search (caddar results) "actions"))
+  (display "  [PASS] gemini-run-actions with list_directory\n"))
+
+;; Test 2d: native function_call steps map onto action tables
+(let ((action (gemini-call->action
+                (list->table
+                  (list (cons "type" "function_call")
+                        (cons "name" "grep")
+                        (cons "id" "call-1")
+                        (cons "arguments" (list->table (list (cons "pattern" "default-model")))))))))
+  (assert (equal? (table-ref action "action") "grep"))
+  (assert (equal? (table-ref action "pattern") "default-model"))
+  (display "  [PASS] gemini-call->action\n"))
+
+;; Test 2e: gemini-agent-tools schema declaration and gemini-function-result formatting
+(let ((tools (gemini-agent-tools))
+      (result (gemini-function-result
+                (list->table (list (cons "name" "grep") (cons "id" "call-1")))
+                "ok")))
+  (assert (pair? tools))
+  (let ((run-test (let loop ((scan tools))
+                    (cond ((null? scan)
+                           #f)
+                          ((equal? (table-ref (car scan) "name" #f) "run_test")
+                           (car scan))
+                          (else
+                           (loop (cdr scan)))))))
+    (assert (table? run-test))
+    (assert (equal? (table-ref (table-ref run-test "parameters") "required") '("target"))))
+  (assert (equal? (table-ref result "type") "function_result"))
+  (assert (equal? (table-ref result "call_id") "call-1"))
+  (display "  [PASS] gemini-agent-tools and gemini-function-result\n"))
+
+;; Test 2f: blank text detection, nested function calls, and missing call id failure
+(assert (gemini-blank-text? #f))
+(assert (gemini-blank-text? ""))
+(assert (gemini-blank-text? "  \n"))
+(assert (not (gemini-blank-text? "ok")))
+(let ((reply (list->table
+               (list (cons "status" "requires_action")
+                     (cons "steps"
+                           (list (list->table
+                                   (list (cons "type" "model_output")
+                                         (cons "content"
+                                               (list (list->table
+                                                       (list (cons "type" "function_call")
+                                                             (cons "name" "read")
+                                                             (cons "id" "call-2")
+                                                             (cons "arguments"
+                                                                   (list->table
+                                                                     (list (cons "path" "x.jazz")))))))))))))))
+      (failed-id? #f))
+  (assert (equal? (gemini-reply-summary reply) "status=requires_action steps=model_output"))
+  (let ((calls (gemini-function-calls reply)))
+    (assert (= (length calls) 1))
+    (assert (equal? (table-ref (car calls) "name") "read")))
+  (with-exception-catcher
+    (lambda (exc)
+      (set! failed-id? #t))
+    (lambda ()
+      (gemini-function-result (list->table (list (cons "name" "grep"))) "ok")))
+  (assert failed-id?))
+(display "  [PASS] gemini-blank-text? nested function_call and missing call id\n")
+
 ;; Test 3: Structured action execution with GREP
 (let* ((json-payload "{\n  \"thought\": \"Find definition of Agent-Text-View\",\n  \"actions\": [\n    {\n      \"action\": \"grep\",\n      \"pattern\": \"Agent-Text-View extends\"\n    }\n  ]\n}")
        (results (gemini-execute-actions json-payload)))
@@ -138,23 +217,29 @@
     (assert (equal? p3 "Hello world, pure text!")))
   (display "  [PASS] gemini-find-outer-braces and gemini-parse-reply\n"))
 
-;; Test 8: gemini-run-actions and gemini-format-observations with error isolation
-(let* ((actions-table (list (list->table (list (cons "action" "grep") (cons "pattern" "gemini-agent-query")))
-                            (list->table (list (cons "action" "read") (cons "path" "nonexistent_file_xyz.jazz")))))
+;; Test 7b: dumping source in the answer is detected as a protocol violation
+(assert (gemini-answer-is-file-dump?
+          "### 1. `experiments/cards/deck.jazz`\n```scheme\n(module deck jazz\n"))
+(assert (not (gemini-answer-is-file-dump?
+               "Wrote experiments/cards/deck.jazz. Tests passed.")))
+(display "  [PASS] gemini-answer-is-file-dump? detects source dumps\n")
+
+;; Test 8: gemini-run-actions and gemini-format-observations (errors fail loudly)
+(let* ((actions-table (list (list->table (list (cons "action" "grep") (cons "pattern" "gemini-agent-query")))))
        (results (gemini-run-actions actions-table)))
-  (assert (= (length results) 2))
-  ;; First action (grep) should succeed
+  (assert (= (length results) 1))
   (let ((r1 (car results)))
-    (assert (eq? (car r1) 'grep))
-    (assert (not (cadddr r1))))
-  ;; Second action (read nonexistent) should be cleanly caught as error
-  (let ((r2 (cadr results)))
-    (assert (eq? (car r2) 'read))
-    (assert (cadddr r2)))
+    (assert (eq? (car r1) 'grep)))
   (let ((obs (gemini-format-observations results)))
-    (assert (string-search obs "[Observation 1: action grep]"))
-    (assert (string-search obs "[Observation 2: ERROR in action read]"))
-    (display "  [PASS] gemini-run-actions and gemini-format-observations\n")))
+    (assert (string-search obs "[Observation 1: action grep]")))
+  ;; Verify that an invalid action / missing file halts immediately by throwing an error
+  (let ((failed? #f))
+    (with-exception-catcher
+      (lambda (exc) (set! failed? #t))
+      (lambda ()
+        (gemini-run-actions (list (list->table (list (cons "action" "read") (cons "path" "nonexistent_file_xyz.jazz")))))))
+    (assert failed?))
+  (display "  [PASS] gemini-run-actions and gemini-format-observations\n"))
 
 ;; Test 9: Live autonomous ReAct loop query
 (display "Testing live autonomous ReAct loop query with gemini-agent-query...\n")
@@ -163,6 +248,10 @@
     (gemini-agent-query
       "What is the exact string value of default-model defined in jazz.ai? Search for it and tell me."
       max-turns: 5
+      on-status:
+      (lambda (st)
+        (display (string-append "  " st "\n"))
+        (force-output (current-output-port)))
       on-thought:
       (lambda (th)
         (display (string-append "  Agent Thought: " th "\n"))
@@ -170,6 +259,12 @@
       on-action:
       (lambda (ac)
         (display (string-append "  Agent Tool Call: " (table-ref ac "action" "?") "\n"))
+        (force-output (current-output-port)))
+      on-observation:
+      (lambda (item output)
+        (display (string-append "  Agent Observation (" (format "{a}" (car item)) "):\n"))
+        (display output)
+        (newline)
         (force-output (current-output-port))))
   (assert (string? answer))
   (assert (string-search answer "gemini-3.8-flash"))
@@ -194,9 +289,26 @@
   (assert (= (length results) 1))
   (let ((r (car results)))
     (assert (eq? (car r) 'run_test))
-    (assert (not (cadddr r)))
     (assert (string-search (caddr r) "All jazz.agent tests passed successfully!")))
   (display "  [PASS] gemini-run-actions with RUN_TEST\n"))
+
+;; Test 10a: missing run_test target is a loud error
+(let ((failed? #f))
+  (with-exception-catcher
+    (lambda (exc)
+      (set! failed? #t))
+    (lambda ()
+      (gemini-run-actions (list (list->table (list (cons "action" "run_test")
+                                                   (cons "test_name" "")))))))
+  (assert failed?)
+  (display "  [PASS] gemini-run-actions missing run_test target fails loud\n"))
+
+;; Test 10b: gemini-run-test executing a script file directly
+(receive (out stat fail?) (gemini-run-test "experiments/actions/hello.jazz")
+  (assert (= stat 0))
+  (assert (not fail?))
+  (assert (string-search out "Hello from JazzScheme!"))
+  (display "  [PASS] gemini-run-test with direct script file\n"))
 
 ;; Test 11: Modular agent profiles and system prompts
 (let ((coder-prompt (get-agent-system-prompt 'coder))

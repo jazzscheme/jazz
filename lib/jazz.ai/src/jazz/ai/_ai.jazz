@@ -97,15 +97,121 @@
       (gemini-id (call-gemini gemini-api-key model headers (list "--data" data) interactions-url)))))
 
 
-(definition public (gemini-generate prompt (model: model #f) (system: system #f) (temperature: temperature #f) (response-id: response-id #f))
+(definition (gemini-string-param desc)
+  (list->table (list (cons "type" "string") (cons "description" desc))))
+
+
+(definition (gemini-bool-param desc)
+  (list->table (list (cons "type" "boolean") (cons "description" desc))))
+
+
+(definition (gemini-int-param desc)
+  (list->table (list (cons "type" "integer") (cons "description" desc))))
+
+
+(definition (gemini-function name description properties required)
+  (list->table
+    (list
+      (cons "type" "function")
+      (cons "name" name)
+      (cons "description" description)
+      (cons "parameters"
+            (list->table
+              (list
+                (cons "type" "object")
+                (cons "properties" (list->table properties))
+                (cons "required" required)))))))
+
+
+(definition public (gemini-agent-tools)
+  (list
+    (gemini-function "grep"
+                     "Search file contents with a regular expression across workspace roots."
+                     (list (cons "pattern" (gemini-string-param "Regular expression to search for"))
+                           (cons "dir" (gemini-string-param "Optional subdirectory to limit the search")))
+                     '("pattern"))
+    (gemini-function "read"
+                     "Read a file with 1-based line numbers. Use offset and limit for a slice."
+                     (list (cons "path" (gemini-string-param "File path"))
+                           (cons "offset" (gemini-int-param "Optional 1-based start line"))
+                           (cons "limit" (gemini-int-param "Optional number of lines to read")))
+                     '("path"))
+    (gemini-function "str_replace"
+                     "Replace a unique string in an existing file. old_string must match exactly, including indentation."
+                     (list (cons "path" (gemini-string-param "File path"))
+                           (cons "old_string" (gemini-string-param "Exact unique snippet to replace"))
+                           (cons "new_string" (gemini-string-param "Replacement text"))
+                           (cons "replace_all" (gemini-bool-param "If true, replace every occurrence")))
+                     '("path" "old_string" "new_string"))
+    (gemini-function "write"
+                     "Create or overwrite a file. Prefer str_replace for existing files."
+                     (list (cons "path" (gemini-string-param "File path"))
+                           (cons "content" (gemini-string-param "Full file contents")))
+                     '("path" "content"))
+    (gemini-function "run_test"
+                     "Run a JazzScheme product test or a .jazz test script. target is required. Never probe with empty values."
+                     (list (cons "target" (gemini-string-param "Product name such as ai or agent, or a .jazz file path such as experiments/actions/hello.jazz")))
+                     '("target"))
+    (gemini-function "locate"
+                     "Find files by glob basename, for example *hello.jazz or *test*.jazz."
+                     (list (cons "pattern" (gemini-string-param "Glob pattern"))
+                           (cons "dir" (gemini-string-param "Optional subdirectory to limit the search")))
+                     '("pattern"))
+    (gemini-function "list_directory"
+                     "List the immediate children of a directory. Use a real path such as experiments, not '.'."
+                     (list (cons "path" (gemini-string-param "Directory path")))
+                     '("path"))))
+
+
+(definition public (gemini-generate prompt (model: model #f) (system: system #f) (temperature: temperature #f) (response-id: response-id #f) (json?: json? #t) (tools: tools #f))
+  (define (json-response-format)
+    (list
+      (list->table
+        (list
+          (cons "type" "text")
+          (cons "mime_type" "application/json")
+          (cons "schema"
+                (list->table
+                  (list
+                    (cons "type" "OBJECT")
+                    (cons "properties"
+                          (list->table
+                            (list
+                              (cons "thought" (list->table (list (cons "type" "STRING"))))
+                              (cons "answer" (list->table (list (cons "type" "STRING"))))
+                              (cons "actions"
+                                    (list->table
+                                      (list
+                                        (cons "type" "ARRAY")
+                                        (cons "items"
+                                              (list->table
+                                                (list
+                                                  (cons "type" "OBJECT")
+                                                  (cons "additionalProperties" #t))))))))))
+                    (cons "required" '("thought")))))))))
+
+  (define (generate-input)
+    (cond ((string? prompt)
+           (list (list->table (list (cons "type" "text") (cons "text" prompt)))))
+          ((list? prompt)
+           prompt)
+          (else
+           (error "gemini-generate input must be a string or a list of input items"))))
+
   (define (generate-payload)
     (let ((fields (list
                     (cons "model" (or model default-model))
-                    (cons "input" (list (list->table (list (cons "type" "text") (cons "text" prompt))))))))
+                    (cons "input" (generate-input)))))
       (when system
         (set! fields (cons (cons "system_instruction" system) fields)))
-      (when temperature
-        (set! fields (cons (cons "generation_config" (list->table (list (cons "temperature" temperature)))) fields)))
+      (when tools
+        (set! fields (cons (cons "tools" tools) fields)))
+      (when (and json? (not tools))
+        (set! fields (cons (cons "response_format" (json-response-format)) fields)))
+      (let ((gen-config (list (cons "tool_choice" (if tools "validated" "none")))))
+        (when temperature
+          (set! gen-config (cons (cons "temperature" temperature) gen-config)))
+        (set! fields (cons (cons "generation_config" (list->table gen-config)) fields)))
       (when response-id
         (set! fields (cons (cons "previous_interaction_id" response-id) fields)))
       (list->table fields)))
@@ -116,27 +222,144 @@
       (call-gemini gemini-api-key model headers (list "--data" data) interactions-url))))
 
 
+(definition (gemini-as-list x)
+  (cond ((not x)
+         '())
+        ((list? x)
+         x)
+        ((table? x)
+         (list x))
+        (else
+         '())))
+
+
+(definition public (gemini-reply-steps reply)
+  (append (gemini-as-list (table-ref reply "steps" '()))
+          (gemini-as-list (table-ref reply "outputs" '()))))
+
+
+(definition public (gemini-blank-text? text)
+  (or (not (string? text))
+      (equal? (trim-trailing-whitespace text) "")))
+
+
+(definition public (gemini-reply-summary reply)
+  (format "status={a} steps={a}"
+          (table-ref reply "status" "?")
+          (join-strings (map (lambda (step)
+                               (or (table-ref step "type" #f) "?"))
+                             (gemini-reply-steps reply))
+                        ",")))
+
+
+(definition (gemini-function-call-step? step)
+  (let ((typ (table-ref step "type" #f)))
+    (or (equal? typ "function_call")
+        (equal? typ "tool_call"))))
+
+
+(definition (gemini-step-text step)
+  (let ((direct (table-ref step "text" #f))
+        (content (table-ref step "content" #f)))
+    (or (and (string? direct) direct)
+        (and (table? content)
+             (table-ref content "text" #f))
+        (and (pair? content)
+             (table? (car content))
+             (table-ref (car content) "text" #f)))))
+
+
 (definition public (gemini-text reply)
   (let ((err (table-ref reply "error" #f)))
     (if err
         (error "Gemini error {a}: {a}"
                (table-ref err "code" "?")
                (table-ref err "message" "unknown"))
-      (let ((steps (table-ref reply "steps" '())))
-        (if (null? steps)
-            #f
-          (let ((content (table-ref (cadr steps) "content" #f)))
-            (and content
-                 (table-ref (car content) "text" ""))))))))
+      (or (let ((out (table-ref reply "output_text" #f)))
+            (and (string? out) (not (equal? out "")) out))
+          (let loop ((scan (gemini-reply-steps reply))
+                     (last #f))
+            (if (null? scan)
+                last
+              (let ((step (car scan)))
+                (let ((typ (table-ref step "type" #f)))
+                  (loop (cdr scan)
+                        (if (or (equal? typ "text")
+                                (equal? typ "message")
+                                (equal? typ "model_output")
+                                (not typ))
+                            (or (gemini-step-text step) last)
+                          last))))))))))
+
+
+(definition public (gemini-thought-text reply)
+  (let loop ((scan (gemini-reply-steps reply))
+             (acc '()))
+    (if (null? scan)
+        (and (pair? acc) (join-strings (reverse acc) "\n"))
+      (let ((step (car scan)))
+        (if (equal? (table-ref step "type" #f) "thought")
+            (let ((text (or (gemini-step-text step)
+                            (table-ref step "summary" #f))))
+              (loop (cdr scan) (if (string? text) (cons text acc) acc)))
+          (loop (cdr scan) acc))))))
+
+
+(definition public (gemini-function-calls reply)
+  (let loop ((scan (gemini-reply-steps reply))
+             (acc '()))
+    (if (null? scan)
+        (reverse acc)
+      (let ((step (car scan)))
+        (cond ((gemini-function-call-step? step)
+               (loop (cdr scan) (cons step acc)))
+              (else
+               (let ((content (table-ref step "content" #f)))
+                 (if (not (pair? content))
+                     (loop (cdr scan) acc)
+                   (let inner ((items content)
+                               (found acc))
+                     (if (null? items)
+                         (loop (cdr scan) found)
+                       (if (and (table? (car items))
+                                (gemini-function-call-step? (car items)))
+                           (inner (cdr items) (cons (car items) found))
+                         (inner (cdr items) found))))))))))))
+
+
+(definition public (gemini-call->action step)
+  (let ((name (table-ref step "name" #f))
+        (args (table-ref step "arguments" #f)))
+    (let ((pairs (cond ((table? args)
+                        (table->list args))
+                       ((string? args)
+                        (let ((parsed (string->json args)))
+                          (if (table? parsed) (table->list parsed) '())))
+                       (else
+                        '()))))
+      (list->table (cons (cons "action" name) pairs)))))
+
+
+(definition public (gemini-function-result step output)
+  (let ((call-id (or (table-ref step "id" #f)
+                     (table-ref step "call_id" #f))))
+    (if (or (not (string? call-id)) (equal? call-id ""))
+        (error "function_call missing id: {s}" (if (table? step) (table->list step) step))
+      (list->table
+        (list
+          (cons "type" "function_result")
+          (cons "name" (table-ref step "name" ""))
+          (cons "call_id" call-id)
+          (cons "result"
+                (list
+                  (list->table
+                    (list
+                      (cons "type" "text")
+                      (cons "text" (format "{a}" output)))))))))))
 
 
 (definition public (gemini-id reply)
   (table-ref reply "id" #f))
-
-
-;;;
-;;;; File
-;;;
 
 
 ;;;
@@ -178,31 +401,55 @@
     text))
 
 
+(definition (gemini-int n)
+  (cond ((not n)
+         #f)
+        ((integer? n)
+         n)
+        ((and (pair? n) (integer? (car n)))
+         (car n))
+        ((string? n)
+         (string->number n))
+        (else
+         #f)))
+
+
 (definition public (gemini-read-file file (offset: offset #f) (limit: limit #f) (line-numbers?: line-numbers? #t))
   (let ((target (gemini-resolve-file file)))
     (if (not (exists? target))
         (error "File does not exist: {a}" (parse target))
-      (if (and (not offset) (not limit))
-          (call-with-input-file (parse target) read-content-string)
-        (call-with-input-file (parse target)
-          (lambda (port)
-            (let ((start-line (or offset 1))
-                  (max-lines (or limit 100)))
-              (let loop ((line-num 1)
-                         (collected 0)
-                         (acc '()))
-                (let ((line (read-line port)))
-                  (cond ((or (eof-object? line) (>= collected max-lines))
-                         (join (reverse acc) "\n"))
-                        ((< line-num start-line)
-                         (loop (+ line-num 1) collected acc))
-                        (else
-                         (let ((formatted-line (if line-numbers?
-                                                   (format "{a width: 6 justify: :right}| {a}" line-num line)
-                                                 line)))
-                           (loop (+ line-num 1)
-                                 (+ collected 1)
-                                 (cons formatted-line acc))))))))))))))
+      (call-with-input-file (parse target)
+        (lambda (port)
+          (let ((start-line
+                  (if (and (pair? offset) (pair? (cdr offset)) (integer? (car offset)))
+                      (car offset)
+                    (or (gemini-int offset) 1)))
+                (max-lines
+                  (if (and (pair? offset) (pair? (cdr offset)) (integer? (cadr offset)))
+                      (+ 1 (- (cadr offset) (car offset)))
+                    (or (gemini-int limit) 300))))
+            (let loop ((line-num 1)
+                       (collected 0)
+                       (total-chars 0)
+                       (acc '()))
+              (let ((line (read-line port)))
+                (cond ((or (eof-object? line)
+                           (>= collected max-lines)
+                           (>= total-chars 50000))
+                       (join (reverse acc) "\n"))
+                      ((< line-num start-line)
+                       (loop (+ line-num 1) collected total-chars acc))
+                      (else
+                       (let* ((safe-line (if (> (string-length line) 500)
+                                             (string-append (substring line 0 500) " ...")
+                                           line))
+                              (formatted-line (if line-numbers?
+                                                  (format "{a width: 6 justify: :right}| {a}" line-num safe-line)
+                                                safe-line)))
+                         (loop (+ line-num 1)
+                               (+ collected 1)
+                               (+ total-chars (string-length formatted-line) 1)
+                               (cons formatted-line acc)))))))))))))
 
 
 (definition public (gemini-write-file file content (strip-code?: strip-code? #t))
@@ -296,13 +543,24 @@
                              (list (parse dir)))))
          (args `(,@(if case-sensitive? '("-rnI") '("-rnIi"))
                  "--exclude-dir=.git"
+                 "--exclude-dir=.next"
                  "--exclude-dir=build"
                  "--exclude-dir=node_modules"
                  "--exclude-dir=.chats"
+                 "--exclude-dir=.cursor"
+                 "--exclude-dir=.turbo"
+                 "--exclude-dir=.cache"
+                 "--exclude-dir=dist"
+                 "--exclude-dir=.idea"
+                 "--exclude=package-lock.json"
+                 "--exclude=*.min.js"
+                 "--exclude=*.map"
+                 "--exclude=*.tsbuildinfo"
                  "-e" ,(format "{a}" pattern)
                  ,@target-dirs)))
     (let ((port (open-process (list path: "grep" arguments: args show-console: #f))))
       (let loop ((count 0)
+                 (total-chars 0)
                  (lines '()))
         (let ((line (read-line port)))
           (cond ((eof-object? line)
@@ -310,12 +568,125 @@
                  (if (null? lines)
                      (format "No matches found for '{a}'." pattern)
                    (join (reverse lines) "\n")))
-                ((>= count max-results)
+                ((or (>= count max-results) (>= total-chars 30000))
                  (close-port port)
                  (string-append (join (reverse lines) "\n")
-                                (format "\n... (truncated at {a} matches)" max-results)))
+                                (format "\n... (truncated at {a} matches)" count)))
                 (else
-                 (loop (+ count 1) (cons line lines)))))))))
+                 (let* ((truncated (if (> (string-length line) 250)
+                                       (string-append (substring line 0 250) " ...")
+                                     line))
+                        (line-len (+ (string-length truncated) 1)))
+                   (loop (+ count 1)
+                         (+ total-chars line-len)
+                         (cons truncated lines))))))))))
+
+
+;;;
+;;;; Locate
+;;;
+
+
+(definition public (gemini-locate pattern (dir: dir #f) (roots: roots #f) (max-results: max-results 100))
+  (if (or (not pattern) (equal? pattern ""))
+      (error "Missing 'pattern' in locate action")
+    (let* ((active-roots (let ((available (collect-if exists? (or roots *search-roots*))))
+                           (if (null? available)
+                               (list (default-workspace-root))
+                             available)))
+           (target-dirs (cond ((not dir)
+                               (map parse active-roots))
+                              ((string? dir)
+                               (if (starts-with? dir "/")
+                                   (list dir)
+                                 (let loop ((scan active-roots))
+                                   (if (null? scan)
+                                       (list (string-append (parse (car active-roots)) "/" dir))
+                                     (let* ((root (car scan))
+                                            (cand-dir (new-directory root (tokenise-filename dir)))
+                                            (cand-file (new-file root (tokenise-filename dir))))
+                                       (cond ((exists? cand-dir)
+                                              (list (parse cand-dir)))
+                                             ((exists? cand-file)
+                                              (list (parse cand-file)))
+                                             (else
+                                              (loop (cdr scan)))))))))
+                              (else
+                               (list (parse dir)))))
+           (name-flag (if (string-find pattern #\/) "-path" "-name"))
+           (args `(,@target-dirs
+                   "(" "-name" ".git" "-o" "-name" ".next" "-o" "-name" "build" "-o"
+                   "-name" "node_modules" "-o" "-name" ".chats" "-o" "-name" ".cursor" "-o"
+                   "-name" ".turbo" "-o" "-name" ".cache" "-o" "-name" "dist" "-o" "-name" ".idea" ")"
+                   "-prune" "-o" "-type" "f" ,name-flag ,(format "{a}" pattern) "-print")))
+      (let ((port (open-process (list path: "find" arguments: args show-console: #f))))
+        (let loop ((count 0)
+                   (lines '()))
+          (let ((line (read-line port)))
+            (cond ((eof-object? line)
+                   (close-port port)
+                   (if (null? lines)
+                       (format "No files found for '{a}'." pattern)
+                     (join (reverse lines) "\n")))
+                  ((>= count max-results)
+                   (close-port port)
+                   (string-append (join (reverse lines) "\n")
+                                  (format "\n... (truncated at {a} matches)" max-results)))
+                  (else
+                   (loop (+ count 1) (cons line lines))))))))))
+
+
+;;;
+;;;; List Directory
+;;;
+
+
+(definition public (gemini-list-directory dir (roots: roots #f) (max-results: max-results 200))
+  (if (or (not dir) (equal? dir "") (equal? dir "?"))
+      (error "list_directory requires 'path'")
+    (let* ((dir-str (format "{a}" dir))
+           (active-roots (let ((available (collect-if exists? (or roots *search-roots*))))
+                           (if (null? available)
+                               (list (default-workspace-root))
+                             available)))
+           (target (cond ((or (equal? dir-str ".") (equal? dir-str "./"))
+                          (parse (car active-roots)))
+                         ((starts-with? dir-str "/")
+                          dir-str)
+                         (else
+                          (let loop ((scan active-roots))
+                            (if (null? scan)
+                                (string-append (parse (car active-roots)) "/" dir-str)
+                              (let ((cand (new-directory (car scan) (tokenise-filename dir-str))))
+                                (if (exists? cand)
+                                    (parse cand)
+                                  (loop (cdr scan))))))))))
+      (cond ((not (file-exists? target))
+             (error "Directory does not exist: {a}" target))
+            ((not (eq? (file-info-type (file-info target)) 'directory))
+             (error "Not a directory: {a}" target))
+            (else
+             (let ((args `(,target
+                           "-mindepth" "1" "-maxdepth" "1"
+                           "(" "-name" ".git" "-o" "-name" ".next" "-o" "-name" "build" "-o"
+                           "-name" "node_modules" "-o" "-name" ".chats" "-o" "-name" ".cursor" "-o"
+                           "-name" ".turbo" "-o" "-name" ".cache" "-o" "-name" "dist" "-o" "-name" ".idea" ")"
+                           "-prune" "-o" "-print")))
+               (let ((port (open-process (list path: "find" arguments: args show-console: #f))))
+                 (let loop ((count 0)
+                            (lines '()))
+                   (let ((line (read-line port)))
+                     (cond ((eof-object? line)
+                            (close-port port)
+                            (if (null? lines)
+                                (format "Directory is empty: {a}" target)
+                              (join (reverse lines) "\n")))
+                           ((>= count max-results)
+                            (close-port port)
+                            (string-append (join (reverse lines) "\n")
+                                           (format "\n... (truncated at {a} entries)" max-results)))
+                           (else
+                            (loop (+ count 1) (cons line lines)))))))))))))
 
 
 ;;;
@@ -337,23 +708,32 @@
   (set! *jazz-binary* (if (string? path) (new File (tokenise-filename path)) path)))
 
 
-(definition public (gemini-run-test product
+(definition public (gemini-run-test target
                                     (arguments: arguments '())
                                     (repositories: repositories #f)
                                     (work-dir: work-dir #f)
                                     (max-lines: max-lines 200))
   (let* ((jazz-bin (get-jazz-binary))
-         (prod-str (format "{a}" product))
+         (target-str (format "{a}" target))
          (dir (or work-dir "/Users/cartier/Devel/jedi/app/stable"))
          (repo-args (if repositories
                         (list "-repositories" (format "{a}" repositories))
                       '()))
          (extra-args (if (list? arguments) arguments '()))
-         (args `("-:d-aq"
-                 ,@repo-args
-                 "-test"
-                 ,prod-str
-                 ,@extra-args)))
+         (file-target? (or (string-ends-with? target-str ".jazz")
+                           (string-ends-with? target-str ".scm")
+                           (string-search target-str "/")))
+         (args (if file-target?
+                   (let ((resolved (gemini-resolve-file target-str)))
+                     `("-:d-aq"
+                       ,@repo-args
+                       ,(parse resolved)
+                       ,@extra-args))
+                 `("-:d-aq"
+                   ,@repo-args
+                   "-test"
+                   ,target-str
+                   ,@extra-args))))
     (let ((port (open-process
                   (list path: jazz-bin
                         arguments: args
@@ -476,34 +856,24 @@
 (definition public (base-agent-protocol)
   (string-append
     "Protocol:\n"
-    "On every turn, you MUST respond with a single JSON object conforming strictly to ONE of the following schemas:\n"
+    "The runtime declares your tools with a JSON Schema. Call those functions directly. Do not wrap calls in JSON, and do not invent names.\n"
+    "The declared tools are: grep, read, str_replace, write, run_test, locate, list_directory.\n"
+    "To search file contents use grep. To find files by name use locate.\n"
     "\n"
-    "1. When you need to investigate, read, write, edit, or test code:\n"
-    "{\n"
-    "  \"thought\": \"Detailed reasoning about what you found and what you need to do next\",\n"
-    "  \"actions\": [\n"
-    "    { \"action\": \"grep\", \"pattern\": \"...\" }\n"
-    "  ]\n"
-    "}\n"
+    "Creating or editing files MUST be done with write or str_replace.\n"
+    "Never paste source files, markdown headings of .jazz paths, or code fences of modules into the answer.\n"
+    "If the files are not yet on disk, you are not done: call write or str_replace, then continue.\n"
+    "When the task is complete, reply in plain text with a short summary of paths changed and test results. No source files.\n"
     "\n"
-    "2. When your task or investigation is complete and you are answering the user:\n"
-    "{\n"
-    "  \"thought\": \"Summary of your work, verification results, and conclusions\",\n"
-    "  \"answer\": \"Your final comprehensive response in Markdown format.\"\n"
-    "}\n"
-    "\n"
-    "Available Tool Actions:\n"
-    "1. grep: Search files using regular expressions across workspace roots.\n"
-    "   Parameters: {\"action\": \"grep\", \"pattern\": \"<regex>\", \"dir\": \"<optional-subdir>\", \"case_sensitive\": true}\n"
-    "2. read: Read file contents with 1-based line numbers.\n"
-    "   Parameters: {\"action\": \"read\", \"path\": \"<filepath>\", \"offset\": <optional-1-based-line>, \"limit\": <optional-line-count>}\n"
-    "3. str_replace: Surgically replace a unique string in a file.\n"
-    "   Parameters: {\"action\": \"str_replace\", \"path\": \"<filepath>\", \"old_string\": \"<exact-unique-snippet>\", \"new_string\": \"<replacement>\", \"replace_all\": false}\n"
-    "   Note: old_string MUST be unique in the file unless replace_all is true.\n"
-    "4. write: Create or overwrite a file (automatically creates parent directories).\n"
-    "   Parameters: {\"action\": \"write\", \"path\": \"<filepath>\", \"content\": \"<file-content>\"}\n"
-    "5. run_test: Safely run JazzScheme product or unit tests and observe compiler/test output.\n"
-    "   Parameters: {\"action\": \"run_test\", \"product\": \"<product-name>\", \"repositories\": \"<optional-repo-path>\"}\n"
+    "Tool notes:\n"
+    "1. grep: pattern is required. dir is an optional subdirectory.\n"
+    "2. read: path is required. offset is a 1-based start line. limit is a line count.\n"
+    "3. str_replace: path, old_string, and new_string are required. old_string MUST be unique unless replace_all is true.\n"
+    "4. write: path and content are required. Prefer str_replace for existing files.\n"
+    "5. run_test: target is REQUIRED. Use a product name (ai, agent) or a .jazz file path such as experiments/actions/hello.jazz.\n"
+    "   Never call run_test without target, and never use placeholders like \"?\" or \"\".\n"
+    "6. locate: pattern is a glob such as *hello.jazz. dir is optional.\n"
+    "7. list_directory: path is required. Use a real path such as experiments, not \".\".\n"
     "\n"
     "Workspace search roots:\n"
     "- /Users/cartier/Devel/psi-lab (application workspace)\n"
@@ -514,7 +884,7 @@
   (string-append
     "You are a Principal Software Engineer specializing in JazzScheme, Gambit Scheme, and the Jedi IDE.\n"
     "Your goal is to autonomously develop, inspect, test, and maintain JazzScheme applications with rigorous engineering discipline.\n"
-    "You must ALWAYS communicate by responding ONLY with a valid JSON object. Never output raw text outside JSON.\n"
+    "Use the declared tools to inspect, edit, and test. Reply in plain text only when the task is done.\n"
     "\n"
     "=== ENGINEERING GUIDELINES ===\n"
     "1. Investigation First (Never Guess APIs):\n"
@@ -522,7 +892,8 @@
     "   - Trace symbols back to their definitions. Never guess or hallucinate JazzScheme APIs.\n"
     "\n"
     "2. Test-Driven Self-Correction Loop:\n"
-    "   - Never assume written code works. Always run `run_test` on the product to verify compilation, syntax, and unit assertions.\n"
+    "   - Never assume written code works. Always run `run_test` with an explicit target (product name such as ai/agent, or a .jazz test file path).\n"
+    "   - Never call a tool with missing required parameters or placeholders (\"?\", \"\") to discover its signature. Read this protocol or grep the implementation instead.\n"
     "   - If `run_test` outputs an error (e.g. unbound variable, syntax error, failed assertion), carefully analyze the compiler/runtime backtrace, locate the faulty code, use `str_replace` to apply a surgical fix, and re-run `run_test` until all tests pass.\n"
     "   - Only present your final answer once tests pass or you have verified the solution.\n"
     "\n"
@@ -552,8 +923,7 @@
   (string-append
     "You are an AI assistant and expert guide for JazzScheme and the Jedi IDE.\n"
     "You explain concepts clearly, answer architecture questions, provide code snippets, and help users navigate the codebase.\n"
-    "You must ALWAYS communicate by responding ONLY with a valid JSON object. Never output raw text outside JSON.\n"
-    "You have access to search and read tools to verify facts in the codebase before answering.\n"
+    "Use the declared tools to verify facts before answering. Reply in plain text when you are done.\n"
     "\n"
     (base-agent-protocol)))
 
@@ -617,75 +987,93 @@
             (list 'answer #f clean)))))))
 
 
+(definition (gemini-optional-dir dir)
+  (if (or (not dir)
+          (equal? dir "")
+          (equal? dir ".")
+          (equal? dir "./")
+          (equal? dir "?"))
+      #f
+    dir))
+
+
+(definition public (gemini-answer-is-file-dump? text)
+  (and (string? text)
+       (or (and (string-search text "```")
+                (string-search text "(module "))
+           (and (or (string-search text "### ")
+                    (string-search text "## "))
+                (string-search text ".jazz")))))
+
+
+(definition public (gemini-run-action action-table (root: root (default-workspace-root)))
+  (let ((action (table-ref action-table "action" #f)))
+    (cond ((equal? action "grep")
+           (let ((pattern (table-ref action-table "pattern" #f))
+                 (dir (gemini-optional-dir (table-ref action-table "dir" #f)))
+                 (case-sensitive? (table-ref action-table "case_sensitive" #t)))
+             (if (not pattern)
+                 (error "Missing 'pattern' in grep action: {s}" (table->list action-table))
+               (let ((result (gemini-grep pattern dir: dir case-sensitive?: case-sensitive?)))
+                 (list 'grep pattern result)))))
+          ((equal? action "locate")
+           (let ((pattern (table-ref action-table "pattern" #f))
+                 (dir (gemini-optional-dir (table-ref action-table "dir" #f))))
+             (if (not pattern)
+                 (error "Missing 'pattern' in locate action: {s}" (table->list action-table))
+               (let ((result (gemini-locate pattern dir: dir)))
+                 (list 'locate pattern result)))))
+          ((equal? action "list_directory")
+           (let ((path (table-ref action-table "path" #f)))
+             (if (not path)
+                 (error "Missing 'path' in list_directory action: {s}" (table->list action-table))
+               (let ((result (gemini-list-directory path)))
+                 (list 'list_directory path result)))))
+          ((equal? action "read")
+           (let ((path (table-ref action-table "path" #f))
+                 (offset (table-ref action-table "offset" #f))
+                 (limit (table-ref action-table "limit" #f))
+                 (line-numbers? (table-ref action-table "line_numbers" #t)))
+             (if (not path)
+                 (error "Missing 'path' in read action: {s}" (table->list action-table))
+               (let ((content (gemini-read-file path offset: offset limit: limit line-numbers?: line-numbers?)))
+                 (list 'read path content)))))
+          ((equal? action "str_replace")
+           (let ((path (table-ref action-table "path" #f))
+                 (old-string (table-ref action-table "old_string" #f))
+                 (new-string (table-ref action-table "new_string" #f))
+                 (replace-all? (table-ref action-table "replace_all" #f)))
+             (if (or (not path) (not old-string) (not new-string))
+                 (error "Missing parameters in str_replace action: {s}" (table->list action-table))
+               (let ((target (gemini-str-replace path old-string new-string replace-all?: replace-all?)))
+                 (list 'str_replace (parse target) (format "Successfully replaced unique occurrence in {a}" (parse target)))))))
+          ((equal? action "write")
+           (let ((path (table-ref action-table "path" #f))
+                 (content (table-ref action-table "content" #f)))
+             (if (not path)
+                 (error "Missing 'path' in write action: {s}" (table->list action-table))
+               (let ((target (gemini-write-file path (or content ""))))
+                 (list 'write (parse target) (format "Successfully wrote {a}" (parse target)))))))
+          ((equal? action "run_test")
+           (let ((product (or (table-ref action-table "target" #f)
+                              (table-ref action-table "product" #f)))
+                 (repositories (table-ref action-table "repositories" #f))
+                 (arguments (table-ref action-table "arguments" '()))
+                 (work-dir (table-ref action-table "work_dir" #f)))
+             (if (or (not product) (equal? product "") (equal? product "?"))
+                 (error "run_test requires 'target': a product name (e.g. ai, agent) or a .jazz file path. Got: {s}" (table->list action-table))
+               (receive (output status failed?) (gemini-run-test product
+                                                                 repositories: repositories
+                                                                 arguments: (if (list? arguments) arguments '())
+                                                                 work-dir: work-dir)
+                 (list 'run_test product output)))))
+          (else
+           (error "Unknown action '{a}': {s}" action (table->list action-table))))))
+
+
 (definition public (gemini-run-actions actions (root: root (default-workspace-root)))
   (map (lambda (action-table)
-         (let ((action (table-ref action-table "action" #f)))
-           (with-exception-catcher
-             (lambda (exc)
-               (list (if action (string->symbol (format "{a}" action)) 'unknown)
-                     action-table
-                     (format "Error: {a}" exc)
-                     #t))
-             (lambda ()
-               (cond ((or (equal? action "grep") (equal? action "search"))
-                      (let ((pattern (or (table-ref action-table "pattern" #f)
-                                         (table-ref action-table "query" #f)))
-                            (dir (or (table-ref action-table "dir" #f)
-                                     (table-ref action-table "directory" #f)))
-                            (case-sensitive? (table-ref action-table "case_sensitive" #t)))
-                        (if (not pattern)
-                            (list 'grep action-table "Error: Missing 'pattern' in grep action" #t)
-                          (let ((result (gemini-grep pattern dir: dir case-sensitive?: case-sensitive?)))
-                            (list 'grep pattern result #f)))))
-                     ((or (equal? action "read") (equal? action "read_file"))
-                      (let ((path (or (table-ref action-table "path" #f)
-                                      (table-ref action-table "file" #f)))
-                            (offset (or (table-ref action-table "offset" #f)
-                                        (table-ref action-table "line" #f)
-                                        (table-ref action-table "start_line" #f)))
-                            (limit (table-ref action-table "limit" #f))
-                            (line-numbers? (table-ref action-table "line_numbers" #t)))
-                        (if (not path)
-                            (list 'read action-table "Error: Missing 'path' in read action" #t)
-                          (let ((content (gemini-read-file path offset: offset limit: limit line-numbers?: line-numbers?)))
-                            (list 'read path content #f)))))
-                     ((or (equal? action "str_replace") (equal? action "replace") (equal? action "replace_string"))
-                      (let ((path (or (table-ref action-table "path" #f)
-                                      (table-ref action-table "file" #f)))
-                            (old-string (or (table-ref action-table "old_string" #f)
-                                            (table-ref action-table "old" #f)))
-                            (new-string (or (table-ref action-table "new_string" #f)
-                                            (table-ref action-table "new" #f)))
-                            (replace-all? (or (table-ref action-table "replace_all" #f)
-                                              (table-ref action-table "replace_all?" #f))))
-                        (if (or (not path) (not old-string) (not new-string))
-                            (list 'str_replace action-table "Error: Missing path, old_string, or new_string in str_replace action" #t)
-                          (let ((target (gemini-str-replace path old-string new-string replace-all?: replace-all?)))
-                            (list 'str_replace (parse target) (format "Successfully replaced unique occurrence in {a}" (parse target)) #f)))))
-                     ((or (equal? action "write") (equal? action "write_file"))
-                      (let ((path (or (table-ref action-table "path" #f)
-                                      (table-ref action-table "file" #f)))
-                            (content (table-ref action-table "content" "")))
-                        (if (not path)
-                            (list 'write action-table "Error: Missing 'path' in write action" #t)
-                          (let ((target (gemini-write-file path content)))
-                            (list 'write (parse target) (format "Successfully wrote {a}" (parse target)) #f)))))
-                     ((or (equal? action "run_test") (equal? action "test") (equal? action "run_product"))
-                      (let ((product (or (table-ref action-table "product" #f)
-                                         (table-ref action-table "target" #f)
-                                         (table-ref action-table "name" #f)))
-                            (repositories (table-ref action-table "repositories" #f))
-                            (arguments (table-ref action-table "arguments" '()))
-                            (work-dir (table-ref action-table "work_dir" #f)))
-                        (if (not product)
-                            (list 'run_test action-table "Error: Missing 'product' in run_test action" #t)
-                          (receive (output status failed?) (gemini-run-test product
-                                                                            repositories: repositories
-                                                                            arguments: (if (list? arguments) arguments '())
-                                                                            work-dir: work-dir)
-                            (list 'run_test product output (and failed? #t))))))
-                     (else
-                      (list 'unknown action-table (format "Error: Unknown action '{a}'" action) #t)))))))
+         (gemini-run-action action-table root: root))
        actions))
 
 
@@ -699,13 +1087,11 @@
               (let* ((item (car scan))
                      (action (car item))
                      (target (cadr item))
-                     (output (caddr item))
-                     (error? (cadddr item)))
+                     (output (caddr item)))
                 (loop (cdr scan)
                       (+ index 1)
-                      (cons (format "[Observation {a}: {a} {a}]\n{a}\n"
+                      (cons (format "[Observation {a}: action {a}]\n{a}\n"
                                     index
-                                    (if error? "ERROR in action" "action")
                                     action
                                     output)
                             acc)))))))
@@ -715,69 +1101,105 @@
 (definition public (gemini-agent-query prompt
                                        (system: system default-agent-system-prompt)
                                        (response-id: response-id #f)
-                                       (max-turns: max-turns 10)
+                                       (max-turns: max-turns 25)
+                                       (yield-to: yield-to #f)
+                                       (on-complete: on-complete #f)
+                                       (on-status: on-status #f)
                                        (on-thought: on-thought #f)
                                        (on-action: on-action #f)
                                        (on-observation: on-observation #f))
-  (define (generate-turn current-prompt sys resp-id)
-    (let ((reply (with-exception-catcher
-                   (lambda (exc) #f)
-                   (lambda () (gemini-generate current-prompt system: sys response-id: resp-id)))))
-      (let ((err (and reply (table-ref reply "error" #f))))
-        (if (or (not reply)
-                (and err (equal? (table-ref err "code" #f) "malformed_tool_call")))
-            ;; Auto-retry instructing model to produce strictly valid JSON
-            (gemini-generate
-              (string-append current-prompt "\n\n[System Note: Model output was malformed. You must respond ONLY with a valid JSON object conforming to the protocol: {\"thought\": \"...\", \"actions\": [...]} or {\"thought\": \"...\", \"answer\": \"...\"}.]")
-              system: sys
-              response-id: resp-id)
-          reply))))
+  (define (generate-turn current-prompt sys resp-id (use-tools?: use-tools? #t))
+    (gemini-generate current-prompt
+                     system: sys
+                     response-id: resp-id
+                     json?: #f
+                     tools: (if use-tools? (gemini-agent-tools) #f)))
+
+  (define (call-yield k)
+    ((or yield-to (lambda (cont) (cont))) k))
+
+  (define (finish answer id hist)
+    (let ((out-hist (reverse hist)))
+      (when on-complete
+        (on-complete answer id out-hist))
+      (values answer id out-hist)))
+
+  (define (complete-answer payload id hist)
+    (if (gemini-answer-is-file-dump? payload)
+        (error "Protocol error: source was dumped in the answer instead of using write/str_replace. Files were not saved.")
+      (finish payload id hist)))
+
+  (define (run-calls calls turn thought new-id hist continue)
+    (let loop-actions ((scan calls)
+                       (acc '()))
+      (if (null? scan)
+          (let ((pairs (reverse acc)))
+            (let ((next-input (map (lambda (pair)
+                                     (gemini-function-result (cadr pair) (caddr (car pair))))
+                                   pairs))
+                  (action-results (map car pairs)))
+              (if (>= (+ turn 1) max-turns)
+                  (begin
+                    (when on-status
+                      (on-status "Thinking..."))
+                    (call-yield
+                      (lambda ()
+                        (let* ((final-input (append next-input
+                                                    (list (list->table
+                                                            (list (cons "type" "text")
+                                                                  (cons "text" "Maximum tool turns reached. Answer the user now in plain text. Do not call tools."))))))
+                               (final-reply (generate-turn final-input #f new-id use-tools?: #f))
+                               (final-text (gemini-text final-reply)))
+                          (if (or (pair? (gemini-function-calls final-reply))
+                                  (gemini-blank-text? final-text))
+                              (error "No final answer after max turns ({a})" (gemini-reply-summary final-reply))
+                            (complete-answer final-text
+                                             (or (gemini-id final-reply) new-id)
+                                             (cons (list 'final final-text) hist)))))))
+                (continue (+ turn 1)
+                          next-input
+                          new-id
+                          (cons (list 'turn turn thought calls action-results) hist)))))
+        (let ((step (car scan))
+              (action-table (gemini-call->action (car scan))))
+          (when on-action
+            (on-action action-table))
+          (call-yield
+            (lambda ()
+              (let ((item (gemini-run-action action-table)))
+                (when on-observation
+                  (on-observation item (caddr item)))
+                (loop-actions (cdr scan) (cons (list item step) acc)))))))))
 
   (let loop ((turn 0)
              (current-prompt prompt)
              (current-resp-id response-id)
              (history '()))
-    (let* ((reply (generate-turn current-prompt
-                                 (if (= turn 0) system #f)
-                                 current-resp-id))
-           (text (gemini-text reply))
-           (new-id (gemini-id reply)))
-      (if (not (string? text))
-          (values (format "Error: No response text received from Gemini") current-resp-id history)
-        (let ((parsed (gemini-parse-reply text)))
-          (let ((kind (car parsed))
-                (thought (cadr parsed))
-                (payload (caddr parsed)))
-            (when (and thought on-thought)
-              (on-thought thought))
-            (case kind
-              ((actions)
-               (let ((actions-list payload))
-                 (when on-action
-                   (for-each on-action actions-list))
-                 (let* ((action-results (gemini-run-actions actions-list))
-                        (observations (gemini-format-observations action-results)))
-                   (when on-observation
-                     (on-observation action-results observations))
-                   (if (>= (+ turn 1) max-turns)
-                       ;; Force final answer turn
-                       (let* ((force-prompt (string-append
-                                              observations
-                                              "\n\n[System Note: Maximum tool execution turns reached. Provide your final answer to the user now without any further actions.]"))
-                              (final-reply (generate-turn force-prompt #f new-id))
-                              (final-text (gemini-text final-reply))
-                              (final-id (or (gemini-id final-reply) new-id))
-                              (final-parsed (gemini-parse-reply final-text))
-                              (final-answer (if (eq? (car final-parsed) 'answer)
-                                                (caddr final-parsed)
-                                              (gemini-strip-code final-text))))
-                         (values final-answer final-id (reverse (cons (list 'final final-answer) history))))
-                     (loop (+ turn 1)
-                           (string-append observations "\n\nAnalyze these tool results. Respond with a JSON object with 'thought' and either 'actions' (to execute more tools) or 'answer' (to provide your final answer).")
-                           new-id
-                           (cons (list 'turn turn thought actions-list action-results) history))))))
-              ((answer)
-               (values payload new-id (reverse (cons (list 'answer payload) history)))))))))))
+    (when on-status
+      (on-status "Thinking..."))
+    (call-yield
+      (lambda ()
+        (let* ((reply (generate-turn current-prompt
+                                     (if (= turn 0) system #f)
+                                     current-resp-id))
+               (new-id (or (gemini-id reply) current-resp-id))
+               (status (table-ref reply "status" #f))
+               (calls (gemini-function-calls reply))
+               (thought (gemini-thought-text reply))
+               (text (gemini-text reply)))
+          (when (or (equal? status "failed") (equal? status "cancelled"))
+            (error "Gemini interaction {a} ({a})" status (gemini-reply-summary reply)))
+          (when (and thought on-thought)
+            (on-thought thought))
+          (cond ((pair? calls)
+                 (run-calls calls turn thought new-id history loop))
+                ((not (gemini-blank-text? text))
+                 (complete-answer text new-id (cons (list 'answer text) history)))
+                ((equal? status "requires_action")
+                 (error "Gemini requires_action but no function_call steps ({a})" (gemini-reply-summary reply)))
+                (else
+                 (error "No response text or function call received from Gemini ({a})" (gemini-reply-summary reply))))))))
+)
 
 
 ;;;

@@ -41,19 +41,24 @@
 (import (jazz.action)
         (jazz.agent)
         (jazz.ai)
+        (jazz.component)
         (jazz.console)
         (jazz.event)
         (jazz.exemplar)
         (jazz.graphic)
         (jazz.handler)
         (jazz.ide)
+        (jazz.io)
+        (jazz.json)
         (jazz.locale)
         (jazz.markup)
         (jazz.menu)
         (jazz.preferences)
         (jazz.resource)
         (jazz.text)
-        (jazz.text.preferences))
+        (jazz.text.preferences)
+        (jazz.ui)
+        (jazz.view))
 
 
 (class undocumented Agent-Text-View extends Console-Text-View
@@ -65,6 +70,11 @@
   (slot conversation-messages initialize '() accessors generate)
   (slot response-id           initialize #f accessors generate)
   (slot agent-profile         initialize 'coder accessors generate)
+  (slot agent-effort          initialize 'medium accessors generate)
+  (slot dictation-port        initialize #f accessors generate)
+  (slot dictation-thread      initialize #f accessors generate)
+  (slot dictation-range       initialize #f accessors generate)
+  (slot dictation-running?    initialize #f accessors generate)
   
   
   (method override (auto-complete? self)
@@ -103,6 +113,8 @@
   
   
   (method override (eval-from-prompt self)
+    (when dictation-running?
+      (stop-dictation self))
     (insert-newline self)
     (let ((range (current-command self)))
       (let ((question (trim-trailing-whitespace (get-string self range))))
@@ -122,6 +134,7 @@
               (gemini-agent-query
                 question
                 system: (get-agent-system-prompt (or agent-profile 'coder))
+                effort: (or agent-effort 'medium)
                 response-id: response-id
                 history: conversation-messages
                 yield-to:
@@ -184,6 +197,8 @@
   
   
   (method public (new-conversation self)
+    (when dictation-running?
+      (stop-dictation self))
     (set! conversation-id (generate-conversation-id))
     (set! conversation-title "New Chat")
     (set! conversation-file #f)
@@ -197,6 +212,8 @@
   
   
   (method public (load-conversation-from-file self file)
+    (when dictation-running?
+      (stop-dictation self))
     (bind (id title resp-id messages f) (load-conversation file)
       (set! conversation-id id)
       (set! conversation-title title)
@@ -252,7 +269,8 @@
         (let ((button (get-button console)))
           (when button
             (let ((title (or conversation-title "New Chat")))
-              (set-title button title)
+              ;; makes the button too wide for now
+              ;; (set-title button title)
               (set-tooltip-text button title)
               (invalidate-view button)))))))
   
@@ -263,6 +281,145 @@
   
   (method (on-save-chat self evt)
     (save-conversation-to-disk self))
+  
+  
+  ;;;
+  ;;;; Dictation
+  ;;;
+
+
+  (method override (return-press self evt)
+    (if (and evt (get-control? evt))
+        (toggle-dictation self)
+      (nextmethod self evt)))
+
+
+  (method (on-toggle-dictate self evt)
+    (toggle-dictation self))
+
+
+  (method public (toggle-dictation self)
+    (if dictation-running?
+        (stop-dictation self)
+      (start-dictation self)))
+
+
+  (method public (start-dictation self)
+    (unless dictation-running?
+      (let ((bin (find-dictate-executable)))
+        (if (not bin)
+            (agent-trace self "\nError: JediDictate helper not found.\n")
+          (let ((port (with-exception-catcher
+                        (lambda (exc) #f)
+                        (lambda ()
+                          (open-process (list path: (parse bin) arguments: '() show-console: #f))))))
+            (if (not port)
+                (agent-trace self "\nError: Failed to launch JediDictate.\n")
+              (begin
+                (set! dictation-port port)
+                (set! dictation-running? #t)
+                (let* ((ending (text-ending self))
+                       (limit (get-limit self))
+                       (home (home-column self limit 0))
+                       (caret (get-caret self)))
+                  (when (or (< (get-line caret) limit)
+                            (< (get-col caret) home))
+                    (set-caret self ending)
+                    (set! caret ending))
+                  (if (has-selection? self)
+                      (set! dictation-range (get-selection self))
+                    (begin
+                      (when (> (get-col caret) home)
+                        (let ((c (get-char self (new Cell limit (- (get-col caret) 1)))))
+                          (unless (memq? c '(#\space #\tab #\newline))
+                            (insert-styled self " " 'Entry))))
+                      (let ((caret (get-caret self)))
+                        (set! dictation-range (new Range$Cell$ caret caret))))))
+                (update-dictate-tool self #t)
+                (acquire-focus self)
+                (let ((thread
+                        (new-thread
+                          (lambda ()
+                            (let loop ()
+                              (let ((line (with-exception-catcher
+                                            (lambda (exc) (eof-object))
+                                            (lambda ()
+                                              (read-line port)))))
+                                (cond ((or (eof-object? line) (not dictation-running?))
+                                       (with-exception-catcher
+                                         (lambda (exc) #f)
+                                         (lambda () (close-port port)))
+                                       (post-event (lambda () (stop-dictation self))))
+                                      (else
+                                       (with-exception-catcher
+                                         (lambda (exc) (loop))
+                                         (lambda ()
+                                           (let ((json (string->json line)))
+                                             (let ((type (table-ref json "type" #f)))
+                                               (cond ((equal? type "transcript")
+                                                      (let ((text (table-ref json "text" ""))
+                                                            (final? (table-ref json "is_final" #f)))
+                                                        (post-event
+                                                          (lambda ()
+                                                            (on-dictation-transcript self text final?)))))
+                                                     ((equal? type "error")
+                                                      (let ((msg (table-ref json "message" "Dictation error")))
+                                                        (post-event
+                                                          (lambda ()
+                                                            (on-dictation-error self msg)))))
+                                                     ((equal? type "status")
+                                                      (let ((st (table-ref json "status" #f)))
+                                                        (when (equal? st "stopped")
+                                                          (post-event
+                                                            (lambda ()
+                                                              (stop-dictation self)))))))))))
+                                       (loop))))))
+                          'dictation-reader)))
+                  (set! dictation-thread thread)
+                  (thread-start! thread)))))))))
+
+
+  (method public (on-dictation-transcript self text final?)
+    (when (and dictation-running? dictation-range)
+      (let ((lines (split-lines text)))
+        (let ((new-range (replace-styled self dictation-range lines 'Entry)))
+          (when new-range
+            (set! dictation-range new-range)
+            (set-caret self (get-end new-range))
+            (ensure-displayed self)
+            (update-view self))
+          (when final?
+            (stop-dictation self))))))
+
+
+  (method public (on-dictation-error self msg)
+    (stop-dictation self)
+    (agent-trace self (format "\nDictation error: {a}\n" msg)))
+
+
+  (method public (stop-dictation self)
+    (when dictation-running?
+      (set! dictation-running? #f)
+      (let ((port dictation-port))
+        (set! dictation-port #f)
+        (when port
+          (with-exception-catcher
+            (lambda (exc) #f)
+            (lambda ()
+              (display "stop\n" port)
+              (force-output port))))))
+      (set! dictation-range #f)
+      (update-dictate-tool self #f))
+
+
+  (method package (update-dictate-tool self active?)
+    (let ((manager (get-agent-text-manager self)))
+      (when manager
+        (let ((tool (locate-component manager 'dictate)))
+          (when tool
+            (set-selected? tool active?)
+            (set-resource tool (if active? {Image-Resource "RecordRed"} {Image-Resource "Record"}))
+            (invalidate-view tool))))))
   
   
   (method override (console-menu self)
@@ -284,6 +441,8 @@
       (<Separator-Item>)
       (<Label-Item>     name: new-chat         title: "New Chat" icon: {Image-Resource "New"} action-handler: {Event-Handler (:form :client) on-new-chat})
       (<Label-Item>     name: save-chat        title: "Save Chat" icon: {Image-Resource "Save"} action-handler: {Event-Handler (:form :client) on-save-chat})
+      (<Separator-Item>)
+      (<Label-Item>     name: toggle-dictate   title: "Dictate (Voice)" icon: {Image-Resource "Record"} action-handler: {Event-Handler (:form :client) on-toggle-dictate})
       (<Separator-Item>)
       (<Label-Item>     name: cut              title: {Locales english: "Cut" french: "Couper"} icon: {Image-Resource "Cut"} action-handler: {Action view cut})
       (<Label-Item>     name: copy             title: {Locales english: "Copy" french: "Copier"} icon: {Image-Resource "Copy"} action-handler: {Action view copy})

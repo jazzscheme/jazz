@@ -71,6 +71,9 @@
   (slot response-id           initialize #f accessors generate)
   (slot agent-profile         initialize 'coder accessors generate)
   (slot agent-effort          initialize 'medium accessors generate)
+  (slot query-running?        initialize #f accessors generate)
+  (slot query-thread          initialize #f accessors generate)
+  (slot query-port            initialize #f accessors generate)
   (slot dictation-port        initialize #f accessors generate)
   (slot dictation-thread      initialize #f accessors generate)
   (slot dictation-range       initialize #f accessors generate)
@@ -106,15 +109,42 @@
   
   
   (method package (agent-fail self exc)
+    (set! query-running? #f)
+    (set! query-thread #f)
+    (set! query-port #f)
+    (update-stop-tool self #f)
     (insert-styled self (format "Error: {a}" exc) 'Output)
     (insert-newline self)
     (insert-newline self)
     (agent-restore-prompt self))
   
   
+  (method public (stop-query self)
+    (when query-running?
+      (set! query-running? #f)
+      (let ((port query-port)
+            (thread query-thread))
+        (set! query-port #f)
+        (set! query-thread #f)
+        (when port
+          (close-port port))
+        (when thread
+          (thread-terminate! thread))
+        (update-stop-tool self #f)
+        (insert-newline self)
+        (insert-styled self "[Interrupted]" 'Comment)
+        (insert-newline self)
+        (insert-newline self)
+        (agent-restore-prompt self)
+        (set-caret self (text-ending self))
+        (acquire-focus self))))
+  
+  
   (method override (eval-from-prompt self)
     (when dictation-running?
       (stop-dictation self))
+    (when query-running?
+      (stop-query self))
     (insert-newline self)
     (let ((range (current-command self)))
       (let ((question (trim-trailing-whitespace (get-string self range))))
@@ -127,78 +157,94 @@
                     (equal? conversation-title "New Chat"))
             (set! conversation-title (conversation-title-from-prompt question))
             (update-console-title self))
-          (with-exception-catcher
-            (lambda (exc)
-              (agent-fail self exc))
-            (lambda ()
-              (gemini-agent-query
-                question
-                system: (get-agent-system-prompt (or agent-profile 'coder))
-                effort: (or agent-effort 'medium)
-                response-id: response-id
-                history: conversation-messages
-                yield-to:
-                (lambda (k)
-                  (post-event
+          (set! query-running? #t)
+          (update-stop-tool self #t)
+          (let ((thread
+                  (new-thread
                     (lambda ()
-                      (with-exception-catcher
-                        (lambda (exc)
-                          (agent-fail self exc))
-                        k))))
-                on-complete:
-                (lambda (answer final-resp-id history)
-                  (set! response-id final-resp-id)
-                  (set! conversation-messages
-                    (append conversation-messages
-                            (list (list 'user question)
-                                  (list 'agent (trim-trailing-whitespace answer)))))
-                  (insert-styled self answer 'Output)
-                  (insert-newline self)
-                  (insert-newline self)
-                  (agent-restore-prompt self))
-                on-status:
-                (lambda (status)
-                  (agent-trace self (format "{a}\n" status)))
-                on-thought:
-                (lambda (thought)
-                  (agent-trace self (format "Thinking: {a}\n" thought)))
-                on-action:
-                (lambda (action-table)
-                  (let ((action (table-ref action-table "action" #f)))
-                    (let ((desc
-                            (cond ((equal? action "grep")
-                                   (format "grep \"{a}\"" (table-ref action-table "pattern" "")))
-                                  ((equal? action "locate")
-                                   (format "locate {a}" (table-ref action-table "pattern" "")))
-                                  ((equal? action "list_directory")
-                                   (format "list_directory {a}" (table-ref action-table "path" "")))
-                                  ((equal? action "read")
-                                   (let ((path (table-ref action-table "path" ""))
-                                         (offset (table-ref action-table "offset" #f))
-                                         (limit (table-ref action-table "limit" #f)))
-                                     (cond ((and offset limit)
-                                            (format "read {a} (lines {a}-{a})" path offset (+ offset limit -1)))
-                                           (offset
-                                            (format "read {a} (lines {a}-...)" path offset))
-                                           (else
-                                            (format "read {a}" path)))))
-                                  ((equal? action "str_replace")
-                                   (format "str_replace in {a}" (table-ref action-table "path" "")))
-                                  ((equal? action "write")
-                                   (format "write {a}" (table-ref action-table "path" "")))
-                                  ((equal? action "run_test")
-                                   (let ((target (table-ref action-table "target" #f)))
-                                     (if (or (not target) (equal? target "") (equal? target "?"))
-                                         "run_test missing target"
-                                       (format "run_test {a}" target))))
-                                  (else
-                                   (format "{a}" (or action "?"))))))
-                      (agent-trace self (format "Action: {a}\n" desc))))))))))))
+                      (gemini-agent-query
+                        question
+                        system: (get-agent-system-prompt (or agent-profile 'coder))
+                        effort: (or agent-effort 'medium)
+                        response-id: response-id
+                        history: conversation-messages
+                        cancelled?: (lambda () (not query-running?))
+                        on-port: (lambda (port) (set! query-port port))
+                        on-complete:
+                        (lambda (answer final-resp-id history)
+                          (post-event
+                            (lambda ()
+                              (when query-running?
+                                (set! query-running? #f)
+                                (set! query-thread #f)
+                                (set! query-port #f)
+                                (update-stop-tool self #f)
+                                (set! response-id final-resp-id)
+                                (set! conversation-messages
+                                  (append conversation-messages
+                                          (list (list 'user question)
+                                                (list 'agent (trim-trailing-whitespace answer)))))
+                                (insert-styled self answer 'Output)
+                                (insert-newline self)
+                                (insert-newline self)
+                                (agent-restore-prompt self)))))
+                        on-status:
+                        (lambda (status)
+                          (post-event
+                            (lambda ()
+                              (when query-running?
+                                (agent-trace self (format "{a}\n" status))))))
+                        on-thought:
+                        (lambda (thought)
+                          (post-event
+                            (lambda ()
+                              (when query-running?
+                                (agent-trace self (format "Thinking: {a}\n" thought))))))
+                        on-action:
+                        (lambda (action-table)
+                          (let ((action (table-ref action-table "action" #f)))
+                            (let ((desc
+                                    (cond ((equal? action "grep")
+                                           (format "grep \"{a}\"" (table-ref action-table "pattern" "")))
+                                          ((equal? action "locate")
+                                           (format "locate {a}" (table-ref action-table "pattern" "")))
+                                          ((equal? action "list_directory")
+                                           (format "list_directory {a}" (table-ref action-table "path" "")))
+                                          ((equal? action "read")
+                                           (let ((path (table-ref action-table "path" ""))
+                                                 (offset (table-ref action-table "offset" #f))
+                                                 (limit (table-ref action-table "limit" #f)))
+                                             (cond ((and offset limit)
+                                                    (format "read {a} (lines {a}-{a})" path offset (+ offset limit -1)))
+                                                   (offset
+                                                    (format "read {a} (lines {a}-...)" path offset))
+                                                   (else
+                                                    (format "read {a}" path)))))
+                                          ((equal? action "str_replace")
+                                           (format "str_replace in {a}" (table-ref action-table "path" "")))
+                                          ((equal? action "write")
+                                           (format "write {a}" (table-ref action-table "path" "")))
+                                          ((equal? action "run_test")
+                                           (let ((target (table-ref action-table "target" #f)))
+                                             (if (or (not target) (equal? target "") (equal? target "?"))
+                                                 "run_test missing target"
+                                               (format "run_test {a}" target))))
+                                          (else
+                                           (format "{a}" (or action "?"))))))
+                              (post-event
+                                (lambda ()
+                                  (when query-running?
+                                    (agent-trace self (format "Action: {a}\n" desc))))))))))
+                    'agent-query)))
+            (set! query-thread thread)
+            (thread-start! thread))))))
   
   
   (method public (new-conversation self)
     (when dictation-running?
       (stop-dictation self))
+    (when query-running?
+      (stop-query self))
     (set! conversation-id (generate-conversation-id))
     (set! conversation-title "New Chat")
     (set! conversation-file #f)
@@ -214,6 +260,8 @@
   (method public (load-conversation-from-file self file)
     (when dictation-running?
       (stop-dictation self))
+    (when query-running?
+      (stop-query self))
     (bind (id title resp-id messages f) (load-conversation file)
       (set! conversation-id id)
       (set! conversation-title title)
@@ -309,74 +357,60 @@
       (let ((bin (find-dictate-executable)))
         (if (not bin)
             (agent-trace self "\nError: JediDictate helper not found.\n")
-          (let ((port (with-exception-catcher
-                        (lambda (exc) #f)
-                        (lambda ()
-                          (open-process (list path: (parse bin) arguments: '() show-console: #f))))))
-            (if (not port)
-                (agent-trace self "\nError: Failed to launch JediDictate.\n")
-              (begin
-                (set! dictation-port port)
-                (set! dictation-running? #t)
-                (let* ((ending (text-ending self))
-                       (limit (get-limit self))
-                       (home (home-column self limit 0))
-                       (caret (get-caret self)))
-                  (when (or (< (get-line caret) limit)
-                            (< (get-col caret) home))
-                    (set-caret self ending)
-                    (set! caret ending))
-                  (if (has-selection? self)
-                      (set! dictation-range (get-selection self))
-                    (begin
-                      (when (> (get-col caret) home)
-                        (let ((c (get-char self (new Cell limit (- (get-col caret) 1)))))
-                          (unless (memq? c '(#\space #\tab #\newline))
-                            (insert-styled self " " 'Entry))))
-                      (let ((caret (get-caret self)))
-                        (set! dictation-range (new Range$Cell$ caret caret))))))
-                (update-dictate-tool self #t)
-                (acquire-focus self)
-                (let ((thread
-                        (new-thread
-                          (lambda ()
-                            (let loop ()
-                              (let ((line (with-exception-catcher
-                                            (lambda (exc) (eof-object))
-                                            (lambda ()
-                                              (read-line port)))))
-                                (cond ((or (eof-object? line) (not dictation-running?))
-                                       (with-exception-catcher
-                                         (lambda (exc) #f)
-                                         (lambda () (close-port port)))
-                                       (post-event (lambda () (stop-dictation self))))
-                                      (else
-                                       (with-exception-catcher
-                                         (lambda (exc) (loop))
-                                         (lambda ()
-                                           (let ((json (string->json line)))
-                                             (let ((type (table-ref json "type" #f)))
-                                               (cond ((equal? type "transcript")
-                                                      (let ((text (table-ref json "text" ""))
-                                                            (final? (table-ref json "is_final" #f)))
-                                                        (post-event
-                                                          (lambda ()
-                                                            (on-dictation-transcript self text final?)))))
-                                                     ((equal? type "error")
-                                                      (let ((msg (table-ref json "message" "Dictation error")))
-                                                        (post-event
-                                                          (lambda ()
-                                                            (on-dictation-error self msg)))))
-                                                     ((equal? type "status")
-                                                      (let ((st (table-ref json "status" #f)))
-                                                        (when (equal? st "stopped")
-                                                          (post-event
-                                                            (lambda ()
-                                                              (stop-dictation self)))))))))))
-                                       (loop))))))
-                          'dictation-reader)))
-                  (set! dictation-thread thread)
-                  (thread-start! thread)))))))))
+          (let ((port (open-process (list path: (parse bin) arguments: '() show-console: #f))))
+            (set! dictation-port port)
+            (set! dictation-running? #t)
+            (let* ((ending (text-ending self))
+                   (limit (get-limit self))
+                   (home (home-column self limit 0))
+                   (caret (get-caret self)))
+              (when (or (< (get-line caret) limit)
+                        (< (get-col caret) home))
+                (set-caret self ending)
+                (set! caret ending))
+              (if (has-selection? self)
+                  (set! dictation-range (get-selection self))
+                (begin
+                  (when (> (get-col caret) home)
+                    (let ((c (get-char self (new Cell limit (- (get-col caret) 1)))))
+                      (unless (memq? c '(#\space #\tab #\newline))
+                        (insert-styled self " " 'Entry))))
+                  (let ((caret (get-caret self)))
+                    (set! dictation-range (new Range$Cell$ caret caret))))))
+            (update-dictate-tool self #t)
+            (acquire-focus self)
+            (let ((thread
+                    (new-thread
+                      (lambda ()
+                        (let loop ()
+                          (let ((line (read-line port)))
+                            (cond ((or (eof-object? line) (not dictation-running?))
+                                   (close-port port)
+                                   (post-event (lambda () (stop-dictation self))))
+                                  (else
+                                   (let ((json (string->json line)))
+                                     (let ((type (table-ref json "type" #f)))
+                                       (cond ((equal? type "transcript")
+                                              (let ((text (table-ref json "text" ""))
+                                                    (final? (table-ref json "is_final" #f)))
+                                                (post-event
+                                                  (lambda ()
+                                                    (on-dictation-transcript self text final?)))))
+                                             ((equal? type "error")
+                                              (let ((msg (table-ref json "message" "Dictation error")))
+                                                (post-event
+                                                  (lambda ()
+                                                    (on-dictation-error self msg)))))
+                                             ((equal? type "status")
+                                              (let ((st (table-ref json "status" #f)))
+                                                (when (equal? st "stopped")
+                                                  (post-event
+                                                    (lambda ()
+                                                      (stop-dictation self))))))))))))
+                          (loop)))
+                      'dictation-reader)))
+              (set! dictation-thread thread)
+              (thread-start! thread)))))))
 
 
   (method public (on-dictation-transcript self text final?)
@@ -403,13 +437,40 @@
       (let ((port dictation-port))
         (set! dictation-port #f)
         (when port
-          (with-exception-catcher
-            (lambda (exc) #f)
-            (lambda ()
-              (display "stop\n" port)
-              (force-output port))))))
+          (display "stop\n" port)
+          (force-output port)))
       (set! dictation-range #f)
-      (update-dictate-tool self #f))
+      (update-dictate-tool self #f)))
+
+
+  (method override (destroy self)
+    (when dictation-running?
+      (stop-dictation self))
+    (when query-running?
+      (stop-query self))
+    (nextmethod self))
+
+
+  (method override (escape-press self evt)
+    (cond (query-running?
+           (stop-query self))
+          (dictation-running?
+           (stop-dictation self))
+          (else
+           (nextmethod self evt))))
+
+
+  (method (on-stop-query self evt)
+    (stop-query self))
+
+
+  (method package (update-stop-tool self active?)
+    (let ((manager (get-agent-text-manager self)))
+      (when manager
+        (let ((tool (locate-component manager 'stop)))
+          (when tool
+            (set-enabled? tool active?)
+            (invalidate-view tool))))))
 
 
   (method package (update-dictate-tool self active?)
@@ -437,12 +498,13 @@
   (form
     (<install>
       (<Label-Item>     name: console-evaluate title: "Evaluate" icon: {Image-Resource "Import"} action-handler: {Action console-text console-evaluate})
+      (<Label-Item>     name: stop-query       title: "Stop Generation" icon: {Image-Resource "Stop"} shortcut: {Shortcut Escape} action-handler: {Event-Handler (:form :client) on-stop-query})
       (<Label-Item>     name: fresh-prompt     title: "Fresh Prompt" action-handler: {Action console-text fresh-prompt})
       (<Separator-Item>)
       (<Label-Item>     name: new-chat         title: "New Chat" icon: {Image-Resource "New"} action-handler: {Event-Handler (:form :client) on-new-chat})
       (<Label-Item>     name: save-chat        title: "Save Chat" icon: {Image-Resource "Save"} action-handler: {Event-Handler (:form :client) on-save-chat})
       (<Separator-Item>)
-      (<Label-Item>     name: toggle-dictate   title: "Dictate (Voice)" icon: {Image-Resource "Record"} action-handler: {Event-Handler (:form :client) on-toggle-dictate})
+      (<Label-Item>     name: toggle-dictate   title: "Dictate (Voice)" icon: {Image-Resource "Record"} shortcut: {Shortcut :control Return} action-handler: {Event-Handler (:form :client) on-toggle-dictate})
       (<Separator-Item>)
       (<Label-Item>     name: cut              title: {Locales english: "Cut" french: "Couper"} icon: {Image-Resource "Cut"} action-handler: {Action view cut})
       (<Label-Item>     name: copy             title: {Locales english: "Copy" french: "Copier"} icon: {Image-Resource "Copy"} action-handler: {Action view copy})

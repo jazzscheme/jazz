@@ -170,7 +170,8 @@
                                     (effort: effort 'medium)
                                     (response-id: response-id #f)
                                     (json?: json? #t)
-                                    (tools: tools #f))
+                                    (tools: tools #f)
+                                    (on-port: on-port #f))
   (define (json-response-format)
     (list
       (list->table
@@ -232,7 +233,7 @@
   (let ((headers '("Content-Type: application/json"))
         (payload (generate-payload)))
     (let ((data (json->string payload)))
-      (call-gemini gemini-api-key model headers (list "--data" data) interactions-url))))
+      (call-gemini gemini-api-key model headers (list "--data" data) interactions-url on-port: on-port))))
 
 
 (definition (gemini-as-list x)
@@ -977,15 +978,10 @@
     (if (not (string? text))
         (list 'answer #f "Error: empty response")
       (let* ((clean (gemini-strip-code text))
-             (candidate-json (or (gemini-find-outer-braces clean)
-                                 (gemini-find-outer-braces text)
-                                 clean)))
-        (let ((table (with-exception-catcher
-                       (lambda (exc)
-                         #f)
-                       (lambda ()
-                         (string->json candidate-json)))))
-          (if (table? table)
+             (candidate (or (gemini-find-outer-braces clean)
+                            (gemini-find-outer-braces text))))
+        (if candidate
+            (let ((table (string->json candidate)))
               (let ((thought (table-ref table "thought" #f))
                     (actions (table-ref table "actions" #f))
                     (answer (table-ref table "answer" #f)))
@@ -996,8 +992,8 @@
                       ((string? thought)
                        (list 'answer thought thought))
                       (else
-                       (list 'answer #f clean))))
-            (list 'answer #f clean)))))))
+                       (list 'answer #f clean)))))
+          (list 'answer #f clean))))))
 
 
 (definition (gemini-optional-dir dir)
@@ -1154,6 +1150,8 @@
                                        (effort: effort 'medium)
                                        (max-turns: max-turns 25)
                                        (yield-to: yield-to #f)
+                                       (cancelled?: cancelled? #f)
+                                       (on-port: on-port #f)
                                        (on-complete: on-complete #f)
                                        (on-status: on-status #f)
                                        (on-thought: on-thought #f)
@@ -1165,9 +1163,15 @@
                      response-id: resp-id
                      effort: effort
                      json?: #f
-                     tools: (if use-tools? (gemini-agent-tools) #f)))
+                     tools: (if use-tools? (gemini-agent-tools) #f)
+                     on-port: on-port))
+
+  (define (check-cancelled)
+    (when (and cancelled? (cancelled?))
+      (error "Query cancelled")))
 
   (define (call-yield k)
+    (check-cancelled)
     ((or yield-to (lambda (cont) (cont))) k))
 
   (define (finish answer id hist)
@@ -1182,6 +1186,7 @@
       (finish payload id hist)))
 
   (define (run-calls calls turn thought new-id hist continue)
+    (check-cancelled)
     (let loop-actions ((scan calls)
                        (acc '()))
       (if (null? scan)
@@ -1196,6 +1201,7 @@
                       (on-status "Thinking..."))
                     (call-yield
                       (lambda ()
+                        (check-cancelled)
                         (let* ((final-input (append next-input
                                                     (list (list->table
                                                             (list (cons "type" "text")
@@ -1214,11 +1220,14 @@
                           (cons (list 'turn turn thought calls action-results) hist)))))
         (let ((step (car scan))
               (action-table (gemini-call->action (car scan))))
+          (check-cancelled)
           (when on-action
             (on-action action-table))
           (call-yield
             (lambda ()
+              (check-cancelled)
               (let ((item (gemini-run-action action-table)))
+                (check-cancelled)
                 (when on-observation
                   (on-observation item (caddr item)))
                 (loop-actions (cdr scan) (cons (list item step) acc)))))))))
@@ -1230,10 +1239,12 @@
                  prompt))
              (current-resp-id response-id)
              (trace-history '()))
+    (check-cancelled)
     (when on-status
       (on-status "Thinking..."))
     (call-yield
       (lambda ()
+        (check-cancelled)
         (let* ((initial-reply (generate-turn current-prompt
                                              (if (= turn 0) system #f)
                                              current-resp-id))
@@ -1243,6 +1254,7 @@
                      (begin
                        (set! current-resp-id #f)
                        (set! current-prompt (gemini-messages->interaction-input history prompt))
+                       (check-cancelled)
                        (generate-turn current-prompt system #f))
                    initial-reply))
                (new-id (or (gemini-id reply) current-resp-id))
@@ -1250,6 +1262,7 @@
                (calls (gemini-function-calls reply))
                (thought (gemini-thought-text reply))
                (text (gemini-text reply)))
+          (check-cancelled)
           (when (or (equal? status "failed") (equal? status "cancelled"))
             (error "Gemini interaction {a} ({a})" status (gemini-reply-summary reply)))
           (when (and thought on-thought)
@@ -1270,8 +1283,9 @@
 ;;;
 
 
-(definition (call-gemini api-key model headers data url)
-  (let ((temp-file #f))
+(definition (call-gemini api-key model headers data url (on-port: on-port #f))
+  (let ((temp-file #f)
+        (curl-port #f))
     (dynamic-wind
       (lambda ()
         (when (and (pair? data) (string=? (car data) "--data"))
@@ -1290,20 +1304,26 @@
                                      ,@(flatten-lists (map (lambda (header) (list "--header" header)) headers))
                                      ,@data
                                      ,url)))))
+          (set! curl-port port)
+          (when on-port
+            (on-port port))
           (let ((text (read-line port #f)))
             (let ((status (process-status port)))
               (close-port port)
-              (cond ((string? text)
-                     (catch-exception-filter
-                       (lambda (exc)
-                         #t)
-                       (lambda (exc)
-                         (error "Gemini request failed with status {a}: {a}" status text))
-                       (lambda ()
-                         (string->json text))))
-                    (else
-                     (error "Gemini request failed with status {a}" status)))))))
+              (set! curl-port #f)
+              (when on-port
+                (on-port #f))
+              (unless (= status 0)
+                (error "Gemini request failed with status {a}: {a}" status (or text "")))
+              (if (string? text)
+                  (string->json text)
+                (error "Gemini returned empty response"))))))
       (lambda ()
+        (when curl-port
+          (close-port curl-port)
+          (set! curl-port #f))
+        (when on-port
+          (on-port #f))
         (when (and temp-file (file-exists? temp-file))
           (delete-file temp-file))))))
 

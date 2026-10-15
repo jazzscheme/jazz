@@ -140,7 +140,7 @@
                            (cons "offset" (gemini-int-param "Optional 1-based start line"))
                            (cons "limit" (gemini-int-param "Optional number of lines to read")))
                      '("path"))
-    (gemini-function "str_replace"
+    (gemini-function "replace"
                      "Replace a unique string in an existing file. old_string must match exactly, including indentation."
                      (list (cons "path" (gemini-string-param "File path"))
                            (cons "old_string" (gemini-string-param "Exact unique snippet to replace"))
@@ -148,7 +148,7 @@
                            (cons "replace_all" (gemini-bool-param "If true, replace every occurrence")))
                      '("path" "old_string" "new_string"))
     (gemini-function "write"
-                     "Create or overwrite a file. Prefer str_replace for existing files."
+                     "Create or overwrite a file. Prefer replace for existing files."
                      (list (cons "path" (gemini-string-param "File path"))
                            (cons "content" (gemini-string-param "Full file contents")))
                      '("path" "content"))
@@ -795,19 +795,19 @@
   (string-append
     "Protocol:\n"
     "The runtime declares your tools with a JSON Schema. Call those functions directly. Do not wrap calls in JSON, and do not invent names.\n"
-    "The declared tools are: grep, read, str_replace, write, run_test, locate, list_directory.\n"
+    "The declared tools are: grep, read, replace, write, run_test, locate, list_directory.\n"
     "To search file contents use grep. To find files by name use locate.\n"
     "\n"
-    "Creating or editing files MUST be done with write or str_replace.\n"
+    "Creating or editing files MUST be done with write or replace.\n"
     "Never paste source files, markdown headings of .jazz paths, or code fences of modules into the answer.\n"
-    "If the files are not yet on disk, you are not done: call write or str_replace, then continue.\n"
+    "If the files are not yet on disk, you are not done: call write or replace, then continue.\n"
     "When the task is complete, reply in plain text with a short summary of paths changed and test results. No source files.\n"
     "\n"
     "Tool notes:\n"
     "1. grep: pattern is required. dir is an optional subdirectory.\n"
     "2. read: path is required. offset is a 1-based start line. limit is a line count.\n"
-    "3. str_replace: path, old_string, and new_string are required. old_string MUST be unique unless replace_all is true.\n"
-    "4. write: path and content are required. Prefer str_replace for existing files.\n"
+    "3. replace: path, old_string, and new_string are required. old_string MUST be unique unless replace_all is true.\n"
+    "4. write: path and content are required. Prefer replace for existing files.\n"
     "5. run_test: target is REQUIRED. Use a product name (ai, agent) or a .jazz file path such as experiments/actions/hello.jazz.\n"
     "   Never call run_test without target, and never use placeholders like \"?\" or \"\".\n"
     "6. locate: pattern is a glob such as *hello.jazz. dir is optional.\n"
@@ -831,12 +831,12 @@
     "2. Test-Driven Self-Correction Loop:\n"
     "   - Never assume written code works. Always run `run_test` with an explicit target (product name such as ai/agent, or a .jazz test file path).\n"
     "   - Never call a tool with missing required parameters or placeholders (\"?\", \"\") to discover its signature. Read this protocol or grep the implementation instead.\n"
-    "   - If `run_test` outputs an error (e.g. unbound variable, syntax error, failed assertion), carefully analyze the compiler/runtime backtrace, locate the faulty code, use `str_replace` to apply a surgical fix, and re-run `run_test` until all tests pass.\n"
+    "   - If `run_test` outputs an error (e.g. unbound variable, syntax error, failed assertion), carefully analyze the compiler/runtime backtrace, locate the faulty code, use `replace` to apply a surgical fix, and re-run `run_test` until all tests pass.\n"
     "   - Only present your final answer once tests pass or you have verified the solution.\n"
     "\n"
     "3. Surgical Code Editing (Cursor Contract):\n"
-    "   - Prefer `str_replace` over `write` for existing files.\n"
-    "   - In `str_replace`, provide sufficient surrounding lines in `old_string` to guarantee it is unique in the file.\n"
+    "   - Prefer `replace` over `write` for existing files.\n"
+    "   - In `replace`, provide sufficient surrounding lines in `old_string` to guarantee it is unique in the file.\n"
     "   - Preserve exact indentation (tabs/spaces) as found in the existing code.\n"
     "\n"
     "4. JazzScheme Idioms & Structure:\n"
@@ -961,15 +961,15 @@
                  (error "Missing 'path' in read action: {s}" (table->list action-table))
                (let ((content (gemini-read-file path offset: offset limit: limit line-numbers?: line-numbers?)))
                  (list 'read path content)))))
-          ((equal? action "str_replace")
+          ((equal? action "replace")
            (let ((path (table-ref action-table "path" #f))
                  (old-string (table-ref action-table "old_string" #f))
                  (new-string (table-ref action-table "new_string" #f))
                  (replace-all? (table-ref action-table "replace_all" #f)))
              (if (or (not path) (not old-string) (not new-string))
-                 (error "Missing parameters in str_replace action: {s}" (table->list action-table))
+                 (error "Missing parameters in replace action: {s}" (table->list action-table))
                (let ((target (gemini-str-replace path old-string new-string replace-all?: replace-all?)))
-                 (list 'str_replace (parse target) (format "Successfully replaced unique occurrence in {a}" (parse target)))))))
+                 (list 'replace (parse target) (format "Successfully replaced unique occurrence in {a}" (parse target)))))))
           ((equal? action "write")
            (let ((path (table-ref action-table "path" #f))
                  (content (table-ref action-table "content" #f)))

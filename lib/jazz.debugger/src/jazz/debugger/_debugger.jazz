@@ -380,6 +380,17 @@
 ;;;
 
 
+(definition (find-process-agent-console manager process-title)
+  (let loop ((scan (get-consoles manager)))
+    (if (null? scan)
+        #f
+      (let* ((view (car scan))
+             (button (get-button view)))
+        (if (and button (equal? (get-title button) process-title))
+            (get-text view)
+          (loop (cdr scan)))))))
+
+
 (definition public (register-debugger-console debugged-process debugged-thread select?)
   (define (setup-debugger-console-ports text process-proxy thread-proxy)
     (receive (head tail) (open-string-pipe (list permanent-close: #f))
@@ -403,10 +414,16 @@
         (thread-proxy (get-reference debugged-thread)))
     (bind (title traits thread) (process-information process-proxy thread-proxy)
       (let ((presentation (present-process-title/traits/thread title traits thread)))
-        (let ((agent-text (register-console agent-manager presentation select? process-title: title process-traits: traits process-thread: thread))
-              (text (register-console manager presentation select? process-title: title process-traits: traits process-thread: thread)))
+        ;; Debugger REPL console: per thread/break (as before)
+        (let ((text (register-console manager presentation select? process-title: title process-traits: traits process-thread: thread)))
           (setup-debugger-console-ports text process-proxy thread-proxy)
-          (values agent-text text))))))
+          ;; Agent console: ONE per process
+          (let ((agent-text
+                  (or (find-process-agent-console agent-manager title)
+                      (let ((new-text (register-console agent-manager title #f process-title: title process-traits: traits)))
+                        (show-banner new-text)
+                        new-text))))
+            (values agent-text text)))))))
 
 
 (definition public (unregister-debugger-console text)

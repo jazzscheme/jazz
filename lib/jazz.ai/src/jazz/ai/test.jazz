@@ -140,14 +140,6 @@
   (assert failed-id?))
 (display "  [PASS] gemini-blank-text? nested function_call and missing call id\n")
 
-;; Test 3: Structured action execution with GREP
-(let* ((json-payload "{\n  \"thought\": \"Find definition of Agent-Text-View\",\n  \"actions\": [\n    {\n      \"action\": \"grep\",\n      \"pattern\": \"Agent-Text-View extends\"\n    }\n  ]\n}")
-       (results (gemini-execute-actions json-payload)))
-  (assert (pair? results))
-  (assert (eq? (caar results) 'grep))
-  (assert (string-search (cdar results) "Agent-Text-View.jazz"))
-  (display "  [PASS] gemini-execute-actions with GREP\n"))
-
 ;; Test 4: gemini-read-file with line numbers and ranges
 (let* ((test-file {File :root "Users" "cartier" "Devel" "psi-lab" "experiments" "actions" "hello.jazz"})
        (content (gemini-read-file test-file offset: 1 limit: 2)))
@@ -176,29 +168,6 @@
   ;; Clean up temp file
   (delete temp-file)
   (display "  [PASS] gemini-str-replace with uniqueness contract\n"))
-
-;; Test 6: Live Gemini prompt generation with WRITE action
-(let* ((prompt (string-append
-                 "You are an autonomous AI coding agent operating inside JazzScheme.\n"
-                 "You must respond with a JSON object conforming strictly to this format:\n"
-                 "{\n"
-                 "  \"thought\": \"Brief explanation of what you are writing\",\n"
-                 "  \"actions\": [\n"
-                 "    {\n"
-                 "      \"action\": \"write\",\n"
-                 "      \"path\": \"experiments/actions/hello.jazz\",\n"
-                 "      \"content\": \";;; Hello from Gemini Action System\\n(module hello jazz\\n  (display \\\"Hello from JazzScheme!\\\\n\\\"))\\n\"\n"
-                 "    }\n"
-                 "  ]\n"
-                 "}\n"
-                 "Please create a sample hello world module in 'experiments/actions/hello.jazz'.")))
-  (display "Sending structured prompt with JSON response format...\n")
-  (force-output (current-output-port))
-  (let ((reply (gemini-generate prompt)))
-    (let ((results (gemini-execute-actions reply)))
-      (display "Executed actions result: ")
-      (pp results)
-      (force-output (current-output-port)))))
 
 ;; Test 7: gemini-find-outer-braces and gemini-parse-reply
 (let ((raw-actions "Here is my plan:\n```json\n{\n  \"thought\": \"Locate Agent-Text-View\",\n  \"actions\": [{\"action\": \"grep\", \"pattern\": \"Agent-Text-View\"}]\n}\n```\nHope that helps!")

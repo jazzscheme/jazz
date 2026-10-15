@@ -164,7 +164,12 @@
     (gemini-function "list_directory"
                      "List the immediate children of a directory. Use a real path such as experiments, not '.'."
                      (list (cons "path" (gemini-string-param "Directory path")))
-                     '("path"))))
+                     '("path"))
+    (gemini-function "git"
+                     "Run a git command in a repository directory. args is required (string or list of arguments like 'log -n 5' or 'diff'). dir is required (repository directory path)."
+                     (list (cons "args" (gemini-string-param "Git arguments (e.g. 'status', 'log -n 5', 'diff')"))
+                           (cons "dir" (gemini-string-param "Repository directory path")))
+                     '("args" "dir"))))
 
 
 (definition public (gemini-generate prompt
@@ -847,6 +852,45 @@
 
 
 ;;;
+;;;; Git
+;;;
+
+
+(definition public (gemini-git args dir (max-lines: max-lines 200))
+  (if (or (not dir) (equal? dir "") (equal? dir "?"))
+      (error "git requires 'dir': the repository directory path")
+    (let ((arg-list (cond ((list? args)
+                           args)
+                          ((string? args)
+                           (collect-if (lambda (s) (not (equal? s "")))
+                                       (split-string args #\space)))
+                          (else
+                           (error "git 'args' must be a string or list of arguments")))))
+      (if (null? arg-list)
+          (error "git requires 'args' (e.g. \"status\", \"log -n 5\")")
+        (let ((port (open-process
+                      (list path: "git"
+                            arguments: arg-list
+                            directory: dir
+                            stderr-redirection: #t
+                            show-console: #f))))
+          (let (loop (count 0)
+                     (lines '()))
+            (let ((line (read-line port)))
+              (cond ((eof-object? line)
+                     (close-port port)
+                     (if (null? lines)
+                         "(empty output)"
+                       (join (reverse lines) "\n")))
+                    ((>= count max-lines)
+                     (close-port port)
+                     (string-append (join (reverse lines) "\n")
+                                    (format "\n... (truncated at {a} lines)" max-lines)))
+                    (else
+                     (loop (+ count 1) (cons line lines)))))))))))
+
+
+;;;
 ;;;; Agent Profiles
 ;;;
 
@@ -855,7 +899,7 @@
   (string-append
     "Protocol:\n"
     "The runtime declares your tools with a JSON Schema. Call those functions directly. Do not wrap calls in JSON, and do not invent names.\n"
-    "The declared tools are: grep, read, replace, write, run_test, locate, list_directory.\n"
+    "The declared tools are: grep, read, replace, write, run_test, locate, list_directory, git.\n"
     "To search file contents use grep. To find files by name use locate.\n"
     "\n"
     "Creating or editing files MUST be done with write or replace.\n"
@@ -872,6 +916,7 @@
     "   Never call run_test without target, and never use placeholders like \"?\" or \"\".\n"
     "6. locate: pattern is a glob such as *hello.jazz. dir is optional.\n"
     "7. list_directory: path is required. Use a real path such as experiments, not \".\".\n"
+    "8. git: args and dir are required. args is a command string like 'log -n 5' or 'diff'. dir is the repository path.\n"
     "\n"
     "Workspace search roots:\n"
     "- /Users/cartier/Devel/jedi/app/stable (Jedi and JazzScheme core system)\n"))
@@ -1045,11 +1090,20 @@
                  (work-dir (table-ref action-table "work_dir" #f)))
              (if (or (not product) (equal? product "") (equal? product "?"))
                  (error "run_test requires 'target': a product name (e.g. ai, agent) or a .jazz file path. Got: {s}" (table->list action-table))
-               (receive (output status failed?) (gemini-run-test product
-                                                                 repositories: repositories
-                                                                 arguments: (if (list? arguments) arguments '())
-                                                                 work-dir: work-dir)
-                 (list 'run_test product output)))))
+                (receive (output status failed?) (gemini-run-test product
+                                                                  repositories: repositories
+                                                                  arguments: (if (list? arguments) arguments '())
+                                                                  work-dir: work-dir)
+                  (list 'run_test product output)))))
+          ((equal? action "git")
+           (let ((args (table-ref action-table "args" #f))
+                 (dir (table-ref action-table "dir" #f)))
+             (if (or (not dir) (equal? dir "") (equal? dir "?"))
+                 (error "Missing 'dir' in git action: {s}" (table->list action-table))
+               (if (or (not args) (equal? args "") (equal? args "?"))
+                   (error "Missing 'args' in git action: {s}" (table->list action-table))
+                 (let ((result (gemini-git args dir)))
+                   (list 'git args result))))))
           (else
            (error "Unknown action '{a}': {s}" action (table->list action-table))))))
 

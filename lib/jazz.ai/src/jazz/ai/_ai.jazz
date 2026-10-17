@@ -856,14 +856,33 @@
 ;;;
 
 
+(definition (split-git-arguments str)
+  (let ((len (string-length str)))
+    (let loop ((i 0)
+               (current '())
+               (args '())
+               (in-quotes? #f))
+      (if (>= i len)
+          (let ((final-arg (list->string (reverse current))))
+            (reverse (if (equal? final-arg "") args (cons final-arg args))))
+        (let ((char (string-ref str i)))
+          (cond ((char=? char #\")
+                 (loop (+ i 1) current args (not in-quotes?)))
+                ((and (char-whitespace? char) (not in-quotes?))
+                 (if (null? current)
+                     (loop (+ i 1) '() args #f)
+                   (loop (+ i 1) '() (cons (list->string (reverse current)) args) #f)))
+                (else
+                 (loop (+ i 1) (cons char current) args in-quotes?))))))))
+
+
 (definition public (gemini-git args dir (max-lines: max-lines 200))
   (if (or (not dir) (equal? dir "") (equal? dir "?"))
       (error "git requires 'dir': the repository directory path")
     (let ((arg-list (cond ((list? args)
                            args)
                           ((string? args)
-                           (collect-if (lambda (s) (not (equal? s "")))
-                                       (split-string args #\space)))
+                           (split-git-arguments args))
                           (else
                            (error "git 'args' must be a string or list of arguments")))))
       (if (null? arg-list)

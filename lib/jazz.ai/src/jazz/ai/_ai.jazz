@@ -440,7 +440,7 @@
   (let ((target (gemini-resolve-file file)))
     (if (not (exists? target))
         (error "File does not exist: {a}" (parse target))
-      (call-with-input-file (parse target)
+      (call-with-input-file (path-settings target char-encoding: 'UTF)
         (lambda (port)
           (let ((start-line
                   (if (and (pair? offset) (pair? (cdr offset)) (integer? (car offset)))
@@ -477,7 +477,7 @@
 (definition public (gemini-write-file file content (strip-code?: strip-code? #t))
   (let ((target (gemini-resolve-file file)))
     (create-directories target)
-    (call-with-output-file (parse target)
+    (call-with-output-file (path-settings target char-encoding: 'UTF)
       (lambda (port)
         (display (if strip-code? (gemini-strip-code content) content) port)))
     target))
@@ -535,7 +535,7 @@
                           (acc '()))
                  (if (>= i (length content-lines))
                      (let ((new-content (join-strings (reverse acc) "\n")))
-                       (call-with-output-file (parse target)
+                       (call-with-output-file (path-settings target char-encoding: 'UTF)
                          (lambda (port)
                            (display new-content port)))
                        target)
@@ -554,7 +554,7 @@
         (error "File does not exist: {a}" (parse target))
       (if (string=? old-string "")
           (error "old_string cannot be empty")
-        (let ((content (call-with-input-file (parse target) read-content-string)))
+        (let ((content (call-with-input-file (path-settings target char-encoding: 'UTF) read-content-string)))
           (let ((old-len (string-length old-string)))
             ;; Find all occurrences of old-string
             (let loop ((pos 0)
@@ -574,7 +574,7 @@
                                (if (null? scan)
                                    (let* ((final-pieces (reverse (cons (substring content last-end (string-length content)) pieces)))
                                           (new-content (join-strings final-pieces "")))
-                                     (call-with-output-file (parse target)
+                                     (call-with-output-file (path-settings target char-encoding: 'UTF)
                                        (lambda (port)
                                          (display new-content port)))
                                      target)
@@ -1350,13 +1350,15 @@
       (lambda ()
         (when (and (pair? data) (string=? (car data) "--data"))
           (set! temp-file (string-append "/tmp/gemini_payload_" (number->string (random-integer 1000000000)) ".json"))
-          (call-with-output-file temp-file
+          (call-with-output-file (list path: temp-file char-encoding: 'UTF)
             (lambda (p)
               (display (cadr data) p)))
           (set! data (list "--data-binary" (string-append "@" temp-file)))))
       (lambda ()
         (let ((port (open-process
-                      (list path: "curl"
+                      (list
+                        path: "curl"
+                        char-encoding: 'UTF
                         arguments: `("--silent"
                                      "--fail-with-body"
                                      "--request" "POST"

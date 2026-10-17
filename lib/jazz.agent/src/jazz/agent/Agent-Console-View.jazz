@@ -60,6 +60,11 @@
     (<install>                                   layout-type: border background: {Color Medium}
       (<View>                                    size: {Dimension 100 1} location: north background: {Color Dark})
       (<Layout-View>                             size: {Dimension 100 24} location: north layout-type: box layout-insets: {Rect 0 1 0 0} layout-padding: 2
+        (<Label-View>                            title: "Context:" size: {Dimension 52 23} location: tail)
+        (<Layout-View>                           size: {Dimension 85 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
+          (<Border-View>                         border-color: {Color Dark}
+            (<Combo-Box>          name: context  content-change-handler: {Event-Handler :form on-change-context})))
+        (<Separator>                             size: {Dimension 8 0} location: tail)
         (<Label-View>                            title: "Effort:" size: {Dimension 45 23} location: tail)
         (<Layout-View>                           size: {Dimension 85 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
           (<Border-View>                         border-color: {Color Dark}
@@ -79,12 +84,22 @@
   
   (method override (finish self initargs)
     (nextmethod self initargs)
+    (let ((combo (locate self 'context)))
+      (set-choices combo (get-available-contexts))
+      (set-value combo (or (and (get-text self) (get-agent-context (get-text self))) 'none)))
     (let ((combo (locate self 'effort)))
       (set-choices combo
         '((low "Low")
           (medium "Medium")
           (high "High")))
       (set-value combo (or (and (get-text self) (get-agent-effort (get-text self))) 'low))))
+  
+  
+  (method (on-change-context self evt)
+    (let ((value (get-value (locate self 'context)))
+          (text (get-text self)))
+      (when (and value text)
+        (set-agent-context text value))))
   
   
   (method (on-change-effort self evt)

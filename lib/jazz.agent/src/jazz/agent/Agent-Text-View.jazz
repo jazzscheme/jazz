@@ -71,6 +71,7 @@
   (slot response-id           initialize #f accessors generate)
   (slot agent-profile         initialize 'coder accessors generate)
   (slot agent-effort          initialize 'low accessors generate)
+  (slot agent-context         initialize 'none accessors generate)
   (slot query-running?        initialize #f accessors generate)
   (slot query-thread          initialize #f accessors generate)
   (slot query-port            initialize #f accessors generate)
@@ -144,6 +145,15 @@
         (acquire-focus self))))
   
   
+  (method public (get-effective-system-prompt self)
+    (let ((base (get-agent-system-prompt (or agent-profile 'coder)))
+          (ctx (and (not (memq agent-context '(#f none "none")))
+                    (get-context-content agent-context))))
+      (if ctx
+          (string-append base "\n\n=== ATTACHED CONTEXT (" (format "{a}" agent-context) ".md) ===\n" ctx "\n==========================================")
+        base)))
+  
+  
   (method override (eval-from-prompt self)
     (when dictation-running?
       (stop-dictation self))
@@ -168,8 +178,8 @@
                     (lambda ()
                       (gemini-agent-query
                         question
-                        system: (get-agent-system-prompt (or agent-profile 'coder))
-                        effort: (or agent-effort 'medium)
+                        system: (get-effective-system-prompt self)
+                        effort: (or agent-effort 'low)
                         response-id: response-id
                         history: conversation-messages
                         cancelled?: (lambda () (not query-running?))
@@ -258,6 +268,8 @@
     (set! conversation-file #f)
     (set! conversation-messages '())
     (set! response-id #f)
+    (set! agent-context 'none)
+    (update-combos self)
     (clear-all self)
     (show-banner self)
     (set-caret self (text-ending self))
@@ -270,12 +282,14 @@
       (stop-dictation self))
     (when query-running?
       (stop-query self))
-    (bind (id title resp-id messages f) (load-conversation file)
+    (bind (id title resp-id messages ctx f) (load-conversation file)
       (set! conversation-id id)
       (set! conversation-title title)
       (set! conversation-file f)
       (set! response-id resp-id)
       (set! conversation-messages (or messages '()))
+      (set! agent-context (or ctx 'none))
+      (update-combos self)
       (clear-all self)
       (when banner
         (insert-styled self banner 'Banner))
@@ -300,6 +314,17 @@
       (acquire-focus self)))
   
   
+  (method public (update-combos self)
+    (let ((console (get-console self)))
+      (when console
+        (let ((context-combo (locate console 'context))
+              (effort-combo (locate console 'effort)))
+          (when context-combo
+            (set-value context-combo (or agent-context 'none)))
+          (when effort-combo
+            (set-value effort-combo (or agent-effort 'low)))))))
+  
+  
   (method public (save-conversation-to-disk self)
     (when (pair? conversation-messages)
       (unless conversation-id
@@ -313,7 +338,8 @@
                                      (or conversation-title "New Chat")
                                      response-id
                                      conversation-messages
-                                     conversation-file)))
+                                     conversation-file
+                                     context: agent-context)))
         (set! conversation-file file)
         (update-console-title self)
         file)))

@@ -95,6 +95,36 @@
     dir))
 
 
+(definition public (find-contexts-directory)
+  (let ((dir {Directory Settings "contexts"}))
+    (unless (exists? dir)
+      (create-directories dir))
+    dir))
+
+
+(definition public (get-available-contexts)
+  (let ((dir (find-contexts-directory)))
+    (if (exists? dir)
+        (let ((files (collect-files dir
+                       (lambda (f)
+                         (string-ends-with? (get-name f) ".md")))))
+          (cons '(none "None")
+                (map (lambda (f)
+                       (let* ((name (get-name f))
+                              (base (substring name 0 (- (string-length name) 3))))
+                         (list (string->symbol base) (capitalize base))))
+                     files)))
+      '((none "None")))))
+
+
+(definition public (get-context-content name)
+  (let* ((file (new-file (find-contexts-directory) (string-append (format "{a}" name) ".md"))))
+    (if (exists? file)
+        (call-with-input-file (path-settings file char-encoding: 'UTF)
+          (lambda (port) (read-line port #f)))
+      #f)))
+
+
 ;;;
 ;;;; Dictation
 ;;;
@@ -142,7 +172,7 @@
         trimmed))))
 
 
-(definition public (save-conversation id title response-id messages (file #f))
+(definition public (save-conversation id title response-id messages (file #f) (context: context #f))
   (let* ((file (or file
                    (let ((dir (find-chats-directory)))
                      (new-file dir (string-append id ".chat")))))
@@ -150,6 +180,7 @@
                   id: ,id
                   title: ,title
                   response-id: ,response-id
+                  context: ,context
                   messages: ,messages)))
     (create-directories file)
     (call-with-output-file (parse file)
@@ -170,6 +201,7 @@
             (plist-ref plist title:)
             (plist-ref plist response-id:)
             (plist-ref plist messages:)
+            (plist-ref plist context:)
             file))
       (error "Invalid conversation file format: {a}" file))))
 

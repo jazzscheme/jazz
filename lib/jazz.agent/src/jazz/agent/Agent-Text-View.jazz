@@ -71,7 +71,7 @@
   (slot response-id           initialize #f accessors generate)
   (slot agent-profile         initialize 'coder accessors generate)
   (slot agent-effort          initialize 'low accessors generate)
-  (slot agent-context         initialize 'none accessors generate)
+  (slot agent-context         initialize #f accessors generate)
   (slot query-running?        initialize #f accessors generate)
   (slot query-thread          initialize #f accessors generate)
   (slot query-port            initialize #f accessors generate)
@@ -150,7 +150,7 @@
           (ctx (and (not (memq agent-context '(#f none "none")))
                     (get-context-content agent-context))))
       (if ctx
-          (string-append base "\n\n=== ATTACHED CONTEXT (" (format "{a}" agent-context) ".md) ===\n" ctx "\n==========================================")
+          (string-append base "\n\n=== ATTACHED CONTEXT (" (if (string-ends-with? agent-context ".md") agent-context (string-append (format "{a}" agent-context) ".md")) ") ===\n" ctx "\n==========================================")
         base)))
   
   
@@ -268,7 +268,7 @@
     (set! conversation-file #f)
     (set! conversation-messages '())
     (set! response-id #f)
-    (set! agent-context 'none)
+    (set! agent-context #f)
     (update-combos self)
     (clear-all self)
     (show-banner self)
@@ -288,7 +288,10 @@
       (set! conversation-file f)
       (set! response-id resp-id)
       (set! conversation-messages (or messages '()))
-      (set! agent-context (or ctx 'none))
+      (set! agent-context (cond ((not ctx) #f)
+                                ((memq ctx '(none "none")) #f)
+                                ((symbol? ctx) (string-append (symbol->string ctx) ".md"))
+                                (else ctx)))
       (update-combos self)
       (clear-all self)
       (when banner
@@ -320,7 +323,7 @@
         (let ((context-combo (locate console 'context))
               (effort-combo (locate console 'effort)))
           (when context-combo
-            (set-value context-combo (or agent-context 'none)))
+            (set-value context-combo agent-context))
           (when effort-combo
             (set-value effort-combo (or agent-effort 'low)))))))
   

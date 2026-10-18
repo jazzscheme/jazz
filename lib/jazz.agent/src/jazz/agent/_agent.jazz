@@ -1,4 +1,4 @@
-;;;==============
+﻿;;;==============
 ;;;  JazzScheme
 ;;;==============
 ;;;
@@ -172,6 +172,42 @@
       (if (string=? trimmed "")
           "New Chat"
         trimmed))))
+
+
+(definition public (parse-continue-command input)
+  (let ((trimmed (trim-leading-whitespace input)))
+    (let ((prefix-len
+            (cond ((or (equal? trimmed "/continue")
+                       (starts-with? trimmed "/continue ")
+                       (starts-with? trimmed "/continue\t")
+                       (starts-with? trimmed "/continue:")
+                       (starts-with? trimmed "/continue,"))
+                   9)
+                  ((or (equal? trimmed "/cont")
+                       (starts-with? trimmed "/cont ")
+                       (starts-with? trimmed "/cont\t")
+                       (starts-with? trimmed "/cont:")
+                       (starts-with? trimmed "/cont,"))
+                   5)
+                  (else #f))))
+      (and prefix-len
+           (let ((rest (trim-whitespace (subseq trimmed prefix-len (string-length trimmed)))))
+             (if (and (> (string-length rest) 0) (eqv? (string-ref rest 0) #\:))
+                 (trim-whitespace (subseq rest 1 (string-length rest)))
+               rest))))))
+
+
+(definition public (format-continue-prompt info (task: task #f))
+  (let ((has-info? (not (empty-string? info)))
+        (has-task? (and task (not (empty-string? task)))))
+    (cond ((and has-task? has-info?)
+           (format "Continue the task: \"{a}\". Additional info: {a}" task info))
+          (has-task?
+           (format "Continue the task: \"{a}\"." task))
+          (has-info?
+           (format "Continue previous work. {a}" info))
+          (else
+           "Continue previous work."))))
 
 
 (definition public (save-conversation id title response-id messages (file #f) (context: context #f))

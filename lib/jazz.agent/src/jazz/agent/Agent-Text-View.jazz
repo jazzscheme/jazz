@@ -1,4 +1,4 @@
-;;;==============
+﻿;;;==============
 ;;;  JazzScheme
 ;;;==============
 ;;;
@@ -79,6 +79,7 @@
   (slot dictation-thread      initialize #f accessors generate)
   (slot dictation-range       initialize #f accessors generate)
   (slot dictation-running?    initialize #f accessors generate)
+  (slot active-task           initialize #f accessors generate)
   
   
   (method override (auto-complete? self)
@@ -160,23 +161,29 @@
       (stop-query self))
     (insert-newline self)
     (let ((range (current-command self)))
-      (let ((question (trim-trailing-whitespace (get-string self range))))
-        (unless (empty-string? question)
+      (let ((raw-input (trim-trailing-whitespace (get-string self range))))
+        (unless (empty-string? raw-input)
           (stylize-range model range (locate-style self 'Input))
           (reset inserted)
-          (unless conversation-id
-            (set! conversation-id (generate-conversation-id)))
-          (when (or (not conversation-title)
-                    (equal? conversation-title "New Chat"))
-            (set! conversation-title (conversation-title-from-prompt question))
-            (update-console-title self))
-          (set! query-running? #t)
-          (update-stop-tool self #t)
-          (let ((thread
-                  (new-thread
-                    (lambda ()
-                      (gemini-agent-query
-                        question
+          (let* ((cont-info (parse-continue-command raw-input))
+                 (question (if cont-info
+                               (format-continue-prompt cont-info task: active-task)
+                             (begin
+                               (set! active-task raw-input)
+                               raw-input))))
+            (unless conversation-id
+              (set! conversation-id (generate-conversation-id)))
+            (when (or (not conversation-title)
+                      (equal? conversation-title "New Chat"))
+              (set! conversation-title (conversation-title-from-prompt question))
+              (update-console-title self))
+            (set! query-running? #t)
+            (update-stop-tool self #t)
+            (let ((thread
+                    (new-thread
+                      (lambda ()
+                        (gemini-agent-query
+                          question
                         system: (get-effective-system-prompt self)
                         effort: (or agent-effort 'low)
                         response-id: response-id
@@ -254,7 +261,7 @@
                                     (agent-trace self (format "Action: {a}\n" desc))))))))))
                     'agent-query)))
             (set! query-thread thread)
-            (thread-start! thread))))))
+            (thread-start! thread)))))))
   
   
   (method public (new-conversation self)
@@ -268,6 +275,7 @@
     (set! conversation-messages '())
     (set! response-id #f)
     (set! agent-context #f)
+    (set! active-task #f)
     (update-combos self)
     (clear-all self)
     (show-banner self)
@@ -288,6 +296,7 @@
       (set! response-id resp-id)
       (set! conversation-messages (or messages '()))
       (set! agent-context ctx)
+      (set! active-task #f)
       (update-combos self)
       (clear-all self)
       (when banner

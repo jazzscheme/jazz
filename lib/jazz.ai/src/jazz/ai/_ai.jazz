@@ -954,8 +954,19 @@
         '()
       (let ((entries (search-definitions cataloguer (->search-set (make-search-context regex-str regexp?: #t)))))
         (map (lambda (entry)
-               (get-name entry))
+               (list (get-name entry)
+                     (get-kind entry)
+                     (get-moniker entry)
+                     (get-line entry)))
              entries)))))
+
+
+(definition (format-search-definition entry)
+  (bind (name kind moniker line) entry
+    (let ((file-str (if moniker (parse moniker) "?"))
+          (kind-str (if kind (format "[{a}] " kind) ""))
+          (line-str (if (and line (>= line 0)) (format ":{a}" (+ line 1)) "")))
+      (format "{a}{a} {a}{a}" kind-str name file-str line-str))))
 
 
 ;;;
@@ -1178,10 +1189,10 @@
            (let ((pattern (table-ref action-table "pattern" #f)))
              (if (or (not pattern) (equal? pattern "") (equal? pattern "?"))
                  (error "Missing 'pattern' in search_definitions action: {s}" (table->list action-table))
-               (let* ((names (ai-search-definitions pattern))
-                      (result (if (null? names)
+               (let* ((entries (ai-search-definitions pattern))
+                      (result (if (null? entries)
                                   (format "No definitions found matching pattern \"{a}\"." pattern)
-                                (join names "\n"))))
+                                (join (map format-search-definition entries) "\n"))))
                  (list 'search_definitions pattern result)))))
           (else
            (error "Unknown action '{a}': {s}" action (table->list action-table))))))

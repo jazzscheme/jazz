@@ -883,37 +883,59 @@
                  (loop (+ i 1) (cons char current) args in-quotes?))))))))
 
 
-(definition public (gemini-git args dir (max-lines: max-lines 200))
+(definition public (gemini-git args dir (roots: roots #f) (max-lines: max-lines 200))
   (if (or (not dir) (equal? dir "") (equal? dir "?"))
       (error "git requires 'dir': the repository directory path")
-    (let ((arg-list (cond ((list? args)
-                           args)
-                          ((string? args)
-                           (split-git-arguments args))
-                          (else
-                           (error "git 'args' must be a string or list of arguments")))))
-      (if (null? arg-list)
-          (error "git requires 'args' (e.g. \"status\", \"log -n 5\")")
-        (let ((port (open-process
-                      (list path: "git"
-                            arguments: arg-list
-                            directory: dir
-                            stderr-redirection: #t
-                            show-console: #f))))
-          (let (loop (count 0)
-                     (lines '()))
-            (let ((line (read-line port)))
-              (cond ((eof-object? line)
-                     (close-port port)
-                     (if (null? lines)
-                         "(empty output)"
-                       (join (reverse lines) "\n")))
-                    ((>= count max-lines)
-                     (close-port port)
-                     (string-append (join (reverse lines) "\n")
-                                    (format "\n... (truncated at {a} lines)" max-lines)))
-                    (else
-                     (loop (+ count 1) (cons line lines)))))))))))
+    (let* ((dir-str (format "{a}" dir))
+           (active-roots (let ((available (collect-if exists? (or roots *search-roots*))))
+                           (if (null? available)
+                               (list (default-workspace-root))
+                             available)))
+           (target (cond ((or (equal? dir-str ".") (equal? dir-str "./"))
+                          (parse (car active-roots)))
+                         ((starts-with? dir-str "/")
+                          dir-str)
+                         (else
+                          (let loop ((scan active-roots))
+                            (if (null? scan)
+                                (string-append (parse (car active-roots)) "/" dir-str)
+                              (let ((cand (new-directory (car scan) (tokenise-filename dir-str))))
+                                (if (exists? cand)
+                                    (parse cand)
+                                  (loop (cdr scan))))))))))
+      (cond ((not (file-exists? target))
+             (format "Directory does not exist: {a}" target))
+            ((not (eq? (file-info-type (file-info target)) 'directory))
+             (format "Not a directory: {a}" target))
+            (else
+             (let ((arg-list (cond ((list? args)
+                                    args)
+                                   ((string? args)
+                                    (split-git-arguments args))
+                                   (else
+                                    (error "git 'args' must be a string or list of arguments")))))
+               (if (null? arg-list)
+                   (error "git requires 'args' (e.g. \"status\", \"log -n 5\")")
+                 (let ((port (open-process
+                               (list path: "git"
+                                     arguments: arg-list
+                                     directory: target
+                                     stderr-redirection: #t
+                                     show-console: #f))))
+                   (let (loop (count 0)
+                              (lines '()))
+                     (let ((line (read-line port)))
+                       (cond ((eof-object? line)
+                              (close-port port)
+                              (if (null? lines)
+                                  "(empty output)"
+                                (join (reverse lines) "\n")))
+                             ((>= count max-lines)
+                              (close-port port)
+                              (string-append (join (reverse lines) "\n")
+                                             (format "\n... (truncated at {a} lines)" max-lines)))
+                             (else
+                              (loop (+ count 1) (cons line lines))))))))))))))
 
 
 ;;;

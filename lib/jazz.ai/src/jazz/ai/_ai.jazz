@@ -38,7 +38,8 @@
 (module jazz.ai jazz
 
 
-(import (jazz.io)
+(import (jazz.catalog)
+        (jazz.io)
         (jazz.json))
 
 
@@ -169,7 +170,11 @@
                      "Run a git command in a repository directory. args is required (string or list of arguments like 'log -n 5' or 'diff'). dir is required (repository directory path)."
                      (list (cons "args" (gemini-string-param "Git arguments (e.g. 'status', 'log -n 5', 'diff')"))
                            (cons "dir" (gemini-string-param "Repository directory path")))
-                     '("args" "dir"))))
+                     '("args" "dir"))
+    (gemini-function "search_definitions"
+                     "Search definition names in the JazzScheme catalog using an Alex Shinn irregex pattern. Use only for JazzScheme/Lisp code."
+                     (list (cons "pattern" (gemini-string-param "Alex Shinn irregex pattern to search definition names")))
+                     '("pattern"))))
 
 
 (definition public (gemini-generate prompt
@@ -440,7 +445,7 @@
   (let ((target (gemini-resolve-file file)))
     (if (not (exists? target))
         (error "File does not exist: {a}" (parse target))
-      (call-with-input-file (path-settings target char-encoding: 'UTF)
+      (call-with-input-file (path-settings target char-encoding: 'UTF-8)
         (lambda (port)
           (let ((start-line
                   (if (and (pair? offset) (pair? (cdr offset)) (integer? (car offset)))
@@ -477,7 +482,7 @@
 (definition public (gemini-write-file file content (strip-code?: strip-code? #t))
   (let ((target (gemini-resolve-file file)))
     (create-directories target)
-    (call-with-output-file (path-settings target char-encoding: 'UTF)
+    (call-with-output-file (path-settings target char-encoding: 'UTF-8)
       (lambda (port)
         (display (if strip-code? (gemini-strip-code content) content) port)))
     target))
@@ -533,19 +538,19 @@
                (let (loop (i 0)
                           (rem-matches matches)
                           (acc '()))
-                 (if (>= i (length content-lines))
-                     (let ((new-content (join-strings (reverse acc) "\n")))
-                       (call-with-output-file (path-settings target char-encoding: 'UTF)
-                         (lambda (port)
-                           (display new-content port)))
-                       target)
-                   (if (and (pair? rem-matches) (= i (car rem-matches)))
-                       (loop (+ i n-old)
-                             (cdr rem-matches)
-                             (append (reverse new-lines) acc))
-                     (loop (+ i 1)
-                           rem-matches
-                           (cons (list-ref content-lines i) acc)))))))))))
+                  (if (>= i (length content-lines))
+                      (let ((new-content (join-strings (reverse acc) "\n")))
+                        (call-with-output-file (path-settings target char-encoding: 'UTF-8)
+                          (lambda (port)
+                            (display new-content port)))
+                        target)
+                    (if (and (pair? rem-matches) (= i (car rem-matches)))
+                        (loop (+ i n-old)
+                              (cdr rem-matches)
+                              (append (reverse new-lines) acc))
+                      (loop (+ i 1)
+                            rem-matches
+                            (cons (list-ref content-lines i) acc)))))))))))
 
 
 (definition public (gemini-str-replace file old-string new-string (replace-all?: replace-all? #f))
@@ -554,7 +559,7 @@
         (error "File does not exist: {a}" (parse target))
       (if (string=? old-string "")
           (error "old_string cannot be empty")
-        (let ((content (call-with-input-file (path-settings target char-encoding: 'UTF) read-content-string)))
+        (let ((content (call-with-input-file (path-settings target char-encoding: 'UTF-8) read-content-string)))
           (let ((old-len (string-length old-string)))
             ;; Find all occurrences of old-string
             (let loop ((pos 0)
@@ -574,7 +579,7 @@
                                (if (null? scan)
                                    (let* ((final-pieces (reverse (cons (substring content last-end (string-length content)) pieces)))
                                           (new-content (join-strings final-pieces "")))
-                                     (call-with-output-file (path-settings target char-encoding: 'UTF)
+                                     (call-with-output-file (path-settings target char-encoding: 'UTF-8)
                                        (lambda (port)
                                          (display new-content port)))
                                      target)
@@ -939,6 +944,21 @@
 
 
 ;;;
+;;;; Search
+;;;
+
+
+(definition public (ai-search-definitions regex-str)
+  (let ((cataloguer (get-cataloguer)))
+    (if (not cataloguer)
+        '()
+      (let ((entries (search-definitions cataloguer (->search-set (make-search-context regex-str regexp?: #t)))))
+        (map (lambda (entry)
+               (get-name entry))
+             entries)))))
+
+
+;;;
 ;;;; Agent Profiles
 ;;;
 
@@ -947,7 +967,7 @@
   (string-append
     "Protocol:\n"
     "The runtime declares your tools with a JSON Schema. Call those functions directly. Do not wrap calls in JSON, and do not invent names.\n"
-    "The declared tools are: grep, read, replace, write, run_test, locate, list_directory, git.\n"
+    "The declared tools are: grep, read, replace, write, run_test, locate, list_directory, git, search_definitions.\n"
     "To search file contents use grep. To find files by name use locate.\n"
     "\n"
     "Creating or editing files MUST be done with write or replace.\n"
@@ -965,6 +985,7 @@
     "6. locate: pattern is a glob such as *hello.jazz. dir is optional.\n"
     "7. list_directory: path is required. Use a real path such as experiments, not \".\".\n"
     "8. git: args and dir are required. args is a command string like 'log -n 5' or 'diff'. dir is the repository path.\n"
+    "9. search_definitions: pattern is required. An Alex Shinn irregex string to search JazzScheme/Lisp definition names in Jedi's catalog.\n"
     "\n"
     "Workspace search roots:\n"
     "- /Users/cartier/Devel/jedi/app/stable (Jedi and JazzScheme core system)\n"))
@@ -1153,6 +1174,15 @@
                    (error "Missing 'args' in git action: {s}" (table->list action-table))
                  (let ((result (gemini-git args dir)))
                    (list 'git args result))))))
+          ((equal? action "search_definitions")
+           (let ((pattern (table-ref action-table "pattern" #f)))
+             (if (or (not pattern) (equal? pattern "") (equal? pattern "?"))
+                 (error "Missing 'pattern' in search_definitions action: {s}" (table->list action-table))
+               (let* ((names (ai-search-definitions pattern))
+                      (result (if (null? names)
+                                  (format "No definitions found matching pattern \"{a}\"." pattern)
+                                (join names "\n"))))
+                 (list 'search_definitions pattern result)))))
           (else
            (error "Unknown action '{a}': {s}" action (table->list action-table))))))
 
@@ -1308,7 +1338,22 @@
           (call-yield
             (lambda ()
               (check-cancelled)
-              (let ((item (gemini-run-action action-table)))
+              (let ((item
+                      (with-exception-catcher
+                        (lambda (exc)
+                          (let ((port (open-output-string)))
+                            (display-exception exc port)
+                            (let ((msg (get-output-string port))
+                                  (action (table-ref action-table "action" 'error)))
+                              (list action
+                                    (or (table-ref action-table "path" #f)
+                                        (table-ref action-table "pattern" #f)
+                                        (table-ref action-table "target" #f)
+                                        (table-ref action-table "dir" #f)
+                                        #f)
+                                    (format "Action '{a}' failed: {a}" action (trim-whitespace msg))))))
+                        (lambda ()
+                          (gemini-run-action action-table)))))
                 (check-cancelled)
                 (when on-observation
                   (on-observation item (caddr item)))

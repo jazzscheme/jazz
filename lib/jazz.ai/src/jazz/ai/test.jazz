@@ -40,7 +40,8 @@
 
 (import (jazz.ai)
         (jazz.io)
-        (jazz.json))
+        (jazz.json)
+        (jazz.platform))
 
 
 (initialize-aliases)
@@ -62,21 +63,21 @@
   (display "  [PASS] gemini-grep in scoped directory\n"))
 
 ;; Test 2b: gemini-locate by glob
-(let ((matches (gemini-locate "*hello.jazz")))
+(let ((matches (gemini-locate "*_ai.jazz")))
   (assert (string? matches))
-  (assert (string-search matches "hello.jazz"))
+  (assert (string-search matches "_ai.jazz"))
   (display "  [PASS] gemini-locate by glob\n"))
 
 ;; Test 2c: gemini-list-directory
-(let ((listing (gemini-list-directory "experiments/actions")))
+(let ((listing (gemini-list-directory "jazz/lib/jazz.ai/src/jazz/ai")))
   (assert (string? listing))
-  (assert (string-search listing "hello.jazz"))
+  (assert (string-search listing "test.jazz"))
   (display "  [PASS] gemini-list-directory\n"))
 (let ((results (gemini-run-actions (list (list->table (list (cons "action" "list_directory")
-                                                           (cons "path" "experiments")))))))
+                                                           (cons "path" "jazz/lib/jazz.ai")))))))
   (assert (= (length results) 1))
   (assert (eq? (caar results) 'list_directory))
-  (assert (string-search (caddar results) "actions"))
+  (assert (string-search (caddar results) "src"))
   (display "  [PASS] gemini-run-actions with list_directory\n"))
 
 ;; Test 2d: native function_call steps map onto action tables
@@ -141,15 +142,14 @@
 (display "  [PASS] gemini-blank-text? nested function_call and missing call id\n")
 
 ;; Test 4: gemini-read-file with line numbers and ranges
-(let* ((test-file {File :root "Users" "cartier" "Devel" "psi-lab" "experiments" "actions" "hello.jazz"})
+(let* ((test-file "jazz/lib/jazz.ai/src/jazz/ai/test.jazz")
        (content (gemini-read-file test-file offset: 1 limit: 2)))
   (assert (string? content))
   (assert (string-search content "1|"))
   (display "  [PASS] gemini-read-file with offset and limit\n"))
 
 ;; Test 5: gemini-str-replace uniqueness contract and replacement
-(let* ((temp-dir {Directory :root "Users" "cartier" "Devel" "psi-lab" ".chats"})
-       (temp-file (new-file temp-dir "test_replace.txt")))
+(let ((temp-file (get-temporary-file)))
   (gemini-write-file temp-file "line 1\nreplace_me\nline 3\n")
   ;; Replace single unique occurrence
   (gemini-str-replace temp-file "replace_me" "replaced_successfully")
@@ -278,11 +278,23 @@
   (display "  [PASS] gemini-run-actions missing run_test target fails loud\n"))
 
 ;; Test 10b: gemini-run-test executing a script file directly
-(receive (out stat fail?) (gemini-run-test "experiments/actions/hello.jazz")
-  (assert (= stat 0))
-  (assert (not fail?))
-  (assert (string-search out "Hello from JazzScheme!"))
-  (display "  [PASS] gemini-run-test with direct script file\n"))
+(let ((temp-script (get-temporary-file extension: "jazz")))
+  (gemini-write-file temp-script "(display \"Hello from JazzScheme!\\n\")\n")
+  (receive (out stat fail?) (gemini-run-test (parse temp-script))
+    (assert (= stat 0))
+    (assert (not fail?))
+    (assert (string-search out "Hello from JazzScheme!"))
+    (display "  [PASS] gemini-run-test with direct script file\n"))
+  (delete temp-script))
+
+;; Test 10c: search_definitions action
+(let ((results (gemini-run-actions (list (list->table (list (cons "action" "search_definitions")
+                                                            (cons "pattern" "ai-search-definitions")))))))
+  (assert (= (length results) 1))
+  (let ((r (car results)))
+    (assert (eq? (car r) 'search_definitions))
+    (assert (string? (caddr r))))
+  (display "  [PASS] gemini-run-actions with search_definitions\n"))
 
 ;; Test 11: Modular agent profiles and system prompts
 (let ((coder-prompt (get-agent-system-prompt 'coder))

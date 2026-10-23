@@ -218,36 +218,42 @@
 ;; Test 9: Live autonomous ReAct loop query
 (display "Testing live autonomous ReAct loop query with gemini-agent-query...\n")
 (force-output (current-output-port))
-(receive (answer final-resp-id history)
-    (gemini-agent-query
-      "What is the exact string value of default-model defined in jazz.ai? Search for it and tell me."
-      max-turns: 5
-      on-status:
-      (lambda (st)
-        (display (string-append "  " st "\n"))
-        (force-output (current-output-port)))
-      on-thought:
-      (lambda (th)
-        (display (string-append "  Agent Thought: " th "\n"))
-        (force-output (current-output-port)))
-      on-action:
-      (lambda (ac)
-        (display (string-append "  Agent Tool Call: " (table-ref ac "action" "?") "\n"))
-        (force-output (current-output-port)))
-      on-observation:
-      (lambda (item output)
-        (display (string-append "  Agent Observation (" (format "{a}" (car item)) "):\n"))
-        (display output)
-        (newline)
-        (force-output (current-output-port))))
-  (assert (string? answer))
-  (assert (string-search answer "gemini-3.8-flash"))
-  (assert (string? final-resp-id))
-  (display "  Agent Final Answer:\n")
-  (display answer)
-  (newline)
-  (display "  [PASS] Live ReAct loop query\n")
-  (force-output (current-output-port)))
+(let ((recorded-ids '()))
+  (receive (answer final-resp-id history)
+      (gemini-agent-query
+        "What is the exact string value of default-model defined in jazz.ai? Search for it and tell me."
+        max-turns: 5
+        on-id:
+        (lambda (id)
+          (set! recorded-ids (cons id recorded-ids)))
+        on-status:
+        (lambda (st)
+          (display (string-append "  " st "\n"))
+          (force-output (current-output-port)))
+        on-thought:
+        (lambda (th)
+          (display (string-append "  Agent Thought: " th "\n"))
+          (force-output (current-output-port)))
+        on-action:
+        (lambda (ac)
+          (display (string-append "  Agent Tool Call: " (table-ref ac "action" "?") "\n"))
+          (force-output (current-output-port)))
+        on-observation:
+        (lambda (item output)
+          (display (string-append "  Agent Observation (" (format "{a}" (car item)) "):\n"))
+          (display output)
+          (newline)
+          (force-output (current-output-port))))
+    (assert (string? answer))
+    (assert (string-search answer "gemini-3.8-flash"))
+    (assert (string? final-resp-id))
+    (assert (pair? recorded-ids))
+    (assert (string? (car recorded-ids)))
+    (display "  Agent Final Answer:\n")
+    (display answer)
+    (newline)
+    (display "  [PASS] Live ReAct loop query and on-id tracking\n")
+    (force-output (current-output-port))))
 
 ;; Test 10: gemini-run-test and structured RUN_TEST action
 (display "Testing gemini-run-test on 'agent'...\n")

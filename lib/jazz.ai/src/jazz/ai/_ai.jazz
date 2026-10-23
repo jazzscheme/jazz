@@ -1360,7 +1360,8 @@
                                        (on-status: on-status #f)
                                        (on-thought: on-thought #f)
                                        (on-action: on-action #f)
-                                       (on-observation: on-observation #f))
+                                       (on-observation: on-observation #f)
+                                       (on-id: on-id #f))
   (define (generate-turn current-prompt sys resp-id (use-tools?: use-tools? #t))
     (gemini-generate current-prompt
                      system: sys
@@ -1385,6 +1386,8 @@
       (values answer id out-hist)))
 
   (define (complete-answer payload id hist)
+    (when (and on-id id)
+      (on-id id))
     (finish payload id hist))
 
   (define (run-calls calls turn thought new-id hist continue)
@@ -1469,15 +1472,33 @@
     (call-yield
       (lambda ()
         (check-cancelled)
-        (let* ((initial-reply (generate-turn current-prompt
-                                             (if (= turn 0) system #f)
-                                             current-resp-id))
+        (let* ((initial-reply
+                 (if (and (= turn 0) current-resp-id)
+                     (with-exception-catcher
+                       (lambda (exc)
+                         (set! current-resp-id #f)
+                         (set! current-prompt
+                           (if (pair? history)
+                               (gemini-messages->interaction-input history prompt)
+                             prompt))
+                         (check-cancelled)
+                         (generate-turn current-prompt system #f))
+                       (lambda ()
+                         (generate-turn current-prompt
+                                        system
+                                        current-resp-id)))
+                   (generate-turn current-prompt
+                                  (if (= turn 0) system #f)
+                                  current-resp-id)))
                (err (table-ref initial-reply "error" #f))
                (reply
-                 (if (and err (= turn 0) current-resp-id (pair? history))
+                 (if (and err (= turn 0) current-resp-id)
                      (begin
                        (set! current-resp-id #f)
-                       (set! current-prompt (gemini-messages->interaction-input history prompt))
+                       (set! current-prompt
+                         (if (pair? history)
+                             (gemini-messages->interaction-input history prompt)
+                           prompt))
                        (check-cancelled)
                        (generate-turn current-prompt system #f))
                    initial-reply))
@@ -1487,6 +1508,8 @@
                (thought (gemini-thought-text reply))
                (text (gemini-text reply)))
           (check-cancelled)
+          (when (and on-id new-id)
+            (on-id new-id))
           (when (or (equal? status "failed") (equal? status "cancelled"))
             (error "Gemini interaction {a} ({a})" status (gemini-reply-summary reply)))
           (when (and thought on-thought)

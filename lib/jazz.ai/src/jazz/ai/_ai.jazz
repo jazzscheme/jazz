@@ -174,7 +174,12 @@
     (gemini-function "search_definitions"
                      "Search definition names in the JazzScheme catalog using an Alex Shinn irregex pattern. Use only for JazzScheme/Lisp code."
                      (list (cons "pattern" (gemini-string-param "Alex Shinn irregex pattern to search definition names")))
-                     '("pattern"))))
+                     '("pattern"))
+    (gemini-function "gsc"
+                     "Invoke the Gambit Scheme Compiler (gsc) to compile, test expressions, inspect expansions, or check generated C code."
+                     (list (cons "args" (gemini-string-param "gsc command line arguments (e.g. \"-c foo.scm\" or \"-e \\\"(pp 123)\\\"\")"))
+                           (cons "dir" (gemini-string-param "Optional working directory path")))
+                     '("args"))))
 
 
 (definition public (gemini-generate prompt
@@ -868,7 +873,7 @@
 ;;;
 
 
-(definition (split-git-arguments str)
+(definition (split-command-arguments str)
   (let ((len (string-length str)))
     (let loop ((i 0)
                (current '())
@@ -888,26 +893,34 @@
                  (loop (+ i 1) (cons char current) args in-quotes?))))))))
 
 
+(definition (split-git-arguments str)
+  (split-command-arguments str))
+
+
+(definition public (gemini-resolve-dir dir (roots: roots #f))
+  (let* ((dir-str (format "{a}" dir))
+         (active-roots (let ((available (collect-if exists? (or roots *search-roots*))))
+                         (if (null? available)
+                             (list (default-workspace-root))
+                           available))))
+    (cond ((or (equal? dir-str ".") (equal? dir-str "./"))
+           (parse (car active-roots)))
+          ((starts-with? dir-str "/")
+           dir-str)
+          (else
+           (let loop ((scan active-roots))
+             (if (null? scan)
+                 (string-append (parse (car active-roots)) "/" dir-str)
+               (let ((cand (new-directory (car scan) (tokenise-filename dir-str))))
+                 (if (exists? cand)
+                     (parse cand)
+                   (loop (cdr scan))))))))))
+
+
 (definition public (gemini-git args dir (roots: roots #f) (max-lines: max-lines 200))
   (if (or (not dir) (equal? dir "") (equal? dir "?"))
       (error "git requires 'dir': the repository directory path")
-    (let* ((dir-str (format "{a}" dir))
-           (active-roots (let ((available (collect-if exists? (or roots *search-roots*))))
-                           (if (null? available)
-                               (list (default-workspace-root))
-                             available)))
-           (target (cond ((or (equal? dir-str ".") (equal? dir-str "./"))
-                          (parse (car active-roots)))
-                         ((starts-with? dir-str "/")
-                          dir-str)
-                         (else
-                          (let loop ((scan active-roots))
-                            (if (null? scan)
-                                (string-append (parse (car active-roots)) "/" dir-str)
-                              (let ((cand (new-directory (car scan) (tokenise-filename dir-str))))
-                                (if (exists? cand)
-                                    (parse cand)
-                                  (loop (cdr scan))))))))))
+    (let ((target (gemini-resolve-dir dir roots: roots)))
       (cond ((not (file-exists? target))
              (format "Directory does not exist: {a}" target))
             ((not (eq? (file-info-type (file-info target)) 'directory))
@@ -917,8 +930,8 @@
                                     args)
                                    ((string? args)
                                     (split-git-arguments args))
-                                   (else
-                                    (error "git 'args' must be a string or list of arguments")))))
+                                    (else
+                                     (error "git 'args' must be a string or list of arguments")))))
                (if (null? arg-list)
                    (error "git requires 'args' (e.g. \"status\", \"log -n 5\")")
                  (let ((port (open-process
@@ -927,7 +940,7 @@
                                      directory: target
                                      stderr-redirection: #t
                                      show-console: #f))))
-                   (let (loop (count 0)
+                   (let loop ((count 0)
                               (lines '()))
                      (let ((line (read-line port)))
                        (cond ((eof-object? line)
@@ -941,6 +954,71 @@
                                              (format "\n... (truncated at {a} lines)" max-lines)))
                              (else
                               (loop (+ count 1) (cons line lines))))))))))))))
+
+
+;;;
+;;;; GSC Compiler Invocation
+;;;
+
+
+(definition *gambit-directory*
+  (let ((gambitdir (getenv "GAMBITDIR" #f)))
+    (if gambitdir
+        (new Directory (tokenise-filename gambitdir))
+      {Directory :root "usr" "local" "Gambit"})))
+
+
+(definition public (get-gambit-directory)
+  (if (exists? *gambit-directory*)
+      *gambit-directory*
+    {Directory :root "usr" "local" "Gambit"}))
+
+
+(definition public (get-gsc-binary)
+  (let ((gambit-bin (new-file (get-gambit-directory) (tokenise-filename "bin/gsc"))))
+    (if (exists? gambit-bin)
+        (parse gambit-bin)
+      "gsc")))
+
+
+(definition public (gemini-gsc args (dir: dir #f) (max-lines: max-lines 300) (timeout: timeout 30))
+  (let* ((gsc-bin (get-gsc-binary))
+         (target-dir (or (and dir (gemini-resolve-dir (format "{a}" dir)))
+                         (parse (default-workspace-root))))
+         (arg-list (cond ((list? args)
+                          args)
+                         ((string? args)
+                          (split-command-arguments args))
+                         (else
+                          (error "gsc 'args' must be a string or list of arguments")))))
+    (if (null? arg-list)
+        (error "gsc requires 'args' (e.g. \"-c foo.scm\" or \"-e '(pp 1)'\")")
+      (let ((port (open-process
+                    (list path: gsc-bin
+                          arguments: arg-list
+                          directory: target-dir
+                          stderr-redirection: #t
+                          show-console: #f))))
+        (close-output-port port)
+        (input-port-timeout-set! port timeout (lambda () 'timeout))
+        (let loop ((count 0)
+                   (lines '()))
+          (let ((line (read-line port)))
+            (cond ((eq? line 'timeout)
+                   (close-port port)
+                   (string-append (join (reverse lines) "\n")
+                                  (format "\n*** ERROR: gsc timed out after {a} seconds" timeout)))
+                  ((eof-object? line)
+                   (close-port port)
+                   (if (null? lines)
+                       "(empty output)"
+                     (join (reverse lines) "\n")))
+                  ((>= count max-lines)
+                   (close-port port)
+                   (string-append (join (reverse lines) "\n")
+                                  (format "\n... (truncated at {a} lines)" max-lines)))
+                  (else
+                   (loop (+ count 1) (cons line lines))))))))))
 
 
 ;;;
@@ -978,7 +1056,7 @@
   (string-append
     "Protocol:\n"
     "The runtime declares your tools with a JSON Schema. Call those functions directly. Do not wrap calls in JSON, and do not invent names.\n"
-    "The declared tools are: grep, read, replace, write, run_test, locate, list_directory, git, search_definitions.\n"
+    "The declared tools are: grep, read, replace, write, run_test, locate, list_directory, git, search_definitions, gsc.\n"
     "To search file contents use grep. To find files by name use locate.\n"
     "\n"
     "Creating or editing files MUST be done with write or replace.\n"
@@ -997,6 +1075,7 @@
     "7. list_directory: path is required. Use a real path such as experiments, not \".\".\n"
     "8. git: args and dir are required. args is a command string like 'log -n 5' or 'diff'. dir is the repository path.\n"
     "9. search_definitions: pattern is required. An Alex Shinn irregex string to search JazzScheme/Lisp definition names in Jedi's catalog.\n"
+    "10. gsc: args is required. Invoke the Gambit Scheme Compiler (gsc) with command line arguments (e.g. \"-c foo.scm\" or \"-e '(pp 123)'\"). dir is optional.\n"
     "\n"
     "Workspace search roots:\n"
     "- /Users/cartier/Devel/jedi/app/stable (Jedi and JazzScheme core system)\n"))
@@ -1194,6 +1273,13 @@
                                   (format "No definitions found matching pattern \"{a}\"." pattern)
                                 (join (map format-search-definition entries) "\n"))))
                  (list 'search_definitions pattern result)))))
+          ((equal? action "gsc")
+           (let ((args (table-ref action-table "args" #f))
+                 (dir (table-ref action-table "dir" #f)))
+             (if (or (not args) (equal? args "") (equal? args "?"))
+                 (error "Missing 'args' in gsc action: {s}" (table->list action-table))
+               (let ((result (gemini-gsc args dir: dir)))
+                 (list 'gsc args result)))))
           (else
            (error "Unknown action '{a}': {s}" action (table->list action-table))))))
 

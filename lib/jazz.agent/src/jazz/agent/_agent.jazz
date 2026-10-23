@@ -127,6 +127,72 @@
     #f))
 
 
+(definition public (extract-roots-from-text text)
+  (if (not text)
+      '()
+    (let ((lines (split-lines text))
+          (roots '())
+          (in-roots? #f))
+      (for-each
+        (lambda (line)
+          (let ((trimmed (trim-whitespace line)))
+            (cond ((starts-with? trimmed "## Roots & Repositories")
+                   (set! in-roots? #t))
+                  ((and in-roots? (starts-with? trimmed "## "))
+                   (set! in-roots? #f))
+                  ((and in-roots? (starts-with? trimmed "- **"))
+                   (let ((colon (string-search trimmed ":")))
+                     (when colon
+                       (let* ((name-part (subseq trimmed 4 colon))
+                              (name-end (string-search name-part "**"))
+                              (root-name (if name-end (subseq name-part 0 name-end) name-part))
+                              (val-part (trim-whitespace (subseq trimmed (+ colon 1))))
+                              (tick1 (string-search val-part "`")))
+                         (if tick1
+                             (let* ((after-tick1 (subseq val-part (+ tick1 1)))
+                                    (tick2 (string-search after-tick1 "`")))
+                               (when tick2
+                                 (let ((path (subseq after-tick1 0 tick2)))
+                                   (set! roots (cons (cons (trim-whitespace root-name) (trim-whitespace path)) roots)))))
+                           (let* ((parts (split val-part #\space))
+                                  (path (if (pair? parts) (car parts) val-part)))
+                             (set! roots (cons (cons (trim-whitespace root-name) (trim-whitespace path)) roots)))))))))))
+        lines)
+      (reverse roots))))
+
+
+(definition public (get-registered-roots (context-name #f))
+  (let ((context-roots (extract-roots-from-text (get-context-content context-name)))
+        (defaults '()))
+    (let loop ((scan defaults)
+               (result context-roots))
+      (if (null? scan)
+          result
+        (let ((pair (car scan)))
+          (if (assoc (car pair) result)
+              (loop (cdr scan) result)
+            (loop (cdr scan) (append result (list pair)))))))))
+
+
+(definition public (simplify-action-path path (context-name #f))
+  (if (or (not path) (not (string? path)) (string=? path ""))
+      path
+    (let ((roots (get-registered-roots context-name)))
+      (let loop ((scan roots))
+        (if (null? scan)
+            path
+          (let* ((root (car scan))
+                 (name (car root))
+                 (dir (cdr root))
+                 (dir-slash (if (ends-with? dir "/") dir (string-append dir "/"))))
+            (cond ((starts-with? path dir-slash)
+                   (string-append name " " (subseq path (cardinality dir-slash))))
+                  ((string=? path dir)
+                   name)
+                  (else
+                   (loop (cdr scan))))))))))
+
+
 ;;;
 ;;;; Dictation
 ;;;

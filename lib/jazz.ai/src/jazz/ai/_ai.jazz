@@ -175,6 +175,10 @@
                      "Search definition names in the JazzScheme catalog using an Alex Shinn irregex pattern. Use only for JazzScheme/Lisp code."
                      (list (cons "pattern" (gemini-string-param "Alex Shinn irregex pattern to search definition names")))
                      '("pattern"))
+    (gemini-function "search_references"
+                     "Search reference occurrences in the JazzScheme catalog using an Alex Shinn irregex pattern. Use only for JazzScheme/Lisp code."
+                     (list (cons "pattern" (gemini-string-param "Alex Shinn irregex pattern to search reference occurrences")))
+                     '("pattern"))
     (gemini-function "gsc"
                      "Invoke the Gambit Scheme Compiler (gsc) to compile, test expressions, inspect expansions, or check generated C code."
                      (list (cons "args" (gemini-string-param "gsc command line arguments (e.g. \"-c foo.scm\" or \"-e \\\"(pp 123)\\\"\")"))
@@ -1039,6 +1043,19 @@
              entries)))))
 
 
+(definition public (ai-search-references regex-str)
+  (let ((cataloguer (get-cataloguer)))
+    (if (not cataloguer)
+        '()
+      (let ((entries (search-references cataloguer (->search-set (make-search-context regex-str regexp?: #t)))))
+        (map (lambda (entry)
+               (list (get-name entry)
+                     (get-kind entry)
+                     (get-moniker entry)
+                     (get-line entry)))
+             entries)))))
+
+
 (definition (format-search-definition entry)
   (bind (name kind moniker line) entry
     (let ((file-str (if moniker (parse moniker) "?"))
@@ -1056,7 +1073,7 @@
   (string-append
     "Protocol:\n"
     "The runtime declares your tools with a JSON Schema. Call those functions directly. Do not wrap calls in JSON, and do not invent names.\n"
-    "The declared tools are: grep, read, replace, write, run_test, locate, list_directory, git, search_definitions, gsc.\n"
+    "The declared tools are: grep, read, replace, write, run_test, locate, list_directory, git, search_definitions, search_references, gsc.\n"
     "To search file contents use grep. To find files by name use locate.\n"
     "\n"
     "Creating or editing files MUST be done with write or replace.\n"
@@ -1075,7 +1092,8 @@
     "7. list_directory: path is required. Use a real path such as experiments, not \".\".\n"
     "8. git: args and dir are required. args is a command string like 'log -n 5' or 'diff'. dir is the repository path.\n"
     "9. search_definitions: pattern is required. An Alex Shinn irregex string to search JazzScheme/Lisp definition names in Jedi's catalog.\n"
-    "10. gsc: args is required. Invoke the Gambit Scheme Compiler (gsc) with command line arguments (e.g. \"-c foo.scm\" or \"-e '(pp 123)'\"). dir is optional.\n"
+    "10. search_references: pattern is required. An Alex Shinn irregex string to search JazzScheme/Lisp reference occurrences in Jedi's catalog.\n"
+    "11. gsc: args is required. Invoke the Gambit Scheme Compiler (gsc) with command line arguments (e.g. \"-c foo.scm\" or \"-e '(pp 123)'\"). dir is optional.\n"
     "\n"
     "Workspace search roots:\n"
     "- /Users/cartier/Devel/jedi/app/stable (Jedi and JazzScheme core system)\n"))
@@ -1273,6 +1291,15 @@
                                   (format "No definitions found matching pattern \"{a}\"." pattern)
                                 (join (map format-search-definition entries) "\n"))))
                  (list 'search_definitions pattern result)))))
+          ((equal? action "search_references")
+           (let ((pattern (table-ref action-table "pattern" #f)))
+             (if (or (not pattern) (equal? pattern "") (equal? pattern "?"))
+                 (error "Missing 'pattern' in search_references action: {s}" (table->list action-table))
+               (let* ((entries (ai-search-references pattern))
+                      (result (if (null? entries)
+                                  (format "No references found matching pattern \"{a}\"." pattern)
+                                (join (map format-search-definition entries) "\n"))))
+                 (list 'search_references pattern result)))))
           ((equal? action "gsc")
            (let ((args (table-ref action-table "args" #f))
                  (dir (table-ref action-table "dir" #f)))
